@@ -271,7 +271,7 @@ function rendersViaEngine(path: string): boolean {
 
 /**
  * The bytes a bundled-skill file materializes with: markdown renders through the
- * strict guidance template engine against `ctx` (so `{{docs_dir}}`-style tokens
+ * strict guidance template engine against `ctx` (so `{{map_dir}}`-style tokens
  * become the project's configured paths — a stray or misspelled token throws,
  * exactly like a built-in guidance section); any other file passes through
  * byte-for-byte. The ONE transform both the write path

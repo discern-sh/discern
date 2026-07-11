@@ -50,13 +50,13 @@ Focused, reusable task playbooks. The effective set is discern's bundled built-i
 | `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins. |
 | `exclude` | string[] | `[]` | Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal. |
 
-## `[docs]`
+## `[map]`
 
 The project documentation tree discern scaffolds, validates, and browses.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"discern/docs/"` | Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default. |
+| `dir` | string | `"map/"` | Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default. |
 
 ## `[capabilities]`
 
@@ -136,7 +136,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
 | `limit` | number | — | The floor (up) or ceiling (down). |
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
-| `per` | string \| object | — | Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
+| `per` | string \| object | — | Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${map.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
 | `margin` | number | `0` | Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
 

@@ -20,7 +20,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { isValidDocsDir } from "../src/shared/docs_path.ts";
+import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
@@ -251,7 +251,7 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
 
 // ── C10: a copied placeholder can't scaffold ───────────────────────────────────
 
-Deno.test("isValidDocsDir rejects the placeholder class, not one instance", () => {
+Deno.test("isValidMapDir rejects the placeholder class, not one instance", () => {
   // Any angle-bracketed value is an unsubstituted placeholder — the guard is on
   // the shape, so every current and future served example is covered.
   for (
@@ -263,14 +263,14 @@ Deno.test("isValidDocsDir rejects the placeholder class, not one instance", () =
     ]
   ) {
     assert(
-      !isValidDocsDir(placeholder),
+      !isValidMapDir(placeholder),
       `placeholder must be invalid: ${placeholder}`,
     );
   }
-  assert(isValidDocsDir("docs/"));
+  assert(isValidMapDir("docs/"));
 });
 
-Deno.test("begin rejects a verbatim --docs placeholder instead of scaffolding a literal tree", async () => {
+Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a literal tree", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -279,14 +279,14 @@ Deno.test("begin rejects a verbatim --docs placeholder instead of scaffolding a 
       "begin",
       "--confirmed",
       "--json",
-      "--docs",
+      "--map",
       "<their-docs-path>",
     ]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.error, "invalid_option");
     assertStringIncludes(res.message, "placeholder");
-    assertStringIncludes(res.message, "--docs docs/");
+    assertStringIncludes(res.message, "--map docs/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
     assert(!(await exists(join(dir, "<their-docs-path>"))));
     assert(!(await exists(join(dir, "discern.toml"))));

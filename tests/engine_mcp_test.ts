@@ -401,7 +401,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
     // feature on).
-    assert(names.includes("discern_docs"), JSON.stringify(names));
+    assert(names.includes("discern_map"), JSON.stringify(names));
     // The worktree lifecycle tools are always listed now (ADR 0062 retired the
     // location-based hiding): start, accept, and update all appear from a
     // main-rooted server (covered in depth by the listing test below).
@@ -735,16 +735,16 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   });
 });
 
-Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_found error", async () => {
+Deno.test("discern mcp: discern_map returns the index, a single doc, and a not_found error", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // The scaffold ships no docs/ tree until bootstrap — seed a tiny one.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    // The scaffold ships no map/ tree until bootstrap — seed a tiny one.
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -761,11 +761,11 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
+      params: { name: "discern_map", arguments: {} },
     });
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
-    assertEquals(index.result.structuredContent.verb, "docs");
+    assertEquals(index.result.structuredContent.verb, "map");
     assert(index.result.structuredContent.data.count >= 1);
     const entry = index.result.structuredContent.data.docs[0];
     assertEquals(typeof entry.slug, "string");
@@ -776,7 +776,7 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: { target: entry.slug } },
+      params: { name: "discern_map", arguments: { target: entry.slug } },
     });
     const doc = await mcp.recv();
     assertEquals(doc.result.isError, false);
@@ -792,7 +792,7 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: { target: "no-such-doc" } },
+      params: { name: "discern_map", arguments: { target: "no-such-doc" } },
     });
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
@@ -808,9 +808,9 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     await gitInit(dir);
     // The host project has its own docs/ — discern_help must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
-    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "project-only.md"),
+      join(dir, "map", "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -832,7 +832,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
     assertEquals(index.result.structuredContent.verb, "help");
-    assertEquals(index.result.structuredContent.data.docs_dir, undefined);
+    assertEquals(index.result.structuredContent.data.map_dir, undefined);
     const docs = index.result.structuredContent.data.docs;
     assert(
       docs.some((d: { slug: string }) => d.slug === "config-reference"),
@@ -904,13 +904,13 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
     });
     await mcp.recv();
 
-    // `discern_docs` still refuses with the structured not_set_up envelope — its
+    // `discern_map` still refuses with the structured not_set_up envelope — its
     // tree is empty until setup fills it.
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
+      params: { name: "discern_map", arguments: {} },
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
@@ -2021,7 +2021,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_coupling",
       "discern_status",
       "discern_improvement",
-      "discern_docs",
+      "discern_map",
       "discern_help",
     ]);
     const MUTATING_TOOLS = new Set([
@@ -2148,7 +2148,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_impact",
         "discern_coupling",
         "discern_refresh",
-        "discern_docs",
+        "discern_map",
         "discern_help",
         "discern_doctor",
         "discern_improvement",
@@ -2565,12 +2565,12 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Seed a project docs tree so discern://docs has content.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    // Seed a project map so discern://map has content.
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -2596,7 +2596,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
         "discern://impact",
         "discern://config",
         "discern://help",
-        "discern://docs",
+        "discern://map",
       ]
     ) {
       assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
@@ -2614,7 +2614,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const tpl = (templates.result.resourceTemplates as {
       uriTemplate: string;
     }[]).map((t) => t.uriTemplate);
-    assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://map/{+target}"), JSON.stringify(tpl));
     assert(tpl.includes("discern://help/{+target}"), JSON.stringify(tpl));
 
     // read discern://status → a fresh JSON snapshot (the data payload, not the
@@ -2683,12 +2683,12 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     assertEquals(helpDoc.result.contents[0].mimeType, "text/markdown");
     assert(helpDoc.result.contents[0].text.includes("config reference"));
 
-    // read discern://docs (index) + the seeded project doc (Markdown).
+    // read discern://map (index) + the seeded project doc (Markdown).
     await mcp.send({
       jsonrpc: "2.0",
       id: 9,
       method: "resources/read",
-      params: { uri: "discern://docs" },
+      params: { uri: "discern://map" },
     });
     const docs = await mcp.recv();
     const slug = JSON.parse(docs.result.contents[0].text).docs[0].slug;
@@ -2696,7 +2696,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       jsonrpc: "2.0",
       id: 10,
       method: "resources/read",
-      params: { uri: `discern://docs/${slug}` },
+      params: { uri: `discern://map/${slug}` },
     });
     const doc = await mcp.recv();
     assertEquals(doc.result.contents[0].mimeType, "text/markdown");
@@ -2711,7 +2711,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
 
 // ---------------------------------------------------------------------------
 // B37 class guard: a doc resource template must resolve EVERY target form its
-// description (and the mirroring discern_docs/discern_help tools) advertise —
+// description (and the mirroring discern_map/discern_help tools) advertise —
 // by slug, by `section/slug`, AND by path. The SDK compiles a bare `{target}`
 // to a capture that stops at `/`, so before the `{+target}` fix only the
 // slug form resolved and the two slash-bearing forms fell through to a
@@ -2729,11 +2729,11 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     // Seed a project doc UNDER A SECTION, so its `section/slug` and path forms are
     // genuinely slash-bearing (the forms the bare template could never match).
     const marker = "Sectioned doc body for the B37 addressing guard.";
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       `# Concepts\n\n${marker}\n`,
     );
     const mcp = await spawnMcp(dir);
@@ -2762,7 +2762,7 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     // Every registered doc-tree scheme. Both are registered through the ONE
     // registerDocTree call, so this list IS the class; a new scheme added there
     // must be added here (or its slash-bearing forms would silently regress).
-    for (const scheme of ["docs", "help"] as const) {
+    for (const scheme of ["map", "help"] as const) {
       // Read the index to discover a real doc with a non-empty section, so the
       // three target forms are computed from live data, not guessed.
       const index = await readResource(`discern://${scheme}`);
@@ -2823,13 +2823,13 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
 
       // For the project docs scheme we also seeded a known body — assert every
       // form resolves to the SAME doc, not merely to some doc.
-      if (scheme === "docs") {
+      if (scheme === "map") {
         for (const [label, target] of Object.entries(forms)) {
           const res = await readResource(`discern://${scheme}/${target}`);
           assertStringIncludes(
             res.result?.contents?.[0]?.text ?? "",
             marker,
-            `docs by ${label} ("${target}"): served a different doc's body`,
+            `map by ${label} ("${target}"): served a different doc's body`,
           );
         }
       }

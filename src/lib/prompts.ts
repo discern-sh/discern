@@ -19,7 +19,7 @@ import {
 } from "./config.ts";
 import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 
 /** Raw flag values passed to `setup` (all optional; undefined → ask/default). */
 export interface InitFlags {
@@ -29,7 +29,7 @@ export interface InitFlags {
   sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
-  docs?: string | undefined;
+  map?: string | undefined;
   yes?: boolean | undefined;
 }
 
@@ -164,7 +164,7 @@ export async function resolveSetupConfig(
     agents = [...DEFAULTS.agents];
   }
 
-  const docsDir = normalizeDocsDir(flags.docs ?? DEFAULTS.docsDir);
+  const mapDir = normalizeMapDir(flags.map ?? DEFAULTS.mapDir);
 
   return {
     projectName,
@@ -173,7 +173,7 @@ export async function resolveSetupConfig(
     sourceGlobs,
     brief,
     agents,
-    docsDir,
+    mapDir,
   };
 }
 

@@ -41,8 +41,8 @@ import {
 } from "../shared/config_schema.ts";
 import {
   resolveBriefPath,
-  resolveDocsDir,
   resolveGuidanceSeedRel,
+  resolveMapDir,
   resolveRecipesDir,
   resolveSkillsDir,
   resolveTemplatesDir,
@@ -375,7 +375,7 @@ async function computeUninstallPlan(
     }
   };
   await keepIfExists(resolveGuidanceSeedRel(config), "your guidance source");
-  await keepIfExists(resolveDocsDir(root, config).rel, "the documentation map");
+  await keepIfExists(resolveMapDir(root, config).rel, "the project map");
   await keepIfExists(
     resolveSkillsDir(root, config).rel,
     "your authored skills",

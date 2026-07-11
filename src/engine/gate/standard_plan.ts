@@ -19,7 +19,7 @@ import {
   toCommand,
 } from "../../shared/config_schema.ts";
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
-import { expandDocsDirReference } from "../../shared/docs_path.ts";
+import { expandMapDirReference } from "../../shared/map_path.ts";
 
 /** The denominator that turns a raw count into a rate, resolved to the shape the
  * executor acts on: either a second emitted metric, or a built-in extent discern
@@ -59,7 +59,7 @@ export interface PlannedStandard {
  * schema guarantees exactly one), whose value is one or more git pathspecs. */
 function resolvePer(
   per: StandardConfig["per"],
-  docsDir: string,
+  mapDir: string,
 ): PerSpec | undefined {
   if (per === undefined) return undefined;
   if (typeof per === "string") return { kind: "metric", metric: per };
@@ -70,7 +70,7 @@ function resolvePer(
         kind: "extent",
         measure,
         globs: (typeof globs === "string" ? [globs] : globs).map((glob) =>
-          expandDocsDirReference(glob, docsDir)
+          expandMapDirReference(glob, mapDir)
         ),
       };
     }
@@ -96,13 +96,13 @@ export interface StandardPlan {
 export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
   const standards: PlannedStandard[] = Object.entries(cfg.standards).map(
     ([name, spec]: [string, StandardConfig]) => {
-      const per = resolvePer(spec.per, cfg.docs.dir);
+      const per = resolvePer(spec.per, cfg.map.dir);
       return {
         name,
         metric: spec.metric ?? name,
         direction: spec.direction,
         limit: spec.limit,
-        command: expandDocsDirReference(toCommand(spec.run), cfg.docs.dir),
+        command: expandMapDirReference(toCommand(spec.run), cfg.map.dir),
         limitKey: `standards.${name}.limit`,
         scale: spec.scale,
         margin: spec.margin,

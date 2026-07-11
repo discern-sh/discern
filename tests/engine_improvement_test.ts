@@ -122,7 +122,7 @@ run = "echo DISCERN_METRIC coverage 1"
 agents = ["claude_code"]
 sources = ["guidance.md"]
 
-[docs]
+[map]
 dir = "docs/"
 `;
 
@@ -221,7 +221,7 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
       rule(cat(payload, "guidance"), "guidance.source").status,
       "pass",
     );
-    assertEquals(rule(cat(payload, "docs"), "docs.adrs").status, "pass");
+    assertEquals(rule(cat(payload, "map"), "map.adrs").status, "pass");
     assertEquals(
       rule(cat(payload, "standards"), "standards.any").status,
       "pass",
@@ -269,7 +269,7 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
       const [category, id] of [
         ["gate", "gate.test-depth"],
         ["setup", "setup.failure-memory"],
-        ["docs", "docs.navigation"],
+        ["map", "map.navigation"],
         ["standards", "standards.normalize"],
         ["skills", "skills.executable"],
       ] as const

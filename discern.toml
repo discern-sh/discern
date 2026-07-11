@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 18
+schema_version = 19
 bootstrapped   = true
 
 [project]
@@ -43,14 +43,14 @@ gotchas_doc = "docs/80-development/done-gate-gotchas.md"
 todo = "TODO.md"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [docs] — discern's agent documentation tree. This is conceptually distinct
-# from human-curated project docs: setup scaffolds it here, `discern docs`
-# browses it, and `${docs.dir}` keeps checks/scopes/standards tied to this path.
+# [map] — the project map: discern's agent-maintained documentation tree. This is
+# distinct from human-curated project docs: setup scaffolds it here, `discern map`
+# browses it, and `${map.dir}` keeps checks/scopes/standards tied to this path.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[docs]
-# Pinned to the repo's root layout — a deliberate non-default (ADR 0099); the
-# shipped default is discern/docs/.
+[map]
+# Pinned to the repo's current root layout until the dedicated tree-move commit;
+# the shipped default is map/.
 dir = "docs/"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ smoke     = "deno task dev --version"
 # [standards.prose] ceiling instead.
 [checks.prose]
 stage    = "check"
-run      = "vale --minAlertLevel error \"${docs.dir}\""
+run      = "vale --minAlertLevel error \"${map.dir}\""
 provides = "docs prose lint (Vale; error-severity findings block the gate)"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # guidance outputs are refreshed by the gate itself; editing the source changes
 # no behaviour.) Root-level *.md is always treated as neutral.
 [scopes.docs]
-paths   = ["${docs.dir}", ".claude/", "skills/"]
+paths   = ["${map.dir}", ".claude/", "skills/"]
 neutral = true
 
 # The subset of changes a person could see — worth a preview link.
@@ -286,7 +286,7 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 #   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
-#              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
+#              per = { words = "${map.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
 #   margin     headroom `discern standards --pin` leaves when it tightens this limit
 #              to the measured value (default 0). Give a metric that drifts on
@@ -324,10 +324,10 @@ run       = "deno task coverage"
 # as the density improves — the ceiling only falls.
 [standards.prose]
 direction = "down"
-per       = { words = "${docs.dir}**" }
+per       = { words = "${map.dir}**" }
 scale     = 1000
 limit     = 14.43
-run       = "deno task prose \"${docs.dir}\""
+run       = "deno task prose \"${map.dir}\""
 
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
@@ -368,7 +368,7 @@ direction = "up"
 per       = "public_doc_words"
 scale     = 10000
 limit     = 7.47
-run       = "deno run --allow-read scripts/public_doc_density.ts \"${docs.dir}\""
+run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These

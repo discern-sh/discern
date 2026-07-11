@@ -13,7 +13,7 @@ import { KIT_VERSION } from "./version.ts";
 // re-exported here under the installer's long-standing name, so the wizard, the
 // config document, and the generated editor JSON Schema share one list.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
-import { DOCS_DIR_REFERENCE } from "../shared/docs_path.ts";
+import { MAP_DIR_REFERENCE } from "../shared/map_path.ts";
 import { NAMESPACE_DIR, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
@@ -43,7 +43,7 @@ export const DEFAULTS = {
   sourceGlobs: ["src/**", "app/**"],
   // Default to the two built-in providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
-  docsDir: SOURCE_PATHS.docs.defaultPath,
+  mapDir: SOURCE_PATHS.map.defaultPath,
   gotchasDoc: "",
   scopesPreviewable: ['"public/**"'],
 } as const;
@@ -59,7 +59,7 @@ export const DEFAULTS = {
  */
 export function defaultNeutralScopes(): string[] {
   return [
-    `"${DOCS_DIR_REFERENCE}"`,
+    `"${MAP_DIR_REFERENCE}"`,
     `"${NAMESPACE_DIR}"`,
     ...neutralAgentScopePaths().map((p) => `"${p}"`),
   ];
@@ -76,7 +76,7 @@ export interface SetupConfig {
   brief: string;
   agents: AgentName[];
   /** Project-relative home for discern's agent documentation tree. */
-  docsDir?: string | undefined;
+  mapDir?: string | undefined;
 }
 
 /**
@@ -127,7 +127,7 @@ export function tokensFromConfig(config: SetupConfig): TokenMap {
     project_slug: config.slug,
     branch_prefix: config.branchPrefix,
     agents_array: renderTomlStringList(config.agents),
-    docs_dir: config.docsDir ?? DEFAULTS.docsDir,
+    map_dir: config.mapDir ?? DEFAULTS.mapDir,
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultNeutralScopes().join(", "),
     scopes_web: renderTomlStringList(config.sourceGlobs),

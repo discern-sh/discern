@@ -709,14 +709,14 @@ const docRecordSchema = z.strictObject({
 export type DocRecord = z.infer<typeof docRecordSchema>;
 
 /**
- * `docs`/`help` — the documentation payload, across every mode: the index
- * (`docs_dir`/`count`/`docs`; `help` omits `docs_dir`), an empty tree
+ * `map`/`help` — the documentation payload, across every mode: the index
+ * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
  * (`count:0`), a single doc (`doc` with content), an ambiguous match
  * (`candidates`), or nearest-match guidance for a not-found (`suggestions`).
  * Modeled as one object with mode-specific optionals.
  */
 export const DocsDataSchema = z.strictObject({
-  docs_dir: z.string().optional(),
+  map_dir: z.string().optional(),
   count: z.number().optional(),
   docs: z.array(docRecordSchema).optional(),
   doc: docRecordSchema.extend({ content: z.string() }).optional(),
@@ -1179,8 +1179,8 @@ export const ImprovementOutputSchema = resultOutputSchema(
   ImprovementDataSchema,
 );
 
-/** `docs` output: envelope + the documentation `data`. */
-export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
+/** `map` output: envelope + the project-map `data`. */
+export const MapOutputSchema = resultOutputSchema("map", DocsDataSchema);
 
 /** `help` output: envelope + the bundled documentation `data`. */
 export const HelpOutputSchema = resultOutputSchema("help", DocsDataSchema);

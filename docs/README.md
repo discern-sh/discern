@@ -29,10 +29,10 @@ Two commands read a documentation tree, and they read **different** ones:
   subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by
   default but can be browsed with `discern help --adr` (CLI only — the MCP tool
   never exposes them).
-- **`discern docs`** browses **the host project's map** — the agent-maintained
-  documentation tree at `[docs].dir` (default `discern/docs/`, resolved from the
+- **`discern map`** browses **the host project's map** — the agent-maintained
+  documentation tree at `[map].dir` (default `discern/docs/`, resolved from the
   project root; [ADR 0100](_adr/0100-doctree-is-the-agents-map.md)). This repo
-  points `[docs].dir` at root `docs/` — here the project's docs _are_ the map, a
+  points `[map].dir` at root `docs/` — here the project's docs _are_ the map, a
   deliberate, self-hosted exercise of the pointing escape hatch. It takes a
   one-call `--dir` override, and (unlike `help`) is refused before setup, since
   the project's tree is empty until setup seeds and fills it
@@ -94,7 +94,7 @@ private tree is safe the moment it is created, and a guard test pins it
 
 ## How this tree is produced and kept current
 
-The tree is seeded once by `discern setup` at `[docs].dir`, then grown
+The tree is seeded once by `discern setup` at `[map].dir`, then grown
 subtree-by-subtree with the
 [`discern-document-subsystem`](../templates/skills/discern-document-subsystem/SKILL.md)
 skill, which resolves the same configured root and follows the brief in

@@ -157,7 +157,7 @@ Options:
   --agents <list>             claude,codex
   --flavors <list>            deno,node (alias: --flavours)
   --no-docs                   Create fixtures without an existing docs/ tree
-  --docs-answer <path>        Consent answer for discern's docs tree (default: ${DEFAULT_DOCS_ANSWER})
+  --map-answer <path>        Consent answer for discern's docs tree (default: ${DEFAULT_DOCS_ANSWER})
   --codex-model <model>       Pass --model to codex
   --claude-model <model>      Pass --model to claude
   --codex-model-id <id>       Model id used in the consent continuation
@@ -271,7 +271,7 @@ function parseArgs(args: readonly string[]): RawOptions {
       raw.withDocs = false;
     } else if (arg === "--with-docs") {
       raw.withDocs = true;
-    } else if (arg === "--docs-answer") {
+    } else if (arg === "--map-answer") {
       const parsed = valueAfter(args, index, arg);
       raw.docsAnswer = parsed.value;
       index = parsed.next;
@@ -657,7 +657,7 @@ async function runAgentPhase(params: {
     params.phase,
     "--result-dir",
     params.resultDir,
-    "--docs-answer",
+    "--map-answer",
     params.docsAnswer,
   ];
   if (params.phase === "resume" && params.attempt !== undefined) {

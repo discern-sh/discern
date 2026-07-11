@@ -5,7 +5,7 @@
  *
  * Grounded, not generic: it reports THIS repo's git state, whether the project has a
  * `docs/` tree of its own (the map defaults to its own namespace home and never touches
- * it; pointing `[docs].dir` at existing docs is a deliberate opt-in the consent message
+ * it; pointing `[map].dir` at existing docs is a deliberate opt-in the consent message
  * offers — ADR 0100), a pre-existing agent-instructions file `begin` will fold into the
  * guidance source, the agents detected on PATH (ADR 0069), and the exact sibling path
  * the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
@@ -272,8 +272,8 @@ function printPreflight(p: {
   guidance: string;
 }): void {
   const docs = p.docsExists
-    ? `you have your own docs/ tree — begin leaves it untouched; discern's map lands at ${SOURCE_PATHS.docs.defaultPath} unless you point [docs].dir at yours (offered below)`
-    : `none of your own — discern's map (its agent-maintained docs tree) will be scaffolded at ${SOURCE_PATHS.docs.defaultPath}`;
+    ? `you have your own docs/ tree — begin leaves it untouched; discern's map lands at ${SOURCE_PATHS.map.defaultPath} unless you point [map].dir at yours (offered below)`
+    : `none of your own — discern's map (its agent-maintained docs tree) will be scaffolded at ${SOURCE_PATHS.map.defaultPath}`;
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")

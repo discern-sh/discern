@@ -292,7 +292,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 18 (current)");
+    assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -420,7 +420,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v18");
+    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION}`);
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });

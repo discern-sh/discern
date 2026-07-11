@@ -110,7 +110,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "uninstall",
   "doctor",
   "preset",
-  "docs",
+  "map",
   "help",
   "config",
 ]);

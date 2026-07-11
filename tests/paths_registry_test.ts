@@ -18,15 +18,21 @@ import {
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   resolveBriefPath,
-  resolveDocsDir,
+  resolveMapDir,
   resolveRecipesDir,
   resolveSkillsDir,
   resolveTodoPath,
 } from "../src/lib/paths.ts";
 
-Deno.test("every registry default lives inside the discern/ namespace (ADR 0099)", () => {
+Deno.test("registry defaults follow the namespace policy, with the project map at root", () => {
   for (const name of SOURCE_PATH_NAMES) {
     const entry = SOURCE_PATHS[name];
+    if (name === "map") {
+      assertEquals(entry.defaultPath, "map/");
+      assertEquals(entry.legacyPath, "discern/docs/");
+      assert(entry.description.length > 0, `${name}: needs a description`);
+      continue;
+    }
     assert(
       entry.defaultPath.startsWith(NAMESPACE_DIR),
       `${name}: default "${entry.defaultPath}" must live under ${NAMESPACE_DIR}`,
@@ -71,8 +77,8 @@ Deno.test("the resolvers read through the registry defaults", () => {
   const c = parseConfigOrThrow("");
   const root = "/tmp/registry-probe";
   assertEquals(
-    resolveDocsDir(root, c).abs,
-    join(root, SOURCE_PATHS.docs.defaultPath),
+    resolveMapDir(root, c).abs,
+    join(root, SOURCE_PATHS.map.defaultPath),
   );
   assertEquals(
     resolveSkillsDir(root, c).abs,
@@ -96,15 +102,15 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
   let t = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
   );
-  // The docs dir arrives as a token whose default fill is the registry's
-  // (DEFAULTS.docsDir); the other fills are irrelevant to the path keys.
+  // The map dir arrives as a token whose default fill is the registry's
+  // (DEFAULTS.mapDir); the other fills are irrelevant to the path keys.
   const fills: Record<string, string> = {
     project_slug: "demo",
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
-    docs_dir: SOURCE_PATHS.docs.defaultPath,
-    scopes_neutral: '"${docs.dir}"',
+    map_dir: SOURCE_PATHS.map.defaultPath,
+    scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
     kit_version: "0.0.0",
     project_name: "Demo",

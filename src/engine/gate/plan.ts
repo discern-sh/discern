@@ -19,7 +19,7 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
-import { expandDocsDirReference } from "../../shared/docs_path.ts";
+import { expandMapDirReference } from "../../shared/map_path.ts";
 import type {
   Diagnostic,
   DiscernResult,
@@ -115,9 +115,9 @@ export function planScopeGates(
 ): PlannedJob[] {
   const out: PlannedJob[] = [];
   for (const [scope, spec] of Object.entries(cfg.scopes)) {
-    const command = expandDocsDirReference(
+    const command = expandMapDirReference(
       toCommand(spec.gate),
-      cfg.docs.dir,
+      cfg.map.dir,
     );
     if (command === "") {
       continue;

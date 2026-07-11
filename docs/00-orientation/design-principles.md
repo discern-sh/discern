@@ -293,9 +293,9 @@ understanding — which is exactly what makes it worth a human's read.
 
 **How it shows up.** The map defaults to its own `discern/docs/` and is
 scaffolded eagerly at `setup begin`
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); pointing `[docs].dir`
-at real documentation is the user's explicit act (this repo does exactly that);
-the docs scope's prose check and currency discipline treat drift as a failure.
+([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); pointing `[map].dir` at
+real documentation is the user's explicit act (this repo does exactly that); the
+docs scope's prose check and currency discipline treat drift as a failure.
 
 ---
 

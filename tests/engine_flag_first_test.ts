@@ -59,21 +59,21 @@ Deno.test("every global flag is valueless, so token-skipping verb resolution sta
 Deno.test("resolveInvocation finds the verb past any run of global flags", () => {
   const tokens = globalFlagTokens(buildCli(false) as unknown as Command);
   // Verb-first: the plain path stays the plain path.
-  assertEquals(resolveInvocation(["docs", "--json"], tokens), {
-    verb: "docs",
+  assertEquals(resolveInvocation(["map", "--json"], tokens), {
+    verb: "map",
     argsWithoutVerb: ["--json"],
   });
   // Each single global flag placed first.
   for (const flag of GLOBAL_FLAGS) {
-    assertEquals(resolveInvocation([flag, "docs", "x"], tokens), {
-      verb: "docs",
+    assertEquals(resolveInvocation([flag, "map", "x"], tokens), {
+      verb: "map",
       argsWithoutVerb: [flag, "x"],
     });
   }
   // Every global flag stacked before the verb.
   assertEquals(
-    resolveInvocation([...GLOBAL_FLAGS, "docs"], tokens).verb,
-    "docs",
+    resolveInvocation([...GLOBAL_FLAGS, "map"], tokens).verb,
+    "map",
   );
   // Flags only: no verb at all (routes like bare `discern`).
   assertEquals(resolveInvocation([...GLOBAL_FLAGS], tokens), {
@@ -82,7 +82,7 @@ Deno.test("resolveInvocation finds the verb past any run of global flags", () =>
   });
   assertEquals(resolveInvocation([], tokens).verb, undefined);
   // An UNKNOWN leading flag is not skipped — Cliffy owns that error.
-  assertEquals(resolveInvocation(["--bogus", "docs"], tokens).verb, "--bogus");
+  assertEquals(resolveInvocation(["--bogus", "map"], tokens).verb, "--bogus");
 });
 
 Deno.test("pre-setup: the redirect fires for every global flag before every gated verb", async () => {

@@ -8,11 +8,11 @@ metadata:
 
 # Document a subsystem
 
-The configured documentation tree lives at `{{docs_dir}}`. This skill produces
+The configured documentation tree lives at `{{map_dir}}`. This skill produces
 or refreshes one subtree there — a subsystem's `README.md` and its leaf docs —
 so the documentation tree keeps describing what the code actually does.
 
-**The method lives in `{{docs_dir}}_internal/documenter-agent-brief.md`.** That
+**The method lives in `{{map_dir}}_internal/documenter-agent-brief.md`.** That
 brief is the constant — read-first order, audience contract, per-doc template,
 hard rules, deliverable.
 
@@ -22,12 +22,12 @@ hard rules, deliverable.
 
 ## 1. Confirm the prerequisites
 
-**If `{{docs_dir}}_internal/documenter-agent-brief.md` doesn't exist yet**, create
+**If `{{map_dir}}_internal/documenter-agent-brief.md` doesn't exist yet**, create
 the `_internal` scaffolding from this skill's skeleton first: copy this skill's
-own `skeleton/docs/_internal/` directory to `{{docs_dir}}_internal/`.
+own `skeleton/docs/_internal/` directory to `{{map_dir}}_internal/`.
 
 The brief assumes the orientation tier already exists under
-`{{docs_dir}}00-orientation/`. If those files are still skeletons, run
+`{{map_dir}}00-orientation/`. If those files are still skeletons, run
 `discern setup` first.
 
 Identify the target subtree (e.g. `30-<subsystem>/`). If the user named a subsystem rather than a path, map it to its numbered subtree.
@@ -35,10 +35,10 @@ Identify the target subtree (e.g. `30-<subsystem>/`). If the user named a subsys
 ## 2. Write (or refresh) the scope manifest
 
 Each subtree is documented against a **scope manifest** at
-`{{docs_dir}}_internal/scopes/<NN-subsystem>.md`.
+`{{map_dir}}_internal/scopes/<NN-subsystem>.md`.
 
 - If a manifest for this subtree doesn't exist, copy
-  `{{docs_dir}}_internal/scopes/_template.md` and fill it. **Verify every source
+  `{{map_dir}}_internal/scopes/_template.md` and fill it. **Verify every source
   path exists** before relying on it.
 - If one exists, reconcile it with the current code (files move, areas shift) before documenting.
 
@@ -54,14 +54,14 @@ Hand the documenter the brief plus this subtree's scope manifest, and produce ev
 
 The tree was designed to be built by a small fleet — one documenter per subtree,
 in parallel, after a single skeleton-and-orientation pass. Keep each agent
-strictly inside its own `{{docs_dir}}<subtree>/`.
+strictly inside its own `{{map_dir}}<subtree>/`.
 
 ## 4. Collect the deliverable and reconcile
 
 Each documenter returns a short summary (per the brief): what it covered, preserved TODO/FIXME notes, glossary additions to fold in, subtree-overlap observations, and deprecation candidates. Acting as the orchestrator:
 
 - Fold genuine **glossary additions** into
-  `{{docs_dir}}00-orientation/glossary.md`.
+  `{{map_dir}}00-orientation/glossary.md`.
 - Resolve any **overlap** a documenter flagged: assign the contested code to exactly one subtree and link from the other.
 - Add the cross-**subtree** links the brief deferred to this polish phase (intra-subtree links are already in place; inter-subtree ones are added now).
 - Record any **deprecation candidates** worth tracking in the deferred-work ledger at [`{{todo_path}}`](/{{todo_path}}).

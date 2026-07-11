@@ -50,7 +50,7 @@ Because the map is the canonical account, it must not drift from code. When you 
 
 ## Conventions
 
-- **File links** use relative paths from inside this tree: `[some module](../src/path/Thing.ext)`. Never a leading `{{docs_dir}}` from within the tree.
+- **File links** use relative paths from inside this tree: `[some module](../src/path/Thing.ext)`. Never a leading `{{map_dir}}` from within the tree.
 - **Terminology** follows the [glossary](00-orientation/glossary.md). The project's canonical nouns are defined there once; synonyms are not introduced.
 - **No modal verbs about the system** ("should", "would", "could", "will eventually"). Every claim describes what exists in code today. Half-built or deprecated things live under a "Current state & gotchas" heading and are called out plainly.
 - **Diagrams are ASCII-first**, so they live in the text and stay diffable. A richer rendered image is the exception, not the default.

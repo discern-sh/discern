@@ -36,12 +36,31 @@ import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
+  type SourcePathEntry,
   type SourcePathName,
 } from "../shared/paths_registry.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Schema 14's map-path contract, frozen for its 14→15 migration.
+ * The live registry now calls the tree `map` and defaults it to `map/`; replaying
+ * this older migration must still perform its original docs/→discern/docs/ move
+ * before the later map migration pins that installed location.
+ */
+const SCHEMA_14_MAP_PATH: SourcePathEntry = {
+  key: "docs.dir",
+  defaultPath: "discern/docs/",
+  legacyPath: "docs/",
+  description: "The schema-14 agent documentation tree.",
+};
+
+/** The path entry schema 14 knew for a current registry name. */
+function namespaceMigrationEntry(name: SourcePathName): SourcePathEntry {
+  return name === "map" ? SCHEMA_14_MAP_PATH : SOURCE_PATHS[name];
 }
 
 /** Escape one literal token for interpolation into a regular expression. */
@@ -895,6 +914,74 @@ export const MIGRATIONS: Migration[] = [
       ctx.note("renamed [ratchets] to [standards]");
     },
   },
+  {
+    from: 18,
+    // ADR 0120
+    describe:
+      "rename [docs] to [map] while pinning the installed tree's current directory",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      if (raw.map !== undefined && raw.docs !== undefined) {
+        throw new Error(
+          "discern.toml contains both [docs] and [map]. Keep the intended directory " +
+            "under [map], remove [docs], then run `discern upgrade` again.",
+        );
+      }
+      if (raw.map !== undefined) {
+        return; // already migrated; preserve its pinned directory verbatim.
+      }
+
+      const oldDocs = isRecord(raw.docs) ? raw.docs : {};
+      const explicitInstalledDir = typeof oldDocs.dir === "string"
+        ? oldDocs.dir
+        : undefined;
+      const installedDir = explicitInstalledDir ?? SOURCE_PATHS.map.legacyPath;
+      const renamed = renameTopLevelTomlKey(text, "docs", "map");
+      // Renaming preserves an explicit directory in place — including quoted,
+      // dotted, and inline TOML forms. Only an install that relied on the old
+      // implicit default needs a new key pinned into the document.
+      const migrated = explicitInstalledDir === undefined
+        ? (() => {
+          const editor = new TomlEditor(renamed);
+          editor.setString("map.dir", installedDir);
+          return editor.toString();
+        })()
+        : renamed;
+
+      let after: Record<string, unknown>;
+      try {
+        after = parseDiscernToml(migrated).raw;
+      } catch {
+        throw new Error(
+          "discern could not rename [docs] to [map] safely. Rename the table, " +
+            "keep its current directory as [map].dir, then run `discern upgrade` again.",
+        );
+      }
+      const nextMap = isRecord(after.map) ? after.map : {};
+      if (
+        after.docs !== undefined || nextMap.dir !== installedDir
+      ) {
+        throw new Error(
+          "discern.toml uses a [docs] key spelling this migration cannot rewrite. " +
+            "Rename it to [map], preserve its dir value, then run `discern upgrade` again.",
+        );
+      }
+
+      await ctx.rewrite("discern.toml", () => migrated);
+      ctx.note(
+        `renamed [docs] to [map] and kept the existing tree at ${installedDir}`,
+      );
+    },
+  },
 ];
 
 /**
@@ -1136,7 +1223,7 @@ function decideNamespaceMove(
   raw: Record<string, unknown>,
   name: SourcePathName,
 ): NamespaceMoveDecision {
-  const entry = SOURCE_PATHS[name];
+  const entry = namespaceMigrationEntry(name);
   if (entry.key === null) {
     return { name, pointed: false, keyWritten: false }; // fixed location (the brief)
   }
@@ -1185,7 +1272,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
   const repoint: Array<{ key: string; value: string | string[] }> = [];
 
   for (const name of SOURCE_PATH_NAMES) {
-    const entry = SOURCE_PATHS[name];
+    const entry = namespaceMigrationEntry(name);
     const decision = decideNamespaceMove(raw, name);
     if (decision.pointed) {
       continue; // the user typed a path — their consent, their layout.
@@ -1233,10 +1320,10 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
   // Carry [project].gotchas_doc across a docs move: it points INTO the tree
   // that just moved, so rewrite its prefix (only when it wasn't pointed
   // elsewhere — a path outside the legacy docs default is untouched).
-  const docsEntry = SOURCE_PATHS.docs;
+  const docsEntry = namespaceMigrationEntry("map");
   const gotchas = rawValueAt(raw, "project.gotchas_doc");
   if (
-    moved.includes("docs") && typeof gotchas === "string" &&
+    moved.includes("map") && typeof gotchas === "string" &&
     gotchas.startsWith(docsEntry.legacyPath)
   ) {
     repoint.push({
@@ -1264,10 +1351,10 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
   // the neutral scope keeps matching. A customised glob simply won't match the
   // pattern — harmless (same craft as the 2→3 `.ai/` repoint).
   const globSwaps: Array<[string, string]> = [];
-  if (moved.includes("docs")) {
+  if (moved.includes("map")) {
     globSwaps.push([
-      `"${SOURCE_PATHS.docs.legacyPath}"`,
-      `"${SOURCE_PATHS.docs.defaultPath}"`,
+      `"${docsEntry.legacyPath}"`,
+      `"${docsEntry.defaultPath}"`,
     ]);
   }
   if (moved.includes("skills")) {
@@ -1289,7 +1376,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
   if (moved.length > 0) {
     ctx.note(
       `moved into the discern/ namespace: ${
-        moved.map((n) => SOURCE_PATHS[n].legacyPath).join(", ")
+        moved.map((n) => namespaceMigrationEntry(n).legacyPath).join(", ")
       }`,
     );
   }
@@ -1297,7 +1384,9 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
     ctx.note(
       `pinned to their existing locations: ${
         pinned.map((n) =>
-          `${SOURCE_PATHS[n].key} = ${SOURCE_PATHS[n].legacyPath}`
+          `${namespaceMigrationEntry(n).key} = ${
+            namespaceMigrationEntry(n).legacyPath
+          }`
         )
           .join(", ")
       }`,

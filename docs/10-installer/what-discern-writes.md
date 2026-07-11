@@ -37,7 +37,7 @@ them.
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |
 | `discern/brief.md`    | The project brief captured at setup.                   |
 
-Each path is configurable — point `[docs].dir` at your existing docs tree, for
+Each path is configurable — point `[map].dir` at your existing docs tree, for
 instance — and the default is the namespace location.
 
 ### Co-managed — the config, the ignore block, and the agent wiring

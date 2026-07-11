@@ -973,7 +973,7 @@ export type DiscernPresetResult = {
   };
 };
 
-export type DiscernDocsResult = {
+export type DiscernMapResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1044,9 +1044,9 @@ export type DiscernDocsResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "docs";
+  verb: "map";
   data?: {
-    docs_dir?: string;
+    map_dir?: string;
     count?: number;
     docs?: Array<{
       path: string;
@@ -1149,7 +1149,7 @@ export type DiscernHelpResult = {
   message?: string;
   verb: "help";
   data?: {
-    docs_dir?: string;
+    map_dir?: string;
     count?: number;
     docs?: Array<{
       path: string;
@@ -2987,7 +2987,7 @@ export type DiscernCliJsonResult =
   | DiscernUninstallResult
   | DiscernDoctorResult
   | DiscernPresetResult
-  | DiscernDocsResult
+  | DiscernMapResult
   | DiscernHelpResult
   | DiscernConfigResult
   | DiscernDoneResult
@@ -3019,7 +3019,7 @@ export interface DiscernResultByVerb {
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
-  docs: DiscernDocsResult;
+  map: DiscernMapResult;
   help: DiscernHelpResult;
   config: DiscernConfigResult;
   done: DiscernDoneResult;
@@ -3053,7 +3053,7 @@ export interface DiscernResultByCommand {
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
-  docs: DiscernDocsResult;
+  map: DiscernMapResult;
   help: DiscernHelpResult;
   "config set-capability": DiscernConfigResult;
   "config set-check": DiscernConfigResult;
@@ -3093,7 +3093,7 @@ export interface DiscernMcpToolResult<TStructuredContent> {
 
 export interface DiscernMcpStructuredContentByTool {
   discern_doctor: DiscernDoctorResult;
-  discern_docs: DiscernDocsResult;
+  discern_map: DiscernMapResult;
   discern_help: DiscernHelpResult;
   discern_done: DiscernDoneResult;
   discern_prepare: DiscernPrepareResult;
@@ -3111,7 +3111,7 @@ export interface DiscernMcpStructuredContentByTool {
 
 export interface DiscernMcpToolResultByTool {
   discern_doctor: DiscernMcpToolResult<DiscernDoctorResult>;
-  discern_docs: DiscernMcpToolResult<DiscernDocsResult>;
+  discern_map: DiscernMcpToolResult<DiscernMapResult>;
   discern_help: DiscernMcpToolResult<DiscernHelpResult>;
   discern_done: DiscernMcpToolResult<DiscernDoneResult>;
   discern_prepare: DiscernMcpToolResult<DiscernPrepareResult>;
@@ -3129,7 +3129,7 @@ export interface DiscernMcpToolResultByTool {
 
 export type DiscernMcpStructuredContent =
   | DiscernDoctorResult
-  | DiscernDocsResult
+  | DiscernMapResult
   | DiscernHelpResult
   | DiscernDoneResult
   | DiscernPrepareResult
@@ -3146,7 +3146,7 @@ export type DiscernMcpStructuredContent =
 
 export type DiscernMcpJsonResult =
   | DiscernDoctorMcpToolResult
-  | DiscernDocsMcpToolResult
+  | DiscernMapMcpToolResult
   | DiscernHelpMcpToolResult
   | DiscernDoneMcpToolResult
   | DiscernPrepareMcpToolResult
@@ -3165,7 +3165,7 @@ export type DiscernDoctorMcpToolResult = DiscernMcpToolResult<
   DiscernDoctorResult
 >;
 
-export type DiscernDocsMcpToolResult = DiscernMcpToolResult<DiscernDocsResult>;
+export type DiscernMapMcpToolResult = DiscernMcpToolResult<DiscernMapResult>;
 
 export type DiscernHelpMcpToolResult = DiscernMcpToolResult<DiscernHelpResult>;
 

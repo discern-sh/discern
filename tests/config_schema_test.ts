@@ -37,7 +37,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // The path defaults are the registry's (ADR 0102) — asserted against it, so
   // the schema can never drift from the one source of truth.
   assertEquals(c.skills.dir, SOURCE_PATHS.skills.defaultPath);
-  assertEquals(c.docs.dir, SOURCE_PATHS.docs.defaultPath);
+  assertEquals(c.map.dir, SOURCE_PATHS.map.defaultPath);
   assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
   assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
@@ -312,7 +312,7 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   // Known scalar leaves and record paths are settable.
   assert(isSettableConfigPath("project.slug"));
   assert(isSettableConfigPath("gate.fail_fast"));
-  assert(isSettableConfigPath("docs.dir"));
+  assert(isSettableConfigPath("map.dir"));
   assert(isSettableConfigPath("standards.coverage.limit")); // valid-but-incomplete OK
   assert(isSettableConfigPath("checks.x.stage"));
   assert(isSettableConfigPath("worktree.resources.db.create"));
@@ -430,20 +430,20 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
   );
 });
 
-Deno.test("[docs].dir round-trips and rejects paths outside the project", () => {
+Deno.test("[map].dir round-trips and rejects paths outside the project", () => {
   const custom = parseConfigOrThrow(
-    `[docs]\ndir = "docs/discern/"\n`,
+    `[map]\ndir = "docs/discern/"\n`,
   );
-  assertEquals(custom.docs.dir, "docs/discern/");
+  assertEquals(custom.map.dir, "docs/discern/");
 
-  const absolute = parseConfig(`[docs]\ndir = "/tmp/docs"\n`);
+  const absolute = parseConfig(`[map]\ndir = "/tmp/docs"\n`);
   assert(
-    absolute.issues.some((issue) => issue.path === "docs.dir"),
+    absolute.issues.some((issue) => issue.path === "map.dir"),
     JSON.stringify(absolute.issues),
   );
-  const escaping = parseConfig(`[docs]\ndir = "../docs"\n`);
+  const escaping = parseConfig(`[map]\ndir = "../docs"\n`);
   assert(
-    escaping.issues.some((issue) => issue.path === "docs.dir"),
+    escaping.issues.some((issue) => issue.path === "map.dir"),
     JSON.stringify(escaping.issues),
   );
 });

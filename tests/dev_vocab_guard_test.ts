@@ -20,6 +20,7 @@ import {
   RETIRED_COMMAND_REDIRECTS,
   RETIRED_CONFIG_KEY_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
+import { configSectionNames } from "../src/shared/config_codegen.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
@@ -219,6 +220,14 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
         kind: "command registration",
         pattern: new RegExp(`\\.command\\(\\s*[\"']${leaf}[\"']`, "u"),
       },
+      {
+        retired,
+        kind: "CLI argv",
+        pattern: new RegExp(
+          `\\b(?:(?:runCli|resolveInvocation)\\s*\\(\\s*\\[|runAgent\\s*\\(\\s*[^,\\n]+,\\s*\\[)\\s*[\"']${leaf}[\"']`,
+          "u",
+        ),
+      },
     );
     if (words.length === 1) {
       positions.push({
@@ -232,25 +241,18 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
   for (const retired of Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)) {
     const key = escapeRegExp(retired);
     const spelling = `(?:${key}|\"${key}\"|'${key}')`;
+    const dottedTail = retired === "docs" ? "dir" : "[A-Za-z0-9_-]+";
     positions.push(
       {
         retired,
         kind: "config table",
-        pattern: new RegExp(`\\[\\s*${spelling}(?=\\s*(?:\\.|\\]))`, "mu"),
+        pattern: new RegExp(`\\[\\s*${key}(?=\\s*(?:\\.|\\]))`, "mu"),
       },
       {
         retired,
         kind: "dotted config key",
         pattern: new RegExp(
-          `(?:^\\s*|[\"'])${spelling}(?=\\s*\\.)`,
-          "mu",
-        ),
-      },
-      {
-        retired,
-        kind: "object config key",
-        pattern: new RegExp(
-          `(?:^|[{,]\\s*)${spelling}\\s*:`,
+          `(?:^\\s*${spelling}|[\"']${key})\\s*\\.\\s*${dottedTail}\\b`,
           "mu",
         ),
       },
@@ -266,6 +268,16 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
 
 Deno.test("retired launch vocabulary stays out of callable and config positions", async () => {
   const offenders: string[] = [];
+  const liveConfigSections = new Set(configSectionNames());
+  for (const retired of Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)) {
+    if (liveConfigSections.has(retired)) {
+      offenders.push(
+        `config schema: retired ${
+          JSON.stringify(retired)
+        } remains a root section`,
+      );
+    }
+  }
   const patterns = retiredLaunchPositions();
   for (const [rel, text] of await commandSurfaceFiles()) {
     if (isLaunchVocabularyRecord(rel)) continue;

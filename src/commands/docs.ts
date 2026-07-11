@@ -1,9 +1,9 @@
 /**
- * `discern docs` and `discern help` — browse and read a documentation tree.
+ * `discern map` and `discern help` — browse and read a documentation tree.
  *
  * The two verbs share every line of this file through a {@link DocsVerb}
- * descriptor (ADR 0039); only the tree they read differs: `docs` serves the
- * project's own `docs/` (resolved from the project root), `help` serves
+ * descriptor (ADR 0039); only the tree they read differs: `map` serves the
+ * project's agent-maintained map (resolved from the project root), `help` serves
  * discern's OWN documentation, bundled into every install. Both serve two
  * audiences, decided by how the verb is invoked:
  *
@@ -56,7 +56,7 @@ import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
 type DocsExportScope = "public" | "all" | "select";
 
 /**
- * How `discern docs` (the project's own `docs/` tree) and `discern help`
+ * How `discern map` (the project's agent-maintained documentation tree) and `discern help`
  * (discern's OWN bundled documentation) differ. Everything else — the
  * interactive browser, the renderer, target resolution, `--list`, `--json`, and
  * export — operates on a resolved {@link DocsTree} + {@link DocsOptions} and is
@@ -66,11 +66,11 @@ type DocsExportScope = "public" | "all" | "select";
  */
 interface DocsVerb {
   /** The label in every {@link DiscernResult} and user-facing message. */
-  verb: "docs" | "help";
-  /** Machine-stable error slug when the tree is absent (`no_docs` / `no_help`). */
+  verb: "map" | "help";
+  /** Machine-stable error slug when the tree is absent (`no_map` / `no_help`). */
   missingError: string;
   /**
-   * Resolve the directory to hand {@link discoverDocs}. `docs` passes a user
+   * Resolve the directory to hand {@link discoverDocs}. `map` passes a user
    * `--dir` through (and `undefined` keeps discovery's project-root default);
    * `help` resolves discern's bundled tree and reports `missing` when a binary
    * was built without it (it must NEVER fall back to a project's `docs/`).
@@ -84,7 +84,7 @@ interface DocsVerb {
 
 /**
  * The outcome of a verb's directory resolution. `ok` with an `undefined` dir is
- * meaningful for `docs` (discovery resolves `[docs].dir`); `missing`
+ * meaningful for `map` (discovery resolves `[map].dir`); `missing`
  * means the tree cannot be located at all and the shared core must not probe a
  * project root in its place.
  */
@@ -92,15 +92,15 @@ type DirResolution =
   | { kind: "ok"; dir: string | undefined }
   | { kind: "missing" };
 
-/** `discern docs` — the install's own project documentation tree. */
-const DOCS_VERB: DocsVerb = {
-  verb: "docs",
-  missingError: "no_docs",
+/** `discern map` — the project's agent-maintained documentation tree. */
+const MAP_VERB: DocsVerb = {
+  verb: "map",
+  missingError: "no_map",
   resolveDir: (opts) => Promise.resolve({ kind: "ok", dir: opts.dir }),
   missingTree: (opts) =>
     opts.dir
-      ? `no documentation directory at "${opts.dir}".`
-      : "no docs/ directory here at the configured [docs].dir — run `discern setup` to seed it, or pass --dir <path>.",
+      ? `no map directory at "${opts.dir}" — check the path or omit --dir to use [map].dir.`
+      : "the project map is missing at the configured [map].dir — run `discern setup` to seed it, or set [map].dir to its existing location.",
   exportScopes: ["public", "all", "select"],
 };
 
@@ -138,7 +138,7 @@ function internalScope(
     : false;
 }
 
-/** Options accepted by the `docs` command (global flags folded in). */
+/** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
   noColor: boolean;
@@ -148,7 +148,7 @@ export interface DocsOptions {
   list: boolean;
   /** Never page rendered output through `$PAGER`. */
   noPager: boolean;
-  /** Override the docs directory (default: the project's `[docs].dir`). */
+  /** Override the map directory (default: the project's `[map].dir`). */
   dir?: string | undefined;
   /** Override the wrap width (default: the terminal width, capped). */
   width?: number | undefined;
@@ -167,10 +167,10 @@ function toRecord(e: DocEntry): DocRecord {
   return { path: e.path, section: e.section, slug: e.slug, title: e.title };
 }
 
-/** Index payload; `help` deliberately omits a local docs_dir path. */
+/** Index payload; `help` deliberately omits a local map_dir path. */
 function indexData(desc: DocsVerb, tree: DocsTree, cwd: string): DocsData {
   return {
-    ...(desc.verb === "docs" ? { docs_dir: display(tree.docsDir, cwd) } : {}),
+    ...(desc.verb === "map" ? { map_dir: display(tree.docsDir, cwd) } : {}),
     count: tree.entries.length,
     docs: tree.entries.map(toRecord),
   };
@@ -428,7 +428,7 @@ async function exportDocs(
     // clobbered by its own export. `help`'s tree is discern's read-only bundled
     // documentation (a binary's embedded copy), so there is nothing to protect —
     // and probing it with realPath would be meaningless.
-    if (desc.verb === "docs") {
+    if (desc.verb === "map") {
       const docsDir = await Deno.realPath(tree.docsDir);
       const canonicalOutput = await canonicalOutputPath(outputPath);
       if (pathIsWithin(docsDir, canonicalOutput)) {
@@ -505,12 +505,12 @@ async function exportDocs(
 }
 
 /**
- * Compute a docs/help {@link DiscernResult} — the machine-readable index, or a
+ * Compute a map or help {@link DiscernResult} — the machine-readable index, or a
  * single doc's record + content when `target` is given. The ONE source the CLI's
  * `--json` paths and the MCP server both render; the human, raw, and interactive
  * renderings live in {@link runTree} / {@link viewTarget}. Mirrors the human
  * resolution exactly: no tree, empty tree, target not-found / ambiguous / found,
- * or the full index. The `desc` selects the project tree (`docs`) or discern's
+ * or the full index. The `desc` selects the project tree (`map`) or discern's
  * bundled tree (`help`); the shape is otherwise identical.
  */
 async function treeResult(
@@ -591,20 +591,20 @@ async function treeResult(
 }
 
 /**
- * The `docs` result core — {@link treeResult} over the project's own `docs/`
- * tree. Backs the CLI's `--json` path and the MCP `discern_docs` tool.
+ * The `map` result core — {@link treeResult} over the project's agent-maintained
+ * tree. Backs the CLI's `--json` path and the MCP `discern_map` tool.
  */
-export function docsResult(
+export function mapResult(
   cwd: string,
   opts: { target?: string | undefined; dir?: string | undefined } = {},
 ): Promise<DiscernResult<DocsData>> {
-  return treeResult(DOCS_VERB, cwd, opts);
+  return treeResult(MAP_VERB, cwd, opts);
 }
 
 /**
  * The `help` result core — {@link treeResult} over discern's OWN bundled docs.
  * The single shape a future `discern_help` MCP tool and the CLI's `--json` path
- * both render, mirroring {@link docsResult}. (No `--dir`: the doc set is fixed.)
+ * both render, mirroring {@link mapResult}. (No `--dir`: the doc set is fixed.)
  */
 export function helpResult(
   cwd: string,
@@ -659,8 +659,8 @@ async function viewTarget(
 }
 
 /**
- * Run a docs/help browse. Returns a process exit code. The `desc` selects the
- * tree (`docs` → the project's `docs/`; `help` → discern's bundled docs); the
+ * Run a map or help browse. Returns a process exit code. The `desc` selects the
+ * tree (`map` → the project's map; `help` → discern's bundled docs); the
  * argument dispatch, export pipeline, `--json` surface, interactive browser, and
  * pager are shared verbatim.
  */
@@ -722,7 +722,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   // `help --adr` widens discovery to the bundled ADR subtree; every other browse
-  // (and every `docs` browse, and the MCP path) stays public-only.
+  // (and every `map` browse, and the MCP path) stays public-only.
   const internal = internalScope(desc, options);
 
   // `--json`: the entire machine-readable surface (index, single doc, or error)
@@ -768,9 +768,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   return 0;
 }
 
-/** Run `discern docs` — browse the project's own documentation tree. */
-export function runDocs(options: DocsOptions): Promise<number> {
-  return runTree(DOCS_VERB, options);
+/** Run `discern map` — browse the project's agent-maintained documentation tree. */
+export function runMap(options: DocsOptions): Promise<number> {
+  return runTree(MAP_VERB, options);
 }
 
 /** Run `discern help` — browse discern's OWN bundled documentation. */

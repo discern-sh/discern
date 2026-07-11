@@ -12,12 +12,14 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   integrate: "update",
   scopes: "impact",
   ratchets: "standards",
+  docs: "map",
   "config set-ratchet": "config set-standard",
 };
 
 /** Retired top-level config keys and the canonical key each names now. */
 export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
   ratchets: "standards",
+  docs: "map",
 };
 
 /** The successor for a retired top-level config key, if `key` is one. */

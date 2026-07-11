@@ -12,7 +12,7 @@
 - **Learn the project, then ask once (Step 1).** Derive intent from the repository; ask the user — in a single early batch — only what the code can't tell you. Pausing later for a genuine fork is different; that's not peppering.
 - **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The Step 7 stack-detection table is the one place where naming many ecosystems is correct.
 - **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `done`, `prepare`, `test`, `standards`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
-- **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive — it never overwrites your work or the configured `{{docs_dir}}` tree. Interrupted? Re-run `begin` to reprint this brief, `discern status` for a derived progress summary, or `discern setup step <n>` for one step's text.
+- **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive — it never overwrites your work or the configured `{{map_dir}}` tree. Interrupted? Re-run `begin` to reprint this brief, `discern status` for a derived progress summary, or `discern setup step <n>` for one step's text.
 
 ---
 
@@ -116,10 +116,10 @@ next_action = "When you have your bearings, pull the next page: `discern setup s
 intent = "Take stock of what `setup begin` scaffolded versus left untouched — and, if you will wire a formatter, do it now so its sweep lands before you author."
 files_to_read = [
   "the `setup begin` output (what it laid versus left untouched)",
-  "the scaffolded {{docs_dir}} tree, if one was laid",
+  "the scaffolded {{map_dir}} tree, if one was laid",
 ]
 must_do = [
-  "Note whether the configured {{docs_dir}} tree and {{todo_path}} were scaffolded or already existed, and adapt to what is there.",
+  "Note whether the configured {{map_dir}} tree and {{todo_path}} were scaffolded or already existed, and adapt to what is there.",
   "If a formatter applies, wire it now, run `discern prepare`, and commit its whole-tree reflow on its own.",
 ]
 what_not_to_do = [
@@ -131,7 +131,7 @@ next_action = "With the lay of the land clear, pull the next page: `discern setu
 
 `discern setup` has already laid the skeletons for you — **but only when their configured destinations were absent**, so existing content is never disturbed:
 
-- if there was no `{{docs_dir}}` tree, it scaffolded one (the orientation docs plus the `80-development/` leaves) for you to fill;
+- if there was no `{{map_dir}}` tree, it scaffolded one (the orientation docs plus the `80-development/` leaves) for you to fill;
 - if `{{todo_path}}` was absent, it created that too;
 - if you **already had** the configured tree (or a `{{todo_path}}`), discern left it untouched — work with what is there, adapting these steps to your existing structure rather than imposing the skeleton shape below.
 
@@ -146,7 +146,7 @@ The command's output told you which of these happened. The scaffolded files alre
 ```toml
 intent = "Write the 3–7 principles that actually govern decisions here — the load-bearing foundation every future session reads."
 files_to_read = [
-  "{{docs_dir}}00-orientation/design-principles.md (the template shape plus the EXAMPLE principle)",
+  "{{map_dir}}00-orientation/design-principles.md (the template shape plus the EXAMPLE principle)",
 ]
 must_do = [
   "Write 3–7 project-specific, falsifiable principles, each with a name, the rule, a Why it matters, and a How it shows up.",
@@ -163,13 +163,13 @@ next_action = "Once the principles are real, pull the next page: `discern setup 
 
 Steps 3–6 are the authoring core, and before you write a word, say *why* it matters to the user: the principles, docs, and guidance you're about to write are the **single source of truth** every future agent session — and discern itself — reads to work in this project. This is the load-bearing part of setup, the foundation the project's reliability is built on, not prose for human readers. So author it with that weight, and don't let the user mistake the lengthy step for busywork.
 
-Open **`{{docs_dir}}00-orientation/design-principles.md`** and follow the template already in it (the commented shape plus the EXAMPLE principle).
+Open **`{{map_dir}}00-orientation/design-principles.md`** and follow the template already in it (the commented shape plus the EXAMPLE principle).
 
 - Write **3–7** principles — the smallest set that actually governs decisions here, not a wish list.
 - Each gets an imperative one-line name, 1–3 sentences stating the rule, a **Why it matters** (the failure it prevents), and a **How it shows up** (where it's visible in the code — concrete and present-tense).
 - Replace the EXAMPLE principle entirely; delete the guidance comments as you go.
 - Fill the **"What these add up to"** section: a few sentences on how the principles reinforce each other.
-- Keep the override mechanism line intact — overriding a principle means writing an ADR (`{{docs_dir}}_adr/`).
+- Keep the override mechanism line intact — overriding a principle means writing an ADR (`{{map_dir}}_adr/`).
 
 Good principles are specific to this project and falsifiable: you can point at a change that would violate one.
 
@@ -209,9 +209,9 @@ Open **`{{guidance_path}}`** (the configured `[guidance].sources` seed). This fi
 ```toml
 intent = "Seed the three orientation docs from what you learned, using one consistent set of canonical nouns."
 files_to_read = [
-  "{{docs_dir}}00-orientation/concepts.md",
-  "{{docs_dir}}00-orientation/glossary.md",
-  "{{docs_dir}}00-orientation/system-map.md",
+  "{{map_dir}}00-orientation/concepts.md",
+  "{{map_dir}}00-orientation/glossary.md",
+  "{{map_dir}}00-orientation/system-map.md",
 ]
 must_do = [
   "Fill concepts (the narrative tour), glossary (each canonical noun defined once), and system-map (an ASCII diagram).",
@@ -226,13 +226,13 @@ next_action = "Once the orientation docs read true, pull the next page: `discern
 
 Fill the three orientation skeletons from what you learned in Step 1, removing the `<!-- setup fills this -->` markers as you complete each section:
 
-- **`{{docs_dir}}00-orientation/concepts.md`** — the narrative tour: the core building blocks and how material flows through them, in plain language. Introduce the canonical nouns here.
-- **`{{docs_dir}}00-orientation/glossary.md`** — define each canonical noun once, precisely. Core nouns first, then a section per area.
-- **`{{docs_dir}}00-orientation/system-map.md`** — an **ASCII** diagram of the real components and the flow between them, plus the "where each piece runs" notes.
+- **`{{map_dir}}00-orientation/concepts.md`** — the narrative tour: the core building blocks and how material flows through them, in plain language. Introduce the canonical nouns here.
+- **`{{map_dir}}00-orientation/glossary.md`** — define each canonical noun once, precisely. Core nouns first, then a section per area.
+- **`{{map_dir}}00-orientation/system-map.md`** — an **ASCII** diagram of the real components and the flow between them, plus the "where each piece runs" notes.
 
 Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
 
-Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`{{docs_dir}}00-orientation/README.md`** and the one-line skeleton blockquote atop each doc you just filled. Once a doc is real, a note telling the reader it is empty is worse than no note.
+Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`{{map_dir}}00-orientation/README.md`** and the one-line skeleton blockquote atop each doc you just filled. Once a doc is real, a note telling the reader it is empty is worse than no note.
 
 ---
 
@@ -241,8 +241,8 @@ Then clear the stale "starts as a skeleton" notes so the filled tree doesn't sti
 ```toml
 intent = "Decide the numbered subsystem subtrees, stub their READMEs, and fill the stack-level 80-development leaves now."
 files_to_read = [
-  "{{docs_dir}}README.md (the Subsystems table)",
-  "{{docs_dir}}80-development/ (getting-started, testing, code-conventions)",
+  "{{map_dir}}README.md (the Subsystems table)",
+  "{{map_dir}}80-development/ (getting-started, testing, code-conventions)",
 ]
 must_do = [
   "Update the Subsystems table and the orientation cross-references with the proposed subtrees, clearing the placeholder rows.",
@@ -257,7 +257,7 @@ next_action = "With the tree mapped out, pull the next page: `discern setup step
 
 Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, … `80-development/` already exists). Then:
 
-- Update the **Subsystems** table in **`{{docs_dir}}README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton" blockquote above the table: once the subtrees are real, that note is stale.
+- Update the **Subsystems** table in **`{{map_dir}}README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton" blockquote above the table: once the subtrees are real, that note is stale.
 - Reflect the same names in the "what to read next" / "how the map relates" tables in the orientation docs.
 - **Create the directories with a stub `README.md` each** (a title and a one-line "what this subtree covers"), so the tree is navigable — but don't write the leaves now. Filling a subtree's leaves is the `discern-document-subsystem` skill's job, run per subsystem when you're ready.
 
@@ -331,7 +331,7 @@ Notes that keep the proposal honest:
 - **Every wired command must exit on its own.** Before you commit a capability, run the command once, non-interactively, and confirm it terminates without a keypress or a file-watcher: wire watch-mode runners in their single-run form (the run-once/CI variant, watch off), and never a dev server. The gate runs every command under a hard timeout, so a watcher doesn't hang the gate — it fails it, slowly, on every run.
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one capability with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
-- **Point the gate at its gotchas doc.** Step 2 created `{{docs_dir}}80-development/done-gate-gotchas.md`; set `[project].gotchas_doc = "{{docs_dir}}80-development/done-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
+- **Point the gate at its gotchas doc.** Step 2 created `{{map_dir}}80-development/done-gate-gotchas.md`; set `[project].gotchas_doc = "{{map_dir}}80-development/done-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
 - **Wire `format` first, and commit its sweep on its own.** A `format` capability reformats the whole tree the first time it runs — so ideally you wired it before authoring the docs (Step 2's ordering tip), landing the reflow on the empty scaffold. Either way: run `discern prepare` right after wiring it and commit that normalization as its own step, so the mechanical reflow never muddies a content commit.
 - **Leave a capability unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend adding that; see above). Avoid a bogus red gate on day one, but do not leave the whole gate empty: `doctor` warns on zero wired capabilities because that means `done` can pass without checking the project.
 
@@ -443,7 +443,7 @@ These are stop-conditions to **verify for yourself before you finish** — not a
 - `{{guidance_path}}` has a real pitch and Conventions section.
 - If `begin` imported existing instructions, they are folded into `{{guidance_path}}` and **reconciled** — no leftover rule contradicts discern's standing disciplines (e.g. no surviving "don't use worktrees").
 - The orientation docs (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
-- No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{docs_dir}}README.md` and `{{docs_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
+- No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{map_dir}}README.md` and `{{map_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
 - `discern.toml` capability fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `{{todo_path}}`; and `discern done` is **green** with whatever was activated.
 - The project **runs in a worktree** — you wired `[worktree]` for whatever a fresh copy needs (env files, dependencies, resources), and a probe worktree's `discern done` is green — or the unresolved gap is recorded in `{{todo_path}}` (Step 8).
 - `{{todo_path}}` records the deferred wiring so no open decision lives only in a comment or the chat.

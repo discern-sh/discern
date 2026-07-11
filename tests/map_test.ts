@@ -1,6 +1,6 @@
 /**
- * Tests for the docs browser: discovery/resolution (`src/lib/docs.ts`) in
- * process, and the `discern docs` command surface end-to-end via the CLI.
+ * Tests for the map browser: documentation discovery/resolution (`src/lib/docs.ts`)
+ * in process, and the `discern map` command surface end-to-end via the CLI.
  *
  * The interactive picker needs a TTY, so it is not exercised here; the
  * subprocess runs are all non-interactive (piped stdio), which is exactly the
@@ -31,7 +31,7 @@ import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 async function makeDocsProject(dir: string): Promise<void> {
   await seedConfig(
     dir,
-    '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
   );
   const files: Record<string, string> = {
     "docs/README.md": "# Docs Home\n\nWelcome.\n",
@@ -181,11 +181,11 @@ Deno.test("resolveDoc handles slug, path, ambiguity, and misses", async () => {
 Deno.test("docs --json emits the index", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.verb, "docs");
+    assertEquals(res.verb, "map");
     assertEquals(res.data.count, 4);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "alpha"));
   });
@@ -194,7 +194,7 @@ Deno.test("docs --json emits the index", async () => {
 Deno.test("docs <slug> --json returns the single doc with its content", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "alpha", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "alpha", "--json"], dir);
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
@@ -206,7 +206,7 @@ Deno.test("docs <slug> --json returns the single doc with its content", async ()
 Deno.test("docs <slug> --raw prints the pristine source", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "alpha", "--raw"], dir);
+    const { code, stdout } = await runCli(["map", "alpha", "--raw"], dir);
     assertEquals(code, 0);
     assertEquals(stdout, "# Alpha\n\nThe alpha body.\n");
   });
@@ -216,7 +216,7 @@ Deno.test("docs --export public concatenates only user-facing docs", async () =>
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout, stderr } = await runCli(
-      ["docs", "--export", "public"],
+      ["map", "--export", "public"],
       dir,
     );
 
@@ -240,7 +240,7 @@ Deno.test("docs --export all includes internal docs after public docs", async ()
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(
-      ["docs", "--export", "all"],
+      ["map", "--export", "all"],
       dir,
     );
 
@@ -262,7 +262,7 @@ Deno.test("docs export can overwrite an explicit output file", async () => {
     await Deno.writeTextFile(join(dir, "bundle.md"), "old\n");
 
     const { code, stdout, stderr } = await runCli(
-      ["docs", "--export", "public", "--output", "bundle.md"],
+      ["map", "--export", "public", "--output", "bundle.md"],
       dir,
     );
 
@@ -280,7 +280,7 @@ Deno.test("docs export refuses output inside the source docs tree", async () => 
     await makeDocsProject(dir);
     const { code, stdout, stderr } = await runCli(
       [
-        "docs",
+        "map",
         "--export",
         "all",
         "--output",
@@ -305,7 +305,7 @@ Deno.test("docs export refuses an output symlink targeting a source doc", async 
     const original = await readTarget(dir, "docs/README.md");
 
     const { code, stderr } = await runCli(
-      ["docs", "--export", "public", "--output", "bundle.md"],
+      ["map", "--export", "public", "--output", "bundle.md"],
       dir,
     );
 
@@ -320,7 +320,7 @@ Deno.test("docs export validates scope and incompatible flags", async () => {
     await makeDocsProject(dir);
 
     const unknown = await runCli(
-      ["docs", "--export", "private"],
+      ["map", "--export", "private"],
       dir,
     );
     assertEquals(unknown.code, 1);
@@ -328,11 +328,11 @@ Deno.test("docs export validates scope and incompatible flags", async () => {
 
     for (
       const args of [
-        ["docs", "alpha", "--export", "public"],
-        ["docs", "--export", "public", "--raw"],
-        ["docs", "--export", "public", "--list"],
-        ["docs", "--export", "public", "--width", "80"],
-        ["docs", "--export", "public", "--no-pager"],
+        ["map", "alpha", "--export", "public"],
+        ["map", "--export", "public", "--raw"],
+        ["map", "--export", "public", "--list"],
+        ["map", "--export", "public", "--width", "80"],
+        ["map", "--export", "public", "--no-pager"],
       ]
     ) {
       const result = await runCli(args, dir);
@@ -342,7 +342,7 @@ Deno.test("docs export validates scope and incompatible flags", async () => {
     }
 
     const json = await runCli(
-      ["docs", "--export", "public", "--json"],
+      ["map", "--export", "public", "--json"],
       dir,
     );
     assertEquals(json.code, 1);
@@ -355,7 +355,7 @@ Deno.test("docs --output requires export mode", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stderr } = await runCli(
-      ["docs", "--output", "bundle.md"],
+      ["map", "--output", "bundle.md"],
       dir,
     );
     assertEquals(code, 1);
@@ -368,7 +368,7 @@ Deno.test("docs --export select requires output and an interactive terminal", as
     await makeDocsProject(dir);
 
     const noOutput = await runCli(
-      ["docs", "--export", "select"],
+      ["map", "--export", "select"],
       dir,
     );
     assertEquals(noOutput.code, 1);
@@ -376,7 +376,7 @@ Deno.test("docs --export select requires output and an interactive terminal", as
 
     const nonInteractive = await runCli(
       [
-        "docs",
+        "map",
         "--export",
         "select",
         "--output",
@@ -399,7 +399,7 @@ Deno.test("docs export reads every source before emitting output", async () => {
     );
 
     const { code, stdout, stderr } = await runCli(
-      ["docs", "--export", "public"],
+      ["map", "--export", "public"],
       dir,
     );
     assertEquals(code, 1);
@@ -407,7 +407,7 @@ Deno.test("docs export reads every source before emitting output", async () => {
     assertStringIncludes(stderr, "could not read every documentation source");
 
     const fileResult = await runCli(
-      ["docs", "--export", "public", "--output", "bundle.md"],
+      ["map", "--export", "public", "--output", "bundle.md"],
       dir,
     );
     assertEquals(fileResult.code, 1);
@@ -418,21 +418,22 @@ Deno.test("docs export reads every source before emitting output", async () => {
 Deno.test("docs export reports a missing docs tree without partial output", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["docs", "--export", "all"],
+      ["map", "--export", "all"],
       dir,
     );
     assertEquals(code, 1);
     assertEquals(stdout, "");
-    assertStringIncludes(stderr, "no docs/ directory here");
+    assertStringIncludes(stderr, "project map is missing");
+    assertStringIncludes(stderr, "discern setup");
   });
 });
 
 Deno.test("docs --list prints a grouped table of contents", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "--list"], dir);
+    const { code, stdout } = await runCli(["map", "--list"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "discern docs");
+    assertStringIncludes(stdout, "discern map");
     assertStringIncludes(stdout, "00-intro/");
     assertStringIncludes(stdout, "Alpha");
   });
@@ -441,16 +442,16 @@ Deno.test("docs --list prints a grouped table of contents", async () => {
 Deno.test("bare docs is non-interactive off a TTY (prints the TOC, no hang)", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs"], dir);
+    const { code, stdout } = await runCli(["map"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "discern docs");
+    assertStringIncludes(stdout, "discern map");
   });
 });
 
 Deno.test("docs renders a target to stdout when piped", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "alpha"], dir);
+    const { code, stdout } = await runCli(["map", "alpha"], dir);
     assertEquals(code, 0);
     // Plain (NO_COLOR + non-TTY): the heading keeps its marker.
     assertStringIncludes(stdout, "# Alpha");
@@ -461,7 +462,7 @@ Deno.test("docs renders a target to stdout when piped", async () => {
 Deno.test("docs reports an unknown target", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stderr } = await runCli(["docs", "nonesuch"], dir);
+    const { code, stderr } = await runCli(["map", "nonesuch"], dir);
     assertEquals(code, 1);
     assertStringIncludes(stderr, "no doc matches");
   });
@@ -471,7 +472,7 @@ Deno.test("docs reports an ambiguous target with candidates", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(
-      ["docs", "README", "--json"],
+      ["map", "README", "--json"],
       dir,
     );
     assertEquals(code, 1);
@@ -481,26 +482,26 @@ Deno.test("docs reports an ambiguous target with candidates", async () => {
   });
 });
 
-Deno.test("docs --json reports no_docs when there is no docs tree", async () => {
+Deno.test("docs --json reports no_map when there is no docs tree", async () => {
   await withTempDir(async (dir) => {
-    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "--json"], dir);
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.error, "no_docs");
+    assertEquals(res.error, "no_map");
   });
 });
 
 Deno.test("docs excludes _-prefixed internal directories from every view", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const index = await runCli(["docs", "--json"], dir);
+    const index = await runCli(["map", "--json"], dir);
     const res = JSON.parse(index.stdout);
     assert(
       res.data.docs.every((d: { path: string }) => !d.path.includes("_adr")),
       "the index must not contain internal docs",
     );
-    const list = await runCli(["docs", "--list"], dir);
+    const list = await runCli(["map", "--list"], dir);
     assert(
       !list.stdout.includes("_adr"),
       "the TOC must not list internal docs",
@@ -513,7 +514,7 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
     await makeDocsProject(dir);
     // Point --dir straight at it: it becomes the root, no longer underscored.
     const { code, stdout } = await runCli(
-      ["docs", "--dir", "docs/_adr", "--json"],
+      ["map", "--dir", "docs/_adr", "--json"],
       dir,
     );
     assertEquals(code, 0);
@@ -525,11 +526,11 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
   });
 });
 
-Deno.test("docs defaults to the configured [docs].dir", async () => {
+Deno.test("docs defaults to the configured [map].dir", async () => {
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[project]\nslug = "demo"\n[docs]\ndir = "docs/discern/"\n',
+      '[meta]\nbootstrapped = true\n[project]\nslug = "demo"\n[map]\ndir = "docs/discern/"\n',
     );
     await Deno.mkdir(join(dir, "docs/discern"), { recursive: true });
     await Deno.writeTextFile(
@@ -538,10 +539,10 @@ Deno.test("docs defaults to the configured [docs].dir", async () => {
     );
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
 
-    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
-    assertEquals(res.data.docs_dir, "docs/discern");
+    assertEquals(res.data.map_dir, "docs/discern");
     assertEquals(res.data.docs.map((doc: { path: string }) => doc.path), [
       "docs/discern/README.md",
     ]);
@@ -551,7 +552,7 @@ Deno.test("docs defaults to the configured [docs].dir", async () => {
 Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "nonesuch", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "nonesuch", "--json"], dir);
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
@@ -563,7 +564,7 @@ Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
 Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    const { code, stdout } = await runCli(["docs", "alph", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "alph", "--json"], dir);
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
@@ -578,7 +579,7 @@ Deno.test("docs <ambiguous> without --json lists the candidates on stderr", asyn
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // Every subtree has a README → a bare "README" matches more than one.
-    const { code, stdout, stderr } = await runCli(["docs", "README"], dir);
+    const { code, stdout, stderr } = await runCli(["map", "README"], dir);
     assertEquals(code, 1);
     // The candidate list and guidance go to stderr, not stdout.
     assertStringIncludes(stderr, "matches");
@@ -595,12 +596,12 @@ Deno.test("docs --json reports an empty tree as count 0 (only internal docs pres
     // exists, but every entry is filtered out → an empty user-facing index.
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
     );
     await Deno.mkdir(join(dir, "docs/_adr"), { recursive: true });
     await Deno.writeTextFile(join(dir, "docs/_adr/0001-first.md"), "# ADR\n");
 
-    const { code, stdout } = await runCli(["docs", "--json"], dir);
+    const { code, stdout } = await runCli(["map", "--json"], dir);
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
@@ -613,14 +614,14 @@ Deno.test("bare docs warns when the tree has no Markdown (no hang, exit 0)", asy
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
     );
     // A docs dir with a non-Markdown file only → discovery finds the dir but
     // indexes nothing.
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
     await Deno.writeTextFile(join(dir, "docs/notes.txt"), "plain text\n");
 
-    const { code, stderr } = await runCli(["docs"], dir);
+    const { code, stderr } = await runCli(["map"], dir);
     assertEquals(code, 0);
     assertStringIncludes(stderr, "no Markdown files");
   });
@@ -632,7 +633,7 @@ Deno.test("docs --width overrides the wrap width (rendered to stdout)", async ()
     // --width is the explicit-width arm of resolveWidth; rendering must still
     // succeed and emit the doc's body.
     const { code, stdout } = await runCli(
-      ["docs", "alpha", "--width", "60"],
+      ["map", "alpha", "--width", "60"],
       dir,
     );
     assertEquals(code, 0);
@@ -646,7 +647,7 @@ Deno.test("docs honours $COLUMNS for the wrap width", async () => {
     await makeDocsProject(dir);
     // With no --width, resolveWidth reads $COLUMNS as the terminal-width source.
     const { code, stdout } = await runCli(
-      ["docs", "alpha"],
+      ["map", "alpha"],
       dir,
       { COLUMNS: "120" },
     );
@@ -659,7 +660,7 @@ Deno.test("discoverDocs humanises the slug when a doc has no heading", async () 
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
     );
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
     // No Markdown heading at all → the title falls back to a humanised slug.
@@ -679,7 +680,7 @@ Deno.test("discoverDocs falls back to a humanised title when a doc cannot be rea
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
     );
     await Deno.mkdir(join(dir, "docs"), { recursive: true });
     // A dangling symlink with a .md name: walk yields it, but reading it throws,
@@ -699,9 +700,10 @@ Deno.test("discoverDocs falls back to a humanised title when a doc cannot be rea
 Deno.test("docs without --json errors to stderr when there is no docs tree", async () => {
   await withTempDir(async (dir) => {
     // No docs dir at all: the plain (non-JSON) arm reports it on stderr.
-    const { code, stdout, stderr } = await runCli(["docs"], dir);
+    const { code, stdout, stderr } = await runCli(["map"], dir);
     assertEquals(code, 1);
-    assertStringIncludes(stderr, "no docs/ directory here");
+    assertStringIncludes(stderr, "project map is missing");
+    assertStringIncludes(stderr, "discern setup");
     assertEquals(stdout, "");
   });
 });
@@ -710,13 +712,14 @@ Deno.test("docs --dir to a missing directory errors with that path", async () =>
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
-      '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
     );
     // An explicit --dir that does not exist takes the dir-specific message.
-    const { code, stderr } = await runCli(["docs", "--dir", "nope"], dir);
+    const { code, stderr } = await runCli(["map", "--dir", "nope"], dir);
     assertEquals(code, 1);
-    assertStringIncludes(stderr, "no documentation directory");
+    assertStringIncludes(stderr, "no map directory");
     assertStringIncludes(stderr, "nope");
+    assertStringIncludes(stderr, "check the path");
   });
 });
 

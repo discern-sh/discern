@@ -114,7 +114,7 @@ export function mergeDocIntoFlags(
     sourceGlobs: flags.sourceGlobs ?? doc.source_globs?.join(","),
     brief: flags.brief ?? doc.brief,
     agents: flags.agents ?? doc.agents?.join(","),
-    docs: flags.docs ?? doc.docs?.dir,
+    map: flags.map ?? doc.map?.dir,
   };
 }
 
@@ -175,10 +175,10 @@ export function applyConfigDoc(
   };
 
   {
-    const dir = doc.docs?.dir;
+    const dir = doc.map?.dir;
     if (dir !== undefined) {
-      write("docs.dir", editor.hasKey("docs.dir"), () => {
-        editor.setString("docs.dir", dir);
+      write("map.dir", editor.hasKey("map.dir"), () => {
+        editor.setString("map.dir", dir);
       });
     }
   }

@@ -17,7 +17,7 @@ import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
-import { normalizeDocsDir } from "../../shared/docs_path.ts";
+import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
 import type {
   Category,
@@ -55,13 +55,13 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Count real ADRs under the configured docs root's `_adr`, recursing into
+/** Count real ADRs under the configured map root's `_adr`, recursing into
  * subdirectories so retired
  * ADRs relocated under `_superseded/` still count: files named `NNNN-*.md`,
  * excluding the `0000-template` seed. Zero when the directory is absent. */
 export async function countAdrs(
   root: string,
-  docsDir = SOURCE_PATHS.docs.defaultPath,
+  mapDir = SOURCE_PATHS.map.defaultPath,
 ): Promise<number> {
   let count = 0;
   async function scan(dir: string): Promise<void> {
@@ -80,7 +80,7 @@ export async function countAdrs(
       // directory absent — contributes zero
     }
   }
-  await scan(join(root, normalizeDocsDir(docsDir), "_adr"));
+  await scan(join(root, normalizeMapDir(mapDir), "_adr"));
   return count;
 }
 
@@ -144,7 +144,7 @@ export async function buildContext(
     ? gotchasDoc
     : join(root, gotchasDoc);
 
-  const docsDir = normalizeDocsDir(config.docs.dir);
+  const mapDir = normalizeMapDir(config.map.dir);
   return {
     root,
     config,
@@ -154,10 +154,10 @@ export async function buildContext(
     guidancePlaceholder: guidanceText.includes(GUIDANCE_PLACEHOLDER_MARK),
     gotchasDocSet: gotchasDoc !== "",
     gotchasDocExists: gotchasAbs !== "" && (await fileExists(gotchasAbs)),
-    docsDir,
-    docsTree: (await pathExists(join(root, docsDir))) &&
-      (await fileExists(join(root, docsDir, "README.md"))),
-    adrCount: await countAdrs(root, docsDir),
+    mapDir,
+    mapTree: (await pathExists(join(root, mapDir))) &&
+      (await fileExists(join(root, mapDir, "README.md"))),
+    adrCount: await countAdrs(root, mapDir),
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
   };
@@ -456,56 +456,55 @@ const GUIDANCE: Category = {
   ],
 };
 
-/** Documentation — the docs/ tree and the ADR discipline. */
-const DOCS: Category = {
-  name: "docs",
-  title: "Documentation",
+/** The project map — the agent-maintained documentation tree and ADR discipline. */
+const MAP: Category = {
+  name: "map",
+  title: "Project map",
   rules: [
     {
       kind: "deterministic",
-      id: "docs.tree",
-      title: "Documentation tree present",
+      id: "map.tree",
+      title: "Project map present",
       weight: 2,
-      fix:
-        "discern setup (seeds the configured docs skeleton), then fill it in",
+      fix: "discern setup (seeds the configured map skeleton), then fill it in",
       teach:
-        "A browsable documentation tree (with a README at its root) is where the project's " +
-        "shape lives for future-you and the agents grounding work in it. `discern docs` " +
+        "The project map is its agent-maintained documentation tree (with a README at its root), where the project's " +
+        "shape lives for future-you and the agents grounding work in it. `discern map` " +
         "browses it; `discern setup` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
             status: "pass",
-            detail: `${ctx.docsDir} with a README.md exists`,
+            detail: `${ctx.mapDir} with a README.md exists`,
           }
           : {
             status: "fail",
-            detail: `no ${ctx.docsDir} tree with a README.md`,
+            detail: `no ${ctx.mapDir} tree with a README.md`,
           },
     },
     {
       kind: "deterministic",
-      id: "docs.adrs",
+      id: "map.adrs",
       title: "Architecture decisions recorded",
       weight: 1,
       fix:
-        "record significant decisions under the configured docs root's _adr/ directory (the discern-write-adr skill helps)",
+        "record significant decisions under the configured map root's _adr/ directory (the discern-write-adr skill helps)",
       teach:
         "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
         "isn't silently re-litigated later. A project with none is losing that memory. " +
-        "Record the next notable decision under the configured docs root's _adr/ directory.",
+        "Record the next notable decision under the configured map root's _adr/ directory.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.adrCount > 0
           ? { status: "pass", detail: `${ctx.adrCount} ADR(s) recorded` }
           : {
             status: "fail",
-            detail: `no ADRs under ${ctx.docsDir}_adr/`,
+            detail: `no ADRs under ${ctx.mapDir}_adr/`,
           },
     },
     {
       kind: "subjective",
-      id: "docs.current",
-      title: "Docs still match the code",
+      id: "map.current",
+      title: "The map still matches the code",
       ask:
         "Pick a subsystem that changed recently. Does its documentation page still " +
         "describe how the code actually behaves now — present tense, no drift — or does " +
@@ -513,21 +512,21 @@ const DOCS: Category = {
       teach:
         "Docs are only worth trusting if they track the code. When a change alters " +
         "documented behaviour, update the page in the same change. The discern-document-subsystem " +
-        "skill refreshes a subtree; `discern docs --list` shows the tree.",
+        "skill refreshes a subtree; `discern map --list` shows the tree.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
-            source: ctx.docsDir,
-            excerpt: "browse with `discern docs --list`",
+            source: ctx.mapDir,
+            excerpt: "browse with `discern map --list`",
           }
           : undefined,
     },
     {
       kind: "subjective",
-      id: "docs.navigation",
-      title: "The docs tree is navigable from overview to detail",
+      id: "map.navigation",
+      title: "The map is navigable from overview to detail",
       ask:
-        "Starting at the configured docs root's README.md, can a new contributor find the system overview, " +
+        "Starting at the configured map root's README.md, can a new contributor find the system overview, " +
         "the relevant subsystem, and its detailed pages without already knowing their " +
         "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
         "tree merely a collection of documents?",
@@ -537,9 +536,9 @@ const DOCS: Category = {
         "and link detail from the nearest useful context so discoverability does not " +
         "depend on repository archaeology.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
-            source: `${ctx.docsDir}README.md and subtree README files`,
+            source: `${ctx.mapDir}README.md and subtree README files`,
             excerpt: "follow the links as a first-time reader",
           }
           : undefined,
@@ -636,7 +635,7 @@ const STANDARDS: Category = {
       teach:
         "A count is safe to hold only when it doesn't scale with project size (a true " +
         "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "${docs.dir}**" }` holds docs alerts-per-word, so growth alone never ' +
+        '`per = { words = "${map.dir}**" }` holds docs alerts-per-word, so growth alone never ' +
         "breaches the ceiling — only a real quality regression does.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
         const raw = Object.entries(ctx.config.standards)
@@ -706,7 +705,7 @@ export const CATEGORIES: readonly Category[] = [
   GATE,
   SETUP,
   GUIDANCE,
-  DOCS,
+  MAP,
   WORKTREES,
   STANDARDS,
   SKILLS,

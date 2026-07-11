@@ -73,6 +73,12 @@ const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
     17,
     "migration 17→18 renames [ratchets] to [standards] in every supported TOML form",
   ],
+  // Covered across table, dotted-key, quoted-key, inline-table, absent-table,
+  // and collision forms by the focused migration tests named below.
+  [
+    18,
+    "migration 18→19 renames [docs] to [map] and pins every installed directory form",
+  ],
 ]);
 
 function historicalFixtureName(from: number): string {
@@ -178,8 +184,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
   // authored surface into the discern/ namespace), 15→16 (retire the
   // [features] toggles and [worktree].enabled), 16→17 (drop
-  // [worktree].graduate_to — accept always lands on the trunk), and 17→18
-  // ([ratchets] → [standards]).
+  // [worktree].graduate_to — accept always lands on the trunk), 17→18
+  // ([ratchets] → [standards]), and 18→19 ([docs] → [map], with the installed
+  // directory pinned so the migration never moves a project's tree).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -198,6 +205,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     15,
     16,
     17,
+    18,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -858,6 +866,109 @@ Deno.test("migration 17→18 refuses colliding old and new standard tables with 
         }),
       Error,
       "Move the entries under [standards], remove [ratchets], then run `discern upgrade` again",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
+Deno.test("migration 18→19 renames [docs] to [map] and pins every installed directory form", async () => {
+  const cases = [
+    {
+      name: "table",
+      text: '[docs]\ndir = "docs/"\n',
+      installedDir: "docs/",
+    },
+    {
+      name: "dotted root key",
+      text: 'docs.dir = "knowledge/"\n',
+      installedDir: "knowledge/",
+    },
+    {
+      name: "quoted dotted root key",
+      text: `'docs'.dir = "project-notes/"\n`,
+      installedDir: "project-notes/",
+    },
+    {
+      name: "inline root table",
+      text: 'docs = { dir = "reference/" }\n',
+      installedDir: "reference/",
+    },
+    {
+      name: "quoted table",
+      text: '["docs"]\ndir = "handbook/"\n',
+      installedDir: "handbook/",
+    },
+    {
+      name: "implicit old default",
+      text: "[meta]\nschema_version = 18\n",
+      installedDir: "discern/docs/",
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const configPath = join(dir, "discern.toml");
+      await Deno.writeTextFile(configPath, testCase.text);
+      const treePath = join(dir, testCase.installedDir);
+      await Deno.mkdir(treePath, { recursive: true });
+      await Deno.writeTextFile(join(treePath, "README.md"), "# Existing map\n");
+      const notes: string[] = [];
+
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 18,
+        to: 19,
+        onNote: (note) => notes.push(note),
+      });
+
+      const after = await Deno.readTextFile(configPath);
+      const raw = parseDiscernToml(after).raw;
+      assertEquals(raw.docs, undefined, `${testCase.name}: old key remains`);
+      assertExists(raw.map, `${testCase.name}: successor key is absent`);
+      assertEquals(
+        (raw.map as Record<string, unknown>).dir,
+        testCase.installedDir,
+        `${testCase.name}: the installed directory moved`,
+      );
+      assertEquals(
+        await Deno.readTextFile(join(treePath, "README.md")),
+        "# Existing map\n",
+        `${testCase.name}: the migration must not move or rewrite the tree`,
+      );
+      assert(
+        notes.some((note) =>
+          note.includes("renamed [docs] to [map]") &&
+          note.includes(testCase.installedDir)
+        ),
+        `${testCase.name}: ${notes.join("\n")}`,
+      );
+
+      // The migration is byte-idempotent even if its step is re-run directly.
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 18,
+        to: 19,
+        onNote: () => {},
+      });
+      assertEquals(await Deno.readTextFile(configPath), after, testCase.name);
+    });
+  }
+});
+
+Deno.test("migration 18→19 refuses colliding old and new map tables with a next step", async () => {
+  await withTempDir(async (dir) => {
+    const text = '[docs]\ndir = "docs/"\n\n[map]\ndir = "map/"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 18,
+          to: 19,
+          onNote: () => {},
+        }),
+      Error,
+      "Keep the intended directory under [map], remove [docs], then run `discern upgrade` again",
     );
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
   });

@@ -415,10 +415,10 @@ Deno.test("config set refuses a value the next read would reject, leaving the fi
         args: ["config", "set", "project.slug", "5", "--number"],
         includes: "holds a string",
       },
-      // The write-boundary backstop: well-typed but schema-invalid (docs.dir
+      // The write-boundary backstop: well-typed but schema-invalid (map.dir
       // must stay inside the repository) is caught before anything is written.
       {
-        args: ["config", "set", "docs.dir", "../escape"],
+        args: ["config", "set", "map.dir", "../escape"],
         includes: "refusing this edit",
         error: "invalid_value",
       },

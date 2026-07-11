@@ -36,12 +36,12 @@ import {
   AcceptOutputSchema,
   CouplingOutputSchema,
   type DocsData,
-  DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
   HelpOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
+  MapOutputSchema,
   PrepareOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
@@ -76,7 +76,7 @@ import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
 import { doctorResult } from "../../commands/doctor.ts";
-import { docsResult, helpResult } from "../../commands/docs.ts";
+import { helpResult, mapResult } from "../../commands/docs.ts";
 import {
   acceptResult,
   lifecycleContext,
@@ -261,7 +261,7 @@ const TOOL_PRIORITY = [
   "discern_impact",
   "discern_coupling",
   "discern_refresh",
-  "discern_docs",
+  "discern_map",
   "discern_help",
   "discern_doctor",
   "discern_improvement",
@@ -567,16 +567,16 @@ export const TOOLS: McpTool[] = orderTools([
       }),
   }),
   defineTool({
-    name: "discern_docs",
-    title: "Read project docs",
-    outputSchema: DocsOutputSchema.shape,
+    name: "discern_map",
+    title: "Read the project map",
+    outputSchema: MapOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Read the project's documentation tree. With no argument, return the index — " +
+      "Read the project map — its agent-maintained documentation tree and the " +
+      "grounded source for documented project behaviour. With no argument, return the index — " +
       "every doc's path, section, slug, and title. Pass `target` (a slug, " +
       "`section/slug`, or path) to return that one doc's full Markdown content. The " +
-      "grounded source to consult before reasoning about this project's documented " +
-      "behaviour.",
+      "source to consult before reasoning about this project.",
     inputSchema: {
       target: z.string().optional().describe(
         "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
@@ -584,7 +584,7 @@ export const TOOLS: McpTool[] = orderTools([
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      docsResult(root, {
+      mapResult(root, {
         target: args.target,
       }),
   }),
@@ -600,8 +600,8 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +
       "config reference, the concepts, the gate/worktree/standard pages), bundled " +
-      "into every install. Distinct from discern_docs, which reads the host " +
-      "PROJECT's docs: call this to learn how discern itself works, before editing " +
+      "into every install. Distinct from discern_map, which reads the host " +
+      "PROJECT's map: call this to learn how discern itself works, before editing " +
       "discern.toml or reasoning about the gate. With no argument, return the index " +
       "(every doc's path, section, slug, and title); pass `target` (a slug, " +
       "`section/slug`, or path) for that one doc's full Markdown content. Always " +
@@ -1095,7 +1095,7 @@ export async function runTool(
     });
   }
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
-  // (the setup-gated verbs, including `discern_docs`) refuses until the project records
+  // (the setup-gated verbs, including `discern_map`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
   // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improvement` are
   // not gated — they are exactly what you reach for before setup is done.
@@ -1244,7 +1244,7 @@ async function assertResourceSetUp(root: string): Promise<void> {
 }
 
 /**
- * Register the doc-tree resources for one scheme (`docs` = the project's tree,
+ * Register the doc-tree resources for one scheme (`map` = the project's tree,
  * `help` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
  * and a `{+target}` template (`discern://<scheme>/{+target}` → that one doc's
  * Markdown; the `+` is RFC 6570 reserved-expansion so the target may contain `/`
@@ -1254,7 +1254,7 @@ async function assertResourceSetUp(root: string): Promise<void> {
  */
 function registerDocTree(
   server: McpServer,
-  scheme: "docs" | "help",
+  scheme: "map" | "help",
   label: string,
   index: () => Promise<DiscernResult<DocsData>>,
   single: (target: string) => Promise<DiscernResult<DocsData>>,
@@ -1281,7 +1281,7 @@ function registerDocTree(
     // compiles stops its capture at a `/` (and a `,`), so only a slug-shaped target
     // ever matched — `section/slug` and a path (both containing `/`) fell through to
     // a not-found. The `+` operator captures the reserved set, `/` included, so all
-    // three forms the description advertises (and the discern_docs/discern_help tools
+    // three forms the description advertises (and the discern_map/discern_help tools
     // accept) resolve as resources too. The variable is still named `target`, so the
     // read handler's `variables.target` is unchanged.
     new ResourceTemplate(`discern://${scheme}/{+target}`, { list: undefined }),
@@ -1307,7 +1307,7 @@ function registerDocTree(
  * Register the readable resources, mirroring the tools' pre-setup gating:
  * `discern://status`, `discern://impact`, `discern://config`, and
  * `discern://help` (+ a `{+target}` template) are always available;
- * `discern://docs` (+ template)
+ * `discern://map` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
  * do. Every read recomputes from the verb core against the server's CURRENT working
  * root (resolved per read via {@link WorkingRoot}, ADR 0062), so the resources follow
@@ -1384,21 +1384,21 @@ function registerResources(
     (target) => helpResult(currentRoot(), { target }),
   );
 
-  // docs — the project's documentation, gated (per read) on setup completion,
-  // mirroring the discern_docs tool.
+  // map — the project's agent-maintained documentation, gated (per read) on setup completion,
+  // mirroring the discern_map tool.
   registerDocTree(
     server,
-    "docs",
-    "the project's documentation",
+    "map",
+    "the project map — its agent-maintained documentation",
     async () => {
       const root = currentRoot();
       await assertResourceSetUp(root);
-      return docsResult(root);
+      return mapResult(root);
     },
     async (target) => {
       const root = currentRoot();
       await assertResourceSetUp(root);
-      return docsResult(root, { target });
+      return mapResult(root, { target });
     },
   );
 }
@@ -1433,7 +1433,7 @@ export function buildInstructions(): string {
     "discern_help.",
     "- Verify the install with discern_doctor when something looks misconfigured " +
     "(bad config, a command not on PATH, a stale schema).",
-    "- Read THIS project's own documentation with discern_docs.",
+    "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
     "- Run quality standards with discern_standards as needed — slow and " +
     "on-demand, so NOT part of discern_done. Non-dry-run standards require a " +

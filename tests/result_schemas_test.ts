@@ -36,7 +36,6 @@ import {
   type CouplingData,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
-  DocsOutputSchema,
   DoctorOutputSchema,
   EnvelopeSchema,
   FinishOutputSchema,
@@ -44,6 +43,7 @@ import {
   HelpOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
+  MapOutputSchema,
   PrepareOutputSchema,
   RefreshOutputSchema,
   SkillsListOutputSchema,
@@ -69,7 +69,7 @@ import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
-import { docsResult, helpResult } from "../src/commands/docs.ts";
+import { helpResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
 import {
   acceptResult,
@@ -170,7 +170,7 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
  * id here together with its faithfulness test. */
 const FAITHFULNESS_COVERED = new Set<string>([
   "coupling",
-  "docs",
+  "map",
   "doctor",
   "done",
   "accept",
@@ -640,35 +640,35 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
   });
 });
 
-Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree)", async () => {
+Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // No docs/ tree yet → a no_docs error envelope (no data).
-    expectValid(DocsOutputSchema, await docsResult(dir), "docs no-tree");
+    // No map/ tree yet → a no_map error envelope (no data).
+    expectValid(MapOutputSchema, await mapResult(dir), "map no-tree");
 
     // Seed a tiny tree → index + single doc + not-found.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas.\n",
     );
-    const index = await docsResult(dir);
-    expectValid(DocsOutputSchema, index, "docs index");
+    const index = await mapResult(dir);
+    expectValid(MapOutputSchema, index, "map index");
     const slug = (index.data as { docs: { slug: string }[] }).docs[0]?.slug;
     assert(slug !== undefined);
     expectValid(
-      DocsOutputSchema,
-      await docsResult(dir, { target: slug }),
-      "docs single",
+      MapOutputSchema,
+      await mapResult(dir, { target: slug }),
+      "map single",
     );
     expectValid(
-      DocsOutputSchema,
-      await docsResult(dir, { target: "no-such-doc" }),
-      "docs not-found",
+      MapOutputSchema,
+      await mapResult(dir, { target: "no-such-doc" }),
+      "map not-found",
     );
 
     // help reads discern's OWN bundled docs (always present in this repo's build).

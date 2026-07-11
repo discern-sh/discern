@@ -60,14 +60,14 @@
       "description": "Preset metadata, shown when listing presets; ignored by `setup --config`.",
       "type": "string"
     },
-    "docs": {
-      "description": "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
+    "map": {
+      "description": "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
       "default": {},
       "type": "object",
       "properties": {
         "dir": {
-          "default": "discern/docs/",
-          "description": "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
+          "default": "map/",
+          "description": "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default.",
           "type": "string"
         }
       },
@@ -300,7 +300,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${docs.dir}**\" } (files | lines | words | bytes over a git pathspec).",
+            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec).",
             "anyOf": [
               {
                 "type": "string"

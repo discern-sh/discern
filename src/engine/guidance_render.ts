@@ -38,7 +38,7 @@ import {
   type GuidanceContext,
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 
 /**
  * The built-in guidance sections, in compile order. Every section always
@@ -52,7 +52,7 @@ const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
   { file: "worktrees.md" },
   { file: "standards.md" },
   { file: "skills.md" },
-  { file: "docs.md" },
+  { file: "map.md" },
 ];
 
 /**
@@ -92,7 +92,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   return {
     vars: {
       branch_prefix: config.project.branch_prefix,
-      docs_dir: normalizeDocsDir(config.docs.dir),
+      map_dir: normalizeMapDir(config.map.dir),
       // The deferred-work ledger's configured location. No built-in guidance
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
       // is exposed here so both surfaces read one context.

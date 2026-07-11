@@ -30,7 +30,8 @@ import { withTempDir } from "./helpers.ts";
 function sentinelFor(name: SourcePathName): string {
   const def = SOURCE_PATHS[name].defaultPath;
   if (def.endsWith("/")) {
-    return `zz-sentinel-${name}/`;
+    const candidate = `zz-sentinel-${name}/`;
+    return candidate.includes(def) ? "zz-sentinel-location/" : candidate;
   }
   const dot = def.lastIndexOf(".");
   return dot === -1
@@ -106,10 +107,10 @@ Deno.test("sentinel render: no registry default survives in compiled guidance or
 
     // Sanity: rendering really spoke the sentinel layout (guards against a
     // silently-empty render passing vacuously).
-    const docsSentinel = sentinelFor("docs");
+    const mapSentinel = sentinelFor("map");
     assert(
-      outputs.some(([, text]) => text.includes(docsSentinel)),
-      `no rendered output names ${docsSentinel} — did rendering happen?`,
+      outputs.some(([, text]) => text.includes(mapSentinel)),
+      `no rendered output names ${mapSentinel} — did rendering happen?`,
     );
   });
 });

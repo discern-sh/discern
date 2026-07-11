@@ -1,6 +1,6 @@
 # Open work — {{project_name}}
 
-The **deferred-work ledger**: the agent-maintained record of outstanding work — verified defects, deferred fixes, known dead code, and at-risk or unmerged work. The map at `{{docs_dir}}` describes what *currently exists*; this file tracks what's *still owed*.
+The **deferred-work ledger**: the agent-maintained record of outstanding work — verified defects, deferred fixes, known dead code, and at-risk or unmerged work. The map at `{{map_dir}}` describes what *currently exists*; this file tracks what's *still owed*.
 
 ## For agents (any agent — and the maintainer)
 
@@ -14,7 +14,7 @@ The **deferred-work ledger**: the agent-maintained record of outstanding work �
 
 ## 📚 Documentation — finish the seeded map
 
-`discern setup` lays the map at `{{docs_dir}}` as a skeleton: `00-orientation/`
+`discern setup` lays the map at `{{map_dir}}` as a skeleton: `00-orientation/`
 and the numbered subsystem subtrees (`10-…` onward) ship as stubs, still to be
 written from the code. Filling them is the one piece of work a fresh project
 starts out owing.

@@ -96,7 +96,7 @@ scripts/setup-eval/run-claude.sh \
   --result-dir "$RESULT_DIR" \
   --agent-model "$CLAUDE_MODEL" \
   --model-id "$CLAUDE_MODEL" \
-  --docs-answer docs/discern/
+  --map-answer docs/discern/
 ```
 
 The continuation invocation is:
@@ -137,7 +137,7 @@ scripts/setup-eval/run-codex.sh \
   --result-dir "$RESULT_DIR" \
   --agent-model "$CODEX_MODEL" \
   --model-id "$CODEX_MODEL" \
-  --docs-answer docs/discern/
+  --map-answer docs/discern/
 ```
 
 The continuation invocation is:

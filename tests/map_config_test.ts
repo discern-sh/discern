@@ -6,28 +6,28 @@ import { scopesForPaths } from "../src/engine/scopes/scopes.ts";
 import { buildStandardPlan } from "../src/engine/gate/standard_plan.ts";
 
 const CONFIG = parseConfigOrThrow(`
-[docs]
+[map]
 dir = "docs/discern/"
 
 [checks.prose]
 stage = "check"
-run = "vale \\"\${docs.dir}\\""
+run = "vale \\"\${map.dir}\\""
 
 [scopes.docs]
-paths = ["\${docs.dir}"]
+paths = ["\${map.dir}"]
 
 [scopes.preview]
-paths = ["\${docs.dir}"]
-gate = "check \\"\${docs.dir}\\""
+paths = ["\${map.dir}"]
+gate = "check \\"\${map.dir}\\""
 
 [standards.prose]
 direction = "down"
 limit = 1
-run = "measure \\"\${docs.dir}\\""
-per = { words = "\${docs.dir}**" }
+run = "measure \\"\${map.dir}\\""
+per = { words = "\${map.dir}**" }
 `);
 
-Deno.test("every config surface that follows the docs root expands [docs].dir", () => {
+Deno.test("every config surface that follows the map root expands [map].dir", () => {
   assertEquals(
     jobsInStage(CONFIG, "check")[0]?.command,
     'vale "docs/discern/"',

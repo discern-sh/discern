@@ -3439,8 +3439,8 @@
         "verb"
       ]
     },
-    "DiscernDocsResult": {
-      "title": "DiscernDocsResult",
+    "DiscernMapResult": {
+      "title": "DiscernMapResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -3655,14 +3655,14 @@
         },
         "verb": {
           "type": "string",
-          "const": "docs"
+          "const": "map"
         },
         "data": {
           "anyOf": [
             {
               "type": "object",
               "properties": {
-                "docs_dir": {
+                "map_dir": {
                   "type": "string"
                 },
                 "count": {
@@ -4012,7 +4012,7 @@
             {
               "type": "object",
               "properties": {
-                "docs_dir": {
+                "map_dir": {
                   "type": "string"
                 },
                 "count": {
@@ -10183,8 +10183,8 @@
         "isError"
       ]
     },
-    "DiscernDocsMcpToolResult": {
-      "title": "DiscernDocsMcpToolResult",
+    "DiscernMapMcpToolResult": {
+      "title": "DiscernMapMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10206,7 +10206,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernDocsResult"
+          "$ref": "#/$defs/DiscernMapResult"
         },
         "isError": {
           "type": "boolean"
@@ -10705,7 +10705,7 @@
           "$ref": "#/$defs/DiscernPresetResult"
         },
         {
-          "$ref": "#/$defs/DiscernDocsResult"
+          "$ref": "#/$defs/DiscernMapResult"
         },
         {
           "$ref": "#/$defs/DiscernHelpResult"
@@ -10780,7 +10780,7 @@
           "uninstall": "#/$defs/DiscernUninstallResult",
           "doctor": "#/$defs/DiscernDoctorResult",
           "preset": "#/$defs/DiscernPresetResult",
-          "docs": "#/$defs/DiscernDocsResult",
+          "map": "#/$defs/DiscernMapResult",
           "help": "#/$defs/DiscernHelpResult",
           "config": "#/$defs/DiscernConfigResult",
           "done": "#/$defs/DiscernDoneResult",
@@ -10812,7 +10812,7 @@
           "$ref": "#/$defs/DiscernDoctorMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernDocsMcpToolResult"
+          "$ref": "#/$defs/DiscernMapMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernHelpMcpToolResult"
@@ -10933,14 +10933,14 @@
       "schema": "#/$defs/DiscernPresetResult"
     },
     {
-      "id": "docs",
-      "verb": "docs",
+      "id": "map",
+      "verb": "map",
       "commands": [
-        "docs"
+        "map"
       ],
-      "mcpTool": "discern_docs",
-      "schema": "#/$defs/DiscernDocsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernDocsMcpToolResult"
+      "mcpTool": "discern_map",
+      "schema": "#/$defs/DiscernMapResult",
+      "mcpToolResultSchema": "#/$defs/DiscernMapMcpToolResult"
     },
     {
       "id": "help",

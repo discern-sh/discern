@@ -29,11 +29,11 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const repointed = await repointSourcePaths(dir);
-    const docsDir = repointed.find((p) => p.name === "docs")?.value;
+    const mapDir = repointed.find((p) => p.name === "map")?.value;
     const guidanceSrc = repointed.find((p) => p.name === "guidance")?.value;
     const skillsDir = repointed.find((p) => p.name === "skills")?.value;
     assert(
-      docsDir !== undefined && guidanceSrc !== undefined &&
+      mapDir !== undefined && guidanceSrc !== undefined &&
         skillsDir !== undefined,
     );
 
@@ -51,7 +51,7 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
 
     // Compiled guidance speaks the repointed layout and carries the user source.
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
-    assertStringIncludes(claude, docsDir);
+    assertStringIncludes(claude, mapDir);
     assertStringIncludes(claude, "ZZ custom rules");
 
     // Bundled skills render to the configured paths — and no registry default
@@ -59,7 +59,7 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
     const adr = await Deno.readTextFile(
       join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
     );
-    assertStringIncludes(adr, `${docsDir}_adr/`);
+    assertStringIncludes(adr, `${mapDir}_adr/`);
     const defaults = SOURCE_PATH_NAMES.map((n) => SOURCE_PATHS[n].defaultPath);
     for await (
       const e of walk(join(dir, ".claude/skills"), {
@@ -106,7 +106,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     // skills go stale, status reports it, and finish refuses until refresh.
     const configPath = join(dir, "discern.toml");
     const editor = new TomlEditor(await Deno.readTextFile(configPath));
-    editor.setString("docs.dir", "zz-alt2-docs/");
+    editor.setString("map.dir", "zz-alt2-docs/");
     await Deno.writeTextFile(configPath, editor.toString());
     await git(dir, "commit", "-aqm", "repoint docs", "--no-gpg-sign");
 

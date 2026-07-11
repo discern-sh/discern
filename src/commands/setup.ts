@@ -115,7 +115,7 @@ import {
   landingSummary,
 } from "./setup_accept.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
@@ -157,7 +157,7 @@ export interface RawScaffoldCliOptions {
   sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
-  docs?: string | undefined;
+  map?: string | undefined;
   config?: string | undefined;
   model?: string | undefined;
   dryRun?: boolean | undefined;
@@ -189,7 +189,7 @@ export function beginOptsFrom(
     sourceGlobs: o.sourceGlobs,
     brief: o.brief,
     agents: o.agents,
-    docs: o.docs,
+    map: o.map,
     config: o.config,
     model: o.model,
   };
@@ -217,7 +217,7 @@ export function hasScaffoldIntent(options: unknown): boolean {
     o.sourceGlobs !== undefined ||
     o.brief !== undefined ||
     o.agents !== undefined ||
-    o.docs !== undefined ||
+    o.map !== undefined ||
     o.model !== undefined
   );
 }
@@ -915,17 +915,17 @@ async function recordProvenance(
 async function laySkeletons(
   root: string,
   name: string,
-  docsDir: string,
+  mapDir: string,
   todoRel: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
   const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
   const skipped: string[] = [];
-  const docsRel = normalizeDocsDir(docsDir);
+  const docsRel = normalizeMapDir(mapDir);
   const docsAbs = join(root, docsRel);
   const tokens: SkeletonTokens = {
     "{{project_name}}": name,
-    "{{docs_dir}}": docsRel,
+    "{{map_dir}}": docsRel,
     "{{todo_path}}": todoRel,
   };
 
@@ -953,7 +953,7 @@ async function laySkeletons(
 
 /** The path context setup's agent-facing brief renders against. */
 interface SetupPathContext {
-  docsDir: string;
+  mapDir: string;
   todoRel: string;
   guidanceRel: string;
 }
@@ -966,7 +966,7 @@ function renderSetupPaths(
   paths: SetupPathContext,
 ): string {
   return instructions
-    .replaceAll("{{docs_dir}}", normalizeDocsDir(paths.docsDir))
+    .replaceAll("{{map_dir}}", normalizeMapDir(paths.mapDir))
     .replaceAll("{{todo_path}}", paths.todoRel)
     .replaceAll("{{guidance_path}}", paths.guidanceRel)
     .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath);
@@ -1004,17 +1004,17 @@ export async function resolveSetupRoot(start: string): Promise<string> {
 export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
 
-  // The verbatim-copy guard for `--docs`, mirroring the `--model` placeholder
+  // The verbatim-copy guard for `--map`, mirroring the `--model` placeholder
   // guard in recordProvenance: an angle-bracket value is the consent framing's
   // own example copied unsubstituted, and accepting it would scaffold a literal
   // `<placeholder>/` tree. --model degrades silently (provenance is advisory);
-  // --docs REFUSES, because it decides where real files land.
-  if (opts.docs !== undefined && /[<>]/.test(opts.docs)) {
+  // --map REFUSES, because it decides where real files land.
+  if (opts.map !== undefined && /[<>]/.test(opts.map)) {
     emitSetupError(
       log,
       opts,
       "invalid_option",
-      `--docs received a literal placeholder (${opts.docs}) — substitute the real project-relative path to the docs folder (e.g. --docs docs/), or omit the flag to keep discern's map at its default home.`,
+      `--map received a literal placeholder (${opts.map}) — substitute the real project-relative path to the docs folder (e.g. --map docs/), or omit the flag to keep discern's map at its default home.`,
     );
     return 1;
   }
@@ -1172,10 +1172,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // a resume where the fresh SetupConfig isn't in hand (ADR 0065).
   const name = scaffold?.config.projectName ??
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
-  const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ??
-    SOURCE_PATHS.docs.defaultPath;
+  const mapDir = cfg?.map.dir ?? scaffold?.config.mapDir ??
+    SOURCE_PATHS.map.defaultPath;
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
-  const { laid, skipped } = await laySkeletons(destDir, name, docsDir, todoRel);
+  const { laid, skipped } = await laySkeletons(destDir, name, mapDir, todoRel);
 
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
   // `begin` emits the principles and page 0 only (A10); the agent pulls each
@@ -1186,7 +1186,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     join(await resolveSetupDir(), "instructions.md"),
   );
   let instructions = renderSetupPaths(rawInstructions, {
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel: scaffold?.guidanceRel ??
       (cfg !== undefined
@@ -1660,14 +1660,14 @@ export async function runSetupStep(
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   const root = await findRoot();
   if (root !== undefined) {
     try {
       const cfg = await loadConfig(root);
-      docsDir = cfg.docs.dir;
+      mapDir = cfg.map.dir;
       todoRel = cfg.project.todo;
       guidanceRel = guidanceSeedRel(cfg.guidance.sources);
     } catch {
@@ -1675,7 +1675,7 @@ export async function runSetupStep(
     }
   }
   const instructions = renderSetupPaths(rawInstructions, {
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel,
   });
@@ -1846,19 +1846,19 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
   }
   // The authored-setup locations, from config when it loads (registry defaults
   // otherwise — a broken config is the proof's problem, not this check's).
-  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   try {
     const cfg = await loadConfig(root);
-    docsDir = normalizeDocsDir(cfg.docs.dir);
+    mapDir = normalizeMapDir(cfg.map.dir);
     todoRel = cfg.project.todo;
     guidanceRel = guidanceSeedRel(cfg.guidance.sources);
   } catch {
     // Keep the defaults.
   }
   const footprint = [
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel,
     SOURCE_PATHS.brief.defaultPath,

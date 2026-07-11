@@ -29,9 +29,9 @@ registry default written as a literal anywhere else in `src/**` fails
 [`tests/paths_literal_ban_test.ts`](../../tests/paths_literal_ban_test.ts); a
 rendered artifact that leaks one fails the sentinel-render guard.
 
-Gate commands get one substitution: `${docs.dir}` in a check, standard, or `per`
+Gate commands get one substitution: `${map.dir}` in a check, standard, or `per`
 extent expands to the configured docs dir
-([`expandDocsDirReference`](../../src/shared/docs_path.ts)) — how the shipped
+([`expandMapDirReference`](../../src/shared/map_path.ts)) — how the shipped
 `prose` check and the docs standards follow a re-pointed map with no edit.
 
 ## The read surface

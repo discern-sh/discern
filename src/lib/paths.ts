@@ -17,7 +17,7 @@ import {
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
@@ -78,13 +78,13 @@ export function resolveSkillsDir(
   return resolveDir(root, config.skills.dir);
 }
 
-/** The configured agent-documentation tree: `[docs].dir` (its default lives in
+/** The configured agent-documentation tree: `[map].dir` (its default lives in
  * the paths registry). */
-export function resolveDocsDir(
+export function resolveMapDir(
   root: string,
   config: DiscernConfig,
 ): ResolvedDir {
-  return resolveDir(root, normalizeDocsDir(config.docs.dir));
+  return resolveDir(root, normalizeMapDir(config.map.dir));
 }
 
 /**
@@ -332,7 +332,7 @@ export async function resolveTemplatesDir(
 
 /**
  * Resolve the absolute path to discern's OWN bundled documentation — the tree
- * `discern help` serves, distinct from a project's `docs/` (which `discern docs`
+ * `discern help` serves, distinct from a project's map (which `discern map`
  * resolves via the project root). Like {@link resolveTemplatesDir} it is
  * discovered module-relative, so it works both under `deno run` from this
  * checkout and inside a `deno compile` binary built with the staged docs

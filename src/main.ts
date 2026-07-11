@@ -44,7 +44,7 @@ import { runUpgrade } from "./commands/upgrade.ts";
 import { runUninstall } from "./commands/uninstall.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runPreset } from "./commands/preset.ts";
-import { runDocs, runHelp } from "./commands/docs.ts";
+import { runHelp, runMap } from "./commands/docs.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
@@ -212,8 +212,8 @@ export function buildCli(hideSetup: boolean): RootCommand {
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
-      "--docs <path:string>",
-      "Project-relative directory for discern's agent documentation tree.",
+      "--map <path:string>",
+      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
     )
     .option(
       "--config <file:string>",
@@ -312,8 +312,8 @@ export function buildCli(hideSetup: boolean): RootCommand {
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
-      "--docs <path:string>",
-      "Project-relative directory for discern's agent documentation tree.",
+      "--map <path:string>",
+      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
     )
     .option(
       "--config <file:string>",
@@ -447,8 +447,10 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   root
-    .command("docs [target:string]")
-    .description("Browse and read the project's documentation tree.")
+    .command("map [target:string]")
+    .description(
+      "Browse and read the project map — its agent-maintained documentation tree.",
+    )
     .option(
       "--raw",
       "Print a doc's pristine Markdown source instead of rendering it.",
@@ -460,7 +462,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option(
       "--dir <path:string>",
-      "Docs directory to browse (default: the project's [docs].dir).",
+      "Map directory to browse (default: the project's [map].dir).",
     )
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
@@ -472,7 +474,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
       "Write an export to a file instead of stdout.",
     )
     .action(async (options, target?: string) => {
-      const code = await runDocs({
+      const code = await runMap({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
@@ -489,10 +491,10 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
-  // concepts, the gate/worktree/standard docs). Distinct from `docs`, which serves
+  // concepts, the gate/worktree/standard docs). Distinct from `map`, which serves
   // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
-  // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
+  // it. Mirrors `map`'s read flags (target, --list/--raw/--json/--no-pager/--width)
   // plus a public-only `--export`.
   root
     .command("help [target:string]")
@@ -771,8 +773,8 @@ export interface CliInvocation {
 /**
  * Resolve the verb a raw argv addresses the way Cliffy will: the FIRST token
  * that is not one of the root command's global flags. Cliffy accepts global
- * flags on either side of the subcommand (`discern --json docs` ≡
- * `discern docs --json`), so every pre-Cliffy routing decision — the setup
+ * flags on either side of the subcommand (`discern --json map` ≡
+ * `discern map --json`), so every pre-Cliffy routing decision — the setup
  * redirect (ADR 0036), the welcome/help split, shadow warnings, recipe
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
@@ -857,8 +859,8 @@ export async function main(args: string[]): Promise<void> {
     // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
     // verb the way Cliffy will — the first non-global-flag token — and key
     // every routing decision below on it. Keying on argv[0] would let
-    // `discern --json docs` slip past the setup redirect that catches
-    // `discern docs --json`.
+    // `discern --json map` slip past the setup redirect that catches
+    // `discern map --json`.
     const globalTokens = globalFlagTokens(cli as unknown as Command);
     const invocation = resolveInvocation(argv, globalTokens);
     verb = invocation.verb;
@@ -939,7 +941,7 @@ export async function main(args: string[]): Promise<void> {
 
     // Pre-setup hard redirect (ADR 0036): until the project records
     // `[meta].bootstrapped`, the setup-gated verbs refuse and point at setup —
-    // running an empty gate would report a false "all-green", and `docs` would
+    // running an empty gate would report a false "all-green", and `map` would
     // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
     // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
     // parse-broken config still surfaces its own TOML error (the configOk guard).

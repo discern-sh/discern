@@ -163,7 +163,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
 `discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
 `discern_standards`, `discern_doctor`, `discern_improvement`, `discern_impact`,
-`discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
+`discern_coupling`, `discern_map`, `discern_help`, `discern_start`,
 `discern_update`, `discern_accept`. Each advertises:
 
 - a **`title`** (a short human label) and a **description**;
@@ -176,7 +176,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
   moves the branch).
 
 A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
-`discern_docs`) refuse with `not_set_up` until the project is set up.
+`discern_map`) refuse with `not_set_up` until the project is set up.
 `discern_standards` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_done`; check it explicitly.
 
@@ -202,8 +202,7 @@ on the surface.
 "when to use which tool" guide capable clients load on connect: orient with
 `discern_status`, gate with `discern_done` (`discern_prepare`/`discern_test`
 while iterating), learn discern via `discern_help`, read the project's docs via
-`discern_docs`, improve with `discern_improvement`, accept with
-`discern_accept`.
+`discern_map`, improve with `discern_improvement`, accept with `discern_accept`.
 
 **Resources.** Alongside the tools, five readable resources are computed fresh
 on every read and serve the verb's `data` payload (not the full envelope):
@@ -217,7 +216,7 @@ on every read and serve the verb's `data` payload (not the full envelope):
 | `discern://docs` · `discern://docs/{+target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
 
 The doc templates use RFC 6570 **reserved expansion** (`{+target}`), so a
-`{+target}` accepts the same three forms the `discern_docs` / `discern_help`
+`{+target}` accepts the same three forms the `discern_map` / `discern_help`
 tools do — a bare **slug**, a **`section/slug`**, or a **path** — including the
 two that contain a `/`. (A plain `{target}` compiles to a capture that stops at
 `/`, so only the slug form would resolve; reserved expansion is what lets the

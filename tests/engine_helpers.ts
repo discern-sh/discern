@@ -141,7 +141,7 @@ export async function scaffoldEngine(
 /** One keyed registry path repointed at a non-default location. */
 export interface RepointedPath {
   name: SourcePathName;
-  /** The dotted config key (e.g. `docs.dir`). */
+  /** The dotted config key (e.g. `map.dir`). */
   key: string;
   /** The non-default value the key is pointed at. */
   value: string;
@@ -162,8 +162,11 @@ export function nonDefaultPaths(): RepointedPath[] {
       continue;
     }
     const dot = defaultPath.lastIndexOf(".");
+    const directoryCandidate = `zz-alt-${name}/`;
     const value = defaultPath.endsWith("/")
-      ? `zz-alt-${name}/`
+      ? directoryCandidate.includes(defaultPath)
+        ? "zz-alt-location/"
+        : directoryCandidate
       : dot === -1
       ? `zz-alt-${name}`
       : `zz-alt-${name}${defaultPath.slice(dot)}`;

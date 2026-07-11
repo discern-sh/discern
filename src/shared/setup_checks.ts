@@ -24,7 +24,7 @@
 import { join } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
-import { normalizeDocsDir } from "./docs_path.ts";
+import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel } from "./paths_registry.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
@@ -81,9 +81,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     async evaluate({ root, config }): Promise<boolean> {
       const text = await readFileOr(
         root,
-        `${
-          normalizeDocsDir(config.docs.dir)
-        }00-orientation/design-principles.md`,
+        `${normalizeMapDir(config.map.dir)}00-orientation/design-principles.md`,
       );
       if (text === undefined) {
         return true; // not laid here (existing-docs project) → N/A

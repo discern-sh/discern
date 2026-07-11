@@ -61,13 +61,13 @@ anywhere
 
 ### Map
 
-The documentation tree discern maintains at `[docs].dir` (default
+The documentation tree discern maintains at `[map].dir` (default
 `discern/docs/`): an **agent-first** account of the codebase — inferred by
 agents, written by agents, read by agents first and by humans as an audit of
 what their agents actually understand. Its structure, format, and upkeep are
 discern's to prescribe; staleness is a defect the gate catches. It is
 deliberately **not** the project's own documentation, which discern never
-touches; pointing `[docs].dir` at real docs is deliberate consent to apply the
+touches; pointing `[map].dir` at real docs is deliberate consent to apply the
 map discipline there (this repo does exactly that with its root `docs/`).
 `setup begin` scaffolds it eagerly and the setup authoring pass fills it — a
 blank map is worse than none
@@ -185,7 +185,7 @@ settings and the project-owned rules outside the [co-managed](#co-managed-seed)
 anywhere you point their keys: your [Guidance source](#guidance-source),
 authored [Skills](#skill) under `[skills].dir`, [Recipes](#recipe) under
 `[recipes].dir`, and the two `discern setup begin` scaffolds and the setup
-authoring pass fills — [the Map](#map) under `[docs].dir` and the deferred-work
+authoring pass fills — [the Map](#map) under `[map].dir` and the deferred-work
 ledger at `[project].todo`.
 
 ### Placement is consent

@@ -83,10 +83,10 @@ the footprint sentence a checkable predicate rather than copy.
 
 ## Control surface & configuration
 
-| Path                                                | Bucket     | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`discern.toml`](../../templates/discern.toml.tmpl) | co-managed | The one hand-edited root file. It teaches the generic engine about your stack: capabilities, checks, scopes (with gates), worktree settings, standards, gate ergonomics, and the `[docs]`/`[guidance]`/`[skills]`/`[recipes]`/`[project].todo` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)); its missing fixed scaffold is reconciled from the current template ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)). |
-| `discern/brief.md`                                  | yours      | An optional project brief — seeded only when one is supplied (`discern setup --brief`/`--config`). When present, the agent reads it to help fill the map and guidance.                                                                                                                                                                                                                                                                                                                                      |
+| Path                                                | Bucket     | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`discern.toml`](../../templates/discern.toml.tmpl) | co-managed | The one hand-edited root file. It teaches the generic engine about your stack: capabilities, checks, scopes (with gates), worktree settings, standards, gate ergonomics, and the `[map]`/`[guidance]`/`[skills]`/`[recipes]`/`[project].todo` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)); its missing fixed scaffold is reconciled from the current template ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)). |
+| `discern/brief.md`                                  | yours      | An optional project brief — seeded only when one is supplied (`discern setup --brief`/`--config`). When present, the agent reads it to help fill the map and guidance.                                                                                                                                                                                                                                                                                                                                     |
 
 Every source path has a prescriptive default inside the namespace and a config
 key that points it anywhere
@@ -95,13 +95,13 @@ key that points it anywhere
 | Source               | Default               | Config key           |
 | -------------------- | --------------------- | -------------------- |
 | guidance source      | `discern/guidance.md` | `[guidance].sources` |
-| the map              | `discern/docs/`       | `[docs].dir`         |
+| the map              | `discern/docs/`       | `[map].dir`          |
 | authored skills      | `discern/skills`      | `[skills].dir`       |
 | recipes              | `discern/recipes`     | `[recipes].dir`      |
 | deferred-work ledger | `discern/TODO.md`     | `[project].todo`     |
 | project brief        | `discern/brief.md`    | — (fixed)            |
 
-This repo itself points `[docs].dir` at root `docs/` — a permanent, self-hosted
+This repo itself points `[map].dir` at root `docs/` — a permanent, self-hosted
 exercise of the pointing escape hatch, which keeps hard-coded-default leaks loud
 instead of invisible.
 
@@ -193,7 +193,7 @@ that set), and a project can add its own under `[skills].dir` (default
 `discern/skills`, yours overriding a built-in by name). `discern refresh` (and
 `setup`/`upgrade`) materialise the effective set into each configured agent's
 skills dir — **generated**, gitignored: built-ins **rendered** through the
-strict template engine (path tokens like `{{docs_dir}}` become the configured
+strict template engine (path tokens like `{{map_dir}}` become the configured
 paths — [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)),
 authored skills **symlinked** so edits are live (see
 [`src/lib/skills.ts`](../../src/lib/skills.ts)). `discern skills list` shows the
@@ -223,7 +223,7 @@ see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by
 
 ## The map & the ledger
 
-`discern setup begin` lays the map's skeleton at `[docs].dir` (default
+`discern setup begin` lays the map's skeleton at `[map].dir` (default
 `discern/docs/`, including the ADR pack) and the deferred-work ledger at
 `[project].todo` (default `discern/TODO.md`), and the setup brief's authoring
 pass fills them — the map is eager, and never left empty

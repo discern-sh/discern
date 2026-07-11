@@ -28,7 +28,7 @@ import {
   configSchema,
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
-import { normalizeDocsDir } from "../src/shared/docs_path.ts";
+import { normalizeMapDir } from "../src/shared/map_path.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -191,11 +191,12 @@ async function layMarkerFreeProject(
 ): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await Deno.mkdir(join(dir, "discern/docs/00-orientation"), {
+  await Deno.mkdir(join(dir, "map/00-orientation"), {
     recursive: true,
   });
+  await Deno.mkdir(join(dir, "discern"), { recursive: true });
   await Deno.writeTextFile(
-    join(dir, "discern/docs/00-orientation/design-principles.md"),
+    join(dir, "map/00-orientation/design-principles.md"),
     principles,
   );
   await Deno.writeTextFile(
@@ -317,7 +318,7 @@ async function writePrinciples(
 ): Promise<void> {
   const path = join(
     root,
-    `${normalizeDocsDir(config.docs.dir)}00-orientation/design-principles.md`,
+    `${normalizeMapDir(config.map.dir)}00-orientation/design-principles.md`,
   );
   await Deno.mkdir(dirname(path), { recursive: true });
   await Deno.writeTextFile(path, body);

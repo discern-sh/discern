@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 18
+schema_version = 19
 
 
 [project]
@@ -44,14 +44,14 @@ todo = "discern/TODO.md"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [docs] — discern's agent documentation tree. This is conceptually distinct
-# from human-curated project docs: setup scaffolds it here, `discern docs`
-# browses it, and `${docs.dir}` keeps checks/scopes/standards tied to this path.
+# [map] — the project map: discern's agent-maintained documentation tree. This is
+# distinct from human-curated project docs: setup scaffolds it here, `discern map`
+# browses it, and `${map.dir}` keeps checks/scopes/standards tied to this path.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[docs]
+[map]
 # Project-relative, and kept inside the repository.
-dir = "{{docs_dir}}"
+dir = "{{map_dir}}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
-#              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
+#              per = { words = "${map.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
 #   margin     headroom `discern standards --pin` leaves when it tightens this limit
 #              to the measured value (default 0). Give a metric that drifts on

@@ -1,9 +1,8 @@
 /**
  * The discern **paths registry** — the single source of truth for every
  * configurable source path (ADR 0102). Each entry defines one authored-surface
- * location: its config key (when it has one), its prescriptive default under the
- * visible `discern/` namespace (ADR 0099), the pre-namespace location the 14→15
- * migration moves from, and a one-line description.
+ * location: its config key (when it has one), its prescriptive default, the
+ * previous default a migration may need to carry, and a one-line description.
  *
  * Everything else derives from this table: the Zod schema's path `.default()`s
  * (`config_schema.ts`), the resolver helpers (`lib/paths.ts`), setup's seeding,
@@ -20,27 +19,28 @@ export interface SourcePathEntry {
    * input, not an ongoing convention, so it gains a key only when a real need
    * appears). */
   readonly key: string | null;
-  /** The prescriptive default, inside the `discern/` namespace (ADR 0099).
-   * Directories carry their canonical shape (`[docs].dir` keeps its trailing
+  /** The prescriptive default. Most authored sources live under `discern/`; the
+   * project map has its own root `map/` home so it cannot collide with a host
+   * project's human documentation. Directories carry their canonical shape
+   * (`[map].dir` keeps its trailing
    * slash; the skills/recipes dirs do not), matching what the schema defaults
    * and the shipped template write. */
   readonly defaultPath: string;
-  /** The pre-namespace default this path lived at through schema 14 — what the
-   * 14→15 migration moves from. It never seeds anything new. */
+  /** The previous default a migration carries forward. It never seeds anything new. */
   readonly legacyPath: string;
   /** One-line description of what lives at the path. */
   readonly description: string;
 }
 
-/** The visible namespace directory every source path defaults into (ADR 0099).
- * `discern.toml` itself stays at the root as the discovery marker. */
+/** The visible namespace directory most authored sources default into (ADR 0099).
+ * `discern.toml` and the project map stay at the root. */
 export const NAMESPACE_DIR = "discern/";
 
 /** The source-path names, in display order. The single source of truth for the
  * path vocabulary; {@link SOURCE_PATHS} is pinned to it at compile time. */
 export const SOURCE_PATH_NAMES = [
   "guidance",
-  "docs",
+  "map",
   "skills",
   "recipes",
   "todo",
@@ -63,12 +63,12 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     description:
       "The user's guideline source discern compiles into the agent files.",
   },
-  docs: {
-    key: "docs.dir",
-    defaultPath: "discern/docs/",
-    legacyPath: "docs/",
+  map: {
+    key: "map.dir",
+    defaultPath: "map/",
+    legacyPath: "discern/docs/",
     description:
-      "The agent documentation tree discern scaffolds, validates, and browses.",
+      "The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.",
   },
   skills: {
     key: "skills.dir",

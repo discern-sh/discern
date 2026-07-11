@@ -378,8 +378,8 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
         '[project]\nmain_branch = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
       expect: "zztrunk",
     },
-    docs_dir: {
-      toml: '[docs]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
+    map_dir: {
+      toml: '[map]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
       expect: "zz-docs/",
     },
     todo_path: {

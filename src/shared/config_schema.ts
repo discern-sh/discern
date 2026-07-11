@@ -28,7 +28,7 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
-import { isValidDocsDir } from "./docs_path.ts";
+import { isValidMapDir } from "./map_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { retiredConfigKeySuccessor } from "./vocabulary.ts";
 
@@ -141,7 +141,7 @@ const perExtent = z.strictObject(
 /** A standard's denominator. Turn a raw count into a *rate* so the number doesn't
  * rise just because the project grew. Either the name of a second metric the `run`
  * emits, or a built-in extent discern measures itself, e.g.
- * `per = { words = "${docs.dir}**" }`. */
+ * `per = { words = "${map.dir}**" }`. */
 const perValue = z.union([z.string(), perExtent]);
 
 /** The gate stages a `[checks.<name>].stage` may name. */
@@ -189,7 +189,7 @@ const standardValue = z.strictObject({
   per: perValue.optional().describe(
     "Divide the metric to hold a *rate*, not a raw count — so the number " +
       "doesn't rise just because the project grew. Either a second metric the run emits, " +
-      'or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } ' +
+      'or a built-in extent discern measures itself: per = { words = "${map.dir}**" } ' +
       "(files | lines | words | bytes over a git pathspec).",
   ),
   scale: z.number().default(1).describe(
@@ -271,12 +271,12 @@ const skillsSection = z.strictObject({
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
 );
 
-const docsSection = z.strictObject({
-  dir: z.string().refine(isValidDocsDir, {
+const mapSection = z.strictObject({
+  dir: z.string().refine(isValidMapDir, {
     message:
       "must be a project-relative directory that stays inside the repository",
-  }).default(SOURCE_PATHS.docs.defaultPath).describe(
-    "Where discern's agent documentation tree lives, relative to the project root. `discern setup` scaffolds it here and `discern docs` browses it by default.",
+  }).default(SOURCE_PATHS.map.defaultPath).describe(
+    "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default.",
   ),
 }).prefault({}).describe(
   "The project documentation tree discern scaffolds, validates, and browses.",
@@ -437,7 +437,7 @@ export const configSchema = z.strictObject({
   project: projectSection,
   guidance: guidanceSection,
   skills: skillsSection,
-  docs: docsSection,
+  map: mapSection,
   capabilities: capabilitiesSection,
   checks: checksSection,
   scopes: scopesSection,
@@ -528,8 +528,8 @@ export const configDocSchema = z.strictObject({
   description: z.string().optional().describe(
     "Preset metadata, shown when listing presets; ignored by `setup --config`.",
   ),
-  docs: docsSection.optional().describe(
-    "[docs] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
+  map: mapSection.optional().describe(
+    "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
   capabilities: capabilitiesObject.optional().describe(
     "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",

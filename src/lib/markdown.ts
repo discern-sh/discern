@@ -5,7 +5,7 @@
  * fenced code, lists, blockquotes, GFM tables, and inline emphasis / code /
  * links. This module renders that subset to a styled string for a terminal — it
  * is deliberately NOT a spec-complete parser. The goal is a *readable* viewer
- * for `discern docs`, not round-trip fidelity.
+ * for `discern map`, not round-trip fidelity.
  *
  * Two design choices matter:
  *

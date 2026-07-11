@@ -146,10 +146,10 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and standards", () => {
+Deno.test("applyConfigDoc writes map, capabilities, checks, scopes and standards", () => {
   const ed = editor();
   applyConfigDoc(ed, {
-    docs: { dir: "docs/discern/" },
+    map: { dir: "docs/discern/" },
     capabilities: {
       lint: "deno lint",
       test: ["deno test", "deno bench"], // array form: two commands
@@ -171,7 +171,7 @@ Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and standard
     },
   });
   const out = ed.toString();
-  assert(out.includes('[docs]\ndir = "docs/discern/"'));
+  assert(out.includes('[map]\ndir = "docs/discern/"'));
   // A scalar capability and an array capability.
   assert(out.includes('lint = "deno lint"'));
   assert(out.includes('["deno test", "deno bench"]'));
@@ -192,7 +192,7 @@ Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and standard
 Deno.test("applyConfigDoc writes TOML that re-parses to the intended config values", () => {
   const ed = editor();
   applyConfigDoc(ed, {
-    docs: { dir: "docs/discern/" },
+    map: { dir: "docs/discern/" },
     capabilities: {
       lint: "deno lint --rules=\\d+",
       test: ["deno test", "echo trailing\\"],
@@ -262,7 +262,7 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
 /** A document exercising EVERY fill section the config-doc schema declares —
  * the fixture behind the class-level skip-existing guard below. */
 const FULL_FILL_DOC: DiscernConfigDoc = {
-  docs: { dir: "docs/x/" },
+  map: { dir: "docs/x/" },
   capabilities: { lint: "deno lint" },
   checks: { c1: { stage: "check", run: "run-c1" } },
   scopes: { s1: { paths: ["s1/**"] } },
@@ -352,9 +352,9 @@ Deno.test("applyConfigDoc skipExisting still fills past a commented-out template
 });
 
 Deno.test("applyConfigDoc default mode still replaces (setup fills a fresh template)", () => {
-  const ed = new TomlEditor('[docs]\ndir = "docs"\n');
-  const report = applyConfigDoc(ed, { docs: { dir: "notes" } });
-  assertEquals(report.filled, ["docs.dir"]);
+  const ed = new TomlEditor('[map]\ndir = "docs"\n');
+  const report = applyConfigDoc(ed, { map: { dir: "notes" } });
+  assertEquals(report.filled, ["map.dir"]);
   assertEquals(report.skipped, []);
   assert(ed.toString().includes('dir = "notes"'));
 });

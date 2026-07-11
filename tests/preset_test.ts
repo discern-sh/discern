@@ -480,7 +480,7 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
 // The class: a preset whose ONLY config fill is field X is silently dropped
 // whenever the gate that decides "is there anything to apply?" tests a
 // hand-copied field list that has drifted from the fields `applyConfigDoc`
-// actually consumes. (`docs.dir` was the dropped member.) The cure derives that
+// actually consumes. (`map.dir` was the dropped member.) The cure derives that
 // gate (`docHasFills`) from `applyConfigDoc` itself; this guard proves every
 // fill-bearing field survives, and is driven off the routine so a new field
 // auto-enrols.
@@ -493,7 +493,7 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
  */
 function fillBearingKeys(): Set<string> {
   const maximal: DiscernConfigDoc = {
-    docs: { dir: "documentation/" },
+    map: { dir: "documentation/" },
     capabilities: { test: "echo t" },
     checks: { chk: { stage: "check", run: "echo c" } },
     scopes: { sco: { paths: ["x/**"] } },
@@ -505,16 +505,16 @@ function fillBearingKeys(): Set<string> {
 
 /**
  * A minimal preset.json fragment per fill-bearing key, each landing a fill on a
- * fresh scaffold, paired with the dotted path its fill discloses. `docs.dir`
+ * fresh scaffold, paired with the dotted path its fill discloses. `map.dir`
  * uses a non-default directory so it applies (lands) rather than being kept.
  */
 const SINGLE_FIELD_PRESETS: Record<
   string,
   { fragment: Record<string, unknown>; disclosed: string }
 > = {
-  docs: {
-    fragment: { docs: { dir: "documentation/" } },
-    disclosed: "docs.dir",
+  map: {
+    fragment: { map: { dir: "documentation/" } },
+    disclosed: "map.dir",
   },
   capabilities: {
     fragment: { capabilities: { test: "echo solo test" } },
@@ -562,7 +562,7 @@ Deno.test("docHasFills is true for a document whose only fill is one field", () 
 Deno.test("a preset whose only fill is one field is never silently dropped", async () => {
   // The e2e half: for each fill-bearing field, a preset carrying only that field
   // reaches `applyConfigDoc` and discloses its fill in the result — as applied,
-  // or (for a value the fresh scaffold already sets, like docs.dir) as kept.
+  // or (for a value the fresh scaffold already sets, like map.dir) as kept.
   // Pre-fix, a docs-only preset never reached `applyConfigDoc`, so its fill was
   // in NEITHER list — silently dropped. The invariant is "disclosed, not
   // vanished", which holds uniformly across every field.
@@ -595,13 +595,13 @@ Deno.test("a preset whose only fill is one field is never silently dropped", asy
   }
 });
 
-Deno.test("a docs-only preset actually writes docs.dir when the project has not set it", async () => {
+Deno.test("a docs-only preset actually writes map.dir when the project has not set it", async () => {
   // The applied (not merely disclosed) proof for the field that regressed: with
-  // the scaffold's own `docs.dir` removed, a docs-only preset must LAND its fill
+  // the scaffold's own `map.dir` removed, a docs-only preset must LAND its fill
   // — the whole failure mode was this write being skipped before apply.
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
-    // Drop the scaffold's [docs] dir so the preset's value is not "already set".
+    // Drop the scaffold's [map] dir so the preset's value is not "already set".
     const original = await Deno.readTextFile(join(dir, "discern.toml"));
     const stripped = original
       .split("\n")
@@ -612,7 +612,7 @@ Deno.test("a docs-only preset actually writes docs.dir when the project has not 
     const { env } = await stagePreset(dir, "docsonly", {
       "preset.json": JSON.stringify({
         version: "2",
-        docs: { dir: "documentation/" },
+        map: { dir: "documentation/" },
       }),
     });
     const r = await runCli(["preset", "docsonly", "--yes", "--json"], dir, env);
@@ -620,8 +620,8 @@ Deno.test("a docs-only preset actually writes docs.dir when the project has not 
     const result = JSON.parse(r.stdout);
     assertEquals(result.data.config_fills, true);
     assert(
-      (result.data.config_fills_applied as string[]).includes("docs.dir"),
-      "docs.dir must be applied when not pre-set",
+      (result.data.config_fills_applied as string[]).includes("map.dir"),
+      "map.dir must be applied when not pre-set",
     );
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'dir = "documentation/"');

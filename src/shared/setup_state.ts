@@ -14,7 +14,7 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
-import { normalizeDocsDir } from "./docs_path.ts";
+import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 
@@ -58,13 +58,13 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  *     ADR 0037's incompleteness signaling, and `discern setup done` runs the gate
  *     itself as the structural completion proof.
  *
- * `docs` IS gated: it browses the project's own tree, which has nothing in it
+ * `map` IS gated: it browses the project's own tree, which has nothing in it
  * until setup seeds and fills it (`help` is the pre-setup documentation surface).
  */
 export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   "accept",
   "update",
-  "docs",
+  "map",
   // The desk supervises the worktree fleet, which doesn't exist until setup
   // completes; pre-setup, bare `discern` shows the welcome instead (ADR 0119).
   "desk",
@@ -193,7 +193,7 @@ export async function findSkeletonMarkers(
 ): Promise<string[]> {
   const leftover: string[] = [];
 
-  let docsRel = SOURCE_PATHS.docs.defaultPath;
+  let docsRel = SOURCE_PATHS.map.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   let resolved = config;
   if (resolved === undefined) {
@@ -204,7 +204,7 @@ export async function findSkeletonMarkers(
     }
   }
   if (resolved !== undefined) {
-    docsRel = normalizeDocsDir(resolved.docs.dir);
+    docsRel = normalizeMapDir(resolved.map.dir);
     guidanceRel = guidanceSeedRel(resolved.guidance.sources);
   }
   const docsDir = join(root, docsRel);

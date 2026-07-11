@@ -47,7 +47,7 @@ Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the 
     assertEquals(r.code, 0, r.output);
     assert(await exists(join(dir, "discern.toml")));
     assert(!(await exists(join(nested, "discern.toml"))));
-    assert(await exists(join(dir, "discern/docs", "README.md")));
+    assert(await exists(join(dir, "map", "README.md")));
     assert(!(await exists(join(nested, "discern"))));
   });
 });
@@ -62,7 +62,7 @@ Deno.test("setup begin from a subdirectory in a mid-setup install reuses the ins
       cwd: nested,
     });
     assertEquals(r.code, 0, r.output);
-    assert(await exists(join(dir, "discern/docs", "README.md")));
+    assert(await exists(join(dir, "map", "README.md")));
     assert(!(await exists(join(nested, "discern.toml"))));
     assert(!(await exists(join(nested, "discern"))));
   });
@@ -136,7 +136,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
     ]);
     assertEquals(recovered.code, 0, recovered.output);
     assert(await exists(join(dir, "discern.toml")));
-    assert(await exists(join(dir, "discern/docs", "README.md")));
+    assert(await exists(join(dir, "map", "README.md")));
     const settings = JSON.parse(await Deno.readTextFile(gemini));
     assertEquals(settings.mcpServers.other.command, "other");
     assertEquals(settings.mcpServers.discern.command, "discern");
@@ -209,7 +209,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
 Deno.test("discern setup lays the doc skeletons when absent and prints the instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    assertEquals(await exists(join(dir, "discern/docs")), false);
+    assertEquals(await exists(join(dir, "map")), false);
     // The setup assets are binary-embedded, never seeded into the project (ADR
     // 0024/0036): a fresh install must carry neither a `setup/` nor `bootstrap/` tree.
     assertEquals(await exists(join(dir, "setup")), false);
@@ -219,24 +219,24 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     assertEquals(r.code, 0, r.output);
     // The instructions are printed for the agent in the loop to act on.
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
-    assertStringIncludes(r.stdout, "Project skeletons laid: discern/docs/");
+    assertStringIncludes(r.stdout, "Project skeletons laid: map/");
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(
       await exists(
-        join(dir, "discern/docs/00-orientation/design-principles.md"),
+        join(dir, "map/00-orientation/design-principles.md"),
       ),
     );
-    const readme = await Deno.readTextFile(join(dir, "discern/docs/README.md"));
+    const readme = await Deno.readTextFile(join(dir, "map/README.md"));
     assertStringIncludes(readme, "Engine Test"); // slug "engine-test" → display name
     assert(!readme.includes("{{project_name}}"));
 
     // Re-running is non-destructive: docs/ now exists, so it is left untouched.
     const again = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertStringIncludes(again.stdout, "Left your existing discern/docs/");
+    assertStringIncludes(again.stdout, "Left your existing map/");
   });
 });
 
-Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree", async () => {
+Deno.test("setup begin --map persists and scaffolds a separate agent docs tree", async () => {
   await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
@@ -245,7 +245,7 @@ Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree"
       "setup",
       "begin",
       "--confirmed",
-      "--docs",
+      "--map",
       "docs/discern/",
       "--agents",
       "claude_code",
@@ -261,7 +261,7 @@ Deno.test("setup begin --docs persists and scaffolds a separate agent docs tree"
     const config = parseConfigOrThrow(
       await Deno.readTextFile(join(dir, "discern.toml")),
     );
-    assertEquals(config.docs.dir, "docs/discern/");
+    assertEquals(config.map.dir, "docs/discern/");
     assert(
       await exists(
         join(dir, "docs/discern/00-orientation/design-principles.md"),
@@ -291,8 +291,8 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the docs skeletons
     for (
       const rel of [
-        "discern/docs/80-development/getting-started.md",
-        "discern/docs/80-development/README.md",
+        "map/80-development/getting-started.md",
+        "map/80-development/README.md",
       ]
     ) {
       const body = await Deno.readTextFile(join(dir, rel));
@@ -309,21 +309,21 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
 Deno.test("discern setup never overwrites an existing configured docs tree (seamless DX)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/docs/README.md"),
+      join(dir, "map/README.md"),
       "MY OWN DOCS\n",
     );
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Left your existing discern/docs/");
+    assertStringIncludes(r.stdout, "Left your existing map/");
     // The user's file is intact and no skeleton was laid over it.
     assertEquals(
-      await Deno.readTextFile(join(dir, "discern/docs/README.md")),
+      await Deno.readTextFile(join(dir, "map/README.md")),
       "MY OWN DOCS\n",
     );
-    assertEquals(await exists(join(dir, "discern/docs/00-orientation")), false);
+    assertEquals(await exists(join(dir, "map/00-orientation")), false);
   });
 });
 
@@ -338,8 +338,8 @@ Deno.test("a project's own root docs/ no longer collides with the default skelet
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     // The skeleton lands at the namespace default; the user's tree is untouched.
-    assertStringIncludes(r.stdout, "Project skeletons laid: discern/docs/");
-    assert(await exists(join(dir, "discern/docs/README.md")));
+    assertStringIncludes(r.stdout, "Project skeletons laid: map/");
+    assert(await exists(join(dir, "map/README.md")));
     assertEquals(
       await Deno.readTextFile(join(dir, "docs/README.md")),
       "MY OWN DOCS\n",
@@ -461,7 +461,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
 
     // Before: a still-gated work verb (`docs`) hard-redirects (exit≠0, on stderr),
     // and setup shows in help. (`done` is no longer gated — ADR 0065.)
-    const preDocs = await runAgent(dir, ["docs"]);
+    const preDocs = await runAgent(dir, ["map"]);
     assertEquals(preDocs.code, 1, preDocs.output);
     assertStringIncludes(preDocs.stderr, "isn't set up yet");
     const preHelp = await runAgent(dir, ["--help"]);
@@ -469,10 +469,10 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
 
     // Set up, then clear the skeleton markers so `done` validates cleanly.
     await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    await Deno.remove(join(dir, "discern/docs"), { recursive: true });
-    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.remove(join(dir, "map"), { recursive: true });
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/docs/README.md"),
+      join(dir, "map/README.md"),
       "# Real docs\n",
     );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
@@ -481,7 +481,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     assertEquals(done.code, 0, done.output);
 
     // After: the same verb runs (no redirect), and setup is hidden from help.
-    const postDocs = await runAgent(dir, ["docs"]);
+    const postDocs = await runAgent(dir, ["map"]);
     assert(!postDocs.stderr.includes("isn't set up yet"), postDocs.output);
     const postHelp = await runAgent(dir, ["--help"]);
     assert(
@@ -496,7 +496,7 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
     // `docs` browses the project's own tree — empty until setup fills it — so it
     // stays gated.
-    const docs = await runAgent(dir, ["docs"]);
+    const docs = await runAgent(dir, ["map"]);
     assertEquals(docs.code, 1, docs.output);
     assertStringIncludes(docs.stderr, "isn't set up yet");
     // `refresh` is machinery (and `discern setup` itself runs it) — no redirect,
@@ -520,7 +520,7 @@ Deno.test("docs is gated pre-setup but help is not", async () => {
 
     // `docs` now redirects: there is no project doc tree to browse until setup
     // seeds and fills it.
-    const docs = await runAgent(dir, ["docs", "--json"]);
+    const docs = await runAgent(dir, ["map", "--json"]);
     assertEquals(docs.code, 1, docs.output);
     assertEquals(JSON.parse(docs.stdout).error, "not_set_up");
 
@@ -536,11 +536,11 @@ Deno.test("docs is gated pre-setup but help is not", async () => {
 Deno.test("the docs redirect is a structured not_set_up result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["docs", "--json"]);
+    const r = await runAgent(dir, ["map", "--json"]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "docs");
+    assertEquals(res.verb, "map");
     assertEquals(res.error, "not_set_up");
   });
 });
@@ -580,10 +580,10 @@ async function readyForDone(dir: string, cmd: string): Promise<void> {
   // Replace the marker-carrying skeletons with real, marker-free content. The
   // guidance.md carries a real pitch and a Conventions section so the per-step
   // guidance check (ADR 0078) passes; design-principles is left absent (N/A).
-  await Deno.remove(join(dir, "discern/docs"), { recursive: true });
-  await Deno.mkdir(join(dir, "discern/docs"));
+  await Deno.remove(join(dir, "map"), { recursive: true });
+  await Deno.mkdir(join(dir, "map"));
   await Deno.writeTextFile(
-    join(dir, "discern/docs/README.md"),
+    join(dir, "map/README.md"),
     "# Real docs\n",
   );
   await Deno.writeTextFile(
@@ -690,7 +690,7 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
 
 Deno.test("setup done catches an untracked footprint file whose path git quotes (B50)", async () => {
   // git C-quotes any path with non-ASCII bytes in line-oriented `--porcelain` output
-  // (core.quotePath defaults on): `?? "discern/docs/d\303\251cisions.md"`. A clean-tree
+  // (core.quotePath defaults on): `?? "map/d\303\251cisions.md"`. A clean-tree
   // check that de-quotes by hand — slice(2).trim() then startsWith the unquoted footprint
   // prefix — never matches the quoted form, so `done` would proceed and record completion
   // over uncommitted authored work. The end-to-end guard for the `-z` porcelain parsing:
@@ -708,7 +708,7 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
     // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
     const quotedName = "décisions.md";
     await Deno.writeTextFile(
-      join(dir, "discern/docs", quotedName),
+      join(dir, "map", quotedName),
       "# A real authored decision\n",
     );
 
@@ -902,7 +902,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
     await git(dir, "commit", "-m", "setup work");
     // An unrelated uncommitted change present at `done` time.
     await Deno.writeTextFile(
-      join(dir, "discern/docs/README.md"),
+      join(dir, "map/README.md"),
       "# changed again\n",
     );
 
@@ -911,9 +911,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
     const refused = JSON.parse(done.stdout);
     assertEquals(refused.error, "uncommitted_changes");
     assert(
-      refused.data.uncommitted.some((l: string) =>
-        l.includes("discern/docs/README.md")
-      ),
+      refused.data.uncommitted.some((l: string) => l.includes("map/README.md")),
       `the tracked edit must be listed:\n${done.stdout}`,
     );
 
@@ -934,7 +932,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
     );
     assertStringIncludes(
       status,
-      "M discern/docs/README.md",
+      "M map/README.md",
       "the unrelated edit must be left for the agent's own tidy commit",
     );
   });
@@ -1252,7 +1250,7 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
     const linkRe = /\[[^\]]*\]\(([^)]+)\)/g;
     const dead: string[] = [];
     for await (
-      const entry of walk(join(dir, "discern/docs"), {
+      const entry of walk(join(dir, "map"), {
         exts: [".md"],
         includeDirs: false,
       })
@@ -1392,7 +1390,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     // -uall expands the untracked discern/ dir so each seed is listed per-file.
     const untracked = await gitOut(dir, "status", "--porcelain", "-uall");
     for (
-      const seed of ["discern/guidance.md", "discern/TODO.md", "discern/docs/"]
+      const seed of ["discern/guidance.md", "discern/TODO.md", "map/"]
     ) {
       assertStringIncludes(untracked, seed);
     }
@@ -1741,9 +1739,9 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
     // A genuine doc (no skeleton) that happens to contain the bare word EXAMPLE
     // and an open paren — the validator must not mistake it for the skeleton's
     // `_(EXAMPLE — replace during ...)_` placeholder heading.
-    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/docs/README.md"),
+      join(dir, "map/README.md"),
       "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
     );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
@@ -1765,7 +1763,7 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
     const res = JSON.parse(r.stdout);
     assertEquals(res.ok, true);
     assertEquals(res.verb, "setup");
-    assert(res.data.skeletons.includes("discern/docs/"));
+    assert(res.data.skeletons.includes("map/"));
     assert(
       typeof res.data.instructions === "string" &&
         res.data.instructions.length > 0,

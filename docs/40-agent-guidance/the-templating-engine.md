@@ -16,7 +16,7 @@ reference.
 
 The same engine renders **bundled-skill markdown** at materialization (and at
 `skills eject`), against the same context, so a shipped skill's prose names the
-project's configured paths — `{{docs_dir}}`, `{{todo_path}}` — never discern's
+project's configured paths — `{{map_dir}}`, `{{todo_path}}` — never discern's
 defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A
 sentinel-render test and a source-literal ban keep any hard-coded default a gate
 failure.

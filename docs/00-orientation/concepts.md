@@ -97,9 +97,9 @@ question, and the worktree location, for the agent to relay (adapting the
 wording, never thinning the points). The docs question is consent, not
 collision-avoidance: the [map](glossary.md#map) defaults to its own
 `discern/docs/`, and the message asks whether discern should instead manage the
-project's existing documentation — pointing `[docs].dir` (via `begin --docs`) is
+project's existing documentation — pointing `[map].dir` (via `begin --map`) is
 that explicit consent ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md));
-the persisted `[docs].dir` then drives every docs-aware surface
+the persisted `[map].dir` then drives every docs-aware surface
 ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
 until `discern setup begin`** — the first mutating step, which requires an
 explicit `--confirmed` attestation that the consent conversation happened,
