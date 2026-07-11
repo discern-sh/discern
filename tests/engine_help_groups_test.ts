@@ -70,7 +70,7 @@ Deno.test("every visible top-level command belongs to exactly one help group", (
   );
 });
 
-Deno.test("operator help renders the groups in order, agentic loop first", () => {
+Deno.test("operator help renders the groups in order, the human's desk first", () => {
   const help = plain(operatorHelp(fullRoot()));
 
   // Every group heading appears, in COMMAND_GROUPS order (strictly increasing

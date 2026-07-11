@@ -1,0 +1,242 @@
+/**
+ * The desk's pure model (ADR 0119): the decision-order bucketing and the
+ * action-legality table. Time is injected, so every case here is a plain
+ * input→output check — the whole classification table is pinned as a class,
+ * not as scattered examples.
+ */
+
+import { assert, assertEquals } from "@std/assert";
+import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import {
+  buildDeskRows,
+  classifyBucket,
+  type DeskAction,
+  type DeskBucket,
+  legalActions,
+  rowSummary,
+} from "../src/engine/desk/model.ts";
+
+/** A fixed "now" every case measures idleness against. */
+const NOW = Date.parse("2026-07-11T12:00:00Z");
+
+/** An ISO timestamp `days` days before {@link NOW}. */
+function daysAgo(days: number): string {
+  return new Date(NOW - days * 86_400_000).toISOString();
+}
+
+/** A healthy linked-worktree row; override per case. */
+function entry(over: Partial<StatusFleetEntry> = {}): StatusFleetEntry {
+  return {
+    path: `/tmp/fleet/${over.branch ?? "agent/x"}`,
+    is_main: false,
+    is_current: false,
+    branch: "agent/x",
+    clean: true,
+    changed_files: 0,
+    ahead: 0,
+    behind: 0,
+    last_activity: daysAgo(0),
+    ...over,
+  };
+}
+
+// ── the bucket table: every classification rule as one row ─────────────────────
+
+const BUCKET_CASES: ReadonlyArray<{
+  name: string;
+  entry: StatusFleetEntry;
+  receipt: boolean;
+  expect: DeskBucket;
+}> = [
+  {
+    name: "broken checkout → attention, whatever else is true",
+    entry: entry({ broken: true, ahead: 3 }),
+    receipt: true,
+    expect: "attention",
+  },
+  {
+    name: "unreadable git state → attention (never assumed clean)",
+    entry: entry({ git_unavailable: true, clean: undefined }),
+    receipt: false,
+    expect: "attention",
+  },
+  {
+    name: "clean, ahead, receipt honored → ready to land",
+    entry: entry({ ahead: 3 }),
+    receipt: true,
+    expect: "ready",
+  },
+  {
+    name: "clean and ahead but no receipt → still in flight",
+    entry: entry({ ahead: 3 }),
+    receipt: false,
+    expect: "in_flight",
+  },
+  {
+    name: "dirty and recently active → in flight",
+    entry: entry({ clean: false, changed_files: 4 }),
+    receipt: false,
+    expect: "in_flight",
+  },
+  {
+    name: "dirty and idle past the staleness threshold → attention",
+    entry: entry({ clean: false, changed_files: 2, last_activity: daysAgo(8) }),
+    receipt: false,
+    expect: "attention",
+  },
+  {
+    name: "unlanded commits idle past the threshold, no receipt → attention",
+    entry: entry({ ahead: 2, last_activity: daysAgo(9) }),
+    receipt: false,
+    expect: "attention",
+  },
+  {
+    name: "idle but empty-handed (clean, nothing ahead) → in flight, not stale",
+    entry: entry({ last_activity: daysAgo(30) }),
+    receipt: false,
+    expect: "in_flight",
+  },
+  {
+    name: "ready outranks stale: clean+ahead+receipt even when idle",
+    entry: entry({ ahead: 1, last_activity: daysAgo(20) }),
+    receipt: true,
+    expect: "ready",
+  },
+];
+
+Deno.test("classifyBucket: the decision-order table", () => {
+  for (const c of BUCKET_CASES) {
+    assertEquals(classifyBucket(c.entry, c.receipt, NOW), c.expect, c.name);
+  }
+});
+
+// ── the action-legality table ──────────────────────────────────────────────────
+
+const ACTION_CASES: ReadonlyArray<{
+  name: string;
+  entry: StatusFleetEntry;
+  expect: readonly DeskAction[];
+}> = [
+  {
+    name: "broken → drop is the only honest offer",
+    entry: entry({ broken: true }),
+    expect: ["drop"],
+  },
+  {
+    name: "unreadable → drop only",
+    entry: entry({ git_unavailable: true, clean: undefined }),
+    expect: ["drop"],
+  },
+  {
+    name: "clean and ahead → graduate leads; no integrate when not behind",
+    entry: entry({ ahead: 2 }),
+    expect: ["graduate", "jump", "inspect", "drop"],
+  },
+  {
+    name: "dirty and behind → integrate offered, graduate not",
+    entry: entry({ clean: false, changed_files: 1, behind: 4 }),
+    expect: ["integrate", "jump", "inspect", "drop"],
+  },
+  {
+    name: "clean, ahead AND behind → both graduate and integrate",
+    entry: entry({ ahead: 2, behind: 1 }),
+    expect: ["graduate", "integrate", "jump", "inspect", "drop"],
+  },
+  {
+    name: "clean, nothing ahead → no graduate (nothing to land)",
+    entry: entry({}),
+    expect: ["jump", "inspect", "drop"],
+  },
+];
+
+Deno.test("legalActions: the legality table", () => {
+  for (const c of ACTION_CASES) {
+    assertEquals([...legalActions(c.entry)], [...c.expect], c.name);
+  }
+});
+
+// ── ordering and exclusions ────────────────────────────────────────────────────
+
+Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; recency wins within a bucket", () => {
+  const main = entry({ is_main: true, branch: "main", path: "/tmp/fleet/main" });
+  const stale = entry({
+    branch: "agent/stale",
+    path: "/p/stale",
+    clean: false,
+    changed_files: 2,
+    last_activity: daysAgo(10),
+  });
+  const readyOld = entry({
+    branch: "agent/ready-old",
+    path: "/p/ready-old",
+    ahead: 1,
+    last_activity: daysAgo(2),
+  });
+  const readyNew = entry({
+    branch: "agent/ready-new",
+    path: "/p/ready-new",
+    ahead: 3,
+    last_activity: daysAgo(1),
+  });
+  const flying = entry({
+    branch: "agent/flying",
+    path: "/p/flying",
+    clean: false,
+    changed_files: 7,
+  });
+
+  const receipts = new Map<string, boolean>([
+    ["/p/ready-old", true],
+    ["/p/ready-new", true],
+  ]);
+  const rows = buildDeskRows(
+    [stale, main, readyOld, flying, readyNew],
+    receipts,
+    NOW,
+  );
+
+  assertEquals(
+    rows.map((r) => r.entry.branch),
+    ["agent/ready-new", "agent/ready-old", "agent/flying", "agent/stale"],
+  );
+  assert(
+    rows.every((r) => !r.entry.is_main),
+    "the main checkout must never appear as a desk row",
+  );
+});
+
+Deno.test("buildDeskRows: a path absent from the receipt map is never treated as vouched", () => {
+  const rows = buildDeskRows(
+    [entry({ ahead: 5, path: "/p/unvouched" })],
+    new Map(),
+    NOW,
+  );
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0]?.receiptHonored, false);
+  assertEquals(rows[0]?.bucket, "in_flight");
+});
+
+// ── the row summary strings ────────────────────────────────────────────────────
+
+Deno.test("rowSummary: states render compactly and honestly", () => {
+  assertEquals(
+    rowSummary(entry({ ahead: 3, last_activity: daysAgo(1) }), true, NOW),
+    "gate green · clean · 3 ahead · 1d ago",
+  );
+  assertEquals(
+    rowSummary(
+      entry({ clean: false, changed_files: 1, behind: 2 }),
+      false,
+      NOW,
+    ),
+    "dirty (1 file) · 2 behind · just now",
+  );
+  assertEquals(
+    rowSummary(entry({ broken: true }), false, NOW),
+    "broken — setup never completed",
+  );
+  assertEquals(
+    rowSummary(entry({ git_unavailable: true, clean: undefined }), false, NOW),
+    "state unreadable — git could not run here",
+  );
+});
