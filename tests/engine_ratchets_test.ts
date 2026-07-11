@@ -682,6 +682,35 @@ Deno.test("ratchets: a `per` extent matching nothing errors instead of dividing 
   });
 });
 
+Deno.test("ratchets: an empty `per` pathspec is refused at load, never measuring the whole repo (B42)", async () => {
+  // The end-to-end half of the B42 guard. With `per = { words = [] }`, git's
+  // `ls-files --` (no pathspecs) would list EVERY tracked file, making the
+  // denominator the whole repo — a wildly wrong, silently-passing rate. The
+  // schema now refuses the empty array at load, so `ratchets` errors with a
+  // path-qualified config message and measures nothing at all.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ratchetConfig({
+        name: "prose",
+        direction: "down",
+        limit: "5",
+        per: "{ words = [] }",
+        scale: "1000",
+        run: "echo 'DISCERN_METRIC prose 1'",
+      }),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["ratchets"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.stderr, "discern.toml is invalid");
+    assertStringIncludes(r.stderr, "ratchets.prose.per.words");
+    // It must NOT have run a whole-repo measurement — no metric narration leaks.
+    assert(!r.stdout.includes("per"), r.output);
+  });
+});
+
 // ── The class-guard: a rate is invariant under growth; a raw count is not ───────
 // This pair is the regression guard for the whole reason `per` exists. If a future
 // change made the measured value scale with corpus size again, the first test

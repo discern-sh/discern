@@ -104,8 +104,16 @@ const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
 
-/** A git pathspec, or a list of them — the extent a built-in `per` measures over. */
-const globOrList = z.union([z.string(), z.array(z.string())]);
+/** A git pathspec, or a NON-EMPTY list of them — the extent a built-in `per`
+ * measures over. The list form requires at least one pathspec: an empty list would
+ * reach `git ls-files -z --` with zero pathspecs, which git reads as "every tracked
+ * file", silently making a ratchet's denominator the whole repository instead of
+ * the extent its config named. Refusing `[]` here closes that for every measure at
+ * once, since each `perExtent` extent reuses this shape. */
+const globOrList = z.union([
+  z.string(),
+  z.array(z.string()).min(1, "a per extent needs at least one git pathspec."),
+]);
 
 /** The built-in extents a ratchet's `per` can divide by — universal, stack-neutral
  * text measures over a git pathspec. discern counts these itself, so the `run`

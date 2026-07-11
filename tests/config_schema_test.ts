@@ -4,6 +4,7 @@ import {
   ConfigParseError,
   ConfigValidationError,
   configWriteIssues,
+  EXTENTS,
   isSettableConfigPath,
   NAME_RE,
   parseConfig,
@@ -94,6 +95,42 @@ Deno.test("ratchet direction defaults up; metric is optional (falls back to name
   assertEquals(r.direction, "up");
   assertEquals(r.metric, undefined);
   assertEquals(r.limit, 80);
+});
+
+Deno.test("a ratchet `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {
+  // The class: a config shape that VALIDATES but then selects nothing/everything
+  // contrary to intent (B42). An empty pathspec list would reach `git ls-files --`
+  // with zero pathspecs — which git reads as "every tracked file" — silently making
+  // the denominator the whole repo. Refused at the schema, so no consumer can be
+  // handed a `[]` extent. Iterated over EXTENTS (the single source of truth for the
+  // measure set) so a new extent auto-enrols in the guard.
+  for (const extent of EXTENTS) {
+    const { config, issues } = parseConfig(
+      `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
+    );
+    assertEquals(config, undefined, `empty ${extent} array must be refused`);
+    assert(
+      issues.some((i) => i.path === `ratchets.d.per.${extent}`),
+      `empty ${extent} array must fail at ratchets.d.per.${extent}: ${
+        JSON.stringify(issues)
+      }`,
+    );
+    // A non-empty list (and a bare string) stay valid — the guard refuses only [].
+    assertEquals(
+      parseConfig(
+        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
+      ).issues,
+      [],
+      `one-pathspec ${extent} must validate`,
+    );
+    assertEquals(
+      parseConfig(
+        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
+      ).issues,
+      [],
+      `string ${extent} must validate`,
+    );
+  }
 });
 
 // ── command-list normalisation ───────────────────────────────────────────────────
