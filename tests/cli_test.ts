@@ -266,3 +266,69 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
     assertEquals(result.error, "invalid_toml");
   });
 });
+
+// B33 — the class: a help/informational path must render FULLY and exit 0 on bad
+// project state (a broken, missing, or schema-invalid discern.toml) — help is
+// exactly when a user most needs it to keep working. The recipe listing degrades
+// to a one-line notice rather than throwing out of `printProjectRecipes` and
+// truncating the help with a non-zero exit.
+const BAD_PROJECT_STATES: ReadonlyArray<{ name: string; toml: string | null }> =
+  [
+    { name: "missing discern.toml", toml: null },
+    {
+      name: "syntactically broken discern.toml",
+      toml: 'this is = not valid toml [[[\n"unterminated\n',
+    },
+    {
+      // Parses as TOML but violates the schema (an unknown ratchet direction),
+      // so the TYPED loadConfig throws where the raw reader would not.
+      name: "schema-invalid discern.toml",
+      toml: [
+        "[project]",
+        'slug = "x"',
+        "",
+        "[ratchets.bad]",
+        'run = "true"',
+        "limit = 5",
+        'direction = "sideways"',
+        "",
+      ].join("\n"),
+    },
+  ];
+
+for (const state of BAD_PROJECT_STATES) {
+  for (const flag of ["--help", "-h"]) {
+    Deno.test(`\`discern ${flag}\` renders fully and exits 0 with a ${state.name}`, async () => {
+      await withTempDir(async (dir) => {
+        if (state.toml !== null) {
+          await Deno.writeTextFile(join(dir, "discern.toml"), state.toml);
+        }
+        const r = await runCli([flag], dir);
+        // Exit 0 — the pre-fix bug exited 1 when the config threw out of the
+        // recipe listing.
+        assertEquals(
+          r.code,
+          0,
+          `${flag} must exit 0 on a ${state.name}:\n${r.stdout}\n${r.stderr}`,
+        );
+        const out = r.stdout + r.stderr;
+        // The help rendered in full — the grouped command list AND the trailing
+        // drill-in footer both present (a truncated help would be missing the
+        // footer that comes AFTER the recipe section the config feeds).
+        assertStringIncludes(out, "Commands:");
+        assertStringIncludes(out, "Agentic loop");
+        assertStringIncludes(out, "discern <command> --help");
+        // No raw crash leaked into the help.
+        assert(
+          !out.includes("Uncaught"),
+          `help must not dump a stack trace:\n${out}`,
+        );
+        // A config that could not be read says so in one line instead of listing
+        // recipes (the missing-config case simply has no project, so no notice).
+        if (state.name.includes("broken") || state.name.includes("invalid")) {
+          assertStringIncludes(out, "Project recipes: unavailable");
+        }
+      });
+    });
+  }
+}

@@ -15,7 +15,11 @@ are always registered — there is no toggle layer in the dispatch
 a global flag, so `discern --json <verb>` routes exactly like
 `discern <verb> --json` — the pre-setup redirect
 ([ADR 0036](../_adr/0036-unify-setup.md)), the welcome/help split, and recipe
-dispatch included.
+dispatch included. The help path is resilient to bad project state: the root
+help renders in full and exits 0 even with a broken, missing, or schema-invalid
+`discern.toml`, degrading only the project-recipe listing (which needs the typed
+config) to a one-line notice — help is exactly when a broken config most needs
+to keep working.
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing

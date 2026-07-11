@@ -1194,13 +1194,30 @@ function recipesDirOf(
  * Print the "Project recipes" help section: executables under the recipes dir
  * carrying a `# desc:` line, skipping any name shadowed by a built-in. No-op
  * outside a project or when there are no listable recipes.
+ *
+ * This runs on the `--help` / bare-`discern` path, so it must render and NEVER
+ * throw on bad project state — help is exactly when a broken discern.toml most
+ * needs to keep working. A config that can't be read (unparseable or
+ * schema-invalid) degrades the recipe section to a one-line notice on stdout
+ * (the help stream) instead of throwing out and truncating the help with a
+ * non-zero exit.
  */
 export async function printProjectRecipes(): Promise<void> {
   const root = await findRoot();
   if (root === undefined) {
     return;
   }
-  const cfg = await loadConfig(root);
+  let cfg: DiscernConfig;
+  try {
+    cfg = await loadConfig(root);
+  } catch {
+    // The recipe listing needs `[recipes].dir` from the typed config; without a
+    // readable one, say so in a line and let the rest of the help stand.
+    console.log(
+      "\nProject recipes: unavailable (discern.toml could not be read).",
+    );
+    return;
+  }
   const { rel, abs } = recipesDirOf(root, cfg);
   const lines: string[] = [];
   try {
