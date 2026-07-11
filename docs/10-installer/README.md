@@ -86,28 +86,30 @@ pristine one ([ADR 0103](../_adr/0103-setup-holds-up-on-imperfect-repos.md)):
 `[project].main_branch`, so the gate's merge check is armed on `master` and
 unborn-default repos alike. Detection reads, in descending reliability,
 `origin/HEAD`, then the branch setup started from, then — when setup itself was
-re-run while already on the `discern-setup` branch (a retry after a first attempt
-created the branch and failed before writing the config) — the branch that
-`discern-setup` was forked from, recovered from the actual local branches, and
-only as a last resort `init.defaultBranch` (which vendor git builds bake to `main`
-in an unmaskable config, so it is never consulted ahead of the real branches). A
-directory without git is served a git-init-first plan whose consent message
-promises no isolation it can't deliver; a missing git identity is named in
-`verify`'s findings with the exact `git config` commands; and the first-contact
-welcome shows in non-git directories too, leading with the `git init` step.
+re-run while already on the `discern-setup` branch (a retry after a first
+attempt created the branch and failed before writing the config) — the branch
+that `discern-setup` was forked from, recovered from the actual local branches,
+and only as a last resort `init.defaultBranch` (which vendor git builds bake to
+`main` in an unmaskable config, so it is never consulted ahead of the real
+branches). A directory without git is served a git-init-first plan whose consent
+message promises no isolation it can't deliver; a missing git identity is named
+in `verify`'s findings with the exact `git config` commands; and the
+first-contact welcome shows in non-git directories too, leading with the
+`git init` step.
 
 A first `begin` that failed before finishing is designed to converge on a re-run
 rather than strand work: an abandoned half-finished setup (its config committed
-only on the `discern-setup` branch) routes the welcome, `verify`, and a re-`begin`
-back to the half-finished branch instead of re-scaffolding over it, and a re-`begin`
-that lands back on `discern-setup` re-attempts the harness-wiring commit the first
-run left uncommitted (a machinery commit that failed on a missing identity or a
-rejecting hook is retried, not lost). A `--force` re-scaffold reads the persisted
-`[guidance].agents` and lays exactly those agents' seed files, never reverting to
-the built-in default pair. And `setup done` never records completion for a run that
-then fails: it refuses a `discern.toml` it cannot parse — the floor even `--force`
-cannot override — so the `[meta].bootstrapped` marker is only ever written after
-every check that could reject the run has passed.
+only on the `discern-setup` branch) routes the welcome, `verify`, and a
+re-`begin` back to the half-finished branch instead of re-scaffolding over it,
+and a re-`begin` that lands back on `discern-setup` re-attempts the
+harness-wiring commit the first run left uncommitted (a machinery commit that
+failed on a missing identity or a rejecting hook is retried, not lost). A
+`--force` re-scaffold reads the persisted `[guidance].agents` and lays exactly
+those agents' seed files, never reverting to the built-in default pair. And
+`setup done` never records completion for a run that then fails: it refuses a
+`discern.toml` it cannot parse — the floor even `--force` cannot override — so
+the `[meta].bootstrapped` marker is only ever written after every check that
+could reject the run has passed.
 
 ## Config reference
 
