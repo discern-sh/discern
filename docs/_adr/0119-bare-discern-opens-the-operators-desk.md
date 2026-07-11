@@ -11,7 +11,7 @@ results, the CLI verbs speak `--json`, and the human-facing output of `status`
 is a report. But the human operating a fleet of agent worktrees has a different
 job — not doing the work, but deciding about it: accept a finished handoff and
 land it, discard abandoned work, arbitrate overlap, go look at something. Each
-of those decisions is a *selection followed by a choice*, and a report is a bad
+of those decisions is a _selection followed by a choice_, and a report is a bad
 menu: the operator reads `status` output, copies a branch name, and composes a
 second command by hand. The friction is small but constant, and it lands on
 exactly the person discern has no surface for.
@@ -33,14 +33,15 @@ an effort offers exactly the actions legal for its state.** The same screen has
 a named verb, `discern desk`; the bare invocation is its alias, and the named
 verb is what tests, docs plumbing, and parity guards see.
 
-- **The gate is TTY-ness, nothing else.** The desk shows when
-  `canPrompt` (`src/lib/prompts.ts`) holds — stdin AND stdout are terminals —
-  and never otherwise. Pipes, CI, and `--json` get byte-identical help exactly
-  as before. There is deliberately NO detection of agent environment markers:
-  the repo's convention is no vendor/framework sniffing outside explicit
-  vendor-integration territory, and TTY-ness is the honest signal. `discern
-  desk` invoked without a TTY (or with `--json`) refuses with a structured
-  `not_interactive` result pointing at `status`.
+- **The gate is TTY-ness, nothing else.** The desk shows when `canPrompt`
+  (`src/lib/prompts.ts`) holds — stdin AND stdout are terminals — and never
+  otherwise. Pipes, CI, and `--json` get byte-identical help exactly as before.
+  There is deliberately NO detection of agent environment markers: the repo's
+  convention is no vendor/framework sniffing outside explicit vendor-integration
+  territory, and TTY-ness is the honest signal. `discern
+  desk` invoked without
+  a TTY (or with `--json`) refuses with a structured `not_interactive` result
+  pointing at `status`.
 - **Pre-setup behaviour is untouched.** The desk sits strictly behind the
   existing welcome/help split: only after `shouldWelcomeBare` declines does the
   TTY branch run.
@@ -63,8 +64,8 @@ verb is what tests, docs plumbing, and parity guards see.
 
 - Humans get one memorable command — bare `discern` — and it is the one they
   cannot be confused about, because nothing ever instructs an agent to run it.
-  Human-facing docs can sell exactly that simplicity; the `desk` verb exists
-  for guards, plumbing, and prose that needs a name.
+  Human-facing docs can sell exactly that simplicity; the `desk` verb exists for
+  guards, plumbing, and prose that needs a name.
 - The desk enrols in the existing forcing functions as an ordinary engine verb:
   the verb-parity guard, the help-group coverage guard, and the MCP-surface
   guard (the desk is deliberately CLI-only, like `worktree drop`, and for the
@@ -83,13 +84,13 @@ verb is what tests, docs plumbing, and parity guards see.
 ## Alternatives considered
 
 - **Make `status` interactive on a TTY.** Rejected: `status` is the orientation
-  verb both populations run reflexively, its report shape is baked into docs
-  and agent guidance, and forking its behaviour by caller would make the shared
+  verb both populations run reflexively, its report shape is baked into docs and
+  agent guidance, and forking its behaviour by caller would make the shared
   vocabulary ambiguous.
 - **Detect agent environments (CI/agent env markers) as a belt to the TTY
   brace.** Rejected: vendor sniffing against the repo's convention, a treadmill
-  of markers, and the TTY gate plus the desk's read-only-at-rest posture
-  already bound the blast radius.
+  of markers, and the TTY gate plus the desk's read-only-at-rest posture already
+  bound the blast radius.
 - **A dashboard that watches rather than a queue that acts.** Rejected as the
   framing: the operator's sessions are transactional (open, decide, quit), and
   monitoring UI would add a second place state can be wrong without adding a

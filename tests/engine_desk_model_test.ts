@@ -158,7 +158,11 @@ Deno.test("legalActions: the legality table", () => {
 // ── ordering and exclusions ────────────────────────────────────────────────────
 
 Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; recency wins within a bucket", () => {
-  const main = entry({ is_main: true, branch: "main", path: "/tmp/fleet/main" });
+  const main = entry({
+    is_main: true,
+    branch: "main",
+    path: "/tmp/fleet/main",
+  });
   const stale = entry({
     branch: "agent/stale",
     path: "/p/stale",

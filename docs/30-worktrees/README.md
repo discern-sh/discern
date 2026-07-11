@@ -236,5 +236,5 @@ inspectable before they act.
 - [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
   any ref (`start --from` / `integrate --from`), land only on the trunk.
 - [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare
-  `discern` opens the operator's desk, the human's interactive surface over
-  the fleet.
+  `discern` opens the operator's desk, the human's interactive surface over the
+  fleet.
