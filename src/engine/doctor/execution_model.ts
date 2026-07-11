@@ -384,7 +384,7 @@ function graduateVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "graduate",
     when:
-      "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed (ADR 0067).",
+      "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
     steps,
   };
 }

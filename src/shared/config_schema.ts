@@ -627,7 +627,7 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
       return {
         path,
         message:
-          "dead config [features] — the subsystem toggles were retired (every subsystem is core now; ADR 0101); run `discern upgrade` to drop the section.",
+          "dead config [features] — the subsystem toggles were retired (every subsystem is core now); run `discern upgrade` to drop the section.",
       };
     }
     return {

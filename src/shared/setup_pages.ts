@@ -119,8 +119,9 @@ function splitSpineAndProse(
     }
   }
   if (open === -1 || close === -1) {
+    // The spine-block invariant is ADR 0078.
     throw new Error(
-      `Setup Step ${n} is missing its \`\`\`toml spine block (ADR 0078).`,
+      `Setup Step ${n} is missing its \`\`\`toml spine block.`,
     );
   }
 

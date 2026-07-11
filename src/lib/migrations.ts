@@ -172,8 +172,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 3,
+    // ADR 0017/0018
     describe:
-      "convert [slots]→[capabilities]/[checks], inline ratchet runs, fold side-gates into [scopes.<name>].gate, drop [evidence] (ADR 0017/0018)",
+      "convert [slots]→[capabilities]/[checks], inline ratchet runs, fold side-gates into [scopes.<name>].gate, drop [evidence]",
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {
@@ -375,8 +376,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 5,
+    // ADR 0020
     describe:
-      "dissolve .discern/ into the single-file footprint: config → root discern.toml; move guidance/recipes/authored skills out; prune bundled skills; add [guidance]/[skills] (ADR 0020)",
+      "dissolve .discern/ into the single-file footprint: config → root discern.toml; move guidance/recipes/authored skills out; prune bundled skills; add [guidance]/[skills]",
     apply: async (ctx) => {
       // Capture the legacy [project].agents (to seed [guidance].agents) BEFORE
       // moving the config, while it is still readable at its old location.
@@ -577,8 +579,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 6,
+    // ADR 0024
     describe:
-      "retire the setup skill for the `discern setup` command: prune the stale legacy materialized setup-skill copy and back-fill [meta].bootstrapped for an already-configured install (ADR 0024)",
+      "retire the setup skill for the `discern setup` command: prune the stale legacy materialized setup-skill copy and back-fill [meta].bootstrapped for an already-configured install",
     apply: async (ctx) => {
       // Setup instructions are now CLI-served, not a materialized skill. Remove the
       // pristine legacy copy a schema-6 install left under .claude/skills/: it is no longer in the bundled set, so `materializeSkills` treats it as a foreign dir and
@@ -623,8 +626,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 7,
+    // ADR 0025
     describe:
-      "generalize [worktree.db]/[worktree.dev_server] into [worktree.resources.<name>]; carry non-empty commands forward as create/destroy, then add the commented resource examples (ADR 0025)",
+      "generalize [worktree.db]/[worktree.dev_server] into [worktree.resources.<name>]; carry non-empty commands forward as create/destroy, then add the commented resource examples",
     apply: async (ctx) => {
       await migrateLegacyWorktreeResources(ctx);
     },
@@ -640,16 +644,18 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 9,
+    // ADR 0042
     describe:
-      "ignore /.agents/skills/: skills now materialize there for Codex/Gemini (the cross-tool standard), so the generated dir joins .claude/skills as an untracked build artifact (ADR 0042)",
+      "ignore /.agents/skills/: skills now materialize there for Codex/Gemini (the cross-tool standard), so the generated dir joins .claude/skills as an untracked build artifact",
     apply: async (ctx) => {
       await ignoreAgentsSkills(ctx);
     },
   },
   {
     from: 10,
+    // ADR 0045
     describe:
-      "drop [features].mcp — the MCP server is core infrastructure now, not a toggle; its config block is wired unconditionally (ADR 0045)",
+      "drop [features].mcp — the MCP server is core infrastructure now, not a toggle; its config block is wired unconditionally",
     apply: async (ctx) => {
       // Idempotent: deleteKey removes only the `mcp = …` line (inline comment and
       // all), leaving the rest of [features] and its doc comments intact; a no-op
@@ -659,8 +665,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 11,
+    // ADR 0048
     describe:
-      'rename the [worktree].graduate_to value "main" → "trunk" so the landing role is branch-name-agnostic, not read as a branch literally named main (ADR 0048)',
+      'rename the [worktree].graduate_to value "main" → "trunk" so the landing role is branch-name-agnostic, not read as a branch literally named main',
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {
@@ -685,8 +692,9 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 12,
+    // ADR 0052
     describe:
-      "add the documented [worktree].root key (empty ⇒ a sibling of the repo; relative/absolute overrides) so worktrees adopt the non-nested placement (ADR 0052)",
+      "add the documented [worktree].root key (empty ⇒ a sibling of the repo; relative/absolute overrides) so worktrees adopt the non-nested placement",
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {
@@ -715,32 +723,36 @@ export const MIGRATIONS: Migration[] = [
   },
   {
     from: 13,
+    // ADR 0089
     describe:
-      "remove the .claude/settings.local.json gitignore exception so machine-local provider settings stay ignored (ADR 0089)",
+      "remove the .claude/settings.local.json gitignore exception so machine-local provider settings stay ignored",
     apply: async (ctx) => {
       await removeClaudeLocalSettingsGitignoreException(ctx);
     },
   },
   {
     from: 14,
+    // ADR 0099/0102
     describe:
-      "consolidate the authored surface under the visible discern/ namespace: each unpointed source (the guidance seed, the docs tree, authored skills, recipes, the deferred-work ledger, the brief) moves from its old root default to its discern/ default; pointed paths are untouched (ADR 0099/0102)",
+      "consolidate the authored surface under the visible discern/ namespace: each unpointed source (the guidance seed, the docs tree, authored skills, recipes, the deferred-work ledger, the brief) moves from its old root default to its discern/ default; pointed paths are untouched",
     apply: async (ctx) => {
       await migrateIntoNamespace(ctx);
     },
   },
   {
     from: 15,
+    // ADR 0101
     describe:
-      "retire the [features] toggles and [worktree].enabled — every subsystem is core now; a features.skills = false becomes an authored [skills].exclude of the bundled set (ADR 0101)",
+      "retire the [features] toggles and [worktree].enabled — every subsystem is core now; a features.skills = false becomes an authored [skills].exclude of the bundled set",
     apply: async (ctx) => {
       await retireFeatureToggles(ctx);
     },
   },
   {
     from: 16,
+    // ADR 0110
     describe:
-      "drop [worktree].graduate_to — `discern graduate` always lands on the trunk; composition happens on the pull axis instead (ADR 0110)",
+      "drop [worktree].graduate_to — `discern graduate` always lands on the trunk; composition happens on the pull axis instead",
     apply: async (ctx) => {
       const text = await ctx.readConfig();
       if (text === undefined) {
@@ -778,10 +790,10 @@ export const MIGRATIONS: Migration[] = [
           ? `[worktree].graduate_to = "${String(dropped)}" is written in a ` +
             "form this migration can't rewrite — remove the key from " +
             "discern.toml by hand: `discern graduate` always lands on the " +
-            "trunk now (ADR 0110)"
+            "trunk now"
           : `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
             "`discern graduate` always lands on the trunk now; to compose work " +
-            "below the trunk, pull with `start --from` / `integrate --from` (ADR 0110)",
+            "below the trunk, pull with `start --from` / `integrate --from`",
       );
     },
   },
@@ -898,7 +910,7 @@ async function retireFeatureToggles(ctx: MigrationContext): Promise<void> {
       continue;
     }
     ctx.note(
-      `dropped [features].${name} = false — the subsystem toggles were retired (every subsystem is core now, ADR 0101); the escape is behavioral, not configurational`,
+      `dropped [features].${name} = false — the subsystem toggles were retired (every subsystem is core now); the escape is behavioral, not configurational`,
     );
   }
   if (worktree.enabled === false) {
@@ -1180,7 +1192,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
     ctx.note(
       `moved into the discern/ namespace: ${
         moved.map((n) => SOURCE_PATHS[n].legacyPath).join(", ")
-      } (ADR 0099)`,
+      }`,
     );
   }
   if (pinned.length > 0) {
@@ -1562,7 +1574,7 @@ async function ignoreAgentsMd(ctx: MigrationContext): Promise<void> {
   } else {
     const base = existing.replace(/\n+$/, "");
     text =
-      `${base}\n\n# discern: the compiled agent file is a build artifact (ADR 0034)\n/AGENTS.md\n`;
+      `${base}\n\n# discern: the compiled agent file is a build artifact\n/AGENTS.md\n`;
   }
   await ctx.writeText(".gitignore", text);
   ctx.note(
