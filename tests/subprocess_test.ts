@@ -159,6 +159,9 @@ Deno.test("runShell: a spawn failure carries the real cause instead of being swa
   assertEquals(result.success, false);
   assertEquals(result.code, SPAWN_FAILED);
   const stderr = new TextDecoder().decode(result.stderr);
-  assert(stderr.length > 0, "runShell swallowed the spawn error to an empty stderr");
+  assert(
+    stderr.length > 0,
+    "runShell swallowed the spawn error to an empty stderr",
+  );
   assertStringIncludes(stderr, "No such cwd");
 });

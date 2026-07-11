@@ -329,7 +329,11 @@ Deno.test("createResources is idempotent for a CREATE-ONLY resource (no destroy)
     // Exactly one marker entry exists, and it records an empty destroy (nothing
     // to tear down) — the marker's job is solely the run-once skip here.
     const entries = await listEntries(common);
-    assertEquals(entries.length, 1, "create-only resource left no run-once marker");
+    assertEquals(
+      entries.length,
+      1,
+      "create-only resource left no run-once marker",
+    );
     assertEquals(entries[0]?.entry.destroy_command, "");
   });
 });
