@@ -12,6 +12,11 @@
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
  *
+ * The config half honors the same rule as the file half: **fill-if-absent,
+ * never overwrite** — a value already set in `discern.toml` is the user's and
+ * stands; the preset's fill for it is skipped. Every key is disclosed per
+ * outcome (filled vs kept) in the dry-run, the confirm review, and the result.
+ *
  * This ships the *mechanism* only: no preset is bundled (the example that
  * exercises the contract lives under tests/fixtures/presets/).
  */
@@ -28,6 +33,7 @@ import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
   assertSupportedVersion,
+  type ConfigFillReport,
   type DiscernConfigDoc,
 } from "../lib/config_doc.ts";
 
@@ -202,14 +208,20 @@ export async function runPreset(
   // preset.json fails before anything is written and dry-run reports it.
   let fills: DiscernConfigDoc | undefined;
   let filledToml: string | undefined;
+  let fillReport: ConfigFillReport | undefined;
   try {
     fills = await loadPresetFills(presetDir);
     if (fills !== undefined && hasFills(fills)) {
       const editor = new TomlEditor(
         await Deno.readTextFile(configPath),
       );
-      applyConfigDoc(editor, fills);
-      filledToml = editor.toString();
+      // Fill-if-absent: a value already set in discern.toml is the user's; the
+      // preset's fill for it is skipped and disclosed, mirroring the file
+      // half's create-or-skip rule.
+      fillReport = applyConfigDoc(editor, fills, { skipExisting: true });
+      if (fillReport.filled.length > 0) {
+        filledToml = editor.toString();
+      }
     }
   } catch (error) {
     const message = `preset "${name}" has invalid config fills: ${
@@ -238,12 +250,22 @@ export async function runPreset(
           preset: name,
           plan: planToJson(plan),
           config_fills: filledToml !== undefined,
+          ...fillDisclosure(fillReport),
         },
       });
     } else {
       renderPlan(log, plan, `Dry run — preset "${name}" would overlay:`);
-      if (filledToml !== undefined) {
-        log.info("Would also apply config fills to discern.toml.");
+      if (fillReport !== undefined && fillReport.filled.length > 0) {
+        log.info(
+          `Would fill discern.toml: ${fillReport.filled.join(", ")}.`,
+        );
+      }
+      if (fillReport !== undefined && fillReport.skipped.length > 0) {
+        log.info(
+          `Would keep your existing discern.toml values (already set): ${
+            fillReport.skipped.join(", ")
+          }.`,
+        );
       }
     }
     return 0;
@@ -251,8 +273,11 @@ export async function runPreset(
 
   if (!options.json) {
     renderReview(log, plan, destDir);
-    if (filledToml !== undefined) {
-      log.line("  discern.toml  apply preset config fills");
+    for (const key of fillReport?.filled ?? []) {
+      log.line(`  discern.toml  fill ${key}`);
+    }
+    for (const key of fillReport?.skipped ?? []) {
+      log.line(`  discern.toml  keep ${key} (already set — yours stands)`);
     }
     log.line();
   }
@@ -273,6 +298,7 @@ export async function runPreset(
         preset: name,
         written: changed.map((op) => op.targetRel),
         config_fills: filledToml !== undefined,
+        ...fillDisclosure(fillReport),
       },
     });
     return 0;
@@ -280,9 +306,34 @@ export async function runPreset(
   for (const op of changed) {
     log.ok(op.targetRel);
   }
-  if (filledToml !== undefined) {
-    log.ok("discern.toml (config fills applied)");
+  if (fillReport !== undefined && filledToml !== undefined) {
+    log.ok(`discern.toml (filled: ${fillReport.filled.join(", ")})`);
+  }
+  if (fillReport !== undefined && fillReport.skipped.length > 0) {
+    log.info(
+      `discern.toml kept your existing values: ${
+        fillReport.skipped.join(", ")
+      }.`,
+    );
   }
   log.ok(`Preset "${name}" applied.`);
   return 0;
+}
+
+/** The per-key config-fill disclosure for the `--json` payloads: which dotted
+ * paths the preset fills (or would fill) and which it keeps as the user's.
+ * Empty when the preset carries no fills at all. */
+function fillDisclosure(
+  report: ConfigFillReport | undefined,
+): {
+  config_fills_applied?: string[];
+  config_fills_skipped?: string[];
+} {
+  if (report === undefined) {
+    return {};
+  }
+  return {
+    config_fills_applied: report.filled,
+    config_fills_skipped: report.skipped,
+  };
 }

@@ -118,18 +118,54 @@ export function mergeDocIntoFlags(
   };
 }
 
+/** What a fill application did (or, on a dry-run's precomputed editor, would
+ * do): the dotted config paths written, and — in fill-if-absent mode — those
+ * left untouched because the project already sets them. */
+export interface ConfigFillReport {
+  /** Paths the fills wrote, e.g. `capabilities.test`, `checks.licenses`. */
+  filled: string[];
+  /** Paths kept as the project's own (only with `skipExisting`). */
+  skipped: string[];
+}
+
 /**
  * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
  * enum-ish values (capability name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
+ *
+ * With `skipExisting`, a fill whose target already carries a real value (a set
+ * key, or a present `[checks.*]`/`[scopes.*]`/`[ratchets.*]` table) is skipped
+ * and reported instead of replacing it — a present value is the user's, so a
+ * preset overlays config the way it overlays files: create-or-skip, never
+ * overwrite. The default (used by `setup --config` over a freshly generated
+ * template) writes every fill. Either way the returned report names each path
+ * per outcome, so callers can disclose exactly what changed.
  */
 export function applyConfigDoc(
   editor: TomlEditor,
   doc: DiscernConfigDoc,
-): void {
-  if (doc.docs?.dir !== undefined) {
-    editor.setString("docs.dir", doc.docs.dir);
+  opts: { skipExisting?: boolean } = {},
+): ConfigFillReport {
+  const skipExisting = opts.skipExisting ?? false;
+  const report: ConfigFillReport = { filled: [], skipped: [] };
+  /** Route one validated fill: skip-and-report when its target is taken. */
+  const write = (path: string, taken: boolean, apply: () => void): void => {
+    if (skipExisting && taken) {
+      report.skipped.push(path);
+      return;
+    }
+    apply();
+    report.filled.push(path);
+  };
+
+  {
+    const dir = doc.docs?.dir;
+    if (dir !== undefined) {
+      write("docs.dir", editor.hasKey("docs.dir"), () => {
+        editor.setString("docs.dir", dir);
+      });
+    }
   }
 
   // Capabilities: a known name mapped to a command (or list). The stage is
@@ -146,7 +182,10 @@ export function applyConfigDoc(
     if (run === undefined) {
       continue; // a known key present with no value — nothing to write
     }
-    setCommand(editor, `capabilities.${name}`, run);
+    const key = `capabilities.${name}`;
+    write(key, editor.hasKey(key), () => {
+      setCommand(editor, key, run);
+    });
   }
 
   // Checks: an explicit stage (∈ STAGES) + a run command + an optional label. The
@@ -180,11 +219,13 @@ export function applyConfigDoc(
     if (run === undefined) {
       throw new Error(`check "${name}": a run command is required`);
     }
-    editor.setString(`checks.${name}.stage`, stage);
-    setCommand(editor, `checks.${name}.run`, run);
-    if (spec.provides !== undefined) {
-      editor.setString(`checks.${name}.provides`, spec.provides);
-    }
+    write(`checks.${name}`, editor.hasSection(`checks.${name}`), () => {
+      editor.setString(`checks.${name}.stage`, stage);
+      setCommand(editor, `checks.${name}.run`, run);
+      if (spec.provides !== undefined) {
+        editor.setString(`checks.${name}.provides`, spec.provides);
+      }
+    });
   }
 
   // Scopes: a named region (paths) with optional neutral/previewable/gate.
@@ -193,16 +234,18 @@ export function applyConfigDoc(
     if (!Array.isArray(spec.paths)) {
       throw new Error(`scope "${name}": paths must be an array of globs`);
     }
-    editor.setStringArray(`scopes.${name}.paths`, spec.paths);
-    if (spec.neutral !== undefined) {
-      editor.setBool(`scopes.${name}.neutral`, spec.neutral);
-    }
-    if (spec.previewable !== undefined) {
-      editor.setBool(`scopes.${name}.previewable`, spec.previewable);
-    }
-    if (spec.gate !== undefined) {
-      setCommand(editor, `scopes.${name}.gate`, spec.gate);
-    }
+    write(`scopes.${name}`, editor.hasSection(`scopes.${name}`), () => {
+      editor.setStringArray(`scopes.${name}.paths`, spec.paths);
+      if (spec.neutral !== undefined) {
+        editor.setBool(`scopes.${name}.neutral`, spec.neutral);
+      }
+      if (spec.previewable !== undefined) {
+        editor.setBool(`scopes.${name}.previewable`, spec.previewable);
+      }
+      if (spec.gate !== undefined) {
+        setCommand(editor, `scopes.${name}.gate`, spec.gate);
+      }
+    });
   }
 
   // Ratchets: a required run (emits the metric) + limit; direction/metric default.
@@ -223,11 +266,15 @@ export function applyConfigDoc(
     if (typeof limit !== "number" && typeof limit !== "string") {
       throw new Error(`ratchet "${name}": limit must be a number`);
     }
-    editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
-    editor.setString(`ratchets.${name}.direction`, direction);
-    editor.setNumber(`ratchets.${name}.limit`, limit);
-    setCommand(editor, `ratchets.${name}.run`, run);
+    write(`ratchets.${name}`, editor.hasSection(`ratchets.${name}`), () => {
+      editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
+      editor.setString(`ratchets.${name}.direction`, direction);
+      editor.setNumber(`ratchets.${name}.limit`, limit);
+      setCommand(editor, `ratchets.${name}.run`, run);
+    });
   }
+
+  return report;
 }
 
 /** Write a command-or-list value: a TOML array when a list, else a string. */

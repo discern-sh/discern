@@ -3381,6 +3381,18 @@
                 "config_fills": {
                   "type": "boolean"
                 },
+                "config_fills_applied": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "config_fills_skipped": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "written": {
                   "type": "array",
                   "items": {

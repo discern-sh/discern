@@ -129,6 +129,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0115 — Under a nested project root, every verb works correctly or refuses loudly](0115-nested-root-verbs-work-or-refuse.md)
 - [0116 — Receipts vouch only for the pinned tree, and graduate lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
+- [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
 
 ## Superseded and consolidated ADRs
 

@@ -126,12 +126,124 @@ export async function runShell(
   }
 }
 
+/** Whitespace as the POSIX shell tokenizer sees it. */
+function isShellSpace(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r";
+}
+
+/** Characters that make a word's runtime value (or the command structure)
+ * unknowable without executing the shell: expansions, substitutions, grouping,
+ * separators, redirections, globs, comments, escapes. Encountering one unquoted
+ * means {@link leadingCommandWord} cannot answer confidently — it returns
+ * `undefined` (skip the probe) rather than a word `sh` would never execute. */
+const SHELL_SPECIAL = new Set([..."`$(){};&|<>*?[]#~!\\"]);
+
+/** A POSIX environment-assignment prefix: `NAME=` with a valid variable name. */
+const ENV_ASSIGNMENT_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+/**
+ * The leading command word `sh -c` would actually execute for an operator
+ * command — the word {@link commandExists} can probe — or `undefined` when
+ * there is nothing to probe or no confident answer exists.
+ *
+ * An operator command is shell syntax, not argv: splitting on whitespace turns
+ * `CI=1 npm test` into a probe for `CI=1` and `"./my tool" run` into one for
+ * `"./my` — false "command not found" verdicts for commands the gate runs
+ * fine. So this extractor speaks just enough POSIX shell:
+ *
+ *   - leading `NAME=value` environment assignments are skipped (the shell
+ *     applies them; the word after them is the command);
+ *   - single/double quotes are resolved, so a quoted path with spaces probes
+ *     as one word;
+ *   - anything dynamic or compound ({@link SHELL_SPECIAL}) makes the leading
+ *     word unknowable without running the shell — `undefined`, so a caller
+ *     skips the probe instead of failing a healthy install.
+ *
+ * Words after the first are never inspected: probing only the leading command
+ * of a piped/`&&`-chained string is the callers' documented, advisory scope.
+ */
+export function leadingCommandWord(command: string): string | undefined {
+  let i = 0;
+  while (true) {
+    while (i < command.length && isShellSpace(command[i] ?? "")) {
+      i++;
+    }
+    if (i >= command.length) {
+      return undefined;
+    }
+    let word = "";
+    /** Literal characters seen before any quote — an assignment's `NAME=` must
+     * be unquoted (`"FOO"=bar` is a command named `FOO=bar`, not a prefix). */
+    let unquotedPrefix = "";
+    let sawQuote = false;
+    while (i < command.length && !isShellSpace(command[i] ?? "")) {
+      const char = command[i] ?? "";
+      if (char === "'") {
+        const close = command.indexOf("'", i + 1);
+        if (close === -1) {
+          return undefined; // unterminated — not parseable
+        }
+        word += command.slice(i + 1, close);
+        sawQuote = true;
+        i = close + 1;
+        continue;
+      }
+      if (char === '"') {
+        let j = i + 1;
+        let closed = false;
+        while (j < command.length) {
+          const inner = command[j] ?? "";
+          if (inner === "\\") {
+            const escaped = command[j + 1];
+            if (escaped === undefined) {
+              return undefined;
+            }
+            word += escaped;
+            j += 2;
+            continue;
+          }
+          if (inner === "$" || inner === "`") {
+            return undefined; // expands at runtime — unknowable
+          }
+          if (inner === '"') {
+            closed = true;
+            j++;
+            break;
+          }
+          word += inner;
+          j++;
+        }
+        if (!closed) {
+          return undefined;
+        }
+        sawQuote = true;
+        i = j;
+        continue;
+      }
+      if (SHELL_SPECIAL.has(char)) {
+        return undefined;
+      }
+      if (!sawQuote) {
+        unquotedPrefix += char;
+      }
+      word += char;
+      i++;
+    }
+    if (ENV_ASSIGNMENT_RE.test(unquotedPrefix)) {
+      continue; // the shell's prefix, not the command — keep looking
+    }
+    return word === "" || word === ":" ? undefined : word;
+  }
+}
+
 /**
  * Whether `word` resolves as a runnable command — on PATH, a shell builtin, or a
  * path — via the shell's own `command -v`. `word` is passed as a positional
  * argument, not interpolated into the script, so a surprising value cannot break
  * out of the probe. Pass `cwd` when validating a project-relative command so the
- * probe uses the same resolved root as its eventual execution.
+ * probe uses the same resolved root as its eventual execution. Extract the word
+ * to probe from an operator command string with {@link leadingCommandWord},
+ * never by splitting on whitespace.
  */
 export async function commandExists(
   word: string,

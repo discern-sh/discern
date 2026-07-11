@@ -156,8 +156,11 @@ A reusable overlay applied with `discern preset <name>`: a `presets/<name>/`
 directory whose files are scaffolded onto a project (with the same yours-vs-the-
 binary's rules as `setup`) plus an optional `preset.json` at its root — an
 discern config document whose `capabilities` / `checks` / `scopes` / `ratchets`
-are written into `discern.toml`. Supersedes the former "adapter" overlay; the
-binary bundles none ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+are written into `discern.toml`. Fills are fill-if-absent: a value the project
+already sets is the user's and stands, and every key is disclosed as filled or
+kept ([ADR 0118](../_adr/0118-preset-fills-never-overwrite.md)). Supersedes the
+former "adapter" overlay; the binary bundles none
+([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ---
 

@@ -376,6 +376,21 @@ export class TomlEditor {
     return this.findSection(section) !== null;
   }
 
+  /** True when a real (uncommented) `key = …` assignment exists at the dotted
+   * path — the `section.key` analogue of {@link hasSection} and
+   * {@link hasRootKey}, so a caller can fill-if-absent instead of replacing a
+   * value the user already set. A commented-out `# key = …` hint does not
+   * count (the anchored key regex never matches it). */
+  hasKey(dottedKey: string): boolean {
+    const segments = dottedKey.split(".");
+    const key = segments.at(-1);
+    if (segments.length < 2 || key === undefined) {
+      return false;
+    }
+    const span = this.findSection(segments.slice(0, -1).join("."));
+    return span !== null && this.assignmentLine(span, key) !== undefined;
+  }
+
   /**
    * Insert a pre-rendered multi-line section block — its doc-comment paragraph,
    * `[header]`, and body — immediately after the `anchor` section, with a
