@@ -76,7 +76,11 @@ import {
   reactivationHandoff,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
-import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  loadConfig,
+  resolveConfiguredAgents,
+} from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
@@ -537,7 +541,10 @@ async function scaffoldHarness(
   //     [guidance].agents from it (persisted once here; resolveConfiguredAgents stays a
   //     pure runtime reader that never re-detects).
   //   • --force RE-SCAFFOLD over an existing install → re-derive from the PERSISTED
-  //     [guidance].agents. The config is write-once, so re-detecting would be inert for
+  //     [guidance].agents via resolveConfiguredAgents, the one resolver every consumer
+  //     shares: an unset key means the legacy list or the default pair, and an explicit
+  //     `agents = []` means no agents (ADR 0125), round-tripping as the empty flag. The
+  //     config is write-once, so re-detecting would be inert for
   //     the config — but the plan's per-agent seeds come from config.agents, so without
   //     this a --force re-run lays DEFAULT_AGENTS' seed files (claude_code + codex) over a
   //     project configured for a different set, the exact divergence from a clean run this
@@ -549,10 +556,9 @@ async function scaffoldHarness(
       effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
     } else {
       try {
-        const persisted = (await loadConfig(destDir)).guidance.agents;
-        if (persisted.length > 0) {
-          effectiveFlags.agents = persisted.join(",");
-        }
+        effectiveFlags.agents = resolveConfiguredAgents(
+          await loadConfig(destDir),
+        ).join(",");
       } catch {
         // Unreadable config — leave undefined so resolveSetupConfig falls back to
         // DEFAULT_AGENTS; doctor / the strict verbs diagnose the broken config.
@@ -1517,7 +1523,7 @@ async function commitScaffoldedMachinery(
  */
 function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
   const paths = new Set<string>([CONFIG_REL, ".gitignore"]);
-  for (const agent of cfg.guidance.agents) {
+  for (const agent of resolveConfiguredAgents(cfg)) {
     const provider = providerFor(agent);
     if (provider === undefined) {
       continue;

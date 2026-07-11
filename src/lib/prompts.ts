@@ -137,14 +137,19 @@ export async function resolveSetupConfig(
     brief = "";
   }
 
-  // 6. Which agent files to emit.
+  // 6. Which agent files to emit. A deliberately EMPTY agents flag ("" — e.g. an
+  // explicit `[guidance] agents = []` round-tripping through a re-scaffold, ADR 0125)
+  // means no agents and is honored verbatim; only input that named agents and matched
+  // NONE of them (all unknown) falls back to the default pair as the repair path.
   let agents: AgentName[];
   if (flags.agents !== undefined) {
     const { agents: parsed, unknown } = parseAgents(flags.agents);
     if (unknown.length > 0) {
       log.warn(`ignoring unknown agent(s): ${unknown.join(", ")}`);
     }
-    agents = parsed.length > 0 ? parsed : [...DEFAULTS.agents];
+    agents = parsed.length > 0 || unknown.length === 0
+      ? parsed
+      : [...DEFAULTS.agents];
   } else if (interactive) {
     agents = await Checkbox.prompt({
       message: "Which agent instruction files should be emitted?",

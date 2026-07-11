@@ -706,6 +706,68 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
   });
 });
 
+// The B48 × ADR 0125 seam: the re-scaffold's persisted-agents read goes through
+// resolveConfiguredAgents, so an explicit `[guidance] agents = []` (no agents, honored
+// verbatim per ADR 0125) must survive the flags round-trip — never decaying to
+// DEFAULT_AGENTS at any hop (loadConfig → effectiveFlags → resolveSetupConfig).
+// The fixture uses the declarative answers document: Cliffy drops an empty option
+// value (`--agents ""` parses as undefined), so the document and the persisted config
+// are the surfaces that can express "no agents" — the flag cannot.
+Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [guidance] agents = [] — no seeds, never DEFAULT_AGENTS", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    // A fresh install deliberately configured for NO agents (ADR 0125's explicit
+    // empty). --allow-dirty isolates the agent-set dimension, as in the sibling case.
+    const answersPath = join(dir, "answers.json");
+    await Deno.writeTextFile(
+      answersPath,
+      JSON.stringify({ version: "2", agents: [] }),
+    );
+    const fresh = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--allow-dirty",
+      "--config",
+      answersPath,
+    ]);
+    assertEquals(fresh.code, 0, fresh.output);
+    const golden = await readConvergence(dir);
+    assertEquals(
+      golden.scaffoldedAgents,
+      [],
+      "precondition: an explicit-empty agent set lays no per-agent seed",
+    );
+    assertEquals(
+      parseConfigOrThrow(await Deno.readTextFile(join(dir, "discern.toml")))
+        .guidance.agents,
+      [],
+      "precondition: the config records the explicit empty list",
+    );
+
+    // Re-run with --force and NO --agents: the persisted explicit [] must be honored,
+    // not treated as unset (which would decay to DEFAULT_AGENTS' seeds).
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--force",
+      "--allow-dirty",
+      "--json",
+    ]);
+    assertEquals(re.code, 0, re.output);
+    const conv = await readConvergence(dir);
+    assertEquals(
+      conv.scaffoldedAgents,
+      [],
+      `a --force re-scaffold over an explicit agents = [] must lay no agent seeds; ` +
+        `laid ${JSON.stringify(conv.scaffoldedAgents)}`,
+    );
+  });
+});
+
 Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real integration branch, not init.defaultBranch", async () => {
   await withTempDir(async (dir) => {
     await repoOnBranch(dir, "master");
