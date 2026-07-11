@@ -28,6 +28,8 @@ import {
   runSetupStep,
 } from "./commands/setup.ts";
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
+import { canPrompt } from "./lib/prompts.ts";
+import { runDesk } from "./engine/desk/desk.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runSetupLand } from "./commands/setup_land.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
@@ -821,7 +823,11 @@ export async function main(args: string[]): Promise<void> {
     // coding agent to run discern" (ADR 0036), and the welcome dual-addresses
     // both readers and funnels the agent into the staged handshake (ADR 0075).
     // It writes nothing, so it shows even in a non-git directory (leading with
-    // the git-init step); once the project is set up, it falls through to help.
+    // the git-init step). Once the project is set up, an interactive terminal
+    // gets the operator's desk — the bare invocation is the human's surface
+    // (ADR 0119); the gate is TTY-ness alone (via `canPrompt`, deliberately no
+    // agent/vendor sniffing), so pipes, CI, and `--json` fall through to help
+    // byte-identical to before.
     if (verb === undefined) {
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(
@@ -832,6 +838,12 @@ export async function main(args: string[]): Promise<void> {
             ),
           }),
         );
+      }
+      if (
+        inProject && configOk && bootstrapped &&
+        !argv.includes("--json") && canPrompt(false)
+      ) {
+        Deno.exit(await runDesk({}));
       }
       console.log(operatorHelp(cli as unknown as Command));
       await printProjectRecipes();

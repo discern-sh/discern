@@ -47,6 +47,7 @@ import { runRatchets } from "./gate/ratchets.ts";
 import { runScopes } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
+import { runDesk } from "./desk/desk.ts";
 import { refreshResult } from "./guidelines.ts";
 import { guidanceAgents } from "./guidance_render.ts";
 import {
@@ -89,6 +90,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "scopes",
   "coupling",
   "status",
+  "desk",
   "graduate",
   "integrate",
   "start",
@@ -449,6 +451,19 @@ export function attachEngineCommands(root: Command): void {
           local: o.local ?? false,
         }),
       );
+    });
+
+  root
+    .command("desk")
+    .description(
+      "Your interactive desk over the worktree fleet: pick an effort, land, integrate, drop, or jump in. Bare `discern` opens it.",
+    )
+    .option(
+      "--json",
+      "Refused — the desk is interactive-only; use `status --json` for the fleet survey.",
+    )
+    .action(async (o) => {
+      Deno.exit(await runDesk({ json: o.json ?? false }));
     });
 
   root

@@ -93,6 +93,10 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
     "identity", // identity-resolution plumbing
     "skills", // a command group (skills list/eject)
     "mcp", // the server itself — it cannot expose itself as one of its tools
+    // The interactive human surface: it wields supervisory actions over OTHER
+    // efforts' worktrees, which the fleet-ownership rule forbids an agent —
+    // deliberately CLI-only for `worktree drop`'s reason (ADR 0119).
+    "desk",
   ]);
 
   // The exception sets must themselves stay honest (no stale member).
@@ -178,6 +182,7 @@ Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plu
     "worktree",
     "skills", // a command group, not a suggestable recipe
     "mcp", // the server entry point, not a suggestable recipe
+    "desk", // interactive-only — no recipe or hook form to suggest (ADR 0119)
   ]);
   const RECIPE_ADDS_SUBRECIPES = [
     "worktree-setup",

@@ -51,6 +51,11 @@ export interface CommandGroup {
  */
 export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
+    name: "Your desk",
+    note: "the one command a human needs — bare `discern` opens it",
+    commands: ["desk"],
+  },
+  {
     name: "Agentic loop",
     note: "your coding agent runs these as it works",
     commands: ["status", "prepare", "finish", "test"],
