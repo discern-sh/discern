@@ -18,7 +18,7 @@ import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { resolveRecordedSchema } from "../lib/schema.ts";
+import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   AGENT_NAMES,
@@ -176,12 +176,26 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 2. schema currency — the recorded `[meta].schema_version` matches this build.
+  // The two mismatch directions need opposite remedies, and only one of them is
+  // `discern upgrade`: that verb migrates an OLDER install forward, but REFUSES a
+  // config newer than the binary (see `isRecordedSchemaNewer`/upgrade's own guard),
+  // so advising it there would send the user at a command that rejects their exact
+  // state. A newer install means the BINARY is behind — re-run the installer.
   const recorded = await resolveRecordedSchema(toml.raw, destDir);
   if (recorded === SCHEMA_VERSION) {
     checks.push({
       name: "schema version",
       ok: true,
       detail: `schema ${SCHEMA_VERSION} (current)`,
+    });
+  } else if (isRecordedSchemaNewer(recorded, SCHEMA_VERSION)) {
+    checks.push({
+      name: "schema version",
+      ok: false,
+      detail:
+        `install schema v${recorded} is newer than this build's v${SCHEMA_VERSION} — the project was upgraded by a newer discern`,
+      fix:
+        "update discern itself (re-run the installer, e.g. `brew upgrade discern`) — `discern upgrade` refuses a newer-than-binary config",
     });
   } else {
     checks.push({

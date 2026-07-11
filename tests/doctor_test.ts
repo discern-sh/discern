@@ -17,6 +17,7 @@ import { runCli, withTempDir } from "./helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -421,6 +422,49 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertStringIncludes(schema.detail, "v1");
     assertStringIncludes(schema.detail, "v17");
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
+  });
+});
+
+// The class guard for B51: doctor must give schema advice the recommended command
+// actually honors. `discern upgrade` migrates an OLDER install forward (the case the
+// "a stale schema is flagged with an upgrade fix" test above pins) but REFUSES one
+// newer than the binary — so advising it there sends the user at a command that
+// rejects their exact state. This guards the newer direction and additionally proves
+// the contradiction by running `discern upgrade` and confirming it refuses, so a
+// regression that re-advises the migrate command fails here.
+Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never the `discern upgrade` it refuses", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // The project was upgraded by a newer binary than this one.
+    await setSchema(dir, SCHEMA_VERSION + 1);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const schema = check(payload, "schema version");
+    assertEquals(schema.status, "fail");
+    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
+    assertStringIncludes(schema.detail, "newer");
+    // The remedy must point at updating discern itself, NOT at running the migrate
+    // command upgrade would refuse.
+    const fix = schema.fix ?? "";
+    assert(
+      /re-run the installer|update discern/i.test(fix),
+      `newer-schema fix must point at updating discern: ${fix}`,
+    );
+    assert(
+      !/run `discern upgrade`/i.test(fix),
+      `newer-schema fix must not recommend the \`discern upgrade\` that refuses this state: ${fix}`,
+    );
+
+    // Prove the contradiction the old advice created: `discern upgrade` genuinely
+    // refuses this exact install, so recommending it would send the user nowhere.
+    const up = await runCli(["upgrade", "--json"], dir);
+    assertEquals(up.code, 1);
+    assertEquals(
+      (JSON.parse(up.stdout) as { error?: string }).error,
+      "schema_version_too_new",
+      "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
+    );
   });
 });
 

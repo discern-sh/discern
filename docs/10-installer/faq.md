@@ -122,6 +122,13 @@ Two separate axes, deliberately kept distinct:
   `brew upgrade discern`). discern makes no network calls and never
   auto-updates, so a new version is always something you ask for.
 
+Which axis a schema mismatch needs depends on its direction, and
+`discern doctor` names the right one. An install OLDER than your binary migrates
+forward with `discern upgrade`. An install NEWER than your binary — a teammate
+upgraded the project with a newer discern than you have — is the other axis:
+`discern upgrade` refuses a newer-than-binary config, so update discern itself
+instead.
+
 Either axis can leave a **stale MCP server**: an agent that started
 `discern mcp` before the change keeps running the old binary's engine and
 templates for the rest of its session. Restart the agent session after upgrading
