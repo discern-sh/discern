@@ -8,14 +8,24 @@ and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
 handler, execs an _unknown_ verb as a matching project Recipe (with the
 `DISCERN_*` environment exported), lets the Engine win on a name collision with
-a project recipe, and suggests a near-match on a typo. Every subsystem's verbs
-are always registered — there is no toggle layer in the dispatch
+a project recipe, and suggests a near-match on a typo. The single set of
+built-in names — `KNOWN_VERBS` (installer + engine), defined once in the
+dispatcher — is the SSOT for that collision: the router's recipe fall-through,
+the `--help` recipe listing, the typo suggester, and the shadowed-recipe warning
+all read it, so help can never advertise (nor the suggester propose) a recipe
+the router would refuse. That warning is human narration, so it stays silent
+under `--json` to keep the one-envelope stream pure. Every subsystem's verbs are
+always registered — there is no toggle layer in the dispatch
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The router in
 [`main.ts`](../../src/main.ts) resolves the verb as the first token that is not
 a global flag, so `discern --json <verb>` routes exactly like
 `discern <verb> --json` — the pre-setup redirect
 ([ADR 0036](../_adr/0036-unify-setup.md)), the welcome/help split, and recipe
-dispatch included.
+dispatch included. The help path is resilient to bad project state: the root
+help renders in full and exits 0 even with a broken, missing, or schema-invalid
+`discern.toml`, degrading only the project-recipe listing (which needs the typed
+config) to a one-line notice — help is exactly when a broken config most needs
+to keep working.
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
@@ -31,6 +41,15 @@ skills. Shared concerns — config reading, the
 [paths registry](../../src/shared/paths_registry.ts), capability/stage
 constants, the POSIX-`cksum` port, and root discovery with `DISCERN_*` — live
 under [`src/shared/`](../../src/shared/).
+
+Colour is resolved **once**, at the CLI entry point, from the three inputs the
+`--no-color` help text promises — the flag, the `NO_COLOR` env var, and whether
+stdout is a TTY — and threaded to every colour-emitting surface (the engine
+verbs' `colorEnabled()`, the installer/engine `Logger`s, and the grouped root
+help). No output path re-decides on its own, so `--no-color`, `NO_COLOR`, and a
+non-TTY pipe all mean zero ANSI bytes everywhere, including from Cliffy's own
+`getHelp()` (whose escapes the help post-processor strips when the resolved
+decision is "no colour", since that generator consults only `Deno.noColor`).
 
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
