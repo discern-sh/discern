@@ -5336,8 +5336,8 @@
         "verb"
       ]
     },
-    "DiscernImproveResult": {
-      "title": "DiscernImproveResult",
+    "DiscernImprovementResult": {
+      "title": "DiscernImprovementResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -5552,7 +5552,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "improve"
+          "const": "improvement"
         },
         "data": {
           "anyOf": [
@@ -10358,8 +10358,8 @@
         "isError"
       ]
     },
-    "DiscernImproveMcpToolResult": {
-      "title": "DiscernImproveMcpToolResult",
+    "DiscernImprovementMcpToolResult": {
+      "title": "DiscernImprovementMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10381,7 +10381,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernImproveResult"
+          "$ref": "#/$defs/DiscernImprovementResult"
         },
         "isError": {
           "type": "boolean"
@@ -10723,7 +10723,7 @@
           "$ref": "#/$defs/DiscernTestResult"
         },
         {
-          "$ref": "#/$defs/DiscernImproveResult"
+          "$ref": "#/$defs/DiscernImprovementResult"
         },
         {
           "$ref": "#/$defs/DiscernRatchetsResult"
@@ -10786,7 +10786,7 @@
           "done": "#/$defs/DiscernDoneResult",
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
-          "improve": "#/$defs/DiscernImproveResult",
+          "improvement": "#/$defs/DiscernImprovementResult",
           "ratchets": "#/$defs/DiscernRatchetsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
           "impact": "#/$defs/DiscernImpactResult",
@@ -10827,7 +10827,7 @@
           "$ref": "#/$defs/DiscernTestMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernImproveMcpToolResult"
+          "$ref": "#/$defs/DiscernImprovementMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernRatchetsMcpToolResult"
@@ -10995,14 +10995,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernTestMcpToolResult"
     },
     {
-      "id": "improve",
-      "verb": "improve",
+      "id": "improvement",
+      "verb": "improvement",
       "commands": [
-        "improve"
+        "improvement"
       ],
-      "mcpTool": "discern_improve",
-      "schema": "#/$defs/DiscernImproveResult",
-      "mcpToolResultSchema": "#/$defs/DiscernImproveMcpToolResult"
+      "mcpTool": "discern_improvement",
+      "schema": "#/$defs/DiscernImprovementResult",
+      "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
     },
     {
       "id": "ratchets",

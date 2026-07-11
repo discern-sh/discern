@@ -90,7 +90,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
     name: "Inspect & explore",
     note: "read-only views for you or your agent",
     commands: [
-      "improve",
+      "improvement",
       "ratchets",
       "skills",
       "impact",

@@ -1,5 +1,5 @@
 /**
- * Engine coverage for `discern improve` — the continuous-improvement coach.
+ * Engine coverage for `discern improvement` — the continuous-improvement coach.
  * Drives the real verb as a subprocess (so Cliffy parsing, the `--json` envelope,
  * the human report, the category filter, and the exit codes are all exercised), the
  * black-box parity oracle for the coach's behaviour.
@@ -17,7 +17,7 @@ import { ensureDir } from "@std/fs";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
-/** One deterministic rule result in the `improve --json` payload. */
+/** One deterministic rule result in the `improvement --json` payload. */
 interface RuleJson {
   id: string;
   title: string;
@@ -48,8 +48,8 @@ interface CategoryJson {
   reviews: ReviewJson[];
 }
 
-/** The `improve --json` envelope shape we assert against. */
-interface ImprovePayload {
+/** The `improvement --json` envelope shape we assert against. */
+interface ImprovementPayload {
   ok: boolean;
   verb: string;
   error?: string;
@@ -70,17 +70,21 @@ interface ImprovePayload {
   };
 }
 
-/** Run `improve <args>` and parse its `--json` stdout. */
-async function improveJson(
+/** Run `improvement <args>` and parse its `--json` stdout. */
+async function improvementJson(
   dir: string,
   args: string[] = [],
-): Promise<{ code: number; payload: ImprovePayload }> {
-  const { code, stdout } = await runAgent(dir, ["improve", "--json", ...args]);
-  return { code, payload: JSON.parse(stdout) as ImprovePayload };
+): Promise<{ code: number; payload: ImprovementPayload }> {
+  const { code, stdout } = await runAgent(dir, [
+    "improvement",
+    "--json",
+    ...args,
+  ]);
+  return { code, payload: JSON.parse(stdout) as ImprovementPayload };
 }
 
 /** Find a category by slug, asserting it is present. */
-function cat(payload: ImprovePayload, name: string): CategoryJson {
+function cat(payload: ImprovementPayload, name: string): CategoryJson {
   const found = payload.data?.categories.find((c) => c.name === name);
   assert(found !== undefined, `expected a '${name}' category`);
   return found;
@@ -144,18 +148,18 @@ async function writeStrongFiles(dir: string): Promise<void> {
   );
 }
 
-Deno.test("improve --json: a fresh install scores low and leads with one fix", async () => {
+Deno.test("improvement --json: a fresh install scores low and leads with one fix", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const { code, payload } = await improveJson(dir);
+    const { code, payload } = await improvementJson(dir);
 
     assertEquals(
       code,
       0,
-      "an improve run itself succeeds (advisory by default)",
+      "an improvement run itself succeeds (advisory by default)",
     );
     assertEquals(payload.ok, true);
-    assertEquals(payload.verb, "improve");
+    assertEquals(payload.verb, "improvement");
     assert(payload.data !== undefined);
     assert(
       payload.data.score < 50,
@@ -187,7 +191,7 @@ Deno.test("improve --json: a fresh install scores low and leads with one fix", a
   });
 });
 
-Deno.test("improve --json: baseline 100 still leads with an open review", async () => {
+Deno.test("improvement --json: baseline 100 still leads with an open review", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, STRONG_CONFIG);
@@ -196,7 +200,7 @@ Deno.test("improve --json: baseline 100 still leads with an open review", async 
     // teaches, so the practice it checks is genuinely satisfied here.
     assertEquals((await runAgent(dir, ["refresh"])).code, 0);
 
-    const { code, payload } = await improveJson(dir);
+    const { code, payload } = await improvementJson(dir);
     assertEquals(code, 0);
     assert(payload.data !== undefined);
     // Every deterministic rule is satisfied → a perfect score, no weak rules.
@@ -222,27 +226,27 @@ Deno.test("improve --json: baseline 100 still leads with an open review", async 
   });
 });
 
-Deno.test("improve --json: a set-but-missing gotchas doc is partial", async () => {
+Deno.test("improvement --json: a set-but-missing gotchas doc is partial", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
       `[project]\nslug = "x"\ngotchas_doc = "docs/nope.md"\n[meta]\nbootstrapped = true\n`,
     );
-    const { payload } = await improveJson(dir);
+    const { payload } = await improvementJson(dir);
     const r = rule(cat(payload, "setup"), "setup.gotchas-doc");
     assertEquals(r.status, "partial");
     assertStringIncludes(r.detail, "missing");
   });
 });
 
-Deno.test("improve --json: reviews carry the cited material", async () => {
+Deno.test("improvement --json: reviews carry the cited material", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, STRONG_CONFIG);
     await writeStrongFiles(dir);
 
-    const { payload } = await improveJson(dir);
+    const { payload } = await improvementJson(dir);
     assert(payload.data !== undefined);
     assert(payload.data.open_reviews > 0, "expected open review items");
 
@@ -275,16 +279,16 @@ Deno.test("improve --json: reviews carry the cited material", async () => {
   });
 });
 
-Deno.test("improve --category: focuses one area; unknown is a clean error", async () => {
+Deno.test("improvement --category: focuses one area; unknown is a clean error", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
-    const focused = await improveJson(dir, ["--category", "gate"]);
+    const focused = await improvementJson(dir, ["--category", "gate"]);
     assertEquals(focused.code, 0);
     assertEquals(focused.payload.data?.categories.length, 1);
     assertEquals(focused.payload.data?.categories[0]?.name, "gate");
 
-    const unknown = await improveJson(dir, ["--category", "bogus"]);
+    const unknown = await improvementJson(dir, ["--category", "bogus"]);
     assertEquals(unknown.code, 1);
     assertEquals(unknown.payload.ok, false);
     assertEquals(unknown.payload.error, "unknown_category");
@@ -292,50 +296,50 @@ Deno.test("improve --category: focuses one area; unknown is a clean error", asyn
   });
 });
 
-Deno.test("improve --min-score: gates the build below the floor", async () => {
+Deno.test("improvement --min-score: gates the build below the floor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // a weak install (0/100)
 
-    const below = await improveJson(dir, ["--min-score", "50"]);
+    const below = await improvementJson(dir, ["--min-score", "50"]);
     assertEquals(below.code, 1, "a score under the floor exits non-zero");
     assertEquals(below.payload.ok, false);
     assertEquals(below.payload.error, "below_min_score");
 
-    const met = await improveJson(dir, ["--min-score", "0"]);
+    const met = await improvementJson(dir, ["--min-score", "0"]);
     assertEquals(met.code, 0, "a score at/above the floor exits zero");
     assertEquals(met.payload.ok, true);
   });
 });
 
-Deno.test("improve: every catalog category is always reviewed; an unknown one is rejected", async () => {
+Deno.test("improvement: every catalog category is always reviewed; an unknown one is rejected", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, `[meta]\nbootstrapped = true\n`);
 
     // The subsystems are all core (ADR 0101): the ratchets category is reviewed
     // even with no ratchet configured — the coaching is exactly "define one".
-    const all = await improveJson(dir);
+    const all = await improvementJson(dir);
     assert(
       all.payload.data?.categories.some((c) => c.name === "ratchets"),
       "the ratchets category is always part of the catalog",
     );
 
-    const focused = await improveJson(dir, ["--category", "bogus"]);
+    const focused = await improvementJson(dir, ["--category", "bogus"]);
     assertEquals(focused.code, 1);
     assertEquals(focused.payload.error, "unknown_category");
   });
 });
 
-Deno.test("improve: the human report leads with coaching context", async () => {
+Deno.test("improvement: the human report leads with coaching context", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Non-interactive (the subprocess has no TTY) → the full static report.
     const { code, stdout } = await runAgent(dir, [
-      "improve",
+      "improvement",
       "--no-interactive",
     ]);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "discern improve");
+    assertStringIncludes(stdout, "discern improvement");
     assertStringIncludes(stdout, "Baseline health");
     assertStringIncludes(stdout, "improvement reviews open");
     assertStringIncludes(stdout, "Next action:");

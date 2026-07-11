@@ -14,7 +14,9 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
 };
 
 /** Irregular grammatical forms that are safe to normalize silently. */
-export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {};
+export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {
+  improve: "improvement",
+};
 
 /** The successor for a retired command path, if `command` is one. */
 export function retiredCommandSuccessor(

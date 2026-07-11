@@ -104,7 +104,7 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
         { args: ["prepare", "--json"], verb: "prepare" },
         { args: ["test", "--json"], verb: "test" },
         { args: ["ratchets", "--json"], verb: "ratchets" },
-        { args: ["improve", "--json"], verb: "improve" },
+        { args: ["improvement", "--json"], verb: "improvement" },
         { args: ["impact", "--json"], verb: "impact" },
         { args: ["status", "--json"], verb: "status" },
         { args: ["refresh", "--json"], verb: "refresh" },

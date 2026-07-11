@@ -1551,7 +1551,7 @@ export type DiscernTestResult = {
   };
 };
 
-export type DiscernImproveResult = {
+export type DiscernImprovementResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1622,7 +1622,7 @@ export type DiscernImproveResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "improve";
+  verb: "improvement";
   data?: {
     score: number;
     weak: number;
@@ -2993,7 +2993,7 @@ export type DiscernCliJsonResult =
   | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
-  | DiscernImproveResult
+  | DiscernImprovementResult
   | DiscernRatchetsResult
   | DiscernRefreshResult
   | DiscernImpactResult
@@ -3025,7 +3025,7 @@ export interface DiscernResultByVerb {
   done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
-  improve: DiscernImproveResult;
+  improvement: DiscernImprovementResult;
   ratchets: DiscernRatchetsResult;
   refresh: DiscernRefreshResult;
   impact: DiscernImpactResult;
@@ -3063,7 +3063,7 @@ export interface DiscernResultByCommand {
   done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
-  improve: DiscernImproveResult;
+  improvement: DiscernImprovementResult;
   ratchets: DiscernRatchetsResult;
   refresh: DiscernRefreshResult;
   impact: DiscernImpactResult;
@@ -3098,7 +3098,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_done: DiscernDoneResult;
   discern_prepare: DiscernPrepareResult;
   discern_test: DiscernTestResult;
-  discern_improve: DiscernImproveResult;
+  discern_improvement: DiscernImprovementResult;
   discern_ratchets: DiscernRatchetsResult;
   discern_refresh: DiscernRefreshResult;
   discern_impact: DiscernImpactResult;
@@ -3116,7 +3116,7 @@ export interface DiscernMcpToolResultByTool {
   discern_done: DiscernMcpToolResult<DiscernDoneResult>;
   discern_prepare: DiscernMcpToolResult<DiscernPrepareResult>;
   discern_test: DiscernMcpToolResult<DiscernTestResult>;
-  discern_improve: DiscernMcpToolResult<DiscernImproveResult>;
+  discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
   discern_ratchets: DiscernMcpToolResult<DiscernRatchetsResult>;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
@@ -3134,7 +3134,7 @@ export type DiscernMcpStructuredContent =
   | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
-  | DiscernImproveResult
+  | DiscernImprovementResult
   | DiscernRatchetsResult
   | DiscernRefreshResult
   | DiscernImpactResult
@@ -3151,7 +3151,7 @@ export type DiscernMcpJsonResult =
   | DiscernDoneMcpToolResult
   | DiscernPrepareMcpToolResult
   | DiscernTestMcpToolResult
-  | DiscernImproveMcpToolResult
+  | DiscernImprovementMcpToolResult
   | DiscernRatchetsMcpToolResult
   | DiscernRefreshMcpToolResult
   | DiscernImpactMcpToolResult
@@ -3177,8 +3177,8 @@ export type DiscernPrepareMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernTestMcpToolResult = DiscernMcpToolResult<DiscernTestResult>;
 
-export type DiscernImproveMcpToolResult = DiscernMcpToolResult<
-  DiscernImproveResult
+export type DiscernImprovementMcpToolResult = DiscernMcpToolResult<
+  DiscernImprovementResult
 >;
 
 export type DiscernRatchetsMcpToolResult = DiscernMcpToolResult<

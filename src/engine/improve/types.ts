@@ -1,5 +1,5 @@
 /**
- * The **improvement vocabulary** — the types `discern improve` is built on. An
+ * The **improvement vocabulary** — the types `discern improvement` is built on. An
  * improvement report combines a scored baseline of best-practice **rules** with
  * qualitative **reviews**, then points at the single highest-value next action.
  *

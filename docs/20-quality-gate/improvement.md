@@ -1,11 +1,11 @@
 # The continuous-improvement coach
 
-_`discern improve` — show the project's objective baseline, keep qualitative
+_`discern improvement` — show the project's objective baseline, keep qualitative
 reviews visible, and point at the highest-value improvement to make now._
 
 Where [`done`](../../src/engine/gate/finish.ts) asks _did this change pass?_ and
 [`doctor`](../10-installer/README.md) asks _is this install valid?_,
-**`improve`** asks _what should get better next?_ It evaluates a catalog of
+**`improvement`** asks _what should get better next?_ It evaluates a catalog of
 best-practice rules grouped into categories
 ([`src/engine/improve/`](../../src/engine/improve/rules.ts)), ranks the weakest
 areas, and selects one prioritized next action. It is advisory by default: a
@@ -74,15 +74,17 @@ Every category applies to every install — every subsystem is core
 ## Running it
 
 ```sh
-discern improve                     # summary + interactive detail on a TTY
-discern improve --no-interactive    # full static report
-discern improve --category gate     # focus one area
-discern improve --json              # the DiscernResult envelope
-discern improve --min-score 70      # fail below a baseline-health floor
+discern improvement                     # summary + interactive detail on a TTY
+discern improvement --no-interactive    # full static report
+discern improvement --category gate     # focus one area
+discern improvement --json              # the DiscernResult envelope
+discern improvement --min-score 70      # fail below a baseline-health floor
 ```
 
-The command is a hard rename from `audit`; there is no `audit` alias. See
-[ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md) for the trade-off.
+The command was a hard rename from `audit`; there is no `audit` alias. `improve`
+is accepted only as a grammatical variant and normalizes silently to
+`improvement`. See [ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)
+for the trade-off.
 
 ## Result envelope
 
@@ -92,7 +94,7 @@ The human report, `--json`, and MCP tool render one `DiscernResult`
 ```jsonc
 {
   "ok": true,
-  "verb": "improve",
+  "verb": "improvement",
   "data": {
     "score": 100, // baseline health over deterministic rules only
     "weak": 0,
@@ -123,7 +125,7 @@ becomes `false` with `error: "below_min_score"`. An unknown `--category` is
 
 ## MCP
 
-`improve` is exposed as **`discern_improve`** by
+`improvement` is exposed as **`discern_improvement`** by
 [`discern mcp`](../../src/engine/mcp/server.ts). The tool is read-only and
 returns the same baseline, reviews, and next action as the CLI, so an agent can
 apply the action, rerun the coach, and continue the improvement loop.

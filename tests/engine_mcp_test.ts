@@ -396,7 +396,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_doctor"), JSON.stringify(names));
     assert(names.includes("discern_impact"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
-    assert(names.includes("discern_improve"), JSON.stringify(names));
+    assert(names.includes("discern_improvement"), JSON.stringify(names));
     // `discern_help` (discern's own docs) is always listed — not a project feature.
     assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
@@ -456,16 +456,16 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "status data carries the configured ratchets",
     );
 
-    // tools/call discern_improve → the continuous-improvement DiscernResult.
+    // tools/call discern_improvement → the continuous-improvement DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 6,
       method: "tools/call",
-      params: { name: "discern_improve", arguments: {} },
+      params: { name: "discern_improvement", arguments: {} },
     });
     const improve = await mcp.recv();
     assertEquals(improve.id, 6);
-    assertEquals(improve.result.structuredContent.verb, "improve");
+    assertEquals(improve.result.structuredContent.verb, "improvement");
     assertEquals(typeof improve.result.structuredContent.data.score, "number");
     assert(
       Array.isArray(improve.result.structuredContent.data.categories),
@@ -2020,7 +2020,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_impact",
       "discern_coupling",
       "discern_status",
-      "discern_improve",
+      "discern_improvement",
       "discern_docs",
       "discern_help",
     ]);
@@ -2151,7 +2151,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_docs",
         "discern_help",
         "discern_doctor",
-        "discern_improve",
+        "discern_improvement",
       ],
       "MCP tools should be listed in deliberate workflow priority order for clients that truncate tools/list",
     );

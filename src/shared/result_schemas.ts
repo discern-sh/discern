@@ -636,7 +636,7 @@ export const DoctorDataSchema = z.strictObject({
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
 
-// improve ───────────────────────────────────────────────────────────────────
+// improvement ───────────────────────────────────────────────────────────────
 
 /** A pointer to the project material a subjective review item is judged against. */
 const reviewEvidenceSchema = z.strictObject({
@@ -644,7 +644,7 @@ const reviewEvidenceSchema = z.strictObject({
   excerpt: z.string(),
 });
 
-/** One deterministic rule's evaluated result. Exported so the improve `RuleStatus`
+/** One deterministic rule's evaluated result. Exported so the improvement `RuleStatus`
  * SSOT (an engine type this shared module can't import) is tied to `status` here by a
  * guard in `improve_catalog_test.ts`. */
 export const ruleResultSchema = z.strictObject({
@@ -667,7 +667,7 @@ const reviewResultSchema = z.strictObject({
 });
 
 /** One reviewed category's evaluated result. */
-const improveCategorySchema = z.strictObject({
+const improvementCategorySchema = z.strictObject({
   name: z.string(),
   title: z.string(),
   score: z.number(),
@@ -687,15 +687,15 @@ const nextActionSchema = z.strictObject({
   why: z.string(),
 });
 
-/** `improve` — baseline health, open reviews, and the prioritized next action. */
-export const ImproveDataSchema = z.strictObject({
+/** `improvement` — baseline health, open reviews, and the prioritized next action. */
+export const ImprovementDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
   next_action: nextActionSchema,
-  categories: z.array(improveCategorySchema),
+  categories: z.array(improvementCategorySchema),
 });
-export type ImproveData = z.infer<typeof ImproveDataSchema>;
+export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
 // docs / help ──────────────────────────────────────────────────────────────
 
@@ -1173,10 +1173,10 @@ export const UpdateOutputSchema = resultOutputSchema(
   UpdateDataSchema,
 );
 
-/** `improve` output: envelope + the coaching `data`. */
-export const ImproveOutputSchema = resultOutputSchema(
-  "improve",
-  ImproveDataSchema,
+/** `improvement` output: envelope + the coaching `data`. */
+export const ImprovementOutputSchema = resultOutputSchema(
+  "improvement",
+  ImprovementDataSchema,
 );
 
 /** `docs` output: envelope + the documentation `data`. */

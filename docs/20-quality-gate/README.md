@@ -94,16 +94,16 @@ never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
 value or, via `per`, a rate that doesn't rise just because the project grew — on
 demand, outside `done` because they are slow (ADR 0003, ADR 0057).
 
-Alongside the gate sits the **[continuous-improvement coach](improve.md)**:
+Alongside the gate sits the **[continuous-improvement coach](improvement.md)**:
 where `done` asks _did this change pass?_,
-[`improve`](../../src/engine/improve/rules.ts) asks _what should get better
+[`improvement`](../../src/engine/improve/rules.ts) asks _what should get better
 next?_ It reports objective baseline health, keeps qualitative reviews visible,
 and prioritizes one action. Deterministic rules remain distinct from subjective
 reviews the agent judges against cited material
 ([ADR 0029](../_adr/0029-best-practices-audit.md),
 [ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)).
 
-Alongside it sits the **[co-change advisory](coupling.md)**: where `improve`
+Alongside it sits the **[co-change advisory](coupling.md)**: where `improvement`
 asks _is this setup any good?_,
 [`coupling`](../../src/engine/coupling/coupling.ts) asks _what tends to change
 with what?_ — mining git history for the files that move together and naming the
@@ -122,7 +122,7 @@ canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 | [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).  |
 | [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope (ADR 0114).                               |
 | [`ci.md`](ci.md)                                   | How to run `discern done` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
-| [`improve.md`](improve.md)                         | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                   |
+| [`improvement.md`](improvement.md)                 | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                   |
 | [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                |
 
 ## See also

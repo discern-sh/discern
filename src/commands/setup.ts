@@ -2218,9 +2218,11 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
   const reactivation = reactivationHandoff(cfg);
-  // Resolve the coach verb from the live engine-verb SSOT (improve, or audit before the
-  // rename) rather than hardcoding, so the steer survives the audit→improve rename.
-  const coachVerb = KNOWN_ENGINE_VERBS.has("improve") ? "improve" : "audit";
+  // Resolve the coach verb from the live engine-verb SSOT (improvement, or audit before
+  // the earlier rename) rather than hardcoding, so the steer survives vocabulary changes.
+  const coachVerb = KNOWN_ENGINE_VERBS.has("improvement")
+    ? "improvement"
+    : "audit";
   // The closing relay block — the ready-to-relay "message to your human" a courier agent
   // hands over, composed from the same pieces the structured surface carries (ADR 0086),
   // and rendered identically on both surfaces.

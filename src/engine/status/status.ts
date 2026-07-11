@@ -2,7 +2,7 @@
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
  * overlapping either: `doctor` answers "is it correctly installed?" (health),
- * `improve` answers "what should get better next?" (quality, changes rarely), and `status`
+ * `improvement` answers "what should get better next?" (quality, changes rarely), and `status`
  * answers "what changed and what now?" (situation, changes every commit) — so an
  * agent calls it reflexively at the start of a session.
  *

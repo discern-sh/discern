@@ -50,7 +50,7 @@ It is **one self-contained binary** with two faces:
   it. This face is build-time work: it writes a project's files, then steps out
   of the way.
 - The **Engine** — the stack-neutral logic behind `discern done` / `prepare` /
-  `improve` / `worktree` / … . It is **TypeScript compiled into the binary**
+  `improvement` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
   into the project.
@@ -152,7 +152,7 @@ wired; it names **where the work lives** (on the `discern-setup` branch, not yet
 on `main`) and the one command to land it, `discern setup accept`
 ([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
-session start) and to deepen the setup with `discern improve`.
+session start) and to deepen the setup with `discern improvement`.
 
 **3. Work behind the gate.** Day to day, everything is driven through `discern`
 verbs:
@@ -162,8 +162,8 @@ verbs:
   branch, what changed, and what the gate _would_ fire (it never runs anything).
   From a **Worktree** it shows that Worktree's own state; from the main checkout
   it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
-  `discern doctor` (_is it correctly installed?_) and `discern improve` (_what
-  should get better next?_).
+  `discern doctor` (_is it correctly installed?_) and `discern improvement`
+  (_what should get better next?_).
 - `discern start` carves an isolated **Worktree** (and branch) for a change, so
   the main checkout is never touched. Each Worktree gets its own dev-server port
   and any per-worktree **resources** (a database, an emulator, …) a project

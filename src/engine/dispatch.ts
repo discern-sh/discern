@@ -38,7 +38,7 @@ import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
-import { runImprove } from "./improve/improve.ts";
+import { runImprovement } from "./improve/improve.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
@@ -84,7 +84,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "done",
   "prepare",
   "test",
-  "improve",
+  "improvement",
   "ratchets",
   "refresh",
   "impact",
@@ -139,7 +139,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "done",
   "prepare",
   "test",
-  "improve",
+  "improvement",
   "ratchets",
   "refresh",
   "impact",
@@ -307,9 +307,9 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("improve")
+    .command("improvement")
     .description(
-      "Find the highest-value next improvement from baseline health and qualitative reviews.",
+      "Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.",
     )
     .option(
       "--json",
@@ -329,7 +329,7 @@ export function attachEngineCommands(root: Command): void {
     )
     .action(async (o) => {
       Deno.exit(
-        await runImprove(await requireRoot(), {
+        await runImprovement(await requireRoot(), {
           json: o.json ?? false,
           category: o.category,
           minScore: o.minScore,

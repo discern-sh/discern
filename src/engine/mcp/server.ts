@@ -41,7 +41,7 @@ import {
   FinishOutputSchema,
   HelpOutputSchema,
   ImpactOutputSchema,
-  ImproveOutputSchema,
+  ImprovementOutputSchema,
   PrepareOutputSchema,
   RatchetsOutputSchema,
   RefreshOutputSchema,
@@ -69,7 +69,7 @@ import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
-import { improveResult } from "../improve/improve.ts";
+import { improvementResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
@@ -264,7 +264,7 @@ const TOOL_PRIORITY = [
   "discern_docs",
   "discern_help",
   "discern_doctor",
-  "discern_improve",
+  "discern_improvement",
 ] as const;
 
 function orderTools(tools: McpTool[]): McpTool[] {
@@ -540,16 +540,17 @@ export const TOOLS: McpTool[] = orderTools([
     },
   }),
   defineTool({
-    name: "discern_improve",
+    name: "discern_improvement",
     title: "Find the next improvement",
-    outputSchema: ImproveOutputSchema.shape,
+    outputSchema: ImprovementOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Coach the project's continuous improvement. Returns baseline health from " +
-      "deterministic rules, qualitative reviews that teach what good looks like, and " +
-      "data.next_action — the single highest-value improvement to make now. A 100 " +
-      "baseline means nothing objectively weak, not that the project is done. Pass a " +
-      "category to focus one area.",
+      "Return the ranked next action for improving the project, plus the full health " +
+      "audit and open qualitative reviews behind it for agent and owner to evaluate " +
+      "together. data.next_action is the single highest-value improvement to make " +
+      "now; data.categories carries the deterministic findings and review material. " +
+      "A score of 100 means nothing objectively weak, not that the project is done. " +
+      "Pass a category to focus one area.",
     inputSchema: {
       category: z.string().optional().describe(
         `Restrict to one area: ${CATEGORY_NAMES.join(", ")}.`,
@@ -560,7 +561,7 @@ export const TOOLS: McpTool[] = orderTools([
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      improveResult(root, {
+      improvementResult(root, {
         category: args.category,
         minScore: args.min_score,
       }),
@@ -1096,7 +1097,7 @@ export async function runTool(
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_docs`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
-  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improve` are
+  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improvement` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
     verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
@@ -1433,7 +1434,7 @@ export function buildInstructions(): string {
     "- Verify the install with discern_doctor when something looks misconfigured " +
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's own documentation with discern_docs.",
-    "- Ask discern_improve for the single highest-value project improvement.",
+    "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
     "- Run quality ratchets with discern_ratchets as needed — slow and " +
     "on-demand, so NOT part of discern_done. Non-dry-run ratchets require a " +
     "clean worktree unless force=true while authoring ratchets.",

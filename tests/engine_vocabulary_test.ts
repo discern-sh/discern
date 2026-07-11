@@ -9,6 +9,7 @@ import {
   normalizeVerbVariant,
   RETIRED_COMMAND_REDIRECTS,
   retiredCommandMessage,
+  VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
@@ -66,6 +67,20 @@ Deno.test("a uniquely matching trailing-s variant reaches the canonical command"
     assertEquals(forgiven.code, 0, forgiven.output);
     assertEquals(forgiven.stdout, direct.stdout);
     assertStringIncludes(forgiven.stdout, `"verb":"${canonical}"`);
+  });
+});
+
+Deno.test("explicit grammatical variants reach the same canonical result", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    for (const [variant, canonical] of Object.entries(VERB_FORM_VARIANTS)) {
+      assertEquals(normalizeVerbVariant(variant, KNOWN_VERBS), canonical);
+      const direct = await runAgent(dir, [canonical, "--json"]);
+      const forgiven = await runAgent(dir, [variant, "--json"]);
+      assertEquals(forgiven.code, direct.code, forgiven.output);
+      assertEquals(forgiven.stdout, direct.stdout);
+      assertStringIncludes(forgiven.stdout, `"verb":"${canonical}"`);
+    }
   });
 });
 

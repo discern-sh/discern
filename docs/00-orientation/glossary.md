@@ -76,7 +76,7 @@ blank map is worse than none
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
-`improve`, `status`, the `worktree` command group, `update`, `accept`,
+`improvement`, `status`, the `worktree` command group, `update`, `accept`,
 `ratchets`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
 compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
