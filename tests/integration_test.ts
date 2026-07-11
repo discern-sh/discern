@@ -113,11 +113,11 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // 7. The binary's OWN template subtrees are NEVER seeded into the project tree
     // — they are materialized/read from the binary on demand. A regression here
     // re-pollutes the user's tracked tree, exactly what ADR 0024 removed for the
-    // bootstrap assets. `docs/` is likewise lazy (laid by `discern setup`).
+    // bootstrap assets. `map/` is likewise lazy (laid by `discern setup`).
     await assertAbsent(join(dir, "bootstrap"));
     await assertAbsent(join(dir, "skills"));
     await assertAbsent(join(dir, "guidance"));
-    await assertAbsent(join(dir, "docs"));
+    await assertAbsent(join(dir, "map"));
   });
 });
 

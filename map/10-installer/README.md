@@ -66,10 +66,10 @@ it is additive and only-if-absent, and is recorded in
 [ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md).
 
 Setup's documentation skeleton is also config-pointed. `[map].dir` defaults to
-`discern/docs/` — the [map](../00-orientation/glossary.md#map)'s own folder,
-colliding with nothing; `setup verify`'s consent conversation asks whether
-discern should instead manage the project's existing docs, and
-`setup begin --map <path>` persists and scaffolds the chosen root
+`map/` — the [map](../00-orientation/glossary.md#map)'s own folder, colliding
+with nothing; `setup verify`'s consent conversation asks whether discern should
+instead manage the project's existing docs, and `setup begin --map <path>`
+persists and scaffolds the chosen root
 ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)). The docs browser and
 quality-gate declarations resolve the same field
 ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).

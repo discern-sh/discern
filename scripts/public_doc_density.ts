@@ -2,7 +2,7 @@
  * Count public documentation leaves and words, then emit both as discern
  * ratchet metrics.
  *
- * Public docs are Markdown files under docs/ with no underscore-prefixed path
+ * Public docs are Markdown files under map/ with no underscore-prefixed path
  * segment, so _private, _internal, and _adr trees are excluded. A leaf is a
  * public Markdown page whose basename is not README.md; README files are
  * directory indexes, not leaves.
@@ -55,7 +55,7 @@ async function measurePublicDocs(docsDir: string): Promise<PublicDocMetrics> {
   return { leaves, words };
 }
 
-const docsDir = Deno.args[0] ?? "docs";
+const docsDir = Deno.args[0] ?? "map";
 const metrics = await measurePublicDocs(docsDir);
 
 console.error(

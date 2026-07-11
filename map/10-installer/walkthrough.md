@@ -37,8 +37,8 @@ in its own words) — it tells you, plainly:
 - that there is **no lock-in** — the namespace is plain Markdown you own, the
   generated files are gitignored, and `discern uninstall` takes the wiring back
   out;
-- one real question: should discern manage a **fresh docs tree** at
-  `discern/docs/`, or adopt your project's **existing docs** directory?
+- one real question: should discern manage a **fresh docs tree** at `map/`, or
+  adopt your project's **existing docs** directory?
 
 You answer in plain language — _"yes, go ahead; use a fresh docs tree; set up
 Claude Code and Codex."_ The agent doesn't proceed until you've said yes; a

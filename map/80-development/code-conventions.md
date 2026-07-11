@@ -21,11 +21,11 @@ true when the CLI is invoked from a nested directory and when a long-lived MCP
 server targets a worktree other than its own process directory; formatter,
 check, test, and scope selection must all describe the same checkout.
 
-| Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                 |
-| ----------- | ---------- | ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format`    | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `docs/` is reformatted on every gate). `templates/`, `dist/`, the compiled agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |
-| `lint`      | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`, with the repo's strict rule set. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                              |
-| `typecheck` | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint under strict TS (`deno.json` `compilerOptions`). Keep types sound; no `any` slipped through a cast.                                                   |
+| Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                |
+| ----------- | ---------- | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`    | capability | fix   | `deno fmt`               | Formats TypeScript **and** Markdown (so `map/` is reformatted on every gate). `templates/`, `dist/`, the compiled agent files, and your trees are excluded in `deno.json`. Just run it — it rewrites in place. |
+| `lint`      | capability | check | `deno lint`              | The Deno linter over `src/`, `scripts/`, `tests/`, with the repo's strict rule set. Fix the finding, or justify it with an inline `deno-lint-ignore` and a reason.                                             |
+| `typecheck` | capability | check | `deno check src/main.ts` | Type-checks the whole graph reachable from the entrypoint under strict TS (`deno.json` `compilerOptions`). Keep types sound; no `any` slipped through a cast.                                                  |
 
 There is no `selfcheck` or `shellcheck` check: with the engine compiled into the
 binary there is no second copy to drift and no portable shell to lint
@@ -40,7 +40,7 @@ The conventions the tooling cannot fully enforce, but the project still holds:
 - **The golden rule — yours vs the binary's.** Ownership is two buckets
   ([ADR 0019](../_adr/0019-single-binary-ts-engine.md),
   [ADR 0020](../_adr/0020-dissolve-discern-dir.md)). _Yours_ are the committed
-  files (`discern.toml`, `docs/**`, your `guidance.md`, authored skills under
+  files (`discern.toml`, `map/**`, your `guidance.md`, authored skills under
   `./skills/`, `TODO.md`) — edit them in place. _The binary's_ are gitignored,
   re-published artifacts (`.claude/skills/**`, the compiled agent files
   `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, all gitignored — ADR 0034); the engine,
@@ -78,8 +78,8 @@ The conventions the tooling cannot fully enforce, but the project still holds:
   canonical nouns from the [glossary](../00-orientation/glossary.md),
   ASCII-first diagrams. Outstanding work goes in [`TODO.md`](../../TODO.md), not
   the docs.
-- **Record decisions.** A notable change gets an ADR in
-  [`docs/_adr/`](../_adr/); overriding a
-  [design principle](../00-orientation/design-principles.md) _requires_ one.
+- **Record decisions.** A notable change gets an ADR in [`map/_adr/`](../_adr/);
+  overriding a [design principle](../00-orientation/design-principles.md)
+  _requires_ one.
 
 For test-specific conventions, see [testing.md](testing.md).

@@ -34,7 +34,7 @@ main_branch = "main"
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
-gotchas_doc = "docs/80-development/done-gate-gotchas.md"
+gotchas_doc = "map/80-development/done-gate-gotchas.md"
 
 # Where the deferred-work ledger lives. This repo deliberately pins its
 # pre-namespace root layout (ADR 0099/0102 dogfooding): a permanent, self-hosted
@@ -49,9 +49,8 @@ todo = "TODO.md"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [map]
-# Pinned to the repo's current root layout until the dedicated tree-move commit;
-# the shipped default is map/.
-dir = "docs/"
+# This repo adopts the shipped root default and keeps the whole map together.
+dir = "map/"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
@@ -124,7 +123,7 @@ smoke     = "deno task dev --version"
 # the six capabilities above.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# `prose` lints docs/ with Vale at the check stage — error-severity findings block
+# `prose` lints the map with Vale at the check stage — error-severity findings block
 # the gate; the advisory tiers (warnings, suggestions) are held by the
 # [standards.prose] ceiling instead.
 [checks.prose]
@@ -314,10 +313,10 @@ direction = "up"
 limit     = 91.8
 run       = "deno task coverage"
 
-# Prose standard — hold docs' Vale alert *density* at or below a falling ceiling.
-# `deno task prose` runs Vale over docs/ and emits DISCERN_METRIC prose <count>
+# Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
+# `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
 # (every severity; error-severity findings are separately blocked by the gate via
-# [checks.prose]). `per` divides that count by the words in docs/ (discern counts
+# [checks.prose]). `per` divides that count by the words in the map (discern counts
 # them itself), so the standard tracks alerts per 1,000 words — a *rate*: writing
 # more docs never breaches it, only writing nittier-than-average prose does. Held
 # by `discern standards`, enforced on every PR in CI. ~18.7 today; lower the limit

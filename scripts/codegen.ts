@@ -45,7 +45,7 @@ async function write(rel: string, text: string): Promise<void> {
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
 await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(
-  "docs/10-installer/config-reference.md",
+  "map/10-installer/config-reference.md",
   renderConfigReferenceDoc(),
 );
 console.log(

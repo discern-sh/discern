@@ -87,10 +87,10 @@ into a rate that does not rise just because the project grew:
 ```toml
 [standards.prose]
 direction = "down"
-per       = { words = "docs/**" }   # divide the count by the words under docs/
+per       = { words = "map/**" }    # divide the count by the words under map/
 scale     = 1000                    # express it per 1,000 words
 limit     = 16                      # ≤ 16 alerts per 1,000 words
-run       = "deno task prose \"docs/\""
+run       = "deno task prose \"map/\""
 ```
 
 `per` divides the emitted metric by a denominator — a built-in

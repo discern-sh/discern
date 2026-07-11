@@ -1,5 +1,5 @@
 /**
- * Architectural guard for the ADR index. The `docs/_adr/README.md` index is the
+ * Architectural guard for the ADR index. The `map/_adr/README.md` index is the
  * only view of the record set most readers ever open, so an ADR missing from it
  * is invisible — exactly how 0106–0109 sat unlisted for four records. The
  * canonical set is the DIRECTORY (every `NNNN-*.md` on disk), never the index
@@ -13,7 +13,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 const ADR_DIR = join(
   dirname(fromFileUrl(import.meta.url)),
   "..",
-  "docs",
+  "map",
   "_adr",
 );
 
@@ -35,7 +35,7 @@ Deno.test("ADR index: every active ADR on disk is linked from the README index",
     .filter((name) => !readme.includes(`](${name})`));
   assert(
     missing.length === 0,
-    `docs/_adr/README.md must index every active ADR — add: ${
+    `map/_adr/README.md must index every active ADR — add: ${
       missing.join(", ")
     }`,
   );
@@ -57,7 +57,7 @@ Deno.test("ADR index: every relative link in the README resolves to a file", asy
   }
   assert(
     dangling.length === 0,
-    `docs/_adr/README.md links files that do not exist: ${dangling.join(", ")}`,
+    `map/_adr/README.md links files that do not exist: ${dangling.join(", ")}`,
   );
 });
 

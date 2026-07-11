@@ -95,11 +95,11 @@ ready-to-relay _message to your human_** — the script, not stage directions
 what discern is, what it will do and cost, the model question, the docs
 question, and the worktree location, for the agent to relay (adapting the
 wording, never thinning the points). The docs question is consent, not
-collision-avoidance: the [map](glossary.md#map) defaults to its own
-`discern/docs/`, and the message asks whether discern should instead manage the
-project's existing documentation — pointing `[map].dir` (via `begin --map`) is
-that explicit consent ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md));
-the persisted `[map].dir` then drives every docs-aware surface
+collision-avoidance: the [map](glossary.md#map) defaults to its own `map/`, and
+the message asks whether discern should instead manage the project's existing
+documentation — pointing `[map].dir` (via `begin --map`) is that explicit
+consent ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); the persisted
+`[map].dir` then drives every docs-aware surface
 ([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
 until `discern setup begin`** — the first mutating step, which requires an
 explicit `--confirmed` attestation that the consent conversation happened,
@@ -121,7 +121,7 @@ one `discern: scaffold harness` commit
 ([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
 agent never has to commit discern's own permission-widening config (its safety
 classifier would refuse). `begin` then lays the [map](glossary.md#map) and
-ledger skeletons at their configured paths (default `discern/docs/` and
+ledger skeletons at their configured paths (default `map/` and
 `discern/TODO.md`, laid only when absent) — left uncommitted for the agent to
 fill — and prints the operating principles plus the first **page** of the
 authoring brief; the agent pulls each subsequent page with

@@ -20,7 +20,7 @@ overwrites them.
   and everything it keeps as plain content:
   - `discern/guidance.md` — your instructions to every coding agent. Edit this,
     and the agent files below are rebuilt from it.
-  - `discern/docs/` — the documentation map your agents write and keep current.
+  - `map/` — the documentation map your agents write and keep current.
   - `discern/TODO.md` — a shared list of deferred work.
   - `discern/brief.md` — the short description of your project captured during
     setup.

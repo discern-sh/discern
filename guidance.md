@@ -2,7 +2,7 @@
 
 discern is a portable, stack-neutral **agentic-development harness**: one
 command scaffolds a quality gate, an isolated git-worktree workflow, an
-author-once→compile-everywhere agent-instruction pipeline, and a docs/ADR
+author-once→compile-everywhere agent-instruction pipeline, and a map/ADR
 discipline into any project.
 
 **This repo is both the tool, and a user of it — it runs its own harness!**
@@ -96,10 +96,10 @@ applied while editing, is the safeguard.
 One vocabulary **is** gated, because it's structural rather than open-ended:
 **internal ADR citations never ship**. An "(ADR 0034)" in an error message,
 upgrade note, or template is repo-internal shorthand no other project's users or
-agents can follow. Cite ADRs in code comments, `docs/`, and commit messages;
-keep shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces
-this — string literals under `src/`, all text under `templates/`). The concept
-word "ADR" stays legal everywhere: discern ships an ADR discipline.
+agents can follow. Cite ADRs in code comments, `map/`, and commit messages; keep
+shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces this —
+string literals under `src/`, all text under `templates/`). The concept word
+"ADR" stays legal everywhere: discern ships an ADR discipline.
 
 ## The gate
 
@@ -156,14 +156,14 @@ the whole suite each loop.
   surrounding code and write to these the first time — the gate enforces every
   rule, so fighting the linter just costs a `done` loop.
 - **Several artifacts and schemas are generated.** The `deno task codegen`
-  command rewrites `docs/10-installer/config-reference.md`, `schema/*.json`, and
+  command rewrites `map/10-installer/config-reference.md`, `schema/*.json`, and
   `types/*.d.ts` automatically. The codegen command is wired in to discern's own
   `[capabilities.build]` step (the `discern.toml` template stays hand-authored —
   ADR 0005/0026).
-- **Keep `docs/` current with the change.** The `docs/` tree is the source of
+- **Keep `map/` current with the change.** The `map/` tree is the source of
   truth and must not drift from code — update the affected docs in the same
-  commit. `docs/` and root `*.md` fire no gate (a neutral scope); `docs/` alone
-  is held to the Vale `prose` check and the `[standards.prose]` density ceiling.
+  commit. `map/` and root `*.md` fire no gate (a neutral scope); `map/` alone is
+  held to the Vale `prose` check and the `[standards.prose]` density ceiling.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line
   summarizing the change (e.g. "Add retry to upload path"), no trailing period;
@@ -205,8 +205,8 @@ Maintain this practice with new development going forward.
 
 ## Decisions
 
-Architecture decisions live in `docs/_adr/` (0001+, several dozen and counting)
-— browse them with `discern help --adr --json`. Add one for any notable or
+Architecture decisions live in `map/_adr/` (0001+, several dozen and counting) —
+browse them with `discern help --adr --json`. Add one for any notable or
 hard-to-reverse change. ADRs move fast, so skim the most recent few before a
 significant change — a current ADR usually explains why something is the way it
 is.

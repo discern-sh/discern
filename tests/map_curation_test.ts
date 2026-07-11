@@ -4,7 +4,7 @@
  * other `_`-prefixed tree (`_internal`, `_private`, …) stays out of the binary
  * AND the default view" — is the property that lets a new private doc tree be
  * safe the moment it is created, with no list to remember. These tests pin it
- * against THIS repo's real `docs/` tree and the one predicate the build filters
+ * against THIS repo's real `map/` tree and the one predicate the build filters
  * on ({@link isBundledDocEntry}), so a regression (a private tree leaking into
  * the embed, or the build and the view disagreeing) fails the gate rather than a
  * customer binary.
@@ -20,12 +20,12 @@ import {
 import { discoverDocs } from "../src/lib/docs.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const DOCS_DIR = join(REPO_ROOT, "docs");
+const MAP_DIR = join(REPO_ROOT, "map");
 
-/** This repo's top-level `docs/` entry names. */
+/** This repo's top-level `map/` entry names. */
 async function topLevelDocEntries(): Promise<string[]> {
   const names: string[] = [];
-  for await (const entry of Deno.readDir(DOCS_DIR)) names.push(entry.name);
+  for await (const entry of Deno.readDir(MAP_DIR)) names.push(entry.name);
   return names.sort();
 }
 
@@ -52,7 +52,7 @@ Deno.test("isBundledDocEntry ships public + the ADR allowlist, and nothing else 
   }
 });
 
-Deno.test("the real docs/ tree embeds only public docs + the allowlist", async () => {
+Deno.test("the real map/ tree embeds only public docs + the allowlist", async () => {
   const names = await topLevelDocEntries();
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
@@ -80,11 +80,11 @@ Deno.test("the real docs/ tree embeds only public docs + the allowlist", async (
   // Every top-level dir is either a numbered public subtree or `_`-prefixed —
   // nothing can be private-by-intent yet ship because someone forgot the prefix.
   for (const name of names) {
-    const isDir = (await Deno.stat(join(DOCS_DIR, name))).isDirectory;
+    const isDir = (await Deno.stat(join(MAP_DIR, name))).isDirectory;
     if (!isDir) continue;
     assert(
       name.startsWith("_") || /^\d\d-/.test(name),
-      `docs/${name}/ is neither numbered (public) nor _-prefixed (private) — ` +
+      `map/${name}/ is neither numbered (public) nor _-prefixed (private) — ` +
         `number it to ship it, or prefix it with _ to keep it private`,
     );
   }
@@ -94,7 +94,7 @@ Deno.test("the default help view excludes every internal subtree; --adr reveals 
   // Default view: not one indexed doc sits under a `_`-prefixed segment.
   const publicTree = await discoverDocs({
     cwd: REPO_ROOT,
-    dir: DOCS_DIR,
+    dir: MAP_DIR,
     includeInternal: false,
   });
   assert(publicTree);
@@ -108,7 +108,7 @@ Deno.test("the default help view excludes every internal subtree; --adr reveals 
   // The --adr view reveals exactly the allowlist — the ADRs, never _internal/_private.
   const adrTree = await discoverDocs({
     cwd: REPO_ROOT,
-    dir: DOCS_DIR,
+    dir: MAP_DIR,
     includeInternal: BUNDLED_INTERNAL_DOC_DIRS,
   });
   assert(adrTree);

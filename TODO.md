@@ -2,8 +2,8 @@
 
 The single source of truth for **outstanding work**: verified defects, deferred
 fixes, known dead code, and at-risk or unmerged work. The
-[`docs/`](docs/README.md) tree describes what _currently exists_; this file
-tracks what's _still owed_.
+[`map/`](map/README.md) tree describes what _currently exists_; this file tracks
+what's _still owed_.
 
 ## For agents (any agent — and the maintainer)
 
@@ -20,7 +20,7 @@ tracks what's _still owed_.
   tracking the steps of the task you're doing right now, use your own in-session
   task tooling, not this file.
 - This is a backlog, not documentation — modal verbs ("should", "could") are
-  fine here, unlike in `docs/`. Don't write that something was "finished this
+  fine here, unlike in `map/`. Don't write that something was "finished this
   round" — that's meaningless to a future reader ("which round?"). Every item
   must be pickup-able at any later time with no session-specific context
   required.
@@ -55,7 +55,7 @@ _Nothing outstanding._
       breaking schema changes or the discern release line, then document that in
       the result-envelope docs. Evidence: `src/shared/result_codegen.ts`
       (`RESULT_SCHEMA_ID`); `schema/discern-results.schema.json`;
-      `docs/20-quality-gate/the-result-envelope.md`.
+      `map/20-quality-gate/the-result-envelope.md`.
 
 - [ ] **Revisit when agents should run ratchets in the lifecycle.** The current
       guidance intentionally says to run ratchets "as needed" and keeps them
@@ -75,7 +75,7 @@ _Nothing outstanding._
       were user-authored content. Revisit only if the design avoids inferring
       meaningful user edits from ignored generated artifacts, or if real user
       incidents make the trade-off worth re-opening. Evidence:
-      `docs/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
+      `map/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
       `src/engine/guidelines.ts`; `src/lib/skills.ts`.
 
 - [ ] **`setup`/`upgrade` `--json` report `ok:true` when agent-guidance
@@ -91,7 +91,7 @@ _Nothing outstanding._
       regex slice).** `finish` normalizes a failed tool's output into structured
       `{file,line,rule}` diagnostics only when the tool emits **SARIF**
       (auto-detected —
-      [ADR 0028](docs/_adr/0028-result-envelope-and-diagnostics.md)). Tools that
+      [ADR 0028](map/_adr/0028-result-envelope-and-diagnostics.md)). Tools that
       emit only human text (the common case for many linters/compilers without a
       SARIF flag) still carry their raw output (Tier 0). The planned next slice:
       a `[diagnostics.<name>]` config table letting a Capability/Check declare a
@@ -106,7 +106,7 @@ _Nothing outstanding._
 
 - [ ] **Per-capability `[gate].timeout` overrides.** `[gate].timeout` is one
       GLOBAL budget applied to every job the gate runs
-      ([ADR 0108](docs/_adr/0108-gate-job-timeout.md)). A slow suite raises the
+      ([ADR 0108](map/_adr/0108-gate-job-timeout.md)). A slow suite raises the
       single number; there is no per-capability / per-check / per-scope
       override. Deferred as the same config-value-shape decision the Tier-1
       diagnostics entry above defers: a capability value is a bare
@@ -123,7 +123,7 @@ _Nothing outstanding._
 - [ ] **Scaffold the CI gate workflow once releases are public.** The docs now
       give a pasteable GitHub Actions recipe, but launch still needs the public
       repo/version values re-checked and a later `setup`/binary affordance that
-      writes the workflow for users. Evidence: `docs/20-quality-gate/ci.md`.
+      writes the workflow for users. Evidence: `map/20-quality-gate/ci.md`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
@@ -149,7 +149,7 @@ outstanding._
       multiple-testing correction (today bounded only by the top-k output cap).
       Evidence: `src/engine/coupling/coupling.ts` (the constants), `[coupling]`
       in `discern.toml`
-      ([ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md)).
+      ([ADR 0084](map/_adr/0084-co-change-coupling-advisory.md)).
 
 - [ ] **`discern improve` candidates + a `// discern-coupled-to:` declaration
       marker — the discovery→enforcement bridge as a deliberate review, with
@@ -204,7 +204,7 @@ _Product positioning, messaging, and launch/content tasks._
       redirects (no alias — ADR 0120). Keep the one-way-mechanism explanation as
       the universal gloss ("numbers that can never get worse"). Evidence:
       `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
-      (`discern_ratchets`), `docs/_adr/0120-launch-verb-canon.md` (the canon).
+      (`discern_ratchets`), `map/_adr/0120-launch-verb-canon.md` (the canon).
 - [ ] **Standardize the gate artifact on `receipt` (decided — reverses the 3
       July "pass" call).** "Pass" proved fatally overloaded at the exact relay
       moment (the gate passes, checks pass/fail — then "here's the pass"?),
@@ -215,7 +215,7 @@ _Product positioning, messaging, and launch/content tasks._
       `discern-gate-pass` marker file to `discern-gate-receipt` so field and
       marker share one spelling (2B lands it; 3A reconciles prose). Evidence:
       the `finish` result envelope (`gate_receipt`), the `discern-gate-pass`
-      marker file, `docs/_private/maintainer/discern-product-strategy.md`
+      marker file, `map/_private/maintainer/discern-product-strategy.md`
       (vocabulary canon).
 - [ ] **Rename `finish` → `done` (decided).** `discern done` makes the verb the
       positioning ("done isn't something you say — it's something you run"), the
@@ -229,7 +229,7 @@ _Product positioning, messaging, and launch/content tasks._
       redirect + migration care as the standards rename. Trade-off accepted
       knowingly: the "'done' isn't done without a proper finish" flourish was
       licensed by the verb name and retires with it. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+      `map/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 - [ ] **Rename `graduate` → `accept` (decided).** The landing verb names the
       owner's act: the review moment's design makes landing the _consequence_ of
       the owner's acceptance, not a mechanical move. "Accept" carries
@@ -242,7 +242,7 @@ _Product positioning, messaging, and launch/content tasks._
       landing step (`setup land` → `setup accept`). The natural follow-up
       "where's `reject`?" has a standing answer: rejection is feedback to the
       agent in conversation, not a verb. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+      `map/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 - [ ] **Complete the verb canon (decided 11 July 2026 — ADR 0120).** The rule:
       questions are nouns, actions are imperatives, `done` is the sole exception
       (a claim). Renames: `scopes` → `impact` (the user's question, not the
@@ -263,7 +263,7 @@ _Product positioning, messaging, and launch/content tasks._
       get a reviewed vocabulary refresh — amend-with-note where the decision
       still governs a living feature, supersede where it no longer applies;
       decisions and reasoning are never rewritten. Swept in bulk by the wave-3
-      vocabulary brief. Evidence: `docs/_adr/0120-launch-verb-canon.md` (the
+      vocabulary brief. Evidence: `map/_adr/0120-launch-verb-canon.md` (the
       canon, rule, and rationale).
 - [ ] **Retire "harness" from user-facing surfaces (decided).** No single
       replacement word — reword per context: "discern" for the product, "the
@@ -273,7 +273,7 @@ _Product positioning, messaging, and launch/content tasks._
       blurbs) — category words explain, they don't sell. Internal code
       identifiers that never render to a user keep their names. Swept in bulk by
       the wave-3 vocabulary brief. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+      `map/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 
 ## 👨‍💻 Jack's Odds and Ends
 

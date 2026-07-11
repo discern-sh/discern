@@ -1,8 +1,8 @@
 # Documenter agent brief
 
 This file is read by every documenter agent that produces or refreshes a subtree
-under `docs/`. Each agent also receives a per-subtree **scope manifest** at
-`docs/_internal/scopes/{subtree}.md` (copy
+under `map/`. Each agent also receives a per-subtree **scope manifest** at
+`map/_internal/scopes/{subtree}.md` (copy
 [`scopes/_template.md`](scopes/_template.md) to start one) that complements this
 brief with the specific files to read, the area the agent owns, and any known
 overlaps.
@@ -31,15 +31,15 @@ in your summary rather than absorbing it.
 
 ## Read first (mandatory, in this order)
 
-1. **`docs/README.md`** — the documentation tree's table of contents. Confirms
+1. **`map/README.md`** — the documentation tree's table of contents. Confirms
    your subtree's position and its neighbours.
-2. **`docs/00-orientation/concepts.md`** — the canonical naming source. Use its
+2. **`map/00-orientation/concepts.md`** — the canonical naming source. Use its
    capitalised nouns verbatim. Do not introduce synonyms.
-3. **`docs/00-orientation/glossary.md`** — precise definitions. Cross-link to
+3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to
    entries here; do **not** redefine terms in your leaves.
-4. **Your scope manifest** at `docs/_internal/scopes/{your-subtree}.md`. It
-   lists the source files to read, the area you own, and known integration
-   points / overlap warnings.
+4. **Your scope manifest** at `map/_internal/scopes/{your-subtree}.md`. It lists
+   the source files to read, the area you own, and known integration points /
+   overlap warnings.
 5. **The source files** listed in your manifest. Read whole files where they are
    small. For large directories, get a listing first and read the most central
    files in full; sample the rest.
@@ -121,8 +121,8 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 3. **No modal verbs about the system.** Banned: "should", "would", "could",
    "will eventually", "is intended to". Describe only what exists in code today.
    If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Never a leading `docs/` — you are inside
-   `docs/`.
+4. **Cross-link with relative paths.** Never a leading `map/` — you are inside
+   `map/`.
 5. **Cross-link within your subtree liberally; do not link across subtrees.**
    Inter-subtree links are added in a later polish pass by the orchestrator.
 6. **Glossary additions go in your summary, not your leaves.** If you find a
@@ -173,4 +173,4 @@ If any of those break, the doc is too thin or too thick.
      redundant.
 
 Do not commit. Do not run the full gate. Do not edit anything outside
-`docs/{your-subtree}/`.
+`map/{your-subtree}/`.

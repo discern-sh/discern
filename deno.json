@@ -58,7 +58,7 @@
       "CLAUDE.md",
       "discern.toml",
       "dist/",
-      "docs/10-installer/config-reference.md",
+      "map/10-installer/config-reference.md",
       "GEMINI.md",
       "PLAN.md",
       "schema/discern-config.schema.json",

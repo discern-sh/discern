@@ -56,8 +56,8 @@ const PERMISSIONS = [
  * subtree (`_internal`, `_private`) is excluded, so internal/maintainer notes
  * never ship inside a customer binary — default-deny ({@link isBundledDocEntry}),
  * so a new private tree stays out until it is added to the allowlist on purpose.
- * The tree nests an inner `docs/` so the embedded path matches a checkout
- * (`docs/…`); {@link resolveBundledDocsDir} reads it back. Returns the staged
+ * The tree nests an inner `docs/` so help's embedded document paths retain their
+ * stable `docs/…` shape; {@link resolveBundledDocsDir} reads it back. Returns the staged
  * parent directory to `--include`. Curation is at the EMBED here; the view (the
  * default `includeInternal: false`, and the `--adr` allowlist) is the second line
  * of defence (ADR 0039).
@@ -68,9 +68,9 @@ async function stageBundledDocs(): Promise<string> {
   );
   const stagedDocs = join(BUNDLED_DOCS_STAGE_DIR, "docs");
   await ensureDir(stagedDocs);
-  for await (const entry of Deno.readDir("docs")) {
+  for await (const entry of Deno.readDir("map")) {
     if (!isBundledDocEntry(entry.name)) continue;
-    await copy(join("docs", entry.name), join(stagedDocs, entry.name));
+    await copy(join("map", entry.name), join(stagedDocs, entry.name));
   }
   return BUNDLED_DOCS_STAGE_DIR;
 }
@@ -159,7 +159,7 @@ async function main(): Promise<void> {
     }
   } finally {
     // The staged docs are a transient embed input — never leave them behind to
-    // dirty the tree or shadow the live docs/ in a later `deno task dev help`.
+    // dirty the tree or shadow the live map/ in a later `deno task dev help`.
     await Deno.remove(docsStageDir, { recursive: true }).catch(() => {});
   }
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);

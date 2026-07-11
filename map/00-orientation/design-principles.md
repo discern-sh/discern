@@ -191,10 +191,11 @@ repo gates itself with the same engine it ships; there is no `selfcheck` or
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
 [ADR 0010](../_adr/_superseded/0010-self-host-the-harness.md)). The
 `tests/engine_*` suites scaffold a project into temp dirs and run the engine
-against them; CI runs the same gate. The repo also self-hosts on a
-**non-default** layout — its map at root `docs/`, its ledger at root `TODO.md` —
-so a hard-coded path default diverges from the tree agents can see and leaks
-become loud ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+against them; CI runs the same gate. The repo adopts the map's root `map/`
+default while self-hosting its guidance, skills, and ledger on deliberately
+non-default paths. Sentinel-render and non-default-path tests make hard-coded
+defaults fail loudly
+([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ---
 
@@ -291,11 +292,11 @@ principle 8).
 defect the gate catches; a wrong map is a finding about the agent's
 understanding — which is exactly what makes it worth a human's read.
 
-**How it shows up.** The map defaults to its own `discern/docs/` and is
-scaffolded eagerly at `setup begin`
+**How it shows up.** The map defaults to its own `map/` and is scaffolded
+eagerly at `setup begin`
 ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); pointing `[map].dir` at
-real documentation is the user's explicit act (this repo does exactly that); the
-docs scope's prose check and currency discipline treat drift as a failure.
+existing documentation is the user's explicit act; the docs scope's prose check
+and currency discipline treat drift as a failure.
 
 ---
 

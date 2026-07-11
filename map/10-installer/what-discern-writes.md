@@ -21,7 +21,7 @@ decides what happens on `discern upgrade` and who owns the file.
 
 ### Yours — the `discern/` namespace
 
-A single visible directory holds everything discern asks you to author and
+Visible, configurable paths hold everything discern asks you to author and
 everything it maintains as plain content
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 These are ordinary Markdown files at paths you chose or accepted; discern never
@@ -31,7 +31,7 @@ them.
 | Path                  | What it is                                             |
 | --------------------- | ------------------------------------------------------ |
 | `discern/guidance.md` | Your harness guidance, compiled into the agent files.  |
-| `discern/docs/`       | The documentation map discern scaffolds and maintains. |
+| `map/`                | The documentation map discern scaffolds and maintains. |
 | `discern/skills/`     | Any skills you author.                                 |
 | `discern/recipes/`    | Any project `discern` recipe commands you add.         |
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |

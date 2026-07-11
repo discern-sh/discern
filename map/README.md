@@ -30,12 +30,10 @@ Two commands read a documentation tree, and they read **different** ones:
   default but can be browsed with `discern help --adr` (CLI only — the MCP tool
   never exposes them).
 - **`discern map`** browses **the host project's map** — the agent-maintained
-  documentation tree at `[map].dir` (default `discern/docs/`, resolved from the
-  project root; [ADR 0100](_adr/0100-doctree-is-the-agents-map.md)). This repo
-  points `[map].dir` at root `docs/` — here the project's docs _are_ the map, a
-  deliberate, self-hosted exercise of the pointing escape hatch. It takes a
-  one-call `--dir` override, and (unlike `help`) is refused before setup, since
-  the project's tree is empty until setup seeds and fills it
+  documentation tree at `[map].dir` (default `map/`, resolved from the project
+  root; [ADR 0120](_adr/0120-launch-verb-canon.md)). This repo uses that
+  default. It takes a one-call `--dir` override, and (unlike `help`) is refused
+  before setup, since the project's tree is empty until setup seeds and fills it
   ([ADR 0080](_adr/0080-configured-agent-docs-root.md)).
 
 Both share one implementation and the same surfaces: an interactive picker on a
@@ -111,9 +109,9 @@ exists — update the affected docs in the same change.
 
 ## Conventions
 
-- **File links** use relative paths from inside `docs/`:
-  `[some module](../src/path/Thing.ext)`. Never a leading `docs/` from within
-  `docs/`.
+- **File links** use relative paths from inside `map/`:
+  `[some module](../src/path/Thing.ext)`. Never a leading `map/` from within
+  `map/`.
 - **Terminology** follows the [glossary](00-orientation/glossary.md). The
   project's canonical nouns are defined there once; synonyms are not introduced.
 - **No modal verbs about the system** ("should", "would", "could", "will

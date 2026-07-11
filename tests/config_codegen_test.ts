@@ -68,14 +68,14 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
 
 // ── docs config-reference ────────────────────────────────────────────────────
 
-Deno.test("docs/10-installer/config-reference.md matches the generator (run `deno task codegen`)", async () => {
+Deno.test("map/10-installer/config-reference.md matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    new URL("../docs/10-installer/config-reference.md", import.meta.url),
+    new URL("../map/10-installer/config-reference.md", import.meta.url),
   );
   assertEquals(
     committed,
     renderConfigReferenceDoc(),
-    "docs/10-installer/config-reference.md is stale — run `deno task codegen`",
+    "map/10-installer/config-reference.md is stale — run `deno task codegen`",
   );
 });
 
@@ -136,7 +136,7 @@ async function renderedTemplate(): Promise<string> {
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
-    map_dir: "docs/",
+    map_dir: "map/",
     scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
     kit_version: "1.0.0",

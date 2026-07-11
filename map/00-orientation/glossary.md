@@ -61,16 +61,15 @@ anywhere
 
 ### Map
 
-The documentation tree discern maintains at `[map].dir` (default
-`discern/docs/`): an **agent-first** account of the codebase — inferred by
-agents, written by agents, read by agents first and by humans as an audit of
-what their agents actually understand. Its structure, format, and upkeep are
-discern's to prescribe; staleness is a defect the gate catches. It is
-deliberately **not** the project's own documentation, which discern never
-touches; pointing `[map].dir` at real docs is deliberate consent to apply the
-map discipline there (this repo does exactly that with its root `docs/`).
-`setup begin` scaffolds it eagerly and the setup authoring pass fills it — a
-blank map is worse than none
+The documentation tree discern maintains at `[map].dir` (default `map/`): an
+**agent-first** account of the codebase — inferred by agents, written by agents,
+read by agents first and by humans as an audit of what their agents actually
+understand. Its structure, format, and upkeep are discern's to prescribe;
+staleness is a defect the gate catches. It is deliberately **not** the project's
+own documentation, which discern never touches; pointing `[map].dir` at existing
+docs is deliberate consent to apply the map discipline there. This repo uses the
+root `map/` default. `setup begin` scaffolds it eagerly and the setup authoring
+pass fills it — a blank map is worse than none
 ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)).
 
 ### Engine

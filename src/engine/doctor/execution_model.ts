@@ -52,7 +52,7 @@ interface StepKindAnnotation {
  * The hint registry — TOTAL over {@link StepKind}, so a newly-added engine step kind
  * is a COMPILE error here until it is given an actor + hint (the fix-the-class guard,
  * mirroring `finish.ts`'s total `FAIL_MESSAGES`). The hint *text* is sourced from the
- * canonical prose (the `discern.toml` template comments, `docs/30-worktrees/`, the
+ * canonical prose (the `discern.toml` template comments, the worktree map pages, the
  * ADRs) and kept domain-neutral — this ships to every project, in every field. The
  * `job` kind's hint is the generic fallback; a real gate job is annotated with its
  * STAGE's hint ({@link STAGE_HINTS}) instead, which is the more specific truth.

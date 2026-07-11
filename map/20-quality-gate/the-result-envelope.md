@@ -213,7 +213,7 @@ on every read and serve the verb's `data` payload (not the full envelope):
 | `discern://impact`                            | the changed scopes                   | `application/json`     |
 | `discern://config`                            | the resolved `discern.toml`          | `application/json`     |
 | `discern://help` · `discern://help/{+target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
-| `discern://docs` · `discern://docs/{+target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
+| `discern://map` · `discern://map/{+target}`   | the project's map (index · one doc)  | JSON · `text/markdown` |
 
 The doc templates use RFC 6570 **reserved expansion** (`{+target}`), so a
 `{+target}` accepts the same three forms the `discern_map` / `discern_help`

@@ -77,7 +77,7 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
   );
 });
 
-const DOCS = join(REPO_ROOT, "docs");
+const MAP = join(REPO_ROOT, "map");
 const TESTS = join(REPO_ROOT, "tests");
 const RECIPES = join(REPO_ROOT, "recipes");
 
@@ -90,7 +90,7 @@ const ROOT_TEXT_FILES = [
 
 const RETIRED_COMMAND_ALLOWLIST = new Set([
   "tests/dev_vocab_guard_test.ts",
-  "docs/_adr/0095-prelaunch-cli-vocabulary.md",
+  "map/_adr/0095-prelaunch-cli-vocabulary.md",
 ]);
 
 const RETIRED_COMMAND_TOKENS = [
@@ -135,7 +135,7 @@ async function maybeTextFile(
 
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
-  for (const root of [SRC, TESTS, DOCS, TEMPLATES, RECIPES]) {
+  for (const root of [SRC, TESTS, MAP, TEMPLATES, RECIPES]) {
     out.push(...await textFiles(root));
   }
   for (const rel of ROOT_TEXT_FILES) {
@@ -173,7 +173,7 @@ function escapeRegExp(value: string): string {
  * migration searchable until bookkeeping removes the completed entries.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
-  return rel.startsWith("docs/_adr/") ||
+  return rel.startsWith("map/_adr/") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
     new Set([
       "src/shared/vocabulary.ts",
@@ -181,7 +181,7 @@ function isLaunchVocabularyRecord(rel: string): boolean {
       "src/lib/version.ts",
       "tests/migrations_test.ts",
       "tests/dev_vocab_guard_test.ts",
-      "docs/_private/planning/launch-hardening-workstreams/3a-vocabulary-and-rename-sweep.md",
+      "map/_private/planning/launch-hardening-workstreams/3a-vocabulary-and-rename-sweep.md",
       "TODO.md",
     ]).has(rel);
 }

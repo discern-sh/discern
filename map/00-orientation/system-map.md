@@ -28,7 +28,7 @@ runtime.
 │                   An install — on disk                      │
 │  discern.toml — the one root file (no engine, no manifest)  │
 │  + discern/ — the visible namespace, 100% yours:            │
-│      guidance.md · docs/ (the map) · TODO.md ·              │
+│      guidance.md · map/ · TODO.md ·                         │
 │      skills/ · recipes/ · brief.md (each config-pointable)  │
 │  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
 │      .claude/skills/, .agents/skills/ (gitignored)          │

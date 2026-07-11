@@ -27,7 +27,7 @@ interface Alert {
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
 // the exit code — mirroring how the ratchet runner ignores the run's exit status.
-const docsDir = Deno.args[0] ?? "docs/";
+const docsDir = Deno.args[0] ?? "map/";
 const run = await new Deno.Command("vale", {
   args: ["--output=JSON", docsDir],
   stdout: "piped",
