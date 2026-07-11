@@ -620,11 +620,27 @@ function pinCommitMessage(pins: PinnedRatchet[]): string {
     body;
 }
 
+/** Restore `rel`'s working-tree and index copy to HEAD, undoing a half-applied pin.
+ * The clean-tree precondition guaranteed `rel` matched HEAD before the pin began, so
+ * `git checkout HEAD -- <rel>` returns both the file and its staged copy to exactly
+ * that state — leaving no trace of the failed attempt for the clean-tree guard to
+ * trip over on the retry. Best-effort: reported in the failure message if it fails. */
+async function restorePinEdits(root: string, rel: string): Promise<boolean> {
+  const restore = await runGit(["checkout", "HEAD", "--", rel], { cwd: root });
+  return restore.success;
+}
+
 /** Rewrite the pinned limits in discern.toml (comment-preservingly, via {@link
  * TomlEditor}) and commit that file ALONE with an audit message. The clean-tree
  * precondition guarantees the config is the only change the commit carries — which is
- * what makes the commit gate-neutral and its receipt safe to carry forward. Returns an
- * error string on failure, undefined on success. */
+ * what makes the commit gate-neutral and its receipt safe to carry forward.
+ *
+ * The write → stage → commit sequence is a multi-step mutation, so ANY step that
+ * fails after the file is rewritten rolls the config back to HEAD before returning —
+ * otherwise a failed commit would leave discern.toml modified and staged, and the
+ * natural retry (`discern ratchets --pin` again) is then refused by the clean-tree
+ * guard, stranding the user. Returns an error string on failure (noting if the
+ * rollback itself could not run), undefined on success. */
 async function applyPinEdits(
   root: string,
   pins: PinnedRatchet[],
@@ -635,8 +651,18 @@ async function applyPinEdits(
   try {
     text = await Deno.readTextFile(path);
   } catch (error) {
+    // Nothing has changed yet — no rollback needed.
     return `could not read ${rel}: ${errText(error)}`;
   }
+
+  /** Undo a partial pin, folding any rollback failure into the reported reason. */
+  const failWithRollback = async (reason: string): Promise<string> => {
+    if (await restorePinEdits(root, rel)) {
+      return reason;
+    }
+    return `${reason} (and discern could not restore ${rel} to HEAD — run \`git checkout HEAD -- ${rel}\` before retrying)`;
+  };
+
   try {
     const editor = new TomlEditor(text);
     for (const p of pins) {
@@ -644,17 +670,19 @@ async function applyPinEdits(
     }
     await Deno.writeTextFile(path, editor.toString());
   } catch (error) {
-    return `could not rewrite ${rel}: ${errText(error)}`;
+    return await failWithRollback(`could not rewrite ${rel}: ${errText(error)}`);
   }
   const add = await runGit(["add", "--", rel], { cwd: root });
   if (!add.success) {
-    return `could not stage ${rel}: ${add.stderr.trim()}`;
+    return await failWithRollback(`could not stage ${rel}: ${add.stderr.trim()}`);
   }
   const commit = await runGit(["commit", "-m", pinCommitMessage(pins)], {
     cwd: root,
   });
   if (!commit.success) {
-    return `could not commit the re-pin: ${commit.stderr.trim()}`;
+    return await failWithRollback(
+      `could not commit the re-pin: ${commit.stderr.trim()}`,
+    );
   }
   return undefined;
 }

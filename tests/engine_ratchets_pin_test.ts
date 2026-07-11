@@ -612,6 +612,61 @@ Deno.test("pin --json: reports pinned steps and ok", async () => {
   });
 });
 
+// ── the failed-commit rollback: a partial pin leaves no trace ──────────────────
+
+/** Install a `pre-commit` hook that always rejects the commit, so the pin's commit
+ * step fails after the config has been rewritten and staged — the multi-step
+ * mutation's failure point (B55). Returns the hook path so a test can clear it. */
+async function installRejectingHook(dir: string): Promise<string> {
+  const hookDir = join(dir, ".git", "hooks");
+  await Deno.mkdir(hookDir, { recursive: true });
+  const hook = join(hookDir, "pre-commit");
+  await Deno.writeTextFile(hook, "#!/bin/sh\necho 'rejected by hook' >&2\nexit 1\n");
+  await Deno.chmod(hook, 0o755);
+  return hook;
+}
+
+Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is never stranded, B55)", async () => {
+  // The class: a multi-step mutation with no rollback on a failed step. The pin
+  // writes → stages → commits; when the commit fails it once left discern.toml
+  // modified AND staged, and the natural retry was then refused by the clean-tree
+  // guard — a dead end. The fix restores the file to HEAD on any failed step, so
+  // the tree is clean again and the retry proceeds the moment the block clears.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+    const before = await readConfig(dir);
+    const hook = await installRejectingHook(dir);
+
+    // The pin measures fine but the commit is rejected: it fails, reporting why.
+    const failed = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(failed.code, 1, failed.output);
+    assertStringIncludes(failed.stderr, "could not commit the re-pin");
+
+    // Crucially, it left NO trace: discern.toml is byte-identical to HEAD and the
+    // tree is clean — not the modified+staged state that stranded the old retry.
+    assertEquals(await readConfig(dir), before, "discern.toml must be restored");
+    const status = await gitOut(dir, "status", "--porcelain");
+    assertEquals(status.trim(), "", "the tree must be clean after a failed pin");
+
+    // The retry is no longer refused: clear the block and it pins for real.
+    await Deno.remove(hook);
+    const retry = await runAgent(dir, ["ratchets", "--pin"]);
+    assertEquals(retry.code, 0, retry.output);
+    assertStringIncludes(retry.stdout, "pinned floor 80 → 95");
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+  });
+});
+
 // ── the measurement receipt: check → pin measures once ─────────────────────────
 
 /** A run command that counts its own executions in `.git/measure-count` (inside the
