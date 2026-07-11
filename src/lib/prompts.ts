@@ -172,12 +172,38 @@ export async function resolveSetupConfig(
   };
 }
 
-/** A friendly confirmation prompt; auto-yes when non-interactive. */
+/**
+ * Whether a confirmation prompt may actually be shown. `--json` forbids it
+ * outright — evaluated BEFORE the TTY check, so machine mode is off-limits to
+ * the prompt even when a TTY is attached — then the ordinary interactive gate
+ * (`--yes` absent and both streams a TTY) applies. The interactive gate is
+ * injectable purely so this decision is testable without a real terminal.
+ */
+export function promptAllowed(
+  yes: boolean,
+  json: boolean,
+  interactive: (yes: boolean) => boolean = canPrompt,
+): boolean {
+  if (json) {
+    return false;
+  }
+  return interactive(yes);
+}
+
+/**
+ * A friendly confirmation prompt; auto-yes when non-interactive OR under
+ * `--json`. The `json` guard is load-bearing, not a convenience: Cliffy's
+ * `Confirm` renders to stdout and blocks on input, so reaching it under `--json`
+ * would corrupt the single-envelope machine stream and hang a non-interactive
+ * caller that happens to hold a TTY. Machine mode therefore takes the same
+ * auto-proceed path as `--yes` — the verb still emits exactly one envelope.
+ */
 export async function confirmProceed(
   message: string,
   yes: boolean,
+  json = false,
 ): Promise<boolean> {
-  if (!canPrompt(yes)) {
+  if (!promptAllowed(yes, json)) {
     return true;
   }
   return await Confirm.prompt({ message, default: true });

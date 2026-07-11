@@ -555,6 +555,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     const proceed = await confirmProceed(
       "Remove discern's wiring from this project?",
       options.yes,
+      options.json,
     );
     if (!proceed) {
       log.info("Aborted — nothing was changed.");

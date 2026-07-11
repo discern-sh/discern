@@ -83,6 +83,27 @@ Deno.test("preset overlays the example preset's files and config fills", async (
   });
 });
 
+Deno.test("preset --json without --yes emits exactly one envelope and applies (no confirm hang)", async () => {
+  // The confirm is auto-answered under --json (B53): the machine stream carries
+  // one parseable envelope, never a prompt, and the overlay still lands.
+  await withTempDir(async (dir) => {
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    const r = await runCli(["preset", "example", "--json"], dir, PRESET_ENV);
+    assertEquals(r.code, 0, r.stderr);
+    // Exactly one envelope line on stdout, and nothing prompt-like leaked.
+    const line = r.stdout.trim();
+    assert(
+      line.length > 0 && !line.includes("\n"),
+      `expected a single envelope line, got:\n${r.stdout}`,
+    );
+    const result = JSON.parse(line);
+    assertEquals(result.ok, true);
+    assertEquals(result.verb, "preset");
+    // The overlay applied despite no --yes, because json mode auto-proceeds.
+    assert(await exists(join(dir, "discern/recipes/example-deploy")));
+  });
+});
+
 Deno.test("preset: the overlaid project recipe is runnable via agent", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);

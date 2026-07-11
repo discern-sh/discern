@@ -276,7 +276,13 @@ export async function runPreset(
     }
     log.line();
   }
-  if (!(await confirmProceed(`Overlay preset "${name}" now?`, options.yes))) {
+  if (
+    !(await confirmProceed(
+      `Overlay preset "${name}" now?`,
+      options.yes,
+      options.json,
+    ))
+  ) {
     log.info("Aborted; nothing was written.");
     return 0;
   }
