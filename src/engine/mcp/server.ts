@@ -1391,9 +1391,10 @@ export function buildInstructions(): string {
     "clean discern_finish for that commit, then just call the tool (the single deterministic implementation — " +
     "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
     "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
-    "first) and relay its structured result. Pass " +
-    'to:"trunk" to fast-forward the trunk and delete the branch, to:"branch" to ' +
-    "leave it checked out for review, or omit it to use the project default.",
+    "first) and relay its structured result. Landing is trunk-only and " +
+    "destructive: it fast-forwards `{{main_branch}}` to the branch tip, removes " +
+    "the worktree, and deletes the merged branch — set dry_run to preview the " +
+    "plan without touching anything.",
   ];
   return lines.join("\n");
 }

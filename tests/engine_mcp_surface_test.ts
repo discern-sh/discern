@@ -20,6 +20,7 @@ import { z } from "@zod/zod";
 import {
   buildInstructions,
   mcpContext,
+  mcpStartHint,
   renderMcpText,
   TOOLS,
 } from "../src/engine/mcp/server.ts";
@@ -27,6 +28,7 @@ import {
   configSchema,
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -125,6 +127,109 @@ Deno.test("mcp surface: every config value it names flows from config — no har
         }`,
     );
   }
+});
+
+/**
+ * Class guard for "the MCP prose names a tool argument no registered schema
+ * declares". Every tool's input schema registers CLOSED (`strictInput` →
+ * `z.strictObject`), so an argument the prose invents is not ignored — the call
+ * is refused with an "Unrecognized key" validation error, and an agent following
+ * the server's own instructions verbatim fails (or worse, retries stripped of the
+ * argument and gets semantics the prose never promised). The graduate `to:"…"`
+ * text that outlived ADR 0110 was one member; this holds the whole surface.
+ *
+ * The detector extracts every ARGUMENT-SHAPED token — `key:"value"` (colon
+ * immediately followed by a quote; prose colons carry a space) and `key=value`
+ * flag examples — the exact shapes an agent copies into a tool call. Each must
+ * resolve against a single source of truth: the tool's own declared input keys
+ * (for its description/title/field-describe texts), the union of every tool's
+ * input keys (for the shared instructions block and the start hint, which speak
+ * about many tools), or a `DiscernResult` envelope field (prose legitimately
+ * quotes result fields like `error:"precondition_failed"`).
+ */
+
+/** Every envelope field the prose may quote — compile-checked against
+ * `DiscernResult` itself, so an entry that stops being a real field fails the
+ * type-check rather than silently allowlisting a ghost. */
+const ENVELOPE_KEYS = [
+  "ok",
+  "verb",
+  "dry_run",
+  "plan",
+  "steps",
+  "diagnostics",
+  "data",
+  "hints",
+  "error",
+  "message",
+] as const satisfies readonly (keyof DiscernResult)[];
+
+/** Argument-shaped tokens in agent-facing prose: `key:"value"` and
+ * `key=value` (a quoted string, boolean, or number on the right). */
+function argumentTokens(text: string): string[] {
+  const names: string[] = [];
+  const pattern = /\b([A-Za-z_][A-Za-z0-9_]*)(?::"|=(?="|true\b|false\b|\d))/g;
+  for (const match of text.matchAll(pattern)) {
+    const name = match[1];
+    if (name !== undefined) names.push(name);
+  }
+  return names;
+}
+
+/** A tool's declared input keys — `[]` for a tool with no inputs. */
+function inputKeys(tool: (typeof TOOLS)[number]): string[] {
+  return tool.inputSchema === undefined ? [] : Object.keys(tool.inputSchema);
+}
+
+/** A tool's own agent-facing prose: description, title, and every input
+ * field's `.describe()` text (NOT the JSON-Schema serialization, whose
+ * structural `"key":"value"` pairs are not prose). */
+function toolProse(tool: (typeof TOOLS)[number]): string {
+  const parts = [tool.description];
+  if (tool.title !== undefined) parts.push(tool.title);
+  for (const field of Object.values(tool.inputSchema ?? {})) {
+    const described = (field as z.ZodType).description;
+    if (described !== undefined) parts.push(described);
+  }
+  return parts.join("\n\n");
+}
+
+Deno.test("mcp surface: every argument-shaped token names a declared tool input", () => {
+  const envelope = new Set<string>(ENVELOPE_KEYS);
+  const offenders: string[] = [];
+  const check = (
+    source: string,
+    text: string,
+    allowed: ReadonlySet<string>,
+  ): void => {
+    for (const name of argumentTokens(text)) {
+      if (!allowed.has(name) && !envelope.has(name)) {
+        offenders.push(
+          `${source} names "${name}" — no registered tool declares it, so a ` +
+            `strict-schema call carrying it is refused`,
+        );
+      }
+    }
+  };
+
+  // Per-tool prose is held to the tool's OWN schema — quoting another tool's
+  // argument inside this tool's description would mislead just the same.
+  const union = new Set<string>();
+  for (const tool of TOOLS) {
+    const own = new Set(inputKeys(tool));
+    for (const key of own) union.add(key);
+    check(tool.name, toolProse(tool), own);
+  }
+
+  // The instructions block and the start hint speak about the whole tool set.
+  check("instructions", buildInstructions(), union);
+  check("start hint", mcpStartHint("/project"), union);
+
+  assert(
+    offenders.length === 0,
+    `MCP prose invents arguments the strict input schemas reject:\n` +
+      offenders.join("\n"),
+  );
 });
 
 Deno.test("mcp server version imports KIT_VERSION instead of hardcoding semver", async () => {
