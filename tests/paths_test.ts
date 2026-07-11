@@ -20,13 +20,14 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import {
   resolveGuidanceSources,
   resolveTemplatesDir,
   resolveWorktreeRoot,
 } from "../src/lib/paths.ts";
 import { allGuidanceFilePaths } from "../src/lib/providers.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
@@ -109,6 +110,51 @@ Deno.test("resolveWorktreeRoot: an absolute root is used as-is", () => {
     resolveWorktreeRoot("/a/b/myrepo", configWithRoot("/srv/worktrees")),
     "/srv/worktrees",
   );
+});
+
+Deno.test("resolveGuidanceSources: a root whose path contains glob metacharacters still compiles its guidance", async () => {
+  // The class: a user-controlled path segment (the absolute project root) fed
+  // into a pattern language. Building the glob as `join(root, pattern)` parses
+  // the root itself as glob syntax, so a directory named `re[po]` / `pr{o}j` /
+  // `pa(re)n` / `my app` / `star*` matches NOTHING — the compile then proceeds
+  // with zero user guidance and no error. The `root` option keeps the root
+  // literal; this parameterises over every metacharacter family so a regression
+  // in any one of them fails here. The pre-fix code fails EVERY case.
+  const families = ["re[po]", "pr{o}j", "pa(re)n", "my app", "star*name"];
+  for (const name of families) {
+    await withTempDir(async (parent) => {
+      const root = join(parent, name);
+      await Deno.mkdir(root);
+
+      // The registry's default source lives at a nested path (`discern/…`); seed
+      // it so the no-config (default sources) case has a file to find.
+      const defaultRel = SOURCE_PATHS.guidance.defaultPath;
+      const defaultAbs = join(root, defaultRel);
+      await Deno.mkdir(join(root, dirname(defaultRel)), { recursive: true });
+      await Deno.writeTextFile(defaultAbs, "# real guidance\n");
+      // And a root-level file for the explicit-glob case.
+      const rootLevel = join(root, "notes.md");
+      await Deno.writeTextFile(rootLevel, "# more guidance\n");
+
+      // Default sources (no config): the registry guidance path resolves under
+      // the awkward root.
+      assertEquals(
+        await resolveGuidanceSources(root, parseConfigOrThrow("")),
+        [defaultAbs],
+        `default sources dropped under root '${name}'`,
+      );
+
+      // An explicit glob pattern also resolves files under the awkward root.
+      assertEquals(
+        await resolveGuidanceSources(
+          root,
+          parseConfigOrThrow('[guidance]\nsources = ["*.md"]\n'),
+        ),
+        [rootLevel],
+        `glob '*.md' dropped under root '${name}'`,
+      );
+    });
+  }
 });
 
 Deno.test("resolveGuidanceSources: never admits a generated agent file, for any provider — glob or explicit", async () => {

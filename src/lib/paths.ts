@@ -161,9 +161,11 @@ export function resolveWorktreeRoot(
 /**
  * Expand `[guidance].sources` (default: the registry's guidance path) into the
  * matched source files under `root`, present-only: a pattern that matches
- * nothing simply contributes nothing. Globs are supported. Results are
- * de-duplicated and sorted for a stable concatenation order regardless of match
- * order.
+ * nothing simply contributes nothing. Globs are supported in the pattern; the
+ * `root` itself is always treated literally (never parsed as glob syntax), so a
+ * project living at a path containing glob metacharacters still compiles. Results
+ * are de-duplicated and sorted for a stable concatenation order regardless of
+ * match order.
  *
  * The compile pipeline's own OUTPUTS — the generated agent files the provider
  * registry emits at the project root (`AGENTS.md`, `CLAUDE.md`, …) — are never
@@ -191,9 +193,17 @@ export async function resolveGuidanceSources(
   const outputs = new Set(allGuidanceFilePaths().map((rel) => join(root, rel)));
   const matched = new Set<string>();
   for (const pattern of patterns) {
-    // Absolute patterns are honoured as-is; relative ones resolve against root.
-    const glob = pattern.startsWith("/") ? pattern : join(root, pattern);
-    for await (const entry of expandGlob(glob, { includeDirs: false })) {
+    // A relative pattern resolves against `root` via expandGlob's `root` option —
+    // which treats `root` as a LITERAL directory, never as glob syntax. Building
+    // the glob string as `join(root, pattern)` would instead feed the absolute
+    // project path through the glob parser, so a root containing a metacharacter
+    // (`[`, `]`, `{`, `}`, `(`, `)`, a space, `*`) is read as a character class /
+    // brace expansion and matches nothing — silently dropping all user guidance.
+    // An absolute pattern is user-authored glob syntax by choice, honoured as-is.
+    const [glob, opts] = pattern.startsWith("/")
+      ? [pattern, { includeDirs: false } as const]
+      : [pattern, { includeDirs: false, root } as const];
+    for await (const entry of expandGlob(glob, opts)) {
       if (entry.isFile && !outputs.has(entry.path)) {
         matched.add(entry.path);
       }
