@@ -858,11 +858,16 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   return hints;
 }
 
-/** How long a fleet member sits idle before status calls it stale. */
-const STALE_WORKTREE_DAYS = 7;
+/** How long a fleet member sits idle before status calls it stale. Shared with
+ * the desk, whose needs-attention bucket uses the same staleness vocabulary. */
+export const STALE_WORKTREE_DAYS = 7;
 
-/** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
-function idleDaysOf(iso: string | undefined): number | undefined {
+/** Whole days since an ISO timestamp, or undefined when absent/unparseable.
+ * `nowMs` is injectable so pure consumers (the desk model) stay clock-free. */
+export function idleDaysOf(
+  iso: string | undefined,
+  nowMs: number = Date.now(),
+): number | undefined {
   if (iso === undefined) {
     return undefined;
   }
@@ -870,7 +875,7 @@ function idleDaysOf(iso: string | undefined): number | undefined {
   if (Number.isNaN(then)) {
     return undefined;
   }
-  return Math.floor((Date.now() - then) / 86_400_000);
+  return Math.floor((nowMs - then) / 86_400_000);
 }
 
 /** Whether the main checkout has uncommitted tracked changes — the cheap read that
@@ -954,8 +959,12 @@ function gateReceiptSummary(receipt: GateReceiptCheckData): string {
 }
 
 /** A compact relative age ("3d ago", "2h ago", "just now") from an ISO timestamp,
- * for the fleet table's Last Activity column. "—" when unknown. */
-function relativeAge(iso: string | undefined): string {
+ * for the fleet table's Last Activity column and the desk's row summaries. "—"
+ * when unknown. `nowMs` is injectable so pure consumers stay clock-free. */
+export function relativeAge(
+  iso: string | undefined,
+  nowMs: number = Date.now(),
+): string {
   if (iso === undefined) {
     return "—";
   }
@@ -963,7 +972,7 @@ function relativeAge(iso: string | undefined): string {
   if (Number.isNaN(then)) {
     return "—";
   }
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  const secs = Math.max(0, Math.floor((nowMs - then) / 1000));
   if (secs < 60) return "just now";
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `${mins}m ago`;
