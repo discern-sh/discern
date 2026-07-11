@@ -70,7 +70,7 @@ or Check:
 The Worktree workflow brackets a change, keeping the main checkout untouched:
 
 ```
-main checkout ──discern start──► Worktree ⟲ discern integrate
+main checkout ──discern start──► Worktree ⟲ discern update
       ▲                                  │     (pull main in + re-materialize)
       └─────────────── discern accept ─┘     accept branch + tear down
 ```

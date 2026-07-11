@@ -92,7 +92,7 @@ discern's built-in guidance plus this repo's own
   0110). It refuses a dirty tree (commit first) and a main checkout parked off
   the trunk. To review or build on work that isn't ready to land, leave it as a
   branch and pull it into a worktree with `discern start --from <ref>` /
-  `discern integrate --from <ref>` instead.
+  `discern update --from <ref>` instead.
 - To discard an abandoned worktree, run `discern worktree drop <id>` from the
   main checkout — it refuses without `--force` when commits not on the trunk or
   uncommitted changes would be lost.

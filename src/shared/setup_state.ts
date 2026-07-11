@@ -63,7 +63,7 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  */
 export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   "accept",
-  "integrate",
+  "update",
   "docs",
   // The desk supervises the worktree fleet, which doesn't exist until setup
   // completes; pre-setup, bare `discern` shows the welcome instead (ADR 0119).

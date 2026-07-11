@@ -166,7 +166,7 @@ export async function statusResult(
       mergeWarning = missingIntegrationBranchWarning(merged.branch);
     }
     // Compute the overlap only when behind in a worktree — the agent sees which of its
-    // own work main is about to touch BEFORE integrating. Read-only; never merges.
+    // own work main is about to touch BEFORE updating. Read-only; never merges.
     if (location === "worktree" && behind !== null && behind > 0) {
       const o = await incomingOverlap(root, mainBranch, STATUS_OVERLAP_CAP);
       if (o.total > 0) {
@@ -720,10 +720,10 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       const overlapNote = ov !== undefined && ov.total > 0
         ? ` ${ov.total} of your changed file(s) also changed upstream (${
           ov.overlap.slice(0, 3).join(", ")
-        }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
+        }${ov.total > 3 ? ", …" : ""}) — re-check those after updating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
       );
     }
     if (
@@ -850,7 +850,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         } unlanded work with no worktree: ${
           ctx.unlandedBranches.join(", ")
         }. Pull one into new work with \`discern start --from <branch>\` (or ` +
-          `\`discern integrate --from <branch>\` from an existing worktree), or ` +
+          `\`discern update --from <branch>\` from an existing worktree), or ` +
           `delete it with \`git branch -D <branch>\`.`,
       );
     }
@@ -1055,7 +1055,7 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
       }${dot}${state}${dot}${versus}\n`,
     );
     // When behind, the hot zone: the files you changed that the incoming main also
-    // changed — re-check these on integrating (a clean merge can still break them).
+    // changed — re-check these on updating (a clean merge can still break them).
     if (g.incoming_overlap !== undefined && g.incoming_overlap.length > 0) {
       out.raw(
         `  ${label("overlap")}${c.yellow}${

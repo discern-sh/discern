@@ -376,7 +376,7 @@ Name your stack's version of the usual culprits, and wire it:
 The wiring lives in `discern.toml`:
 
 - **`[worktree].steps`** — run ONCE at creation (copy the `.env`, generate a key, seed fixtures).
-- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent **and fast when current**: prefer a check-then-install shape (`<check deps are current> || <install>`) over an unconditional reinstall, because the per-pass cost lands on every session start and every integrate.
+- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent **and fast when current**: prefer a check-then-install shape (`<check deps are current> || <install>`) over an unconditional reinstall, because the per-pass cost lands on every session start and every update.
 - **`[worktree.resources.<name>]`** — an external resource with `create`/`destroy` (a database, a container, an emulator). Anything with cost or data implications is a genuine decision — leave it for the user in `{{todo_path}}` rather than wiring it silently.
 - **`[worktree].inherit_env`** — plain env-var names copied from the main checkout's env files into the copy's (the worktree's env file is created when absent, so a declared value always arrives).
 

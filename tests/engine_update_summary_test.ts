@@ -1,6 +1,6 @@
 /**
- * Engine coverage for `integrate`'s "what landed beneath you" summary (ADR 0064):
- * the `IntegrateData` payload (commits/files/overlap/scopes/range), the overlap hot
+ * Engine coverage for `update`'s "what landed beneath you" summary (ADR 0064):
+ * the `UpdateData` payload (commits/files/overlap/scopes/range), the overlap hot
  * zone, the capping + git escape-hatch hints, and predicted `--dry-run` parity.
  * Each test drives a REAL linked worktree in a hermetic git repo and reads the
  * `--json` envelope an agent would.
@@ -20,25 +20,25 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import {
-  type IntegrateData,
-  IntegrateOutputSchema,
+  type UpdateData,
+  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 
-type IntegrateJson = Omit<z.infer<typeof IntegrateOutputSchema>, "data"> & {
-  data?: IntegrateData;
+type UpdateJson = Omit<z.infer<typeof UpdateOutputSchema>, "data"> & {
+  data?: UpdateData;
 };
 
-/** Parse an `integrate --json` run's stdout. */
-function parse(stdout: string): IntegrateJson {
+/** Parse an `update --json` run's stdout. */
+function parse(stdout: string): UpdateJson {
   const raw = JSON.parse(stdout);
-  const parsed = IntegrateOutputSchema.safeParse(raw);
+  const parsed = UpdateOutputSchema.safeParse(raw);
   assert(
     parsed.success,
-    `integrate --json drifted from IntegrateOutputSchema:\n${
+    `update --json drifted from UpdateOutputSchema:\n${
       JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
     }\n${stdout}`,
   );
-  return parsed.data as IntegrateJson;
+  return parsed.data as UpdateJson;
 }
 
 /** Looks like an abbreviated-or-full git object id. */
@@ -66,16 +66,16 @@ async function commitOnMain(
   await git(dir, "commit", "-q", "-m", msg, "--no-gpg-sign");
 }
 
-Deno.test("integrate --json: reports the commits, files, and range anchors brought in", async () => {
+Deno.test("update --json: reports the commits, files, and range anchors brought in", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainAndWorktree(dir, "data-ff");
     await commitOnMain(dir, "upstream one", { "a.txt": "a\n" });
     await commitOnMain(dir, "upstream two", { "b.txt": "bb\n" });
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     const { data } = parse(r.stdout);
-    assert(data !== undefined, `integrate must carry data\n${r.stdout}`);
+    assert(data !== undefined, `update must carry data\n${r.stdout}`);
 
     assertEquals(data.behind, 2);
     // The worktree made no commits of its own → main is a strict ancestor → FF.
@@ -111,7 +111,7 @@ Deno.test("integrate --json: reports the commits, files, and range anchors broug
   });
 });
 
-Deno.test("integrate: overlap names the files you AND main both changed (clean merge, semantic-conflict risk)", async () => {
+Deno.test("update: overlap names the files you AND main both changed (clean merge, semantic-conflict risk)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -144,7 +144,7 @@ Deno.test("integrate: overlap names the files you AND main both changed (clean m
       "upstream.txt": "u\n",
     });
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     const { data, hints } = parse(r.stdout);
     assert(data !== undefined, r.stdout);
@@ -174,7 +174,7 @@ Deno.test("integrate: overlap names the files you AND main both changed (clean m
   });
 });
 
-Deno.test("integrate: a large merge caps the lists and hands back a git escape-hatch command", async () => {
+Deno.test("update: a large merge caps the lists and hands back a git escape-hatch command", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainAndWorktree(dir, "big");
     // 12 commits on main, 36 changed files total — both past the inline caps (10/20).
@@ -187,7 +187,7 @@ Deno.test("integrate: a large merge caps the lists and hands back a git escape-h
       await commitOnMain(dir, `batch ${c}`, files);
     }
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     const { data, hints } = parse(r.stdout);
     assert(data !== undefined && hints !== undefined, r.stdout);
@@ -220,7 +220,7 @@ Deno.test("integrate: a large merge caps the lists and hands back a git escape-h
   });
 });
 
-Deno.test("integrate: scopes_incoming classifies the merge's files through the project's scopes", async () => {
+Deno.test("update: scopes_incoming classifies the merge's files through the project's scopes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // A non-neutral scope so an incoming src/** file classifies into it.
@@ -244,7 +244,7 @@ Deno.test("integrate: scopes_incoming classifies the merge's files through the p
       "notes.txt": "note\n",
     });
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     const { data } = parse(r.stdout);
     assert(data !== undefined, r.stdout);
@@ -257,12 +257,12 @@ Deno.test("integrate: scopes_incoming classifies the merge's files through the p
   });
 });
 
-Deno.test("integrate --dry-run --json: predicts the same summary read-only — no `after`, nothing merged", async () => {
+Deno.test("update --dry-run --json: predicts the same summary read-only — no `after`, nothing merged", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainAndWorktree(dir, "preview");
     await commitOnMain(dir, "upstream", { "upstream.txt": "u\n" });
 
-    const r = await runAgent(wt, ["integrate", "--dry-run", "--json"]);
+    const r = await runAgent(wt, ["update", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parse(r.stdout);
 

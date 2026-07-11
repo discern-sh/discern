@@ -198,7 +198,7 @@ function datalessResultOutputSchema(
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
 /** One commit on a branch (short `sha` + `subject`) — the identity shape shared by
- * the receipt's commit list and `integrate`'s landed-commit list (ADR 0064), so the
+ * the receipt's commit list and `update`'s landed-commit list (ADR 0064), so the
  * two can never disagree on how a commit is reported. */
 const branchCommitSchema = z.strictObject({
   sha: z.string(),
@@ -208,7 +208,7 @@ const branchCommitSchema = z.strictObject({
 /** One changed file with its line counts. `added`/`removed` are null for a binary
  * file; `status` is git's single-letter code (`A`/`M`/`D`/`T`); renames are
  * decomposed to a delete + add (via `--no-renames`) so every entry is one matchable
- * path. Shared by the receipt's diffstat and `integrate`'s file delta. */
+ * path. Shared by the receipt's diffstat and `update`'s file delta. */
 const changedFileSchema = z.strictObject({
   path: z.string(),
   status: z.string(),
@@ -341,7 +341,7 @@ const couplingPartnerSchema = z.strictObject({
 });
 
 /** One commit in the `evidence`-mode shared history: its short `sha`, `date` (YYYY-MM-DD),
- * and `subject` — the same identity `integrate` reports for a landed commit (ADR 0064),
+ * and `subject` — the same identity `update` reports for a landed commit (ADR 0064),
  * enough to judge whether two files moved as one decision or merely rode along. */
 const couplingEvidenceCommitSchema = z.strictObject({
   sha: z.string(),
@@ -417,15 +417,15 @@ export const AcceptDataSchema = z.strictObject({
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
-// integrate ─────────────────────────────────────────────────────────────────────
+// update ─────────────────────────────────────────────────────────────────────
 
 /** One commit an integration brought in — {@link branchCommitSchema}, the shape
  * shared with the receipt's commit list. */
-const integrateCommitSchema = branchCommitSchema;
+const updateCommitSchema = branchCommitSchema;
 
 /** One file an integration changed beneath the branch — {@link changedFileSchema},
  * the shape shared with the receipt's diffstat. */
-const integrateFileSchema = changedFileSchema;
+const updateFileSchema = changedFileSchema;
 
 /** The SHA anchors bounding an integration — an agent diffs/logs against these to
  * pull the FULL set in one call when a list is capped. `main` is the INCOMING
@@ -433,34 +433,34 @@ const integrateFileSchema = changedFileSchema;
  * (the field name stays `main` — the wire contract predates `--from`). `after`
  * (the merged HEAD) is absent in a `--dry-run` preview (no merge happened); the
  * predicted ranges use `before...main` (three-dot) instead of `before..after`. */
-const integrateRangeSchema = z.strictObject({
+const updateRangeSchema = z.strictObject({
   base: z.string(),
   before: z.string(),
   main: z.string(),
   after: z.string().optional(),
 });
 
-/** `integrate` — what the merge brought in BENEATH the branch: the `commits` and
+/** `update` — what the merge brought in BENEATH the branch: the `commits` and
  * `files` it landed (each capped, with the pre-cap `*_total` and a `*_truncated`
  * flag), which of the branch's own files `overlap` them (re-read these for semantic
  * conflicts a clean merge can't catch), the fire-scopes the incoming change touches
  * (`scopes_incoming`), and the `range` anchors for drilling in. Present only when
- * something was — or, in a preview, would be — integrated (omitted on a no-op). */
-export const IntegrateDataSchema = z.strictObject({
+ * something was — or, in a preview, would be — updated (omitted on a no-op). */
+export const UpdateDataSchema = z.strictObject({
   behind: z.number(),
   fast_forward: z.boolean(),
-  commits: z.array(integrateCommitSchema),
+  commits: z.array(updateCommitSchema),
   commits_total: z.number(),
   commits_truncated: z.boolean(),
-  files: z.array(integrateFileSchema),
+  files: z.array(updateFileSchema),
   files_total: z.number(),
   files_truncated: z.boolean(),
   overlap: z.array(z.string()),
   overlap_total: z.number(),
   scopes_incoming: z.array(z.string()),
-  range: integrateRangeSchema,
+  range: updateRangeSchema,
 });
-export type IntegrateData = z.infer<typeof IntegrateDataSchema>;
+export type UpdateData = z.infer<typeof UpdateDataSchema>;
 
 // status ──────────────────────────────────────────────────────────────────────
 
@@ -496,8 +496,8 @@ const statusGitSchema = z.strictObject({
    * count against, and an honest null beats a fabricated 0. */
   ahead_integration: z.number().nullable(),
   /** When behind: the files THIS branch changed that the incoming integration branch
-   * also changed — the hot zone to re-check on integrating (capped; present only in a
-   * worktree that is behind and has overlap). The same intersection `integrate` reports. */
+   * also changed — the hot zone to re-check on updating (capped; present only in a
+   * worktree that is behind and has overlap). The same intersection `update` reports. */
   incoming_overlap: z.array(z.string()).optional(),
 });
 export type StatusGit = z.infer<typeof statusGitSchema>;
@@ -1167,10 +1167,10 @@ export const AcceptOutputSchema = resultOutputSchema(
   AcceptDataSchema,
 );
 
-/** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
-export const IntegrateOutputSchema = resultOutputSchema(
-  "integrate",
-  IntegrateDataSchema,
+/** `update` output: envelope + the "what landed beneath the branch" `data`. */
+export const UpdateOutputSchema = resultOutputSchema(
+  "update",
+  UpdateDataSchema,
 );
 
 /** `improve` output: envelope + the coaching `data`. */

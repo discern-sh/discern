@@ -16,9 +16,9 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 **Symptom.** `discern done` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `main`. It does **not** merge for you.
 
-**Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to integrate and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
+**Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to update and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, then run `discern integrate` — it brings `main` into your branch and re-materializes the generated agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
+**Fix.** Commit your work, then run `discern update` — it brings `main` into your branch and re-materializes the generated agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to update into.)
 
 ### A check passes alone but fails in the full run
 

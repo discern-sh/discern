@@ -164,7 +164,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 `discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
 `discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_scopes`,
 `discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
-`discern_integrate`, `discern_accept`. Each advertises:
+`discern_update`, `discern_accept`. Each advertises:
 
 - a **`title`** (a short human label) and a **description**;
 - an **`outputSchema`** — its per-verb schema from `result_schemas.ts`, which

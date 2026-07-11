@@ -175,14 +175,14 @@ verbs:
   in parallel, then any **Scope** `gate`s that fired. Each Capability and
   **Check** runs as its own labelled job, so failure points at the exact one;
   `--json` makes that machine-readable.
-- `discern integrate` brings the latest **main** into the Worktree's branch and
+- `discern update` brings the latest **main** into the Worktree's branch and
   re-materializes the agent files + Skills in one step — what the Gate's
   fail-fast merge check points a behind branch at, and the deterministic inverse
   of accept.
 - `discern accept` **accepts** the branch into the main repo and tears the
   Worktree down.
 - Bare `discern` — no verb, in a terminal — opens **the desk**, the human's own
-  surface: a decision-ordered picker over the fleet that lands, integrates,
+  surface: a decision-ordered picker over the fleet that lands, updates,
   inspects, or drops an effort interactively
   ([the desk](../30-worktrees/the-desk.md)). Agents and pipes get help, exactly
   as before; the verbs above stay the machine surface.

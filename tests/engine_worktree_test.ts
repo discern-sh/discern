@@ -469,7 +469,7 @@ Deno.test("accept: refuses a branch behind main before dirty-tree handling or re
     const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `behind-main refusal must leave the worktree intact\n${r.output}`,
@@ -516,7 +516,7 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
 
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Branch is behind main");
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
@@ -603,11 +603,11 @@ Deno.test("accept suppresses ignored-file drift detection when configured off", 
   });
 });
 
-Deno.test("integrate: refuses from the main checkout", async () => {
+Deno.test("update: refuses from the main checkout", async () => {
   await withTempDir(async (dir) => {
     await mainWithWorktree(dir, "iota");
-    // Run from the main checkout, not the worktree — integrate is worktree-only.
-    const r = await runAgent(dir, ["integrate"]);
+    // Run from the main checkout, not the worktree — update is worktree-only.
+    const r = await runAgent(dir, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "main checkout");
   });
@@ -626,14 +626,14 @@ Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror
 });
 
 Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:precondition_failed", async () => {
-  // accept/integrate are worktree-only; start is main-only. A wrong-side run is a
+  // accept/update are worktree-only; start is main-only. A wrong-side run is a
   // refused precondition, and the --json envelope must carry the machine slug an
   // agent branches on — not just human text any message could satisfy. Pinned as one
   // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
-  // (start already asserted the slug; the integrate/accept CLI paths did not).
+  // (start already asserted the slug; the update/accept CLI paths did not).
   const REFUSALS = [
     { verb: "accept", side: "main" as const },
-    { verb: "integrate", side: "main" as const },
+    { verb: "update", side: "main" as const },
     { verb: "start", side: "worktree" as const },
   ];
   for (const { verb, side } of REFUSALS) {
@@ -653,17 +653,17 @@ Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:prec
   }
 });
 
-Deno.test("integrate: no-op when the branch already contains main", async () => {
+Deno.test("update: no-op when the branch already contains main", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "kappa");
-    // main has not moved, so the branch is up to date — integrate touches nothing.
-    const r = await runAgent(wt, ["integrate"]);
+    // main has not moved, so the branch is up to date — update touches nothing.
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "up to date");
   });
 });
 
-Deno.test("integrate: behind main fast-forwards and re-materializes the agent files", async () => {
+Deno.test("update: behind main fast-forwards and re-materializes the agent files", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "lambda");
     // Advance main after the worktree branched off it → the branch is behind by one.
@@ -673,20 +673,20 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
     // Stale a generated agent file (gitignored, so the tree stays clean to merge into).
     await Deno.writeTextFile(
       join(wt, "CLAUDE.md"),
-      "STALE — integrate must regenerate this\n",
+      "STALE — update must regenerate this\n",
     );
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "Fast-forwarded to main");
-    assertStringIncludes(r.output, "Integration complete");
+    assertStringIncludes(r.output, "Update complete");
     // The merge brought main's commit in…
     assert(
       await exists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
     );
     // …and the stale generated file was re-materialized — the core value of bundling
-    // the refresh into integrate (a bare `git merge` would leave it stale).
+    // the refresh into update (a bare `git merge` would leave it stale).
     const claude = await Deno.readTextFile(join(wt, "CLAUDE.md"));
     assertEquals(
       claude.includes("STALE"),
@@ -696,15 +696,15 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
     // Skills are (re)materialized into the worktree by the same refresh.
     assert(
       await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
-      `skills not materialized by integrate\n${r.output}`,
+      `skills not materialized by update\n${r.output}`,
     );
   });
 });
 
-Deno.test("integrate: ignores untracked local scratch when checking whether the worktree is dirty", async () => {
+Deno.test("update: ignores untracked local scratch when checking whether the worktree is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "lambda-scratch");
-    // Advance main after the worktree branched off it, so integrate has work to do.
+    // Advance main after the worktree branched off it, so update has work to do.
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream work", "--no-gpg-sign");
@@ -716,7 +716,7 @@ Deno.test("integrate: ignores untracked local scratch when checking whether the 
       "permission = 'local'\n",
     );
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "Fast-forwarded to main");
     assert(
@@ -730,10 +730,10 @@ Deno.test("integrate: ignores untracked local scratch when checking whether the 
   });
 });
 
-Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", async () => {
+Deno.test("update: refuses (non-destructively) when the worktree is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "mu");
-    // Advance main so integrate would otherwise merge.
+    // Advance main so update would otherwise merge.
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
@@ -741,7 +741,7 @@ Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", a
     await Deno.writeTextFile(join(wt, "wip.txt"), "uncommitted\n");
     await git(wt, "add", "wip.txt");
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.
@@ -757,7 +757,7 @@ Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", a
   });
 });
 
-Deno.test("integrate: a conflicting change is reported, and the merge is left aborted (clean tree)", async () => {
+Deno.test("update: a conflicting change is reported, and the merge is left aborted (clean tree)", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "nu");
     // The worktree branch and main both add the same file with different content,
@@ -769,7 +769,7 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "main edit", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "conflicts");
     assertStringIncludes(r.output, "shared.txt");
@@ -777,7 +777,7 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
     assertEquals(
       await gitOut(wt, "status", "--porcelain"),
       "",
-      `integrate must abort the conflicting merge, leaving a clean tree\n${r.output}`,
+      `update must abort the conflicting merge, leaving a clean tree\n${r.output}`,
     );
     // The worktree keeps its own commit (its side of shared.txt).
     assertEquals(
@@ -787,16 +787,16 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
   });
 });
 
-Deno.test("integrate --dry-run: previews the merge + refresh and touches nothing", async () => {
+Deno.test("update --dry-run: previews the merge + refresh and touches nothing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "xi");
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--dry-run"]);
+    const r = await runAgent(wt, ["update", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Integration plan");
+    assertStringIncludes(r.output, "Update plan");
     assertStringIncludes(r.output, "Behind by: 1");
     // The preview merged nothing — main's commit is still absent in the worktree.
     assertEquals(
@@ -807,7 +807,7 @@ Deno.test("integrate --dry-run: previews the merge + refresh and touches nothing
   });
 });
 
-Deno.test("integrate end-to-end: a behind finish points at integrate, which then unblocks a passing finish", async () => {
+Deno.test("update end-to-end: a behind finish points at update, which then unblocks a passing finish", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "omicron");
     // Advance main → the worktree branch is behind by one.
@@ -819,14 +819,14 @@ Deno.test("integrate end-to-end: a behind finish points at integrate, which then
     //    bare `git merge` (the rest of the gate never runs).
     const behind = await runAgent(wt, ["done"]);
     assertEquals(behind.code, 1, behind.output);
-    assertStringIncludes(behind.output, "discern integrate");
+    assertStringIncludes(behind.output, "discern update");
 
-    // 2. integrate brings main in AND re-materializes in one step.
-    const integ = await runAgent(wt, ["integrate"]);
+    // 2. update brings main in AND re-materializes in one step.
+    const integ = await runAgent(wt, ["update"]);
     assertEquals(integ.code, 0, integ.output);
     assert(
       await exists(join(wt, "upstream.txt")),
-      `integrate did not merge main\n${integ.output}`,
+      `update did not merge main\n${integ.output}`,
     );
 
     // 3. finish now passes against the merged, re-materialized tree — with no
@@ -1077,7 +1077,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.verb, "start");
-    // Mapped to the same precondition slug accept/integrate use from the main checkout.
+    // Mapped to the same precondition slug accept/update use from the main checkout.
     assertEquals(result.error, "precondition_failed");
     // It must NOT have created a nested worktree of its own.
     assertEquals(
@@ -1152,7 +1152,7 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
 // ── [worktree.setup]: one-shot `steps` vs convergent `ensure` (ADR 0059) ───────
 
 /** Scaffold a main repo whose `[worktree.setup]` carries `steps`/`ensure`, commit
- * it, and add a linked worktree that inherits it on a CLEAN tree (so integrate,
+ * it, and add a linked worktree that inherits it on a CLEAN tree (so update,
  * which refuses a dirty tree, still applies). The commands are baked into the
  * committed config — the worktree carries them like a real checkout. */
 async function mainWithSetup(
@@ -1316,7 +1316,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
   });
 });
 
-Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async () => {
+Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
       const ensure = join(markers, "ensure");
@@ -1325,14 +1325,14 @@ Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async ()
       });
       // Advance main so the branch is behind by one. (No prior `worktree` setup —
       // that would record the port into an untracked .env and dirty the tree, which
-      // integrate refuses; the ensure here runs purely as part of integrate.)
+      // update refuses; the ensure here runs purely as part of update.)
       await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
       await git(dir, "add", "-A");
       await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-      const r = await runAgent(wt, ["integrate"]);
+      const r = await runAgent(wt, ["update"]);
       assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.output, "Integration complete");
+      assertStringIncludes(r.output, "Update complete");
       assert(
         await exists(join(wt, "upstream.txt")),
         `merge landed\n${r.output}`,
@@ -1340,17 +1340,17 @@ Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async ()
       assertEquals(
         await markerCount(ensure),
         1,
-        `integrate must run ensure after the merge\n${r.output}`,
+        `update must run ensure after the merge\n${r.output}`,
       );
     });
   });
 });
 
-Deno.test("integrate: a failing ensure is recorded but never undoes the merge", async () => {
+Deno.test("update: a failing ensure is recorded but never undoes the merge", async () => {
   await withTempDir(async (dir) => {
     // The ensure fails once the merge brings upstream.txt in. (No prior `worktree`
-    // setup — it would dirty the tree via .env and integrate would refuse; the
-    // ensure here runs only as integrate's post-merge convergence step.)
+    // setup — it would dirty the tree via .env and update would refuse; the
+    // ensure here runs only as update's post-merge convergence step.)
     const wt = await mainWithSetup(dir, "integ-fail", {
       ensure: ["test ! -f upstream.txt"],
     });
@@ -1358,7 +1358,7 @@ Deno.test("integrate: a failing ensure is recorded but never undoes the merge", 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     // Non-fatal: the failed ensure does not abort or undo the landed merge.
     assertEquals(r.code, 0, r.output);
     assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
@@ -1385,7 +1385,7 @@ Deno.test("integrate: a failing ensure is recorded but never undoes the merge", 
   });
 });
 
-Deno.test("integrate: a partial refresh is recorded but never undoes the merge", async () => {
+Deno.test("update: a partial refresh is recorded but never undoes the merge", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "integ-refresh-fail");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
@@ -1404,7 +1404,7 @@ Deno.test("integrate: a partial refresh is recorded but never undoes the merge",
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
     const result = JSON.parse(r.stdout) as {

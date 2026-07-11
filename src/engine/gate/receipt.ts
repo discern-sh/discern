@@ -15,7 +15,7 @@
  * surface without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
- * clean — so any new commit (the merge `integrate` creates), amend, or uncommitted
+ * clean — so any new commit (the merge `update` creates), amend, or uncommitted
  * edit silently invalidates it and `accept` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
  * failing run clears it, and accept re-runs `done` whenever it is absent or stale.

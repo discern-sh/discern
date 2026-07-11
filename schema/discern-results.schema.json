@@ -8162,8 +8162,8 @@
         "verb"
       ]
     },
-    "DiscernIntegrateResult": {
-      "title": "DiscernIntegrateResult",
+    "DiscernUpdateResult": {
+      "title": "DiscernUpdateResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -8378,7 +8378,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "integrate"
+          "const": "update"
         },
         "data": {
           "anyOf": [
@@ -10638,8 +10638,8 @@
         "isError"
       ]
     },
-    "DiscernIntegrateMcpToolResult": {
-      "title": "DiscernIntegrateMcpToolResult",
+    "DiscernUpdateMcpToolResult": {
+      "title": "DiscernUpdateMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10661,7 +10661,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernIntegrateResult"
+          "$ref": "#/$defs/DiscernUpdateResult"
         },
         "isError": {
           "type": "boolean"
@@ -10747,7 +10747,7 @@
           "$ref": "#/$defs/DiscernAcceptResult"
         },
         {
-          "$ref": "#/$defs/DiscernIntegrateResult"
+          "$ref": "#/$defs/DiscernUpdateResult"
         },
         {
           "$ref": "#/$defs/DiscernWorktreeSetupResult"
@@ -10794,7 +10794,7 @@
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
           "accept": "#/$defs/DiscernAcceptResult",
-          "integrate": "#/$defs/DiscernIntegrateResult",
+          "update": "#/$defs/DiscernUpdateResult",
           "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
           "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
           "worktree drop": "#/$defs/DiscernWorktreeDropResult",
@@ -10851,7 +10851,7 @@
           "$ref": "#/$defs/DiscernAcceptMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernIntegrateMcpToolResult"
+          "$ref": "#/$defs/DiscernUpdateMcpToolResult"
         }
       ]
     }
@@ -11075,14 +11075,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernAcceptMcpToolResult"
     },
     {
-      "id": "integrate",
-      "verb": "integrate",
+      "id": "update",
+      "verb": "update",
       "commands": [
-        "integrate"
+        "update"
       ],
-      "mcpTool": "discern_integrate",
-      "schema": "#/$defs/DiscernIntegrateResult",
-      "mcpToolResultSchema": "#/$defs/DiscernIntegrateMcpToolResult"
+      "mcpTool": "discern_update",
+      "schema": "#/$defs/DiscernUpdateResult",
+      "mcpToolResultSchema": "#/$defs/DiscernUpdateMcpToolResult"
     },
     {
       "id": "worktreeSetup",

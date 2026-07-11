@@ -29,8 +29,8 @@ import { gateReceiptHonored } from "../gate/receipt.ts";
 import {
   accept,
   IdentityError,
-  integrate,
   lifecycleContext,
+  update,
   worktreeDrop,
   WorktreeGitError,
 } from "../worktree/lifecycle.ts";
@@ -116,8 +116,8 @@ function actionLabel(action: DeskAction, trunk: string): string {
   switch (action) {
     case "accept":
       return `Accept — land this branch on ${trunk}`;
-    case "integrate":
-      return `Integrate — bring ${trunk} into this branch`;
+    case "update":
+      return `Update — bring ${trunk} into this branch`;
     case "jump":
       return "Jump in — open a shell inside the worktree";
     case "inspect":
@@ -226,16 +226,16 @@ async function dispatchAction(
       await awaitEnter(out);
       return true;
     }
-    case "integrate": {
-      echoCommand(out, `discern integrate  (in ${target})`);
+    case "update": {
+      echoCommand(out, `discern update  (in ${target})`);
       const ctx = await lifecycleContext(row.entry.path, deskLogger());
-      await integrate(ctx, { dryRun: true });
+      await update(ctx, { dryRun: true });
       if (
         !(await confirmOrNo(`Merge ${trunk} into ${row.entry.branch}?`, true))
       ) {
         return false;
       }
-      await integrate(ctx, {});
+      await update(ctx, {});
       await awaitEnter(out);
       return true;
     }

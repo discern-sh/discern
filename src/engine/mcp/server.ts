@@ -41,7 +41,6 @@ import {
   FinishOutputSchema,
   HelpOutputSchema,
   ImproveOutputSchema,
-  IntegrateOutputSchema,
   PrepareOutputSchema,
   RatchetsOutputSchema,
   RefreshOutputSchema,
@@ -50,6 +49,7 @@ import {
   StartOutputSchema,
   StatusOutputSchema,
   TestOutputSchema,
+  UpdateOutputSchema,
 } from "../../shared/result_schemas.ts";
 import {
   configSchema,
@@ -79,9 +79,9 @@ import { doctorResult } from "../../commands/doctor.ts";
 import { docsResult, helpResult } from "../../commands/docs.ts";
 import {
   acceptResult,
-  integrateResult,
   lifecycleContext,
   startResult,
+  updateResult,
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
@@ -145,7 +145,7 @@ const DESTRUCTIVE: ToolAnnotations = {
 /** Merges the integration branch in and re-materializes — mutates, but is not
  * destructive (it only adds a merge + regenerates build artifacts) and is safe to
  * re-run: a no-op once the branch already contains main, hence `idempotentHint`. */
-const INTEGRATE: ToolAnnotations = {
+const UPDATE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: true,
@@ -255,7 +255,7 @@ const TOOL_PRIORITY = [
   "discern_done",
   "discern_prepare",
   "discern_test",
-  "discern_integrate",
+  "discern_update",
   "discern_ratchets",
   "discern_accept",
   "discern_scopes",
@@ -316,7 +316,7 @@ export const TOOLS: McpTool[] = orderTools([
       'touches anything. data.location is "worktree" or "main"; data.git carries ' +
       "branch, Git-clean state, changed-files, and ahead/behind the integration branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
-      "`{{main_branch}}` also changed (the hot zone to re-read on integrating, since a " +
+      "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
@@ -632,10 +632,10 @@ export const TOOLS: McpTool[] = orderTools([
       "message first so it lands as a proper review commit, then relay the result " +
       "(a green landing carries data.receipt — the landing record, pasteable into a " +
       "PR body). " +
-      "Requires the latest `{{main_branch}}` is already integrated, this worktree " +
+      "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
-      "step (e.g. discern_integrate to integrate first). Set dry_run to preview " +
+      "step (e.g. call discern_update first). Set dry_run to preview " +
       "the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
     inputSchema: {
@@ -660,12 +660,12 @@ export const TOOLS: McpTool[] = orderTools([
       }),
   }),
   defineTool({
-    name: "discern_integrate",
-    title: "Integrate {{main_branch}}",
-    outputSchema: IntegrateOutputSchema.shape,
-    annotations: INTEGRATE,
+    name: "discern_update",
+    title: "Update this branch",
+    outputSchema: UpdateOutputSchema.shape,
+    annotations: UPDATE,
     description:
-      "Bring the latest `{{main_branch}}` into THIS worktree's branch and " +
+      "Merge the trunk's latest (`{{main_branch}}`) into THIS worktree's branch and " +
       "re-materialize the " +
       "generated agent files + skills, in one deterministic step — the inverse of " +
       "discern_accept, and the action that resolves discern_done's merge check " +
@@ -692,7 +692,9 @@ export const TOOLS: McpTool[] = orderTools([
       "carry the exact command. Set dry_run to preview the " +
       "plan (and the SAME predicted `data`, computed read-only without merging) without " +
       "touching anything. Never touches the main checkout; operates only " +
-      "on the worktree the server runs in.",
+      "on the worktree the server runs in. This updates the branch; run " +
+      "`discern upgrade` to update discern itself, or use discern_refresh to " +
+      "refresh generated agent files alone.",
     inputSchema: {
       from: z.string().optional().describe(
         "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +
@@ -702,12 +704,12 @@ export const TOOLS: McpTool[] = orderTools([
           "into this one).",
       ),
       dry_run: z.boolean().optional().describe(
-        "Preview the integration plan and touch nothing (default false).",
+        "Preview the update plan and touch nothing (default false).",
       ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      integrateToolResult(root, {
+      updateToolResult(root, {
         dryRun: args.dry_run === true,
         from: args.from,
       }),
@@ -727,7 +729,7 @@ export const TOOLS: McpTool[] = orderTools([
       "it is the first-class way to get your own workspace, so you NEVER adopt an " +
       "existing idle worktree (each belongs to another line of work; a clean working " +
       "tree doesn't mean it's free). On success it RE-AIMS these discern tools at the " +
-      "new worktree automatically — your later discern_done / discern_integrate / " +
+      "new worktree automatically — your later discern_done / discern_update / " +
       "discern_accept operate on it with nothing for you to thread. But that moves " +
       "only the discern tools: you MUST still move your OWN file operations into " +
       "data.path — re-root there, or if you can't change your working root, prefix " +
@@ -776,7 +778,7 @@ export const TOOLS: McpTool[] = orderTools([
       ),
     },
     // A successful start re-aims the working root at the worktree it just created, so
-    // the subsequent done/integrate/accept calls operate on it with nothing to thread.
+    // the subsequent done/update/accept calls operate on it with nothing to thread.
     reaimOnSuccess: (result) => (result.data as StartData | undefined)?.path,
     run: (root, args) =>
       startToolResult(root, {
@@ -814,14 +816,14 @@ async function acceptToolResult(
 }
 
 /**
- * The `discern_integrate` tool core: build a lifecycle context with a quiet logger
- * (integrate narrates through its logger as it merges + re-materializes — silence
+ * The `discern_update` tool core: build a lifecycle context with a quiet logger
+ * (update narrates through its logger as it merges + re-materializes — silence
  * it so the stdio channel carries only protocol messages), perform the
  * integration, and map a precondition refusal (main checkout, dirty tree, merge
  * conflict) to the same error envelope the CLI returns. Unexpected errors
  * propagate to {@link runTool}'s catch-all.
  */
-async function integrateToolResult(
+async function updateToolResult(
   root: string,
   opts: { dryRun?: boolean; from?: string | undefined },
 ): Promise<DiscernResult> {
@@ -830,12 +832,12 @@ async function integrateToolResult(
     new Logger({ json: true, noColor: true }),
   );
   try {
-    return await integrateResult(ctx, {
+    return await updateResult(ctx, {
       dryRun: opts.dryRun ?? false,
       ...(opts.from !== undefined ? { from: opts.from } : {}),
     });
   } catch (e) {
-    const mapped = worktreeErrorResult("integrate", e);
+    const mapped = worktreeErrorResult("update", e);
     if (mapped !== undefined) {
       return mapped;
     }
@@ -901,7 +903,7 @@ async function startToolResult(
 /**
  * The result hint `discern_start` surfaces over MCP (ADR 0062 §4): the two
  * load-bearing halves the server cannot enforce on its own. (1) The discern tools are
- * now aimed at the new worktree automatically — done/integrate/accept follow.
+ * now aimed at the new worktree automatically — done/update/accept follow.
  * (2) The agent must STILL move its own file operations into `path`, because the
  * server cannot relocate the client's session — and if it doesn't, its edits land on
  * the trunk while the gate runs in the worktree, so the two diverge. Written for the
@@ -913,7 +915,7 @@ async function startToolResult(
  */
 export function mcpStartHint(path: string): string {
   return `discern's tools are now aimed at the new worktree at ${path} — your ` +
-    `discern_done / discern_integrate / discern_accept calls operate on it ` +
+    `discern_done / discern_update / discern_accept calls operate on it ` +
     `automatically hereafter. You must STILL move your own file operations into ` +
     `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
     `capability). If you can't change your working root: prefix every shell ` +
@@ -1404,7 +1406,7 @@ function registerResources(
  * clients load when MCP connects (it rides in the `initialize` result). discern's
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI.
- * The worktree lifecycle is listed LINEARLY — start, then integrate, then accept —
+ * The worktree lifecycle is listed LINEARLY — start, then update, then accept —
  * not branched on the server's location: every lifecycle tool is always registered
  * (ADR 0062 retired the location-based hiding), and the server re-aims its working
  * root on `discern_start`, so an agent that starts on the trunk can drive the whole
@@ -1436,7 +1438,7 @@ export function buildInstructions(): string {
     "clean worktree unless force=true while authoring ratchets.",
     "- Starting work from the trunk (the main checkout)? Run discern_start to " +
     "create your own isolated worktree: it returns the new worktree's path and " +
-    "re-aims these tools at it, so your later done/integrate/accept calls operate " +
+    "re-aims these tools at it, so your later done/update/accept calls operate " +
     "on the new worktree automatically. You must still move your OWN file " +
     "operations into that path: re-root there, or if you can't change your " +
     "working root, prefix every shell command with `cd <path> &&` and pass `path` " +
@@ -1444,7 +1446,7 @@ export function buildInstructions(): string {
     "in the worktree. NEVER adopt an existing idle worktree; each is another line " +
     "of work, and a clean working tree doesn't mean it's free.",
     "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
-    "points here), bring `{{main_branch}}` in with discern_integrate: it " +
+    "points here), bring `{{main_branch}}` in with discern_update: it " +
     "merges `{{main_branch}}` into this worktree's branch " +
     "and re-materializes the agent files + skills in one step. Just call it — you " +
     "don't need to run git to check first. It is idempotent (a no-op when already " +
@@ -1459,7 +1461,7 @@ export function buildInstructions(): string {
     "branch ready for review. Commit the work with a real message, run the final " +
     "clean discern_done for that commit, then just call the tool (the single deterministic implementation — " +
     "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
-    "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
+    "it refuses cleanly with the exact next step, e.g. run discern_update " +
     "first) and relay its structured result. Landing is trunk-only and " +
     "destructive: it fast-forwards `{{main_branch}}` to the branch tip, removes " +
     "the worktree, and deletes the merged branch — set dry_run to preview the " +

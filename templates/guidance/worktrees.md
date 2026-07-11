@@ -9,11 +9,11 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   into the returned path: cd in, or start a session there. Can't change your
   working root? Prefix every shell command with `cd <path> &&` and pass `path`
   to every discern tool. Already in a worktree? Stay there.
-- **`discern_integrate`** brings `{{main_branch}}` into your branch when behind
+- **`discern_update`** brings `{{main_branch}}` into your branch when behind
   and reports upstream overlap. Idempotent — call it directly instead of
   pre-checking with git or hand-merging; it performs its own preconditions and
   gives the exact next step if it refuses. To build on unlanded work instead,
-  `start` and `integrate` both take `from` (any ref) — work composes below the
+  `start` and `update` both take `from` (any ref) — work composes below the
   trunk; only `accept` lands on it.
 - **`discern_accept`** is only for an explicit user handoff/land request. After
   a green `discern done` run on a completed task, relay the receipt to your owner and stop;

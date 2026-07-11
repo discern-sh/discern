@@ -47,7 +47,7 @@ diff/query (the ranked list, each entry an edge
 counts, `cochanges` of the `of` commits that touched `from`), and for evidence
 the pair `a`/`b`, the `together`/`of_a`/`of_b` counts, and `commits`
 (`{ sha, date,
-subject }`, reusing `integrate`'s change-summary convention). The
+subject }`, reusing `update`'s change-summary convention). The
 MCP tool `discern_coupling` takes an optional `file` (query) and a second
 optional `with` (evidence) argument; the working-root override keeps the name
 `path`.

@@ -258,11 +258,11 @@ destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
 #   steps   one-shot scaffolding, run ONCE at creation (skipped once configured):
 #           seed fixtures, generate a local-only file.
 #   ensure  convergence, re-run on EVERY pass — at creation, on session-start
-#           re-entry, and after `discern integrate` brings main in — so the worktree
+#           re-entry, and after `discern update` brings main in — so the worktree
 #           tracks the current tree. `vale sync` lives here: when a merge changes
 #           .vale.ini the styles re-sync with no manual step.
 # Both run in order via `sh -c`. A failed `ensure` aborts setup at creation; on a
-# re-entry or integrate it is recorded but never undoes a merge or blocks startup.
+# re-entry or update it is recorded but never undoes a merge or blocks startup.
 [worktree.setup]
 steps = []               # one-shot scaffolding (none needed here)
 ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (idempotent)

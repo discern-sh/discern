@@ -1,6 +1,6 @@
 /**
- * `integrate --from <ref>` — the pull axis of the landing model. A worktree may
- * pull ANY ref into itself (composing work below the trunk); a bare `integrate`
+ * `update --from <ref>` — the pull axis of the landing model. A worktree may
+ * pull ANY ref into itself (composing work below the trunk); a bare `update`
  * still targets the trunk; a conflicting `--from` aborts to a clean tree; and a
  * no-op re-run (nothing to merge) still re-converges the worktree — the recovery
  * path the conflict refusal names.
@@ -41,13 +41,13 @@ async function commitOnBranch(
   await git(dir, "switch", "-q", "main");
 }
 
-Deno.test("integrate --from <branch>: that branch's commits arrive in the worktree", async () => {
+Deno.test("update --from <branch>: that branch's commits arrive in the worktree", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "pull-target");
     await commitOnBranch(dir, "phase-one", "phase-one.txt", "prototype\n");
 
     const r = await runAgent(wt, [
-      "integrate",
+      "update",
       "--json",
       "--from",
       "phase-one",
@@ -75,7 +75,7 @@ Deno.test("integrate --from <branch>: that branch's commits arrive in the worktr
   });
 });
 
-Deno.test("integrate (bare): still targets the trunk, not any other ref", async () => {
+Deno.test("update (bare): still targets the trunk, not any other ref", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-pull");
     // Advance the trunk AND park a decoy branch with different content.
@@ -84,7 +84,7 @@ Deno.test("integrate (bare): still targets the trunk, not any other ref", async 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "advance trunk", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(wt, "trunk.txt")),
@@ -93,12 +93,12 @@ Deno.test("integrate (bare): still targets the trunk, not any other ref", async 
     assertEquals(
       await exists(join(wt, "decoy.txt")),
       false,
-      `a bare integrate must not pull any other ref\n${r.output}`,
+      `a bare update must not pull any other ref\n${r.output}`,
     );
   });
 });
 
-Deno.test("integrate --from: a conflicting ref aborts to a clean tree and names the recovery", async () => {
+Deno.test("update --from: a conflicting ref aborts to a clean tree and names the recovery", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "conflict-pull");
     // Both sides edit the same file: the source branch in main, and the worktree.
@@ -107,14 +107,14 @@ Deno.test("integrate --from: a conflicting ref aborts to a clean tree and names 
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "worktree edit", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json", "--from", "clashing"]);
+    const r = await runAgent(wt, ["update", "--json", "--from", "clashing"]);
     assertEquals(r.code, 1, r.output);
     const result = JSON.parse(r.stdout) as { message: string };
     assertStringIncludes(result.message, "clash.txt");
-    // The recovery converges: re-run integrate (with the same --from), not finish.
+    // The recovery converges: re-run update (with the same --from), not finish.
     assertStringIncludes(
       result.message,
-      "re-run `discern integrate --from clashing`",
+      "re-run `discern update --from clashing`",
     );
     // The merge was aborted: clean tree, no MERGE_HEAD, worktree content intact.
     assertEquals(await gitOut(wt, "status", "--porcelain"), "");
@@ -125,7 +125,7 @@ Deno.test("integrate --from: a conflicting ref aborts to a clean tree and names 
   });
 });
 
-Deno.test("integrate --from: a non-conflict merge failure surfaces git's real reason, not a fake conflict", async () => {
+Deno.test("update --from: a non-conflict merge failure surfaces git's real reason, not a fake conflict", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "unrelated-pull");
     // An orphan branch shares no history with main: `git merge` refuses outright
@@ -138,7 +138,7 @@ Deno.test("integrate --from: a non-conflict merge failure surfaces git's real re
     await git(dir, "commit", "-q", "-m", "island", "--no-gpg-sign");
     await git(dir, "switch", "-q", "main");
 
-    const r = await runAgent(wt, ["integrate", "--json", "--from", "island"]);
+    const r = await runAgent(wt, ["update", "--json", "--from", "island"]);
     assertEquals(r.code, 1, r.output);
     const result = JSON.parse(r.stdout) as { error: string; message: string };
     assertEquals(result.error, "precondition_failed");
@@ -155,10 +155,10 @@ Deno.test("integrate --from: a non-conflict merge failure surfaces git's real re
   });
 });
 
-Deno.test("integrate --from refuses an unknown ref in plain language", async () => {
+Deno.test("update --from refuses an unknown ref in plain language", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "unknown-pull");
-    const r = await runAgent(wt, ["integrate", "--json", "--from", "nope"]);
+    const r = await runAgent(wt, ["update", "--json", "--from", "nope"]);
     assertEquals(r.code, 1, r.output);
     const result = JSON.parse(r.stdout) as { error: string; message: string };
     assertEquals(result.error, "precondition_failed");
@@ -166,7 +166,7 @@ Deno.test("integrate --from refuses an unknown ref in plain language", async () 
   });
 });
 
-Deno.test("a no-op integrate still re-converges: refresh + ensure run with nothing to merge", async () => {
+Deno.test("a no-op update still re-converges: refresh + ensure run with nothing to merge", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -178,11 +178,11 @@ Deno.test("a no-op integrate still re-converges: refresh + ensure run with nothi
     const wt = await addWorktree(dir, "noop-converge");
     // Up to date with main — nothing to merge. The convergence must still run.
     await Deno.remove(join(wt, "converged.marker")).catch(() => {});
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(wt, "converged.marker")),
-      `ensure must re-run on a no-op integrate\n${r.output}`,
+      `ensure must re-run on a no-op update\n${r.output}`,
     );
     const result = JSON.parse(r.stdout) as {
       steps: { label: string; outcome: string }[];

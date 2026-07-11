@@ -268,12 +268,12 @@ ignored_file_drift = true
 #   steps   one-shot scaffolding, run ONCE at creation and not re-run (skipped once
 #           the worktree is configured): seed fixtures, generate a local-only file.
 #   ensure  convergence, re-run on EVERY pass — at creation, on session-start
-#           re-entry, and after `discern integrate` brings main in — so the worktree
+#           re-entry, and after `discern update` brings main in — so the worktree
 #           tracks the current tree: install dependencies, build, run migrations.
 #           Author each idempotent (it re-runs routinely); prefer a fast-when-current
 #           command (`<install> check || <install>`) — the per-pass cost is yours.
 # Both run in order via `sh -c`. A failed `ensure` aborts setup at creation; on a
-# re-entry or integrate it is recorded but never undoes a merge or blocks startup.
+# re-entry or update it is recorded but never undoes a merge or blocks startup.
 [worktree.setup]
 steps = []   # one-shot, e.g. ["seed-fixtures"]
 ensure = []  # converge, e.g. ["<install deps>"]

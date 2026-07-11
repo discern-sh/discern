@@ -69,9 +69,9 @@ Deno.test("done fails fast on the merge precondition when behind main — the ca
       !r.output.includes(MARKER),
       `the capability must not run when behind main\n${r.output}`,
     );
-    // ...and the human tail names the remedy: the deterministic `discern integrate`
+    // ...and the human tail names the remedy: the deterministic `discern update`
     // verb (which brings main in and re-materializes), not a bare `git merge`.
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "discern update");
   });
 });
 

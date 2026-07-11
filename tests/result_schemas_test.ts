@@ -43,7 +43,6 @@ import {
   GateDataSchema,
   HelpOutputSchema,
   ImproveOutputSchema,
-  IntegrateOutputSchema,
   PrepareOutputSchema,
   RatchetsOutputSchema,
   RefreshOutputSchema,
@@ -53,6 +52,7 @@ import {
   StatusOutputSchema,
   StepResultJsonSchema,
   TestOutputSchema,
+  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { skillsListResult } from "../src/lib/skills.ts";
@@ -73,9 +73,9 @@ import { docsResult, helpResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
 import {
   acceptResult,
-  integrateResult,
   lifecycleContext,
   startResult,
+  updateResult,
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -176,7 +176,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "accept",
   "help",
   "improve",
-  "integrate",
+  "update",
   "prepare",
   "ratchets",
   "refresh",
@@ -725,7 +725,7 @@ async function commitFiles(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-Deno.test("integrate result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
+Deno.test("update result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -736,21 +736,21 @@ Deno.test("integrate result is faithful (dry-run prediction and applied data-bea
       new Logger({ json: true, noColor: true }),
     );
 
-    const preview = await integrateResult(ctx, { dryRun: true });
+    const preview = await updateResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    assert(preview.data !== undefined, "integrate dry-run predicts data");
+    assert(preview.data !== undefined, "update dry-run predicts data");
     assertEquals(preview.data.range.after, undefined);
     expectValid(
-      IntegrateOutputSchema,
+      UpdateOutputSchema,
       preview,
-      "integrate dry-run prediction",
+      "update dry-run prediction",
     );
 
-    const applied = await integrateResult(ctx);
+    const applied = await updateResult(ctx);
     assertEquals(applied.ok, true);
-    assert(applied.data !== undefined, "integrate apply carries data");
+    assert(applied.data !== undefined, "update apply carries data");
     assert(typeof applied.data.range.after === "string");
-    expectValid(IntegrateOutputSchema, applied, "integrate applied");
+    expectValid(UpdateOutputSchema, applied, "update applied");
   });
 });
 

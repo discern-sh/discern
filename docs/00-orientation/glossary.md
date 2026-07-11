@@ -76,7 +76,7 @@ blank map is worse than none
 ### Engine
 
 The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
-`improve`, `status`, the `worktree` command group, `integrate`, `accept`,
+`improve`, `status`, the `worktree` command group, `update`, `accept`,
 `ratchets`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
 compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
@@ -386,9 +386,9 @@ project-namespaced handle is read with `identity --resource <name>` or the
 `DISCERN_RESOURCE_<NAME>` env var
 ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
-### Integrate
+### Update
 
-What `discern integrate` does: bring the latest integration branch
+What `discern update` does: bring the latest integration branch
 (`[project].main_branch`) into the current worktree's branch and re-materialize
 the generated agent files + [Skills](#skill), in one deterministic step — the
 inverse of [Accept](#accept). A no-op when the branch already contains main. It
@@ -404,7 +404,7 @@ worktree down (its resources destroyed, directory pruned, the now-merged branch
 deleted). Requires the branch to already carry the trunk, so the landing is
 always a clean fast-forward. The trunk is the one landing target
 ([ADR 0110](../_adr/0110-the-landing-model.md)); composing on unlanded work
-happens on the pull side instead (`start --from`, `integrate --from`).
+happens on the pull side instead (`start --from`, `update --from`).
 
 ---
 

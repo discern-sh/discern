@@ -93,7 +93,7 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   merge:
-    "Run `discern integrate` to bring the trunk in and re-materialize, then re-run `discern done`.",
+    "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
 };
 
 /** The human die message for a failed stage. Exported so `accept` names the stage
@@ -230,7 +230,7 @@ async function runGate(
   // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
   //    relationship is invariant across the gate (finish never fetches or commits, so
   //    neither HEAD nor main moves), so checking here gives the SAME answer as checking
-  //    last would — but a branch behind main must integrate and re-run regardless,
+  //    last would — but a branch behind main must update and re-run regardless,
   //    which discards whatever the gate computed against the pre-integration tree.
   //    Front-loading it skips the expensive fix/build/check/test in exactly that case.
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),

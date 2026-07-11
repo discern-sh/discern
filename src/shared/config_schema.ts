@@ -382,7 +382,7 @@ const worktreeSection = z.strictObject({
       "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
     ),
     ensure: z.array(z.string()).default([]).describe(
-      "Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern integrate` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely.",
+      "Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern update` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely.",
     ),
   }).prefault({}).describe(
     "Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).",

@@ -209,7 +209,7 @@ export async function runSetupAccept(
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
         `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +
-        `(If this project integrates on a different branch, set [project].main_branch to it instead.)`,
+        `(If this project updates on a different branch, set [project].main_branch to it instead.)`,
       code: 1,
     });
   }

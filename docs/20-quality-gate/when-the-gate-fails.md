@@ -31,7 +31,7 @@ Most failures fall into a handful of buckets:
 
 - **"Your branch is behind `main`."** The gate stops immediately, before running
   anything, because other work landed while yours was in progress. Fix: your
-  agent runs `discern integrate` to bring `main` in, then `discern done` again.
+  agent runs `discern update` to bring `main` in, then `discern done` again.
   discern doesn't merge silently — it waits for that step.
 - **A generated file is out of date.** The gate reports that the compiled agent
   files or skills have drifted from their source. Fix: `discern refresh`

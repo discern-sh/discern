@@ -313,7 +313,7 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
     );
     // The landing precedes resource teardown, so an acceptance that loses a
     // concurrent-landing race at the fast-forward leaves its worktree fully
-    // intact — resources included — for the integrate → finish → accept
+    // intact — resources included — for the update → finish → accept
     // recovery the refusal prescribes.
     const labels = obj.steps.map((s: { label: string }) => s.label);
     assert(

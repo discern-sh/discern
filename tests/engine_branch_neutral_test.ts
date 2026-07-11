@@ -12,7 +12,7 @@
  * Why the existing guards didn't catch this: the parity/forcing-function tests pin
  * closed SETS (verbs, MCP tools, features), and `agent_agnostic_test.ts` scans for
  * a hard-coded agent PATH (`.claude`). None looks at how the integration BRANCH is
- * named in prose — so the hard-coded "main" in `integrate`'s description and the
+ * named in prose — so the hard-coded "main" in `update`'s description and the
  * accept/merge messages sailed through. This is that missing guard, modelled on
  * `agent_agnostic_test.ts`: a comment-stripped scan of the integration-branch
  * MESSAGE surfaces.

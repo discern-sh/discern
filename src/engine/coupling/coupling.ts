@@ -225,7 +225,7 @@ export function deriveMaxBasket(sizesAsc: number[]): number {
  * record format prefixes each commit with a Record-Separator byte so splitting the
  * output delimits commits without colliding with a path, and the `%h<TAB>%ad<TAB>%s`
  * header carries the identity the evidence view shows
- * (the same `git log` pretty-format `integrate` mines — ADR 0064). A git failure yields an
+ * (the same `git log` pretty-format `update` mines — ADR 0064). A git failure yields an
  * empty mine — the advisory simply stays silent (it never fails open into noise).
  *
  * Log paths are toplevel-relative whatever the cwd, so they are normalized to
@@ -709,7 +709,7 @@ function partnerRow(
 }
 
 /** One evidence commit row: `<sha>  <date>  <subject>` — the same `  sha  subject` shape
- * `integrate` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
+ * `update` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
 function evidenceRow(
   commit: NonNullable<CouplingData["commits"]>[number],
   c: Out["c"],

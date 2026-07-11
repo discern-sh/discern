@@ -12,9 +12,9 @@ import {
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
   DoctorOutputSchema,
-  IntegrateOutputSchema,
   RefreshOutputSchema,
   StatusOutputSchema,
+  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import {
   buildInstructions,
@@ -403,11 +403,11 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     // feature on).
     assert(names.includes("discern_docs"), JSON.stringify(names));
     // The worktree lifecycle tools are always listed now (ADR 0062 retired the
-    // location-based hiding): start, accept, and integrate all appear from a
+    // location-based hiding): start, accept, and update all appear from a
     // main-rooted server (covered in depth by the listing test below).
     assert(names.includes("discern_start"), JSON.stringify(names));
     assert(names.includes("discern_accept"), JSON.stringify(names));
-    assert(names.includes("discern_integrate"), JSON.stringify(names));
+    assert(names.includes("discern_update"), JSON.stringify(names));
 
     // tools/call discern_done {dry_run:true} → the preview DiscernResult.
     await mcp.send({
@@ -986,7 +986,7 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
   });
 });
 
-Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-date worktree", async () => {
+Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -994,7 +994,7 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
     // call is an idempotent success — nothing merged (the merge step is skipped),
     // while the refresh + ensure convergence still runs (what makes a plain re-run
-    // the recovery after a manually resolved conflict). (integrate is always listed
+    // the recovery after a manually resolved conflict). (update is always listed
     // now; it still requires a worktree to act on, per the listing test.)
     const wt = await addWorktree(dir, "intg");
     const wtMcp = await spawnMcp(wt);
@@ -1009,18 +1009,18 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_integrate", arguments: {} },
+      params: { name: "discern_update", arguments: {} },
     });
     const noop = await wtMcp.recv();
     assertEquals(noop.result.isError, false);
-    assertEquals(noop.result.structuredContent.verb, "integrate");
+    assertEquals(noop.result.structuredContent.verb, "update");
     const steps = noop.result.structuredContent.steps as Array<
       { label: string; outcome: string }
     >;
     assertEquals(
       steps.find((s) => s.label === "merge")?.outcome,
       "skipped",
-      `an up-to-date integrate merges nothing: ${
+      `an up-to-date update merges nothing: ${
         JSON.stringify(noop.result.structuredContent)
       }`,
     );
@@ -1035,7 +1035,7 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
   });
 });
 
-Deno.test("discern mcp: discern_integrate returns schema-valid data for a real merge", async () => {
+Deno.test("discern mcp: discern_update returns schema-valid data for a real merge", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1058,19 +1058,19 @@ Deno.test("discern mcp: discern_integrate returns schema-valid data for a real m
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_integrate", arguments: {} },
+      params: { name: "discern_update", arguments: {} },
     });
     const merged = await mcp.recv();
     assertEquals(merged.result.isError, false, JSON.stringify(merged.result));
     const payload = merged.result.structuredContent;
-    const parsed = IntegrateOutputSchema.safeParse(payload);
+    const parsed = UpdateOutputSchema.safeParse(payload);
     assert(
       parsed.success,
-      `integrate MCP payload drifted from schema:\n${
+      `update MCP payload drifted from schema:\n${
         JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
       }\n${JSON.stringify(payload, null, 2)}`,
     );
-    assertEquals(payload.verb, "integrate");
+    assertEquals(payload.verb, "update");
     assertEquals(payload.data.behind, 1);
     assertEquals(payload.data.files.map((f: { path: string }) => f.path), [
       "upstream.txt",
@@ -1202,7 +1202,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
 });
 
 Deno.test("discern mcp: the lifecycle tools list + instructions from both roots (visibility is location-independent; refusals kept)", async () => {
-  const LIFECYCLE = ["discern_start", "discern_integrate", "discern_accept"];
+  const LIFECYCLE = ["discern_start", "discern_update", "discern_accept"];
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -2031,12 +2031,12 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_test",
       "discern_ratchets",
       "discern_start",
-      "discern_integrate",
+      "discern_update",
     ]);
     const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
     const IDEMPOTENT_MUTATING_TOOLS = new Set([
       "discern_refresh",
-      "discern_integrate",
+      "discern_update",
     ]);
     assertEquals(
       sorted([
@@ -2049,8 +2049,8 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     );
 
     // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
-    // verbs mutate; accept is destructive; integrate is the only mutating idempotent
-    // operation (a no-op once already integrated).
+    // verbs mutate; accept is destructive; update is the lifecycle's mutating
+    // idempotent operation (a no-op once already current).
     for (const tool of TOOLS) {
       const annotations = byName.get(tool.name)?.annotations;
       assert(annotations !== undefined, `${tool.name} has no annotations`);
@@ -2079,7 +2079,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     }
     assertEquals(
       sorted(IDEMPOTENT_MUTATING_TOOLS),
-      ["discern_integrate", "discern_refresh"],
+      ["discern_refresh", "discern_update"],
       "record any additional mutating idempotent tool explicitly",
     );
 
@@ -2142,7 +2142,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_done",
         "discern_prepare",
         "discern_test",
-        "discern_integrate",
+        "discern_update",
         "discern_ratchets",
         "discern_accept",
         "discern_scopes",
@@ -2486,9 +2486,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_status"), instructions);
     assert(instructions.includes("discern_done"), instructions);
     // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
-    // 0062 retired the location-branched instructions): start, integrate, accept.
+    // 0062 retired the location-branched instructions): start, update, accept.
     assert(instructions.includes("discern_start"), instructions);
-    assert(instructions.includes("discern_integrate"), instructions);
+    assert(instructions.includes("discern_update"), instructions);
     assert(instructions.includes("discern_accept"), instructions);
     assert(
       instructions.includes("user explicitly asks"),

@@ -45,7 +45,7 @@ export function teardownPlanToEngine(plan: TeardownPlan): EnginePlan {
  * dirty worktree, dirty main, main checkout off the trunk) are checked while
  * BUILDING this — a plan only exists for an acceptance that may proceed. The
  * landing is always the TRUNK: the single place work lands (the landing model —
- * composition happens on the pull axis, `start --from` / `integrate --from`). */
+ * composition happens on the pull axis, `start --from` / `update --from`). */
 export interface AcceptPlan {
   worktreeBranch: string;
   worktreePath: string;
@@ -69,7 +69,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   // the gate guarantees the branch contains the trunk). Only then tear down the
   // worktree's external resources: an acceptance that loses a concurrent-landing
   // race is refused at the fast-forward with its worktree fully intact —
-  // resources included — so the prescribed integrate → finish → accept
+  // resources included — so the prescribed update → finish → accept
   // recovery actually works. Teardown still precedes removal (destroys resolve
   // `@dir@` inside the worktree; no orphan is left).
   steps.push({
@@ -131,7 +131,7 @@ function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
   ];
 }
 
-// ── integrate ───────────────────────────────────────────────────────────────
+// ── update ───────────────────────────────────────────────────────────────
 
 /** The read-only diagnosis an integration acts on: which source ref is coming in
  * (the trunk by default, any ref via `--from`), how far behind the worktree
@@ -140,7 +140,7 @@ function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
  * resolution restores everything the aborted merge skipped). The worktree
  * precondition is checked while BUILDING this — a plan only exists for an
  * integration that may proceed. */
-export interface IntegratePlan {
+export interface UpdatePlan {
   /** The source being merged in: the integration branch (`[project].main_branch`
    * / `DISCERN_MAIN_BRANCH`), or the `--from` ref. */
   source: string;
@@ -151,7 +151,7 @@ export interface IntegratePlan {
   /** Commits the branch is behind the source (0 when already up to date). */
   behind: number;
   /** Whether the branch already contains the source (→ nothing to merge). */
-  alreadyIntegrated: boolean;
+  alreadyUpdated: boolean;
   /** The `[worktree.setup].ensure` commands run after the merge + refresh,
    * to converge the worktree on the current tree (empty when none are declared). */
   ensureSteps: string[];
@@ -163,11 +163,11 @@ export interface IntegratePlan {
  * `[worktree.setup].ensure` to converge the worktree on the merged tree. When the
  * branch already contains the source only the merge is `skip`ped — the refresh and
  * the ensure convergence run on EVERY pass (like session start), which is what
- * makes "re-run `discern integrate`" the recovery after a manually resolved
+ * makes "re-run `discern update`" the recovery after a manually resolved
  * conflict: the no-op re-run restores the convergence the aborted merge skipped.
  */
-export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
-  const act = !plan.alreadyIntegrated;
+export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
+  const act = !plan.alreadyUpdated;
   const steps: PlanStep[] = [
     {
       kind: "git",
@@ -193,11 +193,11 @@ export function integratePlanToEngine(plan: IntegratePlan): EnginePlan {
     });
   }
   return {
-    title: "Integration plan",
+    title: "Update plan",
     details: [
       `Branch:    ${plan.worktreeBranch}`,
-      `Integrate: ${plan.source}`,
-      plan.alreadyIntegrated
+      `Update: ${plan.source}`,
+      plan.alreadyUpdated
         ? "Status:    already up to date"
         : `Behind by: ${plan.behind} commit(s)`,
     ],

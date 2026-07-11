@@ -31,17 +31,17 @@ latest `main`. It does **not** merge for you.
 
 **Cause.** The merge check is the gate's **first** step, fail-fast (ADR 0049).
 While you were working, `main` moved, so your branch is behind it. Because a
-branch behind `main` has to integrate and re-run regardless — the integration
+branch behind `main` has to update and re-run regardless — the integration
 changes the tree and discards whatever the gate computed against the
 pre-integration tree — the gate refuses up front rather than spending the slow
 fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, then run `discern integrate` — it brings `main` in
-and re-materializes the agent files + skills in one step. (On a conflict it
-aborts cleanly and names the files. Resolve them with `git merge main`, commit
-the merge, then carry on.) Then run `discern done` again to verify the correct,
+**Fix.** Commit your work, then run `discern update` — it brings `main` in and
+re-materializes the agent files + skills in one step. (On a conflict it aborts
+cleanly and names the files. Resolve them with `git merge main`, commit the
+merge, then carry on.) Then run `discern done` again to verify the correct,
 merged tree. (In the main checkout, not a worktree, this check is a no-op —
-there is nothing to integrate into.)
+there is nothing to update into.)
 
 ### A generated or local discern artifact was force-added
 

@@ -1,14 +1,14 @@
 /**
  * Receipt-gated accept (ADR 0067). `accept` lands only a tree that passes the WHOLE
  * gate — closing the stale-finish hole: an agent finishes green, main advances beneath it
- * while it waits for review, it `integrate`s (a clean merge), then accepts — landing a
+ * while it waits for review, it `update`s (a clean merge), then accepts — landing a
  * MERGED tree its earlier `done` never saw. The merge can break the gate semantically
  * (a clean textual merge that still fails a check), and a local `accept`
  * fast-forwards it onto the trunk where CI never runs.
  *
  * Two layers: the gate-pass RECEIPT primitive (the per-worktree marker `done` stamps and
  * `accept` honors), then the wired behaviour — the regression itself (a gate-breaking
- * integrate is refused), the receipt FAST PATH (a fresh `done` lets accept skip the
+ * update is refused), the receipt FAST PATH (a fresh `done` lets accept skip the
  * re-run — the perf property that makes running the gate at the boundary affordable), and
  * the airtight SLOW PATH (no/stale receipt → accept runs the gate itself).
  */
@@ -87,7 +87,7 @@ async function commitBranchWork(wt: string): Promise<void> {
 
 async function commitCurrentWorktree(
   wt: string,
-  message = "chore: clean integrated tree",
+  message = "chore: clean updated tree",
 ): Promise<void> {
   await git(wt, "add", "-A");
   await git(
@@ -144,13 +144,13 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
   });
 });
 
-Deno.test("receipt: a new commit invalidates a stamped receipt (the integrate case, isolated)", async () => {
+Deno.test("receipt: a new commit invalidates a stamped receipt (the update case, isolated)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await recordGreenNow(dir);
     assertEquals(await gateReceiptHonored(dir), true);
-    // A later commit moves HEAD past the validated sha — exactly what integrate's merge does.
+    // A later commit moves HEAD past the validated sha — exactly what update's merge does.
     await Deno.writeTextFile(join(dir, "x.txt"), "x\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "x", "--no-gpg-sign");
@@ -245,9 +245,9 @@ Deno.test("receipt: a tree that was dirty when the gate began is not stamped eve
   });
 });
 
-// ── the regression: a gate-breaking integrate cannot land ────────────────────────
+// ── the regression: a gate-breaking update cannot land ────────────────────────
 
-Deno.test("accept: refuses an integrate that merges cleanly but breaks the gate (the stale-finish hole)", async () => {
+Deno.test("accept: refuses an update that merges cleanly but breaks the gate (the stale-finish hole)", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "gamma");
@@ -261,8 +261,8 @@ Deno.test("accept: refuses an integrate that merges cleanly but breaks the gate 
     // cleanly — a brand-new file the branch never touched (no textual conflict).
     await advanceMain(dir, "taboo.txt");
 
-    // The agent integrates: a clean merge, but the receipt is now stale (new merge commit).
-    const integ = await runAgent(wt, ["integrate"]);
+    // The agent updates: a clean merge, but the receipt is now stale (new merge commit).
+    const integ = await runAgent(wt, ["update"]);
     assertEquals(integ.code, 0, integ.output);
     await commitCurrentWorktree(wt);
 
@@ -284,7 +284,7 @@ Deno.test("accept: refuses an integrate that merges cleanly but breaks the gate 
   });
 });
 
-Deno.test("accept: an integrate that still passes the gate lands normally", async () => {
+Deno.test("accept: an update that still passes the gate lands normally", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "delta");
@@ -293,7 +293,7 @@ Deno.test("accept: an integrate that still passes the gate lands normally", asyn
 
     // Main advances with a BENIGN file — the merged tree still passes the gate.
     await advanceMain(dir, "notes.txt");
-    assertEquals((await runAgent(wt, ["integrate"])).code, 0);
+    assertEquals((await runAgent(wt, ["update"])).code, 0);
     await commitCurrentWorktree(wt);
 
     const grad = await runAgent(wt, ["accept"]);

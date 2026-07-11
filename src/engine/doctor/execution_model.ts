@@ -111,7 +111,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "setup-ensure": {
     actor: "project",
     hint:
-      "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, integrate) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
+      "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, update) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
   },
   env: {
     actor: "discern",
@@ -335,9 +335,9 @@ function ensureVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `integrate` — bring the integration branch in and re-materialize (lifecycle.ts
- * `executeIntegratePlan`), then converge the worktree on the merged tree. */
-function integrateVerb(cfg: DiscernConfig): VerbPlan {
+/** `update` — bring the integration branch in and re-materialize (lifecycle.ts
+ * `executeUpdatePlan`), then converge the worktree on the merged tree. */
+function updateVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
     step("git", "merge", {
       note: "merge the integration branch into this branch",
@@ -352,7 +352,7 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
     );
   }
   return {
-    verb: "integrate",
+    verb: "update",
     when:
       "When the branch is behind the integration branch (the gate's merge check points here). A no-op when already up to date.",
     steps,
@@ -384,7 +384,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "accept",
     when:
-      "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
+      "When the work is done and updated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
     steps,
   };
 }
@@ -439,7 +439,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     ratchetsVerb(cfg),
     startVerb(cfg),
     ensureVerb(cfg),
-    integrateVerb(cfg),
+    updateVerb(cfg),
     acceptVerb(cfg),
     pruneVerb(cfg),
   ];

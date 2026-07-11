@@ -23,7 +23,7 @@ export type DeskBucket = (typeof DESK_BUCKETS)[number];
 /** Every action the desk can offer on a row, in menu order. */
 export const DESK_ACTIONS = [
   "accept",
-  "integrate",
+  "update",
   "jump",
   "inspect",
   "drop",
@@ -105,7 +105,7 @@ export function legalActions(entry: StatusFleetEntry): readonly DeskAction[] {
     actions.push("accept");
   }
   if ((entry.behind ?? 0) > 0) {
-    actions.push("integrate");
+    actions.push("update");
   }
   actions.push("jump", "inspect", "drop");
   return actions;

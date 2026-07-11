@@ -296,7 +296,7 @@ export async function assertMainMerged(
 
 /**
  * The read-only merged-state of an ARBITRARY source ref against HEAD — the
- * `integrate --from` counterpart of {@link assertMainMerged} (which is
+ * `update --from` counterpart of {@link assertMainMerged} (which is
  * trunk-specific: local-branch existence, the missing-branch warning). The
  * caller has already resolved `ref` through {@link resolveCommitRef}, so this
  * only reads: whether HEAD already contains it, and how many commits it is
@@ -319,13 +319,13 @@ export async function refMergedState(
   };
 }
 
-/** The outcome of integrating the integration branch into the current worktree. */
-export type IntegrateOutcome =
+/** The outcome of updating the integration branch into the current worktree. */
+export type UpdateOutcome =
   /** Not applicable here (main checkout, no repo, or no local main): nothing to do. */
   | { kind: "skipped" }
   /** The branch already contains the latest main — no merge, no refresh. */
   | { kind: "already" }
-  /** The worktree has uncommitted tracked changes: integrate merges into a clean tree only. */
+  /** The worktree has uncommitted tracked changes: update merges into a clean tree only. */
   | { kind: "dirty" }
   /**
    * Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge
@@ -336,7 +336,7 @@ export type IntegrateOutcome =
    * degrades, never the merge.
    */
   | {
-    kind: "integrated";
+    kind: "updated";
     behind: number;
     fastForward: boolean;
     base: string;
@@ -363,8 +363,8 @@ export interface IntegrationAnchors {
 }
 
 /**
- * Resolve the pre-merge anchors of integrating `mainBranch` into HEAD — read-only,
- * so the apply ({@link integrateMain}, before it merges) and a `--dry-run` preview
+ * Resolve the pre-merge anchors of updating `mainBranch` into HEAD — read-only,
+ * so the apply ({@link updateMain}, before it merges) and a `--dry-run` preview
  * compute them identically. `main` is the integration branch's current tip,
  * `before` is HEAD (the branch's own work), `base` their merge-base. A failed read
  * yields `""` for that field; the summary layer degrades rather than the merge.
@@ -388,7 +388,7 @@ export async function resolveIntegrationAnchors(
  * Merge an integration source into the current worktree's branch — the mutating
  * counterpart to {@link assertMainMerged}'s read-only check. The source is the
  * integration branch by default, or ANY ref via `opts.from` (the landing model's
- * pull axis — `integrate --from`; the caller resolves the ref first, so an
+ * pull axis — `update --from`; the caller resolves the ref first, so an
  * unknown name never reaches the merge). Refuses (`dirty`) when the tree has
  * uncommitted tracked changes; no-ops (`already`) when the branch already
  * contains the source; and outside a linked worktree — or, on the default pull,
@@ -400,13 +400,13 @@ export async function resolveIntegrationAnchors(
  * mechanics — re-materializing the agent files after a successful merge is the
  * lifecycle layer's job, not this.
  */
-export async function integrateMain(
+export async function updateMain(
   cwd: string = Deno.cwd(),
   mainBranchFallback?: string,
   opts: { from?: string } = {},
-): Promise<IntegrateOutcome> {
+): Promise<UpdateOutcome> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
-  // Outside a repo, or in the main checkout → nothing to integrate into.
+  // Outside a repo, or in the main checkout → nothing to update into.
   if (
     absoluteGitDir === undefined || commonGitDir === undefined ||
     absoluteGitDir === commonGitDir
@@ -423,7 +423,7 @@ export async function integrateMain(
       cwd,
     );
     if (!hasMain.success) {
-      return { kind: "skipped" }; // no local main branch to integrate
+      return { kind: "skipped" }; // no local main branch to update
     }
   }
   // Already contains the source? Then there is nothing to merge.
@@ -435,7 +435,7 @@ export async function integrateMain(
   }
   // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
   // first. Untracked local/session scratch files do not participate in a merge and
-  // should not block integrating.
+  // should not block updating.
   if (await hasUncommittedTrackedChanges(cwd)) {
     return { kind: "dirty" };
   }
@@ -460,7 +460,7 @@ export async function integrateMain(
   const merge = await git(["merge", "--no-edit", source], cwd);
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
-    return { kind: "integrated", behind, fastForward, ...anchors, after };
+    return { kind: "updated", behind, fastForward, ...anchors, after };
   }
   // The merge stopped. A REAL conflict leaves evidence — unmerged paths, or a
   // MERGE_HEAD parked mid-merge; anything else is git refusing outright before
@@ -621,7 +621,7 @@ async function diffNames(
 /**
  * The overlap of two changed-path sets — the paths in BOTH, in `incoming` order,
  * deduped and capped to `cap`, with the pre-cap `total`. The single definition of
- * the "hot zone" intersection, shared by integrate's summary and status's behind
+ * the "hot zone" intersection, shared by update's summary and status's behind
  * report so the two can never compute it differently.
  */
 export function overlapPaths(
@@ -645,8 +645,8 @@ export function overlapPaths(
  * The files the current branch changed that the integration branch ALSO changed
  * since their fork — the "hot zone" status surfaces when the branch is behind, so an
  * agent sees which of its own work `mainBranch` is about to touch BEFORE it
- * integrates. Read-only and predictive (never merges): own = `base..HEAD`, incoming
- * = `base..main`, intersected by {@link overlapPaths}. Matches what `integrate
+ * updates. Read-only and predictive (never merges): own = `base..HEAD`, incoming
+ * = `base..main`, intersected by {@link overlapPaths}. Matches what `update
  * --dry-run` reports. Fails open to empty (a git hiccup, or no fork point).
  */
 export async function incomingOverlap(
@@ -878,7 +878,7 @@ async function matchingRefs(cwd: string, name: string): Promise<string[]> {
 /**
  * Resolve `ref` to a commit in the repo at `cwd`, refusing an unknown or
  * ambiguous name in plain language. The ONE resolver behind every ref a user
- * hands the worktree lifecycle (`start --from`, `integrate --from`), so the two
+ * hands the worktree lifecycle (`start --from`, `update --from`), so the two
  * verbs can never accept different vocabularies. Returns the resolved commit
  * SHA (an annotated tag is peeled to the commit it tags); the caller usually
  * keeps using the NAME (better reflogs), this is the existence/ambiguity check.

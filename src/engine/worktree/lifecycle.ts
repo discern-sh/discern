@@ -57,8 +57,6 @@ import {
   acceptPlanToEngine,
   type DropPlan,
   dropPlanToEngine,
-  type IntegratePlan,
-  integratePlanToEngine,
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -68,6 +66,8 @@ import {
   startPlanToEngine,
   type TeardownPlan,
   teardownPlanToEngine,
+  type UpdatePlan,
+  updatePlanToEngine,
 } from "./plan.ts";
 import {
   appliedResult,
@@ -81,8 +81,8 @@ import {
 import type {
   AcceptData,
   GateData,
-  IntegrateData,
   StartData,
+  UpdateData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
@@ -95,7 +95,6 @@ import {
   hasAnyCommit,
   hasUncommittedTrackedChanges,
   inheritMainEnvVars,
-  integrateMain,
   integrationBranch,
   integrationDelta,
   listWorktreeFleet,
@@ -118,6 +117,7 @@ import {
   scanGitWorktreesForPrune,
   scanOrphanWorktreesForSweep,
   sweepOrphanWorktrees,
+  updateMain,
   WorktreeGitError,
   worktreeGitKey,
   worktreeSetupComplete,
@@ -130,11 +130,11 @@ import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
-// the agent's own `done`, so a clean-merging but gate-breaking `integrate` (or any
+// the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { failMessage, finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
-// integrate classifies the merge's incoming files into the project's scopes for its
+// update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
 
@@ -191,8 +191,8 @@ function applyResultTitle(verb: string): string {
   switch (verb) {
     case "start":
       return "Start results";
-    case "integrate":
-      return "Integration results";
+    case "update":
+      return "Update results";
     case "accept":
       return "Acceptance results";
     case "worktree setup":
@@ -379,11 +379,11 @@ function setupResults(
 /**
  * Run the convergent `[worktree.setup].ensure` commands in order — the steps that
  * re-run on EVERY setup pass (creation, session-start re-entry, and `discern
- * integrate`) to converge the worktree on the current tree. The direct parallel to
+ * update`) to converge the worktree on the current tree. The direct parallel to
  * a resource's `ensure`, sharing the one setup-step shell runner with the one-shot
  * `steps`. `fatal` selects the failure contract: at a fresh creation a non-zero exit
  * is fatal (a worktree that cannot ready its environment is broken — abort loudly,
- * exactly like a `steps` failure); on a re-entry or integrate it is recorded and the
+ * exactly like a `steps` failure); on a re-entry or update it is recorded and the
  * run continues (never undo a completed merge or break session start over a
  * convergence hiccup — the gate is the backstop). Returns the commands that failed
  * (always empty when `fatal`, since the first failure throws). A no-op when none are
@@ -1143,7 +1143,7 @@ async function buildAcceptPlan(
     );
   }
 
-  // require the integration branch is integrated
+  // require the branch contains the latest integration branch
   const trunkBranch = integrationBranch(ctx.config.project.main_branch);
   ctx.log.info(`Checking the branch contains the latest ${trunkBranch}…`);
   const merged = await assertMainMerged(
@@ -1152,7 +1152,7 @@ async function buildAcceptPlan(
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      `Branch is behind ${trunkBranch}. Run \`discern integrate\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern done\` gates on this same check.`,
+      `Branch is behind ${trunkBranch}. Run \`discern update\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern done\` gates on this same check.`,
     );
   }
   if (merged.kind === "missing") {
@@ -1282,7 +1282,7 @@ async function assertAcceptBranchStillCurrent(
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
       `Branch is behind ${trunkBranch} after the gate finished. ` +
-        `Run \`discern integrate\` from this worktree, then \`discern done\` and ` +
+        `Run \`discern update\` from this worktree, then \`discern done\` and ` +
         `\`discern accept\` again. The worktree has not been removed.`,
     );
   }
@@ -1326,13 +1326,13 @@ async function executeAcceptPlan(
   const { worktreePath, mainRepo, trunk } = plan;
 
   // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
-  // gate, so a clean-merging but gate-breaking `integrate` (or any tree never run through
+  // gate, so a clean-merging but gate-breaking `update` (or any tree never run through
   // `done` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
   // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
   // so a refusal leaves the branch and worktree intact.
   //   FAST PATH: a gate-pass receipt proves the current clean HEAD already passed `done`
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
-  //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `integrate`
+  //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
   const receipt = await inspectGateReceipt(ctx.cwd);
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
@@ -1422,7 +1422,7 @@ async function executeAcceptPlan(
   // fast-forward — never a merge commit, never a conflict. The landing runs
   // BEFORE resource teardown so an acceptance that loses a concurrent-landing
   // race is refused with its worktree fully intact — resources included — and
-  // the prescribed integrate → finish → accept recovery actually works.
+  // the prescribed update → finish → accept recovery actually works.
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   // Re-verify the main checkout is STILL on the trunk immediately before the
   // fast-forward (the plan checked it, but the gate re-run above takes real time
@@ -1466,7 +1466,7 @@ async function executeAcceptPlan(
         `refused and nothing was changed. Your worktree is fully intact, ` +
         `resources included, and your commits are safe on ` +
         `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
-        `\`discern integrate\` to bring the new ${trunk} in beneath your work, ` +
+        `\`discern update\` to bring the new ${trunk} in beneath your work, ` +
         `then \`discern done\`, then \`discern accept\` again. ` +
         `Git said:\n    ${ff.stderr.trim()}`,
     );
@@ -1504,7 +1504,7 @@ async function executeAcceptPlan(
 
   // Re-materialize the trunk checkout accept leaves behind. The branch has already
   // landed, so a refresh hiccup is reported as a failed step rather than undoing the
-  // git transition (parallel to integrate's post-merge refresh).
+  // git transition (parallel to update's post-merge refresh).
   ctx.log.info(
     "Re-materializing agent files + skills in the landing checkout…",
   );
@@ -1550,8 +1550,8 @@ async function executeAcceptPlan(
 /**
  * Accept this worktree's branch onto the trunk — the `discern accept`
  * command, the single PUSH target of the landing model (composition happens on
- * the pull axis: `start --from` / `integrate --from`). Requires the latest main
- * is integrated, tears down the worktree's external resources, fast-forwards the
+ * the pull axis: `start --from` / `update --from`). Requires the latest main
+ * is present beneath this branch, tears down the worktree's external resources, fast-forwards the
  * trunk to the branch tip, removes the clean worktree directory, and deletes the
  * now-merged branch. The trunk checkout left behind is refreshed after landing.
  * Refuses dirty worktrees, dirty main checkouts, and a main checkout parked on a
@@ -1575,7 +1575,7 @@ export async function accept(
  * `--json` ({@link accept}) and the MCP server both render. NOT pure: on an apply
  * it runs the real git mutations + resource teardown (narrating through `ctx.log`,
  * which the MCP server silences with a quiet logger). The read-only preconditions
- * (in a worktree, main integrated, clean main checkout sitting on the trunk) still
+ * (in a worktree, main updated, clean main checkout sitting on the trunk) still
  * throw `WorktreeGitError` when they refuse — the caller maps that to an error
  * envelope via {@link worktreeErrorResult}.
  */
@@ -1699,16 +1699,16 @@ async function compileGuidelinesForLandingRefresh(
 // the rest (ADR 0064). Caps protect the agent's context; the `range` anchors + the
 // escape-hatch hint make the overflow a single deliberate `git` call, not a dead end.
 // `overlap` — the priority signal — is capped loosely; it is already a narrow set.
-const INTEGRATE_COMMIT_CAP = 10;
-const INTEGRATE_FILE_CAP = 20;
-const INTEGRATE_OVERLAP_CAP = 50;
+const UPDATE_COMMIT_CAP = 10;
+const UPDATE_FILE_CAP = 20;
+const UPDATE_OVERLAP_CAP = 50;
 
-/** Build the {@link IntegrateData} `range` from the anchors, carrying `after` only
+/** Build the {@link UpdateData} `range` from the anchors, carrying `after` only
  * when it exists (an apply; a `--dry-run` preview has no merged HEAD). */
 function buildRange(
   anchors: { base: string; before: string; main: string; after?: string },
-): IntegrateData["range"] {
-  const range: IntegrateData["range"] = {
+): UpdateData["range"] {
+  const range: UpdateData["range"] = {
     base: anchors.base,
     before: anchors.before,
     main: anchors.main,
@@ -1724,7 +1724,7 @@ function buildRange(
  * DX of the verb. From the merge's SHA anchors it computes the commits + files landed
  * (capped), the OVERLAP with the branch's own changes (the hot zone — files git merged
  * cleanly that may still conflict semantically), and the fire-scopes the incoming change
- * touches; then it builds the structured {@link IntegrateData} and the agent-facing
+ * touches; then it builds the structured {@link UpdateData} and the agent-facing
  * hints. `predicted` distinguishes a `--dry-run` (no `after`; the file delta is the
  * three-dot `before...main` prediction) from an apply (the real `before..after` tree
  * change). Fails open: any error — or a missing load-bearing anchor — yields
@@ -1735,10 +1735,10 @@ async function summarizeIntegration(
   ctx: LifecycleContext,
   anchors: { base: string; before: string; main: string; after?: string },
   opts: { predicted: boolean; source: string },
-): Promise<{ data: IntegrateData | undefined; hints: string[] }> {
+): Promise<{ data: UpdateData | undefined; hints: string[] }> {
   const { source, predicted } = opts;
   const fallback = [
-    `Integrated ${source} and re-materialized the agent files — run ` +
+    `Updated ${source} and re-materialized the agent files — run ` +
     `\`discern done\` to verify against the merged tree.`,
   ];
   // Nothing to diff against without the two load-bearing anchors.
@@ -1748,8 +1748,8 @@ async function summarizeIntegration(
   try {
     const delta = await integrationDelta(ctx.cwd, anchors, {
       predicted,
-      commitCap: INTEGRATE_COMMIT_CAP,
-      fileCap: INTEGRATE_FILE_CAP,
+      commitCap: UPDATE_COMMIT_CAP,
+      fileCap: UPDATE_FILE_CAP,
     });
 
     // Overlap = the branch's own files ∩ the files that changed beneath it — the hot
@@ -1757,10 +1757,10 @@ async function summarizeIntegration(
     const { overlap, total: overlapTotal } = overlapPaths(
       delta.ownPaths,
       delta.theirsPaths,
-      INTEGRATE_OVERLAP_CAP,
+      UPDATE_OVERLAP_CAP,
     );
 
-    const data: IntegrateData = {
+    const data: UpdateData = {
       // A pure fast-forward iff the branch tip was already an ancestor of main
       // (base === before) — derivable in both the apply and the predicted paths.
       behind: delta.commitsTotal,
@@ -1778,7 +1778,7 @@ async function summarizeIntegration(
     };
     return {
       data,
-      hints: integrateHints(data, source, delta.ownPaths.length, predicted),
+      hints: updateHints(data, source, delta.ownPaths.length, predicted),
     };
   } catch {
     return { data: undefined, hints: fallback };
@@ -1794,15 +1794,15 @@ async function summarizeIntegration(
  * `before..after` on an apply, three-dot `before...<source>` on a preview), so an
  * overflow is never a dead end.
  */
-function integrateHints(
-  data: IntegrateData,
+function updateHints(
+  data: UpdateData,
   source: string,
   ownTotal: number,
   predicted: boolean,
 ): string[] {
-  const verb = predicted ? "Would integrate" : "Integrated";
+  const verb = predicted ? "Would update" : "Updated";
   const next = predicted
-    ? "run `discern integrate` to apply, then `discern done`."
+    ? "run `discern update` to apply, then `discern done`."
     : "run `discern done` to verify against the merged tree.";
   const hints: string[] = [];
 
@@ -1813,7 +1813,7 @@ function integrateHints(
       : "";
     const caveat = predicted
       ? "git would merge these cleanly, but they may still conflict semantically — " +
-        "re-read them after integrating, then "
+        "re-read them after updating, then "
       : "git merged these cleanly, but re-read them for semantic conflicts a clean " +
         "merge can't catch, then ";
     hints.push(
@@ -1852,12 +1852,12 @@ function integrateHints(
 /**
  * Narrate an integration's summary for a human (apply or `--dry-run`), through
  * `ctx.log` — silenced behind the MCP server's quiet logger, printed on the CLI. The
- * human echo of the {@link IntegrateData} the `--json`/tool result carries: the
+ * human echo of the {@link UpdateData} the `--json`/tool result carries: the
  * commits + files landed, then the overlap hot zone (or the all-clear).
  */
 function narrateIntegration(
   ctx: LifecycleContext,
-  data: IntegrateData,
+  data: UpdateData,
   predicted: boolean,
 ): void {
   ctx.log.info(
@@ -1898,11 +1898,11 @@ function narrateIntegration(
  * {@link resolveCommitRef} as `start --from`, refusing an unknown or ambiguous
  * name in plain language).
  */
-async function buildIntegratePlan(
+async function buildUpdatePlan(
   ctx: LifecycleContext,
   from?: string,
-): Promise<IntegratePlan> {
-  await assertInWorktree("discern integrate", ctx.cwd);
+): Promise<UpdatePlan> {
+  await assertInWorktree("discern update", ctx.cwd);
   const run = makeGitRunner(ctx);
   const current = (await run(["branch", "--show-current"])).stdout.trim();
   const worktreeBranch = current !== "" ? current : "(detached)";
@@ -1917,7 +1917,7 @@ async function buildIntegratePlan(
       fromOverride: true,
       worktreeBranch,
       behind: state.behind,
-      alreadyIntegrated: state.already,
+      alreadyUpdated: state.already,
       ensureSteps,
     };
   }
@@ -1931,32 +1931,32 @@ async function buildIntegratePlan(
     fromOverride: false,
     worktreeBranch,
     behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
-    alreadyIntegrated: merged.kind !== "behind",
+    alreadyUpdated: merged.kind !== "behind",
     ensureSteps,
   };
 }
 
-/** The refusal shown when integrating `source` conflicts — names the conflicted
+/** The refusal shown when updating `source` conflicts — names the conflicted
  * files (the merge is already aborted, the tree is clean) and the recovery that
- * CONVERGES: resolve the merge by hand, then re-run `discern integrate` — the
+ * CONVERGES: resolve the merge by hand, then re-run `discern update` — the
  * no-op re-run restores the agent-file refresh and the `[worktree.setup].ensure`
  * convergence the aborted merge skipped. */
-function integrateConflictMessage(
-  plan: IntegratePlan,
+function updateConflictMessage(
+  plan: UpdatePlan,
   files: string[],
   aborted: boolean,
 ): string {
   const where = files.length > 0 ? ` in: ${files.join(", ")}` : "";
   const rerun = plan.fromOverride
-    ? `discern integrate --from ${plan.source}`
-    : "discern integrate";
+    ? `discern update --from ${plan.source}`
+    : "discern update";
   if (!aborted) {
-    return `Integrating ${plan.source} conflicts${where} — and stepping aside ` +
+    return `Updating ${plan.source} conflicts${where} — and stepping aside ` +
       `failed too, so the merge is still in progress in your tree. Either ` +
       `resolve the conflicts and commit the merge, or run ` +
       `\`git merge --abort\` to discard it; then re-run \`${rerun}\`.`;
   }
-  return `Integrating ${plan.source} conflicts${where}. The merge was aborted — ` +
+  return `Updating ${plan.source} conflicts${where}. The merge was aborted — ` +
     `your tree is untouched. Merge it yourself (\`git merge ${plan.source}\`), ` +
     `resolve the conflicts, commit the result, then re-run \`${rerun}\` — the ` +
     `no-op re-run re-materializes the agent files and re-runs the setup ` +
@@ -1970,9 +1970,9 @@ function integrateConflictMessage(
  * recorded as a failed step, never undoing a landed merge or failing the pass (the
  * gate is the backstop). Returns the step results plus any refresh hints.
  */
-async function runIntegrateConvergence(
+async function runUpdateConvergence(
   ctx: LifecycleContext,
-  plan: IntegratePlan,
+  plan: UpdatePlan,
 ): Promise<{ steps: StepResult[]; refreshHints: string[] }> {
   ctx.log.info("Re-materializing agent files + skills…");
   let refreshOk = true;
@@ -2016,7 +2016,7 @@ async function runIntegrateConvergence(
  * tree (the motivating case — a merge that changed a lockfile leaves dependencies
  * stale). When the branch already contains the source nothing is merged, but the
  * refresh + ensure convergence STILL runs (like session start) — that is what
- * makes "re-run `discern integrate`" the recovery after a manually resolved
+ * makes "re-run `discern update`" the recovery after a manually resolved
  * conflict, restoring everything the aborted merge skipped. A dirty tree or a
  * merge conflict throws `WorktreeGitError` (the conflict steps aside via
  * `git merge --abort` first, so the tree is left clean). The post-merge `ensure`
@@ -2024,12 +2024,12 @@ async function runIntegrateConvergence(
  * the landed merge. Narrates through `ctx.log`; returns the per-step results for
  * `--json`.
  */
-async function executeIntegratePlan(
+async function executeUpdatePlan(
   ctx: LifecycleContext,
-  plan: IntegratePlan,
-): Promise<DiscernResult<IntegrateData>> {
+  plan: UpdatePlan,
+): Promise<DiscernResult<UpdateData>> {
   const { source } = plan;
-  const outcome = await integrateMain(
+  const outcome = await updateMain(
     ctx.cwd,
     ctx.config.project.main_branch,
     plan.fromOverride ? { from: source } : {},
@@ -2051,10 +2051,10 @@ async function executeIntegratePlan(
           outcome: "skipped",
         },
       ];
-      const convergence = await runIntegrateConvergence(ctx, plan);
+      const convergence = await runUpdateConvergence(ctx, plan);
       steps.push(...convergence.steps);
-      const result: DiscernResult<IntegrateData> = appliedResult(
-        "integrate",
+      const result: DiscernResult<UpdateData> = appliedResult(
+        "update",
         steps,
       );
       result.hints = convergence.refreshHints;
@@ -2062,26 +2062,26 @@ async function executeIntegratePlan(
     }
     case "dirty":
       throw new WorktreeGitError(
-        "Commit or stash your changes first, then re-run — integrate merges into a clean tree.",
+        "Commit or stash your changes first, then re-run — update merges into a clean tree.",
       );
     case "conflict":
       throw new WorktreeGitError(
-        integrateConflictMessage(plan, outcome.files, outcome.aborted),
+        updateConflictMessage(plan, outcome.files, outcome.aborted),
       );
     case "merge_failed":
       // Git refused before any merge began — unrelated histories, an untracked
       // file in the way. The tree is untouched; the cause is git's to name.
       throw new WorktreeGitError(
-        `Integrating ${plan.source} failed before any merge began — your ` +
+        `Updating ${plan.source} failed before any merge began — your ` +
           `tree is untouched. Git refused:\n    ${outcome.reason}\n` +
           `Fix the cause git names, then re-run \`${
             plan.fromOverride
-              ? `discern integrate --from ${plan.source}`
-              : "discern integrate"
+              ? `discern update --from ${plan.source}`
+              : "discern update"
           }\`.`,
       );
-    case "integrated": {
-      ctx.log.heading(`Integrating ${source}…`);
+    case "updated": {
+      ctx.log.heading(`Updating ${source}…`);
       ctx.log.ok(
         outcome.fastForward
           ? `Fast-forwarded to ${source} (+${outcome.behind} commit(s)).`
@@ -2110,11 +2110,11 @@ async function executeIntegratePlan(
       }];
       // Re-materialize + converge — the shared tail; a merge can bring in another
       // line of work's guidance/skill edits or a changed lockfile.
-      const convergence = await runIntegrateConvergence(ctx, plan);
+      const convergence = await runUpdateConvergence(ctx, plan);
       steps.push(...convergence.steps);
-      ctx.log.ok("Integration complete.");
-      const result: DiscernResult<IntegrateData> = appliedResult(
-        "integrate",
+      ctx.log.ok("Update complete.");
+      const result: DiscernResult<UpdateData> = appliedResult(
+        "update",
         steps,
       );
       result.data = summary.data;
@@ -2126,7 +2126,7 @@ async function executeIntegratePlan(
 
 /**
  * Bring an integration source into this worktree's branch and re-materialize the
- * agent files + skills — the `discern integrate` command, the deterministic
+ * agent files + skills — the `discern update` command, the deterministic
  * inverse of `accept` and the action that resolves `done`'s fail-fast merge
  * check. The source is the trunk by default; `--from <ref>` pulls any ref instead
  * (the landing model's pull axis — how work composes below the trunk). Runs from
@@ -2137,11 +2137,11 @@ async function executeIntegratePlan(
  * passes) and touches nothing. Throws `WorktreeGitError` on a refusal (the caller
  * maps it to an error envelope).
  */
-export async function integrate(
+export async function update(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions & { from?: string } = {},
 ): Promise<void> {
-  const result = await integrateResult(ctx, {
+  const result = await updateResult(ctx, {
     dryRun: opts.dryRun ?? false,
     ...(opts.from !== undefined ? { from: opts.from } : {}),
   });
@@ -2157,27 +2157,27 @@ export async function integrate(
 /**
  * Perform the integration and return its {@link DiscernResult} — the plan (dry-run)
  * or the executed steps — without emitting or exiting. The single source the CLI's
- * `--json` ({@link integrate}) and the MCP server both render. NOT pure on an apply:
+ * `--json` ({@link update}) and the MCP server both render. NOT pure on an apply:
  * it runs the real `git merge` + re-materialize (narrating through `ctx.log`, which
  * the MCP server silences with a quiet logger). The worktree precondition throws
  * `WorktreeGitError`, as does a refusal on a dirty tree, a conflict, or an
  * unknown/ambiguous `from` ref — the caller maps that to an error envelope via
  * {@link worktreeErrorResult}.
  */
-export async function integrateResult(
+export async function updateResult(
   ctx: LifecycleContext,
   opts: { dryRun?: boolean; from?: string } = {},
-): Promise<DiscernResult<IntegrateData>> {
-  const plan = await buildIntegratePlan(ctx, opts.from);
+): Promise<DiscernResult<UpdateData>> {
+  const plan = await buildUpdatePlan(ctx, opts.from);
   if (opts.dryRun ?? false) {
-    const preview: DiscernResult<IntegrateData> = previewResult(
-      "integrate",
-      integratePlanToEngine(plan),
+    const preview: DiscernResult<UpdateData> = previewResult(
+      "update",
+      updatePlanToEngine(plan),
     );
     // Predict what the merge WOULD bring in (ADR 0064) — the same summary as an
     // apply, computed read-only from the fork point (no `after`; the file delta is
-    // the three-dot `before...<source>`). Skipped on a no-op (nothing to integrate).
-    if (!plan.alreadyIntegrated) {
+    // the three-dot `before...<source>`). Skipped on a no-op (nothing to update).
+    if (!plan.alreadyUpdated) {
       const anchors = await resolveIntegrationAnchors(ctx.cwd, plan.source);
       const summary = await summarizeIntegration(ctx, anchors, {
         predicted: true,
@@ -2188,7 +2188,7 @@ export async function integrateResult(
     }
     return preview;
   }
-  return await executeIntegratePlan(ctx, plan);
+  return await executeUpdatePlan(ctx, plan);
 }
 
 // ── start (create a fresh worktree to inhabit, from the main checkout) ──────────

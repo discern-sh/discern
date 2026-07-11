@@ -64,10 +64,10 @@ ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags the
 first two layouts before a `start` ever trips on them. It only ever _creates_ a
 Worktree to inhabit; it never adopts or prunes an existing one. When `main`
 advances under a long-running Worktree,
-[`integrate`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
+[`update`](../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
-all in one step. `integrate --from <ref>` pulls **any ref** into the worktree
+all in one step. `update --from <ref>` pulls **any ref** into the worktree
 instead of the trunk — the pull axis of the landing model, how multi-phase work
 composes below the trunk — with every guarantee intact: the same clean-tree
 precondition, the conflict abort, the re-materialize step, and the change
@@ -77,7 +77,7 @@ been committed must be committed or stashed first, while untracked local/session
 scratch files are left alone. When the branch already contains the source
 nothing merges, but the refresh + `ensure` convergence **still runs** — so after
 a conflict is resolved by hand (`git merge`, fix, commit), re-running
-`discern integrate` restores everything the aborted merge skipped. It is the
+`discern update` restores everything the aborted merge skipped. It is the
 deterministic inverse of accept, and what the gate's merge check
 ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
 ([ADR 0055](../_adr/0055-integrate-verb.md),
@@ -92,7 +92,7 @@ the **validated commit** — never a branch name resolved at merge time, so a
 commit made while the validation ran is refused rather than landed untested —
 always cleanly (the gate proved the branch contains the trunk), then the
 Worktree removed, and the merged branch deleted. Composition happens on the pull
-axis instead: `start --from` and `integrate --from` build on any ref, so
+axis instead: `start --from` and `update --from` build on any ref, so
 multi-phase work assembles below the trunk and only the finished whole crosses
 to it. Acceptance refuses — naming the way back — when the main checkout is
 parked on a branch other than the trunk, and never silently switches it. After
@@ -141,7 +141,7 @@ per-checkout fields are absent, never fabricated as clean; a member idle for a
 week that still holds uncommitted changes or unlanded commits gets a hint to
 resume it or drop it; unlanded `agent/*` branches with **no worktree** are
 listed (`data.unlanded_branches`) with the pull-axis recovery (`start --from` /
-`integrate --from`); a missing trunk reports `ahead` as an honest null, never a
+`update --from`); a missing trunk reports `ahead` as an honest null, never a
 fabricated `0 ahead`. And when the worktree the tools aim at stays pristine
 while the main checkout accumulates changes — the signature of an agent editing
 the trunk while the gate runs elsewhere — `status` and `done` both raise an
@@ -191,7 +191,7 @@ discovers existing Worktrees from git's own registry, never a hardcoded path —
 so only the create hook and `worktree prune`'s orphan sweep know the convention
 ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
-Each effectful lifecycle verb — `start`, `worktree` (setup), `integrate`,
+Each effectful lifecycle verb — `start`, `worktree` (setup), `update`,
 `worktree teardown`, `worktree prune`, and `accept` — takes a `--dry-run` that
 prints the plan (what it _would_ create, destroy, reclaim, move, or merge) and
 touches nothing, plus a `--json` serialization of plan + results
@@ -205,7 +205,7 @@ inspectable before they act.
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [team-workflow.md](team-workflow.md) | The collaborator story: cloning with or without discern, the one-minute path to full function, and working alongside agent worktrees without colliding.                   |
 | [the-resources.md](the-resources.md) | Per-worktree resources: the config seam, the create/reuse/destroy lifecycle, the ledger + orphan GC, identity, ownership/namespacing, and the runtime-discovery contract. |
-| [the-desk.md](the-desk.md)           | The human's interactive surface: bare `discern` opens a decision-ordered picker over the fleet — land, integrate, inspect, jump in, or drop, gated on TTY-ness alone.     |
+| [the-desk.md](the-desk.md)           | The human's interactive surface: bare `discern` opens a decision-ordered picker over the fleet — land, update, inspect, jump in, or drop, gated on TTY-ness alone.        |
 
 > **Status: partial.** `the-resources.md` is written; the remaining lifecycle /
 > identity / integration leaves are still stubs — fill them with the
@@ -222,19 +222,19 @@ inspectable before they act.
   db/dev-server adapters into per-worktree resources with orphan GC.
 - [ADR 0052](../_adr/0052-worktree-sibling-placement.md) — placing Worktrees in
   a configurable sibling directory instead of nested `.claude/worktrees`.
-- [ADR 0055](../_adr/0055-integrate-verb.md) — `integrate`, the third verb in
-  the worktree lifecycle: bring `main` into the branch and re-materialize in one
+- [ADR 0055](../_adr/0055-integrate-verb.md) — `update`, the third verb in the
+  worktree lifecycle: bring `main` into the branch and re-materialize in one
   deterministic step.
 - [ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md) — `start`,
   the verb that spawns a Worktree from the main checkout, and the
   `discern status` guardrail that points an agent on the trunk at it.
 - [ADR 0059](../_adr/0059-worktree-setup-ensure.md) — `[worktree.setup].ensure`,
   the convergent bucket that re-runs every pass (creation, session start,
-  integrate) to keep the worktree's environment current with the tree.
+  update) to keep the worktree's environment current with the tree.
 - [ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md) —
   acceptance refreshes the checkout it leaves behind.
 - [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
-  any ref (`start --from` / `integrate --from`), land only on the trunk.
+  any ref (`start --from` / `update --from`), land only on the trunk.
 - [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare
   `discern` opens the operator's desk, the human's interactive surface over the
   fleet.

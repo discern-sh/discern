@@ -2372,7 +2372,7 @@ export type DiscernAcceptResult = {
   };
 };
 
-export type DiscernIntegrateResult = {
+export type DiscernUpdateResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2443,7 +2443,7 @@ export type DiscernIntegrateResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "integrate";
+  verb: "update";
   data?: {
     behind: number;
     fast_forward: boolean;
@@ -3001,7 +3001,7 @@ export type DiscernCliJsonResult =
   | DiscernStatusResult
   | DiscernStartResult
   | DiscernAcceptResult
-  | DiscernIntegrateResult
+  | DiscernUpdateResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
   | DiscernWorktreeDropResult
@@ -3033,7 +3033,7 @@ export interface DiscernResultByVerb {
   status: DiscernStatusResult;
   start: DiscernStartResult;
   accept: DiscernAcceptResult;
-  integrate: DiscernIntegrateResult;
+  update: DiscernUpdateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
@@ -3071,7 +3071,7 @@ export interface DiscernResultByCommand {
   status: DiscernStatusResult;
   start: DiscernStartResult;
   accept: DiscernAcceptResult;
-  integrate: DiscernIntegrateResult;
+  update: DiscernUpdateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
@@ -3106,7 +3106,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
   discern_accept: DiscernAcceptResult;
-  discern_integrate: DiscernIntegrateResult;
+  discern_update: DiscernUpdateResult;
 }
 
 export interface DiscernMcpToolResultByTool {
@@ -3124,7 +3124,7 @@ export interface DiscernMcpToolResultByTool {
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
   discern_accept: DiscernMcpToolResult<DiscernAcceptResult>;
-  discern_integrate: DiscernMcpToolResult<DiscernIntegrateResult>;
+  discern_update: DiscernMcpToolResult<DiscernUpdateResult>;
 }
 
 export type DiscernMcpStructuredContent =
@@ -3142,7 +3142,7 @@ export type DiscernMcpStructuredContent =
   | DiscernStatusResult
   | DiscernStartResult
   | DiscernAcceptResult
-  | DiscernIntegrateResult;
+  | DiscernUpdateResult;
 
 export type DiscernMcpJsonResult =
   | DiscernDoctorMcpToolResult
@@ -3159,7 +3159,7 @@ export type DiscernMcpJsonResult =
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
   | DiscernAcceptMcpToolResult
-  | DiscernIntegrateMcpToolResult;
+  | DiscernUpdateMcpToolResult;
 
 export type DiscernDoctorMcpToolResult = DiscernMcpToolResult<
   DiscernDoctorResult
@@ -3209,6 +3209,6 @@ export type DiscernAcceptMcpToolResult = DiscernMcpToolResult<
   DiscernAcceptResult
 >;
 
-export type DiscernIntegrateMcpToolResult = DiscernMcpToolResult<
-  DiscernIntegrateResult
+export type DiscernUpdateMcpToolResult = DiscernMcpToolResult<
+  DiscernUpdateResult
 >;

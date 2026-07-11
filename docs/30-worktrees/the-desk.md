@@ -31,7 +31,7 @@ no worktree — otherwise-invisible abandoned work.
 
 ## What it can do
 
-Per row: **accept** (plan shown first, then confirm), **integrate**, **inspect**
+Per row: **accept** (plan shown first, then confirm), **update**, **inspect**
 (commits, uncommitted changes, and diffstat versus the trunk), **jump in** (a
 `$SHELL` spawned inside the worktree; exit to return), and **drop**. Every
 action first echoes the CLI command it is about to run — the desk teaches the

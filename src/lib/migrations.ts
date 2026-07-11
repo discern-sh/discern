@@ -793,7 +793,7 @@ export const MIGRATIONS: Migration[] = [
             "trunk now"
           : `dropped [worktree].graduate_to = "${String(dropped)}" — ` +
             "`discern accept` always lands on the trunk now; to compose work " +
-            "below the trunk, pull with `start --from` / `integrate --from`",
+            "below the trunk, pull with `start --from` / `update --from`",
       );
     },
   },

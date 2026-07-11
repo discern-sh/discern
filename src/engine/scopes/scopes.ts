@@ -195,7 +195,7 @@ function scopesTouchedBy(
 /**
  * The fire-scopes an explicit list of changed paths touches, in declaration order —
  * the scope-matching half of {@link scopes}, factored out so any verb that
- * already has a path list in hand (integrate's incoming files) classifies it through
+ * already has a path list in hand (update's incoming files) classifies it through
  * the SAME matcher rather than a parallel copy. It answers only "which gated scopes
  * do these paths fall in?"; neutral scopes and the derived markers are not its
  * concern (a path is normalized — trimmed, leading slash stripped — but not

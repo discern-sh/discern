@@ -63,7 +63,7 @@ export const KIT_VERSION: string = denoJson.version;
  * 0101); schema-16→17 **drops `[worktree].graduate_to`** — `discern accept`
  * always lands on the trunk (the landing model's single push target; composing
  * work below the trunk happens on the pull axis, `start --from` /
- * `integrate --from` — ADR 0110). See `MIGRATIONS`. A config with no
+ * `update --from` — ADR 0110). See `MIGRATIONS`. A config with no
  * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
  * version), then migrated forward.
  */

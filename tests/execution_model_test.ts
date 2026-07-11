@@ -180,7 +180,7 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
     "ratchets",
     "start",
     "worktree ensure",
-    "integrate",
+    "update",
     "accept",
     "worktree prune",
   ]);

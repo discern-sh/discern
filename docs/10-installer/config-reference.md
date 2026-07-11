@@ -124,7 +124,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `steps` | string[] | `[]` | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run. |
-| `ensure` | string[] | `[]` | Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern integrate` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely. |
+| `ensure` | string[] | `[]` | Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern update` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely. |
 
 ## `[ratchets.<name>]`
 

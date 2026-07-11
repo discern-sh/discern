@@ -56,10 +56,10 @@ import {
   identityField,
   identityResourceHandle,
   identityResourcesList,
-  integrate,
   type LifecycleContext,
   lifecycleContext,
   start,
+  update,
   worktreeDrop,
   worktreeEnsure,
   worktreeErrorResult,
@@ -92,7 +92,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "status",
   "desk",
   "accept",
-  "integrate",
+  "update",
   "start",
   "worktree",
   "identity",
@@ -146,7 +146,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "coupling",
   "status",
   "accept",
-  "integrate",
+  "update",
   "start",
   "identity",
   "worktree-setup",
@@ -487,7 +487,7 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("desk")
     .description(
-      "Your interactive desk over the worktree fleet: pick an effort, land, integrate, drop, or jump in. Bare `discern` opens it.",
+      "Your interactive desk over the worktree fleet: pick an effort, land, update, drop, or jump in. Bare `discern` opens it.",
     )
     .option(
       "--json",
@@ -560,15 +560,15 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("integrate")
+    .command("update")
     .description(
-      "Bring the latest trunk into this branch and re-materialize the agent files + skills.",
+      "Update this branch: merge the trunk's latest into it and re-materialize the generated agent files. Use `discern upgrade` for discern itself; use `discern refresh` for generated agent files alone.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
     )
-    .option("--dry-run", "Show the integration plan; touch nothing.")
+    .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
       "--from <ref:string>",
       "Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
@@ -578,12 +578,12 @@ export function attachEngineCommands(root: Command): void {
       Deno.exit(
         await runWorktreeOp(
           (ctx) =>
-            integrate(ctx, {
+            update(ctx, {
               json,
               dryRun: o.dryRun ?? false,
               ...(o.from !== undefined ? { from: o.from } : {}),
             }),
-          { json, verb: "integrate" },
+          { json, verb: "update" },
         ),
       );
     });

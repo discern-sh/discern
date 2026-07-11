@@ -128,19 +128,19 @@ const ACTION_CASES: ReadonlyArray<{
     expect: ["drop"],
   },
   {
-    name: "clean and ahead → accept leads; no integrate when not behind",
+    name: "clean and ahead → accept leads; no update when not behind",
     entry: entry({ ahead: 2 }),
     expect: ["accept", "jump", "inspect", "drop"],
   },
   {
-    name: "dirty and behind → integrate offered, accept not",
+    name: "dirty and behind → update offered, accept not",
     entry: entry({ clean: false, changed_files: 1, behind: 4 }),
-    expect: ["integrate", "jump", "inspect", "drop"],
+    expect: ["update", "jump", "inspect", "drop"],
   },
   {
-    name: "clean, ahead AND behind → both accept and integrate",
+    name: "clean, ahead AND behind → both accept and update",
     entry: entry({ ahead: 2, behind: 1 }),
-    expect: ["accept", "integrate", "jump", "inspect", "drop"],
+    expect: ["accept", "update", "jump", "inspect", "drop"],
   },
   {
     name: "clean, nothing ahead → no accept (nothing to land)",
