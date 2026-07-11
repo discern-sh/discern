@@ -214,7 +214,7 @@ never rewritten by scaffold reconciliation
 ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
 
 For `.gitignore`, the project owns everything outside the
-`# --- discern harness ---` / `# --- /discern harness ---` block. `upgrade`
+`# --- discern ---` / `# --- /discern ---` block. `upgrade`
 reconciles only that block to the current fragment and absorbs known legacy
 discern-owned fragments
 ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).

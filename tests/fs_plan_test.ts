@@ -229,12 +229,12 @@ Deno.test("gitignore block reconciliation is idempotent via the markers", async 
   await withTempDir(async (dir) => {
     await scaffold(dir);
     const first = await readTarget(dir, ".gitignore");
-    assertStringIncludes(first, "# --- discern harness ---");
+    assertStringIncludes(first, "# --- discern ---");
     await scaffold(dir);
     const second = await readTarget(dir, ".gitignore");
     // Re-running does not append the fragment twice.
     assertEquals(second, first);
-    assertEquals(second.match(/# --- discern harness ---/g)?.length, 1);
+    assertEquals(second.match(/# --- discern ---/g)?.length, 1);
   });
 });
 
@@ -244,7 +244,7 @@ Deno.test("gitignore block reconciliation preserves pre-existing content", async
     await scaffold(dir);
     const gitignore = await readTarget(dir, ".gitignore");
     assertStringIncludes(gitignore, "node_modules/");
-    assertStringIncludes(gitignore, "# --- discern harness ---");
+    assertStringIncludes(gitignore, "# --- discern ---");
     // The user's line comes first, the fragment is appended after.
     assert(
       gitignore.indexOf("node_modules/") < gitignore.indexOf("# --- discern"),

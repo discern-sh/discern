@@ -381,7 +381,7 @@ Deno.test("migration 8→9 ignores AGENTS.md and notes the one-time git rm --cac
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/CLAUDE.md",
         "/GEMINI.md",
         "",
@@ -472,7 +472,7 @@ Deno.test("migration 9→10 ignores .agents/skills/ after the .claude block, ide
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/AGENTS.md",
         "/CLAUDE.md",
         "/GEMINI.md",
@@ -817,7 +817,7 @@ Deno.test("migration 13→14 removes the .claude/settings.local.json un-ignore",
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/AGENTS.md",
         "/CLAUDE.md",
         "/GEMINI.md",

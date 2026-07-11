@@ -48,7 +48,7 @@ leaves the rest alone.
 - **`discern.toml`** — the one root file, your configuration. discern owns a
   fixed scaffold of documented sections and keys (restored if missing on
   `upgrade`) and never touches the values you set.
-- **The `.gitignore` block** — one delimited `# --- discern harness ---` block
+- **The `.gitignore` block** — one delimited `# --- discern ---` block
   listing discern's generated artifacts. Your own ignore rules outside the block
   are untouched.
 - **The per-agent integration files** — for each coding agent you configure,
