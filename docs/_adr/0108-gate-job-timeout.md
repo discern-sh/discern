@@ -86,3 +86,33 @@ Two deliberate choices:
 - `discern finish` run against a checkout whose engine predates this key will
   reject the new `[gate].timeout` line as an unknown key — expected for any new
   config key; scaffold reconciliation backfills it into existing installs.
+
+## Update — the kill path also bounds the pipe drains
+
+The original watchdog killed the job's process group but still waited for the
+job's stdout/stderr to reach EOF before settling. A descendant that re-parented
+into its own session while inheriting those pipes — the standard
+self-daemonizing pattern — survived the group kill holding the write ends open,
+so the gate blocked for the daemon's whole lifetime (forever, for a never-
+exiting one), and a pending interrupt was absorbed with it (the signal watcher
+re-raises only once the run settles). Worse, when the direct shell had exited
+`0` before daemonizing, the settled result reported **ok** with the recorded
+`timedOutAfterS` silently swallowed.
+
+Two invariants close the hole, both funnelled through the one kill path every
+cancellation source shares:
+
+- **The drains are bounded after a kill.** Once `onAbort` fires (watchdog,
+  fail-fast, external abort, or an interrupt), the pipe readers are cancelled
+  after a grace just past the SIGTERM→SIGKILL escalation — long enough for a
+  slow-but-cooperating child to flush and close naturally; only a pipe held by a
+  process the tree-kill cannot reach is clipped.
+- **`timedOutAfterS` forces a non-zero `code`** at the producer, so every
+  consumer keying off the exit code (ok/failed, banners, fail-fast, diagnostics)
+  reports a fired watchdog as the genuine failure it is, even when the direct
+  child exited clean.
+
+The class guard gained the escaped-descendant member: a detached, own-session
+pipe-holder driven through the runner (watchdog and external-abort variants) and
+through the full `finish`, asserting the run stays bounded and the timeout is
+diagnosed, never swallowed.

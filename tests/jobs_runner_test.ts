@@ -13,6 +13,7 @@ import {
   normalizeCapturedOutput,
 } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
+import { escapedDaemonCommand } from "./helpers.ts";
 
 const CWD = Deno.cwd();
 
@@ -441,6 +442,47 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
     );
     await waitForExit(innerPid);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("runParallel: an external abort stays bounded when an escaped descendant holds the pipes", async () => {
+  // Every kill source (fail-fast, an MCP client cancelling, the process
+  // interrupt watcher) funnels into the same abort → tree-kill path, but a
+  // descendant that re-parented into its own session survives the group kill
+  // while holding the job's stdout/stderr. The kill path must cancel the
+  // pending drains after its grace instead of waiting out the daemon —
+  // before the bound, a wedged run also ABSORBED process interrupts, since
+  // the signal watcher re-raises only once the last run settles.
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-escape-abort-" });
+  try {
+    const external = new AbortController();
+    const run = runParallel([
+      { label: "wedge", command: escapedDaemonCommand(15, "daemon.up") },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      signal: external.signal,
+      write: () => {},
+    });
+    // Wait until the daemon holds the pipes, then cancel from outside.
+    while (!(await Deno.stat(join(dir, "daemon.up")).catch(() => null))) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const start = performance.now();
+    external.abort();
+    const r = await run;
+    const elapsed = performance.now() - start;
+
+    assertEquals(r.ok, false);
+    assertEquals(r.results[0]?.cancelled, true, JSON.stringify(r.results[0]));
+    assert(
+      elapsed < 10_000,
+      `the abort should settle within the kill grace, took ${elapsed}ms`,
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

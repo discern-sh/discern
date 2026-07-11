@@ -43,7 +43,9 @@ export interface JobResult {
    * The per-command time budget (seconds) this job blew through: present ONLY when
    * the job was tree-killed by the gate's watchdog for never exiting (`[gate].timeout`).
    * A GENUINE failure (not a cancelled sibling), it carries the budget so the
-   * diagnostic can name it. Presence, not the value, is the "did it time out?" flag.
+   * diagnostic can name it. Presence, not the value, is the "did it time out?" flag —
+   * and it forces a non-zero `code`, even when the direct child exited clean (a
+   * command that daemonized), so no consumer keying off `code` can report it ok.
    */
   timedOutAfterS?: number;
 }

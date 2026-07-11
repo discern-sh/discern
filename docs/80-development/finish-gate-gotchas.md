@@ -136,17 +136,21 @@ non-zero exit) rather than a clear "not found".
 
 **Symptom.** `discern finish` sits on a stage with no further output, then —
 after `[gate].timeout` seconds (default 600) — fails that stage with a
-diagnostic that the command "timed out … without exiting". The command works
-fine when you run it by hand.
+diagnostic that the command "timed out … and was killed". The command works fine
+when you run it by hand.
 
-**Cause.** A gate command never exits. The usual culprit is a **watch-mode test
-runner** or a **dev server** wired into a capability. Run by hand in your
+**Cause.** A gate command never finishes. The usual culprit is a **watch-mode
+test runner** or a **dev server** wired into a capability. Run by hand in your
 terminal it may pick a single run, but the gate runs it with stdin closed, no
 TTY, and piped output, where many runners default to _watching_ for file changes
 and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to
 push runners into their single-run form, but one that ignores `CI` still hangs —
 so the timeout watchdog tree-kills the whole process group and fails the stage
-rather than waiting indefinitely.
+rather than waiting indefinitely. A subtler variant: the command itself exits,
+but it **left a background process holding its output stream open** (a helper
+that daemonizes mid-run). The watchdog treats that the same way — the job fails
+as a timeout, and the held output pipes are released shortly after the kill
+instead of wedging the gate for the daemon's lifetime.
 
 **Fix.** Wire the command in its **single-run form** — the flag or script that
 runs once and exits, not a `--watch`/interactive mode and not a long-lived

@@ -133,7 +133,9 @@ dir = "discern/skills"
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
 # `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
 # list); `provides` an optional free-text label. Use this for anything outside
-# the six capabilities above.
+# the six capabilities above. A check may not reuse a name wired under
+# [capabilities] — the gate keys each job's result by its label, so the two
+# would collide.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # [checks.licenses]

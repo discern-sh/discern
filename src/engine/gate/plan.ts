@@ -373,7 +373,7 @@ function withFixAvailable(
  */
 function jobFailureMessage(label: string, r: JobResult): string {
   if (r.timedOutAfterS !== undefined) {
-    return `${label} timed out after ${r.timedOutAfterS}s without exiting and was killed — the command never returned. A watch-mode test runner or a dev server that never exits will hang the gate; wire it in its single-run (CI) form, or raise [gate].timeout for a legitimately long-running command.`;
+    return `${label} timed out after ${r.timedOutAfterS}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or raise [gate].timeout for a legitimately long-running command.`;
   }
   if (r.code === 127) {
     return `${label} failed (exit 127) — command not found. If it works in the main checkout, note that a fresh worktree starts without the untracked tool and dependency directories the main checkout has; converge them via [worktree.setup].ensure.`;

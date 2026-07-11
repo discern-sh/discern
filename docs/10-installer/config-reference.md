@@ -73,7 +73,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 
 ## `[checks.<name>]`
 
-[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label.
+[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label. A name also wired under [capabilities] is rejected: the gate keys each job's result by its label, so the two would collide.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |

@@ -300,6 +300,40 @@ Deno.test("every known capability is accepted; an unknown one is rejected", () =
   assert(parseConfig(`[capabilities]\nnope = "x"\n`).issues.length > 0);
 });
 
+Deno.test("a [checks.<name>] sharing a wired capability's name is rejected (job labels must be unique)", () => {
+  // The class guard: the gate keys every job result by its LABEL, and a
+  // capability job and a [checks.<name>] job both carry their bare name — a
+  // shared name silently overwrites one job's result with the other's,
+  // destroying the genuine failure's diagnostics. Driven off KNOWN_CAPABILITIES
+  // (the label vocabulary's single source of truth) so a new capability
+  // auto-enrols in the collision rule.
+  for (const [name, stage] of Object.entries(KNOWN_CAPABILITIES)) {
+    // Colliding pair — rejected, at the check's path, with the label rationale.
+    // The check's stage doesn't matter: finish fuses check∥test into one group,
+    // and the result map spans every stage, so ANY shared name collides.
+    const { config, issues } = parseConfig(
+      `[capabilities]\n${name} = "x"\n[checks.${name}]\nstage = "${stage}"\nrun = "y"\n`,
+    );
+    assertEquals(config, undefined, `[checks.${name}] must be rejected`);
+    const issue = issues.find((i) => i.path === `checks.${name}`);
+    assert(issue !== undefined, JSON.stringify(issues));
+    assert(issue.message.includes("label"), issue.message);
+    assert(issue.message.includes(`[capabilities].${name}`), issue.message);
+
+    // The same check WITHOUT the capability stays legal (doctor nudges it as
+    // capability-shaped, but it produces a unique label — no collision).
+    const alone = parseConfig(
+      `[checks.${name}]\nstage = "${stage}"\nrun = "y"\n`,
+    );
+    assertEquals(alone.issues, [], `[checks.${name}] alone should be accepted`);
+  }
+  // A custom-named check beside a full capability set is untouched.
+  const custom = parseConfig(
+    `[capabilities]\ntest = "x"\n[checks.selfcheck]\nstage = "check"\nrun = "y"\n`,
+  );
+  assertEquals(custom.issues, []);
+});
+
 Deno.test("every gate stage is accepted as a check stage", () => {
   for (const stage of STAGES) {
     const { issues } = parseConfig(

@@ -21,8 +21,11 @@ that the required tree or index repair would invalidate. It then walks the
 artifact producers), then **check** and **test** in parallel — and each
 **Capability** and **Check** runs as its own labelled job, so a failure points
 at the exact one rather than a whole Stage. A known Capability's Stage is
-derived from its name; a Check states its own. After the Stages come the
-**Scope** `gate`s for any Scope that changed.
+derived from its name; a Check states its own. Job labels key the run's results,
+so they must be unique: config validation rejects a `[checks.<name>]` that
+reuses a name wired under `[capabilities]` (the two jobs would otherwise
+silently overwrite each other's outcome). After the Stages come the **Scope**
+`gate`s for any Scope that changed.
 
 Interrupting the gate stops it cleanly: each job runs detached in its own
 process group so the runner can tree-kill it whole, and every shutdown path — a
@@ -42,10 +45,15 @@ watch-vs-single-run test runners into their single-run form, so a bare
 As a backstop, every job is bounded by `[gate].timeout` (default 600 seconds): a
 command that never exits within it is tree-killed — its whole process group,
 grandchildren included — and the stage fails with a plain-language diagnostic
-that names the usual cause (a watch-mode runner or a dev server) and the ways
-out (wire it in its single-run form, or raise the budget). So even a runner that
-ignores `CI` cannot make the gate hang; the guarantee is behavioural, never a
-list of known runner names ([ADR 0108](../_adr/0108-gate-job-timeout.md)).
+that names the usual cause (a watch-mode runner, a dev server, or a tool that
+daemonizes mid-run) and the ways out (wire it in its single-run form, or raise
+the budget). Even a descendant that escapes the process group while holding the
+job's output pipes — a self-daemonizing helper — cannot wedge the run: after a
+kill, the drains are released within a short grace instead of waiting for the
+escapee to exit, and a fired watchdog always reports as a failure even when the
+direct command exited clean. So even a runner that ignores `CI` cannot make the
+gate hang; the guarantee is behavioural, never a list of known runner names
+([ADR 0108](../_adr/0108-gate-job-timeout.md)).
 
 `discern prepare` is the fast inner loop: the fix-stage then check-stage work,
 with no build or test. `--json` emits the **`DiscernResult` envelope** — the one
