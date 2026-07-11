@@ -310,7 +310,7 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 # tree, so it covers a large surface; ratchet it further up as coverage improves.
 [ratchets.coverage]
 direction = "up"
-limit     = 89
+limit     = 91.8
 run       = "deno task coverage"
 
 # Prose ratchet — hold docs' Vale alert *density* at or below a falling ceiling.
@@ -325,7 +325,7 @@ run       = "deno task coverage"
 direction = "down"
 per       = { words = "${docs.dir}**" }
 scale     = 1000
-limit     = 16
+limit     = 14.43
 run       = "deno task prose \"${docs.dir}\""
 
 # Guidance-footprint ratchet — the bundled built-in guidance (templates/guidance/
@@ -366,7 +366,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 7.0
+limit     = 7.47
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${docs.dir}\""
 
 # ─────────────────────────────────────────────────────────────────────────────
