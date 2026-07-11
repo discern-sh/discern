@@ -32,6 +32,15 @@ skills. Shared concerns — config reading, the
 constants, the POSIX-`cksum` port, and root discovery with `DISCERN_*` — live
 under [`src/shared/`](../../src/shared/).
 
+Colour is resolved **once**, at the CLI entry point, from the three inputs the
+`--no-color` help text promises — the flag, the `NO_COLOR` env var, and whether
+stdout is a TTY — and threaded to every colour-emitting surface (the engine
+verbs' `colorEnabled()`, the installer/engine `Logger`s, and the grouped root
+help). No output path re-decides on its own, so `--no-color`, `NO_COLOR`, and a
+non-TTY pipe all mean zero ANSI bytes everywhere, including from Cliffy's own
+`getHelp()` (whose escapes the help post-processor strips when the resolved
+decision is "no colour", since that generator consults only `Deno.noColor`).
+
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
 never expands against the filesystem the way an unquoted shell glob would; a

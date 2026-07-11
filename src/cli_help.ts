@@ -24,6 +24,14 @@ export interface OperatorHelpOptions {
   readonly width?: number;
   /** Environment source used by terminal-width fallback (chiefly `$COLUMNS`). */
   readonly env?: EnvReader;
+  /**
+   * The CLI's resolved colour decision (`--no-color` flag + NO_COLOR + isatty).
+   * When set it governs the help's colour — including stripping any escape Cliffy's
+   * own `getHelp()` emitted, since that generator consults only `Deno.noColor` and
+   * so ignores both `--no-color` and non-TTY output. Omitted, the legacy heuristic
+   * (was the base help already coloured?) applies.
+   */
+  readonly color?: boolean;
 }
 
 /** A named, ordered bucket of top-level commands for the help listing. */
@@ -101,6 +109,20 @@ export function groupedCommandNames(): Set<string> {
 
 /** The ESC byte that opens every ANSI escape, built without a control-char regex. */
 const ESC = String.fromCharCode(27);
+
+/**
+ * Strip ANSI SGR colour sequences (`ESC [ … m`) from a string. Cliffy's `getHelp()`
+ * colours from `Deno.noColor` alone, so it emits escapes even under `--no-color` or
+ * to a pipe; when the resolved decision is "no colour" we remove them here so the
+ * help is truly plain. Built by splitting on ESC and dropping each part up to its
+ * terminating `m`, avoiding a control-character regex (matches the test helper).
+ */
+function stripAnsi(s: string): string {
+  return s
+    .split(ESC)
+    .map((part, i) => (i === 0 ? part : part.slice(part.indexOf("m") + 1)))
+    .join("");
+}
 
 /**
  * A column-0 line carrying `${label}:` — a help section heading. Cliffy renders
@@ -217,8 +239,13 @@ export function operatorHelp(
   root: Command,
   options: OperatorHelpOptions = {},
 ): string {
-  const base = root.getHelp();
-  const color = base.includes(ESC);
+  const rawBase = root.getHelp();
+  // The CLI's resolved decision wins; absent it, fall back to "did Cliffy colour
+  // the base?" (its legacy heuristic). When the decision is "no colour", strip the
+  // escapes Cliffy emitted regardless — its generator honours only Deno.noColor, so
+  // it ignores our --no-color and non-TTY output.
+  const color = options.color ?? rawBase.includes(ESC);
+  const base = color ? rawBase : stripAnsi(rawBase);
   const lines = dropVersionRow(base.split("\n"));
 
   const ci = lines.findIndex((l) => isHeading(l, "Commands"));

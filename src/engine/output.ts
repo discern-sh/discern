@@ -76,10 +76,37 @@ export function palette(color: boolean): Palette {
 }
 
 /**
- * Whether colour is on (stdout is a TTY and NO_COLOR is unset). The engine routes
- * human output to stdout, so the TTY check is on stdout.
+ * The colour decision resolved once at the CLI entry point (`main`), from the
+ * `--no-color` flag + NO_COLOR + whether stdout is a TTY. `undefined` means "no
+ * decision has been threaded" — the standalone fallback below applies. Setting it
+ * is what lets `--no-color` reach every engine verb: they all resolve colour
+ * through {@link colorEnabled}, so one resolved value governs the whole binary
+ * rather than each output path re-deciding (and forgetting the flag).
+ */
+let colorOverride: boolean | undefined;
+
+/**
+ * Thread the CLI's single resolved colour decision to every engine output path.
+ * Called once by `main` after parsing the global flags; every {@link colorEnabled}
+ * caller (the gate, status, desk, coupling, …) then honours `--no-color`, NO_COLOR,
+ * and non-TTY output uniformly. Passing `undefined` restores the standalone fallback
+ * (used by tests to reset process-global state between cases).
+ */
+export function setColorOverride(color: boolean | undefined): void {
+  colorOverride = color;
+}
+
+/**
+ * Whether colour is on. When the CLI has resolved the colour decision
+ * ({@link setColorOverride}) that value wins — so the `--no-color` flag is honoured
+ * everywhere. Absent that (a direct engine caller in a test), fall back to the
+ * standalone rule: NO_COLOR unset AND stdout is a TTY. The engine routes human
+ * output to stdout, so the TTY check is on stdout.
  */
 export function colorEnabled(): boolean {
+  if (colorOverride !== undefined) {
+    return colorOverride;
+  }
   const nc = Deno.env.get("NO_COLOR");
   if (nc !== undefined && nc !== "") {
     return false;

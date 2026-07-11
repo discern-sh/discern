@@ -8,15 +8,18 @@
  */
 
 import { Command } from "@cliffy/command";
+import { colors } from "@cliffy/ansi/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
+import { setColorOverride } from "./engine/output.ts";
 import {
   AGENT_NAMES,
   ConfigParseError,
   ConfigValidationError,
   loadConfig,
 } from "./shared/config_schema.ts";
+import type { EnvReader } from "./shared/env.ts";
 import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
@@ -65,6 +68,45 @@ function noColorFrom(color: boolean | undefined): boolean {
   }
   const env = Deno.env.get("NO_COLOR");
   return env !== undefined && env !== "";
+}
+
+/**
+ * The CLI's single colour decision — resolved ONCE, from the three inputs the
+ * `--no-color` help text promises: the flag itself, the NO_COLOR env var, and
+ * whether stdout is a TTY. Every colour-emitting path (engine verbs, the installer
+ * Loggers, the root help) is threaded from this one value in {@link main}, so no
+ * output path re-decides on its own and drops the flag. `noColorFlag` is read from
+ * argv pre-Cliffy (the flag reaches the router before Cliffy parses it). `env` and
+ * `isTerminal` are injectable so the decision is unit-testable without touching the
+ * process (the codebase's EnvReader seam).
+ */
+export function resolveColorMode(
+  noColorFlag: boolean,
+  env: EnvReader = Deno.env,
+  isTerminal: () => boolean = () => Deno.stdout.isTerminal(),
+): boolean {
+  if (noColorFlag) {
+    return false;
+  }
+  const nc = env.get("NO_COLOR");
+  if (nc !== undefined && nc !== "") {
+    return false;
+  }
+  return isTerminal();
+}
+
+/**
+ * Thread the one resolved colour decision to every surface that emits colour:
+ *  - the standalone Cliffy `colors` chain (the installer + engine `Logger`s, and
+ *    the help's own group headings) — `setColorEnabled` makes those a no-op when off;
+ *  - the engine's `colorEnabled()` (the gate/status/desk/coupling output) — via the
+ *    process-wide override.
+ * The root help additionally strips Cliffy's `getHelp()` escapes when off (it honours
+ * only `Deno.noColor`); {@link operatorHelp} does that from the `color` argument.
+ */
+function applyColorMode(color: boolean): void {
+  colors.setColorEnabled(color);
+  setColorOverride(color);
 }
 
 /**
@@ -790,6 +832,15 @@ export async function main(args: string[]): Promise<void> {
   let verb = argv[0];
 
   try {
+    // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
+    // thread it to every colour-emitting surface, so `--no-color` is honoured
+    // uniformly — engine verbs, the installer Loggers, and the root help alike —
+    // rather than each path re-deciding and dropping the flag (B32/B36). Done
+    // before helper dispatch so a helper's own output (`with-gotchas`' gotchas
+    // hint) obeys it too.
+    const color = resolveColorMode(argv.includes("--no-color"));
+    applyColorMode(color);
+
     // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
     // before Cliffy so a wrapped command's flags pass through raw. Keyed on the
     // FIRST token on purpose — helpers are internal plumbing always invoked
@@ -833,9 +884,7 @@ export async function main(args: string[]): Promise<void> {
         Deno.exit(
           await runSetupWelcome({
             json: argv.includes("--json"),
-            noColor: noColorFrom(
-              argv.includes("--no-color") ? false : undefined,
-            ),
+            noColor: !color,
           }),
         );
       }
@@ -845,14 +894,14 @@ export async function main(args: string[]): Promise<void> {
       ) {
         Deno.exit(await runDesk({}));
       }
-      console.log(operatorHelp(cli as unknown as Command));
+      console.log(operatorHelp(cli as unknown as Command, { color }));
       await printProjectRecipes();
       Deno.exit(0);
     }
 
     // Explicit help: Cliffy's help plus the project-recipe listing.
     if (verb === "-h" || verb === "--help") {
-      console.log(operatorHelp(cli as unknown as Command));
+      console.log(operatorHelp(cli as unknown as Command, { color }));
       await printProjectRecipes();
       Deno.exit(0);
     }
