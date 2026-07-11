@@ -1,4 +1,5 @@
 import { capText } from "../../shared/result.ts";
+import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 
 export interface DiagnosticOutputFields {
   output: string;
@@ -8,10 +9,7 @@ export interface DiagnosticOutputFields {
 
 async function writeFullOutput(fullText: string): Promise<string | undefined> {
   try {
-    const path = await Deno.makeTempFile({
-      prefix: "discern-diag-",
-      suffix: ".log",
-    });
+    const path = await makeTempArtifact("diag");
     await Deno.writeTextFile(path, fullText);
     return path;
   } catch {

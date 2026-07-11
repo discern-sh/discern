@@ -163,6 +163,7 @@ setext
 SHA
 shellcheck
 snake_case
+snapshotting
 spawners?
 stderr
 stdin
@@ -181,12 +182,14 @@ symlink
 teardown
 templated
 templater
+tmpfs
 TODOs?
 toggleable
 toolchain
 touchpoints?
 typecheck(ing)?
 typo'd
+unawaited
 unclamped
 unconfigured
 uncreatable

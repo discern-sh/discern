@@ -29,8 +29,18 @@ import {
 } from "./engine_helpers.ts";
 import {
   gateReceiptHonored,
+  inspectGateReceipt,
+  pinValidatedTree,
   recordGateOutcome,
 } from "../src/engine/gate/receipt.ts";
+
+/** Record a green outcome with a pin captured NOW — the "nothing raced the gate"
+ * shorthand the receipt-primitive tests below use. */
+async function recordGreenNow(
+  dir: string,
+): ReturnType<typeof recordGateOutcome> {
+  return await recordGateOutcome(dir, true, await pinValidatedTree(dir));
+}
 
 /** A check-stage gate that fails iff `taboo.txt` exists — a deterministic stand-in for
  * "the merged tree breaks a check". guidance/skills off so the check is the only gate. */
@@ -105,7 +115,7 @@ Deno.test("receipt: a green+clean finish stamps HEAD, and gateReceiptHonored con
     await scaffoldEngine(dir);
     await gitInit(dir);
     assertEquals(await gateReceiptHonored(dir), false); // nothing stamped yet
-    assertEquals((await recordGateOutcome(dir, true)).status, "recorded");
+    assertEquals((await recordGreenNow(dir)).status, "recorded");
     assertEquals(await gateReceiptHonored(dir), true);
   });
 });
@@ -123,7 +133,7 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
     const receiptPath = absoluteGitPath(dir, raw);
     await Deno.mkdir(receiptPath);
 
-    const receipt = await recordGateOutcome(dir, true);
+    const receipt = await recordGreenNow(dir);
     assertEquals(receipt.status, "record_failed");
     assertEquals(receipt.path, receiptPath);
     assert(
@@ -138,7 +148,7 @@ Deno.test("receipt: a new commit invalidates a stamped receipt (the integrate ca
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await recordGateOutcome(dir, true);
+    await recordGreenNow(dir);
     assertEquals(await gateReceiptHonored(dir), true);
     // A later commit moves HEAD past the validated sha — exactly what integrate's merge does.
     await Deno.writeTextFile(join(dir, "x.txt"), "x\n");
@@ -152,7 +162,7 @@ Deno.test("receipt: an uncommitted change invalidates a stamped receipt", async 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await recordGateOutcome(dir, true);
+    await recordGreenNow(dir);
     assertEquals(await gateReceiptHonored(dir), true);
     await Deno.writeTextFile(join(dir, "dirty.txt"), "dirty\n"); // untracked → not clean
     assertEquals(await gateReceiptHonored(dir), false);
@@ -163,9 +173,9 @@ Deno.test("receipt: a failed finish clears an existing receipt (fail-closed)", a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await recordGateOutcome(dir, true);
+    await recordGreenNow(dir);
     assertEquals(await gateReceiptHonored(dir), true);
-    await recordGateOutcome(dir, false); // a later failing gate revokes the vouch
+    await recordGateOutcome(dir, false, await pinValidatedTree(dir)); // a later failing gate revokes the vouch
     assertEquals(await gateReceiptHonored(dir), false);
   });
 });
@@ -174,12 +184,64 @@ Deno.test("receipt: a green-but-dirty finish leaves a prior clean receipt intact
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await recordGateOutcome(dir, true); // stamped at clean HEAD C
+    await recordGreenNow(dir); // stamped at clean HEAD C
     await Deno.writeTextFile(join(dir, "wip.txt"), "wip\n"); // tree now dirty
-    await recordGateOutcome(dir, true); // green+dirty → must NOT overwrite/clear the vouch
+    await recordGreenNow(dir); // green+dirty → must NOT overwrite/clear the vouch
     assertEquals(await gateReceiptHonored(dir), false); // dirty → not honored right now
     await Deno.remove(join(dir, "wip.txt")); // back to clean C
     assertEquals(await gateReceiptHonored(dir), true); // the prior clean vouch still holds
+  });
+});
+
+Deno.test("receipt: a commit made while the gate ran is never stamped (the pin catches it)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The gate pins the tree at run start…
+    const pin = await pinValidatedTree(dir);
+    // …then a commit lands mid-run (an agent or its user in another terminal).
+    await Deno.writeTextFile(join(dir, "mid.txt"), "mid-run commit\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "mid-run", "--no-gpg-sign");
+    // The green outcome describes the PINNED tree, not the new HEAD — no vouch.
+    const rec = await recordGateOutcome(dir, true, pin);
+    assertEquals(rec.status, "skipped_head_moved");
+    assert(
+      rec.reason !== undefined && rec.reason.includes("HEAD moved"),
+      `expected a HEAD-moved reason: ${JSON.stringify(rec)}`,
+    );
+    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals((await inspectGateReceipt(dir)).status, "missing");
+  });
+});
+
+Deno.test("receipt: a mid-run commit leaves a prior clean vouch intact (still truthful at its sha)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await recordGreenNow(dir); // vouch at clean HEAD C
+    const pin = await pinValidatedTree(dir); // a gate re-run pins C…
+    await git(dir, "commit", "-q", "--allow-empty", "-m", "D", "--no-gpg-sign");
+    // …and a mid-run commit D refuses the stamp, WITHOUT clearing C's vouch.
+    const rec = await recordGateOutcome(dir, true, pin);
+    assertEquals(rec.status, "skipped_head_moved");
+    assertEquals((await inspectGateReceipt(dir)).status, "stale"); // still names C
+    await git(dir, "reset", "-q", "--hard", "HEAD~1"); // back at clean C
+    assertEquals(await gateReceiptHonored(dir), true); // the truthful vouch holds
+  });
+});
+
+Deno.test("receipt: a tree that was dirty when the gate began is not stamped even if clean at record time", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, "wip.txt"), "wip\n"); // dirty at gate start
+    const pin = await pinValidatedTree(dir);
+    await Deno.remove(join(dir, "wip.txt")); // cleaned mid-run (checkout/stash)
+    // The gate read the dirty tree, which is NOT the tree HEAD names — no vouch.
+    const rec = await recordGateOutcome(dir, true, pin);
+    assertEquals(rec.status, "skipped_dirty");
+    assertEquals(await gateReceiptHonored(dir), false);
   });
 });
 
@@ -298,6 +360,56 @@ Deno.test("graduate: with no prior `finish`, graduate runs the gate itself befor
     // carries the landing record.
     assertStringIncludes(obj.data.receipt, "### Receipt — `agent/zeta`");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
+  });
+});
+
+// ── the pin: a commit made DURING validation can never land unvalidated ─────────
+
+Deno.test("graduate: refuses to land a commit that appeared while its validation gate ran", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir);
+    const wt = await addWorktree(dir, "theta");
+    await commitBranchWork(wt);
+
+    // Sabotage the check so it COMMITS a new file mid-gate — a deterministic
+    // stand-in for "someone commits in another terminal while the suite runs".
+    // The gate itself stays green (the script exits 0).
+    await writeExecutable(
+      join(wt, "check.sh"),
+      [
+        "#!/usr/bin/env sh",
+        "if [ ! -f sneaky.txt ]; then",
+        "  echo sneak > sneaky.txt",
+        "  git add sneaky.txt",
+        "  git commit -q -m 'sneak: committed mid-gate' --no-gpg-sign",
+        "fi",
+        "",
+      ].join("\n"),
+    );
+    await commitCurrentWorktree(wt, "chore: wire the mid-gate committer");
+
+    // No receipt exists, so graduate re-runs the gate (slow path). The gate is
+    // green, but HEAD moved beneath it — landing must refuse, because the tree
+    // at the branch tip is not the tree the gate read.
+    const grad = await runAgent(wt, ["graduate"]);
+    assertEquals(grad.code, 1, grad.output);
+    assertStringIncludes(grad.output, "moved while this graduation");
+    // Non-destructive: the worktree survives and nothing reached the trunk.
+    assertEquals(
+      await exists(wt),
+      true,
+      `worktree must survive\n${grad.output}`,
+    );
+    assertEquals(
+      await exists(join(dir, "feature.txt")),
+      false,
+      "no commit may fast-forward onto the trunk unvalidated",
+    );
+    assertEquals(
+      await exists(join(dir, "sneaky.txt")),
+      false,
+      "the mid-gate commit must not land",
+    );
   });
 });
 

@@ -127,6 +127,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0113 — Installing a new dependency is a consent point in setup](0113-installing-a-dependency-is-a-consent-point.md)
 - [0114 — A green gate emits the receipt](0114-the-gate-emits-the-receipt.md)
 - [0115 — Under a nested project root, every verb works correctly or refuses loudly](0115-nested-root-verbs-work-or-refuse.md)
+- [0116 — Receipts vouch only for the pinned tree, and graduate lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
+- [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
 
 ## Superseded and consolidated ADRs
 

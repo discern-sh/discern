@@ -22,6 +22,13 @@ A dirty tree earns no receipt: the diff vs the trunk would describe a different
 tree than the one the gate validated. Commit the intended final tree, then run
 the final `finish` on the clean HEAD.
 
+The same identity rule holds across time, not just at the edges: `finish` pins
+the tree (HEAD plus cleanliness) before any job runs and re-verifies the pin at
+stamp time, so a commit made _while_ the gate was running earns no receipt
+either (`data.gate_receipt.status` reports `skipped_head_moved`). The receipt
+vouches only for the exact tree the gate actually read — re-run `finish` on the
+final commit.
+
 ## Where it appears
 
 - **`discern finish`** prints it at the tail of a green human run and carries it

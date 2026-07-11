@@ -1,4 +1,5 @@
 import { normalizeCapturedOutput } from "../../shared/result.ts";
+import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 
 export interface JobOutputSummary {
   /** Best-effort path to this job's full combined stdout+stderr capture. */
@@ -46,10 +47,7 @@ export class JobOutputRecorder {
 
   static async create(): Promise<JobOutputRecorder> {
     try {
-      const path = await Deno.makeTempFile({
-        prefix: "discern-job-",
-        suffix: ".log",
-      });
+      const path = await makeTempArtifact("job");
       const file = await Deno.open(path, {
         write: true,
         truncate: true,

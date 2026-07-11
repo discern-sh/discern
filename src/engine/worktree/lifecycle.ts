@@ -131,7 +131,7 @@ import { resolveTemplatesDir } from "../../lib/paths.ts";
 // the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
 // tree never run through `finish`) cannot fast-forward onto the trunk unvalidated.
 import { failMessage, finishResult } from "../gate/finish.ts";
-import { inspectGateReceipt } from "../gate/receipt.ts";
+import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
@@ -1178,6 +1178,21 @@ function graduateGateRefusal(
     (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
 }
 
+/** The graduate refusal when the branch tip has moved off the commit the gate
+ * validated — a commit landed while graduation was validating (or between the
+ * validation and the fast-forward), so the tree that would land is not the tree
+ * the gate tested. Nothing has been changed when this fires. */
+function movedDuringGraduationRefusal(
+  branch: string,
+  worktreePath: string,
+): string {
+  return `Branch '${branch}' moved while this graduation was validating it — ` +
+    `a commit landed after the gate run began, so the tree that would land ` +
+    `is not the tree the gate tested. Nothing was changed and the worktree ` +
+    `is intact. Re-run \`discern finish\` on the final commit from ` +
+    `${worktreePath}, then \`discern graduate\` again.`;
+}
+
 async function assertGraduateBranchStillCurrent(
   cwd: string,
   trunkBranch: string,
@@ -1245,21 +1260,44 @@ async function executeGraduatePlan(
       : { mode: "rerun", receipt };
   // The receipt markdown for the tree that lands — the landing record graduate
   // prints and carries: the honored marker stored it on the fast path; the fresh
-  // gate run rendered it on the slow path.
+  // gate run rendered it on the slow path. `validatedSha` is the ONE commit this
+  // validation vouches for — the honored receipt's recorded sha, or the HEAD pinned
+  // before the gate re-run — and it is the exact rev the fast-forward below lands:
+  // a commit made during the (minutes-long) re-run must never ride along unvalidated.
   let receiptMarkdown: string | undefined;
+  let validatedSha: string | undefined;
   if (gateValidation.mode === "receipt") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
     receiptMarkdown = receipt.receipt;
+    validatedSha = receipt.head;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
+    const pin = await pinValidatedTree(ctx.cwd);
     const gate = await finishResult(ctx.cwd);
     if (!gate.ok) {
       throw new WorktreeGitError(graduateGateRefusal(worktreeBranch, gate));
     }
+    const now = await pinValidatedTree(ctx.cwd);
+    if (
+      pin.head === undefined || now.head !== pin.head || !pin.clean ||
+      !now.clean
+    ) {
+      throw new WorktreeGitError(
+        movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+      );
+    }
     ctx.log.ok("Gate passed against the tree to be landed.");
     receiptMarkdown = gate.data?.receipt?.markdown;
+    validatedSha = pin.head;
+  }
+  if (validatedSha === undefined) {
+    // Defensive: an honored receipt always carries its head; refuse rather than
+    // fall back to landing whatever the branch name resolves to at merge time.
+    throw new WorktreeGitError(
+      movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+    );
   }
 
   await assertGraduateBranchStillCurrent(ctx.cwd, trunk);
@@ -1320,9 +1358,20 @@ async function executeGraduatePlan(
       ),
     );
   }
+  // Land the VALIDATED sha, not the branch name: a branch name resolves at merge
+  // time, so a commit made after the validation above would ride onto the trunk
+  // untested. Re-check the tip still names the validated commit (so the branch
+  // deletion below deletes a fully-merged branch), then fast-forward to the sha.
+  const tipNow = (await run(["rev-parse", "--verify", worktreeBranch], ctx.cwd))
+    .stdout.trim();
+  if (tipNow !== validatedSha) {
+    throw new WorktreeGitError(
+      movedDuringGraduationRefusal(worktreeBranch, worktreePath),
+    );
+  }
   ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
   const ff = await run(
-    ["merge", "--ff-only", "--quiet", worktreeBranch],
+    ["merge", "--ff-only", "--quiet", validatedSha],
     mainRepo,
   );
   if (!ff.success) {

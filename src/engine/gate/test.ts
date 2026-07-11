@@ -15,6 +15,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
+import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
@@ -66,6 +67,9 @@ async function runTestGate(
       cfg,
     };
   }
+  // Retention for the job output artifacts the run is about to create (ADR 0117)
+  // — before jobs spawn, so the sweep can never sit on a job's kill path.
+  await sweepDueTempArtifacts();
   const { results, failedStage } = await runJobGroups([group], runOpts, out);
   const { steps, diagnostics, hints } = await serializeJobSteps(
     [group],

@@ -252,6 +252,7 @@ export const GateDataSchema = z.strictObject({
     status: z.enum([
       "recorded",
       "skipped_dirty",
+      "skipped_head_moved",
       "unavailable",
       "record_failed",
       "cleared",
