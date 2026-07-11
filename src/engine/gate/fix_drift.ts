@@ -44,7 +44,14 @@ export async function worktreeDirtyPaths(
   if (!r.success) {
     return null;
   }
-  return new Set(parsePorcelainZ(r.stdout).map((entry) => entry.path));
+  const paths = new Set<string>();
+  for (const entry of parsePorcelainZ(r.stdout)) {
+    if (entry.origPath !== undefined) {
+      paths.add(entry.origPath);
+    }
+    paths.add(entry.path);
+  }
+  return paths;
 }
 
 /**

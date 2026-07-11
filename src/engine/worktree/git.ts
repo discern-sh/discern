@@ -463,7 +463,7 @@ export async function integrateMain(
   // calling THAT a conflict would bury git's actual reason. Evidence, never
   // stderr prose: git's messages are locale-dependent.
   const conflicted = await git(
-    ["diff", "--name-only", "-z", "--diff-filter=U"],
+    ["diff", "--name-only", "--no-renames", "-z", "--diff-filter=U"],
     cwd,
   );
   const files = conflicted.success ? splitNulRecords(conflicted.stdout) : [];

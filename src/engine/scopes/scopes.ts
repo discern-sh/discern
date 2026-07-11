@@ -55,8 +55,12 @@ export async function collectPaths(
   root: string,
   mainBranch: string,
 ): Promise<string[] | null> {
+  // --no-renames: rename detection would collapse a rename to one R line naming
+  // only the NEW path, silently dropping the vacated old path from the change
+  // set (a rename out of a gated scope would then fire fewer gates than a plain
+  // deletion). Detection off, both sides list as a D + an A.
   const committed = await runGit(
-    ["diff", "--name-only", "-z", `${mainBranch}...HEAD`],
+    ["diff", "--name-only", "--no-renames", "-z", `${mainBranch}...HEAD`],
     { cwd: root },
   );
   if (!committed.success) {
@@ -71,7 +75,12 @@ export async function collectPaths(
   }
 
   const paths = splitNulRecords(committed.stdout);
-  paths.push(...parsePorcelainZ(pending.stdout).map((entry) => entry.path));
+  for (const entry of parsePorcelainZ(pending.stdout)) {
+    if (entry.origPath !== undefined) {
+      paths.push(entry.origPath);
+    }
+    paths.push(entry.path);
+  }
   return paths;
 }
 

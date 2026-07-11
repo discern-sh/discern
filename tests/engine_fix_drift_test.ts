@@ -80,12 +80,23 @@ Deno.test("fixDriftPaths: a no-op fix stage strands nothing", () => {
 
 // ── pure: the shared porcelain parser ───────────────────────────────────────────
 
-Deno.test("the strand snapshot reads -z records: status stripped, rename target kept verbatim", () => {
-  const out = " M src/a.ts\0?? new.txt\0R  new name.ts\0old.ts\0";
-  assertEquals(parsePorcelainZ(out).map((entry) => entry.path), [
+Deno.test("the strand snapshot reads both sides of -z rename records verbatim", () => {
+  // A rename names two paths, and both are evidence: losing the vacated (old)
+  // side would make a rename register as LESS change than a plain deletion —
+  // the scope classifier would skip the vacated scope's gate, and a fixer-made
+  // rename would under-report its strand.
+  const out =
+    " M src/a.ts\0?? new.txt\0R  new name.ts\0old.ts\0R  renamed.ts\0old name.ts\0";
+  const paths = parsePorcelainZ(out).flatMap((entry) =>
+    entry.origPath === undefined ? [entry.path] : [entry.origPath, entry.path]
+  );
+  assertEquals(paths, [
     "src/a.ts",
     "new.txt",
+    "old.ts",
     "new name.ts",
+    "old name.ts",
+    "renamed.ts",
   ]);
 });
 

@@ -99,6 +99,42 @@ Deno.test("scopes emits ONLY declared SCOPE_MARKERS alongside the configured sco
   });
 });
 
+Deno.test("scopes: a rename OUT of a gated scope still fires the vacated scope", async (t) => {
+  // A rename is a deletion from the old scope plus an addition elsewhere. Dropping
+  // the vacated (old) path would run FEWER gates than a plain deletion of the same
+  // file — exactly what the fail-open doctrine forbids. Table-driven over BOTH
+  // change-set sources: the committed diff (main...HEAD) and the porcelain
+  // working tree (a staged rename).
+  for (const commit of [true, false]) {
+    const name = commit ? "committed rename" : "staged, uncommitted rename";
+    await t.step(name, async () => {
+      await withTempDir(async (dir) => {
+        await scaffoldWithWidget(dir); // widget/x.txt exists, still untracked
+        await git(dir, "add", "-A");
+        await git(dir, "commit", "-q", "-m", "widget on main", "--no-gpg-sign");
+        await git(dir, "checkout", "-q", "-b", "task");
+        await Deno.mkdir(join(dir, "attic"), { recursive: true });
+        await git(dir, "mv", "widget/x.txt", "attic/x.txt");
+        if (commit) {
+          await git(
+            dir,
+            "commit",
+            "-q",
+            "-m",
+            "vacate widget",
+            "--no-gpg-sign",
+          );
+        }
+        const result = await classifyScopes(dir);
+        assert(
+          result.includes("widget"),
+          `${name}: the vacated scope must fire, got: [${result}]`,
+        );
+      });
+    });
+  }
+});
+
 Deno.test("scopes fails open when git cannot diff against the main branch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
