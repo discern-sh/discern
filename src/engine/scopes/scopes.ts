@@ -162,6 +162,37 @@ export function isNeutralPath(config: DiscernConfig, path: string): boolean {
 }
 
 /**
+ * Which of `candidates` (scope names, already in declaration order) some path in
+ * `paths` falls in, preserving that order — the one scope-matching loop every
+ * classifier shares, so "which scopes do these paths touch?" is answered by a
+ * single matcher regardless of WHICH subset of scopes the caller cares about
+ * (the gated ones, the previewable ones). Each path is normalized here (trimmed,
+ * leading slash stripped); the caller chooses the candidate set and whether the
+ * paths were neutral-filtered first.
+ */
+function scopesTouchedBy(
+  paths: string[],
+  config: DiscernConfig,
+  candidates: string[],
+): string[] {
+  const fired = new Set<string>();
+  for (const raw of paths) {
+    const path = raw.trim().replace(/^\//, "");
+    if (path === "") {
+      continue;
+    }
+    for (const s of candidates) {
+      if (
+        !fired.has(s) && pathMatchesGlobs(resolvedScopePaths(config, s), path)
+      ) {
+        fired.add(s);
+      }
+    }
+  }
+  return candidates.filter((s) => fired.has(s));
+}
+
+/**
  * The fire-scopes an explicit list of changed paths touches, in declaration order —
  * the scope-matching half of {@link scopes}, factored out so any verb that
  * already has a path list in hand (integrate's incoming files) classifies it through
@@ -176,21 +207,25 @@ export function scopesForPaths(
 ): string[] {
   const scopes = config.scopes;
   const fireScopes = Object.keys(scopes).filter((s) => !scopes[s]?.neutral);
-  const fired = new Set<string>();
-  for (const raw of paths) {
-    const path = raw.trim().replace(/^\//, "");
-    if (path === "") {
-      continue;
-    }
-    for (const s of fireScopes) {
-      if (
-        !fired.has(s) && pathMatchesGlobs(resolvedScopePaths(config, s), path)
-      ) {
-        fired.add(s);
-      }
-    }
-  }
-  return fireScopes.filter((s) => fired.has(s));
+  return scopesTouchedBy(paths, config, fireScopes);
+}
+
+/**
+ * Whether a previewable-flagged scope changed — the truth behind the
+ * `previewable` marker. Derived over the UNFILTERED changed paths (not the
+ * neutral-filtered `realPaths` the gate keys off), because "previewable" and
+ * "neutral" are independent flags: a scope can be BOTH (a generated preview a
+ * person can still see), and a change there must light the preview signal even
+ * though it fires no gate. Matches every previewable-flagged scope — neutral
+ * ones included — via the shared matcher.
+ */
+function anyPreviewableScopeChanged(
+  paths: string[],
+  config: DiscernConfig,
+): boolean {
+  const scopes = config.scopes;
+  const previewable = Object.keys(scopes).filter((s) => scopes[s]?.previewable);
+  return scopesTouchedBy(paths, config, previewable).length > 0;
 }
 
 /**
@@ -214,18 +249,23 @@ export async function classifyScopes(
     return [...SCOPE_MARKERS, ...fireScopes];
   }
 
-  // The real (non-neutral) changed paths: any one is a gated `code` change, and the
-  // fire-scopes they fall in (via the shared matcher) decide the `previewable` marker.
-  const realPaths = paths
+  // All changed paths, normalized (trimmed, leading slash stripped, empties
+  // dropped). The `previewable` marker is derived over THIS unfiltered set:
+  // its contract is "a previewable-flagged scope changed", and a previewable
+  // scope may also be neutral, so filtering neutrals out first would hide it.
+  const normPaths = paths
     .map((raw) => raw.trim().replace(/^\//, ""))
-    .filter((path) => path !== "" && !isNeutralPath(config, path));
+    .filter((path) => path !== "");
+  // The real (non-neutral) changed paths: any one is a gated `code` change, and
+  // the fire-scopes they fall in (via the shared matcher) are what the gate runs.
+  const realPaths = normPaths.filter((path) => !isNeutralPath(config, path));
   const fired = scopesForPaths(realPaths, config);
 
   const out: string[] = [];
   if (realPaths.length > 0) {
     out.push(CODE_MARKER);
   }
-  if (fired.some((s) => scopes[s]?.previewable)) {
+  if (anyPreviewableScopeChanged(normPaths, config)) {
     out.push(PREVIEWABLE_MARKER);
   }
   out.push(...fired);
