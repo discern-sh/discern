@@ -154,8 +154,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .usage("<command> [options]")
     .description(
       "Operate your project's quality gate and isolated git-worktree workflow " +
-        "— the stack-neutral agentic-development harness (`discern setup` " +
-        "scaffolds it the first time).",
+        "— a stack-neutral system; `discern setup` scaffolds it the first time.",
     )
     .example(
       "Orient yourself",
@@ -182,7 +181,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
       console.log(operatorHelp(this as unknown as Command));
     });
 
-  // `setup` — the staged, zero-config harness setup (ADR 0036, staged by ADR 0075).
+  // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
   // A bare `discern setup` (no scaffold input) prints the read-only WELCOME; the
   // sub-verbs drive the handshake — `begin` (the first mutating step: scaffold +
   // brief) and `done` (prove + record). The declarative `--config`/flag path scaffolds
@@ -192,7 +191,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   // map them through `beginOptsFrom`.
   const setupBegin = new Command()
     .description(
-      "Scaffold the harness, record provenance, and print the setup brief (the first mutating step).",
+      "Scaffold discern, record provenance, and print the setup brief (the first mutating step).",
     )
     .option("--name <name:string>", "Project name (free text).")
     .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
@@ -292,7 +291,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
 
   const setup = new Command()
     .description(
-      "Set up the harness here (run once; your coding agent does it for you).",
+      "Set up discern here (run once; your coding agent does it for you).",
     )
     .option("--name <name:string>", "Project name (free text).")
     .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")

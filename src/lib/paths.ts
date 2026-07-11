@@ -244,7 +244,7 @@ export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
  * leaks into every user's binary. `50-engine-internals` and `80-development` are
  * for people working ON discern (the dispatcher's internals, the Deno tasks, the
  * install surface), not people using it, so they are deliberately absent: a user
- * browsing `discern help` should see how to operate the harness, not how it is
+ * browsing `discern help` should see how to operate discern, not how it is
  * built. The one list the embed and the curation guard test read.
  */
 export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [

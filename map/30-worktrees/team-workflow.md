@@ -29,7 +29,7 @@ environments, and how to opt into shipping the artifacts if you want them.)
 
 ## The one-minute path to full function
 
-For a teammate who wants the whole harness, not just the code:
+For a teammate who wants the whole discern workflow, not just the code:
 
 1. **Install the discern binary** — the same one-line install from the project's
    install page.

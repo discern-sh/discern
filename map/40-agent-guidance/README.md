@@ -1,9 +1,9 @@
 # Agent guidance (author-once → compile-everywhere)
 
-_discern's built-in harness guidance plus your sources, compiled to every
-agent's instruction file._
+_discern's built-in guidance plus your sources, compiled to every agent's
+instruction file._
 
-This subtree covers the instruction pipeline. discern ships **built-in harness
+This subtree covers the instruction pipeline. discern ships **built-in
 guidance** bundled in the binary
 ([`templates/guidance/`](../../templates/guidance/)); you add your own
 **Guidance source** — `[guidance].sources` in `discern.toml`, default

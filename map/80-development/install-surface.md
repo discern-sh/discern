@@ -4,9 +4,9 @@ _What `discern setup` lays down in a project, and which files are **yours**
 (written once, then kept), **co-managed** (discern owns a delimited part), or
 **the binary's** (re-published artifacts, always safe to overwrite)._
 
-One `discern setup` scaffolds the harness into a project. The committed
-footprint is **one root file, `discern.toml`, plus one visible folder,
-`discern/`** — enforced by test
+One `discern setup` scaffolds discern into a project. The committed footprint is
+**one root file, `discern.toml`, plus one visible folder, `discern/`** —
+enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md);
 see [the write-surface contract](#the-write-surface-contract)). `discern.toml`
 stays at the root as the discovery marker; the `discern/` namespace holds
@@ -39,8 +39,8 @@ binary treats it on `upgrade` and where you change it.
 
 A limit case of the binary's bucket is **bundled**: the engine, the built-in
 skills ([`templates/skills/`](../../templates/skills/)), and the built-in
-harness guidance ([`templates/guidance/`](../../templates/guidance/)) ship
-_inside_ the binary and are never committed to a project at all
+guidance ([`templates/guidance/`](../../templates/guidance/)) ships _inside_ the
+binary and are never committed to a project at all
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The same buckets are
 defined in the [glossary](../00-orientation/glossary.md#file-dispositions).
 
@@ -176,12 +176,12 @@ the stable worktree identity (POSIX-`cksum`-faithful) in
 
 `discern refresh` ([`src/engine/guidelines.ts`](../../src/engine/guidelines.ts))
 regenerates the generated agent files, skills, and integration artifacts: it
-compiles each agent file as **discern's built-in harness guidance** (always
-prepended) **plus your `[guidance].sources`**, and (re)materialises the skills.
-Which files it writes is set by `[guidance].agents`, through the provider
-registry ([`src/lib/providers.ts`](../../src/lib/providers.ts)) — the
-per-provider truth, including each agent's MCP, hooks, and skills wiring, is
-mapped in [`../60-agent-integrations/`](../60-agent-integrations/).
+compiles each agent file as **discern's built-in guidance** (always prepended)
+**plus your `[guidance].sources`**, and (re)materialises the skills. Which files
+it writes is set by `[guidance].agents`, through the provider registry
+([`src/lib/providers.ts`](../../src/lib/providers.ts)) — the per-provider truth,
+including each agent's MCP, hooks, and skills wiring, is mapped in
+[`../60-agent-integrations/`](../60-agent-integrations/).
 
 ## Bundled skills
 

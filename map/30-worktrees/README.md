@@ -216,8 +216,8 @@ inspectable before they act.
 
 - [concepts.md](../00-orientation/concepts.md) — where Worktrees sit in the
   loop.
-- [ADR 0011](../_adr/0011-adopt-worktree-workflow.md) — why the harness adopted
-  this workflow.
+- [ADR 0011](../_adr/0011-adopt-worktree-workflow.md) — why discern adopted this
+  workflow.
 - [ADR 0025](../_adr/0025-worktree-resources.md) — generalizing the
   db/dev-server adapters into per-worktree resources with orphan GC.
 - [ADR 0052](../_adr/0052-worktree-sibling-placement.md) — placing Worktrees in

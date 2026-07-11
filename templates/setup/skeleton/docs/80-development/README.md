@@ -6,7 +6,7 @@ This subtree documents the developer experience: getting set up locally, the tes
 
 > The leaves marked below are skeletons. `discern setup` and the `discern-document-subsystem` skill fill them once the project's stack is known. The [gate gotchas](done-gate-gotchas.md) leaf already carries the stack-independent traps and is ready to grow.
 
-The end-to-end loop is short and the same on every stack the harness runs on:
+The end-to-end loop is short and the same on every stack discern runs on:
 
 - `discern start` creates an isolated worktree for a change and moves you into it (see the worktree note in the project guidelines).
 - `discern prepare` is the fast inner loop — it applies the fix-stage capabilities, then the check-stage capabilities, and never builds or tests.

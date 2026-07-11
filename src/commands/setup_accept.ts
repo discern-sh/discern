@@ -2,11 +2,11 @@
  * `discern setup accept` — land the finished setup onto the integration branch.
  *
  * A fresh `discern setup` isolates its several commits on a dedicated `discern-setup`
- * branch (ADR 0065), so after `setup done` the harness exists on that branch but NOT
+ * branch (ADR 0065), so after `setup done` discern exists on that branch but NOT
  * on `main`. A novice who restarts and switches to `main` can appear to "lose" discern
  * entirely. This command closes that gap deterministically: it fast-forwards (or
  * merges) the `discern-setup` branch onto the integration branch and deletes the
- * merged branch, leaving the user on `main` with the harness in place. It lands
+ * merged branch, leaving the user on `main` with discern in place. It lands
  * ONLY that dedicated branch: run from any other branch it refuses, because the
  * merge takes whatever the current branch contains and an ordinary branch's own
  * commits would be swept onto the trunk with no review.

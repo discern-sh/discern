@@ -52,7 +52,7 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
     8,
     9,
   ]);
-  assertStringIncludes(brief.preamble, "# Set up the harness");
+  assertStringIncludes(brief.preamble, "# Set up discern");
   assertStringIncludes(brief.preamble, "Operating principles");
   assertStringIncludes(
     brief.epilogue,
@@ -171,7 +171,7 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const d = JSON.parse(r.stdout).data;
-    assertStringIncludes(d.instructions, "# Set up the harness");
+    assertStringIncludes(d.instructions, "# Set up discern");
     assert(
       !d.instructions.includes("## Step 2 —"),
       "begin --json must not carry Step 2",

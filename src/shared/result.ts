@@ -67,7 +67,7 @@ export type StepKind = (typeof STEP_KINDS)[number];
  * Who a step's command belongs to — the two-way split `discern doctor`'s execution
  * model marks every step with: `"project"` is a command from the project's own config
  * (a capability/check, a scope or standard command, a resource `create`/`destroy`, a
- * `[worktree.setup]` step), `"discern"` is a built-in operation the harness performs
+ * `[worktree.setup]` step), `"discern"` is a built-in operation discern performs
  * itself (a precondition check, a git mutation, an env/refresh step). A const tuple so
  * `result_schemas.ts` derives its Zod enum from it rather than hand-mirroring.
  */

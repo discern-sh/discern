@@ -1,5 +1,5 @@
 /**
- * `discern uninstall` — take the harness back out of a project, cleanly.
+ * `discern uninstall` — take discern back out of a project, cleanly.
  *
  * The exit-honesty verb (design principle 12): discern removes exactly what it
  * wired and keeps everything the user owns, so leaving is never expensive and
@@ -25,7 +25,7 @@
  * files at paths the user chose or accepted, valuable without the tool. It ends
  * by listing what stayed and the one line to remove the binary.
  *
- * Deliberately CLI-only, NOT an MCP tool: uninstalling the harness is a human's
+ * Deliberately CLI-only, NOT an MCP tool: uninstalling discern is a human's
  * decision, not something an agent should reach for mid-session. It refuses while
  * linked worktrees are still in flight, so it never pulls the wiring out from
  * under work in progress.

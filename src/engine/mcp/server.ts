@@ -598,8 +598,8 @@ export const TOOLS: McpTool[] = orderTools([
     // project, matching the CLI, which serves `discern help` from anywhere (B38).
     rootIndependent: true,
     description:
-      "Read discern's OWN documentation — the harness's docs (the discern.toml " +
-      "config reference, the concepts, the gate/worktree/standard pages), bundled " +
+      "Read discern's OWN documentation — the discern.toml config reference, " +
+      "concepts, and gate/worktree/standard pages — bundled " +
       "into every install. Distinct from discern_map, which reads the host " +
       "PROJECT's map: call this to learn how discern itself works, before editing " +
       "discern.toml or reasoning about the gate. With no argument, return the index " +
@@ -1416,7 +1416,7 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern is this project's quality harness, and these tools are the primary " +
+    "discern supplies this project's quality gate and worktree workflow, and these tools are the primary " +
     "surface for working in it — prefer them over shelling out to the `discern` " +
     "CLI; each returns a structured result you can read directly.",
     "",

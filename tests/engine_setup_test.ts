@@ -28,9 +28,9 @@ import {
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
-const INSTRUCTIONS_H1 = "# Set up the harness";
+const INSTRUCTIONS_H1 = "# Set up discern";
 /** The setup command's help description — present in `--help` only when shown. */
-const HELP_DESC = "Set up the harness here";
+const HELP_DESC = "Set up discern here";
 
 Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the repo root", async () => {
   await withTempDir(async (dir) => {
@@ -1369,7 +1369,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     );
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
-      "discern: scaffold harness",
+      "discern: scaffold wiring",
     );
 
     // The commit holds EXACTLY discern's machinery — the config, the gitignore fragment,
@@ -1533,7 +1533,7 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
     assertEquals(res.data.branch, "discern-setup"); // the branch was still created
     assertEquals(res.data.machinery_committed, false); // but the commit fell open
 
-    // No `discern: scaffold harness` commit was authored (only the gitInit baseline),
+    // No `discern: scaffold wiring` commit was authored (only the gitInit baseline),
     // and the machinery is left in the working tree for the agent to commit by hand.
     assertEquals(await gitOut(dir, "rev-list", "--count", "HEAD"), "1");
     assertStringIncludes(

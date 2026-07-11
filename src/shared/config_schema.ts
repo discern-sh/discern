@@ -232,7 +232,7 @@ const projectSection = z.strictObject({
     "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
   ),
   branch_prefix: z.string().default("agent/").describe(
-    'Branch prefix for worktrees created by the harness, e.g. "agent/my-feature".',
+    'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
   main_branch: z.string().default("main").describe(
     "The integration branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
@@ -251,7 +251,7 @@ const projectSection = z.strictObject({
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
     .describe(
-      "Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; the built-in harness guidance is always prepended.",
+      "Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; discern's built-in guidance is always prepended.",
     ),
   agents: z.array(z.string()).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",

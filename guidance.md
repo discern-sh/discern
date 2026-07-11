@@ -1,17 +1,17 @@
 # Working in the discern repo
 
-discern is a portable, stack-neutral **agentic-development harness**: one
-command scaffolds a quality gate, an isolated git-worktree workflow, an
+discern is a portable, stack-neutral **agentic-development system**: one command
+scaffolds a quality gate, an isolated git-worktree workflow, an
 author-once→compile-everywhere agent-instruction pipeline, and a map/ADR
 discipline into any project.
 
-**This repo is both the tool, and a user of it — it runs its own harness!**
+**This repo is both the tool and a user of it — it runs on its own gate.**
 
 All the instructions you've already seen (the ones _above_ "Working in the
 discern repo") are _the same instructions_ discern bundles and ships to other
 coding agents, working in _their_ user's projects, to help them navigate their
-own way around the discern harness. All the instructions from _here onwards_ are
-for **you**: an agent working on discern _itself_.
+own way around discern. All the instructions from _here onwards_ are for
+**you**: an agent working on discern _itself_.
 
 ## What's in the repo
 
@@ -72,7 +72,7 @@ overwrites your `guidance.md`.
 | the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern done`                     |
 | an installer command                            | `src/commands/**` (in place)              | `discern done`                     |
 | a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
-| the built-in harness guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
+| the built-in discern guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
 | a seed file users receive                       | `templates/…`                             | —                                  |
 | this guidance (yours)                           | `guidance.md`                             | `discern refresh`                  |
 | project config (yours)                          | `discern.toml`, `deno.json`               | —                                  |

@@ -27,11 +27,15 @@ import { dirname, fromFileUrl, join, relative } from "@std/path";
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
+const MAP = join(REPO_ROOT, "map");
+const MOCKUPS = join(REPO_ROOT, "mockups");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 /** A numbered ADR file path; the shipped skeleton's 0000-template is the one legal number. */
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
+/** Retired product-category wording; one README category phrase remains searchable. */
+const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
 
 type Literal = { text: string; line: number };
 
@@ -174,6 +178,23 @@ function citationsIn(text: string): string[] {
   ];
 }
 
+/** Visible Markdown text: link destinations are addresses, not rendered prose. */
+function visibleMarkdown(text: string): string {
+  return text.replace(/\]\([^)]*\)/g, "]");
+}
+
+/** Human-readable line findings for a retired word in a text artifact. */
+function harnessLines(rel: string, text: string): string[] {
+  const findings: string[] = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    const hits = line.match(HARNESS_WORD) ?? [];
+    for (const hit of hits) {
+      findings.push(`${rel}:${index + 1} contains "${hit}"`);
+    }
+  }
+  return findings;
+}
+
 Deno.test("src/ string literals never cite ADR numbers", async () => {
   const offenders: string[] = [];
   for await (
@@ -216,6 +237,90 @@ Deno.test("shipped templates/ never cite ADR numbers", async () => {
     [],
     "internal ADR citations leaked into the shipped surface — the copy must " +
       `stand alone for other projects:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("user-facing source strings never use the retired harness category", async () => {
+  const offenders: string[] = [];
+  for await (
+    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  ) {
+    const source = await Deno.readTextFile(entry.path);
+    const rel = relative(REPO_ROOT, entry.path);
+    for (const { text, line } of stringLiterals(source)) {
+      for (const hit of text.match(HARNESS_WORD) ?? []) {
+        offenders.push(`${rel}:${line} string contains "${hit}"`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked into a user-facing source string:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+Deno.test("shipped templates and public map prose never use the retired harness category", async () => {
+  const offenders: string[] = [];
+  for (const root of [TEMPLATES, MAP]) {
+    for await (const entry of walk(root, { includeDirs: false })) {
+      const rel = relative(REPO_ROOT, entry.path);
+      if (
+        rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")
+      ) continue;
+      let contents: string;
+      try {
+        contents = await Deno.readTextFile(entry.path);
+      } catch {
+        continue;
+      }
+      offenders.push(...harnessLines(rel, visibleMarkdown(contents)));
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked into shipped or public map prose:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+Deno.test("root guidance, config, and landing mockups retire harness; README keeps one category phrase", async () => {
+  const offenders: string[] = [];
+  for (const rel of ["CONTRIBUTING.md", "guidance.md", "discern.toml"]) {
+    offenders.push(
+      ...harnessLines(
+        rel,
+        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+      ),
+    );
+  }
+  for await (const entry of walk(MOCKUPS, { includeDirs: false })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    offenders.push(...harnessLines(rel, await Deno.readTextFile(entry.path)));
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked outside the README category exception:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+
+  const readme = visibleMarkdown(
+    await Deno.readTextFile(join(REPO_ROOT, "README.md")),
+  );
+  assertEquals(
+    readme.match(HARNESS_WORD) ?? [],
+    ["harness"],
+    "README.md keeps exactly one searchable category use",
+  );
+  assert(
+    /\bquality harness\b/i.test(readme),
+    'README.md\'s sole category use must read "quality harness"',
   );
 });
 

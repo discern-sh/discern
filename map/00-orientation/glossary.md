@@ -18,8 +18,8 @@ and the rest of the tree reads as variations on them.
 ### discern
 
 The whole tool: a single self-contained binary that is both the **Installer**
-and the **Engine**. discern scaffolds a stack-neutral agentic-development
-harness into any repository, in one command, and keeps it upgradable thereafter.
+and the **Engine**. discern scaffolds a stack-neutral agentic-development system
+into any repository, in one command, and keeps it upgradable thereafter.
 
 ### Installer
 
@@ -29,33 +29,30 @@ into the single-file binary. It writes and refreshes a project's files; it is
 build-time work only — an installed project never needs Deno, and the Installer
 is never a runtime dependency of it.
 
-### Harness
+### Discern install
 
-What an install _gives a project_: the `discern` verbs it can run, an
-`discern.toml` config, the bundled [Skills](#skill), and the compiled guidance.
-The logic — the [Engine](#engine) — is in the binary, not installed into the
-project; on disk the committed discern footprint is **one root file,
-`discern.toml`, plus one visible folder, [the Namespace](#namespace)** —
-enforced by test
+What setup gives a project: the `discern` verbs it can run, a `discern.toml`
+config, the bundled [Skills](#skill), and the compiled guidance. The logic — the
+[Engine](#engine) — is in the binary, not installed into the project. On disk
+the default authored footprint is `discern.toml`, the root [Map](#map), and
+[the Namespace](#namespace), alongside gitignored generated files. The write
+boundary is enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))
-— alongside the gitignored generated files. Every source the Namespace defaults
-can be config-pointed elsewhere (your [Guidance source](#guidance-source),
-[Skills](#skill), [Recipes](#recipe), [the Map](#map), the ledger). The seed and
-Skill files an install starts from originate under
-[`templates/`](../../templates/) and are **bundled into the binary**, which
-writes them out at `setup`.
+and every source can be config-pointed elsewhere (your
+[Guidance source](#guidance-source), [Skills](#skill), [Recipes](#recipe),
+[the Map](#map), the ledger). The seed and Skill files an install starts from
+originate under [`templates/`](../../templates/) and are **bundled into the
+binary**, which writes them out at `setup`.
 
 ### Namespace
 
-The visible `discern/` directory — the default home for everything discern asks
-you to author (the [Guidance source](#guidance-source), authored
-[Skills](#skill), [Recipes](#recipe), the project brief) and everything its
-discipline maintains for you ([the Map](#map), the `TODO.md` deferred-work
-ledger). A path defaults into it exactly when discern is the reason it looks the
-way it does; content you author for audiences of your own never defaults there.
-The Namespace is 100% yours — no generated or gitignored artifact is ever
-written inside it — and every source in it keeps a config key that points it
-anywhere
+The visible `discern/` directory — the default home for the
+[Guidance source](#guidance-source), authored [Skills](#skill),
+[Recipes](#recipe), the project brief, and the `TODO.md` deferred-work ledger.
+The [Map](#map) defaults separately to root `map/`. Content you author for
+audiences of your own never defaults into discern's paths. The Namespace is 100%
+yours — no generated or gitignored artifact is ever written inside it — and
+every source in it keeps a config key that points it anywhere
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md),
 [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
@@ -417,7 +414,7 @@ depth under [`../40-agent-guidance/`](../40-agent-guidance/).
 The project's own agent instructions ([yours](#your-files--yours)), at the
 location(s) named by `[guidance].sources` in `discern.toml` — default
 `discern/guidance.md`, globs allowed, read only if present. They are
-**additive**: discern's built-in harness guidance (bundled,
+**additive**: discern's built-in guidance (bundled,
 [`templates/guidance/`](../../templates/guidance/)) is always prepended, so your
 sources extend it rather than replace it.
 

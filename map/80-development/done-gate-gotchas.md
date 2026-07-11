@@ -19,7 +19,7 @@ here** — that is what keeps this page worth pointing at.
 
 ## Stack-independent traps
 
-These arise from how the harness works (git worktrees, parallel stages, build
+These arise from how discern works (git worktrees, parallel stages, build
 artifacts, the merge check) and apply on any stack. They are seeded here so the
 gate has something useful to point at on day one.
 

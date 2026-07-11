@@ -39,7 +39,7 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
     assert(
-      agents.startsWith("# Working with the discern harness"),
+      agents.startsWith("# Working with discern"),
       "the canonical file opens with the guidance — no banner",
     );
     assertStringIncludes(

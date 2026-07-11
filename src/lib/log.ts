@@ -1,7 +1,7 @@
 /**
  * Colour-aware, TTY-aware logging for the installer.
  *
- * Mirrors the harness's own output convention: a single `Logger` instance holds
+ * Mirrors discern's output convention: a single `Logger` instance holds
  * the run's presentation mode (colour on/off, JSON mode) so every command emits
  * consistently. Colour is suppressed when `--no-color` is passed, when `NO_COLOR`
  * is set, or when stdout is not a TTY — matching the engine's `output.sh`.

@@ -30,7 +30,7 @@ them.
 
 | Path                  | What it is                                             |
 | --------------------- | ------------------------------------------------------ |
-| `discern/guidance.md` | Your harness guidance, compiled into the agent files.  |
+| `discern/guidance.md` | Your discern guidance, compiled into the agent files.  |
 | `map/`                | The documentation map discern scaffolds and maintains. |
 | `discern/skills/`     | Any skills you author.                                 |
 | `discern/recipes/`    | Any project `discern` recipe commands you add.         |
@@ -92,7 +92,7 @@ is a deliberate act (re-running your installer), never an automatic update.
 
 ## How to remove it all
 
-`discern uninstall` takes the harness back out and tells you what stayed
+`discern uninstall` takes discern back out and tells you what stayed
 ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). It removes the
 generated agent files and materialized skills, strips discern's entries from the
 co-managed agent files (leaving your own settings untouched), and removes the
@@ -111,7 +111,7 @@ binary itself is a separate step (uninstall names it): discern is one file on
 your `PATH`, deleted with your installer (`brew uninstall discern`) or by hand.
 
 Uninstall is a CLI verb, deliberately not something a coding agent can invoke
-mid-session — pulling out the harness is a decision you make, not one an agent
+mid-session — pulling out discern is a decision you make, not one an agent
 reaches for. It refuses while a worktree is still in flight, so it never removes
 the wiring from under work in progress.
 

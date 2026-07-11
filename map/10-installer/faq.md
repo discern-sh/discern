@@ -75,7 +75,7 @@ today.
 
 ## Can I use discern in a monorepo?
 
-Yes. discern is one harness per repository: a single `discern.toml` at the git
+Yes. discern uses one install per repository: a single `discern.toml` at the git
 root drives the whole tree. You don't install a separate discern per app or
 package inside it.
 
@@ -138,10 +138,10 @@ results until you do.
 
 ## I've changed my mind — how do I get discern out?
 
-`discern uninstall` takes the harness back out and tells you what it leaves
-behind. It removes the generated agent files and materialized skills, strips
-discern's entries from your agents' config files (leaving your own settings
-intact), and removes the `.gitignore` block. Preview it first with
+`discern uninstall` takes discern back out and tells you what it leaves behind.
+It removes the generated agent files and materialized skills, strips discern's
+entries from your agents' config files (leaving your own settings intact), and
+removes the `.gitignore` block. Preview it first with
 `discern uninstall --dry-run`.
 
 It keeps your content: `discern.toml` and the whole `discern/` folder stay, as

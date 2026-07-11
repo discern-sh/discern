@@ -3,13 +3,13 @@
 _Cloning, setting up, and running the project locally for the first time._
 
 This is the path from a fresh clone to a running project and a first green gate.
-The harness commands are the same on every stack; the stack-specific steps for
+The discern commands are the same on every stack; the stack-specific steps for
 discern itself (one self-contained Deno binary — installer and TypeScript engine
-in one) are below. This repo self-hosts from source: the harness verbs run as
+in one) are below. This repo self-hosts from source: the discern verbs run as
 `discern <verb>` — the same command an end user runs, except here the local-dev
 wrapper (`scripts/discern`) points it at the current checkout's own engine.
 
-## The harness loop
+## The discern loop
 
 These work the same regardless of language or framework (shown here as
 `discern <verb>`):

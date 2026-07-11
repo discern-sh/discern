@@ -130,8 +130,8 @@ the wiring whenever you want out.
 
 The engine is **deliberately ignorant of your stack.** It never learns what "a
 test" is — it runs _the test capability_, a command you name once in
-`discern.toml`. That one idea is what lets a single harness drop into any repo
-and any language — and answer to whichever agent is driving it.
+`discern.toml`. That one idea is what lets a single quality harness drop into
+any repo and any language — and answer to whichever agent is driving it.
 
 Read the [concepts and system map](map/00-orientation/) for the full model, or
 browse the docs right in your terminal with `discern help`.
@@ -140,7 +140,7 @@ browse the docs right in your terminal with `discern help`.
 
 ## Built honestly
 
-`discern` runs on its own harness: this repo is gated by the very engine it
+`discern` runs on its own gate: this repo is checked by the very engine it
 ships, so the gate we run is the gate you get. The practices were extracted from
 a production agentic-development workflow and generalised until nothing
 stack-specific remained.

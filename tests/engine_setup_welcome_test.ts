@@ -31,7 +31,7 @@ const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
 const FRESH_WELCOME_FACTS: readonly string[] = [
   "discern",
-  "stack-neutral quality harness",
+  "quality gates and safe worktrees",
   "coding agents and the humans who run them",
   "This project isn't set up yet.",
   "FOR HUMANS",

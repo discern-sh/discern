@@ -4,9 +4,9 @@
 
 > This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
 
-This is the path from a fresh clone to a running project and a first green gate. The harness commands are the same on every stack; the stack-specific steps (installing dependencies, configuring the environment, running the app) are filled in below.
+This is the path from a fresh clone to a running project and a first green gate. The discern commands are the same on every stack; the stack-specific steps (installing dependencies, configuring the environment, running the app) are filled in below.
 
-## The harness loop
+## The discern loop
 
 These work the same regardless of language or framework:
 

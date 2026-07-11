@@ -81,8 +81,8 @@ ship in every binary; `_adr/` is **internal but opt-in** (shipped, revealed only
 by `--adr`); and the **contributor** trees (`50-engine-internals/`,
 `80-development/`) plus every `_`-prefixed private tree (`_internal/`,
 `_private/`) are **excluded** from the binary — a user browsing `discern help`
-sees how to operate the harness, not how it is built or the maintainer's notes.
-Two allowlists in [`src/lib/paths.ts`](../src/lib/paths.ts) decide it —
+sees how to operate discern, not how it is built or the maintainer's notes. Two
+allowlists in [`src/lib/paths.ts`](../src/lib/paths.ts) decide it —
 `BUNDLED_PUBLIC_DOC_DIRS` (the user-relevant public trees) and
 `BUNDLED_INTERNAL_DOC_DIRS` (the ADRs) — so a tree ships only when named, a new
 private tree is safe the moment it is created, and a guard test pins it

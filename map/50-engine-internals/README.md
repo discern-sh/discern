@@ -30,8 +30,8 @@ to keep working.
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
 [`src/shared/`](../../src/shared/) with the Installer — no Deno or Node is
-installed into a project, which is what lets the Harness drop into any project.
-The built-in handlers are organised by area: the gate and its job runner
+installed into a project, which is what lets discern drop into any project. The
+built-in handlers are organised by area: the gate and its job runner
 ([`gate/`](../../src/engine/gate/), [`jobs/`](../../src/engine/jobs/)), scope
 classification ([`scopes/`](../../src/engine/scopes/)), the worktree lifecycle
 and identity ([`worktree/`](../../src/engine/worktree/)), and the guideline

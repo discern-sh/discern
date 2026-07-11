@@ -1,6 +1,6 @@
-# Working with the discern harness
+# Working with discern
 
-This project uses **discern**, a stack-neutral agentic-development harness.
+This project uses **discern**, a stack-neutral system for agentic development.
 Everything discern knows about this project lives in one root file,
 **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`,
 …) — the **primary surface**, each returning a structured result you read directly.

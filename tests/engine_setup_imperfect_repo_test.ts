@@ -138,7 +138,7 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
     assert(
       await exists(join(dir, "discern.toml")),
-      "the harness landed on main",
+      "discern landed on main",
     );
   });
 });

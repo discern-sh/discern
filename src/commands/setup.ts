@@ -1,5 +1,5 @@
 /**
- * `discern setup` — the one-time, zero-config harness setup.
+ * `discern setup` — the one-time, zero-config discern setup.
  *
  * Combines mechanical scaffolding and agent-driven authoring in a single command
  * (ADR 0036). The user installs the binary and
@@ -7,7 +7,7 @@
  * explicit `discern setup` both land here. There are no wizard prompts and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
- *   1. Scaffold the harness machinery (a fresh install, or a `--force` refresh):
+ *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
  *      `discern.toml` with capabilities unset, the compiled agent files, the
  *      merged settings, the MCP wiring.
  *   2. Lay the doc skeletons — only when the project has none, so an existing
@@ -497,7 +497,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 }
 
 /**
- * Phase 1 — scaffold the harness machinery into `destDir`. Resolves the config
+ * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
  * non-interactively (flags + `--config` + defaults; never prompts), assembles and
  * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
@@ -1133,7 +1133,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   // --- Commit the scaffolded machinery (discern owns its own wiring) ---
-  // When `begin` is on the isolated `discern-setup` branch, commit the harness machinery
+  // When `begin` is on the isolated `discern-setup` branch, commit discern's machinery
   // — the config, the `.gitignore` fragment, and the per-agent MCP + hooks files — as one
   // commit, so a coding agent never has to commit discern's own permission-widening wiring
   // (a pre-approved MCP server), which its safety classifier is rightly trained to refuse.
@@ -1293,11 +1293,11 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (machineryCommitted) {
     console.log(
-      "Committed discern's harness wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
+      "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
     console.log(
-      `Could not auto-commit discern's harness wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
+      `Could not auto-commit discern's wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
     );
   }
   if (laid.length > 0) {
@@ -1470,13 +1470,13 @@ function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
 }
 
 /**
- * Commit the harness machinery `setup begin` just scaffolded — discern's OWN wiring: the
+ * Commit discern's machinery `setup begin` just scaffolded — discern's OWN wiring: the
  * config, the `.gitignore` fragment, the per-agent MCP + hooks files, any app-managed
  * worktree-lifecycle config, and any provider-owned project rules an agent declares
  * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.hooksWired`
  * ∪ `.worktreeAppWired` ∪ `.projectRulesWired`, minus the
  * {@link authoredContentSeeds} the agent fills) —
- * as one `discern: scaffold harness` commit on the `discern-setup` branch. discern
+ * as one `discern: scaffold wiring` commit on the `discern-setup` branch. discern
  * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
  * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
  * discern's essential wiring on a dirty tree. Extends the {@link commitCompletionMarker}
@@ -1517,7 +1517,7 @@ async function commitScaffoldedMachinery(
  * derived from the provider registry ({@link providerFor} over `[guidance].agents`),
  * never a hand-copied list, so a new provider or wiring category auto-enrols (the same
  * single-source derivation `tests/engine_setup_test.ts`'s B10 guard asserts against). The
- * always-present harness files (`discern.toml`, the `.gitignore` fragment) are included
+ * always-present discern files (`discern.toml`, the `.gitignore` fragment) are included
  * unconditionally. This is the machinery set a RESUMED `begin` re-derives when this run
  * produced no {@link ScaffoldOutcome} to read the written paths from.
  */
@@ -1545,7 +1545,7 @@ function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
 }
 
 /**
- * Commit discern's harness wiring on a RESUME of `begin` — the path that reaches the
+ * Commit discern's wiring on a RESUME of `begin` — the path that reaches the
  * `discern-setup` branch without re-scaffolding (an abandoned earlier run recomputes
  * `freshInstall=false`). The earlier run wrote the machinery but may have failed to commit
  * it (a missing git identity, a rejecting pre-commit hook, an interrupted process), leaving
@@ -1584,7 +1584,7 @@ async function commitPendingMachinery(
 }
 
 /**
- * Stage exactly `paths` and commit them as the single `discern: scaffold harness` commit —
+ * Stage exactly `paths` and commit them as the single `discern: scaffold wiring` commit —
  * the shared executor behind both the fresh-scaffold and the resume machinery commits.
  * Scoped to the given pathspecs on both `add` and `commit` (never `git add -A`, never a
  * bare `git commit`), so nothing the agent authored can be swept in. Best-effort and
@@ -1603,7 +1603,7 @@ async function commitMachineryPaths(
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
-    ["commit", "-m", "discern: scaffold harness", "--", ...paths],
+    ["commit", "-m", "discern: scaffold wiring", "--", ...paths],
     { cwd: root },
   );
   return commit.success

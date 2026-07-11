@@ -29,7 +29,7 @@ capability is knowably absent, so the gate is green before any of them is filled
 
 **Why it matters.** The moment the engine knows what "a test" _is_, it stops
 being portable — it can only serve the stack it learned. Stack-neutrality is the
-whole product: one harness that drops into any repository, in any language,
+whole product: one system that drops into any repository, in any language,
 answering to whatever agent drives it.
 
 **How it shows up.** `done` builds its stages by iterating over whatever
@@ -101,7 +101,7 @@ revertible with `git checkout`.
 
 **Why it matters.** A tool that can lose your work on a re-run is a tool you
 stop running — and an un-runnable `upgrade` means installs rot. Safety is what
-makes the harness _upgradable_ rather than a one-shot scaffold.
+makes discern _upgradable_ rather than a one-shot scaffold.
 
 **How it shows up.** [upgrade.ts](../../src/commands/upgrade.ts) never rewrites
 a committed seed: it runs pending config-schema migrations, re-materializes the
@@ -127,10 +127,10 @@ into the project as files that would drag a runtime along. What lands in a
 project is config, gitignored artifacts, and generated guidance — data, not a
 second program.
 
-**Why it matters.** A harness that imposes a runtime cannot honestly claim to
-drop into "any project." Portability dies the moment running the gate needs
-something the host doesn't already have. A single self-contained binary is the
-one thing a target can always run.
+**Why it matters.** A tool that imposes a runtime cannot honestly claim to drop
+into "any project." Portability dies the moment running the gate needs something
+the host doesn't already have. A single self-contained binary is the one thing a
+target can always run.
 
 **How it shows up.** The engine lives in [`src/engine/`](../../src/engine/) and
 compiles into the binary; project [recipes](glossary.md#recipe) stay
@@ -168,7 +168,7 @@ attributes failure to a single capability or check
 
 ---
 
-## 6. Self-host the harness — the repo runs on the engine it ships
+## 6. Self-host discern — the repo runs on the engine it ships
 
 discern runs on itself. This repo's gate _is_ the binary's own engine, invoked
 straight from source via `discern done` (where `discern` runs the engine of the
@@ -178,11 +178,11 @@ could drift, and so nothing to keep in sync. The gate that ships is the gate the
 maintainer runs; there is no separate "dev" path that could diverge from what
 users get.
 
-**Why it matters.** The strongest test of a portable harness is that it holds
-its own author to the same discipline. Self-hosting collapses the gap between
-"what we ship" and "what we use" to zero — a regression in the shipped engine
-breaks our own build the same day, not a user's repo months later. Collapsing
-the engine to a single home goes one better: a whole class of drift becomes
+**Why it matters.** The strongest test of a portable system is that it holds its
+own author to the same discipline. Self-hosting collapses the gap between "what
+we ship" and "what we use" to zero — a regression in the shipped engine breaks
+our own build the same day, not a user's repo months later. Collapsing the
+engine to a single home goes one better: a whole class of drift becomes
 impossible by construction, rather than something a gate must _detect_.
 
 **How it shows up.** The `deno.json` `gate` task runs `discern done`, so the
@@ -340,12 +340,12 @@ its provable form.
 The first two principles set the contract: a generic engine that knows nothing
 stack-specific (1), fed from single authoritative sources (2). The next two make
 that contract _livable_ — the install must be safe to re-run (3) and must not
-drag a runtime along (4) — which together are what let the harness be
-**installable and upgradable** rather than copied-and-forked per project. The
-next two are how the engine behaves under uncertainty (5) and how we keep
-ourselves honest that it works (6): self-hosting (6) is only credible _because_
-the engine is stack-neutral (1) and sourced from one truth (2), so the engine
-that gates this repo is the same one users receive.
+drag a runtime along (4) — which together are what let discern be **installable
+and upgradable** rather than copied-and-forked per project. The next two are how
+the engine behaves under uncertainty (5) and how we keep ourselves honest that
+it works (6): self-hosting (6) is only credible _because_ the engine is
+stack-neutral (1) and sourced from one truth (2), so the engine that gates this
+repo is the same one users receive.
 
 The remaining principles govern discern's conduct inside someone else's
 repository. Containment (7) is what licenses the prescription, and consent (8)

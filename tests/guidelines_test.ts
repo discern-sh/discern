@@ -49,12 +49,12 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     assertEquals(first.skillsPruned, 0);
 
     // AGENTS.md is the canonical agent file: NO banner — it opens with discern's
-    // built-in harness guidance (the base section's first heading), then names the
+    // built-in guidance (the base section's first heading), then names the
     // gate command, then the user's own guidance.md appended after it. The prime
     // attention spot is real guidance, not a deterrent (ADR 0034).
     const agentsMd = await Deno.readTextFile(join(tmp, "AGENTS.md"));
     assert(
-      agentsMd.startsWith("# Working with the discern harness"),
+      agentsMd.startsWith("# Working with discern"),
       "expected the guidance itself at the top — no banner",
     );
     assert(

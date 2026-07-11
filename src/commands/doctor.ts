@@ -168,7 +168,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
-        ? "run `discern setup` to scaffold the harness here"
+        ? "run `discern setup` to configure discern here"
         : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
@@ -636,7 +636,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 10. worktree-automation layering (advisory). If a hooks provider's settings file
-  // carries a worktree-lifecycle hook whose command does not invoke the harness CLI,
+  // carries a worktree-lifecycle hook whose command does not invoke the discern CLI,
   // a different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
   // should reconcile the hooks. "Ours" = the command calls `discern` (an install) or

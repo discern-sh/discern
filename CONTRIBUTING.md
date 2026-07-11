@@ -23,8 +23,8 @@ are the same TypeScript program under `src/`, with the distribution surface
 
 ## Before you open a pull request
 
-discern runs its own harness, so the same gate you would run in any discern
-project applies here:
+discern runs its own gate, so the same gate you would run in any discern project
+applies here:
 
 ```
 deno task build      # compile the binary

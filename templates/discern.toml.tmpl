@@ -1,6 +1,6 @@
 # discern | https://discern.sh | project configuration file
 #
-# discern is a stack-neutral harness for coding agents and their humans.
+# discern is a stack-neutral system for coding agents and their humans.
 # Use discern.toml to teach discern about your project, preferences, and tooling.
 #
 # The quickest way to get started is to simply tell your coding agent:
@@ -24,7 +24,7 @@ schema_version = 19
 # Short, lowercase, dash-separated identity. Used for worktree/site/branch names.
 slug = "{{project_slug}}"
 
-# Branch prefix for worktrees created by the harness, e.g. "agent/my-feature".
+# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
 branch_prefix = "{{branch_prefix}}"
 
 # The integration branch the gate merges into and completed work lands on.
@@ -56,7 +56,7 @@ dir = "{{map_dir}}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
-# `discern refresh` compiles discern's built-in harness guidance (always
+# `discern refresh` compiles discern's built-in guidance (always
 # prepended) plus YOUR sources below into one generated file per
 # provider. The generated files are build artifacts — gitignored, never
 # hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
@@ -67,7 +67,7 @@ dir = "{{map_dir}}"
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed
 # (the generated agent files themselves are never picked up as sources).
-# Read only if present; the built-in harness guidance is always prepended, so
+# Read only if present; discern's built-in guidance is always prepended, so
 # these are additive. `discern setup` lays a starter source here (and migrates
 # any pre-existing CLAUDE.md/AGENTS.md into it) for your coding agent to fill.
 sources = ["discern/guidance.md"]

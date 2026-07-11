@@ -67,7 +67,7 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
     );
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
     assert(
-      claude.startsWith("# Working with the discern harness"),
+      claude.startsWith("# Working with discern"),
       `expected guidance at the top, no banner\n${claude.slice(0, 80)}`,
     );
 

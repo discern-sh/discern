@@ -297,7 +297,7 @@ const GATE: Category = {
   ],
 };
 
-/** Project setup — the one-time foundations the rest of the harness leans on. Core. */
+/** Project setup — the one-time foundations the rest of discern leans on. Core. */
 const SETUP: Category = {
   name: "setup",
   title: "Project setup",
@@ -311,7 +311,7 @@ const SETUP: Category = {
       teach:
         "Setup seeds the docs skeleton and prompts the agent to author your guidance " +
         "and design principles from the repo and your answers. Until it runs, the " +
-        "harness is a bare gate. Run `discern setup`, then `discern setup done`.",
+        "project has only a bare gate. Run `discern setup`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.config.meta.bootstrapped
           ? { status: "pass", detail: "[meta].bootstrapped is set" }
@@ -388,7 +388,7 @@ const GUIDANCE: Category = {
       fix:
         "write project-specific prose into guidance.md, then `discern refresh`",
       teach:
-        "Built-in guidance teaches the harness; YOUR guidance teaches your project — " +
+        "Built-in guidance teaches discern; YOUR guidance teaches your project — " +
         "the conventions, boundaries, and gotchas an agent can't infer from the code. " +
         "A thin or missing guidance.md is a thin agent. Aim for real, specific prose.",
       evaluate: (
@@ -560,7 +560,7 @@ const WORKTREES: Category = {
         "— a database, an emulator, a container, a queue, a dev-server vhost? If so, are " +
         "they all declared under [worktree.resources.<name>] so each worktree gets its own?",
       teach: "Anything two concurrent worktrees would fight over belongs in " +
-        "[worktree.resources.<name>] with a create/destroy pair, so the harness " +
+        "[worktree.resources.<name>] with a create/destroy pair, so discern " +
         "provisions and reclaims it per worktree. If the project needs none, this is a " +
         "clean pass — but verify nothing shared was missed.",
       against: (ctx): { source: string; excerpt: string } | undefined => {

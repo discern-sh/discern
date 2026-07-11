@@ -10,7 +10,7 @@ These are real failure modes, each with its fix. **If you hit a new one, add it 
 
 ## Stack-independent traps
 
-These arise from how the harness works (git worktrees, parallel stages, build artifacts, the merge check) and apply on any stack. They are seeded here so the gate has something useful to point at on day one.
+These arise from how discern works (git worktrees, parallel stages, build artifacts, the merge check) and apply on any stack. They are seeded here so the gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 

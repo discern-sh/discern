@@ -1,6 +1,6 @@
 # The Installer
 
-_The Deno/TypeScript CLI that scaffolds a Harness into a project and keeps it
+_The Deno/TypeScript CLI that scaffolds discern into a project and keeps it
 upgradable._
 
 This subtree covers the scaffolding face of discern under [`src/`](../../src/) —
@@ -8,7 +8,7 @@ the [`commands/`](../../src/commands/) and [`lib/`](../../src/lib/) that drive
 an install (the [Engine](../00-orientation/glossary.md#engine) under
 [`src/engine/`](../../src/engine/) is the run-time half). The **Installer** lays
 down the seed and Skill files bundled into the binary (their source is
-[`templates/`](../../templates/)) and writes a **Harness** into a project, then
+[`templates/`](../../templates/)) and writes **discern** into a project, then
 refreshes it over time **without clobbering** the files you own. It compiles to
 standalone binaries in `dist/` via `deno task build`; an installed project never
 needs Deno.
@@ -102,7 +102,7 @@ rather than strand work: an abandoned half-finished setup (its config committed
 only on the `discern-setup` branch) routes the welcome, `verify`, and a
 re-`begin` back to the half-finished branch instead of re-scaffolding over it,
 and a re-`begin` that lands back on `discern-setup` re-attempts the
-harness-wiring commit the first run left uncommitted (a machinery commit that
+discern-wiring commit the first run left uncommitted (a machinery commit that
 failed on a missing identity or a rejecting hook is retried, not lost). A
 `--force` re-scaffold reads the persisted `[guidance].agents` and lays exactly
 those agents' seed files, never reverting to the built-in default pair. And

@@ -39,7 +39,7 @@ Everything below fits in **four layers**:
 ## The shape of the system
 
 discern turns **any repository** into one with a working agentic-development
-harness — a quality gate, an isolated-worktree workflow, an author-once agent
+system — a quality gate, an isolated-worktree workflow, an author-once agent
 guidance pipeline, and a docs discipline — installed in one command and
 upgradable thereafter.
 
@@ -59,8 +59,8 @@ Both faces are the same `discern` command on `PATH`; an installed project
 carries no engine of its own and needs no Deno at runtime. The seed files, the
 built-in Skills, and the built-in guidance an install starts from are **bundled
 into the binary** (their source lives under [`templates/`](../../templates/))
-and written out by `setup` — there is no committed copy of the harness to keep
-in sync. The committed discern footprint in a project is **one root file,
+and written out by `setup` — there is no committed copy of discern to keep in
+sync. The committed discern footprint in a project is **one root file,
 `discern.toml`, plus one visible folder, the
 [`discern/` namespace](glossary.md#namespace)** — enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md));
@@ -115,9 +115,9 @@ split by **disposition**: [yours](glossary.md#your-files--yours) (the committed
 seeds, written once then kept), [the binary's](glossary.md#the-binarys-files)
 (gitignored artifacts it re-publishes, like the materialized Skills), plus the
 merged `settings.json` and co-managed `.gitignore` block. On a fresh install in
-a clean repo, `begin` then **commits** the harness wiring it just wrote — the
-`discern.toml`, the `.gitignore` block, and the per-agent MCP + hooks files — as
-one `discern: scaffold harness` commit
+a clean repo, `begin` then **commits** discern's wiring — the `discern.toml`,
+the `.gitignore` block, and the per-agent MCP + hooks files — as one
+`discern: scaffold wiring` commit
 ([ADR 0076](../_adr/0076-engine-commits-scaffolded-machinery.md)), so the coding
 agent never has to commit discern's own permission-widening config (its safety
 classifier would refuse). `begin` then lays the [map](glossary.md#map) and
@@ -202,11 +202,10 @@ runs the engine of the checkout you are in — so the gate the maintainer runs i
 the gate that ships, with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
-discern's built-in harness guidance plus your **Guidance source**
-(`discern/guidance.md` by default) are compiled by `discern refresh` into each
-**Compiled agent file** (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — all gitignored
-build artifacts, drift guarded by the currency check), so several agents share
-one set of instructions.
+discern's built-in guidance plus your **Guidance source** (`discern/guidance.md`
+by default) are compiled by `discern refresh` into each **Compiled agent file**
+(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — all gitignored build artifacts, drift
+guarded by the currency check), so several agents share one set of instructions.
 
 ---
 
