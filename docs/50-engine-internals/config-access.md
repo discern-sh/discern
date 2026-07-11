@@ -58,6 +58,11 @@ path (`settableConfigValueKind`) — a numeric-looking slug stays a string, a
 single value for an array-of-strings key lands as a one-element array, an
 enum-typed key names its closed vocabulary on a miss — with value-based
 inference reserved for union-typed keys (a command-or-list, a ratchet `per`).
+The path walk enforces the same record-key legality the loader does: a
+`[checks.<name>]`-family `<name>` must match the record-key pattern the runtime
+`z.record` key schema applies (read back from the schema's `propertyNames`), so
+`config set` can never write a header — a space, a slash, non-ASCII — the next
+load would then refuse to parse.
 Second, every `config set*` edit is validated before it touches disk
 (`configWriteIssues`): the edited text must parse and satisfy the schema, bar
 one allowance — a required key still _missing_ inside a record-family entry

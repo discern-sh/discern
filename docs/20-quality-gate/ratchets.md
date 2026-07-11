@@ -47,10 +47,10 @@ The fields:
 - **`metric`** — the metric name the `run` command emits (defaults to the
   ratchet name). Naming it lets one command emit several metrics.
 - **`margin`** — headroom `discern ratchets --pin` leaves when it tightens this
-  limit to the measured value (default `0` — pin to the exact measurement). Give
-  a metric that drifts on unrelated commits — a bundle size, a coverage
-  percentage — a margin so a pinned limit is not tripped by ordinary
-  fluctuation.
+  limit to the measured value (default `0` — pin to the exact measurement; must
+  be `≥ 0`, since margin is headroom, never a tightening). Give a metric that
+  drifts on unrelated commits — a bundle size, a coverage percentage — a margin
+  so a pinned limit is not tripped by ordinary fluctuation.
 
 ## How a measurement reports its number
 
@@ -94,11 +94,12 @@ run       = "deno task prose \"docs/\""
 ```
 
 `per` divides the emitted metric by a denominator — a built-in
-word/line/file/byte count over a glob, or a second metric the same command emits
-— and `scale` expresses the rate against a readable unit (per 1,000 words, per
-10,000). The metric then measures density, not volume, so a branch that adds
-prose at the same quality holds the line
-([ADR 0057](../_adr/0057-rate-ratchets.md)).
+word/line/file/byte count over one or more git pathspecs (an empty pathspec list
+is refused, so a `per` extent can never silently measure the whole repository),
+or a second metric the same command emits — and `scale` expresses the rate
+against a readable unit (per 1,000 words, per 10,000). The metric then measures
+density, not volume, so a branch that adds prose at the same quality holds the
+line ([ADR 0057](../_adr/0057-rate-ratchets.md)).
 
 ## Capturing a gain: `discern ratchets --pin`
 
