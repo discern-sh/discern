@@ -35,6 +35,7 @@ import {
   assertSupportedVersion,
   type ConfigFillReport,
   type DiscernConfigDoc,
+  docHasFills,
 } from "../lib/config_doc.ts";
 
 /** The reserved metadata filename at a preset root (never scaffolded). */
@@ -64,12 +65,6 @@ async function loadPresetFills(
   }
   assertSupportedVersion(parsed as DiscernConfigDoc);
   return parsed as DiscernConfigDoc;
-}
-
-/** True when a preset's document carries any config to apply. */
-function hasFills(fills: DiscernConfigDoc | undefined): boolean {
-  return !!fills &&
-    !!(fills.capabilities || fills.checks || fills.scopes || fills.ratchets);
 }
 
 /** Options accepted by `preset`. */
@@ -211,7 +206,7 @@ export async function runPreset(
   let fillReport: ConfigFillReport | undefined;
   try {
     fills = await loadPresetFills(presetDir);
-    if (fills !== undefined && hasFills(fills)) {
+    if (fills !== undefined && docHasFills(fills)) {
       const editor = new TomlEditor(
         await Deno.readTextFile(configPath),
       );
