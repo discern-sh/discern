@@ -62,17 +62,16 @@ The path walk enforces the same record-key legality the loader does: a
 `[checks.<name>]`-family `<name>` must match the record-key pattern the runtime
 `z.record` key schema applies (read back from the schema's `propertyNames`), so
 `config set` can never write a header — a space, a slash, non-ASCII — the next
-load would then refuse to parse.
-Second, every `config set*` edit is validated before it touches disk
-(`configWriteIssues`): the edited text must parse and satisfy the schema, bar
-one allowance — a required key still _missing_ inside a record-family entry
-(`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`, `[worktree.resources.<n>]`),
-because incremental table construction is legitimate. An edit that fails is
-refused with the exact issues and the file is untouched. The value renderers
-themselves are held to the same bar one level down: `tomlNumber` probes
-candidate literals against `@std/toml` — the parser that later reads the file —
-so a JS-numeric spelling the TOML grammar forbids (`.5`, `007`) is normalized,
-never written verbatim.
+load would then refuse to parse. Second, every `config set*` edit is validated
+before it touches disk (`configWriteIssues`): the edited text must parse and
+satisfy the schema, bar one allowance — a required key still _missing_ inside a
+record-family entry (`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`,
+`[worktree.resources.<n>]`), because incremental table construction is
+legitimate. An edit that fails is refused with the exact issues and the file is
+untouched. The value renderers themselves are held to the same bar one level
+down: `tomlNumber` probes candidate literals against `@std/toml` — the parser
+that later reads the file — so a JS-numeric spelling the TOML grammar forbids
+(`.5`, `007`) is normalized, never written verbatim.
 
 ## See also
 

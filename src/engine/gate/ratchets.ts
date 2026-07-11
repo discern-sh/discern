@@ -670,11 +670,15 @@ async function applyPinEdits(
     }
     await Deno.writeTextFile(path, editor.toString());
   } catch (error) {
-    return await failWithRollback(`could not rewrite ${rel}: ${errText(error)}`);
+    return await failWithRollback(
+      `could not rewrite ${rel}: ${errText(error)}`,
+    );
   }
   const add = await runGit(["add", "--", rel], { cwd: root });
   if (!add.success) {
-    return await failWithRollback(`could not stage ${rel}: ${add.stderr.trim()}`);
+    return await failWithRollback(
+      `could not stage ${rel}: ${add.stderr.trim()}`,
+    );
   }
   const commit = await runGit(["commit", "-m", pinCommitMessage(pins)], {
     cwd: root,

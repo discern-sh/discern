@@ -621,7 +621,10 @@ async function installRejectingHook(dir: string): Promise<string> {
   const hookDir = join(dir, ".git", "hooks");
   await Deno.mkdir(hookDir, { recursive: true });
   const hook = join(hookDir, "pre-commit");
-  await Deno.writeTextFile(hook, "#!/bin/sh\necho 'rejected by hook' >&2\nexit 1\n");
+  await Deno.writeTextFile(
+    hook,
+    "#!/bin/sh\necho 'rejected by hook' >&2\nexit 1\n",
+  );
   await Deno.chmod(hook, 0o755);
   return hook;
 }
@@ -654,9 +657,17 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
 
     // Crucially, it left NO trace: discern.toml is byte-identical to HEAD and the
     // tree is clean — not the modified+staged state that stranded the old retry.
-    assertEquals(await readConfig(dir), before, "discern.toml must be restored");
+    assertEquals(
+      await readConfig(dir),
+      before,
+      "discern.toml must be restored",
+    );
     const status = await gitOut(dir, "status", "--porcelain");
-    assertEquals(status.trim(), "", "the tree must be clean after a failed pin");
+    assertEquals(
+      status.trim(),
+      "",
+      "the tree must be clean after a failed pin",
+    );
 
     // The retry is no longer refused: clear the block and it pins for real.
     await Deno.remove(hook);

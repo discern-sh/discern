@@ -158,7 +158,9 @@ Deno.test("pinnedLimit: a negative margin never pins a limit the measurement fai
             `pinnedLimit(${direction}, ${value}, ${margin}, ${current}) = ${pinned} is NOT satisfied by the measured value ${value}`,
           );
           // And it is genuinely tighter than the current limit (pin only tightens).
-          const tighter = direction === "up" ? pinned > current : pinned < current;
+          const tighter = direction === "up"
+            ? pinned > current
+            : pinned < current;
           assert(
             tighter,
             `pinnedLimit(${direction}, ${value}, ${margin}, ${current}) = ${pinned} did not tighten past ${current}`,

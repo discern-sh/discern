@@ -102,7 +102,9 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
     ...DEFAULT_AGENTS,
   ]);
   assertEquals(
-    resolveConfiguredAgents(parseConfigOrThrow('[guidance]\nsources = ["g.md"]\n')),
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[guidance]\nsources = ["g.md"]\n'),
+    ),
     [...DEFAULT_AGENTS],
   );
 
@@ -124,12 +126,16 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
   // The legacy [project].agents fallback still fires only when guidance is UNSET;
   // an explicit empty guidance list overrides it (deliberate "no agents" wins).
   assertEquals(
-    resolveConfiguredAgents(parseConfigOrThrow('[project]\nagents = ["cursor"]\n')),
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[project]\nagents = ["cursor"]\n'),
+    ),
     ["cursor"],
   );
   assertEquals(
     resolveConfiguredAgents(
-      parseConfigOrThrow('[project]\nagents = ["cursor"]\n[guidance]\nagents = []\n'),
+      parseConfigOrThrow(
+        '[project]\nagents = ["cursor"]\n[guidance]\nagents = []\n',
+      ),
     ),
     [],
   );
