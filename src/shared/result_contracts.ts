@@ -263,6 +263,9 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   "mcp",
   "identity",
+  // The interactive human surface: `--json` gets only a structured
+  // `interactive_only` refusal, never a data contract (ADR 0119).
+  "desk",
   "config",
   "worktree",
   "worktree ensure",

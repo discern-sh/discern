@@ -35,6 +35,7 @@ import {
   WorktreeGitError,
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
+import { runGit } from "../../shared/subprocess.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import {
   bucketTitle,
@@ -88,15 +89,8 @@ async function printGitRead(
   args: string[],
   title: string,
 ): Promise<void> {
-  const res = await new Deno.Command("git", {
-    args,
-    cwd,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  const body = new TextDecoder().decode(
-    res.success ? res.stdout : res.stderr,
-  ).trimEnd();
+  const res = await runGit(args, { cwd });
+  const body = (res.success ? res.stdout : res.stderr).trimEnd();
   out.heading(title);
   out.raw(body === "" ? `${out.c.dim}(none)${out.c.reset}\n` : `${body}\n`);
 }
