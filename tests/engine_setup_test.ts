@@ -373,6 +373,88 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
   });
 });
 
+// The class behind B49: `setup done` must NOT record `[meta].bootstrapped` while any
+// completion precondition is unmet — and a config discern can't even parse is the floor,
+// because the parse-tolerant marker writer would happily stamp `bootstrapped = true` and
+// only THEN hit the failure the run reports, leaving completion recorded by a failing run.
+// The class INVARIANT both done modes must hold — the checks-and-proof path AND the --force
+// escape hatch that deliberately skips it — is: refuse (exit 1) and write no marker. The
+// non-force path already refuses via the gate proof (which loads the config); --force, which
+// skips the proof, previously sailed through to the write, so it must now refuse too. Driving
+// this off the mode list means a future done variant is a one-line enrolment, not a silent gap.
+const DONE_MODES: ReadonlyArray<{ label: string; args: string[] }> = [
+  { label: "plain", args: ["setup", "done"] },
+  { label: "--force", args: ["setup", "done", "--force"] },
+];
+
+for (const mode of DONE_MODES) {
+  Deno.test(`setup done (${mode.label}) refuses an unparseable config and records nothing (B49)`, async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { bootstrapped: false });
+
+      // Corrupt discern.toml so it no longer parses. The marker writer (a line-based,
+      // parse-tolerant editor) would otherwise stamp the marker regardless.
+      const cfgPath = join(dir, "discern.toml");
+      const broken = () => Deno.readTextFile(cfgPath);
+      await Deno.writeTextFile(
+        cfgPath,
+        await broken() + "\nthis is = = not valid [[[\n",
+      );
+
+      // The class invariant: the run refuses (exit 1) and records no marker — whichever
+      // refusal path (gate proof or the --force config-parse floor) it takes.
+      const json = await runAgent(dir, [...mode.args, "--json"]);
+      assertEquals(json.code, 1, json.output);
+      assertEquals(JSON.parse(json.stdout).ok, false);
+      assert(
+        !(await broken()).includes("bootstrapped = true"),
+        `setup done (${mode.label}) recorded completion over an unparseable config`,
+      );
+
+      // The human surface refuses on stderr too, still recording nothing.
+      const human = await runAgent(dir, mode.args);
+      assertEquals(human.code, 1, human.output);
+      assert(
+        !(await broken()).includes("bootstrapped = true"),
+        `setup done (${mode.label}, human) recorded completion over an unparseable config`,
+      );
+    });
+  });
+}
+
+// The B49 pivot itself: --force skips the completeness checks and the gate proof, so ONLY
+// this run reaches the marker write with an unparseable config — the exact regression is
+// that write landing ahead of the failure. Pin the specific refusal so it can't silently
+// revert to stamping the marker: --force on a broken config returns the `invalid_config`
+// refusal, names the parse problem, and records nothing.
+Deno.test("setup done --force is refused by the config-parse floor it cannot override (B49)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const cfgPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      cfgPath,
+      await Deno.readTextFile(cfgPath) + "\nthis is = = not valid [[[\n",
+    );
+
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    assertEquals(res.ok, false);
+    assertEquals(
+      res.error,
+      "invalid_config",
+      `--force on a broken config must hit the config-parse floor, not stamp completion; got ${
+        JSON.stringify(res)
+      }`,
+    );
+    assertStringIncludes(res.message, "parse");
+    assert(
+      !(await Deno.readTextFile(cfgPath)).includes("bootstrapped = true"),
+      "the marker must not be written by the refused --force run",
+    );
+  });
+});
+
 Deno.test("the setup redirect and the command retire once setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });

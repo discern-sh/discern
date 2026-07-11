@@ -2170,6 +2170,22 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     worktreeProven = proof.worktreeProven;
   }
 
+  // The config must LOAD before the marker is written — completion cannot be recorded
+  // for a project whose config discern can't parse. The non-force path proves this
+  // already (doctor/finish both load it), but `--force` skips the proof, so an
+  // unparseable config would otherwise reach the parse-tolerant marker write, get
+  // `bootstrapped = true` stamped, and only THEN hit the failure `done` reports — leaving
+  // completion recorded by a failing run (B49). Check here, BEFORE any write, so a broken
+  // config is refused with nothing recorded. `--force` overrides the completeness checks
+  // and the gate proof, never the "is this a coherent project to complete" floor.
+  let doneCfg: DiscernConfig;
+  try {
+    doneCfg = await loadConfig(root);
+  } catch (error) {
+    emitDoneUnreadableConfig(opts.json, errMsg(error));
+    return 1; // [meta].bootstrapped is NOT recorded — nothing was written
+  }
+
   // Record the marker, comment-preserving (mirrors `discern config set --bool`).
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const editor = new TomlEditor(await Deno.readTextFile(path));
@@ -2188,8 +2204,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // session can't see them yet — hence the reactivation handoff (ADR 0075). Alongside
   // it: an honest per-capability coverage summary (so "gate proven" can't read as "every
   // protection runs"), where the just-finished work lives + how to land it on the
-  // integration branch, and a steer into ongoing use via the project coach.
-  const cfg = await loadConfig(root);
+  // integration branch, and a steer into ongoing use via the project coach. Reuse the
+  // config proven loadable above (the marker write only flips a bool); re-read the raw
+  // TOML so the assurance sees the just-written marker line.
+  const cfg = doneCfg;
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
@@ -2400,6 +2418,30 @@ async function proveWorktreeViable(
         `Skipped the worktree probe (${outcome.reason}); your first \`discern finish\` in a worktree will prove it.`,
       );
       return { ok: true, worktreeProven: false };
+  }
+}
+
+/**
+ * Refuse `setup done` when `discern.toml` can't be parsed, in both modes — the floor
+ * even `--force` can't override, because there is no coherent project to mark complete
+ * and the marker write must never land ahead of a run that then fails. Names the parse
+ * error and the exact fix. `[meta].bootstrapped` is left unrecorded (nothing is written).
+ */
+function emitDoneUnreadableConfig(json: boolean, detail: string): void {
+  const message =
+    `setup can't be marked complete — discern.toml doesn't parse: ${detail}. ` +
+    "Fix the syntax it names (run `discern doctor` to see the full diagnosis), then " +
+    "re-run `discern setup done`. (Even --force won't record completion over a config " +
+    "discern can't read.)";
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup done",
+      error: "invalid_config",
+      message,
+    });
+  } else {
+    console.error(`discern: ${message}`);
   }
 }
 
