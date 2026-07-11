@@ -27,6 +27,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import process from "process";
+import { isAbsolute } from "@std/path";
 import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
@@ -188,6 +189,16 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   outputSchema?: z.ZodRawShape;
   /** Honest behavioural hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
+  /** This verb's result does not depend on WHICH project it runs in — it serves the
+   * same answer from anywhere, so it must stay reachable even when the server spawned
+   * outside any discern project. {@link runTool}'s `not_initialized` guard reads this
+   * declared property (the single source of truth the surface guards walk) instead of
+   * special-casing a tool name: a root-independent tool with no resolvable root runs
+   * against the process cwd rather than being refused. `discern_help` is the sole
+   * member — it serves discern's OWN bundled docs, which every install carries; every
+   * other tool operates on the project and genuinely needs a root. Omitted (falsey)
+   * for all the rest. */
+  rootIndependent?: boolean;
   /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
    * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
    * switch. `discern_start` points it at the worktree it just created
@@ -284,7 +295,8 @@ const PATH_PARAM = {
   path: z.string().optional().describe(
     "operate on the discern project containing this absolute path instead of the " +
       "server's current working root; rarely needed — discern_start re-aims " +
-      "automatically",
+      "automatically. Must be ABSOLUTE — a relative path is refused (the server's " +
+      "working directory is not yours), never resolved against the server's cwd",
   ),
 };
 
@@ -578,6 +590,10 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Read discern's docs",
     outputSchema: HelpOutputSchema.shape,
     annotations: READ_ONLY,
+    // discern's own bundled documentation is the same in every install and needs no
+    // project — so help stays reachable from a server spawned outside any discern
+    // project, matching the CLI, which serves `discern help` from anywhere (B38).
+    rootIndependent: true,
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +
       "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
@@ -974,6 +990,31 @@ export class WorkingRoot {
 }
 
 /**
+ * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
+ * result — so a single tool blowing up can never take the whole stdio server down.
+ * The single place {@link runTool} invokes a verb (both the normal path and the
+ * root-independent fallback), so the catch-all lives once. A never-aborting default
+ * keeps the verb contract simple (a verb always receives a signal).
+ */
+async function runVerb(
+  tool: McpTool,
+  root: string,
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<DiscernResult> {
+  try {
+    return await tool.run(root, args, signal ?? new AbortController().signal);
+  } catch (e) {
+    return {
+      ok: false,
+      verb: verbOf(tool.name),
+      error: "internal_error",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/**
  * Run one tool call and render its DiscernResult. The per-call root is the explicit
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
  * directory inside a worktree resolves to its root and a non-project path falls
@@ -1009,8 +1050,37 @@ export async function runTool(
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
   const pathArg = typeof args.path === "string" ? args.path : undefined;
+  // The `path` argument MUST be absolute — its own schema says "this absolute path".
+  // The server's OS cwd is frozen at spawn and is not the caller's directory, so a
+  // relative `path` would resolve against that stale cwd and silently operate on the
+  // WRONG project while reporting success. Refuse it here — the one choke point every
+  // tool's `path` flows through — with an actionable error, so no verb inherits the
+  // confidently-wrong answer (B40).
+  if (pathArg !== undefined && !isAbsolute(pathArg)) {
+    return render({
+      ok: false,
+      verb: verbOf(tool.name),
+      error: "invalid_arguments",
+      message:
+        `\`path\` must be an absolute path, but got "${pathArg}". The MCP server's ` +
+        `working directory is fixed at spawn and is not your current directory, so a ` +
+        `relative path can't be resolved reliably — pass the absolute path to the ` +
+        `project (or a directory inside it) you mean to act on.`,
+    });
+  }
   const root = pathArg ? await findRoot(pathArg) : working.get();
   if (root === undefined) {
+    // A root-independent tool (discern_help) serves the same answer from anywhere —
+    // discern's OWN bundled docs, present in every install — so it must not be refused
+    // just because the server spawned outside a project. Run it against the process cwd
+    // (which its verb core doesn't consult for the bundled tree). Every other tool
+    // genuinely needs a project and refuses (B38). The property is declared on the tool
+    // (the TOOLS-table single source of truth) — no per-name special case here.
+    if (tool.rootIndependent === true) {
+      return render(
+        await runVerb(tool, Deno.cwd(), args, signal),
+      );
+    }
     return render({
       ok: false,
       verb: verbOf(tool.name),
@@ -1034,18 +1104,7 @@ export async function runTool(
       message: NOT_SET_UP_MESSAGE,
     });
   }
-  let result: DiscernResult;
-  try {
-    // A never-aborting default keeps the verb contract simple (always a signal).
-    result = await tool.run(root, args, signal ?? new AbortController().signal);
-  } catch (e) {
-    result = {
-      ok: false,
-      verb: verbOf(tool.name),
-      error: "internal_error",
-      message: e instanceof Error ? e.message : String(e),
-    };
-  }
+  const result = await runVerb(tool, root, args, signal);
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
   // the working root per the tool's own hook (start → the new worktree it created;
   // graduate → the main checkout it landed in). A `path` override is normally a

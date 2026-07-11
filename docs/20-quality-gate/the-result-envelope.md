@@ -180,6 +180,19 @@ A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_finish`; check it explicitly.
 
+**Addressing the project.** Every project-operating tool takes an optional
+`path` — an alternative project to act on for that one call, resolved to its
+root (any directory inside a project resolves to that project). `path` **must be
+absolute**: the server's OS working directory is frozen at spawn and is not the
+caller's directory, so a relative `path` is refused with `invalid_arguments`
+rather than resolved against that stale directory — a relative path that
+silently resolved elsewhere would act on the wrong project while reporting
+success. `discern_help` is **root-independent**: it serves discern's own bundled
+documentation, which every install carries, so it works even from a server
+spawned outside any discern project — exactly as `discern help` does on the CLI.
+Every other tool operates on the project and refuses with `not_initialized` when
+there is none.
+
 The worktree lifecycle verbs (`worktree`, `worktree command group`) are
 **deliberately not exposed** — they are hook-driven and an agent must never hop
 between or prune the worktree it is in. `discern_graduate` is the one lifecycle
