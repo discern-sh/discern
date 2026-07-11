@@ -1878,7 +1878,7 @@ Deno.test("the brief keeps wired commands honest: exit-on-its-own, install conse
     brief,
     "installing a new dependency is a genuine decision",
   );
-  assertStringIncludes(brief, "ADR 0113");
+  assertStringIncludes(brief, "never a narrate-and-proceed");
   assertStringIncludes(
     brief,
     "*Wiring a tool the project already has* stays narrate-and-proceed",
