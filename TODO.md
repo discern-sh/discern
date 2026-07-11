@@ -249,14 +249,22 @@ _Product positioning, messaging, and launch/content tasks._
       machinery's name); `integrate` → `update` (the CI prior for "integrate"
       points at landing — the wrong direction — while "Update branch" is the
       exact prior for this operation); `docs` → `map` (ADR 0100's own word
-      promoted to the verb; `[docs]` → `[map]`, the tree stays at `docs/` on
-      disk); `improve` → `improvement` (the noun form per the rule; `improve`
-      forwards silently as a grammatical variant). `coupling` and `doctor` were
-      reviewed and deliberately kept. No legacy aliases anywhere: retired
-      spellings hard-error with a redirect naming the successor; grammatical
-      variants of the current canon forward silently. Swept in bulk by the
-      wave-3 vocabulary brief. Evidence: `docs/_adr/0120-launch-verb-canon.md`
-      (the canon, rule, and rationale).
+      promoted to the verb; `[docs]` → `[map]`, and the tree moves to `map/` on
+      disk — fresh-setup default, existing configs pin their directory on
+      migration, this repo's tree migrates wholesale); `improve` → `improvement`
+      (the noun form per the rule; `improve` forwards silently as a grammatical
+      variant). `coupling` and `doctor` were reviewed and deliberately kept. No
+      legacy aliases anywhere: retired spellings hard-error with a redirect
+      naming the successor (retired _spellings_ are verb positions —
+      invocations, tool names, config keys — never prose words); grammatical
+      variants of the current canon forward silently. The renamed MCP tools'
+      descriptions anchor to agents' trained vocabulary ("scopes", "merge main",
+      the gate's stages) so tool selection survives the rename. Historical ADRs
+      get a reviewed vocabulary refresh — amend-with-note where the decision
+      still governs a living feature, supersede where it no longer applies;
+      decisions and reasoning are never rewritten. Swept in bulk by the wave-3
+      vocabulary brief. Evidence: `docs/_adr/0120-launch-verb-canon.md` (the
+      canon, rule, and rationale).
 - [ ] **Retire "harness" from user-facing surfaces (decided).** No single
       replacement word — reword per context: "discern" for the product, "the
       gate" for the mechanism, "the bar" where a category noun is needed.
