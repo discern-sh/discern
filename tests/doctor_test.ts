@@ -364,6 +364,50 @@ Deno.test("doctor: a missing config is flagged as not initialized", async () => 
   });
 });
 
+// The class guard for B30: `discern doctor` must resolve the project root by
+// walking up from the cwd (via `findRoot`), the same way status/finish and its own
+// `discern_doctor` MCP tool do — so it diagnoses the real install from ANY
+// subdirectory, never a phantom "broken" one at the cwd. Table-shaped over several
+// nesting depths so it guards the class, not one depth; it fails on the pre-fix
+// `destDir = Deno.cwd()`, which reports "discern.toml: not found in this directory"
+// from every subdir.
+const SUBDIR_DEPTHS: { label: string; segments: string[] }[] = [
+  { label: "one level down", segments: ["src"] },
+  { label: "two levels down", segments: ["src", "commands"] },
+  { label: "three levels down", segments: ["a", "b", "c"] },
+];
+
+for (const { label, segments } of SUBDIR_DEPTHS) {
+  Deno.test(`doctor: run from a subdirectory (${label}) diagnoses the install at the root`, async () => {
+    await withTempDir(async (dir) => {
+      await setupInstall(dir);
+      const sub = join(dir, ...segments);
+      await Deno.mkdir(sub, { recursive: true });
+
+      // Run doctor with the cwd set to the subdirectory. It must find the real
+      // discern.toml at the root, not report the install missing/broken.
+      const { code, stdout } = await runCli(["doctor", "--json"], sub);
+      const payload = JSON.parse(stdout) as DoctorPayload;
+      assertEquals(
+        code,
+        0,
+        `doctor from ${label} should be healthy: ${
+          JSON.stringify(payload.data.checks)
+        }`,
+      );
+      const toml = check(payload, "discern.toml");
+      assertEquals(
+        toml.ok,
+        true,
+        "the config must resolve from a subdirectory",
+      );
+      assertStringIncludes(toml.detail, "present and valid TOML");
+      // The schema check reads the root's recorded version, not a phantom default.
+      assertStringIncludes(check(payload, "schema version").detail, "current");
+    });
+  });
+}
+
 Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);

@@ -14,7 +14,7 @@ import {
   resolveRecipesDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
-import { CONFIG_REL } from "../shared/env.ts";
+import { CONFIG_REL, findRoot } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
@@ -921,7 +921,12 @@ function renderDoctorChecks(log: Logger, checks: Check[]): void {
 /** Run `discern doctor`. Returns a process exit code (0 = healthy). */
 export async function runDoctor(options: DoctorOptions): Promise<number> {
   const log = new Logger(options);
-  const destDir = Deno.cwd();
+  // Resolve the project root the way every other verb (and the `discern_doctor`
+  // MCP tool) does — walk up from the cwd via `findRoot` — so doctor run from any
+  // subdirectory diagnoses the same install the gate, status, and finish would,
+  // not a phantom "broken" one at the cwd. Falls back to the cwd when there is no
+  // project in the ancestry, so the "discern.toml not found" check still fires.
+  const destDir = (await findRoot()) ?? Deno.cwd();
 
   if (options.json) {
     const result = await doctorResult(destDir);

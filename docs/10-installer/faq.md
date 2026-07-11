@@ -13,7 +13,10 @@ discern doctor
 It checks the install end to end — the config parses, the schema is current, the
 commands your gate calls resolve on `PATH`, and each configured agent's
 integration is wired — and prints each verb's execution model so you can see
-what would run. When you report a problem, include its machine-readable form:
+what would run. Run it from anywhere inside the project: like every other verb,
+it walks up to the root `discern.toml`, so a subdirectory reports the same
+install as the root, not a false "not initialized". When you report a problem,
+include its machine-readable form:
 
 ```
 discern doctor --json
