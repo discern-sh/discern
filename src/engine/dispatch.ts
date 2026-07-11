@@ -100,6 +100,35 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "mcp",
 ]);
 
+/** The installer verbs Cliffy owns (registered in `buildCli`, not the engine). Kept
+ * beside the engine set so the FULL built-in vocabulary lives in one file — the
+ * recipe dispatcher is exactly the component that must know every name a recipe can
+ * collide with. `main.ts` re-exports the {@link KNOWN_VERBS} union it forms. */
+export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
+  "setup",
+  "upgrade",
+  "uninstall",
+  "doctor",
+  "preset",
+  "docs",
+  "help",
+  "config",
+]);
+
+/**
+ * Every built-in verb the router dispatches itself — installer + engine. This is
+ * the SINGLE source of truth for "does a name shadow a built-in?", so the four
+ * surfaces that must agree — the router's recipe fallthrough (`main.ts`), the
+ * `--help` recipe listing ({@link printProjectRecipes}), the typo suggester's recipe
+ * names ({@link projectRecipeNames}), and the shadow warning ({@link
+ * warnShadowedRecipe}) — all read THIS set and cannot diverge. `main.ts` re-exports
+ * it as its own `KNOWN_VERBS`; the parity guard ties it to the live registrations.
+ */
+export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
+  ...KNOWN_INSTALLER_VERBS,
+  ...KNOWN_ENGINE_VERBS,
+]);
+
 /** Hyphenated engine recipe filenames plus their displayed command form, for the suggester.
  * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops the command-group
  * verbs that have no recipe form (skills, mcp) and adds the worktree sub-recipes
@@ -966,8 +995,9 @@ async function projectRecipeNames(recipesAbs: string): Promise<string[]> {
       if (!(await isExecutable(join(recipesAbs, entry.name)))) {
         continue;
       }
-      // Skip a recipe shadowed by an engine verb (it would never run).
-      if (KNOWN_ENGINE_VERBS.has(entry.name)) {
+      // Skip a recipe shadowed by ANY built-in (it would never run) — the same set
+      // the router refuses, so listing/suggesting can't advertise an unrunnable name.
+      if (KNOWN_VERBS.has(entry.name)) {
         continue;
       }
       names.push(entry.name);
@@ -1222,7 +1252,9 @@ export async function printProjectRecipes(): Promise<void> {
   const lines: string[] = [];
   try {
     for await (const entry of Deno.readDir(abs)) {
-      if (!entry.isFile || KNOWN_ENGINE_VERBS.has(entry.name)) {
+      // Skip a recipe shadowed by ANY built-in — the same set the router refuses, so
+      // help never lists a name that can never run.
+      if (!entry.isFile || KNOWN_VERBS.has(entry.name)) {
         continue;
       }
       const file = join(abs, entry.name);
@@ -1247,8 +1279,20 @@ export async function printProjectRecipes(): Promise<void> {
   }
 }
 
-/** Warn (to stderr) when a project recipe is shadowed by the built-in `verb`. */
-export async function warnShadowedRecipe(verb: string): Promise<void> {
+/**
+ * Warn (to stderr) when a project recipe is shadowed by the built-in `verb`. This is
+ * advisory human narration, so it MUST stay silent under `--json`: the combined
+ * stdout+stderr of any `<verb> --json` is exactly one envelope (ADR 0030), and a
+ * stray warning line would pollute it (B35). `json` is passed from the router, which
+ * knows the mode before the verb runs.
+ */
+export async function warnShadowedRecipe(
+  verb: string,
+  opts: { json?: boolean } = {},
+): Promise<void> {
+  if (opts.json ?? false) {
+    return;
+  }
   const root = await findRoot();
   if (root === undefined) {
     return;

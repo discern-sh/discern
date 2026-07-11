@@ -8,8 +8,14 @@ and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
 handler, execs an _unknown_ verb as a matching project Recipe (with the
 `DISCERN_*` environment exported), lets the Engine win on a name collision with
-a project recipe, and suggests a near-match on a typo. Every subsystem's verbs
-are always registered — there is no toggle layer in the dispatch
+a project recipe, and suggests a near-match on a typo. The single set of
+built-in names — `KNOWN_VERBS` (installer + engine), defined once in the
+dispatcher — is the SSOT for that collision: the router's recipe fall-through,
+the `--help` recipe listing, the typo suggester, and the shadowed-recipe warning
+all read it, so help can never advertise (nor the suggester propose) a recipe
+the router would refuse. That warning is human narration, so it stays silent
+under `--json` to keep the one-envelope stream pure. Every subsystem's verbs are
+always registered — there is no toggle layer in the dispatch
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The router in
 [`main.ts`](../../src/main.ts) resolves the verb as the first token that is not
 a global flag, so `discern --json <verb>` routes exactly like

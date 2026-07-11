@@ -51,11 +51,16 @@ import {
   attachEngineCommands,
   dispatchHelper,
   dispatchRecipeOrSuggest,
-  KNOWN_ENGINE_VERBS,
+  KNOWN_VERBS,
   printProjectRecipes,
   runConfigRead,
   warnShadowedRecipe,
 } from "./engine/dispatch.ts";
+
+// The full built-in verb vocabulary (installer + engine) is defined once in the
+// dispatcher — the recipe-shadow authority — and re-exported here as the CLI's
+// `KNOWN_VERBS`, so the parity guard and existing importers keep this entry point.
+export { KNOWN_VERBS };
 
 /**
  * Resolve the effective "no colour" decision. Cliffy maps `--no-color` to a
@@ -746,24 +751,6 @@ function shouldWelcomeBare(
   return inProject ? !bootstrapped : true;
 }
 
-/**
- * Installer verbs Cliffy owns; combined with the engine verbs to decide which
- * unknown first tokens fall through to a project recipe. Exported as the universe of
- * known verbs the parity guard ties the setup / MCP satellites to
- * (`tests/engine_verb_parity_test.ts`).
- */
-export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
-  "setup",
-  "upgrade",
-  "uninstall",
-  "doctor",
-  "preset",
-  "docs",
-  "help",
-  "config",
-  ...KNOWN_ENGINE_VERBS,
-]);
-
 /** A parsed CLI invocation: the verb Cliffy will dispatch, and the argv left
  * for a non-Cliffy dispatch target (a project recipe) once that verb token is
  * removed — leading global flags preserved, in order. */
@@ -930,9 +917,12 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
 
-    // A built-in engine verb with a same-named project recipe: warn it is shadowed.
-    if (KNOWN_ENGINE_VERBS.has(verb)) {
-      await warnShadowedRecipe(verb);
+    // A built-in verb (installer OR engine) with a same-named project recipe: warn
+    // it is shadowed and won't run. Keyed on the SAME KNOWN_VERBS the router refuses,
+    // so every name help could list is covered — not just the engine subset (B34).
+    // Silent under --json so the single-envelope stream stays pure (B35).
+    if (KNOWN_VERBS.has(verb)) {
+      await warnShadowedRecipe(verb, { json: argv.includes("--json") });
     }
 
     // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
