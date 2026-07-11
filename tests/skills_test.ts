@@ -253,6 +253,32 @@ Deno.test("materializeSkills: prunes a removed authored skill's dangling link", 
   });
 });
 
+Deno.test("materializeSkills: prunes an excluded authored skill's live symlink and disowns it", async () => {
+  await withTempDir(async (root) => {
+    // Materialize an authored skill, then exclude it: the LIVE symlink discern
+    // placed (and recorded in the manifest) must be pruned like any other entry
+    // discern owns — never left behind and re-labelled a foreign drop-in.
+    await authoredSkill(root, "foo");
+    await materializeSkills(root, cfg(), CLAUDE_SKILLS);
+    const sk = claudeSkillsDirOf(root);
+    assert((await Deno.lstat(join(sk, "foo"))).isSymlink);
+
+    const excluded = parseConfigOrThrow(
+      '[skills]\ndir = "skills"\nexclude = ["foo"]\n',
+    );
+    const res = await materializeSkills(root, excluded, CLAUDE_SKILLS);
+    assertEquals(res.pruned, 1, "the excluded skill's symlink must be pruned");
+    assertEquals(await exists(join(sk, "foo")), false);
+    // Pruning removes the LINK only — the authored source stays untouched.
+    assert(await exists(join(root, "skills/foo/SKILL.md")));
+    // And the manifest no longer carries it (nothing left to own).
+    const owned = JSON.parse(
+      await Deno.readTextFile(join(sk, MATERIALIZED_MANIFEST)),
+    ) as string[];
+    assertEquals(owned.includes("foo"), false);
+  });
+});
+
 Deno.test("materializeSkills: leaves a foreign entry (unmanaged name, live target) alone", async () => {
   await withTempDir(async (root) => {
     const sk = claudeSkillsDirOf(root);

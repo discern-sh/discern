@@ -119,6 +119,39 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
   }
 });
 
+Deno.test("compile converges when [guidance].sources globs the generated files' location", async () => {
+  // sources = ["*.md"] matches the root-level markdown the user meant — AND the
+  // AGENTS.md/CLAUDE.md the compiler itself writes there. The outputs must be
+  // excluded from source resolution: otherwise each refresh embeds the previous
+  // compiled body (unbounded growth) and the currency check reads the freshly
+  // written file as a new source, reporting `stale` forever — a blocked gate
+  // whose prescribed remediation (`discern refresh`) can never clear it.
+  const dir = await Deno.makeTempDir({ prefix: "discern-render-test-" });
+  try {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      [
+        "[guidance]",
+        'agents = ["claude_code", "codex"]',
+        'sources = ["*.md"]',
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(join(dir, "guidance.md"), "# Mine\nA rule.\n");
+
+    await compileGuidelines(dir);
+    const first = await Deno.readTextFile(join(dir, "AGENTS.md"));
+    // Current immediately after a refresh — the self-defeating loop is the bug.
+    assertEquals(await checkGuidanceCurrent(dir), []);
+
+    await compileGuidelines(dir);
+    const second = await Deno.readTextFile(join(dir, "AGENTS.md"));
+    assertEquals(second, first, "consecutive refreshes must be byte-identical");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("renderAgentFiles: two renders of the same config are byte-identical (deterministic)", async () => {
   // The built-in sections are templated against a context built purely from
   // committed config (ADR 0034), so the compile output cannot vary run-to-run on

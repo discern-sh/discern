@@ -38,7 +38,7 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sources` | string[] | `["discern/guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed. Read only if present; the built-in harness guidance is always prepended. |
+| `sources` | string[] | `["discern/guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; the built-in harness guidance is always prepended. |
 | `agents` | string[] | `[]` | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. |
 
 ## `[skills]`

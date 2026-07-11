@@ -7,9 +7,11 @@ This subtree covers the instruction pipeline. discern ships **built-in harness
 guidance** bundled in the binary
 ([`templates/guidance/`](../../templates/guidance/)); you add your own
 **Guidance source** — `[guidance].sources` in `discern.toml`, default
-`discern/guidance.md`, globs allowed.
-[`discern refresh`](../../src/engine/guidelines.ts) regenerates the generated
-agent files, skills, and integration artifacts: it compiles
+`discern/guidance.md`, globs allowed. The compiled agent files themselves are
+never picked up as sources, even when a pattern matches them — an output feeding
+back in would grow the compiled body on every refresh — so a root-level `"*.md"`
+glob is safe. [`discern refresh`](../../src/engine/guidelines.ts) regenerates
+the generated agent files, skills, and integration artifacts: it compiles
 `[built-in base] + [the built-in sections] + [your sources]` into each
 **Compiled agent file**, selected by `[guidance].agents` (`claude_code` →
 `CLAUDE.md`, `codex` / `cursor` / `copilot` → `AGENTS.md`, `gemini` →

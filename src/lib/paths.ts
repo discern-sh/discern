@@ -19,6 +19,9 @@ import {
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import { normalizeDocsDir } from "../shared/docs_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+// Runtime-only import (used inside a function body, never at module evaluation),
+// so the providers.ts → paths.ts edge in the other direction stays harmless.
+import { allGuidanceFilePaths } from "./providers.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
@@ -161,6 +164,15 @@ export function resolveWorktreeRoot(
  * nothing simply contributes nothing. Globs are supported. Results are
  * de-duplicated and sorted for a stable concatenation order regardless of match
  * order.
+ *
+ * The compile pipeline's own OUTPUTS — the generated agent files the provider
+ * registry emits at the project root (`AGENTS.md`, `CLAUDE.md`, …) — are never
+ * admitted, even when a pattern matches them (`sources = ["*.md"]` is the
+ * classic case, but an explicit listing is refused too). Consuming an output as
+ * a source would feed each compiled body into the next: every refresh grows the
+ * file, and the currency check — which re-renders after the write — reads the
+ * freshly written file as a new source and reports `stale` forever, blocking
+ * the gate with a remediation (`discern refresh`) that can never clear it.
  */
 export async function resolveGuidanceSources(
   root: string,
@@ -173,12 +185,16 @@ export async function resolveGuidanceSources(
   const patterns = configured.length > 0
     ? configured
     : [SOURCE_PATHS.guidance.defaultPath];
+  // Every guidance file discern can emit, across ALL providers (not just the
+  // configured set): a leftover output for an unconfigured agent is just as
+  // poisonous a source as a live one.
+  const outputs = new Set(allGuidanceFilePaths().map((rel) => join(root, rel)));
   const matched = new Set<string>();
   for (const pattern of patterns) {
     // Absolute patterns are honoured as-is; relative ones resolve against root.
     const glob = pattern.startsWith("/") ? pattern : join(root, pattern);
     for await (const entry of expandGlob(glob, { includeDirs: false })) {
-      if (entry.isFile) {
+      if (entry.isFile && !outputs.has(entry.path)) {
         matched.add(entry.path);
       }
     }

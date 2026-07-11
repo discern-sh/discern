@@ -550,6 +550,31 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
   });
 });
 
+Deno.test("doctor: flags a [guidance].sources entry naming a generated agent file", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    // An output can never be a source (resolveGuidanceSources refuses it), so a
+    // config that names one explicitly must get a diagnostic with the reason —
+    // not a silent zero-match the user has to puzzle out.
+    const tomlPath = join(dir, "discern.toml");
+    const toml = await Deno.readTextFile(tomlPath);
+    await Deno.writeTextFile(
+      tomlPath,
+      toml.replace(
+        'sources = ["discern/guidance.md"]',
+        'sources = ["discern/guidance.md", "AGENTS.md"]',
+      ),
+    );
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const g = check(payload, "guidance sources");
+    assertEquals(g.ok, false);
+    assertStringIncludes(g.detail, "AGENTS.md");
+    assertStringIncludes(g.detail, "an output can never be a source");
+    assertStringIncludes(g.fix ?? "", "[guidance].sources");
+  });
+});
+
 Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired for all three)", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir); // default agents: claude_code + codex

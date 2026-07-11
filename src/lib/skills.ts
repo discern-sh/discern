@@ -390,6 +390,25 @@ async function writeMaterializedNames(
   );
 }
 
+/**
+ * True when a directory entry that is NOT in the effective set is discern's own
+ * stale artifact rather than a user drop-in: its name is in the ownership
+ * manifest (discern placed it — a copied bundled skill or an authored skill's
+ * symlink, live or not), or it is a dangling symlink (a removed authored skill
+ * from a run predating the manifest). The ONE classification the prune pass
+ * ({@link materializeSkillsDir}) and the currency check ({@link checkSkillsDir})
+ * share, so the check can never call an entry `stale` that a refresh would then
+ * refuse to prune.
+ */
+async function isOwnedStaleEntry(
+  path: string,
+  entry: Deno.DirEntry,
+  ownedBefore: Set<string>,
+): Promise<boolean> {
+  return ownedBefore.has(entry.name) ||
+    (entry.isSymlink && !(await targetExists(path)));
+}
+
 /** Surface foreign entries left untouched in `.claude/skills/` (a user drop-in under
  * an unmanaged name). The directory is discern-generated, so a stray entry is worth
  * a heads-up — but never a deletion, per the never-clobber-a-drop-in contract. */
@@ -471,13 +490,15 @@ export async function materializeSkills(
  * Reconcile ONE agent skills directory with the effective skill set: render
  * bundled skills in ({@link copyRenderedSkillTree}, against `ctx`), symlink
  * authored ones (relative, so edits are live and the link survives
- * a tree move), and prune entries discern owns that are no longer effective — a
- * removed authored skill's dangling symlink AND a real-directory copy of a bundled
- * skill a newer binary stopped shipping (tracked via {@link MATERIALIZED_MANIFEST},
- * per directory, so it self-heals instead of needing a one-off migration per
- * removal). A genuinely foreign entry — a name discern never materialized — is left
- * untouched and warned about, so a stray drop-in is never clobbered. `skillsRel` is
- * the project-relative path (for logs); `skillsAbs` is where the work happens.
+ * a tree move), and prune entries discern owns that are no longer effective —
+ * whatever their kind ({@link isOwnedStaleEntry}): a removed authored skill's
+ * dangling symlink, an excluded authored skill's LIVE symlink, and a
+ * real-directory copy of a bundled skill a newer binary stopped shipping
+ * (tracked via {@link MATERIALIZED_MANIFEST}, per directory, so it self-heals
+ * instead of needing a one-off migration per removal). A genuinely foreign
+ * entry — a name discern never materialized — is left untouched and warned
+ * about, so a stray drop-in is never clobbered. `skillsRel` is the
+ * project-relative path (for logs); `skillsAbs` is where the work happens.
  * discern-allow-retrospective: "no longer effective" is the current effective set.
  */
 async function materializeSkillsDir(
@@ -499,11 +520,11 @@ async function materializeSkillsDir(
   let pruned = 0;
   const foreign: string[] = [];
 
-  // Prune pass: remove entries we manage (recreated below) and entries discern owns
-  // that are now stale — a dangling symlink (a removed authored skill) or a real
-  // directory whose name discern materialized before but no longer ships. Anything
-  // else is a foreign drop-in: leave it, and warn (never clobber it).
-  // discern-allow-retrospective: "no longer ships" is the current bundled set.
+  // Prune pass: remove entries we manage (recreated below) and entries discern
+  // owns that are now stale ({@link isOwnedStaleEntry} — the same classification
+  // the currency check applies, so everything it reports `stale` a refresh
+  // actually clears). Anything else is a foreign drop-in: leave it, and warn
+  // (never clobber it).
   try {
     for await (const entry of Deno.readDir(skillsAbs)) {
       if (entry.name === MATERIALIZED_MANIFEST) {
@@ -515,11 +536,8 @@ async function materializeSkillsDir(
         await removeAny(path, realDir);
         continue;
       }
-      if (entry.isSymlink && !(await targetExists(path))) {
-        await removeAny(path, false);
-        pruned++;
-      } else if (realDir && ownedBefore.has(entry.name)) {
-        await removeAny(path, true);
+      if (await isOwnedStaleEntry(path, entry, ownedBefore)) {
+        await removeAny(path, realDir);
         pruned++;
       } else {
         foreign.push(entry.name);
@@ -821,10 +839,10 @@ async function checkSkillsDir(
     const path = join(abs, entry.name);
     const skill = managed.get(entry.name);
     if (skill === undefined) {
-      // Not effective: a stale managed entry (or dangling link) discern should have
-      // pruned, versus a foreign drop-in it must never touch.
-      const stale = ownedBefore.has(entry.name) ||
-        (entry.isSymlink && !(await targetExists(path)));
+      // Not effective: a stale managed entry discern's refresh would prune,
+      // versus a foreign drop-in it must never touch — the SAME predicate the
+      // prune pass applies, so `stale` always means "a refresh clears this".
+      const stale = await isOwnedStaleEntry(path, entry, ownedBefore);
       drift.push({
         dir: rel,
         reason: stale ? "stale" : "foreign",

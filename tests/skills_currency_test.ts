@@ -188,3 +188,111 @@ Deno.test("a foreign drop-in is `foreign`, never `stale` (never clobbered)", asy
     assertEquals(foreign.map((d) => d.name), ["user-dropin"]);
   });
 });
+
+Deno.test("check/write parity: every `stale` a refresh clears, every `foreign` it leaves — for every entry kind", async () => {
+  // The contract the check's classification MEANS: `stale` is drift `discern
+  // refresh` will fix (the gate blocks on it and prescribes exactly that), and
+  // `foreign` is an entry discern never touches. Exercise the whole
+  // classification matrix — owned/unowned × real dir / live symlink / dangling
+  // symlink — asserting the WRITE path honours what the CHECK reports. A new
+  // divergence between the two (an entry read as `stale` that a refresh leaves
+  // behind, or a `foreign` one it deletes) fails here whatever kind it is.
+  const scenarios: ReadonlyArray<{
+    label: string;
+    name: string;
+    /** Extra `[skills]` config lines for both the check and the refresh. */
+    extra?: string;
+    /** Arrange the entry after a clean materialize of the base config. */
+    place: (root: string, abs: string) => Promise<void>;
+    expect: "stale" | "foreign";
+  }> = [
+    {
+      label: "owned real dir (a bundled skill the binary stopped shipping)",
+      name: "dropped-builtin",
+      place: async (_root, abs) => {
+        await Deno.mkdir(join(abs, "dropped-builtin"));
+        const manifest = JSON.parse(
+          await Deno.readTextFile(join(abs, MATERIALIZED_MANIFEST)),
+        ) as string[];
+        await Deno.writeTextFile(
+          join(abs, MATERIALIZED_MANIFEST),
+          JSON.stringify([...manifest, "dropped-builtin"].sort(), null, 2),
+        );
+      },
+      expect: "stale",
+    },
+    {
+      label: "owned live symlink (an authored skill later excluded)",
+      name: "mine",
+      extra: 'exclude = ["mine"]\n',
+      place: async () => {
+        // Placed by the clean materialize below (authored → live symlink);
+        // the exclusion in `extra` is what turns it non-effective.
+      },
+      expect: "stale",
+    },
+    {
+      label: "dangling symlink (an authored skill deleted at source)",
+      name: "mine",
+      place: async (root) => {
+        await Deno.remove(join(root, "skills", "mine"), { recursive: true });
+      },
+      expect: "stale",
+    },
+    {
+      label: "foreign real dir (a user drop-in)",
+      name: "user-dropin",
+      place: async (_root, abs) => {
+        await Deno.mkdir(join(abs, "user-dropin"));
+        await Deno.writeTextFile(join(abs, "user-dropin/SKILL.md"), "mine");
+      },
+      expect: "foreign",
+    },
+    {
+      label: "foreign live symlink (a user drop-in link)",
+      name: "user-link",
+      place: async (root, abs) => {
+        await Deno.mkdir(join(root, "external"));
+        await Deno.writeTextFile(join(root, "external/SKILL.md"), "x");
+        await Deno.symlink("../../external", join(abs, "user-link"));
+      },
+      expect: "foreign",
+    },
+  ];
+
+  for (const s of scenarios) {
+    await withTempDir(async (root) => {
+      await authoredSkill(root, "mine");
+      await materializeClean(root, cfg());
+      const abs = join(root, SKILLS_REL);
+      await s.place(root, abs);
+
+      const config = cfg(s.extra ?? "");
+      const drift = await checkSkillsCurrent(root, config);
+      const entry = drift.find((d) => d.name === s.name);
+      assertEquals(entry?.reason, s.expect, `${s.label}: classification`);
+
+      await materializeSkills(root, config, DIRS);
+      const there = await Deno.lstat(join(abs, s.name))
+        .then(() => true, () => false);
+      if (s.expect === "stale") {
+        assertEquals(there, false, `${s.label}: a refresh must prune it`);
+        assertEquals(
+          (await checkSkillsCurrent(root, config)).filter((d) =>
+            d.name === s.name
+          ),
+          [],
+          `${s.label}: after the refresh the check must be clean`,
+        );
+      } else {
+        assertEquals(there, true, `${s.label}: a refresh must never touch it`);
+        assertEquals(
+          (await checkSkillsCurrent(root, config))
+            .find((d) => d.name === s.name)?.reason,
+          "foreign",
+          `${s.label}: still foreign after a refresh, never escalated`,
+        );
+      }
+    });
+  }
+});
