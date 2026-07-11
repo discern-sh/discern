@@ -373,6 +373,88 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
   });
 });
 
+// The class behind B49: `setup done` must NOT record `[meta].bootstrapped` while any
+// completion precondition is unmet — and a config discern can't even parse is the floor,
+// because the parse-tolerant marker writer would happily stamp `bootstrapped = true` and
+// only THEN hit the failure the run reports, leaving completion recorded by a failing run.
+// The class INVARIANT both done modes must hold — the checks-and-proof path AND the --force
+// escape hatch that deliberately skips it — is: refuse (exit 1) and write no marker. The
+// non-force path already refuses via the gate proof (which loads the config); --force, which
+// skips the proof, previously sailed through to the write, so it must now refuse too. Driving
+// this off the mode list means a future done variant is a one-line enrolment, not a silent gap.
+const DONE_MODES: ReadonlyArray<{ label: string; args: string[] }> = [
+  { label: "plain", args: ["setup", "done"] },
+  { label: "--force", args: ["setup", "done", "--force"] },
+];
+
+for (const mode of DONE_MODES) {
+  Deno.test(`setup done (${mode.label}) refuses an unparseable config and records nothing (B49)`, async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { bootstrapped: false });
+
+      // Corrupt discern.toml so it no longer parses. The marker writer (a line-based,
+      // parse-tolerant editor) would otherwise stamp the marker regardless.
+      const cfgPath = join(dir, "discern.toml");
+      const broken = () => Deno.readTextFile(cfgPath);
+      await Deno.writeTextFile(
+        cfgPath,
+        await broken() + "\nthis is = = not valid [[[\n",
+      );
+
+      // The class invariant: the run refuses (exit 1) and records no marker — whichever
+      // refusal path (gate proof or the --force config-parse floor) it takes.
+      const json = await runAgent(dir, [...mode.args, "--json"]);
+      assertEquals(json.code, 1, json.output);
+      assertEquals(JSON.parse(json.stdout).ok, false);
+      assert(
+        !(await broken()).includes("bootstrapped = true"),
+        `setup done (${mode.label}) recorded completion over an unparseable config`,
+      );
+
+      // The human surface refuses on stderr too, still recording nothing.
+      const human = await runAgent(dir, mode.args);
+      assertEquals(human.code, 1, human.output);
+      assert(
+        !(await broken()).includes("bootstrapped = true"),
+        `setup done (${mode.label}, human) recorded completion over an unparseable config`,
+      );
+    });
+  });
+}
+
+// The B49 pivot itself: --force skips the completeness checks and the gate proof, so ONLY
+// this run reaches the marker write with an unparseable config — the exact regression is
+// that write landing ahead of the failure. Pin the specific refusal so it can't silently
+// revert to stamping the marker: --force on a broken config returns the `invalid_config`
+// refusal, names the parse problem, and records nothing.
+Deno.test("setup done --force is refused by the config-parse floor it cannot override (B49)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const cfgPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      cfgPath,
+      await Deno.readTextFile(cfgPath) + "\nthis is = = not valid [[[\n",
+    );
+
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    assertEquals(res.ok, false);
+    assertEquals(
+      res.error,
+      "invalid_config",
+      `--force on a broken config must hit the config-parse floor, not stamp completion; got ${
+        JSON.stringify(res)
+      }`,
+    );
+    assertStringIncludes(res.message, "parse");
+    assert(
+      !(await Deno.readTextFile(cfgPath)).includes("bootstrapped = true"),
+      "the marker must not be written by the refused --force run",
+    );
+  });
+});
+
 Deno.test("the setup redirect and the command retire once setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
@@ -603,6 +685,55 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
     const again = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(again.code, 0, again.output);
     assertEquals(JSON.parse(again.stdout).data.bootstrapped, true);
+  });
+});
+
+Deno.test("setup done catches an untracked footprint file whose path git quotes (B50)", async () => {
+  // git C-quotes any path with non-ASCII bytes in line-oriented `--porcelain` output
+  // (core.quotePath defaults on): `?? "discern/docs/d\303\251cisions.md"`. A clean-tree
+  // check that de-quotes by hand — slice(2).trim() then startsWith the unquoted footprint
+  // prefix — never matches the quoted form, so `done` would proceed and record completion
+  // over uncommitted authored work. The end-to-end guard for the `-z` porcelain parsing:
+  // a real non-ASCII authored doc must still block completion. Pairs with the unit
+  // coverage in git_paths_test.ts and the structural -z guard in git_path_quoting_test.ts.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+
+    // Commit ALL the authored setup, so the ONLY uncommitted thing is the non-ASCII doc
+    // below — the clean-tree check has exactly one path to catch, and it is a quoted one.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+
+    // An untracked authored doc inside the footprint (the configured docs tree) whose
+    // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
+    const quotedName = "décisions.md";
+    await Deno.writeTextFile(
+      join(dir, "discern/docs", quotedName),
+      "# A real authored decision\n",
+    );
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(
+      res.error,
+      "uncommitted_changes",
+      `a quoted-path untracked footprint file must block completion; got ${done.stdout}`,
+    );
+    const uncommitted: string[] = res.data.uncommitted;
+    assert(
+      uncommitted.some((l) => l.includes(quotedName)),
+      `the non-ASCII authored doc must be named as uncommitted (verbatim, not a ` +
+        `C-quoted mangling):\n${JSON.stringify(uncommitted)}`,
+    );
+    // Nothing recorded — completion cannot be stamped over the uncommitted authored file.
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "completion must not be recorded over an uncommitted quoted-path footprint file",
+    );
   });
 });
 

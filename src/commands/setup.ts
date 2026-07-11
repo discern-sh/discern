@@ -72,6 +72,7 @@ import {
 import {
   allGuidanceFilePaths,
   allGuidanceFiles,
+  providerFor,
   reactivationHandoff,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
@@ -321,16 +322,24 @@ function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
 }
 
 /**
- * Detect the repository's real integration branch for the scaffold to stamp: the
- * remote's declared default (`origin/HEAD`) wins, then the branch checked out
- * when setup started — so this must run BEFORE the `discern-setup` checkout —
- * then the user's configured `init.defaultBranch` (a tiebreaker for a detached
- * HEAD only: vendor builds bake a default into it — Apple's git ships
- * `init.defaultBranch = main` in an unmaskable baked-in config — so consulting
- * it ahead of the checked-out branch would stamp `main` on every macOS `master`
- * repo, the exact bug this detection exists to fix). Undefined outside a git
- * repo, when every probe comes back empty, or when the current branch is already
- * `discern-setup` (a resume — never an integration branch).
+ * Detect the repository's real integration branch for the scaffold to stamp, in
+ * descending order of reliability:
+ *   1. the remote's declared default (`origin/HEAD`);
+ *   2. the branch checked out when setup started — so this must run BEFORE the
+ *      `discern-setup` checkout;
+ *   3. when setup STARTED on `discern-setup` (a retry after a first attempt created
+ *      the branch and then failed pre-config), the branch that `discern-setup` was
+ *      forked from, recovered from the actual local branches
+ *      ({@link forkParentBranch}) — the checked-out branch can't answer here, and
+ *      falling straight to `init.defaultBranch` would stamp `main` on a `master` repo;
+ *   4. only as a last resort, the user's configured `init.defaultBranch` — a
+ *      detached-HEAD-with-no-branches tiebreaker. Vendor builds bake a default into it
+ *      (Apple's git ships `init.defaultBranch = main` in an unmaskable config), so
+ *      consulting it ahead of the real branches would stamp `main` on every macOS
+ *      `master` repo — the exact bug this detection exists to fix, in both its
+ *      first-run and its retry-on-`discern-setup` forms.
+ *
+ * Undefined outside a git repo or when every probe comes back empty.
  */
 async function detectIntegrationBranch(
   destDir: string,
@@ -361,11 +370,61 @@ async function detectIntegrationBranch(
   if (current !== "" && current !== SETUP_BRANCH) {
     return current;
   }
+  // Started ON discern-setup (a retry): recover the branch it was forked from from
+  // the actual repo branches, rather than trusting the vendor-baked init default.
+  if (current === SETUP_BRANCH) {
+    const forkParent = await forkParentBranch(destDir);
+    if (forkParent !== undefined) {
+      return forkParent;
+    }
+  }
   const configured =
     (await runGit(["config", "init.defaultBranch"], { cwd: destDir })).stdout
       .trim();
   if (configured !== "") {
     return configured;
+  }
+  return undefined;
+}
+
+/**
+ * The local branch `discern-setup` was forked from, recovered for the retry case
+ * where setup re-runs while already checked out on `discern-setup` (a first attempt
+ * created the branch and then failed before writing the config). `ensureSetupBranch`
+ * forks `discern-setup` from the integration branch, so that branch is an ANCESTOR of
+ * `discern-setup`'s tip (identical to it when the failed run made no commits). Among
+ * the local branches that are ancestors of `discern-setup`, the closest fork point is
+ * the one with the most recent commit — the integration branch — so return the newest
+ * such branch. Undefined when no other local branch qualifies (a lone `discern-setup`),
+ * leaving the caller to fall back to `init.defaultBranch`.
+ */
+async function forkParentBranch(destDir: string): Promise<string | undefined> {
+  // Local branch names, newest commit first, so the first qualifying ancestor is the
+  // closest fork point. `for-each-ref` lists ref NAMES (not tracked-file paths), so
+  // git's path quoting never applies — no `-z` decode needed.
+  const refs = await runGit(
+    [
+      "for-each-ref",
+      "--sort=-committerdate",
+      "--format=%(refname:short)",
+      "refs/heads",
+    ],
+    { cwd: destDir },
+  );
+  if (!refs.success) {
+    return undefined;
+  }
+  for (const branch of refs.stdout.split("\n").map((l) => l.trim())) {
+    if (branch === "" || branch === SETUP_BRANCH) {
+      continue;
+    }
+    const isAncestor = await runGit(
+      ["merge-base", "--is-ancestor", branch, SETUP_BRANCH],
+      { cwd: destDir },
+    );
+    if (isAncestor.success) {
+      return branch;
+    }
   }
   return undefined;
 }
@@ -471,14 +530,34 @@ async function scaffoldHarness(
   const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
   effectiveFlags.yes = true;
 
-  // Auto-detect the agent set for a FRESH install when the user named none (no
-  // --agents, no --config agents): seed [guidance].agents from what is actually on
-  // PATH, else DEFAULT_AGENTS. Detection runs once here and is persisted to config;
-  // resolveConfiguredAgents stays a pure runtime reader (never re-detects). Gated on
-  // freshInstall because the config is write-once — a --force re-run leaves an
-  // existing [guidance].agents untouched, so re-detecting would be inert anyway.
-  if (freshInstall && effectiveFlags.agents === undefined) {
-    effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+  // Resolve the agent set when the user named none (no --agents, no --config agents),
+  // so the scaffold lays exactly the right per-agent seeds — never DEFAULT_AGENTS by
+  // accident:
+  //   • FRESH install → detect what is actually on PATH (else DEFAULT_AGENTS) and seed
+  //     [guidance].agents from it (persisted once here; resolveConfiguredAgents stays a
+  //     pure runtime reader that never re-detects).
+  //   • --force RE-SCAFFOLD over an existing install → re-derive from the PERSISTED
+  //     [guidance].agents. The config is write-once, so re-detecting would be inert for
+  //     the config — but the plan's per-agent seeds come from config.agents, so without
+  //     this a --force re-run lays DEFAULT_AGENTS' seed files (claude_code + codex) over a
+  //     project configured for a different set, the exact divergence from a clean run this
+  //     closes (B48). An unreadable config falls through to DEFAULT_AGENTS (the repair
+  //     path); an explicit --agents / --config still wins, since effectiveFlags.agents is
+  //     then already set.
+  if (effectiveFlags.agents === undefined) {
+    if (freshInstall) {
+      effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+    } else {
+      try {
+        const persisted = (await loadConfig(destDir)).guidance.agents;
+        if (persisted.length > 0) {
+          effectiveFlags.agents = persisted.join(",");
+        }
+      } catch {
+        // Unreadable config — leave undefined so resolveSetupConfig falls back to
+        // DEFAULT_AGENTS; doctor / the strict verbs diagnose the broken config.
+      }
+    }
   }
   let config: SetupConfig;
   try {
@@ -1016,6 +1095,19 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     if (branch !== undefined) {
       freshInstall = (await resolveConfigPath(destDir)) === undefined;
     }
+  } else if (!opts.dryRun && !opts.allowDirty) {
+    // A resume that materialized its config from disk (freshInstall was already false,
+    // so the isolation block above was skipped) can still be sitting ON the setup branch
+    // — a first run that scaffolded there and then failed before committing the wiring.
+    // Recover that fact so the machinery commit below retries, rather than leaving
+    // discern's wiring permanently uncommitted. Only when actually on the branch and in a
+    // git repo; --dry-run / --allow-dirty own their git themselves.
+    const current =
+      (await runGit(["branch", "--show-current"], { cwd: destDir })).stdout
+        .trim();
+    if (current === SETUP_BRANCH) {
+      setupBranch = SETUP_BRANCH;
+    }
   }
 
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
@@ -1035,16 +1127,26 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   // --- Commit the scaffolded machinery (discern owns its own wiring) ---
-  // When `begin` created the isolated `discern-setup` branch (the fresh-install path:
-  // a clean git repo, not --dry-run / --allow-dirty), commit the harness machinery it
-  // just wrote — the config, the `.gitignore` fragment, and the per-agent MCP + hooks
-  // files — as one commit, so a coding agent never has to commit discern's own
-  // permission-widening wiring (a pre-approved MCP server), which its safety classifier
-  // is rightly trained to refuse. Best-effort and fail-open (a commit failure falls back
-  // to the agent committing by hand); skipped when setup proceeds in place with no branch.
+  // When `begin` is on the isolated `discern-setup` branch, commit the harness machinery
+  // — the config, the `.gitignore` fragment, and the per-agent MCP + hooks files — as one
+  // commit, so a coding agent never has to commit discern's own permission-widening wiring
+  // (a pre-approved MCP server), which its safety classifier is rightly trained to refuse.
+  // Best-effort and fail-open (a commit failure falls back to the agent committing by
+  // hand); skipped when setup proceeds in place with no branch.
+  //
+  // This run may not have scaffolded: a resume of an abandoned `discern-setup` branch
+  // recomputes `freshInstall=false` and skips the scaffold, so `scaffold` is undefined —
+  // yet the earlier run may have written the wiring and then failed to commit it (a missing
+  // git identity, a rejecting pre-commit hook, an interrupted process). So the commit must
+  // re-derive its target set from PERSISTED STATE, not only from this run's `ScaffoldOutcome`:
+  // when a scaffold is in hand its written paths are authoritative; on a resume the machinery
+  // paths come from the config's configured agents (via the provider registry). Either way we
+  // commit only the ones git reports as uncommitted, so a fully-committed resume is a no-op.
   let machineryCommit: AutoCommitOutcome | undefined;
-  if (setupBranch !== undefined && scaffold !== undefined) {
-    machineryCommit = await commitScaffoldedMachinery(destDir, scaffold);
+  if (setupBranch !== undefined) {
+    machineryCommit = scaffold !== undefined
+      ? await commitScaffoldedMachinery(destDir, scaffold)
+      : await commitPendingMachinery(destDir);
   }
   const machineryCommitted = machineryCommit?.state === "committed";
 
@@ -1401,8 +1503,93 @@ async function commitScaffoldedMachinery(
   ]
     .filter((p) => !authoredContentSeeds(scaffold.guidanceRel).has(p))
     .sort();
+  return await commitMachineryPaths(root, paths);
+}
+
+/**
+ * The union of discern's machinery file paths a project's CONFIGURED agents wire —
+ * derived from the provider registry ({@link providerFor} over `[guidance].agents`),
+ * never a hand-copied list, so a new provider or wiring category auto-enrols (the same
+ * single-source derivation `tests/engine_setup_test.ts`'s B10 guard asserts against). The
+ * always-present harness files (`discern.toml`, the `.gitignore` fragment) are included
+ * unconditionally. This is the machinery set a RESUMED `begin` re-derives when this run
+ * produced no {@link ScaffoldOutcome} to read the written paths from.
+ */
+function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
+  const paths = new Set<string>([CONFIG_REL, ".gitignore"]);
+  for (const agent of cfg.guidance.agents) {
+    const provider = providerFor(agent);
+    if (provider === undefined) {
+      continue;
+    }
+    if (provider.mcp.kind === "wired") {
+      paths.add(provider.mcp.integration.configFile);
+    }
+    if (provider.hooks !== undefined) {
+      paths.add(provider.hooks.settingsFile);
+    }
+    if (provider.worktreeApp !== undefined) {
+      paths.add(provider.worktreeApp.configFile);
+    }
+    if (provider.projectRules !== undefined) {
+      paths.add(provider.projectRules.rulesFile);
+    }
+  }
+  return [...paths].sort();
+}
+
+/**
+ * Commit discern's harness wiring on a RESUME of `begin` — the path that reaches the
+ * `discern-setup` branch without re-scaffolding (an abandoned earlier run recomputes
+ * `freshInstall=false`). The earlier run wrote the machinery but may have failed to commit
+ * it (a missing git identity, a rejecting pre-commit hook, an interrupted process), leaving
+ * discern's essential wiring permanently uncommitted with nothing downstream to catch it —
+ * the exact gap this closes. Re-derives the machinery set from the persisted config's
+ * configured agents ({@link machineryPathsFromConfig}), keeps only the paths git reports as
+ * currently uncommitted (so a resume whose wiring is already committed is a clean no-op, not
+ * an empty-commit error), and commits them like the fresh path. Best-effort and fail-open —
+ * a broken config or a git failure never fails `begin`; the agent can still commit by hand.
+ */
+async function commitPendingMachinery(
+  root: string,
+): Promise<AutoCommitOutcome> {
+  let cfg: DiscernConfig;
+  try {
+    cfg = await loadConfig(root);
+  } catch {
+    // No readable config to derive the machinery set from — nothing to retry here;
+    // doctor / the agent surface the broken config.
+    return { state: "skipped" };
+  }
+  const machinery = new Set(machineryPathsFromConfig(cfg));
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
+  if (!status.success) {
+    return { state: "skipped" };
+  }
+  const pending = parsePorcelainZ(status.stdout)
+    .map((entry) => entry.path)
+    .filter((p) => machinery.has(p))
+    .sort();
+  if (pending.length === 0) {
+    // The wiring is already committed (or was never written) — nothing to retry.
+    return { state: "skipped" };
+  }
+  return await commitMachineryPaths(root, pending);
+}
+
+/**
+ * Stage exactly `paths` and commit them as the single `discern: scaffold harness` commit —
+ * the shared executor behind both the fresh-scaffold and the resume machinery commits.
+ * Scoped to the given pathspecs on both `add` and `commit` (never `git add -A`, never a
+ * bare `git commit`), so nothing the agent authored can be swept in. Best-effort and
+ * fail-open: a git failure returns its cause for the caller to relay, never throws.
+ */
+async function commitMachineryPaths(
+  root: string,
+  paths: string[],
+): Promise<AutoCommitOutcome> {
   if (paths.length === 0) {
-    // Nothing scaffolded to commit (e.g. a fully-idempotent re-run).
+    // Nothing to commit (e.g. a fully-idempotent re-run).
     return { state: "skipped" };
   }
   const add = await runGit(["add", "--", ...paths], { cwd: root });
@@ -1410,7 +1597,7 @@ async function commitScaffoldedMachinery(
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
-    ["commit", "-m", "discern: scaffold harness"],
+    ["commit", "-m", "discern: scaffold harness", "--", ...paths],
     { cwd: root },
   );
   return commit.success
@@ -1983,6 +2170,22 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     worktreeProven = proof.worktreeProven;
   }
 
+  // The config must LOAD before the marker is written — completion cannot be recorded
+  // for a project whose config discern can't parse. The non-force path proves this
+  // already (doctor/finish both load it), but `--force` skips the proof, so an
+  // unparseable config would otherwise reach the parse-tolerant marker write, get
+  // `bootstrapped = true` stamped, and only THEN hit the failure `done` reports — leaving
+  // completion recorded by a failing run (B49). Check here, BEFORE any write, so a broken
+  // config is refused with nothing recorded. `--force` overrides the completeness checks
+  // and the gate proof, never the "is this a coherent project to complete" floor.
+  let doneCfg: DiscernConfig;
+  try {
+    doneCfg = await loadConfig(root);
+  } catch (error) {
+    emitDoneUnreadableConfig(opts.json, errMsg(error));
+    return 1; // [meta].bootstrapped is NOT recorded — nothing was written
+  }
+
   // Record the marker, comment-preserving (mirrors `discern config set --bool`).
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const editor = new TomlEditor(await Deno.readTextFile(path));
@@ -2001,8 +2204,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // session can't see them yet — hence the reactivation handoff (ADR 0075). Alongside
   // it: an honest per-capability coverage summary (so "gate proven" can't read as "every
   // protection runs"), where the just-finished work lives + how to land it on the
-  // integration branch, and a steer into ongoing use via the project coach.
-  const cfg = await loadConfig(root);
+  // integration branch, and a steer into ongoing use via the project coach. Reuse the
+  // config proven loadable above (the marker write only flips a bool); re-read the raw
+  // TOML so the assurance sees the just-written marker line.
+  const cfg = doneCfg;
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
@@ -2213,6 +2418,30 @@ async function proveWorktreeViable(
         `Skipped the worktree probe (${outcome.reason}); your first \`discern finish\` in a worktree will prove it.`,
       );
       return { ok: true, worktreeProven: false };
+  }
+}
+
+/**
+ * Refuse `setup done` when `discern.toml` can't be parsed, in both modes — the floor
+ * even `--force` can't override, because there is no coherent project to mark complete
+ * and the marker write must never land ahead of a run that then fails. Names the parse
+ * error and the exact fix. `[meta].bootstrapped` is left unrecorded (nothing is written).
+ */
+function emitDoneUnreadableConfig(json: boolean, detail: string): void {
+  const message =
+    `setup can't be marked complete — discern.toml doesn't parse: ${detail}. ` +
+    "Fix the syntax it names (run `discern doctor` to see the full diagnosis), then " +
+    "re-run `discern setup done`. (Even --force won't record completion over a config " +
+    "discern can't read.)";
+  if (json) {
+    emitResult({
+      ok: false,
+      verb: "setup done",
+      error: "invalid_config",
+      message,
+    });
+  } else {
+    console.error(`discern: ${message}`);
   }
 }
 
