@@ -77,13 +77,22 @@ and `help` are unchanged. Why each contested word won:
 - **`impact`** — the user's question, not the machinery's name. Its help line
   separates it from `coupling`: impact is config-driven (which gate scopes
   fire), coupling is history-driven (what tends to change together).
-- **`improvement`** — the noun form of the advisory verb, per the rule.
-  Singular, because it returns exactly one suggestion. The word's natural
-  reading ("fetch the suggested improvement") is exactly what the tool does.
+- **`improvement`** — the noun form of the advisory verb, per the rule (the
+  retired imperative also lied about effects: `improve` sounds like it mutates,
+  but the surface only advises). The full surface is an audit — a health score,
+  per-category rules, open judgement reviews — yet the name stays singular
+  because it states the headline contract, not the report's size: everything in
+  the audit funds one deliverable, the single highest-value next action, and the
+  loop is find it, land it, lock it in. The breadth belongs in the help line;
+  `improvements` and `improve` both forward via forgiveness.
 - **`map`** — [ADR 0100](0100-doctree-is-the-agents-map.md)'s own language,
   promoted to the verb. A map carries the authority contract ("a stale map is a
-  defect") and cannot be misread as discern's own manual. The tree stays at
-  `docs/` on disk: the map is the concept, `docs/` is its address.
+  defect") and cannot be misread as discern's own manual. The tree moves to
+  `map/` on disk too: keeping the retired name as the address would recreate the
+  defect this rename fixes — a name every gloss must disclaim ("the map — it
+  lives at `docs/`") — and a dedicated default directory ends the collision with
+  the human-curated `docs/` most host projects already have. The directory stays
+  configurable for projects that want another address.
 - **`done` / `accept`** — a handshake: the agent claims done, the owner accepts.
   `accept` names the _authorization_, not the mechanism — an agent has no reason
   to call it when nothing has been accepted — and "lands on the trunk" stays as
@@ -92,12 +101,33 @@ and `help` are unchanged. Why each contested word won:
 - **`update`** — the operation is strictly inbound (trunk → branch), and "Update
   branch" is the exact prior most users already hold. The `upgrade` adjacency is
   accepted: the two act on different domains (your branch vs the tool), both
-  fail safe, and `upgrade` is not on the MCP surface at all.
+  fail safe, `upgrade` is not on the MCP surface at all, and `update` refuses on
+  the trunk — exactly where someone who meant `upgrade` would be standing. The
+  freshening trio (`update` / `upgrade` / `refresh`) stays unambiguous through
+  object-first help lines — "Update _this branch_…", "Upgrade _discern
+  itself_…", "Refresh _the generated agent files_…" — each cross-linking the
+  other two.
 - **`doctor` (kept)** — already a noun, and the strongest convention in the
   diagnostic genre. Familiarity matters most at the moment of breakage.
 - **`coupling` (kept)** — the literal term of art for what the tool measures,
   used with its industry meaning and glossed at first use. Unlike "ratchet," it
   is not a borrowed metaphor that needs an invented product meaning.
+
+### Descriptions carry the priors
+
+The renames make agents' trained tool-selection vocabulary stale, so the MCP
+tool descriptions and help lines deliberately anchor each verb to the words
+agents already hold, woven in naturally: `impact` speaks of the gate **scopes**
+it wakes ("scope" stays product vocabulary for a gate section — only the verb
+spelling retires), `update` says "merge the trunk's latest (`main`) into this
+branch", `done` names its stages — format, lint, type-check, tests — and
+`improvement` advertises its full surface (the ranked next action plus the
+health audit and open reviews behind it). Two bounds hold: never present a
+retired spelling as a callable name, and `standards` stays free of "ratchet" —
+the associations that retired the word apply to descriptions too, and "limits
+that may only improve" routes well enough. Descriptions, unlike names, are not
+contracts: if post-launch use shows agents picking the wrong tool, tune them in
+a patch.
 
 ### Alias and retirement policy
 
@@ -108,7 +138,11 @@ and `help` are unchanged. Why each contested word won:
   permanent alias gives every job two names forever. ADR 0095 adds the sharper
   reason: in an agent-read tree, a working old spelling is a live suggestion.
   The redirect table and the ADRs are the only places retired spellings live;
-  the development vocabulary guard grows to enforce it.
+  the development vocabulary guard grows to enforce it. A retired _spelling_
+  means a verb position — a CLI invocation, an MCP tool name, a config key —
+  never an English prose word: the sweep itself must write "finishing steps" in
+  `done`'s help, and prose about documentation may still say "docs", so the
+  guard matches invocations, not words.
 - **Forgiveness for the current canon.** Grammatical variants forward silently
   when they resolve unambiguously: trailing-s folding (`impacts` → `impact`,
   `standard` → `standards`) plus a small verb-form synonym table (`improve` →
@@ -119,17 +153,32 @@ and `help` are unchanged. Why each contested word won:
 ### Scope and sequencing
 
 The config tables rename with their verbs — `[ratchets]` → `[standards]`,
-`[docs]` → `[map]` (with `${map.dir}` interpolation; the default directory stays
-`docs/`) — via schema migration and codegen. MCP tools rename in lockstep, and
-the existing parity guards force the satellites. The receipt naming is unchanged
-(the July 10, 2026 decision stands), and the "harness" retirement proceeds
-per-context as already planned.
+`[docs]` → `[map]` (with `${map.dir}` interpolation) — via schema migration and
+codegen. The tree's default directory becomes `map/` for fresh setups; migrating
+an existing config pins its effective directory explicitly, so no installed tree
+moves out from under its project; and this repo adopts the new default — its
+tree moves wholesale (`git mv docs/ map/`), historical ADR content untouched.
+MCP tools rename in lockstep, and the existing parity guards force the
+satellites. The receipt naming is unchanged (the July 10, 2026 decision stands),
+and the "harness" retirement proceeds per-context as already planned.
 
 Implementation lands via the wave-3 vocabulary sweep; until it lands, the tree
 still speaks the old names and this ADR is the authority the sweep executes.
-Historical ADRs keep the old vocabulary — only this ADR records the change. That
-deliberately narrows ADR 0095's history-rewrite: the guard, not rewriting, is
-what keeps retired names from teaching.
+Historical ADRs get a reviewed vocabulary refresh, not a blind rewrite. Where a
+decision still governs a living feature, its incidental references update to the
+canon under a one-line amendment note naming this ADR and the spellings that
+changed — the note keeps the old name searchable while the body speaks the
+present. Where an ADR's subject was the retired word itself, or a later decision
+replaced it, its content stays intact — moved to `_superseded/` per that
+folder's convention if it no longer applies, inbound links fixed. Decisions and
+their reasoning are never rewritten: names are pointers, and after a global
+rename the pointers dangle; refreshing a pointer is not revising history. This
+revises the first draft's "historical ADRs keep the old vocabulary" stance,
+which would have left dozens of live decisions describing current features under
+dead names — invisible to a search for the new name, and teaching retired
+spellings to every agent that reads them (this ADR's own live-suggestion
+argument). ADR 0095's full history-rewrite stays narrowed all the same: the
+guard, not rewriting, is what keeps retired names out of shipped surfaces.
 
 ## Consequences
 
@@ -141,7 +190,11 @@ what keeps retired names from teaching.
   spellings. Intentional, per ADR 0022's costing: this only gets more expensive.
 - The two config-table renames are the deepest changes — `${docs.dir}` is
   interpolated through checks, scopes, and ratchet definitions in the template
-  and in real configs — so both ride the migration system with tests.
+  and in real configs — so both ride the migration system with tests. The
+  `[map]` rename also moves this repo's own tree on disk, so every recorded path
+  — root README, `TODO.md`, tests, prose-check targets — moves with it, and the
+  map's ownership becomes physical: discern's output lives at `map/`; the host
+  project's own documentation stays wherever it always was.
 - Agents' cached knowledge of the MCP tool names goes stale when the sweep
   lands. Acceptable pre-launch; the self-describing MCP surface re-teaches on
   connection.
@@ -164,13 +217,36 @@ what keeps retired names from teaching.
   not "an improvement." Failure surfaces decided it: a red run means a
   regression, and "standard not met" describes that; "no improvement" does not.
   The word's true home is the advisory verb.
-- **`health` for `doctor`** — rule-satisfying, but `doctor` is already a noun
-  and the convention is worth more than the prettier sentence.
+- **`improvements` (plural) for the advisory verb** — honest about the size of
+  the report behind the answer, wrong about its contract: the open items are
+  reviews (questions pending judgement), not improvements, and a plural name
+  presents the tool as a backlog generator — the overwhelm the one-ranked-action
+  design exists to prevent. Trailing-s folding accepts the plural spelling
+  anyway; the canon teaches the cadence.
+- **`health` for `doctor`** — rule-satisfying ("discern the health" reads better
+  than "discern the doctor"), but `doctor` is already a noun, the strongest
+  convention in the genre, and unambiguous: agents' trained prior for "health"
+  is service liveness, which routes project-health questions here instead of to
+  `status` or `standards`, while `doctor` uniquely means "diagnose the tool's
+  own install". A `doctor` alias under a `health` canon was also rejected — it
+  would be the canon's first true synonym alias, two names forever on the
+  least-typed verb, in the document that bans them.
 - **`sync` for `integrate`** — implies reconciliation in both directions; this
   operation is strictly inbound.
 - **`notes` / `memos` for `docs`** — notes undersell the authority contract
   (nobody audits notes, and stale notes are nobody's defect); memos are
   point-in-time messages, and the memo-shaped artifact already exists: ADRs.
+- **Keeping the tree at `docs/` while the verb renames** (this ADR's first
+  draft) — "the map is the concept, `docs/` is its address" defended an
+  inconsistency: every gloss would carry the disclaimer forever, and the retired
+  word would survive as a path on every surface, needing a permanent carve-out
+  from the guard that retires it. The address follows the concept.
+- **Freezing historical ADRs in the old vocabulary** (this ADR's first draft) —
+  treated immutability of _decisions_ as immutability of _words_. Live features
+  described under dead names fail retrieval in both directions and keep the
+  decision record teaching retired spellings to every agent that reads it; the
+  reviewed amendment — notes on record, git preserving the originals — keeps
+  history honest while making it findable.
 - **`land` as the landing verb** — names the mechanism. `accept` names the
   authorization, which is the safety property an agent-run CLI wants in its most
   consequential verb.
