@@ -180,6 +180,19 @@ A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_finish`; check it explicitly.
 
+**Addressing the project.** Every project-operating tool takes an optional
+`path` — an alternative project to act on for that one call, resolved to its
+root (any directory inside a project resolves to that project). `path` **must be
+absolute**: the server's OS working directory is frozen at spawn and is not the
+caller's directory, so a relative `path` is refused with `invalid_arguments`
+rather than resolved against that stale directory — a relative path that
+silently resolved elsewhere would act on the wrong project while reporting
+success. `discern_help` is **root-independent**: it serves discern's own bundled
+documentation, which every install carries, so it works even from a server
+spawned outside any discern project — exactly as `discern help` does on the CLI.
+Every other tool operates on the project and refuses with `not_initialized` when
+there is none.
+
 The worktree lifecycle verbs (`worktree`, `worktree command group`) are
 **deliberately not exposed** — they are hook-driven and an agent must never hop
 between or prune the worktree it is in. `discern_graduate` is the one lifecycle
@@ -195,13 +208,20 @@ while iterating), learn discern via `discern_help`, read the project's docs via
 **Resources.** Alongside the tools, five readable resources are computed fresh
 on every read and serve the verb's `data` payload (not the full envelope):
 
-| URI                                          | Content                              | MIME                   |
-| -------------------------------------------- | ------------------------------------ | ---------------------- |
-| `discern://status`                           | a live `status` snapshot             | `application/json`     |
-| `discern://scopes`                           | the changed scopes                   | `application/json`     |
-| `discern://config`                           | the resolved `discern.toml`          | `application/json`     |
-| `discern://help` · `discern://help/{target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
-| `discern://docs` · `discern://docs/{target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
+| URI                                           | Content                              | MIME                   |
+| --------------------------------------------- | ------------------------------------ | ---------------------- |
+| `discern://status`                            | a live `status` snapshot             | `application/json`     |
+| `discern://scopes`                            | the changed scopes                   | `application/json`     |
+| `discern://config`                            | the resolved `discern.toml`          | `application/json`     |
+| `discern://help` · `discern://help/{+target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
+| `discern://docs` · `discern://docs/{+target}` | the project's docs (index · one doc) | JSON · `text/markdown` |
+
+The doc templates use RFC 6570 **reserved expansion** (`{+target}`), so a
+`{+target}` accepts the same three forms the `discern_docs` / `discern_help`
+tools do — a bare **slug**, a **`section/slug`**, or a **path** — including the
+two that contain a `/`. (A plain `{target}` compiles to a capture that stops at
+`/`, so only the slug form would resolve; reserved expansion is what lets the
+resource surface mirror the tool contract.)
 
 Resources are gated like their tools (the `docs` resource on the `docs` feature
 and on setup completion; `help` always). They are application-driven and not

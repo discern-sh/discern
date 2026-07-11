@@ -197,6 +197,166 @@ Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// B38 class guard: a tool declared root-INDEPENDENT must stay reachable when the
+// server spawned OUTSIDE any discern project (working root undefined), because it
+// serves the same answer from anywhere — the CLI serves `discern help` from
+// anywhere too. The pre-fix runTool applied ONE uniform not_initialized guard to
+// every tool, refusing help outside a project.
+//
+// Driven off the TOOLS table's `rootIndependent` flag (the single source of
+// truth), so a future root-free tool auto-enrols; the complementary half asserts
+// every root-DEPENDENT tool IS still refused there, proving the flag gates real
+// behaviour and can't be silently dropped to a no-op.
+// ---------------------------------------------------------------------------
+Deno.test("mcp: a root-independent tool serves from a server spawned outside any project; a root-dependent one refuses (B38)", async () => {
+  // WorkingRoot(undefined) is exactly the state runMcpServer seeds when findRoot()
+  // returns undefined — the server spawned outside any discern project.
+  const outsideAnyProject = (): WorkingRoot => new WorkingRoot(undefined);
+
+  const independent = TOOLS.filter((t) => t.rootIndependent === true);
+  assert(
+    independent.length > 0,
+    "at least one tool must be root-independent (discern_help) — the flag is gone if this is empty",
+  );
+  for (const tool of independent) {
+    // No `path` — the pure spawned-outside-a-project case (help declares no path arg).
+    const res = await runTool(tool, outsideAnyProject(), {});
+    assertEquals(
+      res.isError,
+      false,
+      `${tool.name} is root-independent but was refused outside a project: ${
+        JSON.stringify(res.structuredContent)
+      }`,
+    );
+    assertEquals(
+      res.structuredContent.ok,
+      true,
+      JSON.stringify(res.structuredContent),
+    );
+    assertEquals(
+      res.structuredContent.error,
+      undefined,
+      `${tool.name} must not refuse outside a project`,
+    );
+  }
+
+  // Every OTHER tool genuinely operates on the project — outside one it must refuse
+  // with not_initialized (never silently run against the wrong place). `dry_run`
+  // keeps any that DID slip through fast and side-effect-free.
+  for (const tool of TOOLS.filter((t) => t.rootIndependent !== true)) {
+    const res = await runTool(tool, outsideAnyProject(), { dry_run: true });
+    assertEquals(
+      res.isError,
+      true,
+      `${tool.name} is root-dependent and must refuse outside a project`,
+    );
+    assertEquals(
+      res.structuredContent.error,
+      "not_initialized",
+      `${tool.name} outside a project must refuse with not_initialized, got ${
+        JSON.stringify(res.structuredContent.error)
+      }`,
+    );
+  }
+});
+
+Deno.test("mcp (live): discern_help serves discern's own docs from a server spawned outside any project (B38)", async () => {
+  // A bare temp dir with no discern.toml in it or any ancestor — findRoot() at server
+  // startup returns undefined, so the server runs with WorkingRoot(undefined), the
+  // real spawned-outside-a-project state. End-to-end over stdio, proving the whole
+  // tool path (not just runTool) serves help there.
+  await withTempDir(async (dir) => {
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: {} },
+    });
+    const help = await mcp.recv();
+    assertEquals(
+      help.result.isError,
+      false,
+      `discern_help must serve outside a project: ${
+        JSON.stringify(help.result.structuredContent)
+      }`,
+    );
+    const data = help.result.structuredContent.data as {
+      docs?: { slug: string }[];
+    };
+    assert(
+      (data.docs ?? []).some((d) => d.slug === "config-reference"),
+      "help outside a project indexes discern's own bundled docs",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B40 class guard: a `path` argument must be ABSOLUTE — its own schema says "this
+// absolute path". The server's OS cwd is frozen at spawn and is not the caller's
+// directory, so the pre-fix runTool, passing a relative `path` straight to
+// findRoot, silently resolved it against that stale cwd and could operate on the
+// WRONG project while reporting success. The choke point now refuses a relative
+// path with a clear error, so EVERY tool that takes `path` inherits the check.
+//
+// Driven off the TOOLS table: every tool whose input schema declares `path` is
+// exercised, so a future path-taking tool auto-enrols.
+// ---------------------------------------------------------------------------
+Deno.test("mcp: every tool refuses a relative `path` argument instead of resolving it against the spawn cwd (B40)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+
+    const pathTools = TOOLS.filter((t) =>
+      Object.keys(t.inputSchema).includes("path")
+    );
+    assert(
+      pathTools.length > 0,
+      "expected tools that declare a `path` argument — the class is empty otherwise",
+    );
+    for (const tool of pathTools) {
+      // A relative path plus a VALID working root: if the check were missing, the
+      // relative string would resolve against the server cwd (or fall through) —
+      // never the actionable refusal. `dry_run` guards against any side effect were
+      // the refusal absent.
+      const res = await runTool(tool, new WorkingRoot(dir), {
+        path: "some/relative/dir",
+        dry_run: true,
+      });
+      assertEquals(
+        res.isError,
+        true,
+        `${tool.name} accepted a relative path: ${
+          JSON.stringify(res.structuredContent)
+        }`,
+      );
+      assertEquals(
+        res.structuredContent.error,
+        "invalid_arguments",
+        `${tool.name} must refuse a relative path with invalid_arguments, got ${
+          JSON.stringify(res.structuredContent.error)
+        }`,
+      );
+      assertStringIncludes(
+        String(res.structuredContent.message ?? ""),
+        "absolute",
+        `${tool.name}'s refusal must tell the caller the path has to be absolute`,
+      );
+    }
+  });
+});
+
 Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernResults", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -2442,7 +2602,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
     }
 
-    // resources/templates/list → the {target} doc templates.
+    // resources/templates/list → the {+target} doc templates. The `+` is RFC 6570
+    // reserved-expansion so a slash-bearing target (section/slug, a path) resolves;
+    // a bare {target} stops at `/` and only ever matched a slug (B37).
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
@@ -2452,8 +2614,8 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const tpl = (templates.result.resourceTemplates as {
       uriTemplate: string;
     }[]).map((t) => t.uriTemplate);
-    assert(tpl.includes("discern://docs/{target}"), JSON.stringify(tpl));
-    assert(tpl.includes("discern://help/{target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://help/{+target}"), JSON.stringify(tpl));
 
     // read discern://status → a fresh JSON snapshot (the data payload, not the
     // envelope).
@@ -2542,6 +2704,136 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       doc.result.contents[0].text.includes("The core ideas of the project"),
       "the docs template serves the doc's Markdown content",
     );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B37 class guard: a doc resource template must resolve EVERY target form its
+// description (and the mirroring discern_docs/discern_help tools) advertise —
+// by slug, by `section/slug`, AND by path. The SDK compiles a bare `{target}`
+// to a capture that stops at `/`, so before the `{+target}` fix only the
+// slug form resolved and the two slash-bearing forms fell through to a
+// not-found — a resource template narrower than the tool contract it mirrors.
+//
+// Driven off the SCHEME set (`docs` + `help`, every registered doc-tree
+// scheme via registerDocTree), so a third doc-tree scheme auto-enrols; and
+// off the live index, so the exact slug/section/path come from the server
+// itself rather than a hand-copied fixture.
+// ---------------------------------------------------------------------------
+Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path for every scheme (B37)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    // Seed a project doc UNDER A SECTION, so its `section/slug` and path forms are
+    // genuinely slash-bearing (the forms the bare template could never match).
+    const marker = "Sectioned doc body for the B37 addressing guard.";
+    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      `# Concepts\n\n${marker}\n`,
+    );
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    let id = 100;
+    const readResource = async (uri: string): Promise<{
+      result?: { contents?: { mimeType: string; text: string }[] };
+      error?: { code: number; message: string };
+    }> => {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id: id++,
+        method: "resources/read",
+        params: { uri },
+      });
+      return await mcp.recv();
+    };
+
+    // Every registered doc-tree scheme. Both are registered through the ONE
+    // registerDocTree call, so this list IS the class; a new scheme added there
+    // must be added here (or its slash-bearing forms would silently regress).
+    for (const scheme of ["docs", "help"] as const) {
+      // Read the index to discover a real doc with a non-empty section, so the
+      // three target forms are computed from live data, not guessed.
+      const index = await readResource(`discern://${scheme}`);
+      const docs = JSON.parse(index.result?.contents?.[0]?.text ?? "{}")
+        .docs as { path: string; section: string; slug: string }[];
+      assert(
+        Array.isArray(docs) && docs.length > 0,
+        `${scheme}: index carried no docs`,
+      );
+      // A doc under a section (so `section/slug` + path are genuinely slash-bearing)
+      // whose slug is UNIQUE in the tree (so the bare-slug form is unambiguous —
+      // discern's own help tree carries many `README` files, an ambiguity orthogonal
+      // to the template-matching this guard exercises).
+      const slugCounts = new Map<string, number>();
+      for (const d of docs) {
+        slugCounts.set(d.slug, (slugCounts.get(d.slug) ?? 0) + 1);
+      }
+      const entry = docs.find((d) =>
+        d.section !== "" && slugCounts.get(d.slug) === 1
+      );
+      assert(
+        entry !== undefined,
+        `${scheme}: no uniquely-slugged doc under a section to exercise the section/slug + path forms`,
+      );
+
+      // The three documented target forms — the slug, the section/slug, and the
+      // (project-relative) path. The latter two contain `/`, so a bare `{target}`
+      // template never matched them (B37).
+      const forms: Record<string, string> = {
+        slug: entry.slug,
+        "section/slug": `${entry.section}/${entry.slug}`,
+        path: entry.path,
+      };
+      for (const [label, target] of Object.entries(forms)) {
+        const res = await readResource(`discern://${scheme}/${target}`);
+        assertEquals(
+          res.error,
+          undefined,
+          `${scheme} by ${label} ("${target}"): resource read errored — ${
+            JSON.stringify(res.error)
+          }`,
+        );
+        const part = res.result?.contents?.[0];
+        assert(
+          part !== undefined,
+          `${scheme} by ${label} ("${target}"): no content returned`,
+        );
+        assertEquals(
+          part.mimeType,
+          "text/markdown",
+          `${scheme} by ${label} ("${target}"): expected Markdown`,
+        );
+        assert(
+          part.text.length > 0,
+          `${scheme} by ${label} ("${target}"): empty document body`,
+        );
+      }
+
+      // For the project docs scheme we also seeded a known body — assert every
+      // form resolves to the SAME doc, not merely to some doc.
+      if (scheme === "docs") {
+        for (const [label, target] of Object.entries(forms)) {
+          const res = await readResource(`discern://${scheme}/${target}`);
+          assertStringIncludes(
+            res.result?.contents?.[0]?.text ?? "",
+            marker,
+            `docs by ${label} ("${target}"): served a different doc's body`,
+          );
+        }
+      }
+    }
 
     assertEquals(await mcp.close(), 0);
   });
