@@ -5,8 +5,9 @@
  * Every git invocation funnels through {@link runGit} and every buffered shell
  * command through {@link runShell}, so the GIT_BIN override, the `sh -c`
  * invocation, the empty-command `:` no-op ({@link shellCommand}), output decoding,
- * and the "could not spawn" fallback ({@link SPAWN_FAILED}) are each defined once.
- * With a single git resolver the GIT_BIN override is honored at every call site.
+ * and the "could not spawn" fallback ({@link SPAWN_FAILED}, whose stderr carries
+ * the REAL spawn error via {@link describeSpawnError}) are each defined once. With
+ * a single git resolver the GIT_BIN override is honored at every call site.
  *
  * Two specialised shell spawners live outside this module by necessity and are
  * named in the guard: the gate's streaming, cancellable job runner
@@ -27,6 +28,31 @@ export function gitBin(): string {
  */
 export const SPAWN_FAILED = 127;
 
+/**
+ * Turn a caught spawn failure into a legible stderr line that names the REAL
+ * cause — never a fabricated one. `Deno.Command().output()` throws distinct,
+ * informative errors (a missing cwd is `Failed to spawn '<bin>': No such cwd
+ * '<dir>'`; an absent executable is `Failed to spawn '<bin>': entity not
+ * found`), so we surface that message verbatim rather than assuming one story.
+ * When the executable itself is genuinely missing we append an actionable hint
+ * naming it; a missing cwd or a permissions error keeps its own true message so
+ * a user debugging a deleted-worktree failure is not sent hunting a PATH
+ * problem that does not exist. `label` names what we tried to run (e.g. the git
+ * binary, or `sh`) for the fallback when an error carries no message.
+ */
+export function describeSpawnError(error: unknown, label: string): string {
+  const message = error instanceof Error && error.message !== ""
+    ? error.message
+    : `could not spawn ${label}`;
+  // Deno phrases an absent executable as "entity not found"; that — and only
+  // that — is the case where a PATH/install hint is the right next step.
+  const executableMissing = error instanceof Deno.errors.NotFound &&
+    /entity not found/i.test(message);
+  return executableMissing
+    ? `${message} (is ${label} installed and on your PATH?)`
+    : message;
+}
+
 /** A finished git run: success flag, exit code, and captured (decoded) stdout/stderr. */
 export interface GitResult {
   success: boolean;
@@ -41,9 +67,10 @@ export interface GitResult {
  * of the contract, never inherited from ambient process state; `env` is forwarded
  * to the spawn (merged over the parent environment) so a caller can pin git's config
  * resolution hermetically without mutating the process. A missing or unrunnable git
- * resolves to a failed run (code {@link SPAWN_FAILED}) with an explanatory stderr
- * rather than throwing, so every caller handles "no git" as data. Honors GIT_BIN
- * uniformly.
+ * resolves to a failed run (code {@link SPAWN_FAILED}) whose stderr names the REAL
+ * spawn failure ({@link describeSpawnError} — a missing cwd, a permissions error, or
+ * an absent binary, each with its own message) rather than throwing, so every caller
+ * handles "could not run git" as data. Honors GIT_BIN uniformly.
  */
 export async function runGit(
   args: string[],
@@ -58,12 +85,12 @@ export async function runGit(
       stdout: "piped",
       stderr: "piped",
     }).output();
-  } catch {
+  } catch (error) {
     return {
       success: false,
       code: SPAWN_FAILED,
       stdout: "",
-      stderr: "git is not on PATH",
+      stderr: describeSpawnError(error, gitBin()),
     };
   }
   const dec = new TextDecoder();
@@ -98,9 +125,11 @@ const EMPTY = new Uint8Array();
  * Run an operator command string through `sh -c` to completion, capturing its
  * stdout and stderr. `sh -c` preserves shell features (`&&`, pipes, globs,
  * `$(…)`) that parsing to argv would break; an empty command is the `:` no-op; a
- * spawn failure resolves to {@link SPAWN_FAILED} rather than throwing. For live
- * streaming with cancellation use the gate job runner (engine/jobs/command.ts);
- * for logger-routed setup steps use runShellRouted (engine/worktree/shell.ts).
+ * spawn failure resolves to {@link SPAWN_FAILED} rather than throwing, its stderr
+ * carrying the REAL cause ({@link describeSpawnError}) rather than being swallowed
+ * to nothing. For live streaming with cancellation use the gate job runner
+ * (engine/jobs/command.ts); for logger-routed setup steps use runShellRouted
+ * (engine/worktree/shell.ts).
  */
 export async function runShell(
   command: string,
@@ -121,8 +150,13 @@ export async function runShell(
       stdout: output.stdout,
       stderr: output.stderr,
     };
-  } catch {
-    return { success: false, code: SPAWN_FAILED, stdout: EMPTY, stderr: EMPTY };
+  } catch (error) {
+    return {
+      success: false,
+      code: SPAWN_FAILED,
+      stdout: EMPTY,
+      stderr: new TextEncoder().encode(describeSpawnError(error, "sh")),
+    };
   }
 }
 

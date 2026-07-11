@@ -12,8 +12,15 @@
  * statically knowable — NEVER a word `sh` would not have run.
  */
 
-import { assertEquals } from "@std/assert";
-import { commandExists, leadingCommandWord } from "../src/shared/subprocess.ts";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  commandExists,
+  describeSpawnError,
+  leadingCommandWord,
+  runGit,
+  runShell,
+  SPAWN_FAILED,
+} from "../src/shared/subprocess.ts";
 
 /** command → the probeable leading word, or undefined to skip the probe. */
 const CASES: [string, string | undefined][] = [
@@ -80,4 +87,81 @@ Deno.test("leadingCommandWord feeds commandExists: an env-prefixed command probe
   assertEquals(word, "true");
   assertEquals(await commandExists(word ?? ""), true);
   assertEquals(await commandExists("CI=1"), false);
+});
+
+// ── spawn-failure reporting: the REAL cause, never a fabricated one (B45) ──────
+//
+// The class: a catch that maps EVERY spawn failure to one assumed story (the old
+// `runGit` returned stderr "git is not on PATH" for any throw; `runShell` swallowed
+// the error to nothing). Deno's spawn errors are distinct and informative — a
+// missing cwd, a permissions error, and an absent executable each carry their own
+// message — so a spawn helper must surface the true cause, only framing it as a
+// PATH/install problem when the executable is GENUINELY missing.
+
+/** describeSpawnError: the framing/hint decision, table-driven over error shapes. */
+Deno.test("describeSpawnError names the real cause and only hints PATH for a missing executable", () => {
+  const notFoundBinary = new Deno.errors.NotFound(
+    "Failed to spawn 'git': entity not found",
+  );
+  const missingCwd = new Deno.errors.NotFound(
+    "Failed to spawn '/usr/bin/git': No such cwd '/no/such/dir'",
+  );
+  const permission = new Deno.errors.PermissionDenied(
+    "Failed to spawn 'git': permission denied",
+  );
+
+  // An absent executable — and ONLY this — gets the actionable install/PATH hint.
+  const missing = describeSpawnError(notFoundBinary, "git");
+  assertStringIncludes(missing, "entity not found");
+  assertStringIncludes(missing, "is git installed and on your PATH?");
+
+  // A missing cwd keeps its true message and is NOT reframed as a PATH problem
+  // (the regression B45 fixed: a deleted-worktree failure sent hunting PATH).
+  const cwd = describeSpawnError(missingCwd, "git");
+  assertStringIncludes(cwd, "No such cwd");
+  assert(
+    !cwd.includes("on your PATH"),
+    "a missing cwd must not be reframed as a PATH problem",
+  );
+
+  // A permissions failure surfaces verbatim too — no assumed story.
+  const perm = describeSpawnError(permission, "git");
+  assertStringIncludes(perm, "permission denied");
+  assert(!perm.includes("on your PATH"));
+
+  // A throw with no usable message still yields a labelled fallback, never "".
+  assertEquals(describeSpawnError(new Error(""), "sh"), "could not spawn sh");
+  assertEquals(describeSpawnError("weird", "sh"), "could not spawn sh");
+
+  // The old hard-coded fabrication is gone for a genuine failure.
+  assert(!cwd.includes("git is not on PATH"));
+});
+
+Deno.test("runGit: a spawn failure reports the real cause, not a fabricated PATH story", async () => {
+  // A cwd that does not exist makes Deno.Command throw NotFound at spawn time.
+  // The old catch returned stderr "git is not on PATH" here — a lie. The fix
+  // surfaces Deno's real "No such cwd" message so the user debugs the true fault.
+  const result = await runGit(["status"], { cwd: "/no/such/dir/at/all/xyz" });
+  assertEquals(result.success, false);
+  assertEquals(result.code, SPAWN_FAILED);
+  assertStringIncludes(result.stderr, "No such cwd");
+  assert(
+    !result.stderr.includes("git is not on PATH"),
+    "runGit must not fabricate a PATH cause for a missing cwd",
+  );
+});
+
+Deno.test("runShell: a spawn failure carries the real cause instead of being swallowed", async () => {
+  // The old catch discarded the error, returning an EMPTY stderr — a shell spawn
+  // failure told the user nothing. A missing cwd throws NotFound; the fix decodes
+  // the real message into stderr.
+  const result = await runShell("echo hi", { cwd: "/no/such/dir/at/all/xyz" });
+  assertEquals(result.success, false);
+  assertEquals(result.code, SPAWN_FAILED);
+  const stderr = new TextDecoder().decode(result.stderr);
+  assert(
+    stderr.length > 0,
+    "runShell swallowed the spawn error to an empty stderr",
+  );
+  assertStringIncludes(stderr, "No such cwd");
 });

@@ -334,11 +334,14 @@ async function canonical(path: string): Promise<string> {
 // ── setup: create ─────────────────────────────────────────────────────────────
 
 /**
- * Create every declared resource in document order. For a resource with a
- * `destroy`, the ledger entry is written FIRST (an intent-log, so a crash
- * mid-create is still GC-able), then `create` runs. A failed `create` aborts setup
- * when `required` (the default), else warns and continues. No-op for a resource
- * with neither command.
+ * Create every declared resource in document order. For every MANAGED resource
+ * (one declaring a `create` and/or a `destroy`), the ledger entry is written FIRST
+ * — an intent-log, so a crash mid-create is still GC-able, AND the run-once marker
+ * that makes a setup re-entry skip an already-provisioned resource — then `create`
+ * runs. A create-only resource records an empty `destroy_command` (nothing to tear
+ * down) but is still marked, so its non-idempotent create is never re-run. A failed
+ * `create` aborts setup when `required` (the default), else warns and continues.
+ * No-op for a resource with neither command.
  */
 export async function createResources(
   ctx: ResourceContext,
@@ -362,8 +365,9 @@ export async function createResources(
     // `discern worktree setup`) must NOT re-run create: a `createdb` / `docker run --name`
     // is not idempotent, and its "already exists" non-zero exit would abort an
     // already-good worktree. Skip it; session-start `ensure` re-readies it if asked.
+    // The marker is written for EVERY managed resource (create-only included), so
+    // the run-once guard covers all of them, not just the destroy-declaring subset.
     if (
-      spec.destroy !== "" &&
       (await readEntry(entryPath(commonGitDir, gitKey, spec.name))) !==
         undefined
     ) {
@@ -385,23 +389,25 @@ export async function createResources(
       spec.name,
     );
 
-    if (spec.destroy !== "") {
-      await writeEntry(commonGitDir, {
-        schema: LEDGER_SCHEMA,
-        seq: idx,
-        project_slug: ctx.config.project.slug,
-        git_key: gitKey,
-        worktree_id: identity.id,
-        worktree_path: worktreePath,
-        resource_name: spec.name,
-        resource_identity: resourceIdentity,
-        destroy_command: await expandTokens(spec.destroy, resolver),
-        token_map: await captureTokenMap([spec.create, spec.destroy], resolver),
-        retries: spec.retries,
-        gc: spec.gc,
-        created_at: new Date().toISOString(),
-      });
-    }
+    // The intent-log / run-once marker: written FIRST for every managed resource
+    // (past the inert-skip above, so create and/or destroy is non-empty). A
+    // create-only resource records an empty `destroy_command` — nothing to tear
+    // down or GC — but its presence is what stops a re-entry re-running create.
+    await writeEntry(commonGitDir, {
+      schema: LEDGER_SCHEMA,
+      seq: idx,
+      project_slug: ctx.config.project.slug,
+      git_key: gitKey,
+      worktree_id: identity.id,
+      worktree_path: worktreePath,
+      resource_name: spec.name,
+      resource_identity: resourceIdentity,
+      destroy_command: await expandTokens(spec.destroy, resolver),
+      token_map: await captureTokenMap([spec.create, spec.destroy], resolver),
+      retries: spec.retries,
+      gc: spec.gc,
+      created_at: new Date().toISOString(),
+    });
 
     if (spec.create !== "") {
       ctx.log.info(`Creating worktree resource '${spec.name}'…`);

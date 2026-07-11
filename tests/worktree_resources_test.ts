@@ -179,6 +179,18 @@ destroy = "rm -f ${markers}/@resource@.create"
 `;
 }
 
+/** A CREATE-ONLY counting resource — no `destroy` declared. The run-once marker
+ * must still be written for it, so a re-entry does not re-run its non-idempotent
+ * create. Appends a line per create so the count is observable. */
+function createOnlyCountingConfig(markers: string): string {
+  return `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create = "mkdir -p ${markers} && echo c >> ${markers}/@resource@.create"
+`;
+}
+
 /** Build a ResourceContext rooted at a worktree. */
 async function ctxFor(worktree: string): Promise<ResourceContext> {
   return {
@@ -282,6 +294,47 @@ Deno.test("createResources is idempotent: a provisioned resource skips create on
       1,
       "the re-run must not write a second ledger entry",
     );
+  });
+});
+
+Deno.test("createResources is idempotent for a CREATE-ONLY resource (no destroy): create runs exactly once across re-entries", async () => {
+  // The class: a run-once guard whose marker is only written for a SUBSET of
+  // members. The old code wrote the ledger entry (the marker) only when a
+  // `destroy` was declared, so a create-only resource had no marker at all and
+  // its non-idempotent create re-ran on every setup re-entry — against the
+  // documented run-once invariant. Every managed resource must now be marked.
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "create-only");
+    const markers = join(dir, "markers");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      createOnlyCountingConfig(markers),
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    const ctx = await ctxFor(wt);
+
+    // Three setup entries; create must fire on the first and be skipped after.
+    await createResources(ctx, identity, settings, common, key);
+    await createResources(ctx, identity, settings, common, key);
+    await createResources(ctx, identity, settings, common, key);
+
+    const handle = resourceForId(settings.slug, identity.id, "thing");
+    assertEquals(
+      await Deno.readTextFile(join(markers, `${handle}.create`)),
+      "c\n",
+      "a create-only resource re-ran create across setups (no run-once marker)",
+    );
+    // Exactly one marker entry exists, and it records an empty destroy (nothing
+    // to tear down) — the marker's job is solely the run-once skip here.
+    const entries = await listEntries(common);
+    assertEquals(
+      entries.length,
+      1,
+      "create-only resource left no run-once marker",
+    );
+    assertEquals(entries[0]?.entry.destroy_command, "");
   });
 });
 
