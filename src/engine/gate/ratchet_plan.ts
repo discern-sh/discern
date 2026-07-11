@@ -122,6 +122,12 @@ export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
  * unless the result is STRICTLY tighter than `current` — so pin can only ever tighten
  * (never loosen, whatever the margin) and never churns a no-op commit for an
  * improvement smaller than the margin. Pure, so the whole decision is unit-testable.
+ *
+ * The pinned limit is guaranteed to be one the measured `value` still SATISFIES: a
+ * floor never rises above the measurement, a ceiling never falls below it. `margin`
+ * ≥ 0 upholds that at the source (the schema refuses a negative margin), but the
+ * check is enforced here too — a limit the value fails is never worth pinning, so
+ * `undefined` is the only safe answer whatever the caller passed.
  */
 export function pinnedLimit(
   direction: "up" | "down",
@@ -133,6 +139,14 @@ export function pinnedLimit(
   const rounded = direction === "up"
     ? Math.floor(target * 100) / 100
     : Math.ceil(target * 100) / 100;
+  // Never pin a limit the measurement itself fails (the trap a negative margin
+  // sets: a floor pinned above, or a ceiling below, the value just measured).
+  const satisfiedByMeasurement = direction === "up"
+    ? value + 1e-9 >= rounded
+    : value - 1e-9 <= rounded;
+  if (!satisfiedByMeasurement) {
+    return undefined;
+  }
   const tighter = direction === "up" ? rounded > current : rounded < current;
   return tighter ? rounded : undefined;
 }

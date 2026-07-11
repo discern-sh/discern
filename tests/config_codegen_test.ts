@@ -7,7 +7,12 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
-import { parseConfig } from "../src/shared/config_schema.ts";
+import {
+  DEFAULT_AGENTS,
+  parseConfig,
+  parseConfigOrThrow,
+  resolveConfiguredAgents,
+} from "../src/shared/config_schema.ts";
 import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
@@ -85,6 +90,37 @@ Deno.test("the docs reference documents every section, with its describe() prose
   // a couple of describe() strings render verbatim (prose comes from the schema)
   assert(doc.includes("never-loosen"));
   assert(doc.includes("isolated-worktree workflow"));
+});
+
+Deno.test("the reference's [guidance].agents row matches what the resolver actually does (no misleading [] default)", () => {
+  // B43's docs half: the reference once printed `[]` as the default, which read as
+  // "no agents by default" when the resolver actually emits the default pair —
+  // and made the true "no agents" choice inexpressible. The key is now optional, so
+  // the row must NOT advertise `[]` as its default, and its prose must document
+  // both readings the resolver implements (omit → default pair, explicit [] → none).
+  const doc = renderConfigReferenceDoc();
+  const row = doc.split("\n").find((l) =>
+    l.startsWith("| `agents`") && l.includes("CLAUDE.md")
+  );
+  assert(row !== undefined, "the [guidance].agents row should be present");
+  // The default cell is `—` (no default), never a literal empty array.
+  assert(
+    !/\|\s*`\[\]`\s*\|/.test(row),
+    `the agents row must not document a [] default: ${row}`,
+  );
+  // Prose documents the two distinct readings the resolver honors.
+  assert(row.includes("OMIT"), row);
+  assert(row.includes("empty list"), row);
+
+  // And it is faithful: the resolver really does treat unset as the default pair
+  // and explicit [] as no agents (the same behaviour the prose promises).
+  assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
+    ...DEFAULT_AGENTS,
+  ]);
+  assertEquals(
+    resolveConfiguredAgents(parseConfigOrThrow("[guidance]\nagents = []\n")),
+    [],
+  );
 });
 
 // ── template ↔ schema drift guards (the template stays hand-authored, ADR 0005,

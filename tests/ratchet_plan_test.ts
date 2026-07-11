@@ -126,3 +126,47 @@ Deno.test("pinnedLimit: rounds a rate in the SAFE direction so the measurement s
   assertEquals(pinnedLimit("up", 89.317, 0, 80), 89.31);
   assertEquals(pinnedLimit("down", 18.311, 0, 40), 18.32);
 });
+
+Deno.test("pinnedLimit: a negative margin never pins a limit the measurement fails (B31)", () => {
+  // The class: a pin that records a failing-by-construction limit. A negative
+  // margin flips the headroom, tightening PAST the measured value — a floor pinned
+  // ABOVE, or a ceiling BELOW, the number just measured, which then fails the very
+  // next check. The plan-time guard refuses it: nothing safe to pin ⇒ undefined.
+  assertEquals(pinnedLimit("up", 90, -5, 80), undefined); // would have been floor 95
+  assertEquals(pinnedLimit("down", 50, -5, 100), undefined); // would have been ceiling 45
+
+  // The invariant, checked over a grid of directions/values/margins/limits: any
+  // limit pinnedLimit RETURNS must be one the measured value still satisfies — a
+  // floor never above the measurement, a ceiling never below it. Covers negative,
+  // zero, and positive margins so the guard is the invariant, not three examples.
+  const values = [0, 12.5, 50, 100, 1000];
+  const margins = [-100, -5, -0.01, 0, 0.01, 5, 100];
+  const currents = [0, 40, 80, 500, 2000];
+  for (const direction of ["up", "down"] as const) {
+    for (const value of values) {
+      for (const margin of margins) {
+        for (const current of currents) {
+          const pinned = pinnedLimit(direction, value, margin, current);
+          if (pinned === undefined) {
+            continue;
+          }
+          const satisfied = direction === "up"
+            ? value + 1e-9 >= pinned
+            : value - 1e-9 <= pinned;
+          assert(
+            satisfied,
+            `pinnedLimit(${direction}, ${value}, ${margin}, ${current}) = ${pinned} is NOT satisfied by the measured value ${value}`,
+          );
+          // And it is genuinely tighter than the current limit (pin only tightens).
+          const tighter = direction === "up"
+            ? pinned > current
+            : pinned < current;
+          assert(
+            tighter,
+            `pinnedLimit(${direction}, ${value}, ${margin}, ${current}) = ${pinned} did not tighten past ${current}`,
+          );
+        }
+      }
+    }
+  }
+});

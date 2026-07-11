@@ -26,6 +26,7 @@ import {
   configSchema,
   type ConfigValueKind,
   parseConfig,
+  RECORD_ENTRY_SCHEMAS,
   settableConfigValueKind,
 } from "../src/shared/config_schema.ts";
 import { runConfigSet } from "../src/commands/config.ts";
@@ -101,6 +102,41 @@ function rawValueAt(raw: unknown, dotted: string): unknown {
   }
   return node;
 }
+
+Deno.test("config set refuses an illegal record-key <name> and leaves the file untouched", async () => {
+  // B41 end-to-end: a `<name>` the runtime `z.record` key schema rejects (a space,
+  // a slash, non-ASCII) must be refused at WRITE time, not written as a
+  // `[<family>.<bad name>]` header the next load can't parse. The same contract as
+  // the sweep below — exit≠0 ⇒ the file is byte-identical — but reached through an
+  // illegal record KEY rather than an illegal value. Driven off the record-family
+  // SSOT so a new family auto-enrols.
+  const illegal = ["bad name", "a/b", "für"];
+  await withTempDir(async (dir) => {
+    const configPath = join(dir, "discern.toml");
+    for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+      const leafKey = Object.keys(schema.shape)[0];
+      assert(leafKey !== undefined);
+      for (const name of illegal) {
+        await Deno.writeTextFile(configPath, PRISTINE);
+        const code = await runConfigSet(`${family}.${name}.${leafKey}`, "x", {
+          json: true,
+          noColor: true,
+          dryRun: false,
+          cwd: dir,
+        });
+        assert(
+          code !== 0,
+          `config set ${family}.${name}.${leafKey} must be refused (illegal key)`,
+        );
+        assertEquals(
+          await Deno.readTextFile(configPath),
+          PRISTINE,
+          `config set ${family}.${name}.${leafKey} was refused but modified the file`,
+        );
+      }
+    }
+  });
+});
 
 Deno.test("config set, over every schema leaf: success leaves a readable config, failure leaves no trace", async () => {
   const schemaJson = z.toJSONSchema(configSchema, { io: "input" }) as Record<

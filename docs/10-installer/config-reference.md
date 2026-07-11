@@ -39,7 +39,7 @@ The author-once → compile-everywhere agent-instruction pipeline. `discern refr
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sources` | string[] | `["discern/guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; the built-in harness guidance is always prepended. |
-| `agents` | string[] | `[]` | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. |
+| `agents` | string[] | — | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all. |
 
 ## `[skills]`
 
@@ -138,7 +138,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
 | `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
-| `margin` | number | `0` | Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
+| `margin` | number | `0` | Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
 
 ## `[gate]`
 

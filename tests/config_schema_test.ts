@@ -4,9 +4,14 @@ import {
   ConfigParseError,
   ConfigValidationError,
   configWriteIssues,
+  DEFAULT_AGENTS,
+  EXTENTS,
   isSettableConfigPath,
+  NAME_RE,
   parseConfig,
   parseConfigOrThrow,
+  RECORD_ENTRY_SCHEMAS,
+  resolveConfiguredAgents,
   settableConfigValueKind,
   toCommand,
   toCommandList,
@@ -30,7 +35,9 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
   assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
-  assertEquals(c.guidance.agents, []);
+  // `agents` is OPTIONAL (no default): an absent key stays undefined so the
+  // resolver can tell "unset" (→ default pair) from an explicit `[]` (→ no agents).
+  assertEquals(c.guidance.agents, undefined);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty
   assertEquals(c.capabilities, {});
@@ -83,6 +90,57 @@ Deno.test("worktree resource defaults: required/gc default true, retries 0, comm
   assertEquals(db.retries, 0);
 });
 
+Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] means no agents", () => {
+  // The class: an empty collection conflated with an absent one (B43). `[guidance]
+  // agents` is optional so the two are DISTINCT states, and the resolver must read
+  // them differently — otherwise "emit for no agents" cannot be expressed and the
+  // generated reference misdocuments the default. Default expectations are driven
+  // off DEFAULT_AGENTS (its single source of truth), never a hand-copied pair.
+
+  // Unset (no key at all, and an empty [guidance] with no agents key) → default pair.
+  assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
+    ...DEFAULT_AGENTS,
+  ]);
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[guidance]\nsources = ["g.md"]\n'),
+    ),
+    [...DEFAULT_AGENTS],
+  );
+
+  // Explicit empty list → emit for NO agents (the reading the old default made
+  // impossible). This is the one deliberate semantic change (documented on the key).
+  assertEquals(
+    resolveConfiguredAgents(parseConfigOrThrow("[guidance]\nagents = []\n")),
+    [],
+  );
+
+  // A non-empty explicit list is honored verbatim, in order.
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[guidance]\nagents = ["gemini"]\n'),
+    ),
+    ["gemini"],
+  );
+
+  // The legacy [project].agents fallback still fires only when guidance is UNSET;
+  // an explicit empty guidance list overrides it (deliberate "no agents" wins).
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[project]\nagents = ["cursor"]\n'),
+    ),
+    ["cursor"],
+  );
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow(
+        '[project]\nagents = ["cursor"]\n[guidance]\nagents = []\n',
+      ),
+    ),
+    [],
+  );
+});
+
 Deno.test("ratchet direction defaults up; metric is optional (falls back to name at read)", () => {
   const c = parseConfigOrThrow(
     `[ratchets.coverage]\nlimit = 80\nrun = "cov"\n`,
@@ -92,6 +150,65 @@ Deno.test("ratchet direction defaults up; metric is optional (falls back to name
   assertEquals(r.direction, "up");
   assertEquals(r.metric, undefined);
   assertEquals(r.limit, 80);
+});
+
+Deno.test("a ratchet margin cannot be negative (a negative margin pins a failing limit)", () => {
+  // The class' schema half (B31): a negative margin makes `ratchets --pin` compute
+  // a limit the just-measured value fails (a floor pinned above / a ceiling below
+  // the measurement). Refuse it at load — margin is headroom, never a tightening —
+  // so the bad state is unrepresentable. Zero and positive margins stay valid.
+  const bad = parseConfig(
+    `[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = -5\n`,
+  );
+  assertEquals(bad.config, undefined);
+  assert(
+    bad.issues.some((i) => i.path === "ratchets.cov.margin"),
+    JSON.stringify(bad.issues),
+  );
+  for (const margin of ["0", "0.5", "5", "100000"]) {
+    assertEquals(
+      parseConfig(`[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`)
+        .issues,
+      [],
+      `margin ${margin} must validate`,
+    );
+  }
+});
+
+Deno.test("a ratchet `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {
+  // The class: a config shape that VALIDATES but then selects nothing/everything
+  // contrary to intent (B42). An empty pathspec list would reach `git ls-files --`
+  // with zero pathspecs — which git reads as "every tracked file" — silently making
+  // the denominator the whole repo. Refused at the schema, so no consumer can be
+  // handed a `[]` extent. Iterated over EXTENTS (the single source of truth for the
+  // measure set) so a new extent auto-enrols in the guard.
+  for (const extent of EXTENTS) {
+    const { config, issues } = parseConfig(
+      `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
+    );
+    assertEquals(config, undefined, `empty ${extent} array must be refused`);
+    assert(
+      issues.some((i) => i.path === `ratchets.d.per.${extent}`),
+      `empty ${extent} array must fail at ratchets.d.per.${extent}: ${
+        JSON.stringify(issues)
+      }`,
+    );
+    // A non-empty list (and a bare string) stay valid — the guard refuses only [].
+    assertEquals(
+      parseConfig(
+        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
+      ).issues,
+      [],
+      `one-pathspec ${extent} must validate`,
+    );
+    assertEquals(
+      parseConfig(
+        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
+      ).issues,
+      [],
+      `string ${extent} must validate`,
+    );
+  }
 });
 
 // ── command-list normalisation ───────────────────────────────────────────────────
@@ -186,6 +303,47 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("ratchets.coverage.bogus"));
+});
+
+Deno.test("isSettableConfigPath refuses every record-key <name> the runtime validator refuses", () => {
+  // The class: the settable-path walker must enforce record-key legality exactly
+  // as the runtime `z.record` key schema does — otherwise `config set` writes a
+  // `[<family>.<bad name>]` header the next load rejects (B41). Driven off two
+  // single sources of truth: RECORD_ENTRY_SCHEMAS (every record family, so a new
+  // one auto-enrols) and NAME_RE (the one key pattern). For each family we build a
+  // header with an illegal name and assert BOTH oracles agree it is refused — the
+  // walker (isSettableConfigPath) and the runtime validator (configWriteIssues).
+  const illegalNames = ["bad name", "a/b", "a.b", "für", "a:b", "a+b", ""];
+  const legalNames = ["ok", "cov-1", "a_b", "X9"];
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    // A representative leaf key for this family, read from its schema shape (not a
+    // hand-copied name) so the guard follows the schema.
+    const leafKey = Object.keys(schema.shape)[0];
+    assert(leafKey !== undefined, `${family} has no keys`);
+    for (const name of legalNames) {
+      assert(NAME_RE.test(name)); // sanity: these are legal by the one pattern
+      assert(
+        isSettableConfigPath(`${family}.${name}.${leafKey}`),
+        `${family}.${name}.${leafKey} should be settable (legal name)`,
+      );
+    }
+    for (const name of illegalNames) {
+      assert(!NAME_RE.test(name)); // sanity: these violate the one pattern
+      const path = `${family}.${name}.${leafKey}`;
+      assert(
+        !isSettableConfigPath(path),
+        `${path} must NOT be settable — the runtime validator refuses this key`,
+      );
+      // The runtime validator refuses the equivalent header too: the walker and
+      // the loader agree, which is the whole point (no accept-then-reject gap).
+      const header = `[${family}."${name}"]\n${leafKey} = "x"\n`;
+      const issues = configWriteIssues(header);
+      assert(
+        issues.length > 0,
+        `runtime validator must refuse ${header} (parity with the walker)`,
+      );
+    }
+  }
 });
 
 Deno.test("settableConfigValueKind reads the schema's type at a path", () => {

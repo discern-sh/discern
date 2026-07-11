@@ -68,8 +68,12 @@ export class ConfigParseError extends Error {
 
 // ── shared building blocks (reused by the live config AND the document) ────────
 
-/** TOML bare-key shape, enforced for check/scope/ratchet/resource names. */
-const NAME_RE = /^[A-Za-z0-9_-]+$/;
+/** TOML bare-key shape, enforced for check/scope/ratchet/resource names. The ONE
+ * definition of record-key legality: the `z.record` key schema below applies it at
+ * load, the generated JSON Schema carries it as `propertyNames.pattern`, and the
+ * settable-path walker reads that pattern back — so `config set` can never write a
+ * `<name>` the next load would reject. */
+export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** The agent/provider files discern knows how to emit — the single source for
  * the document's `agents` enum, the generated editor JSON Schema (so it can never
@@ -100,8 +104,16 @@ const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
 
-/** A git pathspec, or a list of them — the extent a built-in `per` measures over. */
-const globOrList = z.union([z.string(), z.array(z.string())]);
+/** A git pathspec, or a NON-EMPTY list of them — the extent a built-in `per`
+ * measures over. The list form requires at least one pathspec: an empty list would
+ * reach `git ls-files -z --` with zero pathspecs, which git reads as "every tracked
+ * file", silently making a ratchet's denominator the whole repository instead of
+ * the extent its config named. Refusing `[]` here closes that for every measure at
+ * once, since each `perExtent` extent reuses this shape. */
+const globOrList = z.union([
+  z.string(),
+  z.array(z.string()).min(1, "a per extent needs at least one git pathspec."),
+]);
 
 /** The built-in extents a ratchet's `per` can divide by — universal, stack-neutral
  * text measures over a git pathspec. discern counts these itself, so the `run`
@@ -182,13 +194,16 @@ const ratchetValue = z.strictObject({
   scale: z.number().default(1).describe(
     'Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".',
   ),
-  margin: z.number().default(0).describe(
+  margin: z.number().min(
+    0,
+    "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so the value just measured would fail it.",
+  ).default(0).describe(
     "Headroom `discern ratchets --pin` leaves when it tightens this limit to the " +
       "measured value: pin sets a floor to measured−margin (up) or a ceiling to " +
       "measured+margin (down), and leaves a ratchet un-pinned when the improvement " +
-      "is smaller than its margin. Default 0 pins to the exact measured value; give " +
-      "a metric that drifts on unrelated changes (bundle size, coverage) a margin so " +
-      "a pinned limit isn't tripped by ordinary fluctuation.",
+      "is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured " +
+      "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
+      "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
   ),
 });
 
@@ -237,8 +252,8 @@ const guidanceSection = z.strictObject({
     .describe(
       "Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; the built-in harness guidance is always prepended.",
     ),
-  agents: z.array(z.string()).default([]).describe(
-    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
+  agents: z.array(z.string()).optional().describe(
+    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
   ),
 }).prefault({}).describe(
   "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.",
@@ -443,9 +458,15 @@ export type DiscernConfig = z.infer<typeof configSchema>;
  * dispatcher, AND the skills currency check — so "which agents are configured" is
  * answered identically everywhere, never re-derived per call-site. Pure: reads only
  * the passed config.
+ *
+ * `[guidance].agents` is OPTIONAL, so an absent key (undefined) and an explicit
+ * empty list are distinct: absent falls through to the legacy key and then the
+ * default pair, while an explicit `agents = []` is an author's deliberate "emit for
+ * no agents" and is honored verbatim. Conflating the two — the historic behaviour —
+ * made "no agents, please" impossible to express.
  */
 export function resolveConfiguredAgents(config: DiscernConfig): string[] {
-  if (config.guidance.agents.length > 0) {
+  if (config.guidance.agents !== undefined) {
     return config.guidance.agents;
   }
   const legacy = config.project.agents ?? [];
@@ -728,13 +749,31 @@ function liveSchemaJson(): Record<string, unknown> {
   return liveJsonSchema;
 }
 
+/** The record-key name pattern a schema node enforces on its `<name>` segments,
+ * read from the JSON Schema's `propertyNames.pattern` — the same constraint the
+ * runtime `z.record(z.string().regex(NAME_RE), …)` key schema applies. Returns
+ * undefined for a node that names no pattern (then any key is legal). */
+function recordKeyPattern(node: Record<string, unknown>): RegExp | undefined {
+  const propertyNames = node.propertyNames;
+  if (!isRecord(propertyNames) || typeof propertyNames.pattern !== "string") {
+    return undefined;
+  }
+  return new RegExp(propertyNames.pattern);
+}
+
 /**
  * Walk the live JSON Schema along a dotted key. `found` is whether every segment
  * resolved (a record section — `checks`, `scopes`, `ratchets`,
- * `worktree.resources` — accepts any `<name>` segment, descending into the value
- * shape); `node` is the schema node the path lands on. The ONE walk behind both
- * {@link isSettableConfigPath} and {@link settableConfigValueKind}, so "does this
- * path exist" and "what does it hold" can never disagree.
+ * `worktree.resources` — accepts a `<name>` segment matching the section's
+ * `propertyNames.pattern`, descending into the value shape); `node` is the schema
+ * node the path lands on. The ONE walk behind both {@link isSettableConfigPath}
+ * and {@link settableConfigValueKind}, so "does this path exist" and "what does it
+ * hold" can never disagree.
+ *
+ * The record-key pattern is enforced here so the walker refuses exactly the
+ * `<name>` shapes the runtime `z.record` key schema would refuse — otherwise
+ * `config set` would accept a key (a space, a slash, non-ASCII) it then writes as
+ * a `[checks.<bad name>]` header the next load rejects.
  */
 function settableSchemaNode(
   dotted: string,
@@ -751,7 +790,12 @@ function settableSchemaNode(
     if (props !== undefined && Object.hasOwn(props, seg)) {
       node = isRecord(child) ? child : undefined;
     } else if (isRecord(node.additionalProperties)) {
-      // A record table: `seg` is a `<name>`; descend into the value shape.
+      // A record table: `seg` is a `<name>`. It is only settable when it matches
+      // the record's key pattern — the same legality the runtime validator holds.
+      const pattern = recordKeyPattern(node);
+      if (pattern !== undefined && !pattern.test(seg)) {
+        return { found: false, node: undefined };
+      }
       node = node.additionalProperties;
     } else {
       return { found: false, node: undefined }; // unknown key, not a record table

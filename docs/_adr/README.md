@@ -132,6 +132,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
 - [0119 — Bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
 - [0120 — The launch verb canon: questions are nouns, actions are imperatives](0120-launch-verb-canon.md)
+- [0125 — An explicit `[guidance] agents = []` means no agents](0125-explicit-empty-agents-means-no-agents.md)
 
 ## Superseded and consolidated ADRs
 
