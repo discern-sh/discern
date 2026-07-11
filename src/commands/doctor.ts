@@ -251,8 +251,12 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
   // 4. capabilities — informational: which are wired (the unknown-key case is now
   // a schema issue above, so a valid config only ever lists known capabilities).
+  // "Wired" means the SAME thing the gate, status, and improve mean: the command
+  // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
+  // wired). Re-deriving that with a looser predicate would let doctor call a no-op
+  // capability healthy while `discern finish` runs nothing for it.
   const wiredCaps = Object.entries(config.capabilities)
-    .filter(([, v]) => v !== undefined).map(([k]) => k);
+    .filter(([, v]) => toCommandList(v).length > 0).map(([k]) => k);
   checks.push({
     name: "capabilities",
     ok: wiredCaps.length > 0,
