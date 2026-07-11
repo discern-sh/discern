@@ -64,6 +64,22 @@ function echoCommand(out: Out, command: string): void {
   out.raw(`${out.c.dim}→ ${command}${out.c.reset}\n`);
 }
 
+/** Clear the screen and home the cursor: the desk redraws its whole board on
+ * every survey pass, so stale headers never stack up the scrollback. Cursor
+ * control, not colour — NO_COLOR does not disable it (the desk only ever runs
+ * on a TTY). */
+function clearBoard(out: Out): void {
+  out.raw("\x1b[2J\x1b[H");
+}
+
+/** Hold the board until ↵, so output worth reading (a graduation's receipt, a
+ * drop's summary) isn't wiped by the next survey pass's clear. */
+async function awaitEnter(out: Out): Promise<void> {
+  out.raw(`\n${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
+  const buf = new Uint8Array(64);
+  await Deno.stdin.read(buf);
+}
+
 /** A Confirm that treats a cancelled prompt (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
   message: string,
@@ -207,6 +223,7 @@ async function dispatchAction(
         return false;
       }
       await graduate(ctx, {});
+      await awaitEnter(out);
       return true;
     }
     case "integrate": {
@@ -219,6 +236,7 @@ async function dispatchAction(
         return false;
       }
       await integrate(ctx, {});
+      await awaitEnter(out);
       return true;
     }
     case "drop": {
@@ -230,6 +248,7 @@ async function dispatchAction(
       }
       try {
         await worktreeDrop(ctx, target, {});
+        await awaitEnter(out);
         return true;
       } catch (e) {
         if (!(e instanceof WorktreeGitError)) {
@@ -253,6 +272,7 @@ async function dispatchAction(
         }
         echoCommand(out, `discern worktree drop ${target} --force`);
         await worktreeDrop(ctx, target, { force: true });
+        await awaitEnter(out);
         return true;
       }
     }
@@ -398,6 +418,7 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
 
   let data: StatusData = first.data;
   while (true) {
+    clearBoard(out);
     const fleet = data.fleet ?? [];
     const receiptByPath = new Map<string, boolean>();
     for (const entry of fleet) {
