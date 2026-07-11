@@ -688,6 +688,55 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
   });
 });
 
+Deno.test("setup done catches an untracked footprint file whose path git quotes (B50)", async () => {
+  // git C-quotes any path with non-ASCII bytes in line-oriented `--porcelain` output
+  // (core.quotePath defaults on): `?? "discern/docs/d\303\251cisions.md"`. A clean-tree
+  // check that de-quotes by hand — slice(2).trim() then startsWith the unquoted footprint
+  // prefix — never matches the quoted form, so `done` would proceed and record completion
+  // over uncommitted authored work. The end-to-end guard for the `-z` porcelain parsing:
+  // a real non-ASCII authored doc must still block completion. Pairs with the unit
+  // coverage in git_paths_test.ts and the structural -z guard in git_path_quoting_test.ts.
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "true");
+
+    // Commit ALL the authored setup, so the ONLY uncommitted thing is the non-ASCII doc
+    // below — the clean-tree check has exactly one path to catch, and it is a quoted one.
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+
+    // An untracked authored doc inside the footprint (the configured docs tree) whose
+    // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
+    const quotedName = "décisions.md";
+    await Deno.writeTextFile(
+      join(dir, "discern/docs", quotedName),
+      "# A real authored decision\n",
+    );
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const res = JSON.parse(done.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(
+      res.error,
+      "uncommitted_changes",
+      `a quoted-path untracked footprint file must block completion; got ${done.stdout}`,
+    );
+    const uncommitted: string[] = res.data.uncommitted;
+    assert(
+      uncommitted.some((l) => l.includes(quotedName)),
+      `the non-ASCII authored doc must be named as uncommitted (verbatim, not a ` +
+        `C-quoted mangling):\n${JSON.stringify(uncommitted)}`,
+    );
+    // Nothing recorded — completion cannot be stamped over the uncommitted authored file.
+    assert(
+      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+        "bootstrapped = true",
+      ),
+      "completion must not be recorded over an uncommitted quoted-path footprint file",
+    );
+  });
+});
+
 Deno.test("the worktree probe proves the CONFIGURED gate against the authored setup, not an empty tree", async () => {
   await withTempDir(async (dir) => {
     // A gate that can only pass when the AUTHORED content traveled into the probe:
