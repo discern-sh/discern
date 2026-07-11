@@ -40,7 +40,12 @@ import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { collectPaths, isNeutralPath } from "../scopes/scopes.ts";
+import {
+  collectPaths,
+  isNeutralPath,
+  repoPathPrefix,
+  stripRepoPathPrefix,
+} from "../scopes/scopes.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 
 /** How many recent non-merge commits to mine — a bounded window, the one resource
@@ -222,8 +227,18 @@ export function deriveMaxBasket(sizesAsc: number[]): number {
  * header carries the identity the evidence view shows
  * (the same `git log` pretty-format `integrate` mines — ADR 0064). A git failure yields an
  * empty mine — the advisory simply stays silent (it never fails open into noise).
+ *
+ * Log paths are toplevel-relative whatever the cwd, so they are normalized to
+ * ROOT-relative (a project rooted below its repo's toplevel would otherwise mine
+ * baskets no root-relative query path can ever match) — and a commit touching only
+ * paths outside the project subtree drops out, keeping the significance population
+ * the project's own history.
  */
 async function mineCommits(root: string): Promise<Commit[]> {
+  const prefix = await repoPathPrefix(root);
+  if (prefix === undefined) {
+    return [];
+  }
   const r = await runGit(
     [
       "log",
@@ -251,9 +266,12 @@ async function mineCommits(root: string): Promise<Commit[]> {
     // keep everything past the first two fields as the subject.
     const [header = "", ...rest] = chunk.split("\0");
     const meta = header.split("\t");
-    const files = rest
-      .map((f) => f.startsWith("\n") ? f.slice(1) : f)
-      .filter((f) => f !== "");
+    const files = stripRepoPathPrefix(
+      rest
+        .map((f) => f.startsWith("\n") ? f.slice(1) : f)
+        .filter((f) => f !== ""),
+      prefix,
+    );
     if (files.length === 0) {
       continue;
     }

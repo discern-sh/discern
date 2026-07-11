@@ -25,6 +25,7 @@
 import type { Diagnostic } from "../../shared/result.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
+import { repoPathPrefix, stripRepoPathPrefix } from "../scopes/scopes.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
 /**
@@ -32,11 +33,17 @@ import { runGit } from "../../shared/subprocess.ts";
  * `git diff --exit-code` would see. Untracked and .gitignored files are excluded, so a
  * fixer-created new file and generated artifacts never count. Returns `null` when git
  * can't answer — in which case the caller SKIPS the strand check (fail-open: a missing
- * snapshot must never fabricate a failure).
+ * snapshot must never fabricate a failure). Paths are ROOT-relative (porcelain speaks
+ * toplevel-relative) so the strand diagnostic names files the way the project knows
+ * them and its `git diff -- <paths>` pathspecs resolve from the root.
  */
 export async function worktreeDirtyPaths(
   root: string,
 ): Promise<Set<string> | null> {
+  const prefix = await repoPathPrefix(root);
+  if (prefix === undefined) {
+    return null;
+  }
   const r = await runGit(
     ["status", "--porcelain=v1", "-z", "--untracked-files=no"],
     { cwd: root },
@@ -51,7 +58,7 @@ export async function worktreeDirtyPaths(
     }
     paths.add(entry.path);
   }
-  return paths;
+  return new Set(stripRepoPathPrefix([...paths], prefix));
 }
 
 /**
