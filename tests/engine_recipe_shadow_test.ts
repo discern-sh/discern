@@ -132,3 +132,35 @@ Deno.test("a genuine (non-shadowing) recipe still runs and is suggested on a typ
     assertStringIncludes(typo.output, "deploy");
   });
 });
+
+Deno.test("the shadow-warning preflight stays silent when the config can't load, so the verb still runs", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // A parse-broken discern.toml: loadConfig throws. The shadow-warning preflight
+    // runs for every KNOWN_VERBS name (main.ts) BEFORE the verb — installer verbs
+    // like `doctor` included, the very tool you reach for WHEN the config is
+    // broken. The advisory preflight must not let that throw escape and abort the
+    // verb before its own handler renders. A recipe named after the verb is present
+    // so the shadow path is fully exercised.
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      'this is = not valid toml [[[\n"unterminated\n',
+    );
+    await gitInit(dir);
+    await writeRecipe(dir, "doctor");
+
+    const r = await runAgent(dir, ["doctor"]);
+    // `doctor`'s own handler renders its report even on a broken config…
+    assertStringIncludes(
+      r.output,
+      "Doctor checks",
+      "the advisory shadow preflight must not throw on an unloadable config and " +
+        "abort the verb before its handler runs",
+    );
+    // …and the built-in still wins; the shadowing recipe never runs.
+    assert(
+      !r.output.includes("RECIPE-RAN-doctor"),
+      `the built-in must win even on a broken config:\n${r.output}`,
+    );
+  });
+});

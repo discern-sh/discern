@@ -1297,7 +1297,13 @@ export async function warnShadowedRecipe(
   if (root === undefined) {
     return;
   }
-  const cfg = await loadConfig(root);
+  // Advisory only: without a loadable config the recipes dir is unknowable, so a
+  // broken or schema-invalid config means "no shadow warning" — never a throw that
+  // would abort the verb before its own handler (e.g. `doctor`) can run.
+  const cfg = await loadConfig(root).catch(() => undefined);
+  if (cfg === undefined) {
+    return;
+  }
   const { abs } = recipesDirOf(root, cfg);
   if (await pathExists(join(abs, verb.replace(/:/g, "-")))) {
     console.error(
