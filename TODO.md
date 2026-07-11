@@ -189,20 +189,22 @@ _Product positioning, messaging, and launch/content tasks._
       (that one is the _project_ learning; this one is the _user_ learning).
       Candidate for landing copy. Evidence:
       `templates/skills/discern-shape-the-work/SKILL.md` (§4).
-- [ ] **Rename `ratchets` → `baselines` throughout (decided).** Vocabulary
-      decision recorded in the product-strategy doc: "ratchet" carries bad
-      associations (Nurse Ratched, the US slang for "trashy") and doesn't read
-      as an improvement mechanism; "baseline" parses instantly ("a baseline that
-      may only improve") and reinforces the messy-repo message ("your baseline
-      is wherever you are today — it only rises"). Rename the `[ratchets]`
-      config table, the `ratchets` feature toggle, the `discern ratchets` verb +
-      `discern_ratchets` MCP tool, docs, guidance, and tests; ship a schema
-      migration and keep `ratchets` as a verb alias. Keep the one-way-mechanism
-      explanation as the universal gloss ("numbers that can never get worse").
-      Worth a short vocabulary ADR (precedent: ADR 0018, ADR 0022). Evidence:
+- [ ] **Rename `ratchets` → `standards` throughout (decided; 11 July revision
+      of the 3 July "baselines" call — ADR 0120).** The move away from
+      "ratchet" stands unchanged ("ratchet" carries bad associations — Nurse
+      Ratched, the US slang for "trashy" — and needs a gloss at every first
+      use); only the destination moved. "Baseline" names a reference point,
+      but the feature declares a requirement: a config entry _is_ a standard —
+      a level the codebase must meet, with a direction — so the never-loosen
+      rule becomes self-teaching ("never lower a standard") and the tagline is
+      free: "never lower your standards". Failure surfaces read exactly right
+      ("coverage standard not met"). Rename the `[ratchets]` config table, the
+      `discern ratchets` verb + `discern_ratchets` MCP tool, feature strings,
+      docs, guidance, and tests; ship a schema migration; the retired spelling
+      redirects (no alias — ADR 0120). Keep the one-way-mechanism explanation
+      as the universal gloss ("numbers that can never get worse"). Evidence:
       `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
-      (`discern_ratchets`),
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+      (`discern_ratchets`), `docs/_adr/0120-launch-verb-canon.md` (the canon).
 - [ ] **Standardize the gate artifact on `receipt` (decided — reverses the 3
       July "pass" call).** "Pass" proved fatally overloaded at the exact relay
       moment (the gate passes, checks pass/fail — then "here's the pass"?),
@@ -219,12 +221,13 @@ _Product positioning, messaging, and launch/content tasks._
       positioning ("done isn't something you say — it's something you run"), the
       lifecycle reads `start → prepare → done → accept`, and
       `discern setup done` already established done-as-completion-verb in the
-      product. Keep `finish` as a permanent alias. One honest caveat, handled in
+      product. No alias: `finish` hard-errors with a redirect naming `done`
+      (ADR 0120). One honest caveat, handled in
       the verb's help: `done` sounds read-only, while the gate's fix stage
       mutates (formats) — document "done runs your finishing steps, then
       verifies the rest". Rename the verb, `discern_finish` MCP tool, docs,
-      guidance, and templates, with the same alias + migration care as the
-      baselines rename. Trade-off accepted knowingly: the "'done' isn't done
+      guidance, and templates, with the same redirect + migration care as the
+      standards rename. Trade-off accepted knowingly: the "'done' isn't done
       without a proper finish" flourish was licensed by the verb name and
       retires with it. Evidence:
       `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
@@ -233,14 +236,28 @@ _Product positioning, messaging, and launch/content tasks._
       the owner's acceptance, not a mechanical move. "Accept" carries
       moves-the-code muscle memory (editors' "accept incoming changes" / "accept
       suggestion" apply code), where "approve" was ruined by PR reviews
-      (approval ≠ merge) and "graduate" needs a gloss a plain verb doesn't. Keep
-      `graduate` as a permanent alias (CLI verb + `discern_graduate` MCP tool →
-      `discern_accept`); keep "land"/"landed on the trunk" as the plain-prose
-      description of the effect; align the setup flow's landing step
-      (`setup land` → `setup accept`, old spelling aliased). The natural
+      (approval ≠ merge) and "graduate" needs a gloss a plain verb doesn't. No
+      alias: `graduate` hard-errors with a redirect, and `discern_graduate`
+      renames to `discern_accept` (ADR 0120); keep "land"/"landed on the trunk"
+      as the plain-prose description of the effect; align the setup flow's
+      landing step (`setup land` → `setup accept`). The natural
       follow-up "where's `reject`?" has a standing answer: rejection is feedback
       to the agent in conversation, not a verb. Evidence:
       `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
+- [ ] **Complete the verb canon (decided 11 July 2026 — ADR 0120).** The rule:
+      questions are nouns, actions are imperatives, `done` is the sole
+      exception (a claim). Renames: `scopes` → `impact` (the user's question,
+      not the machinery's name); `integrate` → `update` (the CI prior for
+      "integrate" points at landing — the wrong direction — while "Update
+      branch" is the exact prior for this operation); `docs` → `map` (ADR
+      0100's own word promoted to the verb; `[docs]` → `[map]`, the tree stays
+      at `docs/` on disk); `improve` → `improvement` (the noun form per the
+      rule; `improve` forwards silently as a grammatical variant). `coupling`
+      and `doctor` were reviewed and deliberately kept. No legacy aliases
+      anywhere: retired spellings hard-error with a redirect naming the
+      successor; grammatical variants of the current canon forward silently.
+      Swept in bulk by the wave-3 vocabulary brief. Evidence:
+      `docs/_adr/0120-launch-verb-canon.md` (the canon, rule, and rationale).
 - [ ] **Retire "harness" from user-facing surfaces (decided).** No single
       replacement word — reword per context: "discern" for the product, "the
       gate" for the mechanism, "the bar" where a category noun is needed.
