@@ -249,8 +249,8 @@ const guidanceSection = z.strictObject({
     .describe(
       "Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; the built-in harness guidance is always prepended.",
     ),
-  agents: z.array(z.string()).default([]).describe(
-    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
+  agents: z.array(z.string()).optional().describe(
+    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
   ),
 }).prefault({}).describe(
   "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.",
@@ -455,9 +455,15 @@ export type DiscernConfig = z.infer<typeof configSchema>;
  * dispatcher, AND the skills currency check — so "which agents are configured" is
  * answered identically everywhere, never re-derived per call-site. Pure: reads only
  * the passed config.
+ *
+ * `[guidance].agents` is OPTIONAL, so an absent key (undefined) and an explicit
+ * empty list are distinct: absent falls through to the legacy key and then the
+ * default pair, while an explicit `agents = []` is an author's deliberate "emit for
+ * no agents" and is honored verbatim. Conflating the two — the historic behaviour —
+ * made "no agents, please" impossible to express.
  */
 export function resolveConfiguredAgents(config: DiscernConfig): string[] {
-  if (config.guidance.agents.length > 0) {
+  if (config.guidance.agents !== undefined) {
     return config.guidance.agents;
   }
   const legacy = config.project.agents ?? [];

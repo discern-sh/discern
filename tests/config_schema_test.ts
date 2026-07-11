@@ -4,12 +4,14 @@ import {
   ConfigParseError,
   ConfigValidationError,
   configWriteIssues,
+  DEFAULT_AGENTS,
   EXTENTS,
   isSettableConfigPath,
   NAME_RE,
   parseConfig,
   parseConfigOrThrow,
   RECORD_ENTRY_SCHEMAS,
+  resolveConfiguredAgents,
   settableConfigValueKind,
   toCommand,
   toCommandList,
@@ -33,7 +35,9 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
   assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
-  assertEquals(c.guidance.agents, []);
+  // `agents` is OPTIONAL (no default): an absent key stays undefined so the
+  // resolver can tell "unset" (→ default pair) from an explicit `[]` (→ no agents).
+  assertEquals(c.guidance.agents, undefined);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty
   assertEquals(c.capabilities, {});
@@ -84,6 +88,51 @@ Deno.test("worktree resource defaults: required/gc default true, retries 0, comm
   assertEquals(db.required, true);
   assertEquals(db.gc, true);
   assertEquals(db.retries, 0);
+});
+
+Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] means no agents", () => {
+  // The class: an empty collection conflated with an absent one (B43). `[guidance]
+  // agents` is optional so the two are DISTINCT states, and the resolver must read
+  // them differently — otherwise "emit for no agents" cannot be expressed and the
+  // generated reference misdocuments the default. Default expectations are driven
+  // off DEFAULT_AGENTS (its single source of truth), never a hand-copied pair.
+
+  // Unset (no key at all, and an empty [guidance] with no agents key) → default pair.
+  assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
+    ...DEFAULT_AGENTS,
+  ]);
+  assertEquals(
+    resolveConfiguredAgents(parseConfigOrThrow('[guidance]\nsources = ["g.md"]\n')),
+    [...DEFAULT_AGENTS],
+  );
+
+  // Explicit empty list → emit for NO agents (the reading the old default made
+  // impossible). This is the one deliberate semantic change (documented on the key).
+  assertEquals(
+    resolveConfiguredAgents(parseConfigOrThrow("[guidance]\nagents = []\n")),
+    [],
+  );
+
+  // A non-empty explicit list is honored verbatim, in order.
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[guidance]\nagents = ["gemini"]\n'),
+    ),
+    ["gemini"],
+  );
+
+  // The legacy [project].agents fallback still fires only when guidance is UNSET;
+  // an explicit empty guidance list overrides it (deliberate "no agents" wins).
+  assertEquals(
+    resolveConfiguredAgents(parseConfigOrThrow('[project]\nagents = ["cursor"]\n')),
+    ["cursor"],
+  );
+  assertEquals(
+    resolveConfiguredAgents(
+      parseConfigOrThrow('[project]\nagents = ["cursor"]\n[guidance]\nagents = []\n'),
+    ),
+    [],
+  );
 });
 
 Deno.test("ratchet direction defaults up; metric is optional (falls back to name at read)", () => {

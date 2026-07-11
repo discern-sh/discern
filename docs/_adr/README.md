@@ -131,6 +131,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
 - [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
 - [0119 — Bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
+- [0125 — An explicit `[guidance] agents = []` means no agents](0125-explicit-empty-agents-means-no-agents.md)
 
 ## Superseded and consolidated ADRs
 
