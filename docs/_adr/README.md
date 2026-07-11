@@ -130,6 +130,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0116 — Receipts vouch only for the pinned tree, and graduate lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
 - [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
+- [0119 — Bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
 
 ## Superseded and consolidated ADRs
 

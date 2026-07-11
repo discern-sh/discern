@@ -181,6 +181,11 @@ verbs:
   of graduate.
 - `discern graduate` **graduates** the branch into the main repo and tears the
   Worktree down.
+- Bare `discern` — no verb, in a terminal — opens **the desk**, the human's own
+  surface: a decision-ordered picker over the fleet that lands, integrates,
+  inspects, or drops an effort interactively
+  ([the desk](../30-worktrees/the-desk.md)). Agents and pipes get help, exactly
+  as before; the verbs above stay the machine surface.
 
 **4. Stay current.** When you install a newer `discern` binary,
 `discern

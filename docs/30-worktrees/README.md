@@ -120,7 +120,8 @@ removable/network media; `git worktree unlock` is the only way through), and
 deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
 _own_ worktree, every other worktree is another line of work an agent must never
 remove (the fleet ownership rule), so discarding work is a human supervisory
-action — `status` hints carry the command to the human.
+action — `status` hints carry the command to the human, and
+[the desk](the-desk.md) offers it interactively.
 [`worktree prune`](../../src/engine/worktree/lifecycle.ts) sweeps stale
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes
@@ -204,6 +205,7 @@ inspectable before they act.
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [team-workflow.md](team-workflow.md) | The collaborator story: cloning with or without discern, the one-minute path to full function, and working alongside agent worktrees without colliding.                   |
 | [the-resources.md](the-resources.md) | Per-worktree resources: the config seam, the create/reuse/destroy lifecycle, the ledger + orphan GC, identity, ownership/namespacing, and the runtime-discovery contract. |
+| [the-desk.md](the-desk.md)           | The human's interactive surface: bare `discern` opens a decision-ordered picker over the fleet — land, integrate, inspect, jump in, or drop, gated on TTY-ness alone.     |
 
 > **Status: partial.** `the-resources.md` is written; the remaining lifecycle /
 > identity / integration leaves are still stubs — fill them with the
@@ -233,3 +235,6 @@ inspectable before they act.
   graduation refreshes the checkout it leaves behind.
 - [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
   any ref (`start --from` / `integrate --from`), land only on the trunk.
+- [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare
+  `discern` opens the operator's desk, the human's interactive surface over
+  the fleet.
