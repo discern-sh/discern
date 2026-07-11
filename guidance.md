@@ -21,7 +21,7 @@ in sync.
 
 - **`src/`** — the whole binary. Installer verbs (`setup`, `doctor`, `upgrade`,
   `config`, `preset`) **and** the TypeScript engine: `src/engine/**` (the gate,
-  the parallel/serial job runner, scope classification, ratchets, the worktree
+  the parallel/serial job runner, scope classification, standards, the worktree
   lifecycle + identity, the guideline compiler, the dispatcher), sharing
   `src/shared/**` (config reader, capability constants, feature toggles, POSIX
   `cksum`, root discovery). Compiled to a single binary via `deno task build`.
@@ -163,7 +163,7 @@ the whole suite each loop.
 - **Keep `docs/` current with the change.** The `docs/` tree is the source of
   truth and must not drift from code — update the affected docs in the same
   commit. `docs/` and root `*.md` fire no gate (a neutral scope); `docs/` alone
-  is held to the Vale `prose` check and the `[ratchets.prose]` density ceiling.
+  is held to the Vale `prose` check and the `[standards.prose]` density ceiling.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line
   summarizing the change (e.g. "Add retry to upload path"), no trailing period;

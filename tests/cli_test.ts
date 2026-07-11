@@ -280,14 +280,14 @@ const BAD_PROJECT_STATES: ReadonlyArray<{ name: string; toml: string | null }> =
       toml: 'this is = not valid toml [[[\n"unterminated\n',
     },
     {
-      // Parses as TOML but violates the schema (an unknown ratchet direction),
+      // Parses as TOML but violates the schema (an unknown standard direction),
       // so the TYPED loadConfig throws where the raw reader would not.
       name: "schema-invalid discern.toml",
       toml: [
         "[project]",
         'slug = "x"',
         "",
-        "[ratchets.bad]",
+        "[standards.bad]",
         'run = "true"',
         "limit = 5",
         'direction = "sideways"',

@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 17
+schema_version = 18
 
 
 [project]
@@ -46,7 +46,7 @@ todo = "discern/TODO.md"
 # ─────────────────────────────────────────────────────────────────────────────
 # [docs] — discern's agent documentation tree. This is conceptually distinct
 # from human-curated project docs: setup scaffolds it here, `discern docs`
-# browses it, and `${docs.dir}` keeps checks/scopes/ratchets tied to this path.
+# browses it, and `${docs.dir}` keeps checks/scopes/standards tied to this path.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [docs]
@@ -280,50 +280,51 @@ ensure = []  # converge, e.g. ["<install deps>"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
+# [standards] — quality standards: numbers that can never get worse, enforced on
+# demand by `discern standards`
 # (slow, so NOT part of `discern done`). None configured means none run — defining
 # one is what turns the subsystem on.
 #
-# A ratchet is a number you only ever want to improve: line coverage, a bundle-
-# size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
+# Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
+# error count, a perf budget. Each [standards.<name>]
 # table declares one:
-#   metric     the metric name the run emits        (default: the ratchet name)
+#   metric     the metric name the run emits        (default: the standard name)
 #   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
 #              "down" value should fall; limit is a CEILING (e.g. a size budget)
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
-#              (run on demand by `discern ratchets`, never by the gate)
-#   per        divide the metric to ratchet a RATE, not a raw count — so the number
+#              (run on demand by `discern standards`, never by the gate)
+#   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
 #              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
-#   margin     headroom `discern ratchets --pin` leaves when it tightens this limit
+#   margin     headroom `discern standards --pin` leaves when it tightens this limit
 #              to the measured value (default 0). Give a metric that drifts on
 #              unrelated commits (a size, a coverage %) a margin so a pinned limit
 #              isn't tripped by ordinary fluctuation.
 #
-# A ratchet's `run` reports its number by printing a line:
+# A standard's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
-# (the LAST such line wins). There is no built-in or special ratchet — coverage
+# (the LAST such line wins). There is no built-in or special standard — coverage
 # is just the conventional name for one. None are configured by default;
 # uncomment an example to enable it.
 #
-# Captured a gain? `discern ratchets --pin` tightens each improved limit to the
-# value just measured and commits it — the way to re-pin a baseline, never a
+# Captured a gain? `discern standards --pin` tightens each improved limit to the
+# value just measured and commits it — the way to tighten a standard, never a
 # hand-edit (which can't tell a real gain from a quiet loosening).
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Coverage — keep line coverage at or above a rising floor:
-# [ratchets.coverage]
+# [standards.coverage]
 # direction = "up"
 # limit     = 80
 # run       = "your-coverage-tool"   # must emit: DISCERN_METRIC coverage <percent>
 #
 # Bundle size — a raw count is right here: shipped bytes are a true budget, they
 # don't grow just because the repo does. Keep the artifact under a falling ceiling:
-# [ratchets.bundle]
+# [standards.bundle]
 # metric    = "bundle_bytes"
 # direction = "down"
 # limit     = 500000
@@ -331,11 +332,11 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #
 # Lint density — a RATE, for a count that WOULD grow with the project. Divide by a
 # built-in extent so adding clean code never breaches it, only nittier code does:
-# [ratchets.lint_density]
+# [standards.lint_density]
 # metric    = "warnings"
 # direction = "down"
 # per       = { lines = "src/**" }   # discern counts the lines itself
-# scale     = 1000                   # ratchet "warnings per 1,000 lines"
+# scale     = 1000                   # express "warnings per 1,000 lines"
 # limit     = 5
 # run       = "your-linter --count"  # must emit: DISCERN_METRIC warnings <count>
 

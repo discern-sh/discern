@@ -127,7 +127,7 @@ to the version and runner you want:
   when your job runs on something other than x86-64 Linux.
 
 Everything below is optional depth: adapting the workflow to your stack,
-ephemeral cloud-agent environments, cost, and ratchets.
+ephemeral cloud-agent environments, cost, and standards.
 
 ## Adapting the workflow
 
@@ -200,17 +200,17 @@ to the integration branch. The cost is the time to install the runner toolchain
 plus the time your `discern done` capabilities and checks already take. Use the
 cache knobs for your stack once the plain workflow is green.
 
-## Ratchets
+## Standards
 
-`discern ratchets` stays outside `discern done` because metric checks can be
-slow. Add a second, pull-request-only job once the project has ratchets
+`discern standards` stays outside `discern done` because metric checks can be
+slow. Add a second, pull-request-only job once the project has standards
 configured:
 
 ```yaml
 jobs:
-  ratchets:
+  standards:
     if: github.event_name == 'pull_request'
-    name: discern-ratchets
+    name: discern-standards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -220,8 +220,8 @@ jobs:
 
       # Repeat the same "Install discern" and stack setup steps from the gate
       # job here, then hold the metric floors and ceilings.
-      - name: Hold the ratchets
-        run: discern ratchets
+      - name: Hold the standards
+        run: discern standards
 ```
 
 The separate job keeps landed-commit checks fast while still blocking pull

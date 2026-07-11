@@ -11,11 +11,11 @@
  * toplevel. Git resolves a bare `rev:path` against the repository TOP LEVEL,
  * and `diff --name-only` / `status --porcelain` / `log --name-only` all emit
  * toplevel-relative paths regardless of cwd — so any consumer comparing them
- * against root-relative config (scope globs, ratchet baselines, coupling
+ * against root-relative config (scope globs, standard baselines, coupling
  * inputs) breaks silently when the root sits below the toplevel.
  *
  * Every test here drives a key engine path against the SAME nested fixture
- * (`scaffoldNested`): ratchets (both halves), scope classification (the gate's
+ * (`scaffoldNested`): standards (both halves), scope classification (the gate's
  * routing signal), coupling, the fix-stage strand snapshot, and the worktree
  * lifecycle's deliberate refusal. Out of scope (deliberate, not silent): the
  * clean-tree guards read `git status` repo-wide (conservative — sibling dirt
@@ -51,14 +51,14 @@ async function scaffoldNested(repo: string, config: string): Promise<string> {
   return app;
 }
 
-/** A one-ratchet config: an `up` floor at `limit`, measuring `measured`. */
+/** A one-standard config: an `up` floor at `limit`, measuring `measured`. */
 function floorConfig(limit: string, measured: string): string {
   return [
     "[project]",
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    "[ratchets.coverage]",
+    "[standards.coverage]",
     'direction = "up"',
     `limit = ${limit}`,
     `run = "echo 'DISCERN_METRIC coverage ${measured}'"`,
@@ -66,13 +66,13 @@ function floorConfig(limit: string, measured: string): string {
   ].join("\n");
 }
 
-// ── ratchets: the never-loosen half must survive a nested root ─────────────────
+// ── standards: the never-loosen half must survive a nested root ─────────────────
 // Regression: `git show <main>:discern.toml` resolves the path against the repo
 // toplevel, so from a nested root both baseline candidates failed, the baseline
 // read undefined, and a loosened limit sailed through as "not loosened" — the
-// exact regression a ratchet exists to catch, disabled silently.
+// exact regression a standard exists to catch, disabled silently.
 
-Deno.test("nested root: loosening a ratchet limit vs main still fails", async () => {
+Deno.test("nested root: loosening a standard limit vs main still fails", async () => {
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(repo, floorConfig("80", "99"));
     await git(repo, "checkout", "-q", "-b", "agent/x");
@@ -80,17 +80,17 @@ Deno.test("nested root: loosening a ratchet limit vs main still fails", async ()
     await git(repo, "add", "-A");
     await git(repo, "commit", "-q", "-m", "loosen the floor", "--no-gpg-sign");
 
-    const r = await runAgent(app, ["ratchets"]);
+    const r = await runAgent(app, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "floor 80 -> 70");
     assertStringIncludes(r.stderr, "only rises");
   });
 });
 
-Deno.test("nested root: a held ratchet still measures and passes", async () => {
+Deno.test("nested root: a held standard still measures and passes", async () => {
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(repo, floorConfig("80", "85"));
-    const r = await runAgent(app, ["ratchets"]);
+    const r = await runAgent(app, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
   });

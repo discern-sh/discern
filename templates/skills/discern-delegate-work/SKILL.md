@@ -93,7 +93,7 @@ When work returns, review it as its adversary: assume it falls short until the e
 
 - **Read the diff, not the summary.** Review the branch's diff against the trunk (`git diff <trunk>...<branch>`) and the changed files (find the branch via `discern_status` if you need to). Review read-only: never start working inside a worktree you didn't create.
 - **Hold it to the prompt.** Walk every deliverable and the definition of done, the semantic bar included. Was each one done, or only reported done? What was skipped, half-finished, or quietly added beyond scope?
-- **Verify the gate passes.** Run it against the branch (from its own worktree, or a checkout of it) rather than trusting the agent's report, and check the ratchets (`discern_ratchets`) if the change touches them.
+- **Verify the gate passes.** Run it against the branch (from its own worktree, or a checkout of it) rather than trusting the agent's report, and check the standards (`discern_standards`) if the change touches them.
 - **Hunt the known failure modes.** The symptom patched but the class left uncured; a test loosened to pass; a generated file hand-edited; a decision made silently that warranted an ADR; scope creep past what you asked for; and, in a fan-out, a stream that strayed into a sibling's slice.
 - **Credit what exceeded the brief.** If the agent caught something you hadn't anticipated, or improved on the spec in a way that helps, name it. Real initiative is a finding too.
 

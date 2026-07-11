@@ -11,11 +11,11 @@
  * drives the verbs through the dispatcher. The suite is the engine's black-box
  * behavioral parity oracle.
  *
- * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
+ * Tests that exercise scope/scope-gate/standard behaviour need a git repo so
  * `scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
  * in. `writeConfig` overwrites the scaffolded `.discern/config.toml` (a seed file) with
- * test-specific capabilities/checks/scopes/ratchets.
+ * test-specific capabilities/checks/scopes/standards.
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -108,7 +108,7 @@ export async function engineEnv(
  * Scaffold the real harness (engine, dispatcher, default `.discern/config.toml`) into
  * `dir` via the installer's own plan/apply path, so the bytes under test are the
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
- * the capabilities/checks/scopes/ratchets they need.
+ * the capabilities/checks/scopes/standards they need.
  */
 export async function scaffoldEngine(
   dir: string,

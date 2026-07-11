@@ -1,13 +1,13 @@
 /**
- * `ratchets` — check every metric ratchet (ADR 0003). Each `[ratchets.<name>]`
+ * `standards` — check every metric standard (ADR 0003). Each `[standards.<name>]`
  * enforces two
  * halves: NEVER LOOSENED vs main (the limit compared to main's value — a floor
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,
  * read the `DISCERN_METRIC <name> <number>` line — last wins). Slow, so on demand,
- * never part of finish. Every ratchet runs even if one fails.
+ * never part of finish. Every standard runs even if one fails.
  *
- * Built on the plan/apply seam (ADR 0027): a pure {@link RatchetPlan} (which
- * ratchets, with what direction/limit/metric/command — `ratchet_plan.ts`) is
+ * Built on the plan/apply seam (ADR 0027): a pure {@link StandardPlan} (which
+ * standards, with what direction/limit/metric/command — `standard_plan.ts`) is
  * computed first, then the thin executor here applies it. `--dry-run` renders the
  * plan and touches nothing (no git, no measurement); `--json` SERIALIZES the
  * (plan, results) through the shared renderer.
@@ -27,13 +27,13 @@ import {
 import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
-  buildRatchetPlan,
+  buildStandardPlan,
   perNote,
   pinnedLimit,
-  type PlannedRatchet,
-  type RatchetPlan,
-  ratchetPlanToEngine,
-} from "./ratchet_plan.ts";
+  type PlannedStandard,
+  type StandardPlan,
+  standardPlanToEngine,
+} from "./standard_plan.ts";
 import {
   appliedResult,
   type Diagnostic,
@@ -54,11 +54,11 @@ import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import {
   carryReceiptForwardAcrossPin,
-  clearRatchetMeasurements,
+  clearStandardMeasurements,
   inspectGateReceipt,
-  inspectRatchetMeasurements,
+  inspectStandardMeasurements,
   pinValidatedTree,
-  recordRatchetMeasurements,
+  recordStandardMeasurements,
   type ValidatedTreePin,
 } from "./receipt.ts";
 
@@ -97,12 +97,12 @@ export function extractMetric(
 
 /** Read a scalar key from main's config (the never-loosen baseline). Reads the
  * new root `discern.toml`, falling back to the legacy `.discern/config.toml` so a
- * branch whose main has not yet been migrated still ratchets correctly. The
+ * branch whose main has not yet been migrated still checks standards correctly. The
  * `rev:./path` spelling is load-bearing: git resolves a bare `rev:path` against
  * the repository TOPLEVEL, but the config lives at the PROJECT root (the cwd) —
  * for a project rooted in a subdirectory of its repo, the bare form finds
  * nothing and the never-loosen half would silently disable. */
-async function ratchetMainValue(
+async function standardMainValue(
   root: string,
   mainBranch: string,
   key: string,
@@ -122,7 +122,7 @@ async function ratchetMainValue(
   return undefined;
 }
 
-/** Run one ratchet's measurement command at the resolved project root, returning
+/** Run one standard's measurement command at the resolved project root, returning
  * its combined output. The run's exit code is deliberately NOT consulted; only
  * the emitted DISCERN_METRIC line decides pass/fail. */
 async function measure(command: string, root: string): Promise<string> {
@@ -177,66 +177,66 @@ async function measureExtent(
   return total;
 }
 
-/** Format a ratcheted value compactly: integers bare, otherwise up to two decimals
+/** Format a normalized value compactly: integers bare, otherwise up to two decimals
  * with trailing zeros trimmed (18.699… → "18.7", 18 → "18"). */
 function fmtRate(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
-/** One ratchet check's verdict. When it failed, `reason` carries the same words the
+/** One standard check's verdict. When it failed, `reason` carries the same words the
  * logger printed — the caller mirrors them into the result envelope's diagnostics, so
  * a caller that can't hear the live logger (MCP, `--json`) still learns WHY. The
  * metric-reading failures also carry the measurement `output`: the evidence needed to
  * see why no metric emerged. */
-interface RatchetVerdict {
+interface StandardVerdict {
   held: boolean;
   /** The value compared to the limit (rate or count); absent when unmeasurable. */
   value?: number;
-  /** The failure reason, exactly as narrated; absent when the ratchet held. */
+  /** The failure reason, exactly as narrated; absent when the standard held. */
   reason?: string;
   /** The measurement command's captured output, when it is the failure's evidence. */
   output?: string;
-  /** The command that reproduces the failure — the ratchet's own `run` when the
+  /** The command that reproduces the failure — the standard's own `run` when the
    * measurement is what failed or fell short; absent for the structural failures
    * (a loosened limit, a missing command), where re-running measures nothing. */
   reproduce_cmd?: string;
 }
 
-/** Check one planned ratchet: the never-loosen read, the measurement, the comparison.
+/** Check one planned standard: the never-loosen read, the measurement, the comparison.
  * Prints its own pass/fail line and returns whether it `held` plus the measured `value`
  * (the rate or count compared to the limit) when a measurement was taken — the value
- * `ratchets --pin` would tighten the limit to. The ratchet is already schema-validated
+ * `standards --pin` would tighten the limit to. The standard is already schema-validated
  * (direction ∈ up|down, limit a number, run present), so its structural checks are
  * folded into the schema. */
-/** The never-loosen half of one ratchet's check: the branch's limit compared to
+/** The never-loosen half of one standard's check: the branch's limit compared to
  * main's baseline (a floor may only rise, a ceiling only fall). Returns the failure
  * reason, or undefined when the limit is not loosened. Split out of
- * {@link ratchetCheck} because this half is NOT cacheable — main can advance while
+ * {@link standardCheck} because this half is NOT cacheable — main can advance while
  * HEAD stands still — so the measurement-receipt replay re-runs exactly this, live. */
 async function loosenedVsMainReason(
-  r: PlannedRatchet,
+  r: PlannedStandard,
   root: string,
   mainBranch: string,
 ): Promise<string | undefined> {
-  const main = await ratchetMainValue(root, mainBranch, r.limitKey);
+  const main = await standardMainValue(root, mainBranch, r.limitKey);
   if (main === undefined) {
     return undefined;
   }
   if (r.direction === "up" && r.limit < main) {
-    return `ratchet '${r.name}': floor ${main} -> ${r.limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
+    return `standard '${r.name}': floor ${main} -> ${r.limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
   }
   if (r.direction === "down" && r.limit > main) {
-    return `ratchet '${r.name}': ceiling ${main} -> ${r.limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
+    return `standard '${r.name}': ceiling ${main} -> ${r.limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
   }
   return undefined;
 }
 
-async function ratchetCheck(
-  r: PlannedRatchet,
+async function standardCheck(
+  r: PlannedStandard,
   root: string,
   mainBranch: string,
   out: Out,
-): Promise<RatchetVerdict> {
+): Promise<StandardVerdict> {
   const { name, metric, direction, limit, command, per, scale } = r;
 
   // never loosened vs main
@@ -249,7 +249,7 @@ async function ratchetCheck(
   // measure
   if (command === "") {
     const reason =
-      `ratchet '${name}' has no run command (set run = "<command>" under [ratchets.${name}]).`;
+      `standard '${name}' has no run command (set run = "<command>" under [standards.${name}]).`;
     out.error(reason);
     return { held: false, reason };
   }
@@ -264,13 +264,13 @@ async function ratchetCheck(
   const measuredStr = extractMetric(output, metric);
   if (measuredStr === undefined) {
     const reason =
-      `ratchet '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`;
+      `standard '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`;
     out.error(reason);
     return { held: false, reason, output, reproduce_cmd: command };
   }
   if (!isNumber(measuredStr)) {
     const reason =
-      `ratchet '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`;
+      `standard '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`;
     out.error(reason);
     return { held: false, reason, output, reproduce_cmd: command };
   }
@@ -287,7 +287,7 @@ async function ratchetCheck(
       const d = readEmittedNumber(output, per.metric);
       if (d === undefined) {
         const reason =
-          `ratchet '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`;
+          `standard '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`;
         out.error(reason);
         return { held: false, reason, output, reproduce_cmd: command };
       }
@@ -300,7 +300,7 @@ async function ratchetCheck(
         ? `'per' metric '${per.metric}' is ${denom}`
         : `${per.measure} over ${per.globs.join(", ")} measured 0`;
       const reason =
-        `ratchet '${name}': cannot ratchet a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`;
+        `standard '${name}': cannot calculate a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`;
       out.error(reason);
       return { held: false, reason };
     }
@@ -315,100 +315,100 @@ async function ratchetCheck(
   if (direction === "up") {
     if (value + 1e-9 < limit) {
       const reason =
-        `ratchet '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`;
+        `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`;
       out.error(reason);
       return { held: false, value, reason, reproduce_cmd: command };
     }
     out.ok(
-      `ratchet '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
+      `standard '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
     );
   } else {
     if (value - 1e-9 > limit) {
       // A raw-count ceiling that a growing tree can breach on its own is the classic
       // trap — point at the fix the moment it bites.
       const growHint = per === undefined
-        ? " If this counts items over a tree you grow, it rises with size — ratchet a rate instead (add `per`)."
+        ? " If this counts items over a tree you grow, it rises with size — hold a rate instead (add `per`)."
         : "";
       const reason =
-        `ratchet '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`;
+        `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`;
       out.error(reason);
       return { held: false, value, reason, reproduce_cmd: command };
     }
     out.ok(
-      `ratchet '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
+      `standard '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
     );
   }
   return { held: true, value };
 }
 
-/** One ratchet's measured outcome, carried alongside its {@link StepResult} so the
+/** One standard's measured outcome, carried alongside its {@link StepResult} so the
  * `--pin` pass can read the value the check computed without measuring a second time. */
-interface RatchetOutcome {
-  ratchet: PlannedRatchet;
+interface StandardOutcome {
+  standard: PlannedStandard;
   held: boolean;
   /** The value compared to the limit (rate or count); absent when unmeasurable. */
   value?: number;
 }
 
-/** The outcome of applying a ratchet plan: whether all held, the per-step results, the
- * per-ratchet measured outcomes (which the pin pass reads), and one diagnostic per
+/** The outcome of applying a standard plan: whether all held, the per-step results, the
+ * per-standard measured outcomes (which the pin pass reads), and one diagnostic per
  * failure carrying its reason — the envelope's channel for WHY, so a caller that
  * can't hear the live logger (MCP, `--json`) is never left with a bare failed step. */
-interface RatchetExecution {
+interface StandardExecution {
   ok: boolean;
   results: StepResult[];
-  outcomes: RatchetOutcome[];
+  outcomes: StandardOutcome[];
   diagnostics: Diagnostic[];
 }
 
-function ratchetPlanIntegrityResult(
-  plan: RatchetPlan,
+function standardPlanIntegrityResult(
+  plan: StandardPlan,
   steps: readonly PlanStep[],
 ): StepResult {
   return {
     step: {
-      kind: "ratchet",
+      kind: "standard",
       label: "plan-integrity",
       disposition: "gate",
       note:
-        `internal error: planned ${plan.ratchets.length} ratchet(s) but projected ${steps.length} step(s).`,
+        `internal error: planned ${plan.standards.length} standard(s) but projected ${steps.length} step(s).`,
     },
     outcome: "failed",
   };
 }
 
-export function ratchetPlanIntegrityFailure(
-  plan: RatchetPlan,
+export function standardPlanIntegrityFailure(
+  plan: StandardPlan,
   steps: readonly PlanStep[],
 ): StepResult | undefined {
-  return steps.length === plan.ratchets.length
+  return steps.length === plan.standards.length
     ? undefined
-    : ratchetPlanIntegrityResult(plan, steps);
+    : standardPlanIntegrityResult(plan, steps);
 }
 
 /**
- * Apply a ratchet plan — the thin executor. Loops the planned ratchets, checking
+ * Apply a standard plan — the thin executor. Loops the planned standards, checking
  * each (the never-loosen read + the measurement + the comparison), and collects a
- * {@link StepResult} per ratchet (held → "ok", failed → "failed"). Every ratchet
+ * {@link StepResult} per standard (held → "ok", failed → "failed"). Every standard
  * runs even if one fails — no short-circuit (ADR 0003). Owns every effect; the plan
  * and its projection are pure.
  */
-async function executeRatchetPlan(
-  plan: RatchetPlan,
+async function executeStandardPlan(
+  plan: StandardPlan,
   root: string,
   mainBranch: string,
   out: Out,
-): Promise<RatchetExecution> {
-  const steps = ratchetPlanToEngine(plan).steps;
+): Promise<StandardExecution> {
+  const steps = standardPlanToEngine(plan).steps;
   const integrityDiagnostic = (failure: StepResult): Diagnostic => ({
     tool: failure.step.label,
     severity: "error",
-    message: failure.step.note ?? "Ratchet plan integrity check failed.",
-    reproduce_cmd: "discern ratchets",
+    message: failure.step.note ?? "Standard plan integrity check failed.",
+    reproduce_cmd: "discern standards",
   });
-  const mismatch = ratchetPlanIntegrityFailure(plan, steps);
+  const mismatch = standardPlanIntegrityFailure(plan, steps);
   if (mismatch !== undefined) {
-    out.error(mismatch.step.note ?? "Ratchet plan integrity check failed.");
+    out.error(mismatch.step.note ?? "Standard plan integrity check failed.");
     return {
       ok: false,
       results: [mismatch],
@@ -417,21 +417,21 @@ async function executeRatchetPlan(
     };
   }
   const results: StepResult[] = [];
-  const outcomes: RatchetOutcome[] = [];
+  const outcomes: StandardOutcome[] = [];
   const diagnostics: Diagnostic[] = [];
   let ok = true;
-  for (let i = 0; i < plan.ratchets.length; i++) {
-    const r = plan.ratchets[i];
+  for (let i = 0; i < plan.standards.length; i++) {
+    const r = plan.standards[i];
     const step = steps[i];
     if (r === undefined || step === undefined) {
-      const failure = ratchetPlanIntegrityResult(plan, steps);
-      out.error(failure.step.note ?? "Ratchet plan integrity check failed.");
+      const failure = standardPlanIntegrityResult(plan, steps);
+      out.error(failure.step.note ?? "Standard plan integrity check failed.");
       results.push(failure);
       diagnostics.push(integrityDiagnostic(failure));
       ok = false;
       break;
     }
-    const verdict = await ratchetCheck(r, root, mainBranch, out);
+    const verdict = await standardCheck(r, root, mainBranch, out);
     const outcome: StepOutcome = verdict.held ? "ok" : "failed";
     // The applied step's note carries the measured value (the plan's note cannot —
     // nothing has run yet), so an envelope-only caller sees the number on every
@@ -446,21 +446,21 @@ async function executeRatchetPlan(
       outcome,
     });
     outcomes.push({
-      ratchet: r,
+      standard: r,
       held: verdict.held,
       ...(verdict.value !== undefined ? { value: verdict.value } : {}),
     });
     if (!verdict.held) {
       ok = false;
       // The same words the logger narrated, mirrored into the envelope — a failed
-      // ratchets step always travels with its reason (never logger-only). The
-      // reproduce is the ratchet's own run command when the measurement is the
+      // standards step always travels with its reason (never logger-only). The
+      // reproduce is the standard's own run command when the measurement is the
       // failure; the structural failures fall back to the verb itself.
       diagnostics.push({
         tool: step.label,
         severity: "error",
-        message: verdict.reason ?? `ratchet '${r.name}' failed.`,
-        reproduce_cmd: verdict.reproduce_cmd ?? "discern ratchets",
+        message: verdict.reason ?? `standard '${r.name}' failed.`,
+        reproduce_cmd: verdict.reproduce_cmd ?? "discern standards",
         ...(verdict.output !== undefined
           ? await diagnosticOutputFields(verdict.output)
           : {}),
@@ -477,11 +477,11 @@ async function executeRatchetPlan(
  * receipt is an optimization, never part of the check's own verdict. */
 async function recordCheckMeasurements(
   root: string,
-  execution: RatchetExecution,
+  execution: StandardExecution,
   pin: ValidatedTreePin,
 ): Promise<boolean> {
   if (!execution.ok) {
-    await clearRatchetMeasurements(root);
+    await clearStandardMeasurements(root);
     return false;
   }
   const values: Record<string, number> = {};
@@ -489,66 +489,66 @@ async function recordCheckMeasurements(
     if (o.value === undefined) {
       return false;
     }
-    values[o.ratchet.name] = o.value;
+    values[o.standard.name] = o.value;
   }
-  return await recordRatchetMeasurements(root, values, pin);
+  return await recordStandardMeasurements(root, values, pin);
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
 
 /** The measured values a pin may reuse instead of re-measuring: the measurement
  * receipt must be honored (recorded by a green check against this exact HEAD, tree
- * still clean) and name every planned ratchet. Anything short of that returns
+ * still clean) and name every planned standard. Anything short of that returns
  * undefined — a cache miss the caller answers by measuring fresh, never an error. */
 async function reusableMeasurements(
   root: string,
-  plan: RatchetPlan,
+  plan: StandardPlan,
 ): Promise<Record<string, number> | undefined> {
-  const receipt = await inspectRatchetMeasurements(root);
+  const receipt = await inspectStandardMeasurements(root);
   if (receipt.status !== "honored") {
     return undefined;
   }
-  const complete = plan.ratchets.every((r) =>
+  const complete = plan.standards.every((r) =>
     receipt.values[r.name] !== undefined
   );
   return complete ? receipt.values : undefined;
 }
 
 /**
- * Rebuild a {@link RatchetExecution} from the measurement receipt's values instead
+ * Rebuild a {@link StandardExecution} from the measurement receipt's values instead
  * of running the measurements. Only the never-loosen half is re-checked live — it
  * reads main's baseline, which can advance while HEAD stands still — while the
  * measured-vs-limit half needs no re-run at all: the same clean HEAD fixes both the
  * values and the limits, and only an all-green check records a receipt.
  */
 async function replayExecutionFromReceipt(
-  plan: RatchetPlan,
+  plan: StandardPlan,
   values: Record<string, number>,
   root: string,
   mainBranch: string,
-): Promise<RatchetExecution> {
+): Promise<StandardExecution> {
   const results: StepResult[] = [];
-  const outcomes: RatchetOutcome[] = [];
+  const outcomes: StandardOutcome[] = [];
   const diagnostics: Diagnostic[] = [];
   let ok = true;
-  for (const r of plan.ratchets) {
+  for (const r of plan.standards) {
     const value = values[r.name];
     if (value === undefined) {
       // Unreachable — the caller replays only a receipt naming every planned
-      // ratchet — but fail closed as a plain failure rather than pinning blind.
+      // standard — but fail closed as a plain failure rather than pinning blind.
       ok = false;
       const reason =
-        `ratchet '${r.name}': the measurement receipt carries no value for it. Re-run \`discern ratchets\` to measure.`;
+        `standard '${r.name}': the measurement receipt carries no value for it. Re-run \`discern standards\` to measure.`;
       results.push({
-        step: { kind: "ratchet", label: r.name, disposition: "run" },
+        step: { kind: "standard", label: r.name, disposition: "run" },
         outcome: "failed",
       });
-      outcomes.push({ ratchet: r, held: false });
+      outcomes.push({ standard: r, held: false });
       diagnostics.push({
         tool: r.name,
         severity: "error",
         message: reason,
-        reproduce_cmd: "discern ratchets",
+        reproduce_cmd: "discern standards",
       });
       continue;
     }
@@ -556,7 +556,7 @@ async function replayExecutionFromReceipt(
     const held = loosened === undefined;
     results.push({
       step: {
-        kind: "ratchet",
+        kind: "standard",
         label: r.name,
         disposition: "run",
         note: `${r.direction}, limit ${r.limit}${
@@ -565,33 +565,33 @@ async function replayExecutionFromReceipt(
       },
       outcome: held ? "ok" : "failed",
     });
-    outcomes.push({ ratchet: r, held, value });
+    outcomes.push({ standard: r, held, value });
     if (loosened !== undefined) {
       ok = false;
       diagnostics.push({
         tool: r.name,
         severity: "error",
         message: loosened,
-        reproduce_cmd: "discern ratchets",
+        reproduce_cmd: "discern standards",
       });
     }
   }
   return { ok, results, outcomes, diagnostics };
 }
 
-/** One limit the pin pass will tighten: the ratchet, the value it measured, and the
+/** One limit the pin pass will tighten: the standard, the value it measured, and the
  * new limit computed from it (measured ∓ margin, in the tightening direction). */
-interface PinnedRatchet {
-  ratchet: PlannedRatchet;
+interface PinnedStandard {
+  standard: PlannedStandard;
   measured: number;
   newLimit: number;
 }
 
-/** A `ratchet` step for the pin result: always "ok" (a failing ratchet aborts the pin
+/** A `standard` step for the pin result: always "ok" (a failing standard aborts the pin
  * before any pin step is built), noting what was pinned or that there was nothing to. */
 function pinStep(name: string, note: string): StepResult {
   return {
-    step: { kind: "ratchet", label: name, disposition: "run", note },
+    step: { kind: "standard", label: name, disposition: "run", note },
     outcome: "ok",
   };
 }
@@ -602,19 +602,19 @@ function errText(error: unknown): string {
 
 /** The re-pin commit message: an imperative subject and a body listing each limit's
  * old→new and the measurement behind it, so `git log` explains why the bound moved. */
-function pinCommitMessage(pins: PinnedRatchet[]): string {
+function pinCommitMessage(pins: PinnedStandard[]): string {
   const only = pins.length === 1 ? pins[0] : undefined;
   const subject = only !== undefined
-    ? `Pin ratchet baseline: ${only.ratchet.name} ${only.ratchet.limit} → ${only.newLimit}`
-    : "Pin ratchet baselines after measured improvement";
+    ? `Pin standard baseline: ${only.standard.name} ${only.standard.limit} → ${only.newLimit}`
+    : "Pin standard baselines after measured improvement";
   const body = pins.map((p) => {
-    const bound = p.ratchet.direction === "up" ? "floor" : "ceiling";
-    return `- ${p.ratchet.name}: ${bound} ${p.ratchet.limit} → ${p.newLimit} (measured ${
+    const bound = p.standard.direction === "up" ? "floor" : "ceiling";
+    return `- ${p.standard.name}: ${bound} ${p.standard.limit} → ${p.newLimit} (measured ${
       fmtRate(p.measured)
     })`;
   }).join("\n");
   return `${subject}\n\n` +
-    "Capture a measured improvement so it cannot regress. `discern ratchets`\n" +
+    "Capture a measured improvement so it cannot regress. `discern standards`\n" +
     "measured these metrics past their limits; `--pin` tightens each limit to\n" +
     "the measured value, leaving any configured margin of headroom:\n\n" +
     body;
@@ -638,12 +638,12 @@ async function restorePinEdits(root: string, rel: string): Promise<boolean> {
  * The write → stage → commit sequence is a multi-step mutation, so ANY step that
  * fails after the file is rewritten rolls the config back to HEAD before returning —
  * otherwise a failed commit would leave discern.toml modified and staged, and the
- * natural retry (`discern ratchets --pin` again) is then refused by the clean-tree
+ * natural retry (`discern standards --pin` again) is then refused by the clean-tree
  * guard, stranding the user. Returns an error string on failure (noting if the
  * rollback itself could not run), undefined on success. */
 async function applyPinEdits(
   root: string,
-  pins: PinnedRatchet[],
+  pins: PinnedStandard[],
 ): Promise<string | undefined> {
   const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
   const path = join(root, rel);
@@ -666,7 +666,7 @@ async function applyPinEdits(
   try {
     const editor = new TomlEditor(text);
     for (const p of pins) {
-      editor.setNumber(`ratchets.${p.ratchet.name}.limit`, p.newLimit);
+      editor.setNumber(`standards.${p.standard.name}.limit`, p.newLimit);
     }
     await Deno.writeTextFile(path, editor.toString());
   } catch (error) {
@@ -692,47 +692,47 @@ async function applyPinEdits(
 }
 
 /**
- * Apply `ratchets --pin` (ADR 0106): measure every ratchet, and for each one asked for
+ * Apply `standards --pin` (ADR 0106): measure every standard, and for each one asked for
  * — all of them, or the named subset — that improved past its limit by more than its
  * margin, tighten the limit toward the measured value, commit that change on its own,
  * and carry any gate-pass receipt forward across the (gate-neutral) commit so
  * `accept` need not re-run the whole gate. When a green check already measured this
  * exact clean HEAD, its measurement receipt stands in for the measurements — the
  * check → pin flow measures once — with only the never-loosen half re-checked live
- * (main can advance while HEAD stands still). A FAILING ratchet pins nothing — you can't
+ * (main can advance while HEAD stands still). A FAILING standard pins nothing — you can't
  * capture a good state from a red tree — and returns the ordinary failing result.
  * `dryRun` renders the pin plan and measures NOTHING (the universal dry-run contract,
  * ADR 0027) — it cannot say what a pin would change, because slack is only knowable by
  * measuring; the plain check's green result already hints any pinnable slack.
  */
-async function pinRatchetsResult(
+async function pinStandardsResult(
   root: string,
   cfg: DiscernConfig,
-  plan: RatchetPlan,
+  plan: StandardPlan,
   opts: { dryRun: boolean; names: string[] },
 ): Promise<DiscernResult> {
-  if (plan.ratchets.length === 0) {
+  if (plan.standards.length === 0) {
     return {
-      ...appliedResult("ratchets", []),
-      hints: ["No ratchets configured, so there is nothing to pin."],
+      ...appliedResult("standards", []),
+      hints: ["No standards configured, so there is nothing to pin."],
     };
   }
 
-  // A named ratchet that doesn't exist would otherwise pin nothing, silently.
-  const known = new Set(plan.ratchets.map((r) => r.name));
+  // A named standard that doesn't exist would otherwise pin nothing, silently.
+  const known = new Set(plan.standards.map((r) => r.name));
   const unknown = opts.names.filter((n) => !known.has(n));
   if (unknown.length > 0) {
     return {
       ok: false,
-      verb: "ratchets",
-      error: "unknown_ratchet",
-      message: `no ratchet named ${unknown.join(", ")}. Configured ratchets: ${
-        [...known].join(", ")
-      }.`,
+      verb: "standards",
+      error: "unknown_standard",
+      message: `no standard named ${
+        unknown.join(", ")
+      }. Configured standards: ${[...known].join(", ")}.`,
     };
   }
 
-  // Which ratchets a pin considers: all of them, or the named subset.
+  // Which standards a pin considers: all of them, or the named subset.
   const filter = opts.names.length > 0 ? new Set(opts.names) : undefined;
 
   if (opts.dryRun) {
@@ -742,10 +742,10 @@ async function pinRatchetsResult(
     // a dry-run promises not to run. The plain check already measured — a green
     // result's hints name any pinnable slack — so check → pin needs no preview
     // measurement in between.
-    const steps: PlanStep[] = plan.ratchets
+    const steps: PlanStep[] = plan.standards
       .filter((r) => filter === undefined || filter.has(r.name))
       .map((r) => ({
-        kind: "ratchet",
+        kind: "standard",
         label: r.name,
         disposition: "run",
         note: `would measure ${r.metric}, then tighten the ${
@@ -753,26 +753,26 @@ async function pinRatchetsResult(
         } past ${r.limit} by any slack beyond margin ${r.margin}`,
       }));
     return {
-      ...previewResult("ratchets", {
+      ...previewResult("standards", {
         title: "Pin plan",
         details: [],
         steps,
       }),
       hints: [
-        "A pin dry-run measures nothing. `discern ratchets` (the plain check) " +
+        "A pin dry-run measures nothing. `discern standards` (the plain check) " +
         "measures once and names any pinnable slack in its hints; " +
-        "`discern ratchets --pin` on the same clean commit then reuses those " +
+        "`discern standards --pin` on the same clean commit then reuses those " +
         "measurements to capture it.",
       ],
     };
   }
 
   // Pinning writes and commits, so it needs a clean tree.
-  const dirty = await ratchetsPinCleanTreeMessage(root);
+  const dirty = await standardsPinCleanTreeMessage(root);
   if (dirty !== undefined) {
     return {
       ok: false,
-      verb: "ratchets",
+      verb: "standards",
       error: "dirty_worktree",
       message: dirty,
     };
@@ -790,33 +790,33 @@ async function pinRatchetsResult(
   const out = makeOut(colorEnabled(), { quiet: true });
   const { ok, results, outcomes, diagnostics } = reused !== undefined
     ? await replayExecutionFromReceipt(plan, reused, root, mainBranch)
-    : await executeRatchetPlan(plan, root, mainBranch, out);
+    : await executeStandardPlan(plan, root, mainBranch, out);
   const reuseHint = reused !== undefined
     ? "Reused the green check's measurements for this commit — nothing was re-measured."
     : undefined;
 
-  // A red ratchet blocks the whole pin: don't capture a state the gate wouldn't hold.
+  // A red standard blocks the whole pin: don't capture a state the gate wouldn't hold.
   if (!ok) {
-    const failing = outcomes.filter((o) => !o.held).map((o) => o.ratchet.name);
-    const named = failing.length > 0 ? failing.join(", ") : "a ratchet";
+    const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
+    const named = failing.length > 0 ? failing.join(", ") : "a standard";
     return {
-      ...appliedResult("ratchets", results, diagnostics),
+      ...appliedResult("standards", results, diagnostics),
       hints: [
         `Not pinning: ${named} ${
           failing.length === 1 ? "is" : "are"
-        } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern ratchets --pin\` once green.`,
+        } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern standards --pin\` once green.`,
       ],
     };
   }
 
   const considered = filter === undefined
     ? outcomes
-    : outcomes.filter((o) => filter.has(o.ratchet.name));
+    : outcomes.filter((o) => filter.has(o.standard.name));
 
-  const pins: PinnedRatchet[] = [];
+  const pins: PinnedStandard[] = [];
   const steps: StepResult[] = [];
   for (const o of considered) {
-    const r = o.ratchet;
+    const r = o.standard;
     const bound = r.direction === "up" ? "floor" : "ceiling";
     const newLimit = o.value === undefined
       ? undefined
@@ -830,7 +830,7 @@ async function pinRatchetsResult(
       );
       continue;
     }
-    pins.push({ ratchet: r, measured: o.value, newLimit });
+    pins.push({ standard: r, measured: o.value, newLimit });
     steps.push(
       pinStep(
         r.name,
@@ -843,10 +843,10 @@ async function pinRatchetsResult(
 
   if (pins.length === 0) {
     return {
-      ...appliedResult("ratchets", steps),
+      ...appliedResult("standards", steps),
       hints: [
         ...(reuseHint !== undefined ? [reuseHint] : []),
-        "Nothing to pin — every ratchet asked for already sits at its measured value (within its margin).",
+        "Nothing to pin — every standard asked for already sits at its measured value (within its margin).",
       ],
     };
   }
@@ -855,21 +855,21 @@ async function pinRatchetsResult(
   if (failure !== undefined) {
     return {
       ok: false,
-      verb: "ratchets",
+      verb: "standards",
       error: "pin_failed",
       message: failure,
     };
   }
 
   // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
-  // redundant gate re-run (the commit changed only ratchet limits — gate-neutral).
+  // redundant gate re-run (the commit changed only standard limits — gate-neutral).
   const receipt = await carryReceiptForwardAcrossPin(
     root,
     priorReceipt?.status === "honored",
   );
   const carried = receipt?.status === "recorded";
   return {
-    ...appliedResult("ratchets", steps),
+    ...appliedResult("standards", steps),
     hints: [
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
@@ -880,23 +880,23 @@ async function pinRatchetsResult(
 }
 
 /**
- * Compute the `ratchets` {@link DiscernResult} without printing or exiting — the
+ * Compute the `standards` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
- * Slow and ON DEMAND: it runs every ratchet's measurement command (and a git read
+ * Slow and ON DEMAND: it runs every standard's measurement command (and a git read
  * of main's baseline), so it is NOT part of `done`. `dryRun` returns the plan
  * (no git, no measurement); an empty config is a clean pass. Non-dry-run checks
- * require a clean tree unless forced for ratchet authoring. Otherwise it applies
+ * require a clean tree unless forced for standard authoring. Otherwise it applies
  * the plan QUIET — the measurement output flows through a silent Out so a caller
  * owning stdout (the MCP stdio channel) stays uncontaminated.
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
  * a gate-pass receipt forward across it. `pinNames` restricts the pin to those
- * ratchets (empty = all with slack). `dryRun` previews without measuring in BOTH
+ * standards (empty = all with slack). `dryRun` previews without measuring in BOTH
  * modes; a green check's hints name any pinnable slack, so check → pin is the whole
  * flow.
  */
-export async function ratchetsResult(
+export async function standardsResult(
   root: string,
   opts: {
     dryRun?: boolean;
@@ -906,35 +906,35 @@ export async function ratchetsResult(
   } = {},
 ): Promise<DiscernResult> {
   const cfg = await loadConfig(root);
-  const plan = buildRatchetPlan(cfg);
+  const plan = buildStandardPlan(cfg);
   let result: DiscernResult;
   if ((opts.pinNames?.length ?? 0) > 0 && !(opts.pin ?? false)) {
-    // Names only mean something to the pin pass; a bare `ratchets <name>` would
+    // Names only mean something to the pin pass; a bare `standards <name>` would
     // otherwise silently check everything, ignoring what was asked for.
     result = {
       ok: false,
-      verb: "ratchets",
+      verb: "standards",
       error: "invalid_args",
       message:
-        "ratchet names only apply with --pin. Re-run as `discern ratchets --pin <name>…`, or drop the names to check every ratchet.",
+        "standard names only apply with --pin. Re-run as `discern standards --pin <name>…`, or drop the names to check every standard.",
     };
   } else if (opts.pin ?? false) {
-    result = await pinRatchetsResult(root, cfg, plan, {
+    result = await pinStandardsResult(root, cfg, plan, {
       dryRun: opts.dryRun ?? false,
       names: opts.pinNames ?? [],
     });
   } else if (opts.dryRun ?? false) {
-    result = previewResult("ratchets", ratchetPlanToEngine(plan));
-  } else if (plan.ratchets.length === 0) {
-    result = appliedResult("ratchets", []);
+    result = previewResult("standards", standardPlanToEngine(plan));
+  } else if (plan.standards.length === 0) {
+    result = appliedResult("standards", []);
   } else {
     const dirtyMessage = (opts.force ?? false)
       ? undefined
-      : await ratchetsCleanTreeMessage(root);
+      : await standardsCleanTreeMessage(root);
     if (dirtyMessage !== undefined) {
       result = {
         ok: false,
-        verb: "ratchets",
+        verb: "standards",
         error: "dirty_worktree",
         message: dirtyMessage,
       };
@@ -945,9 +945,9 @@ export async function ratchetsResult(
       // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
       // for the exact tree they read, so a mid-measurement commit voids the stamp.
       const treePin = await pinValidatedTree(root);
-      const execution = await executeRatchetPlan(plan, root, mainBranch, out);
+      const execution = await executeStandardPlan(plan, root, mainBranch, out);
       const { results, outcomes, diagnostics } = execution;
-      result = appliedResult("ratchets", results, diagnostics);
+      result = appliedResult("standards", results, diagnostics);
       // Green over a clean tree: record the measurement receipt a `--pin` on this
       // same clean HEAD reuses; red: clear any receipt (fail-closed).
       const receipted = await recordCheckMeasurements(root, execution, treePin);
@@ -960,7 +960,7 @@ export async function ratchetsResult(
           if (!o.held || o.value === undefined) {
             return [];
           }
-          const r = o.ratchet;
+          const r = o.standard;
           const newLimit = pinnedLimit(r.direction, o.value, r.margin, r.limit);
           if (newLimit === undefined) {
             return [];
@@ -977,7 +977,7 @@ export async function ratchetsResult(
             ...(result.hints ?? []),
             `Pinnable slack: ${
               slack.join("; ")
-            }. Capture it with \`discern ratchets --pin\` — ${
+            }. Capture it with \`discern standards --pin\` — ${
               receipted
                 ? "on this commit it reuses this check's measurements (measure once, pin once)"
                 : "this check already measured, no pin dry-run needed"
@@ -987,7 +987,7 @@ export async function ratchetsResult(
       }
     }
   }
-  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): ratchets is
+  // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): standards is
   // un-gated during setup, so its output must not read as a finished project.
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   if (inProgress !== undefined) {
@@ -996,17 +996,17 @@ export async function ratchetsResult(
   return result;
 }
 
-/** Render a ratchets {@link DiscernResult} to the human console — the `--pin` path's
+/** Render a standards {@link DiscernResult} to the human console — the `--pin` path's
  * story is the result envelope (steps + hints), not the live measurement narration the
  * plain check path streams. */
-function renderRatchetsResult(result: DiscernResult): void {
+function renderStandardsResult(result: DiscernResult): void {
   const out = makeOut(colorEnabled(), { quiet: false });
   if (result.plan !== undefined) {
     renderPlan(outSink(out), result.plan);
   }
   if ((result.steps ?? []).length > 0) {
     renderStepResults(outSink(out), {
-      title: "Ratchet results",
+      title: "Standard results",
       steps: result.steps ?? [],
     });
   }
@@ -1018,8 +1018,8 @@ function renderRatchetsResult(result: DiscernResult): void {
   }
 }
 
-/** Run `ratchets`. Returns a process exit code (non-zero if any ratchet failed). */
-export async function runRatchets(
+/** Run `standards`. Returns a process exit code (non-zero if any standard failed). */
+export async function runStandards(
   root: string,
   opts: {
     json?: boolean;
@@ -1035,42 +1035,47 @@ export async function runRatchets(
   const pin = opts.pin ?? false;
   const pinNames = opts.pinNames ?? [];
 
-  // --json (any mode), --pin, or bare ratchet names: the result envelope is the whole
+  // --json (any mode), --pin, or bare standard names: the result envelope is the whole
   // story (ADR 0030) — compute it through the shared core, then emit (JSON) or render
   // it (human). Pinning measures and commits, so live measurement narration would only
   // bury the outcome; names without --pin route here so the shared guard fires.
   if (json || pin || pinNames.length > 0) {
-    const result = await ratchetsResult(root, { dryRun, force, pin, pinNames });
+    const result = await standardsResult(root, {
+      dryRun,
+      force,
+      pin,
+      pinNames,
+    });
     if (json) {
       emitResult(result);
     } else {
-      renderRatchetsResult(result);
+      renderStandardsResult(result);
     }
     return result.ok ? 0 : 1;
   }
 
-  // Human path: narrate live (each ratchet's measurement output flows through `out`).
+  // Human path: narrate live (each standard's measurement output flows through `out`).
   const cfg = await loadConfig(root);
   const out = makeOut(colorEnabled(), { quiet: false });
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
     cfg.project.main_branch;
-  const plan = buildRatchetPlan(cfg);
+  const plan = buildStandardPlan(cfg);
 
   // --dry-run: show the plan, touch nothing — no git, no measurement.
   if (dryRun) {
-    renderPlan(outSink(out), ratchetPlanToEngine(plan));
+    renderPlan(outSink(out), standardPlanToEngine(plan));
     return 0;
   }
 
-  if (plan.ratchets.length === 0) {
+  if (plan.standards.length === 0) {
     out.info(
-      "No ratchets configured. Add a [ratchets.<name>] table (e.g. [ratchets.coverage]).",
+      "No standards configured. Add a [standards.<name>] table (e.g. [standards.coverage]).",
     );
     return 0;
   }
 
   if (!force) {
-    const dirtyMessage = await ratchetsCleanTreeMessage(root);
+    const dirtyMessage = await standardsCleanTreeMessage(root);
     if (dirtyMessage !== undefined) {
       out.error(dirtyMessage);
       return 1;
@@ -1078,48 +1083,48 @@ export async function runRatchets(
   }
 
   const treePin = await pinValidatedTree(root);
-  const execution = await executeRatchetPlan(plan, root, mainBranch, out);
+  const execution = await executeStandardPlan(plan, root, mainBranch, out);
   await recordCheckMeasurements(root, execution, treePin);
   const { results } = execution;
-  const result = appliedResult("ratchets", results);
+  const result = appliedResult("standards", results);
   renderStepResults(outSink(out), {
-    title: "Ratchet results",
+    title: "Standard results",
     steps: result.steps ?? [],
   });
   if (!result.ok) {
-    out.error("One or more ratchets failed.");
+    out.error("One or more standards failed.");
     return 1;
   }
-  out.ok(`All ${plan.ratchets.length} ratchet(s) held.`);
+  out.ok(`All ${plan.standards.length} standard(s) held.`);
   return 0;
 }
 
-async function ratchetsCleanTreeMessage(
+async function standardsCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {
   const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
   if (!status.success) {
-    return "Ratchets require a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
+    return "Standards require a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern standards`; use `--force` only while authoring or debugging standards.";
   }
   if (status.stdout.trim() === "") {
     return undefined;
   }
-  return "Ratchets require a clean worktree because they are slow final checks. Commit or stash changes, then re-run `discern ratchets`; use `--force` only while authoring or debugging ratchets.";
+  return "Standards require a clean worktree because they are slow final checks. Commit or stash changes, then re-run `discern standards`; use `--force` only while authoring or debugging standards.";
 }
 
 /** The clean-tree guard for `--pin`: pin commits the limit change on its own, so an
  * unclean tree would sweep unrelated edits into that commit. Unlike a plain check, no
  * `--force` escape — a dirty pin is never safe. Returns undefined when the tree is
  * clean. */
-async function ratchetsPinCleanTreeMessage(
+async function standardsPinCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {
   const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
   if (!status.success) {
-    return "Pinning requires a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern ratchets --pin`.";
+    return "Pinning requires a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern standards --pin`.";
   }
   if (status.stdout.trim() === "") {
     return undefined;
   }
-  return "Pinning requires a clean worktree: it commits the limit change on its own, so any other edit would be swept into that commit. Commit or stash your changes, then re-run `discern ratchets --pin`.";
+  return "Pinning requires a clean worktree: it commits the limit change on its own, so any other edit would be swept into that commit. Commit or stash your changes, then re-run `discern standards --pin`.";
 }

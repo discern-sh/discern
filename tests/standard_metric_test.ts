@@ -1,7 +1,7 @@
 /**
- * Unit guard for the ratchet metric parser (ratchets.ts `extractMetric`).
+ * Unit guard for the standard metric parser (standards.ts `extractMetric`).
  *
- * `DISCERN_METRIC <name> <value>` is a public contract a project's ratchet command
+ * `DISCERN_METRIC <name> <value>` is a public contract a project's standard command
  * emits (README, the config reference, the JSON schema, the seed template), so the
  * parser is pinned against the shapes that contract allows — and the ones it must
  * reject — rather than re-deriving them from the implementation. The marker may sit
@@ -10,7 +10,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { extractMetric } from "../src/engine/gate/ratchets.ts";
+import { extractMetric } from "../src/engine/gate/standards.ts";
 
 const cases: Array<{
   name: string;

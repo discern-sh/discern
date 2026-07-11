@@ -20,14 +20,14 @@
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
  * failing run clears it, and accept re-runs `done` whenever it is absent or stale.
  *
- * `done` is its usual author, but `ratchets --pin` also carries an honored vouch
- * forward onto the commit it makes: that commit changes only `[ratchets]` limits,
+ * `done` is its usual author, but `standards --pin` also carries an honored vouch
+ * forward onto the commit it makes: that commit changes only `[standards]` limits,
  * which the gate never reads, so the vouch stays truthful across it and `accept`
  * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
  *
- * The ratchet **measurement receipt** is its sibling on the same model: a green
- * `ratchets` check over a clean tree records every ratchet's measured value against
- * the validated HEAD, so a `ratchets --pin` on that same clean HEAD can reuse the
+ * The standard **measurement receipt** is its sibling on the same model: a green
+ * `standards` check over a clean tree records every standard's measured value against
+ * the validated HEAD, so a `standards --pin` on that same clean HEAD can reuse the
  * values instead of re-running every (slow) measurement. Same admin-dir home, same
  * identity rule (exact HEAD + clean tree, so any commit or edit silently invalidates
  * it), same fail-closed posture (a red check clears it; a pin that cannot honor it
@@ -46,7 +46,7 @@ import type {
 /** The receipt marker's filename inside the per-worktree git admin dir. */
 const RECEIPT_FILE = "discern-gate-receipt";
 /** The measurement receipt's filename, in the same admin dir. */
-const MEASUREMENTS_FILE = "discern-ratchet-measurements";
+const MEASUREMENTS_FILE = "discern-standard-measurements";
 type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
 
 /**
@@ -306,10 +306,10 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
 }
 
 /**
- * Carry a gate-pass receipt across a `ratchets --pin` commit (ADR 0106).
+ * Carry a gate-pass receipt across a `standards --pin` commit (ADR 0106).
  *
- * `ratchets --pin` commits ONLY `[ratchets.*]` limit changes — values the gate never
- * reads (ratchets are not part of `done`; ADR 0003) — so the tree the pin commit
+ * `standards --pin` commits ONLY `[standards.*]` limit changes — values the gate never
+ * reads (standards are not part of `done`; ADR 0003) — so the tree the pin commit
  * produces passes the gate iff the pre-pin tree did. When the pre-pin HEAD carried an
  * HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto the
  * new clean HEAD the commit created; otherwise the moved HEAD would strand a truthful
@@ -318,7 +318,7 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  *
  * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
  * (`priorHonored`), which only the caller — the author of the commit, so the one party
- * that knows it touched nothing but ratchet limits — may assert. With no prior vouch it
+ * that knows it touched nothing but standard limits — may assert. With no prior vouch it
  * does nothing (returns `undefined`), leaving the now-stale receipt for `accept` to
  * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
  * pin commit itself, which the caller just made synchronously, so the tree sampled now
@@ -335,16 +335,16 @@ export async function carryReceiptForwardAcrossPin(
   return await recordGateOutcome(cwd, true, await pinValidatedTree(cwd));
 }
 
-// ── the ratchet measurement receipt ─────────────────────────────────────────────
+// ── the standard measurement receipt ─────────────────────────────────────────────
 
-/** The measurement receipt's verdict: `honored` carries the per-ratchet values a pin
+/** The measurement receipt's verdict: `honored` carries the per-standard values a pin
  * may reuse; every other status means "measure fresh" (a cache miss, never an error). */
-export type RatchetMeasurementsCheck =
+export type StandardMeasurementsCheck =
   | { status: "honored"; values: Record<string, number> }
   | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
 
 /**
- * Record a green `ratchets` check's per-ratchet measured values against the HEAD
+ * Record a green `standards` check's per-standard measured values against the HEAD
  * pinned BEFORE the measurements ran, for a subsequent `--pin` on that same clean
  * HEAD to reuse. Mirrors {@link recordGateOutcome}'s conditions: only a CLEAN tree
  * with a readable HEAD that still matches the pin earns a receipt (a dirty check —
@@ -353,7 +353,7 @@ export type RatchetMeasurementsCheck =
  * pinned tree, not the commit now at HEAD). Best-effort: an I/O hiccup never fails
  * the check that produced the measurements. Returns whether a receipt was written.
  */
-export async function recordRatchetMeasurements(
+export async function recordStandardMeasurements(
   cwd: string,
   values: Record<string, number>,
   pin: ValidatedTreePin,
@@ -383,7 +383,7 @@ export async function recordRatchetMeasurements(
  * (fail-closed, the same posture as a failed finish clearing the gate-pass receipt).
  * Best-effort; a missing file is already the desired state.
  */
-export async function clearRatchetMeasurements(cwd: string): Promise<void> {
+export async function clearStandardMeasurements(cwd: string): Promise<void> {
   const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
   if (path === undefined) {
     return;
@@ -402,9 +402,9 @@ export async function clearRatchetMeasurements(cwd: string): Promise<void> {
  * it. Anything unreadable or mis-shaped reads as `malformed` (measure fresh), never an
  * error. Never throws.
  */
-export async function inspectRatchetMeasurements(
+export async function inspectStandardMeasurements(
   cwd: string,
-): Promise<RatchetMeasurementsCheck> {
+): Promise<StandardMeasurementsCheck> {
   const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
   if (path === undefined) {
     return { status: "unavailable" };

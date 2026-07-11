@@ -6,7 +6,7 @@
  *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `preset` overlay.
  *
- * Both apply the document's `capabilities` / `checks` / `scopes` / `ratchets` to
+ * Both apply the document's `capabilities` / `checks` / `scopes` / `standards` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/discern-config.schema.json`), it carries an optional `version` so it
@@ -35,7 +35,7 @@ export type { DiscernConfigDoc };
 /** A capability/check/gate value: one command, or a list run in order. */
 type CommandOrList = string | string[];
 
-/** TOML bare-key shape, enforced for slot/scope/side-gate/ratchet names. */
+/** TOML bare-key shape, enforced for slot/scope/side-gate/standard names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Major component of a version value ("1.2" -> "1", 1 -> "1"). */
@@ -144,13 +144,13 @@ export function docHasFills(doc: DiscernConfigDoc): boolean {
 }
 
 /**
- * Apply a document's `capabilities`/`checks`/`scopes`/`ratchets` fills to a
+ * Apply a document's `capabilities`/`checks`/`scopes`/`standards` fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
  * enum-ish values (capability name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  *
  * With `skipExisting`, a fill whose target already carries a real value (a set
- * key, or a present `[checks.*]`/`[scopes.*]`/`[ratchets.*]` table) is skipped
+ * key, or a present `[checks.*]`/`[scopes.*]`/`[standards.*]` table) is skipped
  * and reported instead of replacing it — a present value is the user's, so a
  * preset overlays config the way it overlays files: create-or-skip, never
  * overwrite. The default (used by `setup --config` over a freshly generated
@@ -263,29 +263,29 @@ export function applyConfigDoc(
     });
   }
 
-  // Ratchets: a required run (emits the metric) + limit; direction/metric default.
-  for (const [name, spec] of Object.entries(doc.ratchets ?? {})) {
-    assertName("ratchet", name);
+  // Standards: a required run (emits the metric) + limit; direction/metric default.
+  for (const [name, spec] of Object.entries(doc.standards ?? {})) {
+    assertName("standard", name);
     const direction = (spec.direction ?? "up") as string;
     if (direction !== "up" && direction !== "down") {
-      throw new Error(`ratchet "${name}": direction must be "up" or "down"`);
+      throw new Error(`standard "${name}": direction must be "up" or "down"`);
     }
     const run = spec.run as CommandOrList | undefined;
     if (run === undefined) {
-      throw new Error(`ratchet "${name}": a run command is required`);
+      throw new Error(`standard "${name}": a run command is required`);
     }
     const limit = spec.limit as unknown;
     if (limit === undefined) {
-      throw new Error(`ratchet "${name}": a limit is required`);
+      throw new Error(`standard "${name}": a limit is required`);
     }
     if (typeof limit !== "number" && typeof limit !== "string") {
-      throw new Error(`ratchet "${name}": limit must be a number`);
+      throw new Error(`standard "${name}": limit must be a number`);
     }
-    write(`ratchets.${name}`, editor.hasSection(`ratchets.${name}`), () => {
-      editor.setString(`ratchets.${name}.metric`, spec.metric ?? name);
-      editor.setString(`ratchets.${name}.direction`, direction);
-      editor.setNumber(`ratchets.${name}.limit`, limit);
-      setCommand(editor, `ratchets.${name}.run`, run);
+    write(`standards.${name}`, editor.hasSection(`standards.${name}`), () => {
+      editor.setString(`standards.${name}.metric`, spec.metric ?? name);
+      editor.setString(`standards.${name}.direction`, direction);
+      editor.setNumber(`standards.${name}.limit`, limit);
+      setCommand(editor, `standards.${name}.run`, run);
     });
   }
 

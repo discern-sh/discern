@@ -29,10 +29,10 @@ registry default written as a literal anywhere else in `src/**` fails
 [`tests/paths_literal_ban_test.ts`](../../tests/paths_literal_ban_test.ts); a
 rendered artifact that leaks one fails the sentinel-render guard.
 
-Gate commands get one substitution: `${docs.dir}` in a check, ratchet, or `per`
+Gate commands get one substitution: `${docs.dir}` in a check, standard, or `per`
 extent expands to the configured docs dir
 ([`expandDocsDirReference`](../../src/shared/docs_path.ts)) — how the shipped
-`prose` check and the docs ratchets follow a re-pointed map with no edit.
+`prose` check and the docs standards follow a re-pointed map with no edit.
 
 ## The read surface
 
@@ -57,7 +57,7 @@ rejects. First, `config set` renders the TOML type the schema expects at the
 path (`settableConfigValueKind`) — a numeric-looking slug stays a string, a
 single value for an array-of-strings key lands as a one-element array, an
 enum-typed key names its closed vocabulary on a miss — with value-based
-inference reserved for union-typed keys (a command-or-list, a ratchet `per`).
+inference reserved for union-typed keys (a command-or-list, a standard `per`).
 The path walk enforces the same record-key legality the loader does: a
 `[checks.<name>]`-family `<name>` must match the record-key pattern the runtime
 `z.record` key schema applies (read back from the schema's `propertyNames`), so
@@ -65,7 +65,7 @@ The path walk enforces the same record-key legality the loader does: a
 load would then refuse to parse. Second, every `config set*` edit is validated
 before it touches disk (`configWriteIssues`): the edited text must parse and
 satisfy the schema, bar one allowance — a required key still _missing_ inside a
-record-family entry (`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`,
+record-family entry (`[checks.<n>]`, `[scopes.<n>]`, `[standards.<n>]`,
 `[worktree.resources.<n>]`), because incremental table construction is
 legitimate. An edit that fails is refused with the exact issues and the file is
 untouched. The value renderers themselves are held to the same bar one level

@@ -243,7 +243,7 @@ adopting an existing `docs/`; the write-surface test holds the boundary.
 
 ## 9. A subsystem that costs nothing when unused needs no switch
 
-Worktrees you never start, ratchets you never define, an advisory you never
+Worktrees you never start, standards you never define, an advisory you never
 invoke — the escape is behavioral, not configurational. A configuration toggle
 exists only where an unused feature still imposes a real cost.
 
@@ -264,8 +264,8 @@ even when unused — the single subsystem that passes the test.
 Everything structurally enforced happens reliably; everything merely advised
 degrades ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)
 proved this across vendors). When a behaviour matters, encode it as a gate
-stage, a check, a ratchet, a parity test, or a refusal with a teaching payload —
-never as a sentence hoping to be obeyed.
+stage, a check, a standard, a parity test, or a refusal with a teaching payload
+— never as a sentence hoping to be obeyed.
 
 **Why it matters.** discern's users are agents. An agent under context pressure
 drops advice first; it cannot drop a red gate.

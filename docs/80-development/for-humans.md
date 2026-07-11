@@ -8,7 +8,7 @@ a reliable experience. (Agents keep this page current too.)_
 ## The one idea to hold onto: the engine is the binary's, not on disk
 
 discern is **one self-contained Deno binary** with the engine (the gate, the
-worktree workflow, ratchets, the guideline compiler) compiled in as TypeScript
+worktree workflow, standards, the guideline compiler) compiled in as TypeScript
 under [`src/engine/`](../../src/engine/). A project never has a committed copy
 of the engine — it lives in the binary
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by
@@ -33,7 +33,7 @@ source in this repo and overwritten on `upgrade`.
 - **[Deno](https://deno.com)** — the only toolchain this repo needs
   (`deno task`, the gate from source).
 - **git** with worktree support (any recent version) — the worktree workflow,
-  ratchets, and `status` all shell out to it.
+  standards, and `status` all shell out to it.
 
 That is the whole list: the worktree hooks read their JSON payload in the binary
 itself, so there is no `jq` (or other shell-tool) dependency

@@ -1,21 +1,21 @@
 /**
- * The ratchets verb's **pure planning core** — "given the typed config, which
- * ratchets run, with what direction / limit / metric / command." The mirror of the
- * gate's `plan.ts` for the ratchet seam (ADR 0027): everything here is a pure
+ * The standards verb's **pure planning core** — "given the typed config, which
+ * standards run, with what direction / limit / metric / command." The mirror of the
+ * gate's `plan.ts` for the standard seam (ADR 0027): everything here is a pure
  * function of its argument — no subprocess, no git, no filesystem. The effectful
  * executor (the never-loosen-vs-main read, the measurement, the comparison) lives
- * in `ratchets.ts`.
+ * in `standards.ts`.
  *
- * Each `[ratchets.<name>]` becomes one {@link PlannedRatchet} carrying exactly the
+ * Each `[standards.<name>]` becomes one {@link PlannedStandard} carrying exactly the
  * data the executor needs; the whole list is carried as DATA, so "what would
- * ratchets run" is unit-testable without touching git or a subprocess.
+ * standards run" is unit-testable without touching git or a subprocess.
  */
 
 import {
   type DiscernConfig,
   type Extent,
   EXTENTS,
-  type RatchetConfig,
+  type StandardConfig,
   toCommand,
 } from "../../shared/config_schema.ts";
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
@@ -29,13 +29,13 @@ export type PerSpec =
   | { kind: "extent"; measure: Extent; globs: string[] };
 
 /**
- * One ratchet as planned: the resolved fields the executor reads, lifted out of
- * the schema-validated spec. `metric` defaults to the ratchet name; `command` is
+ * One standard as planned: the resolved fields the executor reads, lifted out of
+ * the schema-validated spec. `metric` defaults to the standard name; `command` is
  * the spec's `run` flattened; `limitKey` is the dotted key read from main's config
  * for the never-loosen baseline. `per`/`scale` make the measured value a rate
  * (`metric / per * scale`) so a growing tree never breaches the limit on its own.
  */
-export interface PlannedRatchet {
+export interface PlannedStandard {
   name: string;
   /** The metric token the run emits (spec.metric ?? name). */
   metric: string;
@@ -43,13 +43,13 @@ export interface PlannedRatchet {
   limit: number;
   /** The measurement command (spec.run flattened), possibly empty. */
   command: string;
-  /** The dotted config key compared to main (`ratchets.<name>.limit`). */
+  /** The dotted config key compared to main (`standards.<name>.limit`). */
   limitKey: string;
-  /** The denominator, when ratcheting a rate rather than a raw count. */
+  /** The denominator, when the standard holds a rate rather than a raw count. */
   per?: PerSpec;
   /** Multiplier applied to the rate so the limit reads in human units (default 1). */
   scale: number;
-  /** Headroom `ratchets --pin` leaves when tightening this limit to the measured
+  /** Headroom `standards --pin` leaves when tightening this limit to the measured
    * value (default 0 → pin to the exact measurement). Same units as `limit`. */
   margin: number;
 }
@@ -58,7 +58,7 @@ export interface PlannedRatchet {
  * names a second emitted metric; an object names exactly one built-in extent (the
  * schema guarantees exactly one), whose value is one or more git pathspecs. */
 function resolvePer(
-  per: RatchetConfig["per"],
+  per: StandardConfig["per"],
   docsDir: string,
 ): PerSpec | undefined {
   if (per === undefined) return undefined;
@@ -79,23 +79,23 @@ function resolvePer(
 }
 
 /**
- * A pure, inspectable description of one `ratchets` run: the ordered list of
- * planned ratchets. Built before any git read or measurement; executed by
- * `executeRatchetPlan`; projected to the shared renderer for `--dry-run`/`--json`.
+ * A pure, inspectable description of one `standards` run: the ordered list of
+ * planned standards. Built before any git read or measurement; executed by
+ * `executeStandardPlan`; projected to the shared renderer for `--dry-run`/`--json`.
  */
-export interface RatchetPlan {
-  ratchets: PlannedRatchet[];
+export interface StandardPlan {
+  standards: PlannedStandard[];
 }
 
 /**
- * Build the ratchet plan from the typed config. Pure: just reads `cfg.ratchets`
- * (declared order) into the planned list, resolving each ratchet's metric and
- * command. This is the unit-testable decision — which ratchets, with what
+ * Build the standard plan from the typed config. Pure: just reads `cfg.standards`
+ * (declared order) into the planned list, resolving each standard's metric and
+ * command. This is the unit-testable decision — which standards, with what
  * direction / limit / metric / command — with zero I/O.
  */
-export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
-  const ratchets: PlannedRatchet[] = Object.entries(cfg.ratchets).map(
-    ([name, spec]: [string, RatchetConfig]) => {
+export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
+  const standards: PlannedStandard[] = Object.entries(cfg.standards).map(
+    ([name, spec]: [string, StandardConfig]) => {
       const per = resolvePer(spec.per, cfg.docs.dir);
       return {
         name,
@@ -103,18 +103,18 @@ export function buildRatchetPlan(cfg: DiscernConfig): RatchetPlan {
         direction: spec.direction,
         limit: spec.limit,
         command: expandDocsDirReference(toCommand(spec.run), cfg.docs.dir),
-        limitKey: `ratchets.${name}.limit`,
+        limitKey: `standards.${name}.limit`,
         scale: spec.scale,
         margin: spec.margin,
         ...(per !== undefined ? { per } : {}),
       };
     },
   );
-  return { ratchets };
+  return { standards };
 }
 
 /**
- * The value `ratchets --pin` would tighten a limit to, or `undefined` when there is
+ * The value `standards --pin` would tighten a limit to, or `undefined` when there is
  * no improvement worth capturing. It moves the limit toward the measured `value`,
  * leaving `margin` of headroom (floor → `value − margin`, ceiling → `value + margin`),
  * and rounds in the LOOSER direction (a floor down, a ceiling up, to two decimals) so
@@ -151,8 +151,8 @@ export function pinnedLimit(
   return tighter ? rounded : undefined;
 }
 
-/** A human suffix for a ratchet's denominator, e.g. " per 1000 words in <docs-dir>**"
- * or " per <metric>". Empty when the ratchet is a raw count. */
+/** A human suffix for a standard's denominator, e.g. " per 1000 words in <docs-dir>**"
+ * or " per <metric>". Empty when the standard is a raw count. */
 export function perNote(per: PerSpec | undefined, scale: number): string {
   if (per === undefined) return "";
   const factor = scale === 1 ? "" : `${scale} `;
@@ -162,22 +162,22 @@ export function perNote(per: PerSpec | undefined, scale: number): string {
 }
 
 /**
- * Project a ratchet plan onto the common {@link EnginePlan} the shared renderer
- * prints. Each ratchet becomes a `ratchet` step labelled by name, noting its
- * direction and limit. Every ratchet renders as `run` — an empty command is still
+ * Project a standard plan onto the common {@link EnginePlan} the shared renderer
+ * prints. Each standard becomes a `standard` step labelled by name, noting its
+ * direction and limit. Every standard renders as `run` — an empty command is still
  * a config error caught at execute time, not a plan-time skip (the dry-run honesty
  * rule: a plan lists "what would run").
  */
-export function ratchetPlanToEngine(plan: RatchetPlan): EnginePlan {
-  const steps: PlanStep[] = plan.ratchets.map((r) => ({
-    kind: "ratchet",
+export function standardPlanToEngine(plan: StandardPlan): EnginePlan {
+  const steps: PlanStep[] = plan.standards.map((r) => ({
+    kind: "standard",
     label: r.name,
     disposition: "run",
     note: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
   }));
   return {
-    title: "Ratchets plan",
-    details: [`${plan.ratchets.length} ratchet(s) configured`],
+    title: "Standards plan",
+    details: [`${plan.standards.length} standard(s) configured`],
     steps,
   };
 }

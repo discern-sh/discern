@@ -46,7 +46,7 @@ export interface ConfigReconcileResult {
 export const RECORD_CONFIG_PATHS = [
   "checks",
   "scopes",
-  "ratchets",
+  "standards",
   "worktree.resources",
 ] as const;
 

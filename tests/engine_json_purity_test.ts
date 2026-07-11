@@ -65,7 +65,7 @@ function assertEnvelopeOnly(
   assertEquals(obj.verb, verb, `${verb}: envelope carries the wrong verb`);
 }
 
-/** A config whose every gate command and ratchet prints loudly to stdout AND
+/** A config whose every gate command and standard prints loudly to stdout AND
  * stderr (and still succeeds), so a silence regression surfaces as leaked text. */
 const NOISY_CONFIG = [
   "[project]",
@@ -77,8 +77,8 @@ const NOISY_CONFIG = [
   `typecheck = "printf 'TC-OUT\\n'"`,
   `test = "printf 'TEST-OUT\\n'; printf 'TEST-ERR\\n' >&2"`,
   "",
-  "[ratchets.cov]",
-  `run = "printf 'RATCHET-NOISE\\n'; printf 'DISCERN_METRIC cov 90\\n'"`,
+  "[standards.cov]",
+  `run = "printf 'STANDARD-NOISE\\n'; printf 'DISCERN_METRIC cov 90\\n'"`,
   'direction = "up"',
   "limit = 80",
   "",
@@ -103,7 +103,7 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
         { args: ["done", "--json"], verb: "done" },
         { args: ["prepare", "--json"], verb: "prepare" },
         { args: ["test", "--json"], verb: "test" },
-        { args: ["ratchets", "--json"], verb: "ratchets" },
+        { args: ["standards", "--json"], verb: "standards" },
         { args: ["improvement", "--json"], verb: "improvement" },
         { args: ["impact", "--json"], verb: "impact" },
         { args: ["status", "--json"], verb: "status" },

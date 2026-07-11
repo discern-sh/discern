@@ -170,8 +170,8 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
 });
 
 Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolation is real, not cosmetic)", async () => {
-  // Bare = schema defaults (branch_prefix agent/, main_branch main, no ratchets,
-  // no resources). Rich = custom branch/main, a ratchet, and a resource declared.
+  // Bare = schema defaults (branch_prefix agent/, main_branch main, no standards,
+  // no resources). Rich = custom branch/main, a standard, and a resource declared.
   const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
   const rich = await Deno.makeTempDir({ prefix: "discern-tmpl-rich-" });
   try {
@@ -187,7 +187,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         'main_branch = "trunk"',
         "[guidance]",
         'agents = ["codex"]',
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         "limit = 80",
         'run = "echo DISCERN_METRIC coverage 80"',
         "[worktree.resources.db]",
@@ -214,9 +214,15 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "custom main_branch replaces the default",
     );
 
-    // {{#if has_ratchets}} drops the whole section unless a ratchet is declared.
-    assert(!bareBody.includes("## Quality ratchets"), "no inert ratchet prose");
-    assert(richBody.includes("## Quality ratchets"), "ratchet section present");
+    // {{#if has_standards}} drops the whole section unless a standard is declared.
+    assert(
+      !bareBody.includes("## Quality standards"),
+      "no inert standard prose",
+    );
+    assert(
+      richBody.includes("## Quality standards"),
+      "standard section present",
+    );
 
     // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
     assert(
@@ -302,7 +308,7 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
         'branch_prefix = "wt/"',
         "[guidance]",
         'agents = ["claude_code", "codex"]',
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         "limit = 80",
         'run = "echo hi"',
         "[worktree.resources.db]",

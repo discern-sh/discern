@@ -17,15 +17,15 @@ re-run your installer — never an automatic update.
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts`
 block: it runs the commands **you** wrote in your own `discern.toml`. The gate
-runs your `format` / `lint` / `test` commands; a scope gate or a ratchet runs
+runs your `format` / `lint` / `test` commands; a scope gate or a standard runs
 the command you gave it. discern adds none of its own beyond built-in git and
 file operations.
 
 The read-only verbs — `discern status`, `discern doctor`, `discern improvement`,
 and the docs and help browsers — only observe; they never run the commands in
 your config. Those run only when you run a gate verb (`discern done`, `prepare`,
-`test`, or `ratchets`). So a glance at your project never executes anything, and
-what the gate will run is all in one file you can read.
+`test`, or `standards`). So a glance at your project never executes anything,
+and what the gate will run is all in one file you can read.
 
 ## A small, checkable footprint
 

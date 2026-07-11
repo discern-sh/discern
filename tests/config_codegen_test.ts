@@ -88,7 +88,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
     );
   }
   // a couple of describe() strings render verbatim (prose comes from the schema)
-  assert(doc.includes("never-loosen"));
+  assert(doc.includes("numbers that can never get worse"));
   assert(doc.includes("isolated-worktree workflow"));
 });
 
@@ -185,7 +185,7 @@ Deno.test("every schema section appears in discern.toml.tmpl (no silent section 
 // EXAMPLE of the shipped template — the first config a visitor reads on GitHub. It
 // must therefore carry every FIXED key the template ships (its own values and
 // comments, plus extras like the project's real capabilities). Only the record
-// sections (checks / scopes / ratchets / worktree.resources) may diverge — those
+// sections (checks / scopes / standards / worktree.resources) may diverge — those
 // are the per-project customization zone.
 
 /** The dotted paths of every FIXED scalar/array/table key literally written in a
@@ -243,6 +243,6 @@ Deno.test("the repo's own discern.toml carries every fixed key the template ship
     `discern.toml has drifted from the template — missing key(s): ${
       missing.join(", ")
     }. Keep the root config at parity with templates/discern.toml.tmpl ` +
-      `(own values/comments fine; extra checks/scopes/ratchets/resources allowed).`,
+      `(own values/comments fine; extra checks/scopes/standards/resources allowed).`,
   );
 });

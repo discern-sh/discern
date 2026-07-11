@@ -45,7 +45,7 @@ of committed `discern.toml`**:
 | --------- | ------------------------ | ----------------------------------------- |
 | variable  | `branch_prefix`          | `[project].branch_prefix`                 |
 | variable  | `main_branch`            | `[project].main_branch` (committed value) |
-| predicate | `has_ratchets`           | any `[ratchets.*]` declared               |
+| predicate | `has_standards`          | any `[standards.*]` declared              |
 | predicate | `has_worktree_resources` | any `[worktree.resources.*]` declared     |
 
 > **Invariant (load-bearing).** The context must read **nothing that varies

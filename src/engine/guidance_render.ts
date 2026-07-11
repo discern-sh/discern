@@ -43,14 +43,14 @@ import { normalizeDocsDir } from "../shared/docs_path.ts";
 /**
  * The built-in guidance sections, in compile order. Every section always
  * compiles; a section that applies only to a configured state gates itself with
- * a template conditional (ratchets.md renders only when at least one
- * `[ratchets]` table exists — activation by presence, ADR 0101) and an
+ * a template conditional (standards.md renders only when at least one
+ * `[standards]` table exists — activation by presence, ADR 0101) and an
  * all-conditional section that renders to nothing is dropped.
  */
 const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
   { file: "base.md" },
   { file: "worktrees.md" },
-  { file: "ratchets.md" },
+  { file: "standards.md" },
   { file: "skills.md" },
   { file: "docs.md" },
 ];
@@ -107,7 +107,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
     preds: {
-      has_ratchets: Object.keys(config.ratchets).length > 0,
+      has_standards: Object.keys(config.standards).length > 0,
       has_worktree_resources: Object.keys(config.worktree.resources).length > 0,
     },
   };

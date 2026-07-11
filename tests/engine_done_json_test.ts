@@ -645,7 +645,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
         "[capabilities]",
         'test = "echo ok"',
         "",
-        "[ratchets.cov]",
+        "[standards.cov]",
         'run = "echo DISCERN_METRIC cov 90"',
         'direction = "up"',
         "limit = 80",
@@ -662,7 +662,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     const hints = obj.hints.join("\n");
     assertStringIncludes(hints, "docs"); // update-the-docs nudge
-    assertStringIncludes(hints, "discern ratchets"); // ratchets configured → check them
+    assertStringIncludes(hints, "discern standards"); // standards configured → check them
 
     // Human mode renders the exact same hint strings (one source of truth).
     const human = await runAgent(dir, ["done"]);

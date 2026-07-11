@@ -162,7 +162,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
 `discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
-`discern_ratchets`, `discern_doctor`, `discern_improvement`, `discern_impact`,
+`discern_standards`, `discern_doctor`, `discern_improvement`, `discern_impact`,
 `discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
 `discern_update`, `discern_accept`. Each advertises:
 
@@ -172,12 +172,12 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 - honest **`annotations`** — `readOnlyHint` for the pure-observation verbs
   (`status`, `doctor`, `impact`, `improvement`, `docs`, `help`); not-read-only
   for the ones that run commands or rewrite files (`done`, `prepare`, `test`,
-  `ratchets`); and `destructiveHint` for `accept` (it tears down resources and
+  `standards`); and `destructiveHint` for `accept` (it tears down resources and
   moves the branch).
 
 A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
 `discern_docs`) refuse with `not_set_up` until the project is set up.
-`discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
+`discern_standards` is **slow and on-demand** — it runs the metric commands, so
 it is not part of `discern_done`; check it explicitly.
 
 **Addressing the project.** Every project-operating tool takes an optional

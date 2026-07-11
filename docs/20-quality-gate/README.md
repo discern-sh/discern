@@ -90,7 +90,7 @@ The supporting ideas: **Capabilities** are the six known commands (`format` /
 gate work with an explicit Stage (ADR 0017); **Scopes** classify which part of
 the repo a change touches and **fail open** (an unknown path runs more gates,
 never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
-(ADR 0018); **Ratchets** hold never-loosen metric floors and ceilings — a raw
+(ADR 0018); **Standards** hold never-loosen metric floors and ceilings — a raw
 value or, via `per`, a rate that doesn't rise just because the project grew — on
 demand, outside `done` because they are slow (ADR 0003, ADR 0057).
 
@@ -118,7 +118,7 @@ canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 | Leaf                                               | What it covers                                                                                                                                                     |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern done`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                             |
-| [`ratchets.md`](ratchets.md)                       | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                     |
+| [`standards.md`](standards.md)                     | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                     |
 | [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).  |
 | [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope (ADR 0114).                               |
 | [`ci.md`](ci.md)                                   | How to run `discern done` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |

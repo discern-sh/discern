@@ -22,7 +22,7 @@ Everything below fits in **four layers**:
 
 1. **The gate — your definition of done:**
    [Capabilities](glossary.md#capability), [Scopes](glossary.md#scope),
-   [Ratchets](glossary.md#ratchet).
+   [Standards](glossary.md#standard).
 2. **The workspace — isolated worktrees:** [Worktrees](glossary.md#worktree) and
    their [settings](glossary.md#worktree-settings).
 3. **The agent surface — what agents read and run:**
@@ -77,7 +77,7 @@ those five is a **[Check](glossary.md#check)** with an explicit Stage. Fill the
 Capabilities once and the generic Engine becomes your project's gate. Every
 subsystem is core — there is no toggle table
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)): a subsystem you don't
-use (worktrees you never start, ratchets you never define) is naturally inert.
+use (worktrees you never start, standards you never define) is naturally inert.
 
 ---
 
@@ -215,7 +215,7 @@ one set of instructions.
 | Want to understand…                                           | Go to                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
 | How an install is created, refreshed, and migrated            | [`../10-installer/`](../10-installer/)                     |
-| `discern done` — Capabilities, Checks, Scopes, Ratchets       | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `discern done` — Capabilities, Checks, Scopes, Standards      | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The isolated-Worktree workflow and its settings seams         | [`../30-worktrees/`](../30-worktrees/)                     |
 | Author-once → compile-everywhere guidance, and bundled Skills | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | The dispatcher and the TypeScript engine                      | [`../50-engine-internals/`](../50-engine-internals/)       |

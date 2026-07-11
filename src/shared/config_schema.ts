@@ -30,6 +30,7 @@ import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
 import { isValidDocsDir } from "./docs_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
+import { retiredConfigKeySuccessor } from "./vocabulary.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -68,7 +69,7 @@ export class ConfigParseError extends Error {
 
 // ── shared building blocks (reused by the live config AND the document) ────────
 
-/** TOML bare-key shape, enforced for check/scope/ratchet/resource names. The ONE
+/** TOML bare-key shape, enforced for check/scope/standard/resource names. The ONE
  * definition of record-key legality: the `z.record` key schema below applies it at
  * load, the generated JSON Schema carries it as `propertyNames.pattern`, and the
  * settable-path walker reads that pattern back — so `config set` can never write a
@@ -89,7 +90,7 @@ export const AGENT_NAMES = [
 
 /**
  * The providers a fresh install emits when neither `[guidance].agents` nor the
- * legacy `[project].agents` is set — the two committed-standard agents (gemini is
+ * legacy `[project].agents` is set — the two built-in agents (gemini is
  * opt-in). The ONE definition of this default, shared by the init seed
  * (`lib/config.ts`), the compile fallback ({@link resolveConfiguredAgents}), and
  * the schema-migration fallback, so the three can never disagree.
@@ -99,7 +100,7 @@ export const DEFAULT_AGENTS = [
   "codex",
 ] as const satisfies readonly (typeof AGENT_NAMES)[number][];
 
-/** A capability/check/gate/ratchet value: one command, or a list run in order. */
+/** A capability/check/gate/standard value: one command, or a list run in order. */
 const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
@@ -107,7 +108,7 @@ const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
 /** A git pathspec, or a NON-EMPTY list of them — the extent a built-in `per`
  * measures over. The list form requires at least one pathspec: an empty list would
  * reach `git ls-files -z --` with zero pathspecs, which git reads as "every tracked
- * file", silently making a ratchet's denominator the whole repository instead of
+ * file", silently making a standard's denominator the whole repository instead of
  * the extent its config named. Refusing `[]` here closes that for every measure at
  * once, since each `perExtent` extent reuses this shape. */
 const globOrList = z.union([
@@ -115,7 +116,7 @@ const globOrList = z.union([
   z.array(z.string()).min(1, "a per extent needs at least one git pathspec."),
 ]);
 
-/** The built-in extents a ratchet's `per` can divide by — universal, stack-neutral
+/** The built-in extents a standard's `per` can divide by — universal, stack-neutral
  * text measures over a git pathspec. discern counts these itself, so the `run`
  * emits only the numerator. The single source of truth for the set; the plan and
  * executor import {@link Extent} from here so a new measure enrolls in one place. */
@@ -137,7 +138,7 @@ const perExtent = z.strictObject(
   { message: `per must name exactly one extent: ${EXTENTS.join(" | ")}.` },
 );
 
-/** A ratchet's denominator. Turn a raw count into a *rate* so the number doesn't
+/** A standard's denominator. Turn a raw count into a *rate* so the number doesn't
  * rise just because the project grew. Either the name of a second metric the `run`
  * emits, or a built-in extent discern measures itself, e.g.
  * `per = { words = "${docs.dir}**" }`. */
@@ -173,10 +174,10 @@ const scopeValue = z.strictObject({
   ),
 });
 
-/** A `[ratchets.<name>]` table — one never-loosen metric floor/ceiling. */
-const ratchetValue = z.strictObject({
+/** A `[standards.<name>]` table — one never-loosen metric floor/ceiling. */
+const standardValue = z.strictObject({
   metric: z.string().optional().describe(
-    "Metric name the run emits (default: the ratchet name).",
+    "Metric name the run emits (default: the standard name).",
   ),
   direction: z.enum(["up", "down"]).default("up").describe(
     '"up": limit is a floor; "down": limit is a ceiling.',
@@ -186,7 +187,7 @@ const ratchetValue = z.strictObject({
     "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>.",
   ),
   per: perValue.optional().describe(
-    "Divide the metric by this to ratchet a *rate*, not a raw count — so the number " +
+    "Divide the metric to hold a *rate*, not a raw count — so the number " +
       "doesn't rise just because the project grew. Either a second metric the run emits, " +
       'or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } ' +
       "(files | lines | words | bytes over a git pathspec).",
@@ -198,9 +199,9 @@ const ratchetValue = z.strictObject({
     0,
     "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so the value just measured would fail it.",
   ).default(0).describe(
-    "Headroom `discern ratchets --pin` leaves when it tightens this limit to the " +
+    "Headroom `discern standards --pin` leaves when it tightens this limit to the " +
       "measured value: pin sets a floor to measured−margin (up) or a ceiling to " +
-      "measured+margin (down), and leaves a ratchet un-pinned when the improvement " +
+      "measured+margin (down), and leaves a standard un-pinned when the improvement " +
       "is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured " +
       "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
       "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
@@ -344,7 +345,7 @@ const resourceValue = z.strictObject({
 
 /**
  * The Zod entry schema for each record-table family — the single source of truth
- * for the knobs a `[ratchets.<name>]` / `[checks.<name>]` / `[scopes.<name>]` /
+ * for the knobs a `[standards.<name>]` / `[checks.<name>]` / `[scopes.<name>]` /
  * `[worktree.resources.<name>]` table accepts. Keyed by record family so the
  * managed-banner guard (ADR 0107) can assert every knob is documented in that
  * family's banner — the only channel by which a newly-added knob reaches an
@@ -353,7 +354,7 @@ const resourceValue = z.strictObject({
 export const RECORD_ENTRY_SCHEMAS = {
   checks: checkValue,
   scopes: scopeValue,
-  ratchets: ratchetValue,
+  standards: standardValue,
   "worktree.resources": resourceValue,
 } as const;
 
@@ -391,11 +392,11 @@ const worktreeSection = z.strictObject({
   "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
 );
 
-const ratchetsSection = z.record(z.string().regex(NAME_RE), ratchetValue)
+const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
   ).describe(
-    "[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern done`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.",
+    "[standards.<name>] — quality standards, numbers that can never get worse, enforced on demand by `discern standards` (slow, so NOT part of `discern done`). Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.",
   );
 
 const gateSection = z.strictObject({
@@ -441,7 +442,7 @@ export const configSchema = z.strictObject({
   checks: checksSection,
   scopes: scopesSection,
   worktree: worktreeSection,
-  ratchets: ratchetsSection,
+  standards: standardsSection,
   gate: gateSection,
   coupling: couplingSection,
   recipes: recipesSection,
@@ -477,8 +478,8 @@ export function resolveConfiguredAgents(config: DiscernConfig): string[] {
 export type CheckConfig = z.infer<typeof checkValue>;
 /** One `[scopes.<name>]` entry, fully defaulted. */
 export type ScopeConfig = z.infer<typeof scopeValue>;
-/** One `[ratchets.<name>]` entry, fully defaulted. */
-export type RatchetConfig = z.infer<typeof ratchetValue>;
+/** One `[standards.<name>]` entry, fully defaulted. */
+export type StandardConfig = z.infer<typeof standardValue>;
 /** One `[worktree.resources.<name>]` entry, fully defaulted. */
 export type ResourceConfig = z.infer<typeof resourceValue>;
 
@@ -539,16 +540,16 @@ export const configDocSchema = z.strictObject({
   scopes: z.record(z.string().regex(NAME_RE), scopeValue).optional().describe(
     "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
   ),
-  ratchets: z.record(z.string().regex(NAME_RE), ratchetValue).optional()
+  standards: z.record(z.string().regex(NAME_RE), standardValue).optional()
     .describe(
-      "[ratchets.<name>] tables. Coverage is just a conventional name.",
+      "[standards.<name>] tables. Coverage is just a conventional name.",
     ),
 }).describe(
-  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
 /** The config-document shape — the *input* view (what an author writes, before
- * defaults), so optional attributes (a scope's `neutral`, a ratchet's
+ * defaults), so optional attributes (a scope's `neutral`, a standard's
  * `direction`) stay optional. Internal alias of the inferred Zod type. */
 export type DiscernConfigDoc = z.input<typeof configDocSchema>;
 
@@ -556,7 +557,7 @@ export type DiscernConfigDoc = z.input<typeof configDocSchema>;
 
 /** One schema-validation problem: a dotted path and a human message. */
 export interface ConfigIssue {
-  /** Dotted path to the offending value, e.g. `ratchets.coverage.limit`. */
+  /** Dotted path to the offending value, e.g. `standards.coverage.limit`. */
   path: string;
   /** What is wrong, phrased for a human reading it next to their config. */
   message: string;
@@ -629,6 +630,21 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
         message:
           "dead config [features] — the subsystem toggles were retired (every subsystem is core now); run `discern upgrade` to drop the section.",
       };
+    }
+    if (path === "") {
+      const retired = issue.keys.find((key) =>
+        retiredConfigKeySuccessor(key) !== undefined
+      );
+      const successor = retired === undefined
+        ? undefined
+        : retiredConfigKeySuccessor(retired);
+      if (retired !== undefined && successor !== undefined) {
+        return {
+          path: retired,
+          message:
+            `[${retired}] was renamed to [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
+        };
+      }
     }
     return {
       path: path === "" ? keys : `${path}.${keys}`,
@@ -763,7 +779,7 @@ function recordKeyPattern(node: Record<string, unknown>): RegExp | undefined {
 
 /**
  * Walk the live JSON Schema along a dotted key. `found` is whether every segment
- * resolved (a record section — `checks`, `scopes`, `ratchets`,
+ * resolved (a record section — `checks`, `scopes`, `standards`,
  * `worktree.resources` — accepts a `<name>` segment matching the section's
  * `propertyNames.pattern`, descending into the value shape); `node` is the schema
  * node the path lands on. The ONE walk behind both {@link isSettableConfigPath}
@@ -808,7 +824,7 @@ function settableSchemaNode(
  * Whether a dotted key is a writable path in the schema — so `discern config set`
  * can refuse a typo (`project.frobnicate`, `gate.bogus`) at WRITE time rather
  * than leave a config the next read rejects. This deliberately permits a
- * valid-but-incomplete path (e.g. `ratchets.coverage.limit` before its `run` is
+ * valid-but-incomplete path (e.g. `standards.coverage.limit` before its `run` is
  * set) — incremental table construction is legitimate; only an UNKNOWN
  * key/section is rejected.
  */
@@ -825,7 +841,7 @@ export function isSettableConfigPath(dotted: string): boolean {
  * - `string` — carries the closed `values` list when the schema is an enum.
  * - `number` / `boolean` / `string-array` — the plain scalar and array shapes.
  * - `table` — the path names a section, not a single key.
- * - `mixed` — a union (a command-or-list, a ratchet `per`): no single required
+ * - `mixed` — a union (a command-or-list, a standard `per`): no single required
  *   type, so the caller falls back to inference and the write-time validation
  *   backstop.
  *
@@ -902,9 +918,9 @@ function rawValueAt(raw: unknown, path: readonly PropertyKey[]): unknown {
 
 /**
  * Whether a schema issue is a MISSING key inside a record-family entry
- * (`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`, `[worktree.resources.<n>]`)
+ * (`[checks.<n>]`, `[scopes.<n>]`, `[standards.<n>]`, `[worktree.resources.<n>]`)
  * — the one shape a programmatic write tolerates, because incremental table
- * construction is legitimate (`config set ratchets.cov.limit 80` before its
+ * construction is legitimate (`config set standards.cov.limit 80` before its
  * `run` exists), the same allowance {@link isSettableConfigPath} documents.
  * A key that is PRESENT with the wrong shape is never excused.
  */

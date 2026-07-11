@@ -1,6 +1,6 @@
 /**
  * CLI tests for `setup --config <file>` (ADR 0005): a JSON answers file drives a
- * fresh, non-interactive install, with capabilities/checks/scopes/ratchets
+ * fresh, non-interactive install, with capabilities/checks/scopes/standards
  * applied to the generated discern.toml (comments preserved). Run as
  * subprocesses.
  */
@@ -25,7 +25,7 @@ const ANSWERS = JSON.stringify({
     licenses: { stage: "check", run: "license-scan" },
   },
   scopes: { native: { paths: ["native/**"], gate: "make -C native check" } },
-  ratchets: {
+  standards: {
     coverage: { direction: "up", limit: 80, run: "measure-cov" },
     bundle: { direction: "down", limit: 500000, run: "measure-bundle" },
   },
@@ -49,8 +49,8 @@ Deno.test("setup --config scaffolds from a JSON answers file", async () => {
     assertStringIncludes(toml, "[checks.licenses]"); // check table
     assertStringIncludes(toml, 'paths = ["native/**"]'); // scope fill
     assertStringIncludes(toml, 'gate = "make -C native check"'); // folded-in gate
-    assertStringIncludes(toml, "[ratchets.coverage]"); // coverage ratchet table
-    assertStringIncludes(toml, "[ratchets.bundle]"); // named ratchet
+    assertStringIncludes(toml, "[standards.coverage]"); // coverage standard table
+    assertStringIncludes(toml, "[standards.bundle]"); // named standard
     assertStringIncludes(toml, "limit = 500000");
     // Template comments survive the fills.
     assert(toml.split("\n").filter((l) => l.startsWith("#")).length > 10);

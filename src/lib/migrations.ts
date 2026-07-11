@@ -44,6 +44,55 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Escape one literal token for interpolation into a regular expression. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Rename one top-level TOML key without touching comments, strings, or a same-named
+ * key nested under another table. Covers the legal spellings discern configs use:
+ * a table family (`[old]`, `[old.name]`), a root dotted key, and a root inline
+ * table. Single- and double-quoted key tokens retain their quote style.
+ *
+ * Kept generic because launch vocabulary changes more than one config table; one
+ * comment-preserving implementation should carry all of them.
+ */
+function renameTopLevelTomlKey(
+  text: string,
+  from: string,
+  to: string,
+): string {
+  const escaped = escapeRegExp(from);
+  const spelling = `(?:${escaped}|"${escaped}"|'${escaped}')`;
+  const rewriteSpelling = (value: string): string => {
+    if (value.startsWith('"')) return `"${to}"`;
+    if (value.startsWith("'")) return `'${to}'`;
+    return to;
+  };
+
+  // A root assignment can only occur before the first table header; once TOML
+  // enters a table, later assignments belong to it. Limiting the rewrite to this
+  // prefix prevents `[project]\nratchets = "team wording"` from being touched.
+  const firstHeader = text.search(/^\s*\[{1,2}\s*[A-Za-z0-9_"']/mu);
+  const rootEnd = firstHeader === -1 ? text.length : firstHeader;
+  const root = text.slice(0, rootEnd).replace(
+    new RegExp(`^(\\s*)(${spelling})(?=\\s*(?:\\.|=))`, "gmu"),
+    (_match, prefix: string, key: string) => `${prefix}${rewriteSpelling(key)}`,
+  );
+  const rest = text.slice(rootEnd);
+
+  // Table headers may occur anywhere after root assignments. The lookahead keeps
+  // the match on the first path segment only, including a bare `[old]` header.
+  return (root + rest).replace(
+    new RegExp(
+      `^(\\s*\\[{1,2}\\s*)(${spelling})(?=\\s*(?:\\.|\\]{1,2}))`,
+      "gmu",
+    ),
+    (_match, prefix: string, key: string) => `${prefix}${rewriteSpelling(key)}`,
+  );
+}
+
 /** The operations a migration step performs against an install. */
 export interface MigrationContext {
   /** Absolute destination root of the install being migrated. */
@@ -795,6 +844,55 @@ export const MIGRATIONS: Migration[] = [
             "`discern accept` always lands on the trunk now; to compose work " +
             "below the trunk, pull with `start --from` / `update --from`",
       );
+    },
+  },
+  {
+    from: 17,
+    // ADR 0120
+    describe: "rename the [ratchets] quality-metric table to [standards]",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      if (raw.ratchets === undefined) {
+        return; // already migrated, or no standards configured.
+      }
+      if (raw.standards !== undefined) {
+        throw new Error(
+          "discern.toml contains both [ratchets] and [standards]. Move the entries " +
+            "under [standards], remove [ratchets], then run `discern upgrade` again.",
+        );
+      }
+
+      const migrated = renameTopLevelTomlKey(text, "ratchets", "standards");
+      let after: Record<string, unknown>;
+      try {
+        after = parseDiscernToml(migrated).raw;
+      } catch {
+        throw new Error(
+          "discern could not rename [ratchets] to [standards] safely. Rename the " +
+            "table in discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      if (after.ratchets !== undefined || after.standards === undefined) {
+        throw new Error(
+          "discern.toml uses a [ratchets] key spelling this migration cannot rewrite. " +
+            "Rename it to [standards], then run `discern upgrade` again.",
+        );
+      }
+
+      await ctx.rewrite(
+        "discern.toml",
+        (current) => renameTopLevelTomlKey(current, "ratchets", "standards"),
+      );
+      ctx.note("renamed [ratchets] to [standards]");
     },
   },
 ];

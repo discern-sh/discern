@@ -77,7 +77,7 @@ blank map is worse than none
 
 The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
 `improvement`, `status`, the `worktree` command group, `update`, `accept`,
-`ratchets`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
+`standards`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
 compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
 stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
@@ -154,7 +154,7 @@ skills, and deletes `.discern/`
 A reusable overlay applied with `discern preset <name>`: a `presets/<name>/`
 directory whose files are scaffolded onto a project (with the same yours-vs-the-
 binary's rules as `setup`) plus an optional `preset.json` at its root — an
-discern config document whose `capabilities` / `checks` / `scopes` / `ratchets`
+discern config document whose `capabilities` / `checks` / `scopes` / `standards`
 are written into `discern.toml`. Fills are fill-if-absent: a value the project
 already sets is the user's and stands, and every key is disclosed as filled or
 kept ([ADR 0118](../_adr/0118-preset-fills-never-overwrite.md)). Supersedes the
@@ -205,7 +205,7 @@ so a write anywhere else fails the gate.
 
 `discern.toml`, the single root config file, and the discern-owned block inside
 `.gitignore`. The project owns config values and named record tables
-(`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`,
+(`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`,
 `[worktree.resources.<name>]`), but `discern upgrade` owns the fixed scaffold:
 it runs versioned migrations and restores missing non-record sections/keys from
 the current template, with comments and canonical placement. Existing values are
@@ -319,14 +319,14 @@ irrelevant work and fires a sub-component's own gate. Classification **fails
 open**: a path matching no Scope counts as a real code change, so it runs more
 gates, never fewer ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
-### Ratchet
+### Standard
 
 A never-loosen quality floor or ceiling (line coverage, a size budget, a
-lint-error count), declared under `[ratchets]` and held against `main`. It
+lint-error count), declared under `[standards]` and held against `main`. It
 **inlines its own `run`**, the command that prints
 `DISCERN_METRIC <metric>
-<number>`. Ratchets are slow, so they run on demand via
-`discern ratchets`, not as part of `done`
+<number>`. Standards are slow, so they run on demand
+via `discern standards`, not as part of `done`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 

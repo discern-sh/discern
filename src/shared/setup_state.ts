@@ -50,8 +50,8 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  * hooks and `setup` itself drive (`refresh`, `worktree`, `scopes`,
  * `config`, …):
  *
- *   - the GATE PROOF verbs `done` / `prepare` / `test` / `ratchets`. The agent
- *     needs them to iterate while wiring capabilities — and to test a ratchet it
+ *   - the GATE PROOF verbs `done` / `prepare` / `test` / `standards`. The agent
+ *     needs them to iterate while wiring capabilities — and to test a standard it
  *     wires — during setup, so ADR 0065 un-gates them. Pre-setup they carry
  *     {@link SETUP_IN_PROGRESS_HINT}, so their output can't be mistaken for a
  *     finished project — the "false all-green" ADR 0036 feared is now covered by
@@ -137,7 +137,7 @@ export const NOT_SET_UP_MESSAGE =
   "up — your coding agent does it for you.";
 
 /**
- * The advisory a `done` / `prepare` / `test` / `ratchets` result carries while
+ * The advisory a `done` / `prepare` / `test` / `standards` result carries while
  * setup is still outstanding (ADR 0065). Those verbs run pre-setup so the agent can
  * iterate while wiring capabilities — but their output must not read as a finished
  * project, so each prepends this line until `[meta].bootstrapped` is recorded by

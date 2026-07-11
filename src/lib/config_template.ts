@@ -198,7 +198,7 @@ export function keyBlockFromTemplate(
 }
 
 /** Matches a comment line whose first content is a bracketed section path —
- * `# [ratchets] — …`, `# [worktree.resources.<name>] — …` — capturing the path. */
+ * `# [standards] — …`, `# [worktree.resources.<name>] — …` — capturing the path. */
 const BANNER_IDENTITY_RE = /^\s*#\s*\[([^\]]+)\]/;
 
 /** One discern-owned managed banner: the record family it documents and its
@@ -214,7 +214,7 @@ export interface ManagedBannerSpan {
 
 /**
  * Locate every discern-owned **managed banner** in `text`: the `# ───`-delimited
- * comment block documenting the SHAPE of a record table (`[ratchets]`,
+ * comment block documenting the SHAPE of a record table (`[standards]`,
  * `[checks.<name>]`, `[scopes.<name>]`, `[worktree.resources.<name>]`) — the knobs
  * it accepts. Those record tables are project-owned population that scaffold
  * reconciliation never key-backfills, so the banner is the ONLY channel by which a

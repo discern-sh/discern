@@ -11,7 +11,19 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   "setup land": "setup accept",
   integrate: "update",
   scopes: "impact",
+  ratchets: "standards",
+  "config set-ratchet": "config set-standard",
 };
+
+/** Retired top-level config keys and the canonical key each names now. */
+export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
+  ratchets: "standards",
+};
+
+/** The successor for a retired top-level config key, if `key` is one. */
+export function retiredConfigKeySuccessor(key: string): string | undefined {
+  return RETIRED_CONFIG_KEY_REDIRECTS[key];
+}
 
 /** Irregular grammatical forms that are safe to normalize silently. */
 export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {

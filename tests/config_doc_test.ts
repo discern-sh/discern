@@ -6,7 +6,7 @@
  * These pin the guard rails: refusing an unsupported major `version`, rejecting
  * non-object JSON, surfacing read/parse failures, and the per-section name and
  * shape validation in `applyConfigDoc` (unknown capability, bad check stage,
- * non-array scope paths, missing ratchet run, bad direction, and the
+ * non-array scope paths, missing standard run, bad direction, and the
  * TOML-bare-key name rule). Expected error fragments are read from the source's
  * messages by hand.
  */
@@ -146,7 +146,7 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and ratchets", () => {
+Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and standards", () => {
   const ed = editor();
   applyConfigDoc(ed, {
     docs: { dir: "docs/discern/" },
@@ -161,7 +161,7 @@ Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and ratchets
       native: { paths: ["native/**"], gate: "make -C native check" },
       docs: { paths: ["docs/"], neutral: true },
     },
-    ratchets: {
+    standards: {
       coverage: {
         metric: "lines",
         direction: "down",
@@ -183,7 +183,7 @@ Deno.test("applyConfigDoc writes docs, capabilities, checks, scopes and ratchets
   assert(out.includes('["native/**"]'));
   assert(out.includes('gate = "make -C native check"'));
   assert(out.includes("neutral = true"));
-  // A ratchet inlines its run.
+  // A standard inlines its run.
   assert(out.includes('direction = "down"'));
   assert(out.includes("limit = 80"));
   assert(out.includes('run = "deno coverage"'));
@@ -210,7 +210,7 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
         gate: ["echo \\d+", "echo trailing\\"],
       },
     },
-    ratchets: {
+    standards: {
       coverage: {
         metric: "lines",
         direction: "down",
@@ -234,14 +234,14 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
     "unicode/é/**",
   ]);
   assertEquals(config.scopes.windows?.gate, ["echo \\d+", "echo trailing\\"]);
-  assertEquals(config.ratchets.coverage?.run, "deno coverage --filter=\\d+");
+  assertEquals(config.standards.coverage?.run, "deno coverage --filter=\\d+");
 });
 
-Deno.test("applyConfigDoc defaults a ratchet's direction and metric", () => {
+Deno.test("applyConfigDoc defaults a standard's direction and metric", () => {
   const ed = editor();
-  // No direction → "up"; no metric → the ratchet name.
+  // No direction → "up"; no metric → the standard name.
   applyConfigDoc(ed, {
-    ratchets: { size: { limit: 500000, run: "measure-size" } },
+    standards: { size: { limit: 500000, run: "measure-size" } },
   });
   const out = ed.toString();
   assert(out.includes('direction = "up"'));
@@ -266,7 +266,7 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
   capabilities: { lint: "deno lint" },
   checks: { c1: { stage: "check", run: "run-c1" } },
   scopes: { s1: { paths: ["s1/**"] } },
-  ratchets: { r1: { limit: 1, run: "measure-r1" } },
+  standards: { r1: { limit: 1, run: "measure-r1" } },
 };
 
 /** The config-doc keys that are NOT discern.toml fills: install inputs and
@@ -428,11 +428,11 @@ Deno.test("applyConfigDoc rejects a non-array scope paths value", () => {
   );
 });
 
-Deno.test("applyConfigDoc rejects a ratchet with no run, and a bad direction", () => {
+Deno.test("applyConfigDoc rejects a standard with no run, and a bad direction", () => {
   assertThrows(
     () =>
       applyConfigDoc(editor(), {
-        ratchets: {
+        standards: {
           coverage: { limit: 1 } as unknown as {
             limit: number;
             run: string;
@@ -440,29 +440,31 @@ Deno.test("applyConfigDoc rejects a ratchet with no run, and a bad direction", (
         },
       }),
     Error,
-    'ratchet "coverage": a run command is required',
+    'standard "coverage": a run command is required',
   );
   assertThrows(
     () =>
       applyConfigDoc(
         editor(),
         {
-          ratchets: { coverage: { direction: "sideways", limit: 1, run: "m" } },
+          standards: {
+            coverage: { direction: "sideways", limit: 1, run: "m" },
+          },
         } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'ratchet "coverage": direction must be "up" or "down"',
+    'standard "coverage": direction must be "up" or "down"',
   );
 });
 
-Deno.test("applyConfigDoc rejects a ratchet with no limit using the ratchet error style", () => {
+Deno.test("applyConfigDoc rejects a standard with no limit using the standard error style", () => {
   assertThrows(
     () =>
       applyConfigDoc(editor(), {
-        ratchets: { coverage: { run: "measure" } },
+        standards: { coverage: { run: "measure" } },
       } as unknown as DiscernConfigDoc),
     Error,
-    'ratchet "coverage": a limit is required',
+    'standard "coverage": a limit is required',
   );
 });
 
@@ -486,7 +488,7 @@ Deno.test("applyConfigDoc rejects a non-bare-key name in EVERY named-record sect
   const sections = all.filter((p) => !APPLY_DOC_EXEMPT.has(p));
   assert(
     sections.length >= 3,
-    `expected at least checks/scopes/ratchets, got: ${sections.join(", ")}`,
+    `expected at least checks/scopes/standards, got: ${sections.join(", ")}`,
   );
 
   for (const section of sections) {

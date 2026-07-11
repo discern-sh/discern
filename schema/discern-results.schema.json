@@ -55,7 +55,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -111,7 +111,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -579,7 +579,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -635,7 +635,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -951,7 +951,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1007,7 +1007,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1265,7 +1265,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1321,7 +1321,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1696,7 +1696,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1752,7 +1752,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1977,7 +1977,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2033,7 +2033,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -2488,7 +2488,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2544,7 +2544,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -2774,7 +2774,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2830,7 +2830,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3044,7 +3044,7 @@
                                 "setup-ensure",
                                 "env",
                                 "refresh",
-                                "ratchet"
+                                "standard"
                               ]
                             },
                             "label": {
@@ -3166,7 +3166,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3222,7 +3222,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3482,7 +3482,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3538,7 +3538,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3832,7 +3832,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3888,7 +3888,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4182,7 +4182,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4238,7 +4238,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4466,7 +4466,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4522,7 +4522,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4879,7 +4879,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4935,7 +4935,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5129,7 +5129,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5185,7 +5185,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5379,7 +5379,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5435,7 +5435,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5761,8 +5761,8 @@
         "verb"
       ]
     },
-    "DiscernRatchetsResult": {
-      "title": "DiscernRatchetsResult",
+    "DiscernStandardsResult": {
+      "title": "DiscernStandardsResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -5804,7 +5804,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5860,7 +5860,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5977,7 +5977,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "ratchets"
+          "const": "standards"
         },
         "data": {
           "type": "object",
@@ -6054,7 +6054,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6110,7 +6110,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -6377,7 +6377,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6433,7 +6433,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -6645,7 +6645,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6701,7 +6701,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7006,7 +7006,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7062,7 +7062,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7332,7 +7332,7 @@
                     "scope_gates"
                   ]
                 },
-                "ratchets": {
+                "standards": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -7494,7 +7494,7 @@
                 "root",
                 "worktree",
                 "git",
-                "ratchets"
+                "standards"
               ]
             },
             {
@@ -7574,7 +7574,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7630,7 +7630,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7854,7 +7854,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7910,7 +7910,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8205,7 +8205,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8261,7 +8261,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8591,7 +8591,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8647,7 +8647,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8841,7 +8841,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8897,7 +8897,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9091,7 +9091,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9147,7 +9147,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9341,7 +9341,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9397,7 +9397,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9591,7 +9591,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9647,7 +9647,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9887,7 +9887,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9943,7 +9943,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -10393,8 +10393,8 @@
         "isError"
       ]
     },
-    "DiscernRatchetsMcpToolResult": {
-      "title": "DiscernRatchetsMcpToolResult",
+    "DiscernStandardsMcpToolResult": {
+      "title": "DiscernStandardsMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10416,7 +10416,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernRatchetsResult"
+          "$ref": "#/$defs/DiscernStandardsResult"
         },
         "isError": {
           "type": "boolean"
@@ -10726,7 +10726,7 @@
           "$ref": "#/$defs/DiscernImprovementResult"
         },
         {
-          "$ref": "#/$defs/DiscernRatchetsResult"
+          "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshResult"
@@ -10787,7 +10787,7 @@
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
           "improvement": "#/$defs/DiscernImprovementResult",
-          "ratchets": "#/$defs/DiscernRatchetsResult",
+          "standards": "#/$defs/DiscernStandardsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
           "impact": "#/$defs/DiscernImpactResult",
           "coupling": "#/$defs/DiscernCouplingResult",
@@ -10830,7 +10830,7 @@
           "$ref": "#/$defs/DiscernImprovementMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernRatchetsMcpToolResult"
+          "$ref": "#/$defs/DiscernStandardsMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshMcpToolResult"
@@ -10959,7 +10959,7 @@
         "config set-capability",
         "config set-check",
         "config set-scope",
-        "config set-ratchet",
+        "config set-standard",
         "config set"
       ],
       "schema": "#/$defs/DiscernConfigResult"
@@ -11005,14 +11005,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
     },
     {
-      "id": "ratchets",
-      "verb": "ratchets",
+      "id": "standards",
+      "verb": "standards",
       "commands": [
-        "ratchets"
+        "standards"
       ],
-      "mcpTool": "discern_ratchets",
-      "schema": "#/$defs/DiscernRatchetsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernRatchetsMcpToolResult"
+      "mcpTool": "discern_standards",
+      "schema": "#/$defs/DiscernStandardsResult",
+      "mcpToolResultSchema": "#/$defs/DiscernStandardsMcpToolResult"
     },
     {
       "id": "refresh",

@@ -55,8 +55,8 @@ function gateReceipt(receipt) {
   return receipt.status || "unknown";
 }
 
-function nextAction(improve) {
-  const action = improve?.data?.next_action;
+function nextAction(improvement) {
+  const action = improvement?.data?.next_action;
   if (action === null || typeof action !== "object") {
     return "none";
   }
@@ -70,16 +70,16 @@ function plural(count, singular, pluralForm = `${singular}s`) {
 }
 
 try {
-  const [status, improve, scopes] = await Promise.all([
+  const [status, improvement, impact] = await Promise.all([
     runJson("discern status --json", ["status", "--json"]),
-    runJson("discern improve --json", ["improve", "--json"]),
-    runJson("discern scopes --json", ["scopes", "--json"]),
+    runJson("discern improvement --json", ["improvement", "--json"]),
+    runJson("discern impact --json", ["impact", "--json"]),
   ]);
 
   const data = status.data || {};
   const git = data.git || {};
   const gate = data.gate || {};
-  const scopes = scopes.data?.scopes || data.scopes || [];
+  const scopes = impact.data?.scopes || data.scopes || [];
   const changedFiles = Number.isFinite(git.changed_files)
     ? git.changed_files
     : "unknown";
@@ -96,9 +96,9 @@ try {
   console.log(`Gate wiring: ${list(gate.capabilities)}; checks: ${list(gate.checks)}`);
   console.log(`Scope gates: ${list(gate.scope_gates)}`);
   console.log(`Features: ${featureList(data.features)}`);
-  console.log(`Ratchets: ${list(data.ratchets)}`);
-  console.log(`Improve score: ${improve.data?.score ?? "unknown"} (${plural(improve.data?.open_reviews ?? 0, "open review")})`);
-  console.log(`Next audit: ${nextAction(improve)}`);
+  console.log(`Standards: ${list(data.standards)}`);
+  console.log(`Improvement score: ${improvement.data?.score ?? "unknown"} (${plural(improvement.data?.open_reviews ?? 0, "open review")})`);
+  console.log(`Next audit: ${nextAction(improvement)}`);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`self-audit: ${message}`);

@@ -8,7 +8,7 @@
  * physical cwd is no longer authoritative for project commands.
  *
  * The gate case iterates the canonical STAGES set so every current/future stage
- * auto-enrols, plus the separately modelled scope-gate group. Ratchets and
+ * auto-enrols, plus the separately modelled scope-gate group. Standards and
  * doctor's command probe use their own execution paths and get one behavioural
  * case each. Worktree setup/resources already require an explicit cwd at their
  * runner boundary; project recipes and `with-gotchas` intentionally retain the
@@ -82,17 +82,17 @@ Deno.test("all gate command groups execute at the resolved root from a nested CL
   });
 });
 
-Deno.test("ratchet measurement executes at the resolved root from a nested CLI cwd", async () => {
+Deno.test("standard measurement executes at the resolved root from a nested CLI cwd", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
       [
         ...BASE,
-        "[ratchets.cwd]",
+        "[standards.cwd]",
         'direction = "up"',
         "limit = 1",
-        'run = "pwd > ratchet.cwd && echo DISCERN_METRIC cwd 1"',
+        'run = "pwd > standard.cwd && echo DISCERN_METRIC cwd 1"',
         "",
       ].join("\n"),
     );
@@ -100,10 +100,12 @@ Deno.test("ratchet measurement executes at the resolved root from a nested CLI c
     const nested = join(dir, "nested");
     await Deno.mkdir(nested);
 
-    const result = await runAgent(dir, ["ratchets", "--json"], { cwd: nested });
+    const result = await runAgent(dir, ["standards", "--json"], {
+      cwd: nested,
+    });
     assertEquals(result.code, 0, result.output);
     assertEquals(
-      (await Deno.readTextFile(join(dir, "ratchet.cwd"))).trim(),
+      (await Deno.readTextFile(join(dir, "standard.cwd"))).trim(),
       await Deno.realPath(dir),
     );
   });

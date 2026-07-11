@@ -1,7 +1,7 @@
 /**
  * Engine coverage for the plan/apply surface (ADR 0027): `--dry-run` and the
  * serialized `--json` on every effectful verb. The pure planners are unit-tested
- * fast in `gate_plan_test.ts` / `worktree_plan_test.ts` / `ratchet_plan_test.ts`;
+ * fast in `gate_plan_test.ts` / `worktree_plan_test.ts` / `standard_plan_test.ts`;
  * this drives the verbs end-to-end through the CLI so the dry-run renders, the
  * apply path narrates, and the JSON is a real serialization — the regression
  * guard for the new flags.
@@ -132,9 +132,9 @@ Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires 
   });
 });
 
-// ── ratchets ──────────────────────────────────────────────────────────────────
+// ── standards ──────────────────────────────────────────────────────────────────
 
-Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () => {
+Deno.test("standards --dry-run lists the standard without measuring it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -143,7 +143,7 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         // Would emit a FAILING metric if it ran — dry-run must not run it.
@@ -153,16 +153,16 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--dry-run"]);
+    const r = await runAgent(dir, ["standards", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Ratchets plan");
+    assertStringIncludes(r.stdout, "Standards plan");
     assertStringIncludes(r.stdout, "coverage");
 
-    const j = await runAgent(dir, ["ratchets", "--dry-run", "--json"]);
+    const j = await runAgent(dir, ["standards", "--dry-run", "--json"]);
     assertEquals(j.code, 0, j.output);
     const obj = parseJson(j.stdout);
     // A preview envelope: verb + plan, no executed steps.
-    assertEquals(obj.verb, "ratchets");
+    assertEquals(obj.verb, "standards");
     assertEquals(obj.steps, undefined);
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "coverage"),
@@ -170,7 +170,7 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
   });
 });
 
-Deno.test("ratchets --json serializes the held/failed results", async () => {
+Deno.test("standards --json serializes the held/failed results", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -179,7 +179,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         'run = "echo DISCERN_METRIC coverage 90"',
@@ -188,7 +188,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--json"]);
+    const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
@@ -196,7 +196,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
       s.label === "coverage"
     );
     assertEquals(cov.outcome, "ok");
-    assertEquals(cov.kind, "ratchet");
+    assertEquals(cov.kind, "standard");
   });
 });
 

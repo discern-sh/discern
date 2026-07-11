@@ -4,10 +4,10 @@
  * must be idempotent or fast" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
- *  - the gate verbs (`done` / `prepare` / `test` / `ratchets`) are pure functions
+ *  - the gate verbs (`done` / `prepare` / `test` / `standards`) are pure functions
  *    of config, so their step lists are built by walking the REAL plan builders
  *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
- *    {@link buildRatchetPlan}) — a test asserts they are byte-derived, so they can
+ *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
  *  - the worktree verbs' plans need live runtime state (a resolved worktree identity,
  *    the ledger), so they can't render statically here. For those we author a small
@@ -37,7 +37,7 @@ import {
   preparePlanGroups,
   stageGroup,
 } from "../gate/plan.ts";
-import { buildRatchetPlan, perNote } from "../gate/ratchet_plan.ts";
+import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
@@ -123,10 +123,10 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in: recompile the generated agent files and re-materialize the skills.",
   },
-  ratchet: {
+  standard: {
     actor: "project",
     hint:
-      "Your measurement command for a never-loosen metric. On demand only (`discern ratchets`), never part of the gate; the result is compared to its limit versus the integration branch.",
+      "Your measurement command for a never-loosen metric. On demand only (`discern standards`), never part of the gate; the result is compared to its limit versus the integration branch.",
   },
 };
 
@@ -248,16 +248,16 @@ function testVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `ratchets` — each configured ratchet, from the real {@link buildRatchetPlan}. */
-function ratchetsVerb(cfg: DiscernConfig): VerbPlan {
-  const steps = buildRatchetPlan(cfg).ratchets.map((r) =>
-    step("ratchet", r.name, {
+/** `standards` — each configured standard, from the real {@link buildStandardPlan}. */
+function standardsVerb(cfg: DiscernConfig): VerbPlan {
+  const steps = buildStandardPlan(cfg).standards.map((r) =>
+    step("standard", r.name, {
       note: r.command !== "" ? r.command : "(no command configured)",
       condition: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
     })
   );
   return {
-    verb: "ratchets",
+    verb: "standards",
     when:
       "On demand — slow and clean-tree-only by default, so never part of `discern done`.",
     steps,
@@ -436,7 +436,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     finishVerb(cfg),
     prepareVerb(cfg),
     testVerb(cfg),
-    ratchetsVerb(cfg),
+    standardsVerb(cfg),
     startVerb(cfg),
     ensureVerb(cfg),
     updateVerb(cfg),

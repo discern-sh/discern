@@ -1,34 +1,34 @@
-# Ratchets
+# Standards
 
-_Never-loosen metric floors and ceilings — a number that may only improve versus
-`main`, so quality can climb but never slide back._
+_Numbers that can never get worse: metric floors and ceilings that may only
+improve versus `main`, so quality can climb but never slide back._
 
-A **Ratchet** holds one measurable quality metric at a limit that a branch can
+A **standard** holds one measurable quality metric at a limit that a branch can
 never loosen. A coverage percentage that may only rise. A bundle size that may
 only fall. A count of lint suppressions that may only shrink. The limit is
 compared against `main`, so a floor may only rise and a ceiling may only fall on
 a branch — you cannot weaken the gate on the branch that would benefit from
 weakening it.
 
-Ratchets are **slow and on demand**. They run their measurement commands (a full
-coverage run, a release build), so they are deliberately **not** part of
+Standards are **slow and on demand**. They run their measurement commands (a
+full coverage run, a release build), so they are deliberately **not** part of
 `discern done` — running them on every gate would make the inner loop crawl. Run
-them yourself with `discern ratchets` when you want to check the line is held:
+them yourself with `discern standards` when you want to check the line is held:
 before landing a branch, in a pull-request-only CI job, or after a change you
 expect to move a metric. A non-dry-run needs a clean worktree (the measurement
-must reflect committed state); `--dry-run` previews which ratchets would run
+must reflect committed state); `--dry-run` previews which standards would run
 without measuring anything.
 
-Nothing about a ratchet you never define costs you anything — an undefined
-metric is simply not measured (design principle 9). You add a ratchet only where
-a number is worth defending.
+Nothing about a standard you never define costs you anything — an undefined
+metric is simply not measured (design principle 9). You add a standard only
+where a number is worth defending.
 
-## What a ratchet block looks like
+## What a standard block looks like
 
-Each ratchet is one `[ratchets.<name>]` table in `discern.toml`:
+Each standard is one `[standards.<name>]` table in `discern.toml`:
 
 ```toml
-[ratchets.coverage]
+[standards.coverage]
 direction = "up"                 # value should rise; the limit is a FLOOR
 limit     = 89                   # the floor (up) or ceiling (down)
 run       = "deno task coverage" # the command that measures it
@@ -43,10 +43,10 @@ The fields:
   only rise, a ceiling may only fall, so a branch can tighten the gate but never
   loosen it.
 - **`run`** — the command that measures the metric. It runs on demand under
-  `discern ratchets`, never as part of `done`.
+  `discern standards`, never as part of `done`.
 - **`metric`** — the metric name the `run` command emits (defaults to the
-  ratchet name). Naming it lets one command emit several metrics.
-- **`margin`** — headroom `discern ratchets --pin` leaves when it tightens this
+  standard name). Naming it lets one command emit several metrics.
+- **`margin`** — headroom `discern standards --pin` leaves when it tightens this
   limit to the measured value (default `0` — pin to the exact measurement; must
   be `≥ 0`, since margin is headroom, never a tightening). Give a metric that
   drifts on unrelated commits — a bundle size, a coverage percentage — a margin
@@ -66,7 +66,7 @@ A command whose own output already ends in that line needs no wrapper; one that
 does not is easy to wrap:
 
 ```toml
-[ratchets.guidance]
+[standards.guidance]
 metric    = "guidance_words"
 direction = "down"
 limit     = 803
@@ -85,7 +85,7 @@ even if their _quality_ never dropped. The `per` denominator turns a raw count
 into a rate that does not rise just because the project grew:
 
 ```toml
-[ratchets.prose]
+[standards.prose]
 direction = "down"
 per       = { words = "docs/**" }   # divide the count by the words under docs/
 scale     = 1000                    # express it per 1,000 words
@@ -101,17 +101,18 @@ against a readable unit (per 1,000 words, per 10,000). The metric then measures
 density, not volume, so a branch that adds prose at the same quality holds the
 line ([ADR 0057](../_adr/0057-rate-ratchets.md)).
 
-## Capturing a gain: `discern ratchets --pin`
+## Capturing a gain: `discern standards --pin`
 
-When a change improves a ratcheted metric, capture the gain so it cannot slide
-back. `discern ratchets --pin` measures every ratchet and tightens each limit
-that improved to the value just measured — a floor up, a ceiling down — then
-commits that one change with an audit message. Name ratchets to pin only those
-(`discern ratchets --pin coverage`); with none named it pins every ratchet that
-has slack. It only ever tightens: a regressed metric is a failing ratchet, not a
-limit to loosen, and pin refuses to run while any ratchet is red.
+When a change improves a metric protected by a standard, capture the gain so it
+cannot slide back. `discern standards --pin` measures every standard and
+tightens each limit that improved to the value just measured — a floor up, a
+ceiling down — then commits that one change with an audit message. Name
+standards to pin only those (`discern standards --pin coverage`); with none
+named it pins every standard that has slack. It only ever tightens: a regressed
+metric is a failing standard, not a limit to loosen, and pin refuses to run
+while any standard is red.
 
-A green `discern ratchets` check already measured everything, so its hints name
+A green `discern standards` check already measured everything, so its hints name
 any pinnable slack — decided by the same rule a real pin applies — making the
 whole flow check → pin. The green check also records its values as a
 **measurement receipt** against the exact commit (the gate receipt marker's
@@ -127,52 +128,52 @@ the plan and measures nothing, with or without `--pin`: what a pin would change
 is knowable only by measuring, and the check's hints are where that answer
 already lives.
 
-Pin is the way to re-pin a baseline — never hand-edit the number. Because its
-commit changes only `[ratchets]` limits, which the gate never reads, pin carries
-a green `discern done` receipt forward onto it, so a follow-up `discern
-accept`
-still skips the redundant gate re-run
+Pin is the way to tighten a standard — never hand-edit the number. Because its
+commit changes only `[standards]` limits, which the gate never reads, pin
+carries a green `discern done` receipt forward onto it, so a follow-up
+`discern
+accept` still skips the redundant gate re-run
 ([ADR 0106](../_adr/0106-ratchets-pin-carries-the-gate-receipt.md)).
 
 For a metric that drifts on every commit — a bundle size, a coverage percentage
 — set a `margin` so pin leaves headroom instead of pinning to an exact value the
 next commit would breach; pin also skips a gain smaller than the margin.
 
-## When a ratchet fires
+## When a standard fires
 
 Every failure reports its reason in the result envelope's `diagnostics[]` — the
 measured value against the limit, or which limit was loosened — with the
-ratchet's own `run` as the `reproduce_cmd` when the measurement is what fell
+standard's own `run` as the `reproduce_cmd` when the measurement is what fell
 short. Each measured step's note carries its value
 (`up, limit 80, measured
 85`), held or not. An MCP or `--json` caller reads all
 of this directly; the CLI narrates the same words live.
 
-A ratchet fails for one of two reasons, and they call for opposite responses.
+A standard fails for one of two reasons, and they call for opposite responses.
 
 - **The metric regressed** — coverage fell, the binary grew, the suppression
   count rose. Move the _metric_ back the right way: add the test, trim the code,
-  remove the suppression. That is the ratchet doing its job.
+  remove the suppression. That is the standard doing its job.
 - **You loosened the limit** — the `limit` in `discern.toml` is weaker than
-  `main`'s. This is the regression a ratchet exists to catch, so **never loosen
+  `main`'s. This is the regression a standard exists to catch, so **never loosen
   the limit to pass**. Raising a floor or lowering a ceiling is always allowed
   (you are tightening); relaxing one versus `main` is refused. If a metric
   genuinely cannot be held — a large dependency legitimately grew the binary —
   that is a deliberate decision to record, not a quiet edit to slip through.
 
-## Authoring a ratchet
+## Authoring a standard
 
-Adding a ratchet is choosing a defendable number and wiring the block above:
+Adding a standard is choosing a defendable number and wiring the block above:
 measure the metric as it stands today, set the limit at that value, and let it
-only tighten from there — `discern ratchets --pin` captures each later gain. The
-bundled [`discern-ratchet-a-metric`](../40-agent-guidance/README.md) skill walks
-the whole procedure — picking the metric, wiring the table, and knowing what to
-do when it fires.
+only tighten from there — `discern standards --pin` captures each later gain.
+The bundled [`discern-standard-a-metric`](../40-agent-guidance/README.md) skill
+walks the whole procedure — picking the metric, wiring the table, and knowing
+what to do when it fires.
 
 ## See also
 
-- [The quality gate](README.md) — where ratchets sit relative to `done`.
-- [concepts.md](../00-orientation/concepts.md) — the Ratchet concept in the
+- [The quality gate](README.md) — where standards sit relative to `done`.
+- [concepts.md](../00-orientation/concepts.md) — the Standard concept in the
   wider picture.
 - [the-result-envelope.md](the-result-envelope.md) — the result shape
-  `discern ratchets` returns.
+  `discern standards` returns.

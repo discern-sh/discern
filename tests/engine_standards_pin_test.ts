@@ -1,8 +1,8 @@
 /**
- * Engine tests for `ratchets --pin` (ADR 0106) — capturing a measured improvement
+ * Engine tests for `standards --pin` (ADR 0106) — capturing a measured improvement
  * into the limit instead of hand-editing discern.toml.
  *
- * `--pin` measures every ratchet, tightens each asked-for limit that improved past
+ * `--pin` measures every standard, tightens each asked-for limit that improved past
  * its margin toward the measured value, commits that change on its own (comment-
  * preservingly), and carries a gate-pass receipt forward across the gate-neutral
  * commit so `accept` skips the redundant re-run. These tests drive the real engine
@@ -26,7 +26,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
-interface RatchetSpec {
+interface StandardSpec {
   name: string;
   metric?: string;
   direction: "up" | "down";
@@ -37,18 +37,18 @@ interface RatchetSpec {
   margin?: string;
 }
 
-/** A discern.toml with one or more `[ratchets.<name>]` tables, with a comment above
+/** A discern.toml with one or more `[standards.<name>]` tables, with a comment above
  * each limit so a test can prove the pin edit is surgical (comments survive). */
-function pinConfig(...ratchets: RatchetSpec[]): string {
+function pinConfig(...standards: StandardSpec[]): string {
   const lines = [
     "[project]",
     'slug = "engine-test"',
     'main_branch = "main"',
   ];
-  for (const r of ratchets) {
+  for (const r of standards) {
     lines.push(
       "",
-      `[ratchets.${r.name}]`,
+      `[standards.${r.name}]`,
       ...(r.metric ? [`metric = "${r.metric}"`] : []),
       `direction = "${r.direction}"`,
       "# hand-tuned baseline — keep this comment across a re-pin",
@@ -63,10 +63,10 @@ function pinConfig(...ratchets: RatchetSpec[]): string {
   return lines.join("\n");
 }
 
-/** The `limit = N` value written under `[ratchets.<name>]` in raw config text. */
+/** The `limit = N` value written under `[standards.<name>]` in raw config text. */
 function limitOf(configText: string, name: string): string | undefined {
   const section = configText.match(
-    new RegExp(`\\[ratchets\\.${name}\\]([\\s\\S]*?)(?:\\n\\[|$)`),
+    new RegExp(`\\[standards\\.${name}\\]([\\s\\S]*?)(?:\\n\\[|$)`),
   )?.[1];
   return section?.match(/^\s*limit\s*=\s*(\S+)/m)?.[1];
 }
@@ -95,7 +95,7 @@ async function readConfig(dir: string): Promise<string> {
 
 // ── pinning tightens a limit to the measured value ─────────────────────────────
 
-Deno.test("pin: tightens an up-ratchet floor to the measured value and commits", async () => {
+Deno.test("pin: tightens an up-standard floor to the measured value and commits", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -110,7 +110,7 @@ Deno.test("pin: tightens an up-ratchet floor to the measured value and commits",
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
 
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "pinned floor 80 → 95");
 
@@ -127,12 +127,12 @@ Deno.test("pin: tightens an up-ratchet floor to the measured value and commits",
       "discern.toml",
     );
     const msg = await gitOut(dir, "log", "-1", "--format=%s%n%b");
-    assertStringIncludes(msg, "Pin ratchet baseline: coverage 80 → 95");
+    assertStringIncludes(msg, "Pin standard baseline: coverage 80 → 95");
     assertStringIncludes(msg, "floor 80 → 95 (measured 95)");
   });
 });
 
-Deno.test("pin: tightens a down-ratchet ceiling to the measured value", async () => {
+Deno.test("pin: tightens a down-standard ceiling to the measured value", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -146,7 +146,7 @@ Deno.test("pin: tightens a down-ratchet ceiling to the measured value", async ()
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "pinned ceiling 100 → 50");
     assertEquals(limitOf(await readConfig(dir), "bundle"), "50");
@@ -168,7 +168,7 @@ Deno.test("pin: a margin leaves headroom below/above the measured value", async 
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(limitOf(await readConfig(dir), "size"), "800000");
   });
@@ -190,7 +190,7 @@ Deno.test("pin: an improvement smaller than the margin is left un-pinned", async
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "nothing to pin");
     assertEquals(limitOf(await readConfig(dir), "size"), "1000");
@@ -212,14 +212,14 @@ Deno.test("pin: nothing to pin when the metric already sits at the limit", async
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Nothing to pin");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
 
-Deno.test("pin: a `per` rate ratchet pins to the measured rate", async () => {
+Deno.test("pin: a `per` rate standard pins to the measured rate", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // 30 alerts / 1000 words * 1000 = 30, ceiling 40 → pins the ceiling to 30.
@@ -237,7 +237,7 @@ Deno.test("pin: a `per` rate ratchet pins to the measured rate", async () => {
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "pinned ceiling 40 → 30");
     assertEquals(limitOf(await readConfig(dir), "warnings"), "30");
@@ -246,7 +246,7 @@ Deno.test("pin: a `per` rate ratchet pins to the measured rate", async () => {
 
 // ── selecting what to pin ──────────────────────────────────────────────────────
 
-Deno.test("pin: names restrict the pin to those ratchets", async () => {
+Deno.test("pin: names restrict the pin to those standards", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -267,23 +267,30 @@ Deno.test("pin: names restrict the pin to those ratchets", async () => {
       ),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "--pin", "coverage"]);
+    const r = await runAgent(dir, ["standards", "--pin", "coverage"]);
     assertEquals(r.code, 0, r.output);
     const cfg = await readConfig(dir);
-    assertEquals(limitOf(cfg, "coverage"), "95", "the named ratchet is pinned");
+    assertEquals(
+      limitOf(cfg, "coverage"),
+      "95",
+      "the named standard is pinned",
+    );
     assertEquals(
       limitOf(cfg, "bundle"),
       "100",
-      "the un-named ratchet is untouched",
+      "the un-named standard is untouched",
     );
     // The commit body mentions only coverage.
     const body = await gitOut(dir, "log", "-1", "--format=%b");
     assertStringIncludes(body, "coverage");
-    assert(!body.includes("bundle"), "only the named ratchet is in the commit");
+    assert(
+      !body.includes("bundle"),
+      "only the named standard is in the commit",
+    );
   });
 });
 
-Deno.test("pin: an unknown ratchet name fails loudly and pins nothing", async () => {
+Deno.test("pin: an unknown standard name fails loudly and pins nothing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -297,14 +304,14 @@ Deno.test("pin: an unknown ratchet name fails loudly and pins nothing", async ()
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin", "nope"]);
+    const r = await runAgent(dir, ["standards", "--pin", "nope"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.stderr, "no ratchet named nope");
+    assertStringIncludes(r.stderr, "no standard named nope");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
 
-Deno.test("pin: ratchet names without --pin are a clear error, not silently ignored", async () => {
+Deno.test("pin: standard names without --pin are a clear error, not silently ignored", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -317,7 +324,7 @@ Deno.test("pin: ratchet names without --pin are a clear error, not silently igno
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "coverage"]);
+    const r = await runAgent(dir, ["standards", "coverage"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only apply with --pin");
   });
@@ -325,7 +332,7 @@ Deno.test("pin: ratchet names without --pin are a clear error, not silently igno
 
 // ── safety: never pin a red tree, never pin a dirty one, never loosen ──────────
 
-Deno.test("pin: a failing ratchet blocks the whole pin", async () => {
+Deno.test("pin: a failing standard blocks the whole pin", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // coverage holds with slack; bundle is over its ceiling → the pin must abort.
@@ -348,9 +355,9 @@ Deno.test("pin: a failing ratchet blocks the whole pin", async () => {
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 1, r.output);
-    // It names the failing ratchet and points at `discern ratchets` for the detail.
+    // It names the failing standard and points at `discern standards` for the detail.
     assertStringIncludes(r.output, "Not pinning");
     assertStringIncludes(r.output, "bundle");
     // Neither limit moved and no commit was made.
@@ -376,7 +383,7 @@ Deno.test("pin: refuses a dirty worktree (it commits the change alone)", async (
     await Deno.writeTextFile(join(dir, "dirty.txt"), "uncommitted\n");
     const before = await gitOut(dir, "rev-parse", "HEAD");
 
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "clean worktree");
     assertEquals(limitOf(await readConfig(dir), "coverage"), "80", "no edit");
@@ -402,9 +409,9 @@ Deno.test("pin --dry-run: renders the pin plan and measures NOTHING", async () =
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["ratchets", "--pin", "--dry-run"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    // The plan names the ratchet and the pin semantics, but no measured value —
+    // The plan names the standard and the pin semantics, but no measured value —
     // nothing ran, so there is none to show.
     assertStringIncludes(r.stdout, "coverage");
     assertStringIncludes(r.stdout, "would measure");
@@ -440,10 +447,10 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
       }),
     );
     await gitInit(dir);
-    // The check already measured everything: its hints name the ratchet with
+    // The check already measured everything: its hints name the standard with
     // slack — decided by the same pinnedLimit a real pin applies — and stay
     // silent about the one already at its limit.
-    const r = await runAgent(dir, ["ratchets", "--json"]);
+    const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout.trim()) as {
       ok: boolean;
@@ -458,7 +465,7 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
     assertStringIncludes(slackHint ?? "", "would pin to 95");
     assert(
       !(slackHint ?? "").includes("snug"),
-      `a ratchet with no slack must not be hinted: ${slackHint}`,
+      `a standard with no slack must not be hinted: ${slackHint}`,
     );
   });
 });
@@ -481,7 +488,7 @@ Deno.test("pin: carries an honored gate-pass receipt onto the new commit", async
     // Simulate a prior green finish over this clean HEAD.
     await seedReceipt(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Carried the gate-pass receipt forward");
 
@@ -506,7 +513,7 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
     );
     await gitInit(dir); // no receipt seeded
 
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
     // Fail-closed: no receipt was written, so accept will re-run the gate.
@@ -531,7 +538,7 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
     const stale = "0".repeat(40);
     await seedReceipt(dir, stale);
 
-    const r = await runAgent(dir, ["ratchets", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
@@ -556,7 +563,7 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
     await gitInit(dir);
     await seedReceipt(dir);
 
-    await runAgent(dir, ["ratchets", "--pin"]);
+    await runAgent(dir, ["standards", "--pin"]);
     const pinnedHead = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readReceipt(dir), pinnedHead);
 
@@ -597,7 +604,7 @@ Deno.test("pin --json: reports pinned steps and ok", async () => {
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets", "--pin", "--json"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout.trim()) as {
       ok: boolean;
@@ -605,7 +612,7 @@ Deno.test("pin --json: reports pinned steps and ok", async () => {
       steps?: Array<{ label: string; outcome: string; note?: string }>;
       hints?: string[];
     };
-    assertEquals(obj.verb, "ratchets");
+    assertEquals(obj.verb, "standards");
     assertEquals(obj.ok, true);
     assertEquals(obj.steps?.[0]?.label, "coverage");
     assertStringIncludes(obj.steps?.[0]?.note ?? "", "pinned floor 80 → 95");
@@ -651,7 +658,7 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
     const hook = await installRejectingHook(dir);
 
     // The pin measures fine but the commit is rejected: it fails, reporting why.
-    const failed = await runAgent(dir, ["ratchets", "--pin"]);
+    const failed = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(failed.code, 1, failed.output);
     assertStringIncludes(failed.stderr, "could not commit the re-pin");
 
@@ -671,7 +678,7 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
 
     // The retry is no longer refused: clear the block and it pins for real.
     await Deno.remove(hook);
-    const retry = await runAgent(dir, ["ratchets", "--pin"]);
+    const retry = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(retry.code, 0, retry.output);
     assertStringIncludes(retry.stdout, "pinned floor 80 → 95");
     assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
@@ -697,7 +704,7 @@ async function measureCount(dir: string): Promise<number> {
 }
 
 function measurementsFile(dir: string): string {
-  return join(dir, ".git", "discern-ratchet-measurements");
+  return join(dir, ".git", "discern-standard-measurements");
 }
 
 Deno.test("receipt: a pin after a green check reuses its measurements — one measurement total", async () => {
@@ -714,7 +721,7 @@ Deno.test("receipt: a pin after a green check reuses its measurements — one me
     );
     await gitInit(dir);
 
-    const check = await runAgent(dir, ["ratchets", "--json"]);
+    const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
     assertEquals(await measureCount(dir), 1, "the check measures once");
     // The green check's hint promises the reuse a pin on this commit performs.
@@ -723,7 +730,7 @@ Deno.test("receipt: a pin after a green check reuses its measurements — one me
     const slackHint = hints.find((h) => h.includes("Pinnable slack")) ?? "";
     assertStringIncludes(slackHint, "reuses this check's measurements");
 
-    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    const pin = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(pin.code, 0, pin.output);
     assertStringIncludes(pin.stdout, "pinned floor 80 → 95");
     assertStringIncludes(pin.stdout, "Reused the green check's measurements");
@@ -750,7 +757,7 @@ Deno.test("receipt: a commit between check and pin invalidates it — the pin re
     );
     await gitInit(dir);
 
-    const check = await runAgent(dir, ["ratchets", "--json"]);
+    const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
     await git(
       dir,
@@ -762,7 +769,7 @@ Deno.test("receipt: a commit between check and pin invalidates it — the pin re
       "--no-gpg-sign",
     );
 
-    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    const pin = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(pin.code, 0, pin.output);
     assertEquals(
       await measureCount(dir),
@@ -792,19 +799,19 @@ Deno.test("receipt: a red check clears it, so a later pin measures fresh", async
     await gitInit(dir);
 
     // Green check (human path) records the receipt.
-    const green = await runAgent(dir, ["ratchets"]);
+    const green = await runAgent(dir, ["standards"]);
     assertEquals(green.code, 0, green.output);
     assertEquals(await measureCount(dir), 1);
 
     // Same HEAD turns red (environment drift): the check must clear the receipt.
     await Deno.writeTextFile(join(dir, ".git", "fail"), "");
-    const red = await runAgent(dir, ["ratchets"]);
+    const red = await runAgent(dir, ["standards"]);
     assertEquals(red.code, 1, red.output);
     assertEquals(await measureCount(dir), 2);
 
     // Back to green conditions: the pin must MEASURE, not reuse the cleared vouch.
     await Deno.remove(join(dir, ".git", "fail"));
-    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    const pin = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(pin.code, 0, pin.output);
     assertEquals(
       await measureCount(dir),
@@ -830,7 +837,7 @@ Deno.test("receipt: a malformed receipt file is ignored — the pin measures fre
     await gitInit(dir);
     await Deno.writeTextFile(measurementsFile(dir), "not json {{{\n");
 
-    const pin = await runAgent(dir, ["ratchets", "--pin"]);
+    const pin = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(pin.code, 0, pin.output);
     assertEquals(
       await measureCount(dir),
@@ -856,7 +863,7 @@ Deno.test("receipt: a --force check over a dirty tree records nothing", async ()
     await gitInit(dir);
     await Deno.writeTextFile(join(dir, "dirty.txt"), "uncommitted\n");
 
-    const check = await runAgent(dir, ["ratchets", "--force"]);
+    const check = await runAgent(dir, ["standards", "--force"]);
     assertEquals(check.code, 0, check.output);
     const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
       undefined
@@ -887,7 +894,7 @@ Deno.test("receipt: a commit made while the check measured is never recorded (th
     );
     await gitInit(dir);
 
-    const check = await runAgent(dir, ["ratchets", "--json"]);
+    const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
     const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
       undefined
@@ -916,7 +923,7 @@ Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main
     await git(dir, "checkout", "-q", "-b", "work");
 
     // Green check on the branch records the receipt (main's floor is also 80).
-    const check = await runAgent(dir, ["ratchets", "--json"]);
+    const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
     assertEquals(await measureCount(dir), 1);
 
@@ -932,7 +939,7 @@ Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main
     await git(dir, "checkout", "-q", "work");
 
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const pin = await runAgent(dir, ["ratchets", "--pin", "--json"]);
+    const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 1, pin.output);
     const obj = JSON.parse(pin.stdout.trim()) as {
       ok: boolean;

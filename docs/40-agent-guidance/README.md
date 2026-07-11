@@ -37,7 +37,7 @@ Driving several agents from one source is what keeps guidance provider-agnostic
 **config-aware** — each built-in section is rendered through a small
 [templating engine](the-templating-engine.md) so the generic shipped prose names
 your real branch and paths and omits content for anything you haven't configured
-(the ratchets section compiles in only when at least one ratchet is defined —
+(the standards section compiles in only when at least one standard is defined —
 [ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 The Skills are the bundled built-ins (one directory per skill under

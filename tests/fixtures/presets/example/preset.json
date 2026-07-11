@@ -15,7 +15,7 @@
   "scopes": {
     "example": { "paths": ["example/**"], "gate": "echo example side gate" }
   },
-  "ratchets": {
+  "standards": {
     "examplesize": {
       "direction": "down",
       "limit": 1000,

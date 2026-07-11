@@ -43,7 +43,7 @@ import { CATEGORY_NAMES } from "./improve/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
-import { runRatchets } from "./gate/ratchets.ts";
+import { runStandards } from "./gate/standards.ts";
 import { runImpact } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
@@ -85,7 +85,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "prepare",
   "test",
   "improvement",
-  "ratchets",
+  "standards",
   "refresh",
   "impact",
   "coupling",
@@ -140,7 +140,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "prepare",
   "test",
   "improvement",
-  "ratchets",
+  "standards",
   "refresh",
   "impact",
   "coupling",
@@ -351,9 +351,9 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("ratchets")
+    .command("standards")
     .description(
-      "Check every metric ratchet (slow; on demand, outside `discern done`).",
+      "Check every quality standard — numbers that can never get worse (slow; on demand, outside `discern done`).",
     )
     .arguments("[names...:string]")
     .option(
@@ -362,19 +362,19 @@ export function attachEngineCommands(root: Command): void {
     )
     .option(
       "--dry-run",
-      "Show the ratchets that would be measured; touch nothing.",
+      "Show the standards that would be measured; touch nothing.",
     )
     .option(
       "--force",
-      "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
+      "Run standards on a dirty worktree; intended only while authoring standards.",
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the value just measured (the named ratchets, or every one with slack), commit that change on its own, and carry the gate-pass receipt forward. Requires a clean worktree.",
+      "Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate-pass receipt forward. Requires a clean worktree.",
     )
     .action(async (o, ...names: string[]) => {
       Deno.exit(
-        await runRatchets(await requireRoot(), {
+        await runStandards(await requireRoot(), {
           json: o.json ?? false,
           dryRun: o.dryRun ?? false,
           force: o.force ?? false,

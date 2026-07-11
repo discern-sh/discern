@@ -62,7 +62,7 @@ format = "true"
 lint = "true"
 test = "true"
 [worktree]
-[ratchets.coverage]
+[standards.coverage]
 limit = 1
 run = "echo"
 `,
@@ -237,7 +237,7 @@ Deno.test("improve scoring: partial credit moves the score between fail and pass
 Deno.test("improve scoring: every catalog category is always reviewed (ADR 0101)", () => {
   const report = evaluateReport(ctx(""));
   const names = report.categories.map((c) => c.name);
-  assert(names.includes("ratchets"), "ratchets category is always reviewed");
+  assert(names.includes("standards"), "standards category is always reviewed");
   assert(names.includes("skills"), "skills category is always reviewed");
   assert(names.includes("gate") && names.includes("setup"));
 });

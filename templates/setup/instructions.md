@@ -11,7 +11,7 @@
 - **Checkpoint the model first (Step 0).** `verify` already served the model question for you to relay; Step 0 is the checkpoint that it actually reached your human before you configure anything. This one-time setup is inherited by every future session, so it is worth the user's strongest model — a question you put to *them*, not a box you tick for yourself.
 - **Learn the project, then ask once (Step 1).** Derive intent from the repository; ask the user — in a single early batch — only what the code can't tell you. Pausing later for a genuine fork is different; that's not peppering.
 - **Stay this-project-specific.** Principles, concepts, and conventions describe *this* project, not the harness and not any example. The Step 7 stack-detection table is the one place where naming many ecosystems is correct.
-- **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `done`, `prepare`, `test`, `ratchets`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
+- **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `done`, `prepare`, `test`, `standards`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
 - **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive — it never overwrites your work or the configured `{{docs_dir}}` tree. Interrupted? Re-run `begin` to reprint this brief, `discern status` for a derived progress summary, or `discern setup step <n>` for one step's text.
 
 ---
@@ -300,7 +300,7 @@ discern config set-capability test "<the project's test command>"
 discern config set-capability lint "<the project's linter>"
 discern config set-check licenses --stage check --run "./scripts/check-licenses.sh"
 discern config set-scope native 'native/**' --gate "make -C native check"
-discern config set-ratchet coverage --direction up --limit 80 --run "<coverage tool>"
+discern config set-standard coverage --direction up --limit 80 --run "<coverage tool>"
 ```
 
 Prefer these over hand-editing TOML. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.

@@ -45,14 +45,14 @@ person / coding agent
 ┌──────────────────────┐  known verb  ┌─────────────────────────────┐
 │   discern binary     │ ───────────► │   Engine handler (in-binary) │
 │  dispatch.ts:        │              │  done · prepare · worktree   │
-│  root + verb routing │              │  ratchets · refresh · …      │
+│  root + verb routing │              │  standards · refresh · …      │
 └──────────┬───────────┘              └──────────────┬──────────────┘
            │ unknown verb                            │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
 │  project Recipe (exec'd)     │        │        discern.toml           │
 │  discern/recipes/<verb>      │        │  Capabilities · Checks ·      │
-│  with DISCERN_* exported     │ ─────► │  Scopes (+ gates) · Ratchets  │
+│  with DISCERN_* exported     │ ─────► │  Scopes (+ gates) · Standards  │
 │  (built-in verb wins)        │ reads  │  · Worktree settings          │
 └──────────────────────────────┘  via   └──────────────────────────────┘
                                  discern config get

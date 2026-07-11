@@ -34,16 +34,16 @@ Deno.test("architecture: worktree apply summaries use the shared StepResult rend
   );
 });
 
-Deno.test("architecture: ratchets human apply renders the applied result steps", async () => {
-  const ratchets = await Deno.readTextFile("src/engine/gate/ratchets.ts");
+Deno.test("architecture: standards human apply renders the applied result steps", async () => {
+  const standards = await Deno.readTextFile("src/engine/gate/standards.ts");
 
-  assertStringIncludes(ratchets, "renderStepResults(outSink(out),");
+  assertStringIncludes(standards, "renderStepResults(outSink(out),");
   assertStringIncludes(
-    ratchets,
-    'const result = appliedResult("ratchets", results);',
+    standards,
+    'const result = appliedResult("standards", results);',
   );
   assert(
-    !ratchets.includes("const { ok } = await executeRatchetPlan"),
-    "ratchets must render the applied result object, not keep a separate ok-only human path",
+    !standards.includes("const { ok } = await executeStandardPlan"),
+    "standards must render the applied result object, not keep a separate ok-only human path",
   );
 });

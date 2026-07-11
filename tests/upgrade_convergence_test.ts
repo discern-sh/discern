@@ -199,36 +199,36 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
 });
 
 /** Simulate a config written before a record-table knob existed: drop the
- * `margin` documentation lines from the [ratchets] banner. */
-async function dropMarginFromRatchetsBanner(dir: string): Promise<void> {
+ * `margin` documentation lines from the [standards] banner. */
+async function dropMarginFromStandardsBanner(dir: string): Promise<void> {
   const path = await configPath(dir);
   const text = await Deno.readTextFile(path);
   const stale = text.replace(
     /\n#\s+margin\b[\s\S]*?ordinary fluctuation\.\n/u,
     "\n",
   );
-  assert(stale !== text, "a fresh [ratchets] banner should document `margin`");
+  assert(stale !== text, "a fresh [standards] banner should document `margin`");
   await Deno.writeTextFile(path, stale);
 }
 
 Deno.test("upgrade refreshes a record-table banner that lags the current template", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await dropMarginFromRatchetsBanner(dir);
+    await dropMarginFromStandardsBanner(dir);
 
     const check = await upgradeCheck(dir);
     assertEquals(check.code, 1);
     assertEquals(check.res.data.pending_migrations, []);
     assertEquals(check.res.data.pending_reconciliation, [{
       kind: "banner",
-      path: "ratchets",
+      path: "standards",
     }]);
 
     const beforeDryRun = await readTarget(dir, "discern.toml");
     const dryRun = await upgradeDryRun(dir);
     assertEquals(dryRun.data.pending_reconciliation, [{
       kind: "banner",
-      path: "ratchets",
+      path: "standards",
     }]);
     assertEquals(await readTarget(dir, "discern.toml"), beforeDryRun);
 
@@ -236,7 +236,7 @@ Deno.test("upgrade refreshes a record-table banner that lags the current templat
     assertEquals(res.data.migrations_applied, []);
     assertEquals(res.data.config_reconciled, [{
       kind: "banner",
-      path: "ratchets",
+      path: "standards",
     }]);
     // the newly-documented knob reaches the install …
     assertStringIncludes(await readTarget(dir, "discern.toml"), "#   margin");
@@ -355,7 +355,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       const res = await upgrade(older); // runs 1→2 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
       );
 
       await setup(fresh); // a fresh install at the current schema
@@ -423,7 +423,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
       );
 
       await setup(fresh);
@@ -498,7 +498,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4, so every later step runs.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

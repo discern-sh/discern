@@ -16,6 +16,10 @@
 import { assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
+import {
+  RETIRED_COMMAND_REDIRECTS,
+  RETIRED_CONFIG_KEY_REDIRECTS,
+} from "../src/shared/vocabulary.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
@@ -153,5 +157,129 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
     offenders,
     [],
     `retired command vocabulary is still present:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+/** Escape one canonical token for interpolation into a regular expression. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Compatibility records are the only non-ADR files allowed to spell a retired
+ * launch name in a callable/config position. Historical fixtures preserve what
+ * an old install really contained; the active brief/TODO keep the owner-approved
+ * migration searchable until bookkeeping removes the completed entries.
+ */
+function isLaunchVocabularyRecord(rel: string): boolean {
+  return rel.startsWith("docs/_adr/") ||
+    rel.startsWith("tests/fixtures/historical-installs/") ||
+    new Set([
+      "src/shared/vocabulary.ts",
+      "src/lib/migrations.ts",
+      "src/lib/version.ts",
+      "tests/migrations_test.ts",
+      "tests/dev_vocab_guard_test.ts",
+      "docs/_private/planning/launch-hardening-workstreams/3a-vocabulary-and-rename-sweep.md",
+      "TODO.md",
+    ]).has(rel);
+}
+
+interface ForbiddenPosition {
+  retired: string;
+  kind: string;
+  pattern: RegExp;
+}
+
+/**
+ * Structural patterns only: invocations, MCP identifiers, command registrations,
+ * result verbs, and config keys. Ordinary English remains outside this guard —
+ * words such as “finishing” and “docs” are legitimate prose.
+ */
+function retiredLaunchPositions(): ForbiddenPosition[] {
+  const positions: ForbiddenPosition[] = [];
+  for (const retired of Object.keys(RETIRED_COMMAND_REDIRECTS)) {
+    const words = retired.split(" ");
+    const cli = words.map(escapeRegExp).join("\\s+");
+    const mcp = words.map(escapeRegExp).join("_");
+    const leaf = escapeRegExp(words.at(-1) ?? retired);
+    positions.push(
+      {
+        retired,
+        kind: "CLI invocation",
+        pattern: new RegExp(`\\bdiscern\\s+${cli}(?=[\\s\x60'\".,):]|$)`, "mu"),
+      },
+      {
+        retired,
+        kind: "MCP tool name",
+        pattern: new RegExp(`\\bdiscern_${mcp}\\b`, "u"),
+      },
+      {
+        retired,
+        kind: "command registration",
+        pattern: new RegExp(`\\.command\\(\\s*[\"']${leaf}[\"']`, "u"),
+      },
+    );
+    if (words.length === 1) {
+      positions.push({
+        retired,
+        kind: "result verb",
+        pattern: new RegExp(`\\bverb\\s*:\\s*[\"']${leaf}[\"']`, "u"),
+      });
+    }
+  }
+
+  for (const retired of Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)) {
+    const key = escapeRegExp(retired);
+    const spelling = `(?:${key}|\"${key}\"|'${key}')`;
+    positions.push(
+      {
+        retired,
+        kind: "config table",
+        pattern: new RegExp(`\\[\\s*${spelling}(?=\\s*(?:\\.|\\]))`, "mu"),
+      },
+      {
+        retired,
+        kind: "dotted config key",
+        pattern: new RegExp(
+          `(?:^\\s*|[\"'])${spelling}(?=\\s*\\.)`,
+          "mu",
+        ),
+      },
+      {
+        retired,
+        kind: "object config key",
+        pattern: new RegExp(
+          `(?:^|[{,]\\s*)${spelling}\\s*:`,
+          "mu",
+        ),
+      },
+      {
+        retired,
+        kind: "config interpolation",
+        pattern: new RegExp(`\\$\\{${key}\\.`, "u"),
+      },
+    );
+  }
+  return positions;
+}
+
+Deno.test("retired launch vocabulary stays out of callable and config positions", async () => {
+  const offenders: string[] = [];
+  const patterns = retiredLaunchPositions();
+  for (const [rel, text] of await commandSurfaceFiles()) {
+    if (isLaunchVocabularyRecord(rel)) continue;
+    for (const { retired, kind, pattern } of patterns) {
+      if (pattern.test(text)) {
+        offenders.push(`${rel}: retired ${JSON.stringify(retired)} in ${kind}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired launch vocabulary returned in a public contract position:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });

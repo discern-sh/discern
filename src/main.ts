@@ -49,8 +49,8 @@ import {
   runConfigSet,
   runConfigSetCapability,
   runConfigSetCheck,
-  runConfigSetRatchet,
   runConfigSetScope,
+  runConfigSetStandard,
 } from "./commands/config.ts";
 import {
   attachEngineCommands,
@@ -489,7 +489,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
-  // concepts, the gate/worktree/ratchet docs). Distinct from `docs`, which serves
+  // concepts, the gate/worktree/standard docs). Distinct from `docs`, which serves
   // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
   // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
@@ -595,8 +595,8 @@ export function buildCli(hideSetup: boolean): RootCommand {
       );
     });
 
-  const setRatchet = new Command()
-    .description("Set or create a [ratchets.<name>] table.")
+  const setStandard = new Command()
+    .description("Set or create a [standards.<name>] table.")
     .arguments("<name:string>")
     .option("--limit <n:string>", "The floor (up) or ceiling (down).", {
       required: true,
@@ -614,7 +614,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, name: string) => {
       Deno.exit(
-        await runConfigSetRatchet(name, {
+        await runConfigSetStandard(name, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
           limit: options.limit,
@@ -689,7 +689,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .command("set-capability", setCapability)
     .command("set-check", setCheck)
     .command("set-scope", setScope)
-    .command("set-ratchet", setRatchet)
+    .command("set-standard", setStandard)
     .command("set", setScalar)
     .command("get", configGet)
     .command("array", configArray)

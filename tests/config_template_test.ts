@@ -268,7 +268,7 @@ Deno.test("scanManagedBanners ignores a fixed-section banner", () => {
 Deno.test("scanManagedBanners requires a clean close — a blank breaks the block", () => {
   const text = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "", // a blank line before the closing rule: not a clean banner
     RULE,
   ].join("\n");
@@ -278,14 +278,14 @@ Deno.test("scanManagedBanners requires a clean close — a blank breaks the bloc
 Deno.test("scanManagedBanners bounds a banner at its closing rule, never a following table", () => {
   const text = [
     RULE, // line 0
-    "# [ratchets] — quality floors", // 1
+    "# [standards] — quality floors", // 1
     "#   limit  the floor/ceiling", // 2
     RULE, // 3 — the close
     "",
-    "[ratchets.coverage]",
+    "[standards.coverage]",
     "limit = 80",
   ].join("\n");
   assertEquals(scanManagedBanners(text, RECORD_CONFIG_PATHS), [
-    { family: "ratchets", start: 0, end: 3 },
+    { family: "standards", start: 0, end: 3 },
   ]);
 });

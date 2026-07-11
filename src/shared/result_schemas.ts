@@ -139,7 +139,7 @@ export const EnvelopeSchema = z.strictObject({
 });
 
 /**
- * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`): strict and
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `standards`): strict and
  * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
  * invariant — a result that grows a `data` payload fails its faithfulness test (and the
  * SDK's output validation) until the payload is modelled, the SSOT guard the bare
@@ -554,7 +554,7 @@ export const StatusDataSchema = z.strictObject({
   git: statusGitSchema.nullable(),
   scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
-  ratchets: z.array(z.string()),
+  standards: z.array(z.string()),
   gate_receipt: GateReceiptCheckSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
@@ -1124,8 +1124,8 @@ export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
 /** `test` output: envelope only (except top-level config parse errors). */
 export const TestOutputSchema = datalessResultOutputSchema("test");
 
-/** `ratchets` output: envelope only (except top-level config parse errors). */
-export const RatchetsOutputSchema = datalessResultOutputSchema("ratchets");
+/** `standards` output: envelope only (except top-level config parse errors). */
+export const StandardsOutputSchema = datalessResultOutputSchema("standards");
 
 /** `refresh` output: envelope + the generated-artifact summary `data`. */
 export const RefreshOutputSchema = resultOutputSchema(

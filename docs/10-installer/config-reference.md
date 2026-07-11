@@ -4,9 +4,9 @@
 
 The one file that configures a discern install.
 
-Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and ratchets all read this shape through one typed loader, so what is documented here is exactly what the engine enforces.
+Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so what is documented here is exactly what the engine enforces.
 
-The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 ## `[meta]`
 
@@ -126,19 +126,19 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `steps` | string[] | `[]` | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run. |
 | `ensure` | string[] | `[]` | Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern update` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely. |
 
-## `[ratchets.<name>]`
+## `[standards.<name>]`
 
-[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern done`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.
+[standards.<name>] — quality standards, numbers that can never get worse, enforced on demand by `discern standards` (slow, so NOT part of `discern done`). Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `metric` | string | — | Metric name the run emits (default: the ratchet name). |
+| `metric` | string | — | Metric name the run emits (default: the standard name). |
 | `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
 | `limit` | number | — | The floor (up) or ceiling (down). |
 | `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
-| `per` | string \| object | — | Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
+| `per` | string \| object | — | Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${docs.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
-| `margin` | number | `0` | Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
+| `margin` | number | `0` | Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
 
 ## `[gate]`
 

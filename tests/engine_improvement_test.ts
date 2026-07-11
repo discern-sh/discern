@@ -114,7 +114,7 @@ test = "true"
 
 [worktree]
 
-[ratchets.coverage]
+[standards.coverage]
 limit = 1
 run = "echo DISCERN_METRIC coverage 1"
 
@@ -222,7 +222,10 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
       "pass",
     );
     assertEquals(rule(cat(payload, "docs"), "docs.adrs").status, "pass");
-    assertEquals(rule(cat(payload, "ratchets"), "ratchets.any").status, "pass");
+    assertEquals(
+      rule(cat(payload, "standards"), "standards.any").status,
+      "pass",
+    );
   });
 });
 
@@ -267,7 +270,7 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
         ["gate", "gate.test-depth"],
         ["setup", "setup.failure-memory"],
         ["docs", "docs.navigation"],
-        ["ratchets", "ratchets.normalize"],
+        ["standards", "standards.normalize"],
         ["skills", "skills.executable"],
       ] as const
     ) {
@@ -316,12 +319,12 @@ Deno.test("improvement: every catalog category is always reviewed; an unknown on
     await scaffoldEngine(dir);
     await writeConfig(dir, `[meta]\nbootstrapped = true\n`);
 
-    // The subsystems are all core (ADR 0101): the ratchets category is reviewed
-    // even with no ratchet configured — the coaching is exactly "define one".
+    // The subsystems are all core (ADR 0101): the standards category is reviewed
+    // even with no standard configured — the coaching is exactly "define one".
     const all = await improvementJson(dir);
     assert(
-      all.payload.data?.categories.some((c) => c.name === "ratchets"),
-      "the ratchets category is always part of the catalog",
+      all.payload.data?.categories.some((c) => c.name === "standards"),
+      "the standards category is always part of the catalog",
     );
 
     const focused = await improvementJson(dir, ["--category", "bogus"]);

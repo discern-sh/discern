@@ -45,9 +45,9 @@ import {
   ImpactOutputSchema,
   ImprovementOutputSchema,
   PrepareOutputSchema,
-  RatchetsOutputSchema,
   RefreshOutputSchema,
   SkillsListOutputSchema,
+  StandardsOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
@@ -63,7 +63,7 @@ import {
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
-import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
+import { standardsResult } from "../src/engine/gate/standards.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
@@ -178,7 +178,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "improvement",
   "update",
   "prepare",
-  "ratchets",
+  "standards",
   "refresh",
   "impact",
   "skillsList",
@@ -452,12 +452,12 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
   });
 });
 
-Deno.test("doctor execution_model is faithful across a rich config (resources, ratchets, scopes)", async () => {
+Deno.test("doctor execution_model is faithful across a rich config (resources, standards, scopes)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     // A config exercising every corner of the execution-model schema: jobs, a scope
-    // gate, a ratchet, and a per-worktree resource (its teardown).
+    // gate, a standard, and a per-worktree resource (its teardown).
     await writeConfig(
       dir,
       [
@@ -473,7 +473,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
         'paths = ["web/**"]',
         'gate = "web-gate"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "measure-coverage"',
         'direction = "up"',
         "limit = 80",
@@ -686,7 +686,7 @@ Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree
   });
 });
 
-Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async () => {
+Deno.test("standards result is faithful (dry-run plan and applied steps)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -696,7 +696,7 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "echo DISCERN_METRIC coverage 90"',
         'direction = "up"',
         "limit = 80",
@@ -704,20 +704,20 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
       ].join("\n"),
     );
     await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "add ratchet", "--no-gpg-sign");
+    await git(dir, "commit", "-q", "-m", "add standard", "--no-gpg-sign");
     expectValid(
       DatalessEnvelopeSchema,
-      await ratchetsResult(dir, { dryRun: true }),
-      "ratchets dry-run",
+      await standardsResult(dir, { dryRun: true }),
+      "standards dry-run",
     );
     expectValid(
-      RatchetsOutputSchema,
-      await ratchetsResult(dir, { dryRun: true }),
-      "ratchets dry-run public schema",
+      StandardsOutputSchema,
+      await standardsResult(dir, { dryRun: true }),
+      "standards dry-run public schema",
     );
-    const applied = await ratchetsResult(dir);
+    const applied = await standardsResult(dir);
     assertEquals(applied.ok, true);
-    expectValid(RatchetsOutputSchema, applied, "ratchets applied");
+    expectValid(StandardsOutputSchema, applied, "standards applied");
   });
 });
 

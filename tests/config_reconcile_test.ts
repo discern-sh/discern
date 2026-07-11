@@ -95,9 +95,9 @@ Deno.test("config reconciliation treats named record tables as project-owned", a
 
 const RULE = `# ${"─".repeat(77)}`;
 
-/** A minimal template + config pair sharing a [ratchets] managed banner, so the
+/** A minimal template + config pair sharing a [standards] managed banner, so the
  * banner pass can be exercised in isolation from the real template's churn. */
-function ratchetsFixture(templateBanner: string, configBanner: string): {
+function standardsFixture(templateBanner: string, configBanner: string): {
   template: string;
   config: string;
 } {
@@ -108,14 +108,14 @@ function ratchetsFixture(templateBanner: string, configBanner: string): {
       templateBanner,
       "",
       "# Coverage — an example:",
-      "# [ratchets.coverage]",
+      "# [standards.coverage]",
     ].join("\n"),
     config: [
       ...head,
       configBanner,
       "",
       "# My own coverage floor — hand-written.",
-      "[ratchets.coverage]",
+      "[standards.coverage]",
       "limit = 80",
       'run = "cover"',
     ].join("\n"),
@@ -125,30 +125,30 @@ function ratchetsFixture(templateBanner: string, configBanner: string): {
 Deno.test("banner reconciliation refreshes a stale record banner, sparing the project's tables and comments", () => {
   const stale = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "#   limit  the floor/ceiling",
     RULE,
   ].join("\n");
   const current = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "#   limit   the floor/ceiling",
-    "#   margin  headroom `discern ratchets --pin` leaves",
+    "#   margin  headroom `discern standards --pin` leaves",
     RULE,
   ].join("\n");
-  const { template, config } = ratchetsFixture(current, stale);
+  const { template, config } = standardsFixture(current, stale);
 
   const result = reconcileConfigTextWithTemplate(config, template);
 
-  assertEquals(result.operations, [{ kind: "banner", path: "ratchets" }]);
+  assertEquals(result.operations, [{ kind: "banner", path: "standards" }]);
   // the newly-documented knob reaches the config …
   assertStringIncludes(
     result.text,
-    "#   margin  headroom `discern ratchets --pin` leaves",
+    "#   margin  headroom `discern standards --pin` leaves",
   );
   // … while the project's own table, value, and comment are untouched.
   assertStringIncludes(result.text, "# My own coverage floor — hand-written.");
-  assertStringIncludes(result.text, "[ratchets.coverage]");
+  assertStringIncludes(result.text, "[standards.coverage]");
   assertStringIncludes(result.text, "limit = 80");
 
   // Idempotent: a second pass is a byte-stable no-op.
@@ -160,11 +160,11 @@ Deno.test("banner reconciliation refreshes a stale record banner, sparing the pr
 Deno.test("banner reconciliation leaves a current banner untouched", () => {
   const banner = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "#   limit  the floor/ceiling",
     RULE,
   ].join("\n");
-  const { template, config } = ratchetsFixture(banner, banner);
+  const { template, config } = standardsFixture(banner, banner);
 
   const result = reconcileConfigTextWithTemplate(config, template);
 
@@ -177,17 +177,17 @@ Deno.test("banner reconciliation never half-matches a hand-mangled banner", () =
   // refuse to touch it rather than consume forward into the project's own table.
   const mangled = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "#   limit  the floor/ceiling",
   ].join("\n");
   const current = [
     RULE,
-    "# [ratchets] — quality floors",
+    "# [standards] — quality floors",
     "#   limit  the floor/ceiling",
     "#   margin  new",
     RULE,
   ].join("\n");
-  const { template, config } = ratchetsFixture(current, mangled);
+  const { template, config } = standardsFixture(current, mangled);
 
   const result = reconcileConfigTextWithTemplate(config, template);
 
@@ -195,6 +195,6 @@ Deno.test("banner reconciliation never half-matches a hand-mangled banner", () =
     !result.operations.some((op) => op.kind === "banner"),
     "a banner with no clean closing rule must be left alone",
   );
-  assertStringIncludes(result.text, "[ratchets.coverage]");
+  assertStringIncludes(result.text, "[standards.coverage]");
   assertStringIncludes(result.text, "limit = 80");
 });

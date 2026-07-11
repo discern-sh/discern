@@ -51,7 +51,7 @@ alone but fails in the full run" trap is exactly this failure).
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which
   lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the
   bytes under test are the bytes a real `discern setup` ships. Use `writeConfig`
-  to set the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]` a case needs,
+  to set the `[capabilities]`/`[checks]`/`[scopes]`/`[standards]` a case needs,
   and `addWorktree` for the worktree-recipe layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus
   `testTokens` give a small synthetic tree for testing rendering/plan logic in
@@ -76,9 +76,9 @@ TypeScript under `src/engine/`, it is instrumented like the rest of `src/` — t
 `engine_*` subprocess tests that drive the verbs through `src/main.ts` count
 toward the number, so installer and engine share one coverage figure.
 
-That metric feeds a ratchet — `[ratchets.coverage]` in
+That metric feeds a standard — `[standards.coverage]` in
 [discern.toml](../../discern.toml) — a floor that only ever rises. The
-`discern ratchets` verb checks it; it is slow, so it is **not** part of the
+`discern standards` verb checks it; it is slow, so it is **not** part of the
 `done` gate, and CI enforces it on every pull request. To raise the floor: add
 tests, then bump `limit` to just below the newly measured value.
 

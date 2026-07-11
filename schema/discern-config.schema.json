@@ -258,8 +258,8 @@
         "additionalProperties": false
       }
     },
-    "ratchets": {
-      "description": "[ratchets.<name>] tables. Coverage is just a conventional name.",
+    "standards": {
+      "description": "[standards.<name>] tables. Coverage is just a conventional name.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -269,7 +269,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "description": "Metric name the run emits (default: the ratchet name).",
+            "description": "Metric name the run emits (default: the standard name).",
             "type": "string"
           },
           "direction": {
@@ -300,7 +300,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           },
           "per": {
-            "description": "Divide the metric by this to ratchet a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${docs.dir}**\" } (files | lines | words | bytes over a git pathspec).",
+            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${docs.dir}**\" } (files | lines | words | bytes over a git pathspec).",
             "anyOf": [
               {
                 "type": "string"
@@ -376,7 +376,7 @@
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
             "type": "number",
             "minimum": 0
           }
@@ -390,5 +390,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/ratchets are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }

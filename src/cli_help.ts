@@ -91,7 +91,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
     note: "read-only views for you or your agent",
     commands: [
       "improvement",
-      "ratchets",
+      "standards",
       "skills",
       "impact",
       "coupling",

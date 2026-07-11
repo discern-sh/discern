@@ -452,8 +452,8 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(status.result.structuredContent.verb, "status");
     assertEquals(status.result.structuredContent.data.location, "main");
     assert(
-      Array.isArray(status.result.structuredContent.data.ratchets),
-      "status data carries the configured ratchets",
+      Array.isArray(status.result.structuredContent.data.standards),
+      "status data carries the configured standards",
     );
 
     // tools/call discern_improvement → the continuous-improvement DiscernResult.
@@ -2029,7 +2029,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_done",
       "discern_prepare",
       "discern_test",
-      "discern_ratchets",
+      "discern_standards",
       "discern_start",
       "discern_update",
     ]);
@@ -2099,7 +2099,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       false,
     );
     assertEquals(
-      byName.get("discern_ratchets")?.annotations?.openWorldHint,
+      byName.get("discern_standards")?.annotations?.openWorldHint,
       undefined,
     );
     assertEquals(
@@ -2143,7 +2143,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_prepare",
         "discern_test",
         "discern_update",
-        "discern_ratchets",
+        "discern_standards",
         "discern_accept",
         "discern_impact",
         "discern_coupling",
@@ -2356,7 +2356,7 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
   });
 });
 
-Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-only, and previews a dry-run", async () => {
+Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-only, and previews a dry-run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -2369,23 +2369,23 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
     });
     await mcp.recv();
 
-    // Listed with the ratchets feature on (the default scaffold).
+    // Listed with the standards feature on (the default scaffold).
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
     const tools = list.result.tools as ListedTool[];
-    const rt = tools.find((t) => t.name === "discern_ratchets");
-    assert(rt !== undefined, "discern_ratchets should be listed");
+    const rt = tools.find((t) => t.name === "discern_standards");
+    assert(rt !== undefined, "discern_standards should be listed");
     // It runs the metric commands, so it is NOT read-only.
     assertEquals(rt.annotations?.readOnlyHint, false);
     assertStringIncludes(rt.description, "clean worktree");
     assertStringIncludes(rt.description, "force");
     assert(
       !rt.description.includes("before pushing"),
-      `ratchets description should not mention pushing:\n${rt.description}`,
+      `standards description should not mention pushing:\n${rt.description}`,
     );
     assert(
       Object.hasOwn(rt.inputSchema?.properties ?? {}, "force"),
-      "discern_ratchets input schema should expose force",
+      "discern_standards input schema should expose force",
     );
 
     // A dry-run preview returns the plan and measures nothing.
@@ -2393,18 +2393,18 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_ratchets", arguments: { dry_run: true } },
+      params: { name: "discern_standards", arguments: { dry_run: true } },
     });
     const preview = await mcp.recv();
     assertEquals(preview.result.isError, false);
-    assertEquals(preview.result.structuredContent.verb, "ratchets");
+    assertEquals(preview.result.structuredContent.verb, "standards");
     assertEquals(preview.result.structuredContent.dry_run, true);
 
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false envelope", async () => {
+Deno.test("discern mcp: a failing discern_standards apply returns an ok:false envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -2413,7 +2413,7 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "echo DISCERN_METRIC coverage 10"',
         'direction = "up"',
         "limit = 80",
@@ -2434,14 +2434,14 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_ratchets", arguments: {} },
+      params: { name: "discern_standards", arguments: {} },
     });
     const failed = await mcp.recv();
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     const payload = failed.result.structuredContent;
     assert(DatalessEnvelopeSchema.safeParse(payload).success);
     assertEquals(payload.ok, false);
-    assertEquals(payload.verb, "ratchets");
+    assertEquals(payload.verb, "standards");
     assert(
       payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
       JSON.stringify(payload),
@@ -2449,7 +2449,7 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
     // …and the envelope says WHY, not just that it failed. The reason travels in
     // diagnostics[]: an MCP caller cannot hear the live logger, so a bare failed
     // step would force a fall-back to the CLI to learn what the CLI narrates. The
-    // reproduce is the ratchet's own measurement command, and the applied step's
+    // reproduce is the standard's own measurement command, and the applied step's
     // note carries the measured value.
     const diag = (payload.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", JSON.stringify(payload));
@@ -2498,9 +2498,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
       instructions.includes("Do not treat a green gate run or status hint"),
       instructions,
     );
-    // Diagnostics and ratchets are always present (every subsystem is core).
+    // Diagnostics and standards are always present (every subsystem is core).
     assert(instructions.includes("discern_doctor"), instructions);
-    assert(instructions.includes("discern_ratchets"), instructions);
+    assert(instructions.includes("discern_standards"), instructions);
     assertEquals(await mcp.close(), 0);
   });
 });
@@ -2537,25 +2537,25 @@ Deno.test("discern mcp: the rendered surface names the project's configured inte
 
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
-    // discern_ratchets names the branch ("loosened versus `<main_branch>`") and is
+    // discern_standards names the branch ("loosened versus `<main_branch>`") and is
     // visible from the main checkout, so it is the end-to-end witness here.
-    const ratchets =
+    const standards =
       (list.result.tools as { name: string; description: string }[])
-        .find((t) => t.name === "discern_ratchets");
-    assert(ratchets !== undefined, "discern_ratchets should be listed");
+        .find((t) => t.name === "discern_standards");
+    assert(standards !== undefined, "discern_standards should be listed");
     assert(
-      ratchets.description.includes("trunkline"),
-      `the description must name the configured branch; got:\n${ratchets.description}`,
+      standards.description.includes("trunkline"),
+      `the description must name the configured branch; got:\n${standards.description}`,
     );
     assert(
-      !ratchets.description.includes("versus main"),
-      `the hardcoded default must be gone; got:\n${ratchets.description}`,
+      !standards.description.includes("versus main"),
+      `the hardcoded default must be gone; got:\n${standards.description}`,
     );
     assert(
-      !ratchets.description.includes("before pushing"),
-      `ratchets should not assume a remote-push workflow; got:\n${ratchets.description}`,
+      !standards.description.includes("before pushing"),
+      `standards should not assume a remote-push workflow; got:\n${standards.description}`,
     );
-    assert(!ratchets.description.includes("{{"), ratchets.description);
+    assert(!standards.description.includes("{{"), standards.description);
 
     assertEquals(await mcp.close(), 0);
   });
@@ -2632,8 +2632,8 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const statusData = JSON.parse(statusPart.text);
     assertEquals(statusData.location, "main");
     assert(
-      Array.isArray(statusData.ratchets),
-      "the status resource carries the configured ratchets",
+      Array.isArray(statusData.standards),
+      "the status resource carries the configured standards",
     );
 
     // read discern://impact

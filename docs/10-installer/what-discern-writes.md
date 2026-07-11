@@ -81,7 +81,7 @@ without the binary will not see them — see
 discern's trust model is the same class as a `Makefile` or an npm `scripts`
 block: **it runs the commands you configure.** The gate (`discern done`) runs
 exactly the `format` / `build` / `lint` / `test` commands in your
-`discern.toml`; a Scope gate or a Ratchet runs the command you wrote for it; a
+`discern.toml`; a Scope gate or a Standard runs the command you wrote for it; a
 project recipe is your own executable. discern adds no commands of its own
 beyond its built-in git and file operations, and it reads your config to decide
 what to run — so the code it executes is code you can read in one file.

@@ -43,8 +43,8 @@ import {
   ImpactOutputSchema,
   ImprovementOutputSchema,
   PrepareOutputSchema,
-  RatchetsOutputSchema,
   RefreshOutputSchema,
+  StandardsOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -68,7 +68,7 @@ import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
-import { ratchetsResult } from "../gate/ratchets.ts";
+import { standardsResult } from "../gate/standards.ts";
 import { improvementResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
@@ -256,7 +256,7 @@ const TOOL_PRIORITY = [
   "discern_prepare",
   "discern_test",
   "discern_update",
-  "discern_ratchets",
+  "discern_standards",
   "discern_accept",
   "discern_impact",
   "discern_coupling",
@@ -312,7 +312,7 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: READ_ONLY,
     description:
       "Start here: call discern_status to report what is true right now and what " +
-      "to do next — pure observation, never runs the gate, tests, ratchets, or " +
+      "to do next — pure observation, never runs the gate, tests, standards, or " +
       'touches anything. data.location is "worktree" or "main"; data.git carries ' +
       "branch, Git-clean state, changed-files, and ahead/behind the integration branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
@@ -323,7 +323,7 @@ export const TOOLS: McpTool[] = orderTools([
       "has a recorded discern_done pass (when honored, data.gate_receipt.receipt " +
       "carries the receipt markdown to relay to your owner at the review moment); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.ratchets lists the configured ratchets. " +
+      "resources; data.standards lists the configured standards. " +
       "data.stale_generated flags generated agent files, data.stale_materialized " +
       "the materialized skills, and data.stale_integrations provider integration " +
       "files, that have drifted from their sources (call " +
@@ -418,26 +418,26 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root, _args, signal) => testResult(root, signal),
   }),
   defineTool({
-    name: "discern_ratchets",
-    title: "Check the ratchets",
-    outputSchema: RatchetsOutputSchema.shape,
+    name: "discern_standards",
+    title: "Check the standards",
+    outputSchema: StandardsOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Check every configured quality ratchet (a never-loosen metric floor/ceiling): " +
-      "run each ratchet's measurement command, compare it to its limit, and assert " +
-      "the limit was not loosened versus `{{main_branch}}`. Returns the per-ratchet " +
+      "Check every configured quality standard — numbers that can never get worse. " +
+      "Run each measurement command, compare it to its limit, and assert that the " +
+      "limits may only improve versus `{{main_branch}}`. Returns the per-standard " +
       "steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
       "discern_done; run it as needed. Non-dry-run calls require a clean worktree " +
-      "unless force is set while authoring or debugging ratchets. Set dry_run to " +
-      "preview which ratchets would run — it measures nothing, with or without " +
+      "unless force is set while authoring or debugging standards. Set dry_run to " +
+      "preview which standards would run — it measures nothing, with or without " +
       "pin. Set pin to " +
       "capture measured improvements INSTEAD of just checking: it tightens each " +
-      "limit to the value just measured (the pin_names ratchets, or every one with " +
+      "limit to the value just measured (the pin_names standards, or every one with " +
       "slack), commits that change on its own, and carries the gate-pass receipt " +
       "forward so accept skips the redundant gate re-run — the ergonomic way to " +
-      "re-pin a baseline, never hand-edit discern.toml. Pin needs a clean worktree " +
-      "and pins nothing while any ratchet is failing. A green check's hints[] " +
+      "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +
+      "and pins nothing while any standard is failing. A green check's hints[] " +
       "already name any pinnable slack with measured values, so the whole flow is " +
       "check then pin — never spend a call just to see whether a pin is worthwhile.",
     inputSchema: {
@@ -445,18 +445,18 @@ export const TOOLS: McpTool[] = orderTools([
         "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",
       ),
       force: z.boolean().optional().describe(
-        "Override the clean-worktree guard while authoring or debugging ratchets; ignored with pin (default false).",
+        "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
         "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate-pass receipt forward. Requires a clean worktree (default false).",
       ),
       pin_names: z.array(z.string()).optional().describe(
-        "With pin, restrict pinning to these ratchets (default: every ratchet with slack).",
+        "With pin, restrict pinning to these standards (default: every standard with slack).",
       ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
-      ratchetsResult(root, {
+      standardsResult(root, {
         dryRun: args.dry_run === true,
         force: args.force === true,
         pin: args.pin === true,
@@ -599,7 +599,7 @@ export const TOOLS: McpTool[] = orderTools([
     rootIndependent: true,
     description:
       "Read discern's OWN documentation — the harness's docs (the discern.toml " +
-      "config reference, the concepts, the gate/worktree/ratchet pages), bundled " +
+      "config reference, the concepts, the gate/worktree/standard pages), bundled " +
       "into every install. Distinct from discern_docs, which reads the host " +
       "PROJECT's docs: call this to learn how discern itself works, before editing " +
       "discern.toml or reasoning about the gate. With no argument, return the index " +
@@ -1336,7 +1336,7 @@ function registerResources(
     "discern://status",
     {
       description:
-        "A live discern_status snapshot: the git situation, what the gate would fire, the configured ratchets, and (from the main checkout) the worktree fleet.",
+        "A live discern_status snapshot: the git situation, what the gate would fire, the configured standards, and (from the main checkout) the worktree fleet.",
       mimeType: JSON_MIME,
     },
     async (uri: URL) =>
@@ -1435,9 +1435,9 @@ export function buildInstructions(): string {
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's own documentation with discern_docs.",
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
-    "- Run quality ratchets with discern_ratchets as needed — slow and " +
-    "on-demand, so NOT part of discern_done. Non-dry-run ratchets require a " +
-    "clean worktree unless force=true while authoring ratchets.",
+    "- Run quality standards with discern_standards as needed — slow and " +
+    "on-demand, so NOT part of discern_done. Non-dry-run standards require a " +
+    "clean worktree unless force=true while authoring standards.",
     "- Starting work from the trunk (the main checkout)? Run discern_start to " +
     "create your own isolated worktree: it returns the new worktree's path and " +
     "re-aims these tools at it, so your later done/update/accept calls operate " +

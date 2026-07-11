@@ -75,7 +75,7 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertStringIncludes(toml, 'test = "echo running example tests"'); // capability
     assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
     assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
-    assertStringIncludes(toml, "[ratchets.examplesize]"); // ratchet
+    assertStringIncludes(toml, "[standards.examplesize]"); // standard
     assertStringIncludes(
       toml,
       "# discern | https://discern.sh | project configuration file",
@@ -171,8 +171,8 @@ Deno.test("preset config fills never overwrite a value the user already set", as
     );
     // The kept key is disclosed, and the remaining fills still landed.
     assert(result.data.config_fills_skipped.includes("capabilities.test"));
-    assert(result.data.config_fills_applied.includes("ratchets.examplesize"));
-    assertStringIncludes(toml, "[ratchets.examplesize]");
+    assert(result.data.config_fills_applied.includes("standards.examplesize"));
+    assertStringIncludes(toml, "[standards.examplesize]");
   });
 });
 
@@ -191,7 +191,7 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
     const result = JSON.parse(r.stdout);
     assertEquals(result.dry_run, true);
     // Per-key disclosure: what would be written, and what the user keeps.
-    assert(result.data.config_fills_applied.includes("ratchets.examplesize"));
+    assert(result.data.config_fills_applied.includes("standards.examplesize"));
     assert(result.data.config_fills_skipped.includes("capabilities.test"));
     // Nothing was written.
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
@@ -204,7 +204,7 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
     );
     assertEquals(human.code, 0, human.stderr);
     assertStringIncludes(human.stderr, "Would fill discern.toml:");
-    assertStringIncludes(human.stderr, "ratchets.examplesize");
+    assertStringIncludes(human.stderr, "standards.examplesize");
     assertStringIncludes(human.stderr, "capabilities.test");
   });
 });
@@ -497,7 +497,7 @@ function fillBearingKeys(): Set<string> {
     capabilities: { test: "echo t" },
     checks: { chk: { stage: "check", run: "echo c" } },
     scopes: { sco: { paths: ["x/**"] } },
-    ratchets: { rat: { direction: "up", limit: 1, run: "echo r" } },
+    standards: { rat: { direction: "up", limit: 1, run: "echo r" } },
   };
   const report = applyConfigDoc(new TomlEditor(""), maximal);
   return new Set(report.filled.map((path) => path.split(".")[0] ?? path));
@@ -528,11 +528,11 @@ const SINGLE_FIELD_PRESETS: Record<
     fragment: { scopes: { solo: { paths: ["solo/**"] } } },
     disclosed: "scopes.solo",
   },
-  ratchets: {
+  standards: {
     fragment: {
-      ratchets: { solo: { direction: "up", limit: 1, run: "echo solo" } },
+      standards: { solo: { direction: "up", limit: 1, run: "echo solo" } },
     },
-    disclosed: "ratchets.solo",
+    disclosed: "standards.solo",
   },
 };
 

@@ -24,12 +24,12 @@ import {
   stageGroup,
 } from "../src/engine/gate/plan.ts";
 import {
-  buildRatchetPlan,
-  ratchetPlanToEngine,
-} from "../src/engine/gate/ratchet_plan.ts";
+  buildStandardPlan,
+  standardPlanToEngine,
+} from "../src/engine/gate/standard_plan.ts";
 
 /** A config rich enough to induce EVERY step kind across the whole model: a job in
- * each stage, a scope gate, a ratchet, a per-worktree resource (create/destroy/
+ * each stage, a scope gate, a standard, a per-worktree resource (create/destroy/
  * ensure), inherit-env + a port, and both setup buckets. */
 const RICH_TOML = [
   "[project]",
@@ -49,7 +49,7 @@ const RICH_TOML = [
   'paths = ["web/**"]',
   'gate = "web-gate"',
   "",
-  "[ratchets.coverage]",
+  "[standards.coverage]",
   'run = "measure-coverage"',
   'direction = "up"',
   "limit = 80",
@@ -108,22 +108,22 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
     labels("test"),
     stageGroup(cfg, "test")?.jobs.map((j) => j.label) ?? [],
   );
-  // ratchets: the ratchet names, in declared order.
+  // standards: the standard names, in declared order.
   assertEquals(
-    labels("ratchets"),
-    ratchetPlanToEngine(buildRatchetPlan(cfg)).steps.map((s) => s.label),
+    labels("standards"),
+    standardPlanToEngine(buildStandardPlan(cfg)).steps.map((s) => s.label),
   );
 });
 
 Deno.test("execution model: actor matches the user-configured vs built-in split", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
   // The two-way split must be consistent: a `project` step is a config-authored command;
-  // a `discern` step is a built-in operation. (The job/check/scope/ratchet/resource/
+  // a `discern` step is a built-in operation. (The job/check/scope/standard/resource/
   // setup kinds are the user's; the precondition/git/env/refresh kinds are discern's.)
   const userKinds = new Set([
     "job",
     "scope-gate",
-    "ratchet",
+    "standard",
     "resource-create",
     "resource-destroy",
     "setup-step",
@@ -177,7 +177,7 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
     "done",
     "prepare",
     "test",
-    "ratchets",
+    "standards",
     "start",
     "worktree ensure",
     "update",

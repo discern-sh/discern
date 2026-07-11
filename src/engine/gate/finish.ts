@@ -483,7 +483,7 @@ function gateReceiptHint(
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
  * human success tail. On a failure: where the project documents its known gate
  * failures (when a `gotchas_doc` is set). On success: update the docs, check the
- * ratchets, view a previewable change.
+ * standards, view a previewable change.
  */
 function buildGateHints(
   cfg: DiscernConfig,
@@ -508,9 +508,9 @@ function buildGateHints(
   hints.push(
     "If you changed documented behaviour, update the docs to match before you finish.",
   );
-  if (cleanFinishRecorded && Object.keys(cfg.ratchets).length > 0) {
+  if (cleanFinishRecorded && Object.keys(cfg.standards).length > 0) {
     hints.push(
-      "Run ratchets as needed with `discern ratchets` (slow and outside `discern done`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
+      "Run standards as needed with `discern standards` (slow and outside `discern done`; non-dry-run standards require a clean worktree unless forced for standard authoring).",
     );
   }
   if (

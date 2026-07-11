@@ -1,10 +1,10 @@
 /**
- * Engine tests for metric ratchets (ADR 0003).
+ * Engine tests for metric standards (ADR 0003).
  *
- * Every ratchet is a `[ratchets.<name>]` table with a direction (up=floor,
+ * Every standard is a `[standards.<name>]` table with a direction (up=floor,
  * down=ceiling), a `limit`, and an inline `run` command that emits
- * `DISCERN_METRIC <name> <number>`. There is no built-in or special ratchet —
- * "coverage" is just a conventional name. `agent ratchets` runs them all.
+ * `DISCERN_METRIC <name> <number>`. There is no built-in or special standard —
+ * "coverage" is just a conventional name. `agent standards` runs them all.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -16,11 +16,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { ratchetPlanIntegrityFailure } from "../src/engine/gate/ratchets.ts";
-import type { PlannedRatchet } from "../src/engine/gate/ratchet_plan.ts";
+import { standardPlanIntegrityFailure } from "../src/engine/gate/standards.ts";
+import type { PlannedStandard } from "../src/engine/gate/standard_plan.ts";
 import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
 
-interface RatchetsJson {
+interface StandardsJson {
   ok: boolean;
   verb: string;
   error?: string;
@@ -41,18 +41,18 @@ interface RatchetsJson {
   }>;
 }
 
-function parseRatchetsJson(stdout: string): RatchetsJson {
-  const obj = JSON.parse(stdout.trim()) as RatchetsJson;
-  assertEquals(obj.verb, "ratchets");
+function parseStandardsJson(stdout: string): StandardsJson {
+  const obj = JSON.parse(stdout.trim()) as StandardsJson;
+  assertEquals(obj.verb, "standards");
   return obj;
 }
 
 /**
- * A config with one `[ratchets.<name>]` table whose `run` emits the metric. The
- * run is inline on the ratchet (not a separate gate job), so only `agent
- * ratchets` ever executes it — the gate never does.
+ * A config with one `[standards.<name>]` table whose `run` emits the metric. The
+ * run is inline on the standard (not a separate gate job), so only `agent
+ * standards` ever executes it — the gate never does.
  */
-function ratchetConfig(opts: {
+function standardConfig(opts: {
   name: string;
   metric?: string;
   direction: string;
@@ -67,7 +67,7 @@ function ratchetConfig(opts: {
     'slug = "engine-test"',
     'main_branch = "main"',
     "",
-    `[ratchets.${opts.name}]`,
+    `[standards.${opts.name}]`,
     ...(opts.metric ? [`metric = "${opts.metric}"`] : []),
     `direction = "${opts.direction}"`,
     `limit = ${opts.limit}`,
@@ -99,12 +99,12 @@ function writeWordFile(
   return writeText(dir, rel, Array(wordCount).fill("w").join(" "));
 }
 
-Deno.test("ratchets: coverage passes when the emitted metric meets the floor", async () => {
+Deno.test("standards: coverage passes when the emitted metric meets the floor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -112,18 +112,18 @@ Deno.test("ratchets: coverage passes when the emitted metric meets the floor", a
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
   });
 });
 
-Deno.test("ratchets: non-dry-run refuses a dirty tree unless forced", async () => {
+Deno.test("standards: non-dry-run refuses a dirty tree unless forced", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -133,34 +133,34 @@ Deno.test("ratchets: non-dry-run refuses a dirty tree unless forced", async () =
     await gitInit(dir);
     await Deno.writeTextFile(`${dir}/dirty.txt`, "dirty\n");
 
-    const dry = await runAgent(dir, ["ratchets", "--dry-run"]);
+    const dry = await runAgent(dir, ["standards", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "coverage");
 
-    const blocked = await runAgent(dir, ["ratchets"]);
+    const blocked = await runAgent(dir, ["standards"]);
     assertEquals(blocked.code, 1, blocked.output);
     assertStringIncludes(blocked.stderr, "clean worktree");
     assertStringIncludes(blocked.stderr, "--force");
 
-    const blockedJson = await runAgent(dir, ["ratchets", "--json"]);
+    const blockedJson = await runAgent(dir, ["standards", "--json"]);
     assertEquals(blockedJson.code, 1, blockedJson.output);
-    const obj = parseRatchetsJson(blockedJson.stdout);
+    const obj = parseStandardsJson(blockedJson.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.error, "dirty_worktree");
     assertStringIncludes(obj.message ?? "", "clean worktree");
 
-    const forced = await runAgent(dir, ["ratchets", "--force"]);
+    const forced = await runAgent(dir, ["standards", "--force"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(forced.stdout, "meets the floor");
   });
 });
 
-Deno.test("ratchets: coverage fails when the emitted metric is below the floor", async () => {
+Deno.test("standards: coverage fails when the emitted metric is below the floor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -168,21 +168,21 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "below the floor");
 
     // The envelope carries the reason too: a caller that can't hear the live
     // narration (MCP, --json) must read the same words from diagnostics[], never
     // be left with a bare failed step.
-    const json = await runAgent(dir, ["ratchets", "--json"]);
+    const json = await runAgent(dir, ["standards", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const obj = parseRatchetsJson(json.stdout);
+    const obj = parseStandardsJson(json.stdout);
     assertEquals(obj.ok, false);
     const diag = (obj.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", json.stdout);
     assertStringIncludes(diag?.message ?? "", "below the floor 80");
-    // The reproduce is the ratchet's own measurement command, and the applied
+    // The reproduce is the standard's own measurement command, and the applied
     // step's note carries the measured value — no re-measurement needed to see
     // the number.
     assertStringIncludes(
@@ -193,14 +193,14 @@ Deno.test("ratchets: coverage fails when the emitted metric is below the floor",
   });
 });
 
-Deno.test("ratchets: a trailing NN% is NOT read — only the DISCERN_METRIC marker counts", async () => {
+Deno.test("standards: a trailing NN% is NOT read — only the DISCERN_METRIC marker counts", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // No DISCERN_METRIC line — only a trailing percentage. There is no fallback
-    // any more, so the metric is unreadable and the ratchet errors.
+    // any more, so the metric is unreadable and the standard errors.
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -208,37 +208,37 @@ Deno.test("ratchets: a trailing NN% is NOT read — only the DISCERN_METRIC mark
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "could not read metric");
 
     // A metric-reading failure's evidence is the measurement output itself — the
     // diagnostic carries it so a remote caller can see what the command emitted.
-    const json = await runAgent(dir, ["ratchets", "--json"]);
-    const obj = parseRatchetsJson(json.stdout);
+    const json = await runAgent(dir, ["standards", "--json"]);
+    const obj = parseStandardsJson(json.stdout);
     const diag = (obj.diagnostics ?? [])[0];
     assertStringIncludes(diag?.message ?? "", "could not read metric");
     assertStringIncludes(diag?.output ?? "", "Total coverage: 90%");
   });
 });
 
-Deno.test("ratchets: a limit may not be lowered vs main", async () => {
+Deno.test("standards: a limit may not be lowered vs main", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
         run: "echo 'DISCERN_METRIC coverage 99'",
       }),
     );
-    await gitInit(dir); // main now has ratchets.coverage.limit = 80
+    await gitInit(dir); // main now has standards.coverage.limit = 80
     await git(dir, "checkout", "-q", "-b", "agent/x");
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "70",
@@ -248,7 +248,7 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "lower the floor", "--no-gpg-sign");
 
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     // A floor may only rise vs main: the never-loosen baseline is read from main's
     // root discern.toml (with the legacy .discern/config.toml as a fallback).
     assertEquals(r.code, 1, r.output);
@@ -257,33 +257,33 @@ Deno.test("ratchets: a limit may not be lowered vs main", async () => {
     // The envelope distinguishes THIS failure mode from a low measurement: the
     // diagnostic names the loosened limit and both values, and the reproduce is
     // the verb (a structural failure — re-running the measurement proves nothing).
-    const json = await runAgent(dir, ["ratchets", "--json"]);
-    const obj = parseRatchetsJson(json.stdout);
+    const json = await runAgent(dir, ["standards", "--json"]);
+    const obj = parseStandardsJson(json.stdout);
     const diag = (obj.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", json.stdout);
     assertStringIncludes(diag?.message ?? "", "floor 80 -> 70");
     assertStringIncludes(diag?.message ?? "", "only rises");
-    assertEquals(diag?.reproduce_cmd, "discern ratchets");
+    assertEquals(diag?.reproduce_cmd, "discern standards");
   });
 });
 
-Deno.test("ratchets: a down-ratchet ceiling may not be raised vs main", async () => {
+Deno.test("standards: a down-standard ceiling may not be raised vs main", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "bundle",
         direction: "down",
         limit: "100",
         run: "echo 'DISCERN_METRIC bundle 50'",
       }),
     );
-    await gitInit(dir); // main now has ratchets.bundle.limit = 100
+    await gitInit(dir); // main now has standards.bundle.limit = 100
     await git(dir, "checkout", "-q", "-b", "agent/x");
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "bundle",
         direction: "down",
         limit: "150",
@@ -293,13 +293,13 @@ Deno.test("ratchets: a down-ratchet ceiling may not be raised vs main", async ()
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "raise the ceiling", "--no-gpg-sign");
 
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only falls");
   });
 });
 
-Deno.test("ratchets: tightening the limit vs main passes in both directions", async () => {
+Deno.test("standards: tightening the limit vs main passes in both directions", async () => {
   const cases = [
     {
       name: "coverage",
@@ -324,7 +324,7 @@ Deno.test("ratchets: tightening the limit vs main passes in both directions", as
       await scaffoldEngine(dir);
       await writeConfig(
         dir,
-        ratchetConfig({
+        standardConfig({
           name: c.name,
           direction: c.direction,
           limit: c.mainLimit,
@@ -335,7 +335,7 @@ Deno.test("ratchets: tightening the limit vs main passes in both directions", as
       await git(dir, "checkout", "-q", "-b", "agent/x");
       await writeConfig(
         dir,
-        ratchetConfig({
+        standardConfig({
           name: c.name,
           direction: c.direction,
           limit: c.branchLimit,
@@ -352,19 +352,19 @@ Deno.test("ratchets: tightening the limit vs main passes in both directions", as
         "--no-gpg-sign",
       );
 
-      const r = await runAgent(dir, ["ratchets"]);
+      const r = await runAgent(dir, ["standards"]);
       assertEquals(r.code, 0, r.output);
       assertStringIncludes(r.stdout, c.message);
     });
   }
 });
 
-Deno.test("ratchets: an up-ratchet passes at equality with the floor", async () => {
+Deno.test("standards: an up-standard passes at equality with the floor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -375,7 +375,7 @@ Deno.test("ratchets: an up-ratchet passes at equality with the floor", async () 
     await git(dir, "checkout", "-q", "-b", "agent/x");
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "coverage",
         direction: "up",
         limit: "80",
@@ -383,18 +383,18 @@ Deno.test("ratchets: an up-ratchet passes at equality with the floor", async () 
       }),
     );
 
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
   });
 });
 
-Deno.test("ratchets: a down-ratchet passes within its ceiling", async () => {
+Deno.test("standards: a down-standard passes within its ceiling", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "bundle",
         metric: "bundle_bytes",
         direction: "down",
@@ -403,19 +403,19 @@ Deno.test("ratchets: a down-ratchet passes within its ceiling", async () => {
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "within the ceiling");
-    assertStringIncludes(r.stdout, "ratchet(s) held");
+    assertStringIncludes(r.stdout, "standard(s) held");
   });
 });
 
-Deno.test("ratchets: a down-ratchet fails above its ceiling", async () => {
+Deno.test("standards: a down-standard fails above its ceiling", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "bundle",
         metric: "bundle_bytes",
         direction: "down",
@@ -424,18 +424,18 @@ Deno.test("ratchets: a down-ratchet fails above its ceiling", async () => {
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "exceeds the ceiling");
   });
 });
 
-Deno.test("ratchets: an up-ratchet passes above its floor", async () => {
+Deno.test("standards: an up-standard passes above its floor", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "typecov",
         direction: "up",
         limit: "90",
@@ -443,13 +443,13 @@ Deno.test("ratchets: an up-ratchet passes above its floor", async () => {
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
   });
 });
 
-Deno.test("ratchets: a misconfigured ratchet (no run command) errors clearly", async () => {
+Deno.test("standards: a misconfigured standard (no run command) errors clearly", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -459,7 +459,7 @@ Deno.test("ratchets: a misconfigured ratchet (no run command) errors clearly", a
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         // no `run` key at all — nothing to measure. `run` is now schema-required,
@@ -469,17 +469,17 @@ Deno.test("ratchets: a misconfigured ratchet (no run command) errors clearly", a
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "discern.toml is invalid");
-    assertStringIncludes(r.stderr, "ratchets.coverage.run");
+    assertStringIncludes(r.stderr, "standards.coverage.run");
   });
 });
 
-Deno.test("ratchets: runs every configured ratchet, aggregating failures", async () => {
+Deno.test("standards: runs every configured standard, aggregating failures", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // Two ratchets: coverage holds, bundle fails. Both must run.
+    // Two standards: coverage holds, bundle fails. Both must run.
     await writeConfig(
       dir,
       [
@@ -487,12 +487,12 @@ Deno.test("ratchets: runs every configured ratchet, aggregating failures", async
         'slug = "engine-test"',
         'main_branch = "main"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         "run = \"echo 'DISCERN_METRIC coverage 95'\"",
         "",
-        "[ratchets.bundle]",
+        "[standards.bundle]",
         'metric = "bundle_bytes"',
         'direction = "down"',
         "limit = 100",
@@ -501,21 +501,21 @@ Deno.test("ratchets: runs every configured ratchet, aggregating failures", async
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    // Coverage held (reported) AND the bundle ratchet failed — both ran.
+    // Coverage held (reported) AND the bundle standard failed — both ran.
     assertStringIncludes(r.stdout, "meets the floor");
     assertStringIncludes(r.stderr, "exceeds the ceiling");
-    assertStringIncludes(r.stderr, "ratchets failed");
+    assertStringIncludes(r.stderr, "standards failed");
   });
 });
 
-Deno.test("ratchets --json: a failing ratchet is a failed step and exit 1", async () => {
+Deno.test("standards --json: a failing standard is a failed step and exit 1", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "bundle",
         direction: "down",
         limit: "100",
@@ -524,9 +524,9 @@ Deno.test("ratchets --json: a failing ratchet is a failed step and exit 1", asyn
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--json"]);
+    const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseRatchetsJson(r.stdout);
+    const obj = parseStandardsJson(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.steps?.map((s) => [s.label, s.outcome]), [
       ["bundle", "failed"],
@@ -534,13 +534,13 @@ Deno.test("ratchets --json: a failing ratchet is a failed step and exit 1", asyn
   });
 });
 
-Deno.test("ratchets: non-numeric emitted metrics fail before comparison", async () => {
+Deno.test("standards: non-numeric emitted metrics fail before comparison", async () => {
   for (const value of ["NaN", "12abc"]) {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await writeConfig(
         dir,
-        ratchetConfig({
+        standardConfig({
           name: "coverage",
           direction: "up",
           limit: "80",
@@ -549,7 +549,7 @@ Deno.test("ratchets: non-numeric emitted metrics fail before comparison", async 
       );
       await gitInit(dir);
 
-      const r = await runAgent(dir, ["ratchets"]);
+      const r = await runAgent(dir, ["standards"]);
       assertEquals(r.code, 1, r.output);
       assertStringIncludes(r.stderr, "is not a number");
       assertStringIncludes(r.stderr, value);
@@ -557,43 +557,43 @@ Deno.test("ratchets: non-numeric emitted metrics fail before comparison", async 
   }
 });
 
-Deno.test("ratchets: a plan/projection length mismatch is a failed integrity step", () => {
-  const ratchet: PlannedRatchet = {
+Deno.test("standards: a plan/projection length mismatch is a failed integrity step", () => {
+  const standard: PlannedStandard = {
     name: "coverage",
     metric: "coverage",
     direction: "up",
     limit: 80,
     command: "echo 'DISCERN_METRIC coverage 80'",
-    limitKey: "ratchets.coverage.limit",
+    limitKey: "standards.coverage.limit",
     scale: 1,
     margin: 0,
   };
-  const failure = ratchetPlanIntegrityFailure({ ratchets: [ratchet] }, []);
+  const failure = standardPlanIntegrityFailure({ standards: [standard] }, []);
   assert(failure !== undefined, "a mismatch must produce a failed step");
   assertEquals(failure.outcome, "failed");
   assertEquals(failure.step.label, "plan-integrity");
-  assertStringIncludes(failure.step.note ?? "", "planned 1 ratchet(s)");
+  assertStringIncludes(failure.step.note ?? "", "planned 1 standard(s)");
   assertStringIncludes(failure.step.note ?? "", "projected 0 step(s)");
 });
 
-Deno.test("ratchets: a clean no-op when nothing is configured", async () => {
+Deno.test("standards: a clean no-op when nothing is configured", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir); // default config: no [ratchets.<name>] tables
+    await scaffoldEngine(dir); // default config: no [standards.<name>] tables
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "No ratchets configured");
+    assertStringIncludes(r.output, "No standards configured");
   });
 });
 
-// ── `per`: ratchet a rate, not a raw count ─────────────────────────────────────
+// ── `per`: hold a rate, not a raw count ─────────────────────────────────────────
 
-Deno.test("ratchets: per a built-in word extent passes within the rate ceiling", async () => {
+Deno.test("standards: per a built-in word extent passes within the rate ceiling", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "12",
@@ -604,7 +604,7 @@ Deno.test("ratchets: per a built-in word extent passes within the rate ceiling",
     );
     await writeWordFile(dir, "content/a.txt", 100); // denominator = 100 words
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     // 1 alert / 100 words * 1000 = 10 per 1,000 words, within the ceiling of 12.
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "within the ceiling");
@@ -612,12 +612,12 @@ Deno.test("ratchets: per a built-in word extent passes within the rate ceiling",
   });
 });
 
-Deno.test("ratchets: per a built-in word extent fails when the rate exceeds the ceiling", async () => {
+Deno.test("standards: per a built-in word extent fails when the rate exceeds the ceiling", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "5",
@@ -628,7 +628,7 @@ Deno.test("ratchets: per a built-in word extent fails when the rate exceeds the 
     );
     await writeWordFile(dir, "content/a.txt", 100);
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     // 10 per 1,000 words exceeds the ceiling of 5.
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "exceeds the ceiling");
@@ -636,12 +636,12 @@ Deno.test("ratchets: per a built-in word extent fails when the rate exceeds the 
   });
 });
 
-Deno.test("ratchets: per a second emitted metric divides one number by the other", async () => {
+Deno.test("standards: per a second emitted metric divides one number by the other", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "warnings",
         metric: "alerts",
         direction: "down",
@@ -653,7 +653,7 @@ Deno.test("ratchets: per a second emitted metric divides one number by the other
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     // 30 alerts / 1000 words * 1000 = 30, within the ceiling of 40.
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "within the ceiling");
@@ -661,12 +661,12 @@ Deno.test("ratchets: per a second emitted metric divides one number by the other
   });
 });
 
-Deno.test("ratchets: a `per` extent matching nothing errors instead of dividing by zero", async () => {
+Deno.test("standards: a `per` extent matching nothing errors instead of dividing by zero", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "5",
@@ -676,23 +676,23 @@ Deno.test("ratchets: a `per` extent matching nothing errors instead of dividing 
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "nothing to divide by");
   });
 });
 
-Deno.test("ratchets: an empty `per` pathspec is refused at load, never measuring the whole repo (B42)", async () => {
+Deno.test("standards: an empty `per` pathspec is refused at load, never measuring the whole repo (B42)", async () => {
   // The end-to-end half of the B42 guard. With `per = { words = [] }`, git's
   // `ls-files --` (no pathspecs) would list EVERY tracked file, making the
   // denominator the whole repo — a wildly wrong, silently-passing rate. The
-  // schema now refuses the empty array at load, so `ratchets` errors with a
+  // schema now refuses the empty array at load, so `standards` errors with a
   // path-qualified config message and measures nothing at all.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "5",
@@ -702,10 +702,10 @@ Deno.test("ratchets: an empty `per` pathspec is refused at load, never measuring
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "discern.toml is invalid");
-    assertStringIncludes(r.stderr, "ratchets.prose.per.words");
+    assertStringIncludes(r.stderr, "standards.prose.per.words");
     // It must NOT have run a whole-repo measurement — no metric narration leaks.
     assert(!r.stdout.includes("per"), r.output);
   });
@@ -716,10 +716,10 @@ Deno.test("ratchets: an empty `per` pathspec is refused at load, never measuring
 // change made the measured value scale with corpus size again, the first test
 // breaks. Drive both off the SAME corpus/metric growth so the contrast is exact.
 
-Deno.test("ratchets: a rate is invariant under proportional growth (the fix)", async () => {
+Deno.test("standards: a rate is invariant under proportional growth (the fix)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const cfg = ratchetConfig({
+    const cfg = standardConfig({
       name: "prose",
       direction: "down",
       limit: "21", // ceiling on the RATE (per 1,000 words)
@@ -730,7 +730,7 @@ Deno.test("ratchets: a rate is invariant under proportional growth (the fix)", a
     await writeConfig(dir, cfg);
     await writeWordFile(dir, "content/a.txt", 150); // 3 / 150 * 1000 = 20.0
     await gitInit(dir);
-    const small = await runAgent(dir, ["ratchets"]);
+    const small = await runAgent(dir, ["standards"]);
     assertEquals(small.code, 0, small.output);
     assertStringIncludes(small.stdout, "within the ceiling");
 
@@ -739,7 +739,7 @@ Deno.test("ratchets: a rate is invariant under proportional growth (the fix)", a
     await writeWordFile(dir, "content/a.txt", 300);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "21",
@@ -748,19 +748,19 @@ Deno.test("ratchets: a rate is invariant under proportional growth (the fix)", a
         run: "echo 'DISCERN_METRIC prose 6'", // 6 / 300 * 1000 = 20.0
       }),
     );
-    const grown = await runAgent(dir, ["ratchets", "--force"]);
+    const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 0, grown.output);
     assertStringIncludes(grown.stdout, "within the ceiling");
   });
 });
 
-Deno.test("ratchets: the same growth breaks a raw count, and the failure points at `per`", async () => {
+Deno.test("standards: the same growth breaks a raw count, and the failure points at `per`", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // A raw-count ceiling at the small count (3), no `per`.
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "3",
@@ -768,24 +768,24 @@ Deno.test("ratchets: the same growth breaks a raw count, and the failure points 
       }),
     );
     await gitInit(dir);
-    const small = await runAgent(dir, ["ratchets"]);
+    const small = await runAgent(dir, ["standards"]);
     assertEquals(small.code, 0, small.output); // 3 within the ceiling of 3
 
     // Same proportional growth as the rate test — but a raw count rises with size
     // and breaches the ceiling, the exact trap `per` removes.
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "prose",
         direction: "down",
         limit: "3",
         run: "echo 'DISCERN_METRIC prose 6'",
       }),
     );
-    const grown = await runAgent(dir, ["ratchets", "--force"]);
+    const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 1, grown.output);
     assertStringIncludes(grown.stderr, "exceeds the ceiling");
-    assertStringIncludes(grown.stderr, "ratchet a rate"); // the normalize hint
+    assertStringIncludes(grown.stderr, "hold a rate"); // the normalize hint
   });
 });
 
@@ -824,7 +824,7 @@ const EXTENT_CASES: Record<
   },
 };
 
-Deno.test("ratchets: EVERY built-in extent measures its own denominator", async () => {
+Deno.test("standards: EVERY built-in extent measures its own denominator", async () => {
   // SSOT coupling: the cases name EXACTLY the EXTENTS vocabulary — a new extent
   // can't ship without a denominator case here, and a removed one can't leave a
   // dead case behind. This is the tie that auto-enrols the next measure.
@@ -840,7 +840,7 @@ Deno.test("ratchets: EVERY built-in extent measures its own denominator", async 
       await scaffoldEngine(dir);
       await writeConfig(
         dir,
-        ratchetConfig({
+        standardConfig({
           name: "r",
           direction: "down",
           limit: "1",
@@ -850,7 +850,7 @@ Deno.test("ratchets: EVERY built-in extent measures its own denominator", async 
       );
       for (const [rel, content] of c.files) await writeText(dir, rel, content);
       await gitInit(dir);
-      const r = await runAgent(dir, ["ratchets"]);
+      const r = await runAgent(dir, ["standards"]);
       assertEquals(r.code, 0, `${measure}: ${r.output}`);
       assertStringIncludes(
         r.stdout,
@@ -861,12 +861,12 @@ Deno.test("ratchets: EVERY built-in extent measures its own denominator", async 
   }
 });
 
-Deno.test("ratchets: a `per` metric the run never emits errors clearly", async () => {
+Deno.test("standards: a `per` metric the run never emits errors clearly", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      ratchetConfig({
+      standardConfig({
         name: "warnings",
         metric: "alerts",
         direction: "down",
@@ -877,7 +877,7 @@ Deno.test("ratchets: a `per` metric the run never emits errors clearly", async (
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["ratchets"]);
+    const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "could not read 'per' metric 'words'");
   });

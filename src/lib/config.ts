@@ -41,7 +41,7 @@ export type { Capability, Stage } from "../shared/capabilities.ts";
 export const DEFAULTS = {
   branchPrefix: "agent/",
   sourceGlobs: ["src/**", "app/**"],
-  // Default to the two committed-standard providers; gemini is opt-in.
+  // Default to the two built-in providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
   docsDir: SOURCE_PATHS.docs.defaultPath,
   gotchasDoc: "",

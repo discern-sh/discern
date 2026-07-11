@@ -242,7 +242,7 @@ export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
   config: SetupConfig;
-  /** Declarative slots/scopes/side_gates/ratchets fills from `setup --config`. */
+  /** Declarative slots/scopes/side_gates/standards fills from `setup --config`. */
   fills?: DiscernConfigDoc | undefined;
   /** The repo's detected integration branch, stamped into the fresh config's
    * `[project].main_branch` (before the fills, so an explicit fill still wins). */
@@ -434,7 +434,7 @@ async function forkParentBranch(destDir: string): Promise<string | undefined> {
 }
 
 /**
- * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
+ * Apply the answers file's slots/scopes/side_gates/standards to the generated
  * `discern.toml` op via the comment-preserving editor. A no-op when the
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */

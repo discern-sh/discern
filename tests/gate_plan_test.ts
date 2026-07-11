@@ -486,7 +486,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     },
     {
       step: {
-        kind: "ratchet",
+        kind: "standard",
         label: "coverage",
         disposition: "run",
       },

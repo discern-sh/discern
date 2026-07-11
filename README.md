@@ -111,7 +111,7 @@ either way.
   compiles it into each agent's own file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
   — so every agent, and any other tool that reads `AGENTS.md`, works from one
   source of truth. [Agent guidance →](docs/40-agent-guidance/)
-- **Ratchets.** Numbers that may only improve — coverage, bundle size, lint
+- **Standards.** Numbers that can never get worse — coverage, bundle size, lint
   counts — so quality climbs and never slips back.
 - **A docs & decision discipline.** A living, agent-maintained map of your
   codebase and Architecture Decision Records, kept current by the gate itself.

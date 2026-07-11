@@ -7,7 +7,7 @@
  * agent calls it reflexively at the start of a session.
  *
  * `status` is PURE OBSERVATION. It never runs the gate, runs tests, measures
- * ratchets, probes resource readiness, or creates/destroys anything. It does git
+ * standards, probes resource readiness, or creates/destroys anything. It does git
  * *reads*, file reads (`.env`, config), and identity derivation only — fast enough
  * to call reflexively. It reports what the gate WOULD fire and what CHANGED; it
  * never asserts a pass/fail it didn't verify.
@@ -215,7 +215,7 @@ export async function statusResult(
     root,
     worktree,
     git,
-    ratchets: Object.keys(cfg.ratchets),
+    standards: Object.keys(cfg.standards),
   };
   const gateReceipt = location === "worktree"
     ? await inspectGateReceipt(root)
@@ -1108,8 +1108,8 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
     );
   }
 
-  if (data.ratchets.length > 0) {
-    out.raw(`  ${label("ratchets")}${data.ratchets.join(", ")}\n`);
+  if (data.standards.length > 0) {
+    out.raw(`  ${label("standards")}${data.standards.join(", ")}\n`);
   }
 
   if (data.fleet !== undefined) {

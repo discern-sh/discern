@@ -67,6 +67,12 @@ const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
     5,
     "migration 5→6 dissolves .discern/: moves config/guidance/recipes/authored-skills out, prunes bundled, adds sections",
   ],
+  // Covered across table, dotted-key, quoted-key, inline-table, and collision
+  // forms by the focused migration test named below.
+  [
+    17,
+    "migration 17→18 renames [ratchets] to [standards] in every supported TOML form",
+  ],
 ]);
 
 function historicalFixtureName(from: number): string {
@@ -171,8 +177,9 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root),
   // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
   // authored surface into the discern/ namespace), 15→16 (retire the
-  // [features] toggles and [worktree].enabled), and 16→17 (drop
-  // [worktree].graduate_to — accept always lands on the trunk).
+  // [features] toggles and [worktree].enabled), 16→17 (drop
+  // [worktree].graduate_to — accept always lands on the trunk), and 17→18
+  // ([ratchets] → [standards]).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -190,6 +197,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     14,
     15,
     16,
+    17,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -753,6 +761,105 @@ Deno.test("migration 16→17 never eats a user's unrelated comment above the key
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
     assertStringIncludes(toml, "deploy notes live in the wiki"); // not ours to eat
+  });
+});
+
+Deno.test("migration 17→18 renames [ratchets] to [standards] in every supported TOML form", async () => {
+  const cases = [
+    {
+      name: "table family",
+      text: "# ratchets remains ordinary English in a comment\n" +
+        "[ratchets.coverage]\n" +
+        'direction = "up"\nlimit = 80\nrun = "printf ratchets"\n',
+    },
+    {
+      name: "dotted root keys",
+      text: 'ratchets.coverage.direction = "up"\n' +
+        "ratchets.coverage.limit = 80\n" +
+        'ratchets.coverage.run = "measure"\n',
+    },
+    {
+      name: "quoted dotted root keys",
+      text: `'ratchets'."coverage".direction = "up"\n` +
+        `'ratchets'."coverage".limit = 80\n` +
+        `'ratchets'."coverage".run = "measure"\n`,
+    },
+    {
+      name: "inline root table",
+      text:
+        'ratchets = { coverage = { direction = "up", limit = 80, run = "measure" } }\n',
+    },
+    {
+      name: "quoted table family",
+      text: `["ratchets".'coverage']\n` +
+        'direction = "up"\nlimit = 80\nrun = "measure"\n',
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "discern.toml"), testCase.text);
+      const notes: string[] = [];
+      await applyMigrations({
+        destDir: dir,
+        from: 17,
+        to: 18,
+        onNote: (note) => notes.push(note),
+      });
+      const after = await Deno.readTextFile(join(dir, "discern.toml"));
+      const raw = parseDiscernToml(after).raw;
+      assertEquals(
+        raw.ratchets,
+        undefined,
+        `${testCase.name}: old key remains`,
+      );
+      assertExists(raw.standards, `${testCase.name}: successor key is absent`);
+      assert(
+        notes.some((note) =>
+          note.includes("renamed [ratchets] to [standards]")
+        ),
+        `${testCase.name}: ${notes.join("\n")}`,
+      );
+
+      if (testCase.name === "table family") {
+        assertStringIncludes(after, "# ratchets remains ordinary English");
+        assertStringIncludes(after, 'run = "printf ratchets"');
+      }
+
+      // The migration is idempotent even if its step is re-run directly.
+      await applyMigrations({
+        destDir: dir,
+        from: 17,
+        to: 18,
+        onNote: () => {},
+      });
+      assertEquals(
+        await Deno.readTextFile(join(dir, "discern.toml")),
+        after,
+        testCase.name,
+      );
+    });
+  }
+});
+
+Deno.test("migration 17→18 refuses colliding old and new standard tables with a next step", async () => {
+  await withTempDir(async (dir) => {
+    const text =
+      '[ratchets.old]\ndirection = "up"\nlimit = 1\nrun = "old"\n\n' +
+      '[standards.new]\ndirection = "up"\nlimit = 1\nrun = "new"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 17,
+          to: 18,
+          onNote: () => {},
+        }),
+      Error,
+      "Move the entries under [standards], remove [ratchets], then run `discern upgrade` again",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
   });
 });
 

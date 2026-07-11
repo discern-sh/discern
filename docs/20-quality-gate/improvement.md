@@ -68,7 +68,7 @@ Every category applies to every install — every subsystem is core
 | `guidance`  | substantive source, compiled files · knowledge is project-specific and non-inferable |
 | `docs`      | docs tree, ADRs · pages match code and form a navigable tree                         |
 | `worktrees` | (no objective rule) · shared external resources are declared per worktree            |
-| `ratchets`  | at least one ratchet · missing signals and raw growing-tree counts are reviewed      |
+| `standards` | at least one standard · missing signals and raw growing-tree counts are reviewed     |
 | `skills`    | recurring-task opportunities · authored skills are executable, verifiable playbooks  |
 
 ## Running it

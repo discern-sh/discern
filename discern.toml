@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 17
+schema_version = 18
 bootstrapped   = true
 
 [project]
@@ -45,7 +45,7 @@ todo = "TODO.md"
 # ─────────────────────────────────────────────────────────────────────────────
 # [docs] — discern's agent documentation tree. This is conceptually distinct
 # from human-curated project docs: setup scaffolds it here, `discern docs`
-# browses it, and `${docs.dir}` keeps checks/scopes/ratchets tied to this path.
+# browses it, and `${docs.dir}` keeps checks/scopes/standards tied to this path.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [docs]
@@ -126,7 +126,7 @@ smoke     = "deno task dev --version"
 
 # `prose` lints docs/ with Vale at the check stage — error-severity findings block
 # the gate; the advisory tiers (warnings, suggestions) are held by the
-# [ratchets.prose] ceiling instead.
+# [standards.prose] ceiling instead.
 [checks.prose]
 stage    = "check"
 run      = "vale --minAlertLevel error \"${docs.dir}\""
@@ -268,67 +268,68 @@ steps = []               # one-shot scaffolding (none needed here)
 ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (idempotent)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
+# [standards] — quality standards: numbers that can never get worse, enforced on
+# demand by `discern standards`
 # (slow, so NOT part of `discern done`). None configured means none run — defining
 # one is what turns the subsystem on.
 #
-# A ratchet is a number you only ever want to improve: line coverage, a bundle-
-# size budget, a lint/type-error count, a perf budget. Each [ratchets.<name>]
+# Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
+# error count, a perf budget. Each [standards.<name>]
 # table declares one:
-#   metric     the metric name the run emits        (default: the ratchet name)
+#   metric     the metric name the run emits        (default: the standard name)
 #   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
 #              "down" value should fall; limit is a CEILING (e.g. a size budget)
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
-#              (run on demand by `discern ratchets`, never by the gate)
-#   per        divide the metric to ratchet a RATE, not a raw count — so the number
+#              (run on demand by `discern standards`, never by the gate)
+#   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
 #              per = { words = "${docs.dir}**" }  (files | lines | words | bytes over a pathspec)
 #   scale      multiply the rate so the limit reads in human units (e.g. 1000)
-#   margin     headroom `discern ratchets --pin` leaves when it tightens this limit
+#   margin     headroom `discern standards --pin` leaves when it tightens this limit
 #              to the measured value (default 0). Give a metric that drifts on
 #              unrelated commits (a size, a coverage %) a margin so a pinned limit
 #              isn't tripped by ordinary fluctuation.
 #
-# A ratchet's `run` reports its number by printing a line:
+# A standard's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
-# (the LAST such line wins). There is no built-in or special ratchet — coverage
+# (the LAST such line wins). There is no built-in or special standard — coverage
 # is just the conventional name for one. None are configured by default;
 # uncomment an example to enable it.
 #
-# Captured a gain? `discern ratchets --pin` tightens each improved limit to the
-# value just measured and commits it — the way to re-pin a baseline, never a
+# Captured a gain? `discern standards --pin` tightens each improved limit to the
+# value just measured and commits it — the way to tighten a standard, never a
 # hand-edit (which can't tell a real gain from a quiet loosening).
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Coverage ratchet — hold src/ line coverage at or above a rising floor. The run
+# Coverage standard — hold src/ line coverage at or above a rising floor. The run
 # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
 # for src/ (the installer AND the TS engine — both instrumented). Held by
-# `discern ratchets`, enforced on every PR in CI. The floor spans the whole src/
-# tree, so it covers a large surface; ratchet it further up as coverage improves.
-[ratchets.coverage]
+# `discern standards`, enforced on every PR in CI. The floor spans the whole src/
+# tree, so it covers a large surface; raise it further as coverage improves.
+[standards.coverage]
 direction = "up"
 limit     = 91.8
 run       = "deno task coverage"
 
-# Prose ratchet — hold docs' Vale alert *density* at or below a falling ceiling.
+# Prose standard — hold docs' Vale alert *density* at or below a falling ceiling.
 # `deno task prose` runs Vale over docs/ and emits DISCERN_METRIC prose <count>
 # (every severity; error-severity findings are separately blocked by the gate via
 # [checks.prose]). `per` divides that count by the words in docs/ (discern counts
-# them itself), so the ratchet tracks alerts per 1,000 words — a *rate*: writing
+# them itself), so the standard tracks alerts per 1,000 words — a *rate*: writing
 # more docs never breaches it, only writing nittier-than-average prose does. Held
-# by `discern ratchets`, enforced on every PR in CI. ~18.7 today; lower the limit
+# by `discern standards`, enforced on every PR in CI. ~18.7 today; lower the limit
 # as the density improves — the ceiling only falls.
-[ratchets.prose]
+[standards.prose]
 direction = "down"
 per       = { words = "${docs.dir}**" }
 scale     = 1000
 limit     = 14.43
 run       = "deno task prose \"${docs.dir}\""
 
-# Guidance-footprint ratchet — the bundled built-in guidance (templates/guidance/
+# Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
 # word count is a context-window budget we spend on their behalf. ~720 words today.
 # This ceiling exists to stop verbiage piling in without a thought for that budget:
@@ -336,32 +337,32 @@ run       = "deno task prose \"${docs.dir}\""
 # internals (those belong in this repo's guidance.md), nor mechanics an agent can
 # discover by running a verb. Raise the limit only to make deliberate room for
 # genuinely-needed operating guidance — trim elsewhere otherwise.
-[ratchets.guidance]
+[standards.guidance]
 metric    = "guidance_words"
 direction = "down"
 limit     = 831
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 
-# Binary-size ratchet — hold one representative release artifact at or below a
+# Binary-size standard — hold one representative release artifact at or below a
 # falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
 # resulting dist/discern-* binary, avoiding macOS codesigning noise while still
 # protecting the shipped single-file executable from silent growth. Re-baseline
 # only for deliberate release-surface changes or Deno compiler/runtime shifts.
-[ratchets.binary_size]
+[standards.binary_size]
 metric    = "binary_size_bytes"
 direction = "down"
 limit     = 132018824
-# The binary's byte count drifts with every commit, so `discern ratchets --pin`
+# The binary's byte count drifts with every commit, so `discern standards --pin`
 # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
 # win without pinning to an exact value the next commit would breach.
 margin    = 1000000
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
-# Public-docs leaf-density ratchet — hold the public docs tree at or above a
+# Public-docs leaf-density standard — hold the public docs tree at or above a
 # rising floor of non-README Markdown leaves per 10,000 public-doc words. The
 # metric excludes underscore-prefixed docs trees (_private, _internal, _adr) so
 # private notes and ADR churn cannot satisfy or breach the public-docs budget.
-[ratchets.public_doc_leaf_density]
+[standards.public_doc_leaf_density]
 metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"

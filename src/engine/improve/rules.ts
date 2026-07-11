@@ -577,73 +577,73 @@ const WORKTREES: Category = {
   ],
 };
 
-/** Quality ratchets — never-loosen metric floors. */
-const RATCHETS: Category = {
-  name: "ratchets",
-  title: "Quality ratchets",
+/** Quality standards — never-loosen metric floors. */
+const STANDARDS: Category = {
+  name: "standards",
+  title: "Quality standards",
   rules: [
     {
       kind: "deterministic",
-      id: "ratchets.any",
-      title: "At least one quality ratchet",
+      id: "standards.any",
+      title: "At least one quality standard",
       weight: 2,
       fix:
-        'discern config set-ratchet coverage --limit <n> --run "<command emitting the metric>"',
+        'discern config set-standard coverage --limit <n> --run "<command emitting the metric>"',
       teach:
-        "A ratchet locks in a metric you only ever want to improve (coverage, bundle " +
+        "A standard locks in a metric you only ever want to improve (coverage, bundle " +
         "size, an error count) so a branch can never loosen it. Even one — line coverage " +
         "is the usual first — turns a good number into a floor.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        Object.keys(ctx.config.ratchets).length > 0
+        Object.keys(ctx.config.standards).length > 0
           ? {
             status: "pass",
             detail: `${
-              Object.keys(ctx.config.ratchets).length
-            } ratchet(s) defined`,
+              Object.keys(ctx.config.standards).length
+            } standard(s) defined`,
           }
-          : { status: "fail", detail: "no [ratchets.<name>] defined" },
+          : { status: "fail", detail: "no [standards.<name>] defined" },
     },
     {
       kind: "subjective",
-      id: "ratchets.opportunity",
-      title: "No un-ratcheted metric worth holding",
+      id: "standards.opportunity",
+      title: "No unprotected metric worth holding",
       ask:
         "Is there a measurable quality signal in this project you only ever want to " +
         "improve — test coverage, bundle/binary size, type-error count, a performance " +
-        "budget, lint-warning count — that is NOT yet protected by a ratchet?",
+        "budget, lint-warning count — that is NOT yet protected by a standard?",
       teach: "Find the number you'd be unhappy to see regress, emit it as " +
-        "`DISCERN_METRIC <name> <value>` from a command, and add a [ratchets.<name>] " +
-        "with that floor/ceiling. `discern ratchets` then enforces it can only tighten.",
+        "`DISCERN_METRIC <name> <value>` from a command, and add a [standards.<name>] " +
+        "with that floor/ceiling. `discern standards` then enforces it can only tighten.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const names = Object.keys(ctx.config.ratchets);
+        const names = Object.keys(ctx.config.standards);
         return {
-          source: "[ratchets]",
+          source: "[standards]",
           excerpt: names.length === 0
-            ? "no ratchets defined yet"
-            : `already ratcheted: ${names.join(", ")}`,
+            ? "no standards defined yet"
+            : `protected by standards: ${names.join(", ")}`,
         };
       },
     },
     {
       kind: "subjective",
-      id: "ratchets.normalize",
-      title: "No raw count ratcheted over a growing tree",
+      id: "standards.normalize",
+      title: "No raw count held over a growing tree",
       ask:
-        "Do any ceiling ratchets count items over a tree that grows over time — lint " +
+        "Do any ceiling standards count items over a tree that grows over time — lint " +
         "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
-        "fails on growth, not regressions, and the only way to pass is to loosen it. Ratchet " +
+        "fails on growth, not regressions, and the only way to pass is to loosen it. Hold " +
         "a rate instead: add `per` to divide by a built-in extent (files|lines|words|bytes).",
       teach:
-        "A count is safe to ratchet only when it doesn't scale with project size (a true " +
+        "A count is safe to hold only when it doesn't scale with project size (a true " +
         "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "${docs.dir}**" }` ratchets docs alerts-per-word, so growth alone never ' +
+        '`per = { words = "${docs.dir}**" }` holds docs alerts-per-word, so growth alone never ' +
         "breaches the ceiling — only a real quality regression does.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const raw = Object.entries(ctx.config.ratchets)
+        const raw = Object.entries(ctx.config.standards)
           .filter(([, r]) => r.direction === "down" && r.per === undefined)
           .map(([name]) => name);
         return {
-          source: "[ratchets]",
+          source: "[standards]",
           excerpt: raw.length === 0
             ? "no un-normalized ceiling counts"
             : `raw ceiling counts (candidates for \`per\`): ${raw.join(", ")}`,
@@ -708,7 +708,7 @@ export const CATEGORIES: readonly Category[] = [
   GUIDANCE,
   DOCS,
   WORKTREES,
-  RATCHETS,
+  STANDARDS,
   SKILLS,
 ];
 

@@ -70,6 +70,21 @@ Deno.test("a uniquely matching trailing-s variant reaches the canonical command"
   });
 });
 
+Deno.test("standard silently reaches standards with the same result", async () => {
+  assertEquals(normalizeVerbVariant("standard", KNOWN_VERBS), "standards");
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const args = ["--dry-run", "--json"];
+    const direct = await runAgent(dir, ["standards", ...args]);
+    const forgiven = await runAgent(dir, ["standard", ...args]);
+    assertEquals(direct.code, 0, direct.output);
+    assertEquals(forgiven.code, direct.code, forgiven.output);
+    assertEquals(forgiven.stdout, direct.stdout);
+    assertStringIncludes(forgiven.stdout, '"verb":"standards"');
+  });
+});
+
 Deno.test("explicit grammatical variants reach the same canonical result", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
