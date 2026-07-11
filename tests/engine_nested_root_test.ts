@@ -129,7 +129,7 @@ Deno.test("nested root: committed and pending changes classify into their scope"
     // …and one pending change (read via `git status --porcelain`).
     await Deno.writeTextFile(join(app, "widget", "b.txt"), "b");
 
-    const r = await runAgent(app, ["scopes", "--json"]);
+    const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
     const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
     assert(scopes.includes("widget"), `widget must classify: ${r.stdout}`);
@@ -144,7 +144,7 @@ Deno.test("nested root: a sibling project's changes are not this project's code"
     await Deno.mkdir(join(repo, "other"));
     await Deno.writeTextFile(join(repo, "other", "x.txt"), "x");
 
-    const r = await runAgent(app, ["scopes", "--json"]);
+    const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
     const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
     assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);

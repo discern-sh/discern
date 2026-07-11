@@ -117,7 +117,7 @@ subcommands:
 | `discern prepare`  | The fast inner loop — fixers then read-only checks; no build or test.                                                                                     | [`src/engine/gate/prepare.ts`](../../src/engine/gate/prepare.ts)   |
 | `discern test`     | The `test` capability on its own.                                                                                                                         | [`src/engine/gate/test.ts`](../../src/engine/gate/test.ts)         |
 | `discern ratchets` | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `done`).                                                                | [`src/engine/gate/ratchets.ts`](../../src/engine/gate/ratchets.ts) |
-| `discern scopes`   | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/scopes.ts`](../../src/engine/scopes/scopes.ts) |
+| `discern impact`   | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/scopes.ts`](../../src/engine/scopes/scopes.ts) |
 
 Every subsystem is core — there is no `[features]` table and no existence-toggle
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A subsystem that

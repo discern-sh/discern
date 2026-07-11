@@ -307,7 +307,7 @@ export const RefreshDataSchema = z.strictObject({
 });
 export type RefreshData = z.infer<typeof RefreshDataSchema>;
 
-/** `scopes` — the classified scope/marker list. */
+/** `impact` — the classified scope/marker list. */
 export const ScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
 });
@@ -1145,9 +1145,9 @@ export const DoctorOutputSchema = resultOutputSchema(
   DoctorDataSchema,
 );
 
-/** `scopes` output: envelope + the scope-list `data`. */
-export const ScopesOutputSchema = resultOutputSchema(
-  "scopes",
+/** `impact` output: envelope + the scope-list `data`. */
+export const ImpactOutputSchema = resultOutputSchema(
+  "impact",
   ScopesDataSchema,
 );
 

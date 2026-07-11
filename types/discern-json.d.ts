@@ -1841,7 +1841,7 @@ export type DiscernRefreshResult = {
   };
 };
 
-export type DiscernScopesResult = {
+export type DiscernImpactResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1912,7 +1912,7 @@ export type DiscernScopesResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "scopes";
+  verb: "impact";
   data?: {
     scopes: Array<string>;
   } | {
@@ -2996,7 +2996,7 @@ export type DiscernCliJsonResult =
   | DiscernImproveResult
   | DiscernRatchetsResult
   | DiscernRefreshResult
-  | DiscernScopesResult
+  | DiscernImpactResult
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
@@ -3028,7 +3028,7 @@ export interface DiscernResultByVerb {
   improve: DiscernImproveResult;
   ratchets: DiscernRatchetsResult;
   refresh: DiscernRefreshResult;
-  scopes: DiscernScopesResult;
+  impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
@@ -3066,7 +3066,7 @@ export interface DiscernResultByCommand {
   improve: DiscernImproveResult;
   ratchets: DiscernRatchetsResult;
   refresh: DiscernRefreshResult;
-  scopes: DiscernScopesResult;
+  impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
@@ -3101,7 +3101,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_improve: DiscernImproveResult;
   discern_ratchets: DiscernRatchetsResult;
   discern_refresh: DiscernRefreshResult;
-  discern_scopes: DiscernScopesResult;
+  discern_impact: DiscernImpactResult;
   discern_coupling: DiscernCouplingResult;
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
@@ -3119,7 +3119,7 @@ export interface DiscernMcpToolResultByTool {
   discern_improve: DiscernMcpToolResult<DiscernImproveResult>;
   discern_ratchets: DiscernMcpToolResult<DiscernRatchetsResult>;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
-  discern_scopes: DiscernMcpToolResult<DiscernScopesResult>;
+  discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
@@ -3137,7 +3137,7 @@ export type DiscernMcpStructuredContent =
   | DiscernImproveResult
   | DiscernRatchetsResult
   | DiscernRefreshResult
-  | DiscernScopesResult
+  | DiscernImpactResult
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
@@ -3154,7 +3154,7 @@ export type DiscernMcpJsonResult =
   | DiscernImproveMcpToolResult
   | DiscernRatchetsMcpToolResult
   | DiscernRefreshMcpToolResult
-  | DiscernScopesMcpToolResult
+  | DiscernImpactMcpToolResult
   | DiscernCouplingMcpToolResult
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
@@ -3189,8 +3189,8 @@ export type DiscernRefreshMcpToolResult = DiscernMcpToolResult<
   DiscernRefreshResult
 >;
 
-export type DiscernScopesMcpToolResult = DiscernMcpToolResult<
-  DiscernScopesResult
+export type DiscernImpactMcpToolResult = DiscernMcpToolResult<
+  DiscernImpactResult
 >;
 
 export type DiscernCouplingMcpToolResult = DiscernMcpToolResult<

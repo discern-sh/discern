@@ -394,7 +394,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
-    assert(names.includes("discern_scopes"), JSON.stringify(names));
+    assert(names.includes("discern_impact"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
     assert(names.includes("discern_improve"), JSON.stringify(names));
     // `discern_help` (discern's own docs) is always listed — not a project feature.
@@ -427,15 +427,15 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     // The text content mirrors the structured content (same serialized object).
     assert(call.result.content[0].text.includes('"verb": "done"'));
 
-    // tools/call discern_scopes → its DiscernResult.
+    // tools/call discern_impact → its DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_scopes", arguments: {} },
+      params: { name: "discern_impact", arguments: {} },
     });
     const cs = await mcp.recv();
-    assertEquals(cs.result.structuredContent.verb, "scopes");
+    assertEquals(cs.result.structuredContent.verb, "impact");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
 
     // tools/call discern_status → the situation/orientation DiscernResult. The
@@ -2017,7 +2017,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
 
     const READ_ONLY_TOOLS = new Set([
       "discern_doctor",
-      "discern_scopes",
+      "discern_impact",
       "discern_coupling",
       "discern_status",
       "discern_improve",
@@ -2145,7 +2145,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_update",
         "discern_ratchets",
         "discern_accept",
-        "discern_scopes",
+        "discern_impact",
         "discern_coupling",
         "discern_refresh",
         "discern_docs",
@@ -2593,7 +2593,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     for (
       const u of [
         "discern://status",
-        "discern://scopes",
+        "discern://impact",
         "discern://config",
         "discern://help",
         "discern://docs",
@@ -2636,12 +2636,12 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       "the status resource carries the configured ratchets",
     );
 
-    // read discern://scopes
+    // read discern://impact
     await mcp.send({
       jsonrpc: "2.0",
       id: 5,
       method: "resources/read",
-      params: { uri: "discern://scopes" },
+      params: { uri: "discern://impact" },
     });
     const cs = await mcp.recv();
     assert(Array.isArray(JSON.parse(cs.result.contents[0].text).scopes));

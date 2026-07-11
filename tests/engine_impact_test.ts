@@ -1,5 +1,5 @@
 /**
- * Engine coverage for the `scopes` verb's output surface — the human
+ * Engine coverage for the `impact` verb's output surface — the human
  * line list, the `--has` membership exit code, and the `--json` DiscernResult
  * envelope (ADR 0028: `{ok, verb, data:{scopes}}`, no longer a bare array).
  */
@@ -42,20 +42,20 @@ async function scaffoldWithWidget(dir: string): Promise<void> {
   await writeExecutable(join(dir, "widget/x.txt"), "x"); // make widget a changed scope
 }
 
-Deno.test("scopes --json: emits the DiscernResult envelope, not a bare array", async () => {
+Deno.test("impact --json: emits the DiscernResult envelope, not a bare array", async () => {
   await withTempDir(async (dir) => {
     await scaffoldWithWidget(dir);
-    const r = await runAgent(dir, ["scopes", "--json"]);
+    const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout.trim());
     assertEquals(obj.ok, true);
-    assertEquals(obj.verb, "scopes");
+    assertEquals(obj.verb, "impact");
     assert(Array.isArray(obj.data.scopes), r.stdout);
     assert(obj.data.scopes.includes("widget"), r.stdout);
   });
 });
 
-Deno.test("scopes emits ONLY declared SCOPE_MARKERS alongside the configured scope names", async () => {
+Deno.test("impact emits ONLY declared SCOPE_MARKERS alongside the configured scope names", async () => {
   // The producer's marker pushes go through the SCOPE_MARKERS SSOT; this pins that
   // behaviourally. A previewable scope change fires both derived markers, and EVERY
   // emitted entry must be either a configured scope name or a declared marker — so a
@@ -184,7 +184,7 @@ Deno.test("previewable marker tracks the previewable flag at every neutral setti
   }
 });
 
-Deno.test("scopes: a rename OUT of a gated scope still fires the vacated scope", async (t) => {
+Deno.test("impact: a rename OUT of a gated scope still fires the vacated scope", async (t) => {
   // A rename is a deletion from the old scope plus an addition elsewhere. Dropping
   // the vacated (old) path would run FEWER gates than a plain deletion of the same
   // file — exactly what the fail-open doctrine forbids. Table-driven over BOTH
@@ -220,7 +220,7 @@ Deno.test("scopes: a rename OUT of a gated scope still fires the vacated scope",
   }
 });
 
-Deno.test("scopes fails open when git cannot diff against the main branch", async () => {
+Deno.test("impact fails open when git cannot diff against the main branch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -246,7 +246,7 @@ Deno.test("scopes fails open when git cannot diff against the main branch", asyn
     await gitInit(dir);
     await git(dir, "branch", "-M", "trunk");
 
-    const r = await runAgent(dir, ["scopes", "--json"]);
+    const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = JSON.parse(r.stdout.trim());
     assertEquals(obj.data.scopes, [
@@ -258,7 +258,7 @@ Deno.test("scopes fails open when git cannot diff against the main branch", asyn
   });
 });
 
-Deno.test("scopes: a committed non-ASCII filename still fires its scope", async () => {
+Deno.test("impact: a committed non-ASCII filename still fires its scope", async () => {
   // git C-quotes "unusual" paths in line-oriented output (default core.quotePath),
   // e.g. `"widget/a\303\261adir.txt"` — a string no scope pattern can match. The
   // engine must read the branch's changed paths NUL-separated (-z), so the scope
@@ -292,7 +292,7 @@ Deno.test("scopes: a committed non-ASCII filename still fires its scope", async 
   });
 });
 
-Deno.test("scopes: an uncommitted path under a non-ASCII directory still fires its scope", async () => {
+Deno.test("impact: an uncommitted path under a non-ASCII directory still fires its scope", async () => {
   // The working-tree half reads `git status --porcelain`; C-quoted entries used
   // to keep their octal escapes, so a pattern naming a non-ASCII directory never
   // matched the pending change.
@@ -322,7 +322,7 @@ Deno.test("scopes: an uncommitted path under a non-ASCII directory still fires i
   });
 });
 
-Deno.test("scopes: a docs-only branch stays neutral when the doc's filename is non-ASCII", async () => {
+Deno.test("impact: a docs-only branch stays neutral when the doc's filename is non-ASCII", async () => {
   // The complementary failure: a C-quoted docs path escapes the neutral filter,
   // so a docs-only branch misclassifies as a `code` change.
   await withTempDir(async (dir) => {
@@ -354,7 +354,7 @@ Deno.test("scopes: a docs-only branch stays neutral when the doc's filename is n
   });
 });
 
-Deno.test("scopes: a scope defined with standard glob syntax fires", async () => {
+Deno.test("impact: a scope defined with standard glob syntax fires", async () => {
   // The template invites "** for any depth", so `widget/**/*.txt` must select
   // the scope — historically it fell through to exact match and the scope was
   // permanently dead (its gate never ran, with no diagnostic anywhere).
@@ -384,20 +384,20 @@ Deno.test("scopes: a scope defined with standard glob syntax fires", async () =>
   });
 });
 
-Deno.test("scopes: human mode lists scopes one per line; --has tests membership by exit code", async () => {
+Deno.test("impact: human mode lists scopes one per line; --has tests membership by exit code", async () => {
   await withTempDir(async (dir) => {
     await scaffoldWithWidget(dir);
 
-    const human = await runAgent(dir, ["scopes"]);
+    const human = await runAgent(dir, ["impact"]);
     assertEquals(human.code, 0, human.output);
     assert(
       human.stdout.split("\n").includes("widget"),
       `expected 'widget' on its own line, got: ${human.stdout}`,
     );
 
-    const hit = await runAgent(dir, ["scopes", "--has", "widget"]);
+    const hit = await runAgent(dir, ["impact", "--has", "widget"]);
     assertEquals(hit.code, 0, "widget changed → exit 0");
-    const miss = await runAgent(dir, ["scopes", "--has", "nope"]);
+    const miss = await runAgent(dir, ["impact", "--has", "nope"]);
     assertEquals(miss.code, 1, "unknown scope → exit 1");
   });
 });

@@ -6334,8 +6334,8 @@
         "verb"
       ]
     },
-    "DiscernScopesResult": {
-      "title": "DiscernScopesResult",
+    "DiscernImpactResult": {
+      "title": "DiscernImpactResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -6550,7 +6550,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "scopes"
+          "const": "impact"
         },
         "data": {
           "anyOf": [
@@ -10463,8 +10463,8 @@
         "isError"
       ]
     },
-    "DiscernScopesMcpToolResult": {
-      "title": "DiscernScopesMcpToolResult",
+    "DiscernImpactMcpToolResult": {
+      "title": "DiscernImpactMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10486,7 +10486,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernScopesResult"
+          "$ref": "#/$defs/DiscernImpactResult"
         },
         "isError": {
           "type": "boolean"
@@ -10732,7 +10732,7 @@
           "$ref": "#/$defs/DiscernRefreshResult"
         },
         {
-          "$ref": "#/$defs/DiscernScopesResult"
+          "$ref": "#/$defs/DiscernImpactResult"
         },
         {
           "$ref": "#/$defs/DiscernCouplingResult"
@@ -10789,7 +10789,7 @@
           "improve": "#/$defs/DiscernImproveResult",
           "ratchets": "#/$defs/DiscernRatchetsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
-          "scopes": "#/$defs/DiscernScopesResult",
+          "impact": "#/$defs/DiscernImpactResult",
           "coupling": "#/$defs/DiscernCouplingResult",
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
@@ -10836,7 +10836,7 @@
           "$ref": "#/$defs/DiscernRefreshMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernScopesMcpToolResult"
+          "$ref": "#/$defs/DiscernImpactMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernCouplingMcpToolResult"
@@ -11025,14 +11025,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernRefreshMcpToolResult"
     },
     {
-      "id": "scopes",
-      "verb": "scopes",
+      "id": "impact",
+      "verb": "impact",
       "commands": [
-        "scopes"
+        "impact"
       ],
-      "mcpTool": "discern_scopes",
-      "schema": "#/$defs/DiscernScopesResult",
-      "mcpToolResultSchema": "#/$defs/DiscernScopesMcpToolResult"
+      "mcpTool": "discern_impact",
+      "schema": "#/$defs/DiscernImpactResult",
+      "mcpToolResultSchema": "#/$defs/DiscernImpactMcpToolResult"
     },
     {
       "id": "coupling",

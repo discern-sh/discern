@@ -10,6 +10,7 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   graduate: "accept",
   "setup land": "setup accept",
   integrate: "update",
+  scopes: "impact",
 };
 
 /** Irregular grammatical forms that are safe to normalize silently. */

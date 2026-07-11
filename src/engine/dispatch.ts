@@ -44,7 +44,7 @@ import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
 import { runRatchets } from "./gate/ratchets.ts";
-import { runScopes } from "./scopes/scopes.ts";
+import { runImpact } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
 import { runDesk } from "./desk/desk.ts";
@@ -87,7 +87,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "improve",
   "ratchets",
   "refresh",
-  "scopes",
+  "impact",
   "coupling",
   "status",
   "desk",
@@ -142,7 +142,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "improve",
   "ratchets",
   "refresh",
-  "scopes",
+  "impact",
   "coupling",
   "status",
   "accept",
@@ -411,8 +411,10 @@ export function attachEngineCommands(root: Command): void {
   attachSkillsCommand(root);
 
   root
-    .command("scopes")
-    .description("Classify which scopes the branch + working tree changed.")
+    .command("impact")
+    .description(
+      "Show this change's impact: classify which gate scopes the branch and working tree wake.",
+    )
     .option(
       "--json",
       "Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers).",
@@ -423,7 +425,7 @@ export function attachEngineCommands(root: Command): void {
     )
     .action(async (o) => {
       Deno.exit(
-        await runScopes(await requireRoot(), {
+        await runImpact(await requireRoot(), {
           json: o.json ?? false,
           ...(o.has !== undefined ? { has: o.has } : {}),
         }),

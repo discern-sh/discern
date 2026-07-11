@@ -1,5 +1,5 @@
 /**
- * `scopes`: classify which scopes the branch + working tree touch, so the
+ * `impact`: classify which scopes the branch + working tree touch, so the
  * gate fires only the scope gates whose scope actually changed (and decides the
  * preview line).
  *
@@ -273,49 +273,49 @@ export async function classifyScopes(
   return out;
 }
 
-/** Options for the `scopes` subcommand surface. */
-export interface ScopesOptions {
+/** Options for the `impact` subcommand surface. */
+export interface ImpactOptions {
   json?: boolean;
   /** Exit-status-only membership test for a single scope/marker name. */
   has?: string;
 }
 
-/** The `scopes` envelope for a classified scope list — the one shape both
+/** The `impact` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
-function scopesEnvelope(
+function impactEnvelope(
   scopes: string[],
 ): DiscernResult<ScopesData> {
   return {
     ok: true,
-    verb: "scopes",
+    verb: "impact",
     data: { scopes } satisfies ScopesData,
   };
 }
 
 /**
- * Compute the `scopes` {@link DiscernResult} without printing — the entry
+ * Compute the `impact` {@link DiscernResult} without printing — the entry
  * point the MCP server renders, and the source the CLI's `--json` serializes.
  */
-export async function scopesResult(
+export async function impactResult(
   root: string,
 ): Promise<DiscernResult<ScopesData>> {
-  return scopesEnvelope(await classifyScopes(root));
+  return impactEnvelope(await classifyScopes(root));
 }
 
 /**
- * The `scopes` subcommand: print the scopes (one per line), a JSON array
+ * The `impact` subcommand: print the scopes (one per line), a JSON array
  * (`--json`), or test membership silently (`--has <name>` → exit 0/1).
  */
-export async function runScopes(
+export async function runImpact(
   root: string,
-  opts: ScopesOptions,
+  opts: ImpactOptions,
 ): Promise<number> {
   const scopes = await classifyScopes(root);
   if (opts.has !== undefined) {
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    emitResult(scopesEnvelope(scopes));
+    emitResult(impactEnvelope(scopes));
     return 0;
   }
   for (const s of scopes) {

@@ -40,11 +40,11 @@ import {
   DoctorOutputSchema,
   FinishOutputSchema,
   HelpOutputSchema,
+  ImpactOutputSchema,
   ImproveOutputSchema,
   PrepareOutputSchema,
   RatchetsOutputSchema,
   RefreshOutputSchema,
-  ScopesOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -71,7 +71,7 @@ import { testResult } from "../gate/test.ts";
 import { ratchetsResult } from "../gate/ratchets.ts";
 import { improveResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
-import { scopesResult } from "../scopes/scopes.ts";
+import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
@@ -258,7 +258,7 @@ const TOOL_PRIORITY = [
   "discern_update",
   "discern_ratchets",
   "discern_accept",
-  "discern_scopes",
+  "discern_impact",
   "discern_coupling",
   "discern_refresh",
   "discern_docs",
@@ -481,15 +481,16 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root) => doctorResult(root),
   }),
   defineTool({
-    name: "discern_scopes",
-    title: "List changed scopes",
-    outputSchema: ScopesOutputSchema.shape,
+    name: "discern_impact",
+    title: "Show change impact",
+    outputSchema: ImpactOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "List which project scopes the current branch and working tree changed — the " +
-      "classification that decides which scope gates the quality gate fires.",
+      "Show this change's impact: list which configured gate scopes the current " +
+      "branch and working tree wake, which decides which scope gates the quality " +
+      "gate fires.",
     inputSchema: { ...PATH_PARAM },
-    run: (root) => scopesResult(root),
+    run: (root) => impactResult(root),
   }),
   defineTool({
     name: "discern_coupling",
@@ -924,7 +925,7 @@ export function mcpStartHint(path: string): string {
     `whilst the gate runs in the worktree, and the two states will diverge.`;
 }
 
-/** The verb slug behind a tool name (`discern_scopes` → `scopes`),
+/** The verb slug behind a tool name (`discern_impact` → `impact`),
  * for the envelope every failure path renders. Exported as the tool→verb bridge the
  * verb-parity guard uses to tie {@link TOOLS} back to the CLI verb SSOT. */
 export function verbOf(toolName: string): string {
@@ -1303,7 +1304,7 @@ function registerDocTree(
 
 /**
  * Register the readable resources, mirroring the tools' pre-setup gating:
- * `discern://status`, `discern://scopes`, `discern://config`, and
+ * `discern://status`, `discern://impact`, `discern://config`, and
  * `discern://help` (+ a `{+target}` template) are always available;
  * `discern://docs` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
@@ -1346,8 +1347,8 @@ function registerResources(
   );
 
   server.registerResource(
-    "discern-scopes",
-    "discern://scopes",
+    "discern-impact",
+    "discern://impact",
     {
       description:
         "The project scopes the current branch and working tree changed — what decides which scope gates fire.",
@@ -1357,7 +1358,7 @@ function registerResources(
       resourceText(
         uri,
         JSON_MIME,
-        asJson((await scopesResult(currentRoot())).data),
+        asJson((await impactResult(currentRoot())).data),
       ),
   );
 

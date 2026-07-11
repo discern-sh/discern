@@ -162,7 +162,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
 `discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
-`discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_scopes`,
+`discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_impact`,
 `discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
 `discern_update`, `discern_accept`. Each advertises:
 
@@ -170,7 +170,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 - an **`outputSchema`** — its per-verb schema from `result_schemas.ts`, which
   the SDK validates `structuredContent` against on every call;
 - honest **`annotations`** — `readOnlyHint` for the pure-observation verbs
-  (`status`, `doctor`, `scopes`, `improve`, `docs`, `help`); not-read-only for
+  (`status`, `doctor`, `impact`, `improve`, `docs`, `help`); not-read-only for
   the ones that run commands or rewrite files (`done`, `prepare`, `test`,
   `ratchets`); and `destructiveHint` for `accept` (it tears down resources and
   moves the branch).
@@ -210,7 +210,7 @@ on every read and serve the verb's `data` payload (not the full envelope):
 | URI                                           | Content                              | MIME                   |
 | --------------------------------------------- | ------------------------------------ | ---------------------- |
 | `discern://status`                            | a live `status` snapshot             | `application/json`     |
-| `discern://scopes`                            | the changed scopes                   | `application/json`     |
+| `discern://impact`                            | the changed scopes                   | `application/json`     |
 | `discern://config`                            | the resolved `discern.toml`          | `application/json`     |
 | `discern://help` · `discern://help/{+target}` | discern's own docs (index · one doc) | JSON · `text/markdown` |
 | `discern://docs` · `discern://docs/{+target}` | the project's docs (index · one doc) | JSON · `text/markdown` |

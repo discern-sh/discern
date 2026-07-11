@@ -336,7 +336,7 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
       "the verbose --json/MCP section is removed",
     );
     assert(
-      !body.includes("discern_scopes"),
+      !body.includes("discern_impact"),
       "the enumerated tool roster is cut",
     );
   } finally {

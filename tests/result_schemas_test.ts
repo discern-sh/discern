@@ -42,11 +42,11 @@ import {
   FinishOutputSchema,
   GateDataSchema,
   HelpOutputSchema,
+  ImpactOutputSchema,
   ImproveOutputSchema,
   PrepareOutputSchema,
   RatchetsOutputSchema,
   RefreshOutputSchema,
-  ScopesOutputSchema,
   SkillsListOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
@@ -65,7 +65,7 @@ import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
 import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
-import { scopesResult } from "../src/engine/scopes/scopes.ts";
+import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import { improveResult } from "../src/engine/improve/improve.ts";
@@ -180,7 +180,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "prepare",
   "ratchets",
   "refresh",
-  "scopes",
+  "impact",
   "skillsList",
   "start",
   "status",
@@ -502,14 +502,14 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
   });
 });
 
-Deno.test("scopes result is faithful", async () => {
+Deno.test("impact result is faithful", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     expectValid(
-      ScopesOutputSchema,
-      await scopesResult(dir),
-      "scopes",
+      ImpactOutputSchema,
+      await impactResult(dir),
+      "impact",
     );
   });
 });
