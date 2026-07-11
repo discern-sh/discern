@@ -641,3 +641,67 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
     ]);
   });
 });
+
+Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' seeds, not DEFAULT_AGENTS", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    // A fresh install configured for gemini ONLY — deliberately not DEFAULT_AGENTS
+    // (claude_code + codex), so a re-scaffold that reverts to the defaults is visible.
+    // --allow-dirty keeps it in place (no discern-setup branch) so the re-scaffold
+    // dimension under test is the agent set, isolated from the branch/commit machinery.
+    const fresh = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--allow-dirty",
+      "--agents",
+      "gemini",
+    ]);
+    assertEquals(fresh.code, 0, fresh.output);
+    const golden = await readConvergence(dir);
+    assertEquals(
+      golden.scaffoldedAgents,
+      ["gemini"],
+      "precondition: the fresh install laid only gemini's seed",
+    );
+
+    // Re-run with --force and NO --agents. resolveSetupConfig would fall back to
+    // DEFAULT_AGENTS; the cure re-derives the agent set from the persisted
+    // [guidance].agents instead, so the re-scaffold converges on the configured set.
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--force",
+      "--allow-dirty",
+      "--json",
+    ]);
+    assertEquals(re.code, 0, re.output);
+
+    // Convergence: no claude_code / codex seed leaked in — only gemini's, exactly as
+    // the clean run produced. On the pre-fix code claude_code + codex seeds appear here.
+    const conv = await readConvergence(dir);
+    assertEquals(
+      conv.scaffoldedAgents,
+      golden.scaffoldedAgents,
+      `a --force re-scaffold must honour the configured agents, not DEFAULT_AGENTS; ` +
+        `laid ${JSON.stringify(conv.scaffoldedAgents)}`,
+    );
+    assert(
+      !(await exists(join(dir, ".claude", "settings.json"))),
+      "no claude_code seed may be laid over a gemini-only project",
+    );
+    assert(
+      !(await exists(join(dir, ".codex", "hooks.json"))),
+      "no codex seed may be laid over a gemini-only project",
+    );
+    // The persisted config is unchanged — the re-scaffold reads it, never rewrites it.
+    assertEquals(
+      parseConfigOrThrow(await Deno.readTextFile(join(dir, "discern.toml")))
+        .guidance.agents,
+      ["gemini"],
+    );
+  });
+});

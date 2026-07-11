@@ -472,14 +472,34 @@ async function scaffoldHarness(
   const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
   effectiveFlags.yes = true;
 
-  // Auto-detect the agent set for a FRESH install when the user named none (no
-  // --agents, no --config agents): seed [guidance].agents from what is actually on
-  // PATH, else DEFAULT_AGENTS. Detection runs once here and is persisted to config;
-  // resolveConfiguredAgents stays a pure runtime reader (never re-detects). Gated on
-  // freshInstall because the config is write-once — a --force re-run leaves an
-  // existing [guidance].agents untouched, so re-detecting would be inert anyway.
-  if (freshInstall && effectiveFlags.agents === undefined) {
-    effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+  // Resolve the agent set when the user named none (no --agents, no --config agents),
+  // so the scaffold lays exactly the right per-agent seeds — never DEFAULT_AGENTS by
+  // accident:
+  //   • FRESH install → detect what is actually on PATH (else DEFAULT_AGENTS) and seed
+  //     [guidance].agents from it (persisted once here; resolveConfiguredAgents stays a
+  //     pure runtime reader that never re-detects).
+  //   • --force RE-SCAFFOLD over an existing install → re-derive from the PERSISTED
+  //     [guidance].agents. The config is write-once, so re-detecting would be inert for
+  //     the config — but the plan's per-agent seeds come from config.agents, so without
+  //     this a --force re-run lays DEFAULT_AGENTS' seed files (claude_code + codex) over a
+  //     project configured for a different set, the exact divergence from a clean run this
+  //     closes (B48). An unreadable config falls through to DEFAULT_AGENTS (the repair
+  //     path); an explicit --agents / --config still wins, since effectiveFlags.agents is
+  //     then already set.
+  if (effectiveFlags.agents === undefined) {
+    if (freshInstall) {
+      effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+    } else {
+      try {
+        const persisted = (await loadConfig(destDir)).guidance.agents;
+        if (persisted.length > 0) {
+          effectiveFlags.agents = persisted.join(",");
+        }
+      } catch {
+        // Unreadable config — leave undefined so resolveSetupConfig falls back to
+        // DEFAULT_AGENTS; doctor / the strict verbs diagnose the broken config.
+      }
+    }
   }
   let config: SetupConfig;
   try {
