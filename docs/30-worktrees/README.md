@@ -29,16 +29,18 @@ resources and runs `[worktree.setup]`: the one-shot `steps`, then the convergent
 `ensure`), `WorktreeRemove` →
 [`worktree remove`](../../src/lib/worktree_hooks.ts) (tears it down). Those two
 hook entries parse their payload in the binary itself — no `jq`
-([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). An agent on the
-**main checkout** that needs its own Worktree runs
-[`start`](../../src/engine/worktree/lifecycle.ts): it mints a fresh id — from an
-optional caller-supplied **name**, normalised to a branch-safe slug (else a
-random `<adjective>-<noun>` codename), always tailed with random hex so two
-same-named Worktrees never collide — creates the Worktree on its own `agent/`
-branch at the sibling location, sets it up, and reports the path to move into
-(with a note when the name was normalised or fell back) — the agent-initiated
-counterpart to the `WorktreeCreate` hook, and the first-class alternative to
-squatting in another line of work's Worktree
+([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A create whose
+branch already exists (unlanded work from an earlier worktree of the same name)
+is refused up front, and a failed create discards only what it created — never a
+pre-existing branch or its commits. An agent on the **main checkout** that needs
+its own Worktree runs [`start`](../../src/engine/worktree/lifecycle.ts): it
+mints a fresh id — from an optional caller-supplied **name**, normalised to a
+branch-safe slug (else a random `<adjective>-<noun>` codename), always tailed
+with random hex so two same-named Worktrees never collide — creates the Worktree
+on its own `agent/` branch at the sibling location, sets it up, and reports the
+path to move into (with a note when the name was normalised or fell back) — the
+agent-initiated counterpart to the `WorktreeCreate` hook, and the first-class
+alternative to squatting in another line of work's Worktree
 ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md),
 [ADR 0109](../_adr/0109-worktree-start-optional-name.md)). The new branch forks
 from the **trunk** (`[project].main_branch`) explicitly — never from whatever
@@ -107,8 +109,15 @@ staged, or untracked worktree change before it removes the checkout;
 the main checkout — is the sanctioned removal for **abandoned work**: it tears
 down the worktree's resources, removes the worktree, and deletes its branch,
 refusing without `--force` when the worktree holds uncommitted changes or
-commits not on the trunk (naming exactly what a forced drop would discard). It
-is deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
+commits not on the trunk (naming exactly what a forced drop would discard). A
+worktree whose git state cannot be read — a missing or damaged checkout — fails
+**safe** the same way: unknown state is itself a blocker, never treated as
+clean, and unlanded commits are still named from the branch ref in the main
+repo. A `git worktree lock`ed worktree is refused outright — not even `--force`
+removes one (the lock protects checkouts and their ignored files on
+removable/network media; `git worktree unlock` is the only way through), and
+`graduate` applies the same refusal at plan time, before anything lands. It is
+deliberately CLI-only, with no MCP tool: the MCP surface aims at the caller's
 _own_ worktree, every other worktree is another line of work an agent must never
 remove (the fleet ownership rule), so discarding work is a human supervisory
 action — `status` hints carry the command to the human.
@@ -123,6 +132,8 @@ ignored provider-local/generated files stay out of the signal. Status also tells
 the truth about **abandoned and broken work**: a fleet member whose checkout
 carries no project config (the signature of a creation that crashed
 mid-checkout) is flagged `broken` with the `worktree drop` removal hint; a
+member git cannot run inside at all is flagged `git_unavailable` and rendered
+`unreadable` — its per-checkout fields are absent, never fabricated as clean; a
 member idle for a week that still holds uncommitted changes or unlanded commits
 gets a hint to resume it or drop it; unlanded `agent/*` branches with **no
 worktree** are listed (`data.unlanded_branches`) with the pull-axis recovery

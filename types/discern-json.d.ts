@@ -2157,11 +2157,12 @@ export type DiscernStatusResult = {
       is_main: boolean;
       is_current: boolean;
       branch: string;
-      clean: boolean;
-      changed_files: number;
-      ahead: number;
-      behind: number;
+      clean?: boolean;
+      changed_files?: number;
+      ahead?: number;
+      behind?: number;
       last_activity?: string;
+      git_unavailable?: boolean;
       id?: string;
       port?: number;
       broken?: boolean;

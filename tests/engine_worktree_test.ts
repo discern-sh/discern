@@ -321,6 +321,38 @@ Deno.test("graduate: refuses a dirty worktree without moving anything", async ()
   });
 });
 
+Deno.test("graduate: refuses a locked worktree at plan time, before anything moves", async () => {
+  await withTempDir(async (dir) => {
+    // Graduation ends by removing the worktree, and a `git worktree lock`ed
+    // one cannot be removed. The refusal must come at plan time — before the
+    // gate runs and before the trunk fast-forwards — never after landing has
+    // half-happened (destroyed checkout, stranded registration, failed branch
+    // delete).
+    const wt = await mainWithWorktree(dir, "locked-grad");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    await git(dir, "worktree", "lock", wt, "--reason", "portable drive");
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+
+    const r = await runAgent(wt, ["graduate"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "locked");
+    assertStringIncludes(r.output, "git worktree unlock");
+    assertEquals(await exists(wt), true, `the worktree survives\n${r.output}`);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "main"),
+      trunkBefore,
+      `the trunk must not move\n${r.output}`,
+    );
+    assertStringIncludes(
+      await gitOut(dir, "branch", "--list", "agent/locked-grad"),
+      "agent/locked-grad",
+      `the branch keeps its commits\n${r.output}`,
+    );
+  });
+});
+
 Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "detached-main");

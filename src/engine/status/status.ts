@@ -431,13 +431,20 @@ async function fleetEntryFor(
     // canonical (realPathOr in listWorktreeFleet); `here` is canonicalized to match.
     is_current: row.path === here,
     branch: row.branch,
-    clean: row.clean,
-    changed_files: row.changedFiles,
-    ahead: row.ahead,
-    behind: row.behind,
   };
-  if (row.lastActivity !== undefined) {
-    entry.last_activity = new Date(row.lastActivity * 1000).toISOString();
+  if (row.snapshot !== undefined) {
+    entry.clean = row.snapshot.clean;
+    entry.changed_files = row.snapshot.changedFiles;
+    entry.ahead = row.snapshot.ahead;
+    entry.behind = row.snapshot.behind;
+    if (row.snapshot.lastActivity !== undefined) {
+      entry.last_activity = new Date(row.snapshot.lastActivity * 1000)
+        .toISOString();
+    }
+  } else {
+    // Git could not run inside the checkout — its state is unknown, and the
+    // honest report is "unknown", never a fabricated clean/0-ahead row.
+    entry.git_unavailable = true;
   }
   if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
     entry.broken = true;
@@ -757,7 +764,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       hints.push("No active worktrees; start one to begin work.");
     } else if (ctx.fleet !== undefined) {
       const others = ctx.fleet.filter((e) => !e.is_main);
-      const dirty = others.filter((e) => !e.clean);
+      // `clean === false` — a row whose git state is UNAVAILABLE (clean absent)
+      // is unknown, not dirty; it gets its own hint below.
+      const dirty = others.filter((e) => e.clean === false);
       if (dirty.length > 0) {
         const names = dirty.map((e) => e.id ?? e.branch).join(", ");
         hints.push(
@@ -767,11 +776,31 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         );
       }
       for (const e of others) {
-        if (e.clean && e.behind === 0 && e.ahead > 0) {
+        if (
+          e.clean === true && e.behind === 0 && e.ahead !== undefined &&
+          e.ahead > 0
+        ) {
           hints.push(
             `Worktree ${
               e.id ?? e.branch
             } has committed work ready for owner review — inspect it with \`git diff ${main}...${e.branch}\`.`,
+          );
+        }
+      }
+      // Unreadable members: git could not run inside the checkout, so its work
+      // state is unknown — say so, rather than letting the row pass as clean.
+      // (`worktree drop` fails safe on the same rows: it refuses without
+      // --force while the state is unverifiable.) A `broken` row already
+      // carries its own hint with the same way out.
+      for (const e of others) {
+        if (e.git_unavailable === true && e.broken !== true) {
+          const name = e.id ?? basename(e.path);
+          hints.push(
+            `Worktree ${name}'s git state could not be read — its checkout ` +
+              `is missing or damaged, so any unsaved work there is ` +
+              `unverifiable. Investigate it, or discard it with ` +
+              `\`discern worktree drop ${name}\` (refused without --force ` +
+              `while the state can't be read).`,
           );
         }
       }
@@ -793,9 +822,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         if (
           e.broken !== true && idleDays !== undefined &&
           idleDays >= STALE_WORKTREE_DAYS &&
-          (!e.clean || e.ahead > 0)
+          (e.clean === false || (e.ahead ?? 0) > 0)
         ) {
-          const work = e.clean
+          const work = e.clean === true
             ? `${e.ahead} unlanded commit${e.ahead === 1 ? "" : "s"}`
             : `${e.changed_files} uncommitted change${
               e.changed_files === 1 ? "" : "s"
@@ -1113,12 +1142,17 @@ function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   );
   for (const e of fleet) {
     const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
-    const state = e.broken === true
-      ? "broken"
-      : e.clean
+    const state = e.broken === true ? "broken" : e.git_unavailable === true
+      // Unknown is unknown — never rendered as "clean".
+      ? "unreadable"
+      : e.clean === true
       ? "clean"
       : `${e.changed_files} changed`;
-    const counts = e.is_main ? "—" : `${e.ahead}/${e.behind}`;
+    const counts = e.is_main
+      ? "—"
+      : e.ahead === undefined
+      ? "?/?"
+      : `${e.ahead}/${e.behind}`;
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
     out.raw(
       `  ${trunc(name, 19).padEnd(20)}${

@@ -7467,6 +7467,9 @@
                       "last_activity": {
                         "type": "string"
                       },
+                      "git_unavailable": {
+                        "type": "boolean"
+                      },
                       "id": {
                         "type": "string"
                       },
@@ -7481,11 +7484,7 @@
                       "path",
                       "is_main",
                       "is_current",
-                      "branch",
-                      "clean",
-                      "changed_files",
-                      "ahead",
-                      "behind"
+                      "branch"
                     ]
                   }
                 }

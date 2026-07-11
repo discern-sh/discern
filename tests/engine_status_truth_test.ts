@@ -27,7 +27,8 @@ interface StatusJson {
       path: string;
       id?: string;
       broken?: boolean;
-      clean: boolean;
+      clean?: boolean;
+      git_unavailable?: boolean;
     }>;
     unlanded_branches?: string[];
   };
@@ -91,6 +92,36 @@ Deno.test("status fleet ids are per-row truths — an env id override cannot rep
       !ids.includes("imposter"),
       `no row may take the caller's id\n${r.stdout}`,
     );
+  });
+});
+
+Deno.test("status reports an unreadable worktree honestly — never as clean/0-ahead", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "damaged");
+    // git cannot run inside the checkout (a corrupted gitlink here; dubious
+    // ownership or permission refusals are the same shape). Its state is
+    // UNKNOWN — fabricating "clean, 0 ahead" hid destroyable work.
+    await Deno.writeTextFile(join(wt, ".git"), "gitdir: /nonexistent/gone\n");
+
+    const result = await statusJson(dir);
+    const row = result.data.fleet?.find((e) => e.path.endsWith("damaged"));
+    assert(row !== undefined, JSON.stringify(result.data.fleet));
+    assertEquals(row.git_unavailable, true, JSON.stringify(row));
+    assertEquals(row.clean, undefined, "unknown state must not claim clean");
+    assert(
+      (result.hints ?? []).some((h) =>
+        h.includes("could not be read") && h.includes("damaged")
+      ),
+      `the unreadable state is surfaced as a hint\n${
+        JSON.stringify(result.hints)
+      }`,
+    );
+
+    // The human table says "unreadable", not "clean".
+    const human = await runAgent(dir, ["status"]);
+    assertStringIncludes(human.output, "unreadable");
   });
 });
 

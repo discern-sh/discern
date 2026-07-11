@@ -1216,12 +1216,56 @@ export async function liveWorktreePaths(cwd?: string): Promise<Set<string>> {
 }
 
 /**
+ * The `git worktree list --porcelain` record for the registered worktree at
+ * `target` (canonical-path match), or undefined when `target` is not a
+ * registered worktree of the repo at `cwd`. The one lookup behind every "is it
+ * registered / is it locked" question a removal path asks, so no caller can
+ * read the registration a different way and miss an attribute.
+ */
+export async function registeredWorktreeRecord(
+  target: string,
+  cwd?: string,
+): Promise<WorktreeRecord | undefined> {
+  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
+  if (!listRun.success) {
+    return undefined;
+  }
+  const canonical = await canonicalizeMaybeMissing(target);
+  for (const rec of parseWorktreeList(listRun.stdout)) {
+    if (
+      rec.path === canonical ||
+      (await canonicalizeMaybeMissing(rec.path)) === canonical
+    ) {
+      return rec;
+    }
+  }
+  return undefined;
+}
+
+/** The refusal for any attempt to remove a `git worktree lock`ed worktree — the
+ * lock's documented purpose is protecting checkouts (and their ignored files)
+ * on removable/network media, so discern honors it unconditionally: the only
+ * way through is git's own `git worktree unlock`. */
+function lockedWorktreeRefusal(path: string): WorktreeGitError {
+  return new WorktreeGitError(
+    `refused — the worktree at '${path}' is locked (git worktree lock), and ` +
+      `discern never removes a locked worktree. Unlock it first ` +
+      `(git worktree unlock ${path}), then re-run.`,
+  );
+}
+
+/**
  * Remove a git worktree robustly, leaving no orphaned directory. Retries the
  * transient `ENOTEMPTY` race on `git worktree remove --force`, then falls back to
- * `rm -rf` + `git worktree prune`. Refuses anything that is neither a registered
- * worktree of this repo nor a gitlinked orphan of it (and the main checkout).
- * Mirrors `remove-worktree-safely`. Idempotent: an already-gone, unregistered
- * path is a no-op.
+ * `rm -rf` + `git worktree prune` — the fallback exists for that race and for
+ * gitlinked orphans/damaged checkouts git itself cannot remove, NEVER to
+ * overpower a deliberate refusal: a `git worktree lock`ed worktree is refused
+ * outright (checked before removing AND re-checked before the fallback, so a
+ * lock can't be bulldozed into a phantom registration `git worktree prune`
+ * skips forever). Refuses anything that is neither a registered worktree of
+ * this repo nor a gitlinked orphan of it (and the main checkout). Mirrors
+ * `remove-worktree-safely`. Idempotent: an already-gone, unregistered path is
+ * a no-op.
  */
 export async function removeWorktreeSafely(
   target: string,
@@ -1245,15 +1289,13 @@ export async function removeWorktreeSafely(
   }
 
   // Registered as a current worktree of this repo?
-  let registered = false;
-  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
-  if (listRun.success) {
-    for (const line of listRun.stdout.split("\n")) {
-      if (line === `worktree ${canonical}`) {
-        registered = true;
-        break;
-      }
-    }
+  const record = await registeredWorktreeRecord(canonical, cwd);
+  const registered = record !== undefined;
+
+  // A locked worktree is git's deliberate refusal, not an obstacle to route
+  // around: honor it before touching anything.
+  if (record?.locked === true) {
+    throw lockedWorktreeRefusal(canonical);
   }
 
   const gitlinked = await gitlinksInto(canonical, commonGitDir);
@@ -1285,10 +1327,15 @@ export async function removeWorktreeSafely(
       await delay(500);
       continue;
     }
-    break; // any other error → straight to the fallback
+    break; // any other error → the fallback (after the lock re-check below)
   }
 
   if (!removed) {
+    // Re-check the lock: a lock applied since the first look is exactly the
+    // failure git just refused on, and the fallback must not defeat it.
+    if ((await registeredWorktreeRecord(canonical, cwd))?.locked === true) {
+      throw lockedWorktreeRefusal(canonical);
+    }
     if (await pathExists(canonical)) {
       await Deno.remove(canonical, { recursive: true });
     }
@@ -1540,13 +1587,18 @@ export interface FleetWorktree {
   isMain: boolean;
   /** The current branch, or "" when detached. */
   branch: string;
-  clean: boolean;
-  changedFiles: number;
-  /** Commits ahead of / behind the integration branch. */
-  ahead: number;
-  behind: number;
-  /** Unix-seconds timestamp of the most recent activity (see {@link GitSnapshot}). */
-  lastActivity?: number;
+  /** `git worktree lock` is set on this registration — git refuses to remove it. */
+  locked: boolean;
+  /** Git reports the registration prunable (its checkout is gone or damaged). */
+  prunable: boolean;
+  /**
+   * The checkout's read-only {@link GitSnapshot}, or undefined when git could not
+   * run inside it (a missing directory, a corrupted gitlink, a dubious-ownership
+   * or permission refusal). Undefined means the state is UNKNOWN — never clean:
+   * every consumer must fail safe, treating the worktree as if it may hold
+   * uncommitted and unlanded work, not substitute optimistic defaults.
+   */
+  snapshot: GitSnapshot | undefined;
 }
 
 /**
@@ -1576,16 +1628,14 @@ export async function listWorktreeFleet(
     out.push({
       path: await realPathOr(rec.path),
       isMain: i === 0,
+      // The porcelain branch stays the fallback: an unreadable checkout's branch
+      // ref is still knowable from the registration.
       branch: snap?.branch !== undefined && snap.branch !== ""
         ? snap.branch
         : short,
-      clean: snap?.clean ?? true,
-      changedFiles: snap?.changedFiles ?? 0,
-      ahead: snap?.ahead ?? 0,
-      behind: snap?.behind ?? 0,
-      ...(snap?.lastActivity !== undefined
-        ? { lastActivity: snap.lastActivity }
-        : {}),
+      locked: rec.locked,
+      prunable: rec.prunable,
+      snapshot: snap,
     });
   }
   return out;
@@ -1652,7 +1702,10 @@ export interface StaleMetadataPruneResult {
   failed: boolean;
 }
 
-async function branchIsMerged(
+/** Whether `branch`'s tip is an ancestor of `mainBranch` — i.e. fully merged.
+ * Read from the main repo, so it answers even when the branch's worktree
+ * checkout is itself unreadable. */
+export async function branchIsMerged(
   repoRoot: string,
   branch: string,
   mainBranch: string,

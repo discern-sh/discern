@@ -518,13 +518,20 @@ const statusFleetEntrySchema = z.strictObject({
   is_main: z.boolean(),
   is_current: z.boolean(),
   branch: z.string(),
-  /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files. */
-  clean: z.boolean(),
+  /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files.
+   * Absent (with the other per-checkout git fields) when `git_unavailable` is
+   * set — an unreadable checkout's state is unknown, never reported clean. */
+  clean: z.boolean().optional(),
   /** Count of ordinary `git status --porcelain` entries. */
-  changed_files: z.number(),
-  ahead: z.number(),
-  behind: z.number(),
+  changed_files: z.number().optional(),
+  ahead: z.number().optional(),
+  behind: z.number().optional(),
   last_activity: z.string().optional(),
+  /** Present (true) when git could not run inside this worktree (a missing
+   * directory, a corrupted gitlink, a permission refusal): its state is
+   * UNKNOWN, so the per-checkout git fields are absent rather than fabricated —
+   * consumers must fail safe, never assume clean. */
+  git_unavailable: z.boolean().optional(),
   id: z.string().optional(),
   port: z.number().optional(),
   /** Present (true) when the worktree's creation never completed — its project

@@ -90,6 +90,7 @@ import {
   assertInWorktree,
   assertMainMerged,
   assertNotInWorktree,
+  branchIsMerged,
   ensureWorktreeBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
@@ -108,6 +109,7 @@ import {
   pruneStaleWorktreeMetadata,
   readySentinelPath,
   refMergedState,
+  registeredWorktreeRecord,
   removeWorktreeSafely,
   repoToplevel,
   resolveCommitRef,
@@ -615,8 +617,24 @@ export async function createAndSetupWorktree(
   // Idempotence marker: when `dir` is already a worktree this call created nothing,
   // so a later failure must not discard someone else's live worktree.
   const preExisting = await pathPresent(join(dir, ".git"));
+  // A fresh create always mints a fresh `-b` branch. When the branch already
+  // exists — typically unlanded work left by an earlier worktree of the same
+  // name — refuse up front in plain language: `git worktree add` would fail
+  // anyway, and the branch (and its commits) was never this call's to touch.
+  if (!preExisting && (await localBranchExists(mainRepo, branch))) {
+    throw new WorktreeGitError(
+      `A branch named '${branch}' already exists in this repository — it may ` +
+        `hold unlanded work from an earlier worktree of the same name. Choose ` +
+        `a different worktree name, or review that branch first ` +
+        `(git log ${branch}) and land or delete it yourself, then re-run.`,
+    );
+  }
+  // True once `git worktree add -b` has succeeded — the moment the branch (and
+  // the checkout) became THIS call's creation, and so its to discard on failure.
+  let createdWorktree = false;
   try {
     await addWorktree(mainRepo, dir, branch, startPoint);
+    createdWorktree = true;
     let ctx: LifecycleContext;
     try {
       ctx = await lifecycleContext(dir, log, dir);
@@ -636,7 +654,12 @@ export async function createAndSetupWorktree(
     await worktreeSetup(ctx, { humanApplySummary: false });
   } catch (e) {
     if (!preExisting) {
-      await discardWorktreeBestEffort(mainRepo, dir, branch, log);
+      // Delete the branch only when the add above created it: a failed add
+      // (e.g. a branch-name collision racing past the pre-check) means the
+      // branch — possibly holding unlanded commits — was never ours to remove.
+      await discardWorktreeBestEffort(mainRepo, dir, branch, log, {
+        deleteBranch: createdWorktree,
+      });
     }
     throw e;
   }
@@ -645,16 +668,19 @@ export async function createAndSetupWorktree(
 /**
  * Discard a worktree unconditionally and best-effort: destroy its resources (from
  * inside it, so `@dir@` destroys resolve), remove the worktree directory and its
- * git registration, then delete its branch. Every step swallows its own failure.
- * This cleans up a failed `start`/create (no debris left for `status` to list)
- * and retires the viability probe's throwaway worktree; `worktree prune` is the
- * backstop for anything it misses.
+ * git registration, then delete its branch — but ONLY under `deleteBranch: true`,
+ * the caller's explicit claim that this very flow created the branch; cleanup
+ * must never destroy a branch (and its commits) that predates it. Every step
+ * swallows its own failure. This cleans up a failed `start`/create (no debris
+ * left for `status` to list) and retires the viability probe's throwaway
+ * worktree; `worktree prune` is the backstop for anything it misses.
  */
 async function discardWorktreeBestEffort(
   mainRepo: string,
   dir: string,
   branch: string,
   log: Logger,
+  opts: { deleteBranch: boolean },
 ): Promise<void> {
   try {
     await teardownResources(await lifecycleContext(dir, log, dir));
@@ -662,9 +688,11 @@ async function discardWorktreeBestEffort(
   try {
     await removeWorktreeSafely(dir, mainRepo);
   } catch { /* best-effort */ }
-  try {
-    await runGit(["branch", "-D", branch], { cwd: mainRepo });
-  } catch { /* best-effort */ }
+  if (opts.deleteBranch) {
+    try {
+      await runGit(["branch", "-D", branch], { cwd: mainRepo });
+    } catch { /* best-effort */ }
+  }
 }
 
 /** The outcome of the idempotent session-start ensure check. */
@@ -826,25 +854,62 @@ async function buildDropPlan(
     );
   }
 
-  // What a drop would lose — the `--force` blockers.
-  const blockers: string[] = [];
-  if (match.changedFiles > 0) {
-    blockers.push(
-      `${match.changedFiles} uncommitted change${
-        match.changedFiles === 1 ? "" : "s"
-      }`,
+  // A `git worktree lock`ed worktree cannot be removed at all (git refuses, and
+  // discern honors the lock — it protects checkouts and their ignored files on
+  // removable/network media). A hard refusal, NOT a --force blocker: --force
+  // consents to discarding work, not to defeating git's own protection.
+  if (match.locked) {
+    throw new WorktreeGitError(
+      `Worktree '${basename(match.path)}' is locked (git worktree lock), so ` +
+        `discern will not remove it — not even with --force. Unlock it first ` +
+        `(git worktree unlock ${match.path}), then re-run.`,
     );
   }
-  if (await localBranchExists(ctx.root, trunk)) {
-    if (match.ahead > 0) {
+
+  // What a drop would lose — the `--force` blockers.
+  const blockers: string[] = [];
+  const trunkExists = await localBranchExists(ctx.root, trunk);
+  if (match.snapshot === undefined) {
+    // Git could not run inside the worktree (missing directory, corrupted
+    // gitlink, permission refusal) — its working-tree state is UNKNOWN, and an
+    // unknown state fails SAFE: it blocks the drop rather than reading as
+    // clean. The branch ref still lives in the main repo, so unlanded commits
+    // stay checkable (and nameable) even when the checkout is unreadable.
+    if (!trunkExists) {
       blockers.push(
-        `${match.ahead} commit${match.ahead === 1 ? "" : "s"} not on ${trunk}`,
+        `cannot verify the work is merged (no local '${trunk}' branch)`,
+      );
+    } else if (
+      match.branch !== "" && match.branch !== trunk &&
+      !(await branchIsMerged(ctx.root, match.branch, trunk))
+    ) {
+      blockers.push(`branch '${match.branch}' has commits not on ${trunk}`);
+    }
+    blockers.push(
+      "the worktree's git state could not be read (its checkout is missing " +
+        "or damaged), so uncommitted work cannot be ruled out",
+    );
+  } else {
+    if (match.snapshot.changedFiles > 0) {
+      blockers.push(
+        `${match.snapshot.changedFiles} uncommitted change${
+          match.snapshot.changedFiles === 1 ? "" : "s"
+        }`,
       );
     }
-  } else {
-    blockers.push(
-      `cannot verify the work is merged (no local '${trunk}' branch)`,
-    );
+    if (trunkExists) {
+      if (match.snapshot.ahead > 0) {
+        blockers.push(
+          `${match.snapshot.ahead} commit${
+            match.snapshot.ahead === 1 ? "" : "s"
+          } not on ${trunk}`,
+        );
+      }
+    } else {
+      blockers.push(
+        `cannot verify the work is merged (no local '${trunk}' branch)`,
+      );
+    }
   }
 
   // The resource ledger for the target (destruction order), read via ITS git key.
@@ -946,9 +1011,11 @@ export async function worktreeDrop(
   ctx.log.info(`Removing worktree: ${plan.targetPath}`);
   try {
     await removeWorktreeSafely(plan.targetPath, ctx.root);
-  } catch {
+  } catch (e) {
     throw new WorktreeGitError(
-      `Worktree removal failed for ${plan.targetPath}. Run 'git worktree list' to investigate.`,
+      `Worktree removal failed for ${plan.targetPath}: ${
+        e instanceof Error ? e.message : String(e)
+      }\nRun 'git worktree list' to investigate.`,
     );
   }
   steps.push({
@@ -1059,6 +1126,20 @@ async function buildGraduatePlan(
   if (mainRepo === worktreePath) {
     throw new WorktreeGitError(
       "Current worktree appears to be the main worktree — refusing to proceed.",
+    );
+  }
+
+  // Graduation ends by REMOVING this worktree, and a `git worktree lock`ed one
+  // cannot be removed (git refuses; discern honors the lock). Refuse at plan
+  // time — before the gate runs and long before the trunk fast-forwards — so a
+  // locked worktree never strands a half-landed graduation.
+  if (
+    (await registeredWorktreeRecord(worktreePath, mainRepo))?.locked === true
+  ) {
+    throw new WorktreeGitError(
+      `This worktree is locked (git worktree lock), and graduation removes ` +
+        `the worktree after landing. Unlock it first ` +
+        `(git worktree unlock ${worktreePath}), then re-run discern graduate.`,
     );
   }
 
@@ -2504,8 +2585,12 @@ export async function probeWorktreeViability(
       : { kind: "probed", ok: verdict.ok };
   } finally {
     // A probe teardown must never fail the caller (`setup done`) — the discard is
-    // best-effort throughout and `worktree prune` is the backstop.
-    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log);
+    // best-effort throughout and `worktree prune` is the backstop. The branch is
+    // the probe's own freshly-minted throwaway (mintFreeWorktree guarantees it
+    // was free), so deleting it discards nothing that predates the probe.
+    await discardWorktreeBestEffort(ctx.root, dir, branch, ctx.log, {
+      deleteBranch: true,
+    });
   }
 }
 
