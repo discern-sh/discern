@@ -17,6 +17,7 @@
  * orphaned lines behind.
  */
 
+import { parse as parseToml } from "@std/toml";
 import { renderTomlString, renderTomlStringList } from "./toml_render.ts";
 
 type LineEnding = "\n" | "\r\n" | "\r";
@@ -169,19 +170,55 @@ export function tomlString(value: string): string {
   return renderTomlString(value);
 }
 
-/** Render a number (or numeric string) as a TOML value, preserving its form. */
+/**
+ * Whether `literal` is a value @std/toml — the same parser that later reads the
+ * file back — accepts as one finite number. The prefilter rejects characters a
+ * TOML number can never contain (whitespace, `#`), so structural payloads (a
+ * trailing comment, a second line) can't ride through a probe that would
+ * otherwise happily parse them.
+ */
+function isTomlNumberLiteral(literal: string): boolean {
+  if (literal === "" || /[\s#]/u.test(literal)) {
+    return false;
+  }
+  try {
+    const parsed = parseToml(`v = ${literal}`) as { v?: unknown };
+    return typeof parsed.v === "number" && Number.isFinite(parsed.v);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Render a number (or numeric string) as a TOML value. A written form the TOML
+ * grammar already accepts is preserved (`"0.0"`, `"1_000"`); a JS-numeric form
+ * it forbids (`".5"`, `"5."`, `"007"`, `"1.e3"`) is normalized to its canonical
+ * rendering — JS `Number()` is looser than the TOML grammar, and emitting such
+ * a form verbatim would corrupt the whole file into unparseable TOML.
+ */
 export function tomlNumber(value: number | string): string {
+  let literal: string;
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
       throw new Error(`not a finite number: ${value}`);
     }
-    return String(value);
+    literal = String(value);
+  } else {
+    const trimmed = value.trim();
+    if (isTomlNumberLiteral(trimmed)) {
+      literal = trimmed; // preserve the written form, e.g. "0.0" or "500000"
+    } else if (trimmed !== "" && Number.isFinite(Number(trimmed))) {
+      literal = String(Number(trimmed)); // e.g. ".5" → "0.5", "007" → "7"
+    } else {
+      throw new Error(`not a number: ${JSON.stringify(value)}`);
+    }
   }
-  const trimmed = value.trim();
-  if (trimmed === "" || !Number.isFinite(Number(trimmed))) {
-    throw new Error(`not a number: ${JSON.stringify(value)}`);
+  if (!isTomlNumberLiteral(literal)) {
+    // Unreachable by construction; the postcondition stands anyway so no code
+    // path can ever hand back a literal the config parser rejects.
+    throw new Error(`not a TOML number: ${JSON.stringify(value)}`);
   }
-  return trimmed; // preserve the written form, e.g. "0.0" or "500000"
+  return literal;
 }
 
 /** Render a boolean as a TOML value. */

@@ -19,6 +19,7 @@ import {
   tomlString,
   tomlStringArray,
 } from "../src/lib/toml_edit.ts";
+import * as tomlEditModule from "../src/lib/toml_edit.ts";
 
 const SAMPLE = `# top comment
 [project]
@@ -340,6 +341,152 @@ Deno.test("value renderers escape and validate", () => {
   assertEquals(tomlNumber(500000), "500000");
   assertEquals(tomlBool(true), "true");
   assertEquals(tomlStringArray(["a", "b"]), '["a", "b"]');
+});
+
+Deno.test("every value renderer emits a literal @std/toml parses back as its type", () => {
+  // The corrupt-literal class guard: whatever a `toml*` renderer RETURNS must be
+  // a literal the same parser that later reads discern.toml accepts, and it must
+  // parse back as the renderer's intended type — the only other legal outcome is
+  // a throw. (JS `Number()` accepts forms the TOML grammar forbids — ".5", "5.",
+  // "007", "1.e3" — and one such literal written into discern.toml bricks every
+  // subsequent command, doctor included.) Renderers enrol from the module's
+  // exports, so a new `toml*` renderer fails here until it gets a corpus.
+  const expectations: Record<
+    string,
+    { inputs: unknown[]; isExpected: (v: unknown) => boolean }
+  > = {
+    tomlString: {
+      inputs: [
+        "plain",
+        'a "b" \\c',
+        "hash # not a comment",
+        "single 'quotes'",
+        "emoji ✨",
+        "",
+        "tab\there",
+        "new\nline",
+        "carriage\rreturn",
+      ],
+      isExpected: (v) => typeof v === "string",
+    },
+    tomlNumber: {
+      inputs: [
+        // JS-numeric forms the TOML grammar forbids — must be normalized or
+        // rejected, never emitted verbatim.
+        ".5",
+        "5.",
+        "007",
+        "1.e3",
+        "+.5",
+        "-.5",
+        "01.5",
+        // Valid TOML written forms.
+        "0.0",
+        "500000",
+        "1e5",
+        "0x1F",
+        "1_000",
+        "+1",
+        "-0.5",
+        " 42 ",
+        // Non-numbers and TOML-structural payloads.
+        "",
+        " ",
+        "lots",
+        "1 # comment",
+        "5\nq = 1",
+        "1979-05-27",
+        "true",
+        "[1]",
+        "'5'",
+        "inf",
+        "nan",
+        "Infinity",
+        "NaN",
+        // Plain JS numbers.
+        0.5,
+        500000,
+        1e21,
+        5e-324,
+        -0,
+        Number.NaN,
+        Number.POSITIVE_INFINITY,
+      ],
+      isExpected: (v) => typeof v === "number" && Number.isFinite(v),
+    },
+    tomlBool: {
+      inputs: [true, false],
+      isExpected: (v) => typeof v === "boolean",
+    },
+    tomlStringArray: {
+      inputs: [
+        [],
+        ["a", "b"],
+        ['say "hi"', "back\\slash"],
+        ["line\nbreak"],
+      ],
+      isExpected: (v) =>
+        Array.isArray(v) && v.every((item) => typeof item === "string"),
+    },
+  };
+
+  const renderers = Object.entries(tomlEditModule)
+    .filter(([name, fn]) => /^toml[A-Z]/.test(name) && typeof fn === "function")
+    .map(([name]) => name);
+  assertEquals(
+    Object.keys(expectations).sort(),
+    renderers.sort(),
+    "every exported toml* renderer needs a corpus in this guard",
+  );
+
+  for (const [name, { inputs, isExpected }] of Object.entries(expectations)) {
+    const render = tomlEditModule[
+      name as keyof typeof tomlEditModule
+    ] as (input: unknown) => string;
+    for (const input of inputs) {
+      let literal: string;
+      try {
+        literal = render(input);
+      } catch {
+        continue; // rejecting an input is always legal
+      }
+      let parsed: { v?: unknown };
+      try {
+        parsed = parseToml(`v = ${literal}`) as { v?: unknown };
+      } catch {
+        throw new Error(
+          `${name}(${JSON.stringify(input)}) returned ${
+            JSON.stringify(literal)
+          }, which @std/toml cannot parse — this literal would corrupt discern.toml`,
+        );
+      }
+      assert(
+        isExpected(parsed.v),
+        `${name}(${JSON.stringify(input)}) returned ${
+          JSON.stringify(literal)
+        }, which parses back as ${
+          JSON.stringify(parsed.v)
+        } — not the renderer's type`,
+      );
+    }
+  }
+});
+
+Deno.test("tomlNumber normalizes JS-numeric forms the TOML grammar forbids", () => {
+  assertEquals(tomlNumber(".5"), "0.5");
+  assertEquals(tomlNumber("5."), "5");
+  assertEquals(tomlNumber("007"), "7");
+  assertEquals(tomlNumber("1.e3"), "1000");
+  assertEquals(tomlNumber("+.5"), "0.5");
+  assertEquals(tomlNumber("-.5"), "-0.5");
+});
+
+Deno.test("tomlNumber preserves written forms that are already valid TOML", () => {
+  assertEquals(tomlNumber("0.0"), "0.0");
+  assertEquals(tomlNumber("500000"), "500000");
+  assertEquals(tomlNumber("1e5"), "1e5");
+  assertEquals(tomlNumber("1_000"), "1_000");
+  assertEquals(tomlNumber("0x1F"), "0x1F");
 });
 
 Deno.test("value renderers reject bad input", () => {

@@ -3,9 +3,11 @@ import {
   AGENT_NAMES,
   ConfigParseError,
   ConfigValidationError,
+  configWriteIssues,
   isSettableConfigPath,
   parseConfig,
   parseConfigOrThrow,
+  settableConfigValueKind,
   toCommand,
   toCommandList,
 } from "../src/shared/config_schema.ts";
@@ -184,6 +186,70 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("ratchets.coverage.bogus"));
+});
+
+Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
+  assertEquals(settableConfigValueKind("project.slug"), { kind: "string" });
+  assertEquals(settableConfigValueKind("gate.timeout"), { kind: "number" });
+  assertEquals(settableConfigValueKind("gate.stream"), { kind: "boolean" });
+  assertEquals(settableConfigValueKind("guidance.agents"), {
+    kind: "string-array",
+  });
+  assertEquals(settableConfigValueKind("worktree.setup.steps"), {
+    kind: "string-array",
+  });
+  // Enum-typed strings carry their closed vocabulary, straight from the schema
+  // constants — never a hand-copied list.
+  assertEquals(settableConfigValueKind("checks.x.stage"), {
+    kind: "string",
+    values: [...STAGES],
+  });
+  assertEquals(settableConfigValueKind("ratchets.x.direction"), {
+    kind: "string",
+    values: ["up", "down"],
+  });
+  // Unions have no single required type.
+  assertEquals(settableConfigValueKind("capabilities.test"), { kind: "mixed" });
+  assertEquals(settableConfigValueKind("ratchets.x.per"), { kind: "mixed" });
+  // Section paths are tables, not keys.
+  assertEquals(settableConfigValueKind("worktree.setup"), { kind: "table" });
+  assertEquals(settableConfigValueKind("worktree.resources.db"), {
+    kind: "table",
+  });
+  // Unknown paths stay unknown.
+  assertEquals(settableConfigValueKind("project.frobnicate"), undefined);
+});
+
+Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress record entry", () => {
+  // A clean config writes.
+  assertEquals(configWriteIssues(`[project]\nslug = "demo"\n`), []);
+  // Incremental record construction writes: required keys still MISSING inside
+  // a [ratchets.<n>] / [scopes.<n>] entry are the documented allowance.
+  assertEquals(configWriteIssues(`[ratchets.cov]\nlimit = 80\n`), []);
+  assertEquals(configWriteIssues(`[scopes.docs]\nneutral = true\n`), []);
+  // A key PRESENT with the wrong shape blocks.
+  const wrongType = configWriteIssues(`[guidance]\nagents = "claude_code"\n`);
+  assert(
+    wrongType.some((i) => i.path === "guidance.agents"),
+    JSON.stringify(wrongType),
+  );
+  const wrongEnum = configWriteIssues(
+    `[checks.x]\nstage = "bogus"\nrun = "y"\n`,
+  );
+  assert(
+    wrongEnum.some((i) => i.path === "checks.x.stage"),
+    JSON.stringify(wrongEnum),
+  );
+  // Anything wrong OUTSIDE a record entry is never excused: the allowance is
+  // scoped to the record families, nothing else.
+  const badRoot = configWriteIssues(`[features]\ndocs = true\n`);
+  assert(badRoot.length > 0, "an unknown section must block");
+  // Unparseable TOML blocks with the syntax hint.
+  const syntax = configWriteIssues(`[ratchets.cov]\nlimit = .5\n`);
+  assert(
+    syntax.some((i) => i.message.includes("syntax error")),
+    JSON.stringify(syntax),
+  );
 });
 
 Deno.test("[docs].dir round-trips and rejects paths outside the project", () => {

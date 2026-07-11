@@ -568,11 +568,13 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setScalar = new Command()
-    .description("Set an arbitrary scalar key (section.key). Type is inferred.")
+    .description(
+      "Set a config key (section.key). The value's TOML type follows the schema; an array-of-strings key wraps a single value.",
+    )
     .arguments("<key:string> <value:string>")
-    .option("--number", "Treat the value as a number.")
-    .option("--bool", "Treat the value as a boolean.")
-    .option("--string", "Treat the value as a string (no inference).")
+    .option("--number", "Treat the value as a number (union-typed keys only).")
+    .option("--bool", "Treat the value as a boolean (union-typed keys only).")
+    .option("--string", "Treat the value as a string (union-typed keys only).")
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, key: string, value: string) => {
       Deno.exit(

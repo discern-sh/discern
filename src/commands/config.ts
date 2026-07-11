@@ -6,11 +6,14 @@
  */
 
 import { join, relative } from "@std/path";
+import { parse as parseToml } from "@std/toml";
 import { Logger } from "../lib/log.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import {
-  isSettableConfigPath,
+  type ConfigValueKind,
+  configWriteIssues,
+  settableConfigValueKind,
   toCommandList,
 } from "../shared/config_schema.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
@@ -27,6 +30,9 @@ export interface ConfigOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
+  /** Project root to edit in; defaults to the process cwd. An injected seam so
+   * tests can drive the editor without mutating the process working directory. */
+  cwd?: string;
 }
 
 /** One planned edit: the dotted key and the rendered TOML value literal. */
@@ -65,10 +71,10 @@ async function applyEdits(
   hints: string[] = [],
 ): Promise<number> {
   const log = new Logger(opts);
-  const path = (await resolveConfigPath(Deno.cwd())) ??
-    join(Deno.cwd(), CONFIG_REL);
+  const root = opts.cwd ?? Deno.cwd();
+  const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   // Report the install-relative config path (discern.toml, or a legacy location).
-  const fileRel = relative(Deno.cwd(), path);
+  const fileRel = relative(root, path);
 
   let text: string;
   try {
@@ -97,6 +103,22 @@ async function applyEdits(
         error instanceof Error ? error.message : String(error)
       }`,
       "edit_error",
+    );
+  }
+
+  // The write boundary: never leave (or, dry-run, promise) a config the next
+  // read rejects. Whatever the subcommands rendered, the edited text must parse
+  // and satisfy the schema — bar the documented incomplete-record allowance —
+  // before it touches disk; otherwise the edit is refused with the exact issues.
+  const issues = configWriteIssues(result);
+  if (issues.length > 0) {
+    const detail = issues
+      .map((i) => (i.path === "" ? i.message : `${i.path}: ${i.message}`))
+      .join("; ");
+    return fail(
+      opts,
+      `refusing this edit — it would leave ${fileRel} invalid (${detail}).`,
+      "invalid_value",
     );
   }
 
@@ -311,7 +333,8 @@ export async function runConfigSet(
   // report success and leave a config the next read rejects (a typo'd section or
   // key). A valid-but-incomplete path (e.g. ratchets.coverage.limit before its
   // run) is allowed — only an unknown key/section is rejected.
-  if (!isSettableConfigPath(key)) {
+  const expected = settableConfigValueKind(key);
+  if (expected === undefined) {
     return fail(
       opts,
       `unknown config key "${key}" — it is not part of the discern.toml schema (see docs/10-installer/config-reference.md). For custom gate work use \`config set-check\`.`,
@@ -321,22 +344,140 @@ export async function runConfigSet(
   if ([opts.number, opts.bool, opts.string].filter(Boolean).length > 1) {
     return fail(opts, `give at most one of --number, --bool, --string.`);
   }
+  if (expected.kind === "table") {
+    return fail(
+      opts,
+      `"${key}" is a section, not a single key — set one of its keys instead (see docs/10-installer/config-reference.md).`,
+    );
+  }
 
   let literal: string;
   try {
-    literal = renderTypedValue(value, opts);
+    literal = renderTypedValue(key, value, expected, opts);
   } catch (error) {
     return fail(opts, error instanceof Error ? error.message : String(error));
   }
   return await applyEdits([{ key, literal }], opts, `Set ${key}.`);
 }
 
+/** The flag name a caller forced a type with, or undefined for none. */
+function forcedTypeFlag(
+  opts: { number?: boolean; bool?: boolean; string?: boolean },
+): "--number" | "--bool" | "--string" | undefined {
+  if (opts.number) return "--number";
+  if (opts.bool) return "--bool";
+  if (opts.string) return "--string";
+  return undefined;
+}
+
 /**
- * Render a CLI value to a TOML literal. An explicit `--string`/`--number`/`--bool`
- * forces the type; otherwise the type is inferred: `true`/`false` → bool, a finite
- * number → number, anything else → string.
+ * Render a CLI value as the TOML literal the schema expects at `key` — the type
+ * comes from the schema, never from the value's spelling, so a numeric-looking
+ * slug stays a string and a single agent name lands as a one-element array. A
+ * `--string`/`--number`/`--bool` flag that CONTRADICTS the schema is refused
+ * (honouring it would write a config the next read rejects); only a `mixed`
+ * (union-typed) key falls back to flag-forced or inferred rendering. Throws with
+ * a user-ready message on any mismatch.
  */
 function renderTypedValue(
+  key: string,
+  value: string,
+  expected: Exclude<ConfigValueKind, { kind: "table" }>,
+  opts: { number?: boolean; bool?: boolean; string?: boolean },
+): string {
+  const flag = forcedTypeFlag(opts);
+  if (expected.kind === "string") {
+    if (flag !== undefined && flag !== "--string") {
+      throw new Error(
+        `"${key}" holds a string, so ${flag} would write a value the next read rejects.`,
+      );
+    }
+    if (expected.values !== undefined && !expected.values.includes(value)) {
+      throw new Error(
+        `"${key}" must be one of: ${
+          expected.values.join(", ")
+        } (got "${value}").`,
+      );
+    }
+    return tomlString(value);
+  }
+  if (expected.kind === "number") {
+    if (flag !== undefined && flag !== "--number") {
+      throw new Error(
+        `"${key}" holds a number, so ${flag} would write a value the next read rejects.`,
+      );
+    }
+    try {
+      return tomlNumber(value);
+    } catch {
+      throw new Error(`"${key}" holds a number (got "${value}").`);
+    }
+  }
+  if (expected.kind === "boolean") {
+    if (flag !== undefined && flag !== "--bool") {
+      throw new Error(
+        `"${key}" holds a boolean, so ${flag} would write a value the next read rejects.`,
+      );
+    }
+    if (value !== "true" && value !== "false") {
+      throw new Error(
+        `"${key}" holds a boolean — use a bare true or false (got "${value}").`,
+      );
+    }
+    return tomlBool(value === "true");
+  }
+  if (expected.kind === "string-array") {
+    if (flag !== undefined) {
+      throw new Error(
+        `"${key}" holds an array of strings, so ${flag} would write a value the next read rejects.`,
+      );
+    }
+    return renderStringArrayValue(key, value);
+  }
+  // A union-typed key (command-or-list, a ratchet `per`): no single required
+  // type, so honour an explicit flag or infer from the value's spelling. The
+  // write-time validation in applyEdits still backstops a wrong guess.
+  return renderInferredValue(value, opts);
+}
+
+/**
+ * Render a value for an array-of-strings key: a `["a", "b"]`-shaped value is
+ * parsed as a TOML array and re-rendered canonically (so a stray comment or
+ * trailing text can never ride into the file verbatim); any other value becomes
+ * a one-element array — `config set guidance.agents claude_code` means
+ * `agents = ["claude_code"]`.
+ */
+function renderStringArrayValue(key: string, value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[") && !/[\r\n]/.test(trimmed)) {
+    let parsed: { v?: unknown };
+    try {
+      parsed = parseToml(`v = ${trimmed}`) as { v?: unknown };
+    } catch {
+      throw new Error(
+        `"${key}" holds an array of strings — pass one value (wrapped automatically) or a TOML array like ["a", "b"] (got "${value}").`,
+      );
+    }
+    const items = parsed.v;
+    if (
+      !Array.isArray(items) ||
+      !items.every((item): item is string => typeof item === "string")
+    ) {
+      throw new Error(
+        `"${key}" holds an array of strings — every item must be a quoted string (got "${value}").`,
+      );
+    }
+    return tomlStringArray(items);
+  }
+  return tomlStringArray([value]);
+}
+
+/**
+ * Render a CLI value for a union-typed key. An explicit `--string`/`--number`/
+ * `--bool` forces the type; otherwise it is inferred: `true`/`false` → bool, a
+ * finite number → number, anything else → string.
+ */
+function renderInferredValue(
   value: string,
   opts: { number?: boolean; bool?: boolean; string?: boolean },
 ): string {

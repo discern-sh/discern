@@ -52,6 +52,23 @@ scaffold reconciliation (restore-if-absent, never rewrite a value —
 writer is one of the few sanctioned write sites in the
 [write-surface contract](../80-development/install-surface.md#the-write-surface-contract).
 
+Two rules keep a programmatic write from ever leaving a config the next read
+rejects. First, `config set` renders the TOML type the schema expects at the
+path (`settableConfigValueKind`) — a numeric-looking slug stays a string, a
+single value for an array-of-strings key lands as a one-element array, an
+enum-typed key names its closed vocabulary on a miss — with value-based
+inference reserved for union-typed keys (a command-or-list, a ratchet `per`).
+Second, every `config set*` edit is validated before it touches disk
+(`configWriteIssues`): the edited text must parse and satisfy the schema, bar
+one allowance — a required key still _missing_ inside a record-family entry
+(`[checks.<n>]`, `[scopes.<n>]`, `[ratchets.<n>]`, `[worktree.resources.<n>]`),
+because incremental table construction is legitimate. An edit that fails is
+refused with the exact issues and the file is untouched. The value renderers
+themselves are held to the same bar one level down: `tomlNumber` probes
+candidate literals against `@std/toml` — the parser that later reads the file —
+so a JS-numeric spelling the TOML grammar forbids (`.5`, `007`) is normalized,
+never written verbatim.
+
 ## See also
 
 - [config-reference.md](../10-installer/config-reference.md) — every section,
