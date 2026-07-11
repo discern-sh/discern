@@ -857,6 +857,9 @@ export const SetupDoneLandingSchema = z.strictObject({
   branch: z.string(),
   target: z.string(),
   on_target: z.boolean(),
+  /** True only on the dedicated `discern-setup` branch — the one branch
+   * `setup land` lands; false steers the agent to a manual merge instead. */
+  on_setup_branch: z.boolean(),
   command: z.string(),
 });
 

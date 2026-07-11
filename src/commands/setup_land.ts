@@ -5,8 +5,11 @@
  * branch (ADR 0065), so after `setup done` the harness exists on that branch but NOT
  * on `main`. A novice who restarts and switches to `main` can appear to "lose" discern
  * entirely. This command closes that gap deterministically: it fast-forwards (or
- * merges) the current setup branch onto the integration branch and deletes the merged
- * branch, leaving the user on `main` with the harness in place.
+ * merges) the `discern-setup` branch onto the integration branch and deletes the
+ * merged branch, leaving the user on `main` with the harness in place. It lands
+ * ONLY that dedicated branch: run from any other branch it refuses, because the
+ * merge takes whatever the current branch contains and an ordinary branch's own
+ * commits would be swept onto the trunk with no review.
  *
  * It is the main-checkout counterpart to `discern graduate` (which lands a linked
  * WORKTREE's branch): same land-onto-trunk shape — clean-tree precondition, fast-
@@ -20,6 +23,7 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { runGit } from "../shared/subprocess.ts";
+import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { worktreeState } from "../lib/git.ts";
 import { integrationBranch } from "../engine/worktree/git.ts";
 
@@ -45,6 +49,15 @@ export interface LandingSummary {
   target: string;
   /** True when the work already lives on the integration branch (nothing to land). */
   onTarget: boolean;
+  /**
+   * True when the current branch is the dedicated `discern-setup` branch — the ONLY
+   * branch `setup land` lands. Computed here, once, so every surface that recommends
+   * landing (`setup done`'s hints, its "What's next" step, the relay message) keys
+   * off the same predicate the land command itself enforces: an in-place
+   * (`--allow-dirty`) setup on the user's own branch is steered to a manual merge,
+   * never to a command that would sweep that branch's own commits onto the trunk.
+   */
+  onSetupBranch: boolean;
 }
 
 /** Resolve where the just-finished setup lives relative to the integration branch —
@@ -58,11 +71,23 @@ export async function landingSummary(
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: root }))
       .success;
   if (!inRepo) {
-    return { inRepo: false, branch: "", target, onTarget: false };
+    return {
+      inRepo: false,
+      branch: "",
+      target,
+      onTarget: false,
+      onSetupBranch: false,
+    };
   }
   const branch = (await runGit(["branch", "--show-current"], { cwd: root }))
     .stdout.trim();
-  return { inRepo: true, branch, target, onTarget: branch === target };
+  return {
+    inRepo: true,
+    branch,
+    target,
+    onTarget: branch === target,
+    onSetupBranch: branch === SETUP_BRANCH,
+  };
 }
 
 /** What the executed (or previewed) landing did/would do, for the `--json` envelope. */
@@ -103,10 +128,11 @@ function emitLand(
 }
 
 /**
- * `discern setup land` — fast-forward (or merge) the current setup branch onto the
- * integration branch, then delete the merged branch. Refuses on a dirty tree or a
- * merge conflict (the branch keeps all its commits); a no-op when already on the
- * integration branch or outside a git repo. `--dry-run` previews and touches nothing.
+ * `discern setup land` — fast-forward (or merge) the `discern-setup` branch onto the
+ * integration branch, then delete the merged branch. Refuses on a dirty tree, a
+ * merge conflict (the branch keeps all its commits), or any current branch that is
+ * not the setup branch; a no-op when already on the integration branch or outside a
+ * git repo. `--dry-run` previews and touches nothing.
  */
 export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
   const root = await findRoot();
@@ -150,6 +176,22 @@ export async function runSetupLand(opts: SetupLandOptions): Promise<number> {
       message:
         `already on ${target} — your setup work is landed; nothing to do.`,
       code: 0,
+    });
+  }
+  // Land ONLY the dedicated setup branch. This command fast-forwards (or merges)
+  // the CURRENT branch onto the integration branch — run from an ordinary branch
+  // it would sweep that branch's own commits onto the trunk with no review.
+  if (branch !== SETUP_BRANCH) {
+    return emitLand(opts, {
+      ok: false,
+      error: "not_setup_branch",
+      message:
+        `you are on \`${branch}\`, not the \`${SETUP_BRANCH}\` branch this command lands — ` +
+        `landing here would sweep \`${branch}\`'s own commits onto \`${target}\`. ` +
+        `If your finished setup lives on \`${SETUP_BRANCH}\`, check it out and re-run \`${LAND_COMMAND}\`. ` +
+        `If you set up on \`${branch}\` deliberately (--allow-dirty), merge it your usual way ` +
+        `(\`git checkout ${target} && git merge ${branch}\`) when you're ready.`,
+      code: 1,
     });
   }
   if (!(await run(["rev-parse", "--verify", "--quiet", target])).success) {

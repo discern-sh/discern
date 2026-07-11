@@ -431,6 +431,7 @@ export type DiscernSetupDoneResult = {
       branch: string;
       target: string;
       on_target: boolean;
+      on_setup_branch: boolean;
       command: string;
     };
     reactivation: {

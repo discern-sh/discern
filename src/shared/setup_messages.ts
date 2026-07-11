@@ -222,6 +222,9 @@ export interface CompletionLanding {
   branch: string;
   target: string;
   onTarget: boolean;
+  /** True only on the dedicated `discern-setup` branch — the ONE branch
+   * `discern setup land` lands; any other branch is steered to a manual merge. */
+  onSetupBranch: boolean;
 }
 
 /** The minimal reactivation shape — structurally satisfied by `reactivationHandoff()`'s
@@ -270,6 +273,11 @@ function landingLine(l: CompletionLanding): string {
   }
   if (l.branch === "") {
     return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup land\`.`;
+  }
+  if (!l.onSetupBranch) {
+    // `setup land` lands only the dedicated setup branch — recommending it for
+    // the user's own branch would sweep that branch's commits onto the trunk.
+    return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. Merge it in your usual way when you're ready — nothing is lost meanwhile.`;
   }
   return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup land\` — or leave the branch as it is to review first; nothing is lost either way.`;
 }

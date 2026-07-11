@@ -59,14 +59,21 @@ import {
   guidanceRefreshErrors,
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
-import { renderAgentFiles } from "../engine/guidance_render.ts";
+import {
+  agentFileContents,
+  composeGuidanceBody,
+} from "../engine/guidance_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
   lifecycleContext,
   probeWorktreeViability,
 } from "../engine/worktree/lifecycle.ts";
-import { providerFor, reactivationHandoff } from "../lib/providers.ts";
+import {
+  allGuidanceFilePaths,
+  allGuidanceFiles,
+  reactivationHandoff,
+} from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
@@ -651,18 +658,29 @@ async function scaffoldHarness(
  * pre-existing, hand-authored agent file into it so the compile that follows
  * can't destroy the user's instructions (ADR 0065).
  *
+ * The migration walks EVERY provider's instruction-file path
+ * ({@link allGuidanceFilePaths}) — the same registry aggregator `setup verify`
+ * names the pre-existing files from — never just the configured agent set. The
+ * scaffolded `.gitignore` covers the full provider surface and `uninstall`
+ * deletes every provider guidance path, so a hand-authored file for an unwired
+ * agent that was not folded here would silently fall out of version control and
+ * later be deleted — the exact loss `verify`'s "nothing is lost" promise rules
+ * out.
+ *
  * On a FRESH install no discern-generated agent file SHOULD exist (discern writes
  * them only via a compile, which needs a config) — but one can survive an
  * abandoned earlier setup, because the compiled files are gitignored and outlive
  * a branch switch or a deleted `discern-setup` branch. So a candidate is treated
  * as the USER's — its body folded into the source under a labelled heading,
  * deduped by content so identical mirrors migrate once — only when it does NOT
- * match discern's own render for that path ({@link renderAgentFiles} is
- * deterministic from config + sources, so the comparison is exact and cheap);
- * a match is skipped and reported, never re-imported as if it were authoring.
- * The stub is laid only when the source is absent, so a re-run never clobbers the
- * agent's work; on a `--force` re-run the user's content is already in the source
- * from the first run, so migration is skipped.
+ * match a body discern's own render produces ({@link agentFileContents} over the
+ * full registry is deterministic from config + sources, so the comparison is
+ * exact and cheap, and recognizes a leftover pointer or full body whichever
+ * agents the abandoned run had wired); a match is skipped and reported, never
+ * re-imported as if it were authoring. The stub is laid only when the source is
+ * absent, so a re-run never clobbers the agent's work; on a `--force` re-run the
+ * user's content is already in the source from the first run, so migration is
+ * skipped.
  */
 async function seedGuidance(
   root: string,
@@ -680,22 +698,25 @@ async function seedGuidance(
   const migrated: { file: string; body: string }[] = [];
   const skippedOwnRender: string[] = [];
   if (freshInstall) {
-    // Discern's own compiled content for each agent-file path, rendered from the
-    // just-scaffolded config + the on-disk sources — the exact bytes a refresh
-    // would write. Unavailable (undefined) when the config can't load; the
+    // Every body discern's own compile could have produced for ANY provider's
+    // agent file — the full body and the pointer form — rendered from the
+    // just-scaffolded config + the on-disk sources across the whole registry,
+    // so a survivor of an abandoned setup is recognized whichever agents that
+    // run had wired. Unavailable (undefined) when the config can't load; the
     // migration then proceeds as before rather than blocking the scaffold.
-    let ownRender: Map<string, string> | undefined;
+    let ownRenderBodies: Set<string> | undefined;
     try {
-      ownRender = await renderAgentFiles(root);
+      const cfg = await loadConfig(root);
+      const composed = await composeGuidanceBody(root, cfg);
+      ownRenderBodies = new Set(
+        [...agentFileContents(allGuidanceFiles(), composed).values()]
+          .map((b) => b.trim()),
+      );
     } catch {
-      ownRender = undefined;
+      ownRenderBodies = undefined;
     }
     const seen = new Set<string>();
-    for (const agent of config.agents) {
-      const rel = providerFor(agent)?.guidanceFile.path;
-      if (rel === undefined) {
-        continue;
-      }
+    for (const rel of allGuidanceFilePaths()) {
       let body: string;
       try {
         body = (await Deno.readTextFile(join(root, rel))).trim();
@@ -705,7 +726,7 @@ async function seedGuidance(
       if (body.length === 0 || seen.has(body)) {
         continue; // empty, or an identical mirror already captured
       }
-      if (ownRender?.get(rel)?.trim() === body) {
+      if (ownRenderBodies?.has(body)) {
         // A survivor of an abandoned setup, not the user's authoring — importing
         // it would fold discern's own compiled guidance back into the source.
         skippedOwnRender.push(rel);
@@ -977,7 +998,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // user manages git), a re-run/--force, or outside a git repo.
   let setupBranch: string | undefined;
   if (freshInstall && !opts.dryRun && !opts.allowDirty) {
-    const { branch, stop } = await ensureSetupBranch(destDir, opts, log);
+    const { branch, stop } = await ensureSetupBranch(
+      destDir,
+      opts,
+      log,
+      detectedMainBranch,
+    );
     if (stop !== undefined) {
       return stop; // dirty tree — error already emitted, nothing written
     }
@@ -1220,11 +1246,21 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
  * (`undefined` when not in a repo, or the branch couldn't be created), or a `stop`
  * code when the tree is dirty (the error is already emitted). The caller gates this
  * on `freshInstall && !dryRun && !allowDirty`.
+ *
+ * A fresh setup branch forks from the CURRENT HEAD, and `setup land` later
+ * fast-forwards (or merges) the integration branch to it — so a setup begun on an
+ * unmerged feature branch would carry that branch's own commits onto the trunk.
+ * When `integrationBranchName` (the pre-checkout detection) names an EXISTING
+ * local branch that is not the one checked out, refuse with the exact recovery
+ * instead of forking; a brand-new repository (the target not yet born) and a
+ * resume of an existing `discern-setup` branch are unaffected. `--allow-dirty`
+ * skips this whole function — the declared "I manage git myself" path.
  */
 async function ensureSetupBranch(
   destDir: string,
   opts: SetupOptions,
   log: Logger,
+  integrationBranchName: string | undefined,
 ): Promise<{ branch?: string; stop?: number }> {
   const state = await worktreeState(destDir);
   if (state.kind === "not-a-repo") {
@@ -1266,6 +1302,40 @@ async function ensureSetupBranch(
     (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
       cwd: destDir,
     })).success;
+  // Fresh creation only (a resume checks out the existing branch as-is): refuse
+  // to fork the setup branch off anything but the integration branch, so the
+  // later `setup land` can never sweep a feature branch's own commits onto it.
+  if (!exists && integrationBranchName !== undefined) {
+    const targetExists = (await runGit(
+      [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `refs/heads/${integrationBranchName}`,
+      ],
+      { cwd: destDir },
+    )).success;
+    if (targetExists && current !== integrationBranchName) {
+      const message =
+        `setup starts from your integration branch (\`${integrationBranchName}\`) so the finished ` +
+        `work can land back onto it cleanly — you are on \`${current}\`, and a setup branch forked ` +
+        `from it would carry this branch's own commits onto \`${integrationBranchName}\` when landed. ` +
+        `Check out \`${integrationBranchName}\` (\`git checkout ${integrationBranchName}\`), then re-run ` +
+        "`discern setup begin`. (Advanced: --allow-dirty sets up on the current branch as-is, with no " +
+        "isolated setup branch — you manage the branching and merging yourself.)";
+      if (opts.json) {
+        log.result({
+          ok: false,
+          verb: "setup",
+          error: "not_on_integration_branch",
+          message,
+        });
+      } else {
+        log.error(message);
+      }
+      return { stop: 1 };
+    }
+  }
   const checkout = exists
     ? await runGit(["checkout", SETUP_BRANCH], { cwd: destDir })
     : await runGit(["checkout", "-b", SETUP_BRANCH], { cwd: destDir });
@@ -1677,8 +1747,13 @@ function doneHints(
 ): string[] {
   const hints: string[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
+    // `setup land` lands ONLY the dedicated setup branch — an in-place setup on
+    // the user's own branch is steered to a manual merge, because the land
+    // command would sweep that branch's own commits onto the trunk.
     hints.push(
-      `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`,
+      landing.onSetupBranch
+        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`
+        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${LAND_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
     );
   }
   hints.push(reactivation.summary);
@@ -1739,6 +1814,15 @@ function landStep(landing: LandingSummary, n: number): string[] {
   if (landing.branch === "") {
     return [
       `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${LAND_COMMAND}\`.`,
+    ];
+  }
+  if (!landing.onSetupBranch) {
+    // An in-place setup on the user's own branch: `setup land` only lands the
+    // dedicated setup branch, so steer to a manual merge instead.
+    return [
+      `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\` —`,
+      `     merge it into \`${landing.target}\` your usual way when ready (\`${LAND_COMMAND}\` only`,
+      `     lands the \`${SETUP_BRANCH}\` branch, never a branch of your own).`,
     ];
   }
   return [
@@ -1948,6 +2032,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         branch: landing.branch,
         target: landing.target,
         on_target: landing.onTarget,
+        on_setup_branch: landing.onSetupBranch,
         command: LAND_COMMAND,
       },
       reactivation,

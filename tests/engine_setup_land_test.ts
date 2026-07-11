@@ -10,7 +10,7 @@
  * state it leaves behind.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   git,
@@ -142,6 +142,88 @@ Deno.test("setup land is a clean no-op when already on the integration branch", 
     const obj = JSON.parse(res.stdout);
     assertEquals(obj.ok, true);
     assert(obj.data === undefined, "a no-op carries no landing data");
+  });
+});
+
+Deno.test("setup land refuses to land a branch that is not the setup branch", async () => {
+  // `setup land` fast-forwards (or merges) the CURRENT branch onto the
+  // integration branch — run from an ordinary feature branch it would sweep
+  // that branch's own commits onto `main` with no review. It must only land
+  // the `discern-setup` branch; any other branch is merged by hand.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir); // commits the scaffold on `main`
+    await git(dir, "checkout", "-b", "feature-x");
+    await Deno.writeTextFile(join(dir, "wip.txt"), "unfinished feature\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "feature WIP", "--no-gpg-sign");
+    const mainBefore = await gitOut(dir, "rev-parse", "main");
+
+    const res = await runAgent(dir, ["setup", "land", "--json"]);
+    assertEquals(res.code, 1, res.output);
+    assertEquals(JSON.parse(res.stdout).error, "not_setup_branch");
+
+    // main untouched, still on the feature branch, its commits intact.
+    assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "feature-x");
+  });
+});
+
+Deno.test("setup done steers a non-setup branch to a manual merge, never `setup land`", async () => {
+  // An --allow-dirty setup lives in place on the user's own branch. `setup
+  // done` must not recommend `discern setup land` there — the command lands
+  // whatever branch it is run from, and this one carries the user's own
+  // commits. Every recommendation surface (the JSON hints, the relay
+  // guidance, the landing data) derives from the one landingSummary field,
+  // so this drives the full envelope.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // commits on `main`
+    // A remote default branch so detection stamps `main` even from feature-x.
+    const sha = await gitOut(dir, "rev-parse", "main");
+    await git(dir, "update-ref", "refs/remotes/origin/main", sha);
+    await git(
+      dir,
+      "symbolic-ref",
+      "refs/remotes/origin/HEAD",
+      "refs/remotes/origin/main",
+    );
+    await git(dir, "checkout", "-q", "-b", "feature-x");
+    await Deno.writeTextFile(join(dir, "wip.txt"), "unfinished feature\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "feature WIP", "--no-gpg-sign");
+
+    const begin = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--allow-dirty",
+      "--agents",
+      "claude_code",
+      "--json",
+    ]);
+    assertEquals(begin.code, 0, begin.output);
+
+    const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const obj = JSON.parse(done.stdout);
+    assertEquals(obj.data.landing.branch, "feature-x");
+    assertEquals(obj.data.landing.on_setup_branch, false);
+    const hints: string[] = obj.hints ?? [];
+    assert(
+      !hints.some((h) => h.includes("land it with")),
+      `done must not recommend landing a non-setup branch: ${
+        JSON.stringify(hints)
+      }`,
+    );
+    assertStringIncludes(
+      obj.data.guidance,
+      "usual way",
+      "the relay message steers to a manual merge for a non-setup branch",
+    );
+    assert(
+      !obj.data.guidance.includes("landing it now with `discern setup land`"),
+      `the relay message must not recommend setup land here:\n${obj.data.guidance}`,
+    );
   });
 });
 

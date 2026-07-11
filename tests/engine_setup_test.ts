@@ -25,7 +25,7 @@ import {
   AGENT_NAMES,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import { providerFor } from "../src/lib/providers.ts";
+import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up the harness";
@@ -898,6 +898,51 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
   });
 });
 
+Deno.test("discern setup migrates EVERY provider's pre-existing instruction file — configured or not (the verify promise)", async () => {
+  // `setup verify` names the pre-existing instruction files of ALL known
+  // providers and promises "begin preserves them by folding their content into
+  // the guidance source — nothing is lost". The migration must therefore cover
+  // the full provider registry, not just the configured agent set: a
+  // hand-authored file for an unwired agent is otherwise never folded, becomes
+  // gitignored by the scaffold, and a later `discern uninstall` deletes it.
+  // Driven off allGuidanceFilePaths() (the registry aggregator `verify` reads),
+  // so a new provider's instruction path auto-enrols in this guard.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+    // Written AFTER the init commit, so each file is UNTRACKED — the fresh-repo
+    // shape where a dropped migration is unrecoverable (no git history holds it).
+    const paths = allGuidanceFilePaths();
+    for (const rel of paths) {
+      await Deno.writeTextFile(
+        join(dir, rel),
+        `# ${rel}\n\nHOUSE RULE from ${rel}: never break userspace.\n`,
+      );
+    }
+    // Wire ONLY claude_code, so every other provider's file belongs to an
+    // unconfigured agent — the set the migration used to silently skip.
+    const r = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(r.code, 0, r.output);
+
+    const guidance = await Deno.readTextFile(join(dir, "discern/guidance.md"));
+    for (const rel of paths) {
+      assertStringIncludes(
+        guidance,
+        `HOUSE RULE from ${rel}`,
+        `the pre-existing ${rel} must be folded into guidance.md whether or not ` +
+          `its agent is configured — verify promised the user nothing is lost.`,
+      );
+      assertStringIncludes(guidance, `Imported from ${rel}`);
+    }
+  });
+});
+
 /**
  * Plant a fake, executable agent binary named `name` in a fresh temp "bin" dir and
  * return a PATH with that dir prepended to the real one — so PATH auto-detect finds
@@ -1125,6 +1170,40 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
     );
     assertEquals(JSON.parse(r.stdout).data.branch, "discern-setup");
     assert(await exists(join(dir, "discern.toml")));
+  });
+});
+
+Deno.test("discern setup begin refuses to start from a feature branch when the integration branch exists", async () => {
+  // A setup branch forks from the CURRENT HEAD, and `setup land` later
+  // fast-forwards the integration branch to it — so a setup begun on a
+  // feature branch would sweep that branch's unmerged commits onto `main`.
+  // begin must refuse and name the exact recovery, leaving the tree untouched.
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir); // commits on `main`
+    // A remote default branch so detection picks `main` even from feature-x.
+    const sha = await gitOut(dir, "rev-parse", "main");
+    await git(dir, "update-ref", "refs/remotes/origin/main", sha);
+    await git(
+      dir,
+      "symbolic-ref",
+      "refs/remotes/origin/HEAD",
+      "refs/remotes/origin/main",
+    );
+    await git(dir, "checkout", "-q", "-b", "feature-x");
+    await Deno.writeTextFile(join(dir, "wip.txt"), "unfinished feature\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "feature WIP", "--no-gpg-sign");
+
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    assertEquals(JSON.parse(r.stdout).error, "not_on_integration_branch");
+
+    // Nothing was scaffolded and no setup branch was created.
+    assert(!(await exists(join(dir, "discern.toml"))));
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "feature-x");
+    const branches = await gitOut(dir, "branch", "--format=%(refname:short)");
+    assert(!branches.includes("discern-setup"));
   });
 });
 

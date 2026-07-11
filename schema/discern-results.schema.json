@@ -1536,6 +1536,9 @@
                     "on_target": {
                       "type": "boolean"
                     },
+                    "on_setup_branch": {
+                      "type": "boolean"
+                    },
                     "command": {
                       "type": "string"
                     }
@@ -1545,6 +1548,7 @@
                     "branch",
                     "target",
                     "on_target",
+                    "on_setup_branch",
                     "command"
                   ]
                 },

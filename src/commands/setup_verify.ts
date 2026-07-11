@@ -26,12 +26,8 @@ import { join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { consentAgentSet } from "../lib/detect_agents.ts";
-import { providerFor } from "../lib/providers.ts";
-import {
-  AGENT_NAMES,
-  type DiscernConfig,
-  loadConfig,
-} from "../shared/config_schema.ts";
+import { allGuidanceFilePaths } from "../lib/providers.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import type {
   SetupVerifyConflict,
@@ -204,17 +200,12 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
 /** The agent-instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) present on disk.
  * On a fresh install (no discern.toml) these are the USER's — `begin` folds them into
  * `guidance.md` (ADR 0065) — so naming them lets the agent reassure the human nothing
- * is lost. Drawn from the provider registry, deduped (several agents share AGENTS.md). */
+ * is lost. Drawn from {@link allGuidanceFilePaths} — the SAME registry aggregator
+ * `begin`'s migration walks — so the set this preflight promises to preserve can
+ * never name a file the migration would skip. */
 async function findExistingInstructions(destDir: string): Promise<string[]> {
-  const paths = new Set<string>();
-  for (const name of AGENT_NAMES) {
-    const p = providerFor(name)?.guidanceFile.path;
-    if (p !== undefined) {
-      paths.add(p);
-    }
-  }
   const found: string[] = [];
-  for (const p of paths) {
+  for (const p of allGuidanceFilePaths()) {
     if (await pathExists(join(destDir, p))) {
       found.push(p);
     }
