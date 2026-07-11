@@ -18,9 +18,9 @@ the actions legal for its state.
 One row per linked worktree, grouped and sorted for decision-making
 ([`model.ts`](../../src/engine/desk/model.ts) — pure and table-tested):
 
-- **Ready to land** — clean, ahead of the trunk, and holding an honored
-  gate-pass receipt. These float to the top: the desk doubles as the inbox where
-  finished handoffs wait.
+- **Ready to land** — clean, ahead of the trunk, and holding an honored gate
+  receipt. These float to the top: the desk doubles as the inbox where finished
+  handoffs wait.
 - **In flight** — everything an agent is presumably still working on.
 - **Needs attention** — broken checkouts (a crashed `start`), unreadable states,
   and stale rows: idle past the same threshold `status` uses while still

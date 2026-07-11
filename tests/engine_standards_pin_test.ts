@@ -4,7 +4,7 @@
  *
  * `--pin` measures every standard, tightens each asked-for limit that improved past
  * its margin toward the measured value, commits that change on its own (comment-
- * preservingly), and carries a gate-pass receipt forward across the gate-neutral
+ * preservingly), and carries a gate receipt forward across the gate-neutral
  * commit so `accept` skips the redundant re-run. These tests drive the real engine
  * through `runAgent` and assert on the config, the commit, and the receipt file.
  *
@@ -470,9 +470,9 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
   });
 });
 
-// ── the gate-pass receipt carries across the pin commit ────────────────────────
+// ── the gate receipt carries across the pin commit ────────────────────────
 
-Deno.test("pin: carries an honored gate-pass receipt onto the new commit", async () => {
+Deno.test("pin: carries an honored gate receipt onto the new commit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -490,7 +490,7 @@ Deno.test("pin: carries an honored gate-pass receipt onto the new commit", async
 
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Carried the gate-pass receipt forward");
+    assertStringIncludes(r.stdout, "Carried the gate receipt forward");
 
     // The receipt now names the NEW HEAD over a clean tree — accept's honored
     // condition — so accept would skip the redundant gate re-run.
@@ -515,7 +515,7 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
 
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
+    assertStringIncludes(r.stdout, "No current gate receipt to carry");
     // Fail-closed: no receipt was written, so accept will re-run the gate.
     assertEquals(await readReceipt(dir), undefined);
   });
@@ -540,7 +540,7 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
 
     const r = await runAgent(dir, ["standards", "--pin"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "No current gate-pass receipt to carry");
+    assertStringIncludes(r.stdout, "No current gate receipt to carry");
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readReceipt(dir), stale);

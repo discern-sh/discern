@@ -138,7 +138,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/engine/gate/receipt.ts",
-    "the gate-pass receipt — .git-internal, outside the project tree",
+    "the gate receipt — .git-internal, outside the project tree",
   ],
   // paths the user typed (explicit consent) or temp files (outside the tree)
   ["src/commands/docs.ts", "the user-typed docs-export --output path"],

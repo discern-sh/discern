@@ -320,7 +320,7 @@ export const TOOLS: McpTool[] = orderTools([
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
-      "has a recorded discern_done pass (when honored, data.gate_receipt.receipt " +
+      "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt " +
       "carries the receipt markdown to relay to your owner at the review moment); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.standards lists the configured standards. " +
@@ -434,7 +434,7 @@ export const TOOLS: McpTool[] = orderTools([
       "pin. Set pin to " +
       "capture measured improvements INSTEAD of just checking: it tightens each " +
       "limit to the value just measured (the pin_names standards, or every one with " +
-      "slack), commits that change on its own, and carries the gate-pass receipt " +
+      "slack), commits that change on its own, and carries the gate receipt " +
       "forward so accept skips the redundant gate re-run — the ergonomic way to " +
       "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +
       "and pins nothing while any standard is failing. A green check's hints[] " +
@@ -448,7 +448,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
-        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate-pass receipt forward. Requires a clean worktree (default false).",
+        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate receipt forward. Requires a clean worktree (default false).",
       ),
       pin_names: z.array(z.string()).optional().describe(
         "With pin, restrict pinning to these standards (default: every standard with slack).",

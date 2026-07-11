@@ -384,7 +384,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "accept",
     when:
-      "When the work is done and updated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
+      "When the work is done and updated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate receipt proves the current HEAD already passed.",
     steps,
   };
 }

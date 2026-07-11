@@ -625,7 +625,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     const hints = obj.hints ?? [];
     assert(
       hints.some((h: string) =>
-        h.includes("no recorded `discern done` pass") &&
+        h.includes("no honored receipt from `discern done`") &&
         h.includes("before reporting the branch ready for review")
       ),
       `expected a final-finish hint: ${JSON.stringify(hints)}`,

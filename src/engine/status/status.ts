@@ -603,7 +603,7 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
-  /** Whether the current clean HEAD already has a recorded `discern done` pass. */
+  /** Whether the current clean HEAD has an honored receipt from `discern done`. */
   gateReceipt: GateReceiptCheckData | undefined;
 }
 
@@ -739,11 +739,11 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         );
       } else if (ctx.gateReceipt?.status === "honored") {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern done\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
+          `Committed, up to date with ${main}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
         );
       } else {
         hints.push(
-          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern done\` pass; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
+          `Committed and up to date with ${main}, but this clean HEAD has no honored receipt from \`discern done\`; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
         );
       }
     }

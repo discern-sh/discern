@@ -129,7 +129,7 @@ import {
 import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
-// boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
+// boundary (ADR 0067) — fast-pathed by a gate receipt when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { failMessage, finishResult } from "../gate/finish.ts";
@@ -1297,7 +1297,7 @@ async function assertAcceptBranchStillCurrent(
 /**
  * Apply an acceptance plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against the whole
- * gate before landing (ADR 0067, fast-pathed by a gate-pass receipt), tears down the
+ * gate before landing (ADR 0067, fast-pathed by a gate receipt), tears down the
  * resources, fast-forwards the trunk to the branch tip, removes the worktree,
  * deletes the merged branch, and refreshes the trunk checkout it leaves behind.
  * Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
@@ -1330,7 +1330,7 @@ async function executeAcceptPlan(
   // `done` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
   // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
   // so a refusal leaves the branch and worktree intact.
-  //   FAST PATH: a gate-pass receipt proves the current clean HEAD already passed `done`
+  //   FAST PATH: a gate receipt proves the current clean HEAD already passed `done`
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.

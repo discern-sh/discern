@@ -6,7 +6,7 @@
  * (a clean textual merge that still fails a check), and a local `accept`
  * fast-forwards it onto the trunk where CI never runs.
  *
- * Two layers: the gate-pass RECEIPT primitive (the per-worktree marker `done` stamps and
+ * Two layers: the gate receipt primitive (the per-worktree marker `done` stamps and
  * `accept` honors), then the wired behaviour — the regression itself (a gate-breaking
  * update is refused), the receipt FAST PATH (a fresh `done` lets accept skip the
  * re-run — the perf property that makes running the gate at the boundary affordable), and

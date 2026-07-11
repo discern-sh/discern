@@ -392,7 +392,7 @@ async function runGate(
   const receipt = failedStage === null
     ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
     : undefined;
-  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
   // the gate, but the outcome rides in `data` so suppressed logs still expose receipt
@@ -460,20 +460,20 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
+        return "Gate passed, but no gate receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
       case "skipped_head_moved":
-        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
+        return `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
       case "record_failed":
-        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`;
+        return `Gate passed, but discern could not record the gate receipt${reason}; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`;
       case "unavailable":
-        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern accept\` may need to re-run the gate.`;
+        return `Gate passed, but discern could not prepare the gate receipt${reason}; \`discern accept\` may need to re-run the gate.`;
       case "cleared":
       case "clear_failed":
         return undefined;
     }
   }
   if (receipt.status === "clear_failed") {
-    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern done\` after fixing the failure.`;
+    return `The gate failed, and discern could not clear the previous gate receipt${reason}; re-run \`discern done\` after fixing the failure.`;
   }
   return undefined;
 }

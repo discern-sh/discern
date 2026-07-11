@@ -370,7 +370,7 @@ export function attachEngineCommands(root: Command): void {
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate-pass receipt forward. Requires a clean worktree.",
+      "Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
     )
     .action(async (o, ...names: string[]) => {
       Deno.exit(

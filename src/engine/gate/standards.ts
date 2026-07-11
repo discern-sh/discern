@@ -695,7 +695,7 @@ async function applyPinEdits(
  * Apply `standards --pin` (ADR 0106): measure every standard, and for each one asked for
  * — all of them, or the named subset — that improved past its limit by more than its
  * margin, tighten the limit toward the measured value, commit that change on its own,
- * and carry any gate-pass receipt forward across the (gate-neutral) commit so
+ * and carry any gate receipt forward across the (gate-neutral) commit so
  * `accept` need not re-run the whole gate. When a green check already measured this
  * exact clean HEAD, its measurement receipt stands in for the measurements — the
  * check → pin flow measures once — with only the never-loosen half re-checked live
@@ -873,8 +873,8 @@ async function pinStandardsResult(
     hints: [
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
-        ? "Carried the gate-pass receipt forward — `discern accept` will skip the redundant gate re-run."
-        : "No current gate-pass receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
+        ? "Carried the gate receipt forward — `discern accept` will skip the redundant gate re-run."
+        : "No current gate receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
     ],
   };
 }
@@ -891,7 +891,7 @@ async function pinStandardsResult(
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
- * a gate-pass receipt forward across it. `pinNames` restricts the pin to those
+ * a gate receipt forward across it. `pinNames` restricts the pin to those
  * standards (empty = all with slack). `dryRun` previews without measuring in BOTH
  * modes; a green check's hints name any pinnable slack, so check → pin is the whole
  * flow.

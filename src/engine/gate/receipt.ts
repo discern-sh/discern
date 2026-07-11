@@ -70,7 +70,7 @@ async function adminFilePath(
   return raw.startsWith("/") ? raw : join(cwd, raw);
 }
 
-/** This worktree's gate-pass receipt path. */
+/** This worktree's gate receipt path. */
 function receiptPath(cwd: string): Promise<string | undefined> {
   return adminFilePath(cwd, RECEIPT_FILE);
 }
@@ -170,7 +170,7 @@ export async function recordGateOutcome(
   const path = await receiptPath(cwd);
   if (path === undefined) {
     return receiptRecord("unavailable", {
-      reason: "could not resolve the gate-pass receipt path",
+      reason: "could not resolve the gate receipt path",
     });
   }
 
@@ -236,7 +236,7 @@ export async function recordGateOutcome(
 }
 
 /**
- * Inspect why the current worktree's gate-pass receipt can or cannot be honored.
+ * Inspect why the current worktree's gate receipt can or cannot be honored.
  * This is the verbose sibling of {@link gateReceiptHonored}: accept includes the
  * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
  * visible even when the human logger is suppressed. An HONORED record also carries
@@ -250,7 +250,7 @@ export async function inspectGateReceipt(
   if (path === undefined) {
     return {
       status: "unavailable",
-      reason: "could not resolve the gate-pass receipt path",
+      reason: "could not resolve the gate receipt path",
     };
   }
   let content: string;
@@ -306,7 +306,7 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
 }
 
 /**
- * Carry a gate-pass receipt across a `standards --pin` commit (ADR 0106).
+ * Carry a gate receipt across a `standards --pin` commit (ADR 0106).
  *
  * `standards --pin` commits ONLY `[standards.*]` limit changes — values the gate never
  * reads (standards are not part of `done`; ADR 0003) — so the tree the pin commit
@@ -380,7 +380,7 @@ export async function recordStandardMeasurements(
 
 /**
  * Clear the measurement receipt — a RED check's values must not stay reusable
- * (fail-closed, the same posture as a failed finish clearing the gate-pass receipt).
+ * (fail-closed, the same posture as a failed finish clearing the gate receipt).
  * Best-effort; a missing file is already the desired state.
  */
 export async function clearStandardMeasurements(cwd: string): Promise<void> {
@@ -398,7 +398,7 @@ export async function clearStandardMeasurements(cwd: string): Promise<void> {
 /**
  * Inspect whether the measurement receipt can be honored: it must parse, name exactly
  * the current HEAD, and the tree must be clean — the same identity rule as the
- * gate-pass receipt, so any commit, amend, or uncommitted edit silently invalidates
+ * gate receipt, so any commit, amend, or uncommitted edit silently invalidates
  * it. Anything unreadable or mis-shaped reads as `malformed` (measure fresh), never an
  * error. Never throws.
  */
