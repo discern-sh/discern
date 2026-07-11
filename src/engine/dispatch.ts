@@ -30,9 +30,10 @@ import {
 import {
   ejectSkill,
   listSkills,
-  type MaterializeResult,
   materializeSkills,
+  skillsListResult,
 } from "../lib/skills.ts";
+import type { SkillsEjectData } from "../shared/result_schemas.ts";
 import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
@@ -787,15 +788,11 @@ function attachSkillsCommand(root: Command): void {
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const root = await requireRoot();
   const cfg = await loadConfig(root);
-  const rows = await listSkills(root, cfg);
   if (opts.json) {
-    emitResult({
-      ok: true,
-      verb: "skills list",
-      data: { skills: rows },
-    });
+    emitResult(await skillsListResult(root, cfg));
     return 0;
   }
+  const rows = await listSkills(root, cfg);
   if (rows.length === 0) {
     console.log("No skills (none bundled, none authored).");
     return 0;
@@ -809,14 +806,6 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
     console.log(`  ${r.name.padEnd(24)} ${tag}`);
   }
   return 0;
-}
-
-interface SkillsEjectData {
-  name: string;
-  dest_abs: string;
-  dest_rel: string;
-  skills_dir_persisted: boolean;
-  materialized: MaterializeResult;
 }
 
 function thrownMessage(error: unknown): string {

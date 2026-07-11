@@ -95,9 +95,13 @@ single source the MCP server advertises and the verbs are typed against:
 - **Compile time** — each verb's core types its `data` as `z.infer<…>` of its
   schema, so a core that drifts from its schema does not compile.
 - **Run time** —
-  [`tests/result_schemas_test.ts`](../../tests/result_schemas_test.ts) runs
-  every verb and asserts its real `serializeResult` output validates against its
-  schema.
+  [`tests/result_schemas_test.ts`](../../tests/result_schemas_test.ts) runs the
+  real cores and asserts each one's `serializeResult` output validates against
+  its schema. An enrollment guard in the same suite iterates the contract
+  registry: every published contract must either have such a faithfulness test
+  or sit in an explicit debt list (never both, never neither), and a contract
+  advertised as an MCP tool's `outputSchema` may never be debt — so a new verb
+  can't publish a contract nothing exercises.
 
 This matters because the MCP SDK **validates a tool's result against its
 declared output schema on every call** — an out-of-date schema would turn a

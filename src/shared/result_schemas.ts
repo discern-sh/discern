@@ -1055,9 +1055,19 @@ export type UninstallData = z.infer<typeof UninstallDataSchema>;
 const skillListingSchema = z.strictObject({
   name: z.string(),
   source: z.enum(["authored", "bundled"]),
+  // True when this authored skill shadows a bundled built-in.
   overridesBundled: z.boolean(),
+  // True when a bundled built-in of this name exists (shadowed or not).
   hasBundled: z.boolean(),
+  // True when `[skills].exclude` drops this skill from materialization.
+  excluded: z.boolean(),
 });
+
+/** A listing row for `discern skills list` — inferred from the schema so the
+ * row builder (`listSkills` in `src/lib/skills.ts`) and the published contract
+ * are one shape: a field on either side the other doesn't model is a COMPILE
+ * error. */
+export type SkillListing = z.infer<typeof skillListingSchema>;
 
 const skillMaterializeSchema = z.strictObject({
   copied: z.number(),

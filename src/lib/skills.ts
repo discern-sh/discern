@@ -32,6 +32,8 @@ import {
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import type { Logger } from "./log.ts";
+import type { DiscernResult } from "../shared/result.ts";
+import type { SkillListing, SkillsListData } from "../shared/result_schemas.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
 import { guidanceContext } from "../engine/guidance_render.ts";
@@ -219,17 +221,9 @@ export async function unknownExcludedSkills(
     .sort();
 }
 
-/** A listing row for `discern skills list`. */
-export interface SkillListing {
-  name: string;
-  source: SkillSource;
-  /** True when this authored skill shadows a bundled built-in. */
-  overridesBundled: boolean;
-  /** True when a bundled built-in of this name exists (shadowed or not). */
-  hasBundled: boolean;
-  /** True when `[skills].exclude` drops this skill from materialization. */
-  excluded: boolean;
-}
+/** A listing row for `discern skills list` — the schema-inferred wire type
+ * (`result_schemas.ts` owns the shape), re-exported for skill-domain callers. */
+export type { SkillListing };
 
 /** Every known skill as a listing row (for `discern skills list`), the excluded
  * ones included and flagged — the listing shows the whole set and what
@@ -250,6 +244,20 @@ export async function listSkills(
       hasBundled: bundled.has(e.name),
       excluded: excluded.has(e.name),
     }));
+}
+
+/** The `discern skills list` result — the one construction the CLI emits and the
+ * faithfulness suite validates against the published contract
+ * (`SkillsListOutputSchema`), so the wire shape can't fork from what's tested. */
+export async function skillsListResult(
+  root: string,
+  config: DiscernConfig,
+): Promise<DiscernResult<SkillsListData>> {
+  return {
+    ok: true,
+    verb: "skills list",
+    data: { skills: await listSkills(root, config) },
+  };
 }
 
 // ── bundled-skill rendering (ADR 0102) ──────────────────────────────────────

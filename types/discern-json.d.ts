@@ -2872,6 +2872,7 @@ export type DiscernSkillsListResult = {
       source: "authored" | "bundled";
       overridesBundled: boolean;
       hasBundled: boolean;
+      excluded: boolean;
     }>;
   } | {
     issues: Array<{

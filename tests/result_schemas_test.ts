@@ -48,11 +48,18 @@ import {
   RatchetsOutputSchema,
   RefreshOutputSchema,
   ScopesOutputSchema,
+  SkillsListOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
   TestOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { skillsListResult } from "../src/lib/skills.ts";
+import {
+  CLI_JSON_RESULT_CONTRACTS,
+  MCP_RESULT_CONTRACTS,
+} from "../src/shared/result_contracts.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
@@ -148,6 +155,91 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
   // versa) — so neither side can grow a field the other doesn't know about.
   const schemaKeys = Object.keys(EnvelopeSchema.shape).sort();
   assertEquals(Object.keys(serialized).sort(), schemaKeys);
+});
+
+// ── contract-coverage enrollment (the forcing function for NEW contracts) ────
+// The `skills list` contract drifted for days because nothing tied the registry
+// to this suite: the verb emitted a field its published schema rejected, and no
+// test here ever ran it. These two sets close that gap the way the repo's other
+// parity guards do (ADR 0051): every contract in CLI_JSON_RESULT_CONTRACTS must
+// be enrolled below, so registering a new one fails this file until its
+// faithfulness test exists — or its absence is recorded as explicit, reviewable
+// debt.
+
+/** Contract ids whose REAL core output a test in this file validates. Add the
+ * id here together with its faithfulness test. */
+const FAITHFULNESS_COVERED = new Set<string>([
+  "coupling",
+  "docs",
+  "doctor",
+  "finish",
+  "graduate",
+  "help",
+  "improve",
+  "integrate",
+  "prepare",
+  "ratchets",
+  "refresh",
+  "scopes",
+  "skillsList",
+  "start",
+  "status",
+  "test",
+]);
+
+/** Published contracts still awaiting a faithfulness test — explicit debt, not
+ * silence. Shrink this set; never grow it for an MCP-exposed contract (the SDK
+ * validates structuredContent against the advertised outputSchema on every
+ * call, so an unproven schema there turns valid calls into errors). */
+const FAITHFULNESS_DEBT = new Set<string>([
+  "config",
+  "preset",
+  "setup",
+  "setupDone",
+  "setupLand",
+  "setupStep",
+  "setupVerify",
+  "skillsEject",
+  "uninstall",
+  "upgrade",
+  "worktreeDrop",
+  "worktreePrune",
+  "worktreeSetup",
+  "worktreeTeardown",
+]);
+
+Deno.test("every published result contract is enrolled: faithfulness-covered or explicit debt", () => {
+  const ids = new Set(CLI_JSON_RESULT_CONTRACTS.map((c) => c.id));
+  for (const id of ids) {
+    const covered = FAITHFULNESS_COVERED.has(id);
+    const debt = FAITHFULNESS_DEBT.has(id);
+    assert(
+      covered || debt,
+      `contract "${id}" is published but not enrolled here — add a faithfulness ` +
+        `test (FAITHFULNESS_COVERED) or record the gap (FAITHFULNESS_DEBT)`,
+    );
+    assert(
+      !(covered && debt),
+      `contract "${id}" is enrolled as both covered and debt — pick one`,
+    );
+  }
+  // No stale enrollment: a retired contract must leave the sets too.
+  for (const id of [...FAITHFULNESS_COVERED, ...FAITHFULNESS_DEBT]) {
+    assert(ids.has(id), `"${id}" is enrolled but no longer in the registry`);
+  }
+});
+
+Deno.test("no MCP-advertised outputSchema is faithfulness debt", () => {
+  // An unfaithful CLI contract mis-labels valid output; an unfaithful MCP
+  // outputSchema makes the SDK REJECT valid calls. Exposing a verb over MCP
+  // therefore requires promoting it out of the debt set first.
+  for (const contract of MCP_RESULT_CONTRACTS) {
+    assert(
+      FAITHFULNESS_COVERED.has(contract.id),
+      `"${contract.id}" is advertised as MCP tool ${contract.mcpTool} but its ` +
+        `schema has no faithfulness coverage in this suite`,
+    );
+  }
 });
 
 Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT guard)", () => {
@@ -708,6 +800,49 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
     expectValid(GraduateOutputSchema, applied, "graduate applied receipt");
+  });
+});
+
+Deno.test("skills list result is faithful (bundled, authored override, and excluded rows)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const authored = async (name: string): Promise<void> => {
+      await Deno.mkdir(join(dir, "skills", name), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, "skills", name, "SKILL.md"),
+        `# ${name}\n`,
+      );
+    };
+    await authored("my-own-skill");
+    await authored("discern-write-adr"); // shadows the bundled built-in
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[skills]",
+        'dir = "skills"',
+        // One bundled and one authored exclusion, so the `excluded` flag is
+        // exercised on both row sources.
+        'exclude = ["discern-cure-a-bug", "my-own-skill"]',
+        "",
+      ].join("\n"),
+    );
+
+    const result = await skillsListResult(dir, await loadConfig(dir));
+    // Every row arm at once — bundled, authored-only, authored override, and
+    // excluded — must serialize to a shape the published contract accepts.
+    expectValid(SkillsListOutputSchema, result, "skills list");
+
+    const rows = new Map((result.data?.skills ?? []).map((r) => [r.name, r]));
+    assertEquals(rows.get("my-own-skill")?.hasBundled, false);
+    assertEquals(rows.get("my-own-skill")?.excluded, true);
+    assertEquals(rows.get("discern-write-adr")?.source, "authored");
+    assertEquals(rows.get("discern-write-adr")?.overridesBundled, true);
+    assertEquals(rows.get("discern-cure-a-bug")?.source, "bundled");
+    assertEquals(rows.get("discern-cure-a-bug")?.excluded, true);
   });
 });
 
