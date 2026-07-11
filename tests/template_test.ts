@@ -25,7 +25,7 @@ function tokens(): TokenMap {
     branch_prefix: "agent/",
     agents_array: '"claude_code", "codex"',
     docs_dir: "docs/",
-    gotchas_doc: "docs/80-development/finish-gate-gotchas.md",
+    gotchas_doc: "docs/80-development/done-gate-gotchas.md",
     scopes_neutral: '"${docs.dir}", ".discern/", ".claude/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',

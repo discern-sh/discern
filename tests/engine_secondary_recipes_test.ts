@@ -1,7 +1,7 @@
 /**
  * Engine coverage for the public recipes the suite never exercised directly:
  *   - `prepare` / `test` — the fast-loop and test-stage entry points (previously
- *     reached only transitively through `finish`).
+ *     reached only transitively through `done`).
  *   - `doctor`'s failure path — the smoke test only covered the happy path.
  * Each shells out through the real dispatcher.
  */
@@ -89,7 +89,7 @@ Deno.test("prepare --json: a failing check carries steps[] + diagnostics[] as th
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "prepare");
     // prepare now runs through the job runner, so a failure carries the same
-    // structured shape `finish` does: a steps[] entry plus a Tier-0 diagnostic with
+    // structured shape `done` does: a steps[] entry plus a Tier-0 diagnostic with
     // the tool, the command to reproduce it, and its captured output — the agent's
     // act→read→fix loop, not a bare ok:false.
     assert(Array.isArray(obj.steps) && obj.steps.length > 0, r.stdout);

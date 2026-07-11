@@ -460,7 +460,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     await scaffoldEngine(dir, { bootstrapped: false });
 
     // Before: a still-gated work verb (`docs`) hard-redirects (exit≠0, on stderr),
-    // and setup shows in help. (`finish` is no longer gated — ADR 0065.)
+    // and setup shows in help. (`done` is no longer gated — ADR 0065.)
     const preDocs = await runAgent(dir, ["docs"]);
     assertEquals(preDocs.code, 1, preDocs.output);
     assertStringIncludes(preDocs.stderr, "isn't set up yet");
@@ -504,9 +504,9 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
     const refresh = await runAgent(dir, ["refresh"]);
     assert(!refresh.stderr.includes("isn't set up yet"));
     assertEquals(refresh.code, 0, refresh.output);
-    // `finish` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
+    // `done` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
     // iterate while wiring capabilities during setup; it must NOT redirect.
-    const finish = await runAgent(dir, ["finish"]);
+    const finish = await runAgent(dir, ["done"]);
     assert(
       !finish.stderr.includes("isn't set up yet"),
       `finish must run during setup: ${finish.output}`,
@@ -545,13 +545,13 @@ Deno.test("the docs redirect is a structured not_set_up result under --json", as
   });
 });
 
-Deno.test("finish/prepare/test/ratchets run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
+Deno.test("done/prepare/test/ratchets run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     // The gate proof verbs are usable during setup so the agent can iterate while
     // wiring capabilities (and test a ratchet it wires) — but each leads with the
     // "setup unfinished" advisory so a green run can't be mistaken for done.
-    for (const verb of ["finish", "prepare", "test", "ratchets"]) {
+    for (const verb of ["done", "prepare", "test", "ratchets"]) {
       const r = await runAgent(dir, [verb, "--json"]);
       const res = JSON.parse(r.stdout);
       assertEquals(res.verb, verb, r.output);
@@ -978,7 +978,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
     assertEquals(done.code, 1, done.output);
     const res = JSON.parse(done.stdout);
     assertEquals(res.error, "gate_failed");
-    assertEquals(res.data.stage, "finish");
+    assertEquals(res.data.stage, "done");
     assert(
       !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
         "bootstrapped = true",
@@ -1667,7 +1667,7 @@ Deno.test("an unparseable config surfaces its TOML error without the setup redir
       join(dir, "discern.toml"),
       "this is = not valid toml [[[\n",
     );
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     assert(
       !r.stderr.includes("isn't set up yet"),

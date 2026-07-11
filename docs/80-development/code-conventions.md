@@ -53,7 +53,7 @@ The conventions the tooling cannot fully enforce, but the project still holds:
   `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
   discern's built-in guidance plus your `[guidance].sources` by
   `discern refresh`; edit the guidance source and recompile. They carry no
-  banner — `discern finish` fails if one drifts from its source, so a stale or
+  banner — `discern done` fails if one drifts from its source, so a stale or
   hand-edited file is caught, not silently overwritten.
 - **Run from source, never `dist/`.** `discern <cmd>` runs the engine of
   whichever checkout you are in (`deno task dev <cmd>` is the zero-setup

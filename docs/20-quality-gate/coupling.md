@@ -99,9 +99,9 @@ persisted store is deferred). When git can't answer, the advisory stays
 There is nothing to tune — the metric self-calibrates. The only setting is
 whether the advisory also rides along with the gate:
 
-| Key       | Default | Meaning                                                                                                                                       |
-| --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `in_gate` | `false` | Surface the diff-aware advisory during the gate too — `discern finish` **and** the fast inner loop `discern prepare` (as hints, at the tail). |
+| Key       | Default | Meaning                                                                                                                                     |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `in_gate` | `false` | Surface the diff-aware advisory during the gate too — `discern done` **and** the fast inner loop `discern prepare` (as hints, at the tail). |
 
 The subsystem is core and costs nothing until invoked — read-only,
 self-calibrating, on demand; `in_gate` is its one cost decision
@@ -111,7 +111,7 @@ reference is in
 
 ## In the gate
 
-With `[coupling].in_gate = true`, **both** `discern finish` and the fast inner
+With `[coupling].in_gate = true`, **both** `discern done` and the fast inner
 loop `discern prepare` append the diff-aware advisory to their result as
 `hints[]`, at the **tail** of the run — alongside strand detection, because it
 reads the diff and is therefore dependency-bearing, never a fail-fast

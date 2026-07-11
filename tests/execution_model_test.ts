@@ -90,10 +90,10 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
     return vp.steps.map((s) => s.label);
   };
 
-  // finish: the exact label sequence the gate's own plan projection produces (the
+  // done: the exact label sequence the gate's own plan projection produces (the
   // fail-fast preconditions + every job, in group order).
   assertEquals(
-    labels("finish"),
+    labels("done"),
     gatePlanToEngine(buildGatePlan(cfg, Object.keys(cfg.scopes))).steps.map(
       (s) => s.label,
     ),
@@ -174,7 +174,7 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
   // on a bare config — the MCP/CLI verb surface and the doctor model stay in
   // lockstep.
   assertEquals(buildExecutionModel(cfg).map((v) => v.verb), [
-    "finish",
+    "done",
     "prepare",
     "test",
     "ratchets",

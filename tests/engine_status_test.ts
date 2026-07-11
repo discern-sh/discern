@@ -625,7 +625,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     const hints = obj.hints ?? [];
     assert(
       hints.some((h: string) =>
-        h.includes("no recorded `discern finish` pass") &&
+        h.includes("no recorded `discern done` pass") &&
         h.includes("before reporting the branch ready for review")
       ),
       `expected a final-finish hint: ${JSON.stringify(hints)}`,
@@ -648,7 +648,7 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     await writeExecutable(join(wt, "web/feature.txt"), "feature");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const finish = await runAgent(wt, ["finish", "--json"]);
+    const finish = await runAgent(wt, ["done", "--json"]);
     assertEquals(finish.code, 0, finish.output);
 
     const r = await runAgent(wt, ["status", "--json"]);

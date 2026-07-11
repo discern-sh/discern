@@ -97,7 +97,7 @@ function rule(category: CategoryJson, id: string): RuleJson {
 const STRONG_CONFIG = `
 [project]
 slug = "strong-demo"
-gotchas_doc = "docs/80-development/finish-gate-gotchas.md"
+gotchas_doc = "docs/80-development/done-gate-gotchas.md"
 
 [meta]
 bootstrapped = true
@@ -135,7 +135,7 @@ async function writeStrongFiles(dir: string): Promise<void> {
   await Deno.writeTextFile(join(dir, "docs", "README.md"), "# Docs\n");
   await ensureDir(join(dir, "docs", "80-development"));
   await Deno.writeTextFile(
-    join(dir, "docs", "80-development", "finish-gate-gotchas.md"),
+    join(dir, "docs", "80-development", "done-gate-gotchas.md"),
     "# Gotchas\n",
   );
   await Deno.writeTextFile(

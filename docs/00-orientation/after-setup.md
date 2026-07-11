@@ -32,9 +32,9 @@ overwrites them.
 
 discern edits a small, marked region of these files and leaves the rest alone.
 
-- **The `.gitignore` block** — a single fenced `# --- discern ---`
-  section listing the generated files below. Add your own ignore rules anywhere
-  outside the markers; leave the inside to discern.
+- **The `.gitignore` block** — a single fenced `# --- discern ---` section
+  listing the generated files below. Add your own ignore rules anywhere outside
+  the markers; leave the inside to discern.
 - **Your coding agents' config files** — for Claude Code, `.mcp.json` and
   `.claude/settings.json`; other agents have their own (`.codex/config.toml`,
   `.gemini/settings.json`, and the rest). discern adds its MCP server, its

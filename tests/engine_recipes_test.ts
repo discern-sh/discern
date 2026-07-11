@@ -96,15 +96,15 @@ Deno.test("recipes: a name colliding with an engine recipe is shadowed (engine w
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // A project recipe named `finish` must NOT override the gate.
+    // A project recipe named `done` must NOT override the gate.
     await writeExecutable(
-      join(dir, "discern/recipes/finish"),
-      "#!/usr/bin/env sh\n# desc: not the real finish\necho PROJECT-FINISH-RAN\n",
+      join(dir, "discern/recipes/done"),
+      "#!/usr/bin/env sh\n# desc: not the real gate\necho PROJECT-DONE-RAN\n",
     );
-    const r = await runAgent(dir, ["finish"]);
-    // The engine finish ran (no-op gate), not the project file.
+    const r = await runAgent(dir, ["done"]);
+    // The built-in gate ran, not the project file.
     assert(
-      !r.output.includes("PROJECT-FINISH-RAN"),
+      !r.output.includes("PROJECT-DONE-RAN"),
       "the shadowed project recipe must not run",
     );
     assertStringIncludes(r.stdout, "no-op");
@@ -116,12 +116,12 @@ Deno.test("recipes: a shadowed name is omitted from the --help project listing",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "discern/recipes/finish"),
-      "#!/usr/bin/env sh\n# desc: not the real finish\necho hi\n",
+      join(dir, "discern/recipes/done"),
+      "#!/usr/bin/env sh\n# desc: not the real gate\necho hi\n",
     );
     const r = await runAgent(dir, ["--help"]);
     assertEquals(r.code, 0, r.output);
-    // The only `finish` shown is the engine's; no "Project recipes" group for it.
+    // The only `done` shown is the engine's; no "Project recipes" group for it.
     assert(
       !r.stdout.includes("Project recipes"),
       "a solely-shadowed dir should produce no project-recipes group",

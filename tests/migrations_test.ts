@@ -1723,7 +1723,7 @@ async function layDefaultLayoutInstall(dir: string): Promise<void> {
       "",
       "[project]",
       'slug = "demo"',
-      'gotchas_doc = "docs/80-development/finish-gate-gotchas.md"',
+      'gotchas_doc = "docs/80-development/done-gate-gotchas.md"',
       "",
       "[guidance]",
       'sources = ["guidance.md"]',
@@ -1750,7 +1750,7 @@ async function layDefaultLayoutInstall(dir: string): Promise<void> {
   await Deno.mkdir(join(dir, "docs/80-development"), { recursive: true });
   await Deno.writeTextFile(join(dir, "docs/README.md"), "# Docs\n");
   await Deno.writeTextFile(
-    join(dir, "docs/80-development/finish-gate-gotchas.md"),
+    join(dir, "docs/80-development/done-gate-gotchas.md"),
     "# Gotchas\n",
   );
   await Deno.mkdir(join(dir, "skills/my-skill"), { recursive: true });
@@ -1797,7 +1797,7 @@ Deno.test("migration 14→15 moves a default layout into discern/ and repoints t
     // …the gotchas pointer follows the moved docs tree…
     assertStringIncludes(
       toml,
-      'gotchas_doc = "discern/docs/80-development/finish-gate-gotchas.md"',
+      'gotchas_doc = "discern/docs/80-development/done-gate-gotchas.md"',
     );
     // …and the seeded neutral-scope skills glob is repointed (${docs.dir} needs
     // no repoint — it follows the key).

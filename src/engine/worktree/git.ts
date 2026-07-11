@@ -260,7 +260,7 @@ export async function assertMainMerged(
 ): Promise<MainMergedResult> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → clean no-op (this sits at the end
-  // of `discern finish`, which also runs in the main checkout).
+  // of `discern done`, which also runs in the main checkout).
   if (absoluteGitDir === undefined || commonGitDir === undefined) {
     return { kind: "skipped" };
   }
@@ -1018,7 +1018,7 @@ export async function worktreeGitKey(
  * commits ahead of the integration branch) while the main checkout accumulates
  * uncommitted changes — the signature of an agent that could not re-root and is
  * editing the trunk while discern's tools run here. Returns the explicit warning
- * (one wording, shared by `status` and `finish`), or undefined when the shape
+ * (one wording, shared by `status` and `done`), or undefined when the shape
  * doesn't match. Read-only; fails open to undefined.
  */
 export async function detectSilentDivergence(

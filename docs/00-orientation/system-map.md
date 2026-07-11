@@ -44,7 +44,7 @@ person / coding agent
        ▼
 ┌──────────────────────┐  known verb  ┌─────────────────────────────┐
 │   discern binary     │ ───────────► │   Engine handler (in-binary) │
-│  dispatch.ts:        │              │  finish · prepare · worktree │
+│  dispatch.ts:        │              │  done · prepare · worktree   │
 │  root + verb routing │              │  ratchets · refresh · …      │
 └──────────┬───────────┘              └──────────────┬──────────────┘
            │ unknown verb                            │  reads commands from
@@ -58,8 +58,8 @@ person / coding agent
                                  discern config get
 ```
 
-`discern finish` walks the Stages in order, attributing each job to one
-Capability or Check:
+`discern done` walks the Stages in order, attributing each job to one Capability
+or Check:
 
 ```
   fix  ───►  build  ───►  check ∥ test  ───►  scope gates  ───►  main-merged
@@ -88,7 +88,7 @@ main checkout ──discern start──► Worktree ⟲ discern integrate
   command returns. There is **no daemon and no server** — work happens
   synchronously when you run `discern <verb>`. An install carries no engine of
   its own.
-- **Concurrency is in-process fan-out, not a queue.** Inside `finish`, the
+- **Concurrency is in-process fan-out, not a queue.** Inside `done`, the
   parallel Stages run their Capabilities and Checks as concurrent child
   processes via the Engine's job runner
   ([`src/engine/jobs/runner.ts`](../../src/engine/jobs/runner.ts)), collected
@@ -112,7 +112,7 @@ main checkout ──discern start──► Worktree ⟲ discern integrate
 | Region of the map                                          | Documented in                                              |
 | ---------------------------------------------------------- | ---------------------------------------------------------- |
 | `src/` Installer verbs, the seed writes, schema migrations | [`../10-installer/`](../10-installer/)                     |
-| `discern finish`, the Stage walk, Scopes, Scope gates      | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `discern done`, the Stage walk, Scopes, Scope gates        | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The Worktree bracket and its per-worktree resources        | [`../30-worktrees/`](../30-worktrees/)                     |
 | Guidance source → Compiled agent files, bundled Skills     | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | Verb dispatch and the TypeScript engine                    | [`../50-engine-internals/`](../50-engine-internals/)       |

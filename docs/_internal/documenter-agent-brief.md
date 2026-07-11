@@ -172,5 +172,5 @@ If any of those break, the doc is too thin or too thick.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or
      redundant.
 
-Do not commit. Do not run the finish gate. Do not edit anything outside
+Do not commit. Do not run the full gate. Do not edit anything outside
 `docs/{your-subtree}/`.

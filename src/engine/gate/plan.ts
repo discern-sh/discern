@@ -136,7 +136,7 @@ export function planScopeGates(
 /**
  * Display metadata for a single stage's job group — the runner heading, the dry-run
  * label, and how the stage's jobs are scheduled. The fix stage is serial (a later
- * fixer may depend on an earlier one's edits); the rest run in parallel. `finish`
+ * fixer may depend on an earlier one's edits); the rest run in parallel. `done`
  * runs check and test as ONE combined group ({@link checkTestGroup}), so these
  * check/test headings are used only by `prepare` (check) and `discern test` (test).
  */
@@ -156,7 +156,7 @@ const STAGE_GROUP_META: Record<
 
 /**
  * A single stage's job group, or undefined when the stage has no real job. The unit
- * `prepare` (fix + check) and `discern test` (test) compose directly; `finish` uses
+ * `prepare` (fix + check) and `discern test` (test) compose directly; `done` uses
  * it for fix and build, and runs check∥test as one combined group.
  */
 export function stageGroup(
@@ -178,7 +178,7 @@ export function stageGroup(
 }
 
 /**
- * The combined check∥test group `finish` runs — both stages' jobs in ONE parallel
+ * The combined check∥test group `done` runs — both stages' jobs in ONE parallel
  * group, so the read-only checks and the tests overlap. (`prepare` runs the check
  * stage alone; `discern test` runs the test stage alone — each via {@link
  * stageGroup}.)
@@ -222,7 +222,7 @@ export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
 
 /**
  * The prepare job groups — the fast inner loop: the fix stage (serial), then the
- * check stage. No build, no tests (those belong to the full `discern finish`). Pure:
+ * check stage. No build, no tests (those belong to the full `discern done`). Pure:
  * derived from the typed config alone, so `discern prepare` and `discern doctor`'s
  * execution model both read this ONE composition rather than re-listing it.
  */
@@ -301,7 +301,7 @@ export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
   );
 }
 
-// ── the `finish` result (a DiscernResult serialization of plan + results) ───────
+// ── the `done` result (a DiscernResult serialization of plan + results) ───────
 
 /** The finish-specific `data` payload on its {@link DiscernResult}. The shape is
  * defined once as `GateDataSchema` in `result_schemas.ts` (the SSOT the MCP
@@ -383,7 +383,7 @@ function jobFailureMessage(label: string, r: JobResult): string {
 
 /**
  * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
- * projection shared by `finish`, `prepare`, and `discern test`. Each capability/
+ * projection shared by `done`, `prepare`, and `discern test`. Each capability/
  * check/scope-gate job becomes a step (looked up by label; missing → skipped), in
  * plan order. A genuine failure that captured output yields a Tier-0 diagnostic (the
  * command to reproduce it + its captured output), or — when the FULL captured output
@@ -455,7 +455,7 @@ export async function serializeJobSteps(
 }
 
 /**
- * Build the `finish` {@link DiscernResult} by SERIALIZING the plan it executed plus
+ * Build the `done` {@link DiscernResult} by SERIALIZING the plan it executed plus
  * the per-job results — not by re-deriving from config. The steps + diagnostics are
  * the shared {@link serializeJobSteps} projection (so the dry-run plan and the
  * executed result agree); the gate's own concerns (which stage failed, which scopes
@@ -476,7 +476,7 @@ export async function buildGateResult(
   };
   return {
     ok: failedStage === null,
-    verb: "finish",
+    verb: "done",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     hints: hints.length > 0 ? hints : undefined,

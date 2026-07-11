@@ -49,7 +49,7 @@ It is **one self-contained binary** with two faces:
   `config` / `preset` verbs. They _scaffold_ a project, _refresh_ it, and check
   it. This face is build-time work: it writes a project's files, then steps out
   of the way.
-- The **Engine** — the stack-neutral logic behind `discern finish` / `prepare` /
+- The **Engine** — the stack-neutral logic behind `discern done` / `prepare` /
   `improve` / `worktree` / … . It is **TypeScript compiled into the binary**
   ([`src/engine/`](../../src/engine/), sharing
   [`src/shared/`](../../src/shared/) with the Installer), not files installed
@@ -143,13 +143,13 @@ stays generic; only `discern.toml` learns the stack. Setup finishes with
 authoring actually landed — so a skipped step can't pass
 ([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — requires that
 authoring committed (the proof and the landing story operate on commits), and
-proves the gate green (refresh → doctor → finish, then a throwaway-worktree
-probe) before recording completion. Its completion output then does three
-things: it reports an **honest coverage summary** — each standard capability
-marked _enforced_, _deferred_, or _absent_, plus an overall verdict — so "the
-gate is proven" never reads as "every protection runs" when, say, no test suite
-is wired; it names **where the work lives** (on the `discern-setup` branch, not
-yet on `main`) and the one command to land it, `discern setup land`
+proves the gate green (refresh → doctor → done, then a throwaway-worktree probe)
+before recording completion. Its completion output then does three things: it
+reports an **honest coverage summary** — each standard capability marked
+_enforced_, _deferred_, or _absent_, plus an overall verdict — so "the gate is
+proven" never reads as "every protection runs" when, say, no test suite is
+wired; it names **where the work lives** (on the `discern-setup` branch, not yet
+on `main`) and the one command to land it, `discern setup land`
 ([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
 session start) and to deepen the setup with `discern improve`.
@@ -170,7 +170,7 @@ verbs:
   declares through the **Worktree settings** — none until wired.
 - `discern prepare` is the fast inner loop: the fix-stage Capabilities, then the
   check-stage ones.
-- `discern finish` is the full **Gate**: the main-merged check first (in a
+- `discern done` is the full **Gate**: the main-merged check first (in a
   Worktree) as a fail-fast precondition, then fix and build, then check and test
   in parallel, then any **Scope** `gate`s that fired. Each Capability and
   **Check** runs as its own labelled job, so failure points at the exact one;
@@ -197,9 +197,9 @@ sections/keys from the current template, recompiles the guidance, and re-stamps
 the **Schema version** in `discern.toml`. Project-owned values and named config
 tables are left alone. There is nothing to hash and nothing to drift in the
 engine itself: it is in the binary, not on disk. This repo proves the loop by
-running its _own_ engine straight from source — `discern finish`, where
-`discern` runs the engine of the checkout you are in — so the gate the
-maintainer runs is the gate that ships, with no second copy to keep in sync.
+running its _own_ engine straight from source — `discern done`, where `discern`
+runs the engine of the checkout you are in — so the gate the maintainer runs is
+the gate that ships, with no second copy to keep in sync.
 
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
 discern's built-in harness guidance plus your **Guidance source**
@@ -215,7 +215,7 @@ one set of instructions.
 | Want to understand…                                           | Go to                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
 | How an install is created, refreshed, and migrated            | [`../10-installer/`](../10-installer/)                     |
-| `discern finish` — Capabilities, Checks, Scopes, Ratchets     | [`../20-quality-gate/`](../20-quality-gate/)               |
+| `discern done` — Capabilities, Checks, Scopes, Ratchets       | [`../20-quality-gate/`](../20-quality-gate/)               |
 | The isolated-Worktree workflow and its settings seams         | [`../30-worktrees/`](../30-worktrees/)                     |
 | Author-once → compile-everywhere guidance, and bundled Skills | [`../40-agent-guidance/`](../40-agent-guidance/)           |
 | The dispatcher and the TypeScript engine                      | [`../50-engine-internals/`](../50-engine-internals/)       |

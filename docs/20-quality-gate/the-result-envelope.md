@@ -16,7 +16,7 @@ never re-derived in parallel
 | Field               | When present  | What it carries                                                            |
 | ------------------- | ------------- | -------------------------------------------------------------------------- |
 | `ok`                | always        | Did the verb succeed? The one field every consumer can rely on.            |
-| `verb`              | always        | The verb that produced this result (`"finish"`, `"status"`, …).            |
+| `verb`              | always        | The verb that produced this result (`"done"`, `"status"`, …).              |
 | `dry_run`           | previews      | `true` when nothing was applied — the uniform "is this a preview?" signal. |
 | `plan`              | previews      | The plan that _would_ run (mutually exclusive with `steps`).               |
 | `steps`             | apply         | The steps that ran and how each turned out.                                |
@@ -38,7 +38,7 @@ list is one rendering of the same result object that `--json` serializes.
 
 ## `steps[]` job output artifacts
 
-For gate jobs that run (`finish`, `prepare`, and `discern test`), each `steps[]`
+For gate jobs that run (`done`, `prepare`, and `discern test`), each `steps[]`
 entry includes the outcome plus lightweight output metadata:
 
 - `output_path` — a best-effort OS-temp file containing the job's full combined
@@ -79,9 +79,9 @@ how much discern knows about the tool:
 - **Tier 2 (derived):** `fix_available: true` on a failed non-fix
   capability/check when the same gate plan has a fix-stage job wired.
 
-`finish`, `prepare`, and `discern test` all run through the gate's job runner,
-so a failure from any of them carries the same `steps[]` + `diagnostics[]` —
-there is no opaque `{ok:false}`.
+`done`, `prepare`, and `discern test` all run through the gate's job runner, so
+a failure from any of them carries the same `steps[]` + `diagnostics[]` — there
+is no opaque `{ok:false}`.
 
 ## One typed source for every shape
 
@@ -161,7 +161,7 @@ result is rendered as `{ content, structuredContent, isError }`, the same
 `DiscernResult` the CLI prints.
 
 **Tools.** The exposed set mirrors the work verbs: `discern_status`,
-`discern_refresh`, `discern_finish`, `discern_prepare`, `discern_test`,
+`discern_refresh`, `discern_done`, `discern_prepare`, `discern_test`,
 `discern_ratchets`, `discern_doctor`, `discern_improve`, `discern_scopes`,
 `discern_coupling`, `discern_docs`, `discern_help`, `discern_start`,
 `discern_integrate`, `discern_graduate`. Each advertises:
@@ -171,14 +171,14 @@ result is rendered as `{ content, structuredContent, isError }`, the same
   the SDK validates `structuredContent` against on every call;
 - honest **`annotations`** — `readOnlyHint` for the pure-observation verbs
   (`status`, `doctor`, `scopes`, `improve`, `docs`, `help`); not-read-only for
-  the ones that run commands or rewrite files (`finish`, `prepare`, `test`,
+  the ones that run commands or rewrite files (`done`, `prepare`, `test`,
   `ratchets`); and `destructiveHint` for `graduate` (it tears down resources and
   moves the branch).
 
 A tool is **gated like its verb**: the setup-gated verbs (the gate verbs and
 `discern_docs`) refuse with `not_set_up` until the project is set up.
 `discern_ratchets` is **slow and on-demand** — it runs the metric commands, so
-it is not part of `discern_finish`; check it explicitly.
+it is not part of `discern_done`; check it explicitly.
 
 **Addressing the project.** Every project-operating tool takes an optional
 `path` — an alternative project to act on for that one call, resolved to its
@@ -200,7 +200,7 @@ op on the surface.
 
 **Instructions.** The server advertises an `instructions` block — the native
 "when to use which tool" guide capable clients load on connect: orient with
-`discern_status`, gate with `discern_finish` (`discern_prepare`/`discern_test`
+`discern_status`, gate with `discern_done` (`discern_prepare`/`discern_test`
 while iterating), learn discern via `discern_help`, read the project's docs via
 `discern_docs`, improve with `discern_improve`, graduate with
 `discern_graduate`.

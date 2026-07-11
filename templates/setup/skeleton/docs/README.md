@@ -29,7 +29,7 @@ The subsystems are numbered subtrees, in the order a newcomer should read them â
 | `10-<subsystem>/` | _Proposed during `discern setup`._ |
 | `20-<subsystem>/` | _Proposed during `discern setup`._ |
 | `â€¦` | _Add as many numbered subtrees as the system needs._ |
-| [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [finish-gate gotchas](80-development/finish-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
+| [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [gate gotchas](80-development/done-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
 ### Reference material
 

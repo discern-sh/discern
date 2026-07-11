@@ -57,7 +57,7 @@ Deno.test("scope-gates: a gate fires (grouped + labelled) when its scope changed
     await gitInit(dir);
     await touch(dir, "widget/x.txt"); // only the widget scope changed
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "scope:widget"); // labelled like a gate job
     assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
@@ -86,7 +86,7 @@ Deno.test("scope-gates: a gate fires for a NESTED path, not just a direct child 
     // is the case that bit a Swift sub-app's gate in the field.
     await touch(dir, "widget/sub/deep/x.txt");
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "scope:widget");
     assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");
@@ -107,7 +107,7 @@ Deno.test("scope-gates: no gate fires when only an unrelated path changed", asyn
     await gitInit(dir);
     await touch(dir, "src/app.txt"); // matches no gated scope (just "code")
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     assert(!r.output.includes("WIDGET-GATE-RAN"));
     assert(!r.output.includes("GADGET-GATE-RAN"));
@@ -124,7 +124,7 @@ Deno.test("scope-gates: a failing gate fails finish and points at the gotchas", 
     await gitInit(dir);
     await touch(dir, "gadget/y.txt");
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stdout, "FAILED");
     assertStringIncludes(r.stderr, "scope gates failed");
@@ -146,7 +146,7 @@ Deno.test("scope-gates: with fail_fast=false, all fired gates run even when one 
     await touch(dir, "widget/x.txt");
     await touch(dir, "gadget/y.txt");
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     // Both ran and both are reported — not aborted at the first failure.
     assertStringIncludes(r.stdout, "WIDGET-OK");

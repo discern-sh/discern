@@ -88,12 +88,12 @@ of it as it works**, not you:
 discern status      # what's true right now, and what to do next
 discern start       # carve a fresh isolated worktree for a task
 discern prepare     # fast inner loop: format + checks
-discern finish      # the full gate — the bar for "done"
+discern done      # the full gate — the bar for "done"
 discern graduate    # land the reviewed branch back on main
 ```
 
 Agents can drive every one of these through **MCP tools** (`discern_status`,
-`discern_finish`, …) just as well as the CLI — same engine, structured results
+`discern_done`, …) just as well as the CLI — same engine, structured results
 either way.
 
 ---
@@ -101,8 +101,8 @@ either way.
 ## What you get
 
 - **A gate that _is_ your definition of done.** Declare what your project can do
-  — format, lint, typecheck, test — once; `discern` runs them as a single
-  `finish` command, in parallel, before anything is called done.
+  — format, lint, typecheck, test — once; `discern` runs them as a single `done`
+  command, in parallel, before anything is called done.
   [The quality gate →](docs/20-quality-gate/)
 - **Isolated worktrees.** A throwaway `git worktree` per change — its own
   branch, port, and database — so parallel agents never collide in your main

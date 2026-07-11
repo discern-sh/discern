@@ -3,7 +3,7 @@
 _The testing approach in this repo — how tests are written, how they run, and
 the patterns the gate assumes._
 
-The `test` capability in `discern.toml` is what the `finish` gate runs; this doc
+The `test` capability in `discern.toml` is what the `done` gate runs; this doc
 explains how to write tests that pass it and how to run them while iterating.
 
 ## How tests run
@@ -31,18 +31,17 @@ There are **two layers**, sharing two helper modules:
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
   `deno run
   src/main.ts <verb>` inside that dir, with a `discern` shim on
-  `PATH` so project recipes resolve. So the engine verbs (`finish`, `worktree`,
-  …) and their `--json` contracts are exercised against a faithful install, end
-  to end.
+  `PATH` so project recipes resolve. So the engine verbs (`done`, `worktree`, …)
+  and their `--json` contracts are exercised against a faithful install, end to
+  end.
 
 **Parallel-safety is structural.** Every test does its work inside a fresh
 `withTempDir` directory and, when it needs git, a hermetic repo from `gitInit`
 (its own config, no signing, a `main` branch — so your global git settings can't
 leak in). Because each test owns its fixtures and touches nothing shared, tests
 assume no ordering. Keep it that way: never reach outside the temp dir or depend
-on another test's side effects (the
-[finish-gate gotchas](finish-gate-gotchas.md) "passes alone but fails in the
-full run" trap is exactly this failure).
+on another test's side effects (the [gate gotchas](done-gate-gotchas.md) "passes
+alone but fails in the full run" trap is exactly this failure).
 
 ## How tests are written
 
@@ -80,7 +79,7 @@ toward the number, so installer and engine share one coverage figure.
 That metric feeds a ratchet — `[ratchets.coverage]` in
 [discern.toml](../../discern.toml) — a floor that only ever rises. The
 `discern ratchets` verb checks it; it is slow, so it is **not** part of the
-`finish` gate, and CI enforces it on every pull request. To raise the floor: add
+`done` gate, and CI enforces it on every pull request. To raise the floor: add
 tests, then bump `limit` to just below the newly measured value.
 
 Some code is **intentionally** uncovered: the interactive TTY paths — the prompt

@@ -1,8 +1,8 @@
 /**
- * Engine tests for the structured `finish --json` result — the DiscernResult
+ * Engine tests for the structured `done --json` result — the DiscernResult
  * envelope (ADR 0028).
  *
- * In --json mode finish emits a single JSON object on stdout (human output goes
+ * In --json mode `done` emits a single JSON object on stdout (human output goes
  * to stderr): the uniform `{ok, verb, steps, diagnostics?, data}` shell every
  * verb returns. Each capability/check/scope-gate is a `steps[]` entry; a GENUINE
  * failure also yields a `diagnostics[]` entry carrying the command to reproduce it
@@ -85,16 +85,16 @@ function hasDroppedC0Control(s: string): boolean {
   });
 }
 
-Deno.test("finish --json: a no-op gate emits ok:true, verb, and no job steps", async () => {
+Deno.test("done --json: a no-op gate emits ok:true, verb, and no job steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
-    assertEquals(obj.verb, "finish");
+    assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, null);
     assertEquals(obj.data.gate_receipt.status, "recorded");
     assert(
@@ -115,7 +115,7 @@ Deno.test("finish --json: a no-op gate emits ok:true, verb, and no job steps", a
   });
 });
 
-Deno.test("finish --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output", async () => {
+Deno.test("done --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -137,12 +137,12 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.verb, "finish");
+    assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, "check/test");
     // The failure is attributed to the precise job step.
     const lint = stepFor(obj, "lint");
@@ -162,7 +162,7 @@ Deno.test("finish --json: a failing check reports ok:false, a failed step, and a
   });
 });
 
-Deno.test("finish --json: an exit-127 failure explains command-not-found and points at [worktree.setup].ensure", async () => {
+Deno.test("done --json: an exit-127 failure explains command-not-found and points at [worktree.setup].ensure", async () => {
   // The class this guards: a tool present in the main checkout but absent from a
   // fresh worktree fails with a bare `sh: <cmd>: not found` and exit 127, and nothing
   // links the failure to worktrees or to [worktree.setup].ensure. The hint stays
@@ -183,7 +183,7 @@ Deno.test("finish --json: an exit-127 failure explains command-not-found and poi
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -199,7 +199,7 @@ Deno.test("finish --json: an exit-127 failure explains command-not-found and poi
   });
 });
 
-Deno.test("finish --json: a passing job with suspicious output exposes an advisory artifact", async () => {
+Deno.test("done --json: a passing job with suspicious output exposes an advisory artifact", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -215,7 +215,7 @@ Deno.test("finish --json: a passing job with suspicious output exposes an adviso
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout);
@@ -239,7 +239,7 @@ Deno.test("finish --json: a passing job with suspicious output exposes an adviso
   });
 });
 
-Deno.test("finish --json: stream-enabled failures capture output into the diagnostic", async () => {
+Deno.test("done --json: stream-enabled failures capture output into the diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -258,7 +258,7 @@ Deno.test("finish --json: stream-enabled failures capture output into the diagno
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -271,7 +271,7 @@ Deno.test("finish --json: stream-enabled failures capture output into the diagno
   });
 });
 
-Deno.test("finish --json: a fix-stage failure skips later check/test jobs and scope gates", async () => {
+Deno.test("done --json: a fix-stage failure skips later check/test jobs and scope gates", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -295,7 +295,7 @@ Deno.test("finish --json: a fix-stage failure skips later check/test jobs and sc
     await gitInit(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
@@ -323,7 +323,7 @@ Deno.test("finish --json: a fix-stage failure skips later check/test jobs and sc
   });
 });
 
-Deno.test("finish --json: Tier-0 diagnostic output is normalized, bounded, and offloaded when long", async () => {
+Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and offloaded when long", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -358,7 +358,7 @@ Deno.test("finish --json: Tier-0 diagnostic output is normalized, bounded, and o
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     const diag = diagFor(obj, "lint");
@@ -393,7 +393,7 @@ Deno.test("finish --json: Tier-0 diagnostic output is normalized, bounded, and o
   });
 });
 
-Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped) steps", async () => {
+Deno.test("done --json: scope-gates report fired (ok) and unchanged (skipped) steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -420,7 +420,7 @@ Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped) 
     await gitInit(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x"); // only widget changed
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout);
@@ -434,7 +434,7 @@ Deno.test("finish --json: scope-gates report fired (ok) and unchanged (skipped) 
   });
 });
 
-Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gates stage with a diagnostic", async () => {
+Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates stage with a diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -457,7 +457,7 @@ Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gat
     await gitInit(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -474,7 +474,7 @@ Deno.test("finish --json: a failing scope-gate reports ok:false at the scope_gat
   });
 });
 
-Deno.test("finish --json: a SARIF-emitting check yields Tier-1 diagnostics with file/line/rule", async () => {
+Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with file/line/rule", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const sarif = JSON.stringify({
@@ -510,7 +510,7 @@ Deno.test("finish --json: a SARIF-emitting check yields Tier-1 diagnostics with 
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -533,7 +533,7 @@ Deno.test("finish --json: a SARIF-emitting check yields Tier-1 diagnostics with 
   });
 });
 
-Deno.test("finish --json: empty SARIF falls back to a raw Tier-0 diagnostic", async () => {
+Deno.test("done --json: empty SARIF falls back to a raw Tier-0 diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const sarif = JSON.stringify({
@@ -555,7 +555,7 @@ Deno.test("finish --json: empty SARIF falls back to a raw Tier-0 diagnostic", as
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
@@ -569,7 +569,7 @@ Deno.test("finish --json: empty SARIF falls back to a raw Tier-0 diagnostic", as
   });
 });
 
-Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
+Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -585,12 +585,12 @@ Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", 
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--dry-run", "--json"]);
+    const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
-    assertEquals(obj.verb, "finish");
+    assertEquals(obj.verb, "done");
     assertEquals(obj.dry_run, true); // the uniform "is this a preview?" signal
     assertEquals(obj.plan.title, "Gate plan");
     assert(
@@ -608,7 +608,7 @@ Deno.test("finish --dry-run --json: emits a preview envelope (plan, no steps)", 
   });
 });
 
-Deno.test("finish (human): a failure prints a structured Failures block with reproduce commands", async () => {
+Deno.test("done (human): a failure prints a structured Failures block with reproduce commands", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -624,7 +624,7 @@ Deno.test("finish (human): a failure prints a structured Failures block with rep
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish"]); // human mode
+    const r = await runAgent(dir, ["done"]); // human mode
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Failures");
     assertStringIncludes(r.output, "reproduce:");
@@ -632,7 +632,7 @@ Deno.test("finish (human): a failure prints a structured Failures block with rep
   });
 });
 
-Deno.test("finish --json: a passing gate carries next-step hints, and the human tail prints the SAME strings", async () => {
+Deno.test("done --json: a passing gate carries next-step hints, and the human tail prints the SAME strings", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -655,7 +655,7 @@ Deno.test("finish --json: a passing gate carries next-step hints, and the human 
     await gitInit(dir);
 
     // --json: the advice rides in the envelope (promoted off the human-only tail).
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
@@ -665,7 +665,7 @@ Deno.test("finish --json: a passing gate carries next-step hints, and the human 
     assertStringIncludes(hints, "discern ratchets"); // ratchets configured → check them
 
     // Human mode renders the exact same hint strings (one source of truth).
-    const human = await runAgent(dir, ["finish"]);
+    const human = await runAgent(dir, ["done"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
       assertStringIncludes(human.output, hint);
@@ -673,7 +673,7 @@ Deno.test("finish --json: a passing gate carries next-step hints, and the human 
   });
 });
 
-Deno.test("finish --json: a failing gate carries the gotchas-doc pointer as a hint", async () => {
+Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -690,7 +690,7 @@ Deno.test("finish --json: a failing gate carries the gotchas-doc pointer as a hi
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
@@ -699,11 +699,11 @@ Deno.test("finish --json: a failing gate carries the gotchas-doc pointer as a hi
   });
 });
 
-Deno.test("finish --json: human mode is unaffected (stdout still human, not JSON)", async () => {
+Deno.test("done --json: human mode is unaffected (stdout still human, not JSON)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish"]); // no --json
+    const r = await runAgent(dir, ["done"]); // no --json
     assertEquals(r.code, 0, r.output);
     // Human stdout, not JSON.
     let parsed = true;
@@ -716,14 +716,14 @@ Deno.test("finish --json: human mode is unaffected (stdout still human, not JSON
   });
 });
 
-Deno.test("finish --json: a STALE generated agent file fails the guidance check; refresh fixes it", async () => {
+Deno.test("done --json: a STALE generated agent file fails the guidance check; refresh fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]); // compile CLAUDE.md so it is current
 
     // Baseline: current generated files → the gate passes.
-    assertEquals((await runAgent(dir, ["finish", "--json"])).code, 0);
+    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
 
     // Hand-edit the generated file → stale → the gate blocks.
     const claudePath = join(dir, "CLAUDE.md");
@@ -731,7 +731,7 @@ Deno.test("finish --json: a STALE generated agent file fails the guidance check;
       claudePath,
       `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
     );
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
@@ -746,14 +746,14 @@ Deno.test("finish --json: a STALE generated agent file fails the guidance check;
     // Regenerating satisfies the check — the gate passes again.
     await runAgent(dir, ["refresh"]);
     assertEquals(
-      (await runAgent(dir, ["finish", "--json"])).code,
+      (await runAgent(dir, ["done", "--json"])).code,
       0,
       "refresh should clear the drift",
     );
   });
 });
 
-Deno.test("finish --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
+Deno.test("done --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -776,7 +776,7 @@ Deno.test("finish --json: a stale generated file fails FAST — the currency che
     await runAgent(dir, ["refresh"]); // materialize the agent files + skills (current)
 
     // Baseline: current artifacts → the currency checks pass and the capability runs.
-    const ok = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    const ok = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
     assertEquals(ok.data.failed_stage, null);
     assert(
       ok.steps.some((s: { kind: string; outcome: string }) =>
@@ -793,7 +793,7 @@ Deno.test("finish --json: a stale generated file fails FAST — the currency che
       claudePath,
       `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
     );
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.data.failed_stage, "guidance");
@@ -811,14 +811,14 @@ Deno.test("finish --json: a stale generated file fails FAST — the currency che
   });
 });
 
-Deno.test("finish --json: a MISSING generated agent file does NOT block (untracked artifact absent)", async () => {
+Deno.test("done --json: a MISSING generated agent file does NOT block (untracked artifact absent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
     await Deno.remove(join(dir, "CLAUDE.md")); // model a fresh checkout / deletion
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     // Missing is advisory (surfaced by `status`), never a gate failure — else a
     // fresh checkout with no generated file would red-light first-run CI.
     assertEquals(r.code, 0, r.output);
@@ -829,7 +829,7 @@ Deno.test("finish --json: a MISSING generated agent file does NOT block (untrack
   });
 });
 
-Deno.test("finish --json: tracked discern-managed ignored artifacts fail before jobs run", async () => {
+Deno.test("done --json: tracked discern-managed ignored artifacts fail before jobs run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -851,7 +851,7 @@ Deno.test("finish --json: tracked discern-managed ignored artifacts fail before 
     await runAgent(dir, ["refresh"]);
     await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
@@ -875,7 +875,7 @@ Deno.test("finish --json: tracked discern-managed ignored artifacts fail before 
   });
 });
 
-Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
+Deno.test("done --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Materialize the agent files + skills so the currency checks have real artifacts.
@@ -888,7 +888,7 @@ Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a fo
       "\nHAND EDIT\n",
       { append: true },
     );
-    let obj = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    let obj = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
     assertEquals(obj.data.failed_stage, "skills");
     const diag = diagFor(obj, "skills");
     assert(diag !== undefined, "a skills diagnostic should be attached");
@@ -902,7 +902,7 @@ Deno.test("finish --json: a hand-edited materialized skill blocks (skills); a fo
       join(skillsDir, "user-dropin", "SKILL.md"),
       "# mine\n",
     );
-    obj = parseJson((await runAgent(dir, ["finish", "--json"])).stdout);
+    obj = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
     assertEquals(
       obj.data.failed_stage,
       null,
@@ -929,7 +929,7 @@ function stripDurations(md: string): string {
   return md.replaceAll(/ · \d+s/g, "");
 }
 
-Deno.test("finish --json: a green worktree gate emits the receipt in data and stores it in the marker", async () => {
+Deno.test("done --json: a green worktree gate emits the receipt in data and stores it in the marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, RECEIPT_CONFIG);
@@ -939,7 +939,7 @@ Deno.test("finish --json: a green worktree gate emits the receipt in data and st
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["finish", "--json"]);
+    const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
@@ -982,7 +982,7 @@ Deno.test("finish --json: a green worktree gate emits the receipt in data and st
 
     // Deterministic: the same tree and result render the same receipt (durations
     // excepted).
-    const again = parseJson((await runAgent(wt, ["finish", "--json"])).stdout);
+    const again = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
     assertEquals(
       stripDurations(again.data.receipt.markdown),
       stripDurations(receipt.markdown),
@@ -990,7 +990,7 @@ Deno.test("finish --json: a green worktree gate emits the receipt in data and st
   });
 });
 
-Deno.test("finish --json: no receipt on the trunk itself, or over a dirty tree", async () => {
+Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, RECEIPT_CONFIG);
@@ -998,7 +998,7 @@ Deno.test("finish --json: no receipt on the trunk itself, or over a dirty tree",
 
     // The trunk: nothing ahead of main to review — no receipt, gate still records.
     const onMain = parseJson(
-      (await runAgent(dir, ["finish", "--json"])).stdout,
+      (await runAgent(dir, ["done", "--json"])).stdout,
     );
     assertEquals(onMain.ok, true);
     assertEquals(onMain.data.receipt, undefined);
@@ -1010,7 +1010,7 @@ Deno.test("finish --json: no receipt on the trunk itself, or over a dirty tree",
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
     await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
-    const dirty = parseJson((await runAgent(wt, ["finish", "--json"])).stdout);
+    const dirty = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
     assertEquals(dirty.ok, true);
     assertEquals(dirty.data.receipt, undefined);
     assertEquals(dirty.data.gate_receipt.status, "skipped_dirty");

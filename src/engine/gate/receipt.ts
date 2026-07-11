@@ -1,5 +1,5 @@
 /**
- * The **receipt marker** — a tiny per-worktree file recording the commit `finish`
+ * The **receipt marker** — a tiny per-worktree file recording the commit `done`
  * last validated GREEN over a CLEAN tree, so `graduate` can prove the exact tree it
  * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
@@ -18,9 +18,9 @@
  * clean — so any new commit (the merge `integrate` creates), amend, or uncommitted
  * edit silently invalidates it and `graduate` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
- * failing run clears it, and graduate re-runs `finish` whenever it is absent or stale.
+ * failing run clears it, and graduate re-runs `done` whenever it is absent or stale.
  *
- * `finish` is its usual author, but `ratchets --pin` also carries an honored vouch
+ * `done` is its usual author, but `ratchets --pin` also carries an honored vouch
  * forward onto the commit it makes: that commit changes only `[ratchets]` limits,
  * which the gate never reads, so the vouch stays truthful across it and `graduate`
  * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
@@ -139,7 +139,7 @@ function receiptRecord(
 }
 
 /**
- * Record the outcome of a `finish` run into the receipt marker. `pin` is the tree
+ * Record the outcome of a `done` run into the receipt marker. `pin` is the tree
  * identity captured BEFORE the run began ({@link pinValidatedTree}); a stamp names
  * the PINNED sha, and only after re-verifying the tree still matches it — the
  * receipt must vouch only for the exact tree the gate actually read:
@@ -297,7 +297,7 @@ export async function inspectGateReceipt(
 
 /**
  * Whether a receipt proves the worktree's CURRENT (HEAD, clean) state already passed
- * `finish` — graduate's fast path. True only when a receipt exists, names exactly the
+ * `done` — graduate's fast path. True only when a receipt exists, names exactly the
  * current HEAD, and the tree is clean; any new commit, amend, or uncommitted edit
  * makes this false, so graduate falls back to running the gate. Never throws.
  */
@@ -309,7 +309,7 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  * Carry a gate-pass receipt across a `ratchets --pin` commit (ADR 0106).
  *
  * `ratchets --pin` commits ONLY `[ratchets.*]` limit changes — values the gate never
- * reads (ratchets are not part of `finish`; ADR 0003) — so the tree the pin commit
+ * reads (ratchets are not part of `done`; ADR 0003) — so the tree the pin commit
  * produces passes the gate iff the pre-pin tree did. When the pre-pin HEAD carried an
  * HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto the
  * new clean HEAD the commit created; otherwise the moved HEAD would strand a truthful

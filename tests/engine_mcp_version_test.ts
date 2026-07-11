@@ -103,8 +103,8 @@ Deno.test("runTool: a stale on-disk version appends the restart hint to every re
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
     await gitInit(dir);
-    const finish = TOOLS.find((t) => t.name === "discern_finish");
-    assert(finish !== undefined, "discern_finish must exist");
+    const finish = TOOLS.find((t) => t.name === "discern_done");
+    assert(finish !== undefined, "discern_done must exist");
 
     // A resolver reporting a newer on-disk version than this build → the rendered
     // result carries the restart hint alongside whatever the verb returned.
@@ -127,7 +127,7 @@ Deno.test("runTool: a stale on-disk version appends the restart hint to every re
       "the hint names the installed version a restart would load",
     );
     // The verb still ran: its own result is intact under the appended hint.
-    assertEquals(stale.structuredContent.verb, "finish");
+    assertEquals(stale.structuredContent.verb, "done");
     assertEquals(stale.structuredContent.dry_run, true);
   });
 });
@@ -136,8 +136,8 @@ Deno.test("runTool: a matching on-disk version appends no hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
     await gitInit(dir);
-    const finish = TOOLS.find((t) => t.name === "discern_finish");
-    assert(finish !== undefined, "discern_finish must exist");
+    const finish = TOOLS.find((t) => t.name === "discern_done");
+    assert(finish !== undefined, "discern_done must exist");
 
     const fresh = await runTool(
       finish,

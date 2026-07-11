@@ -27,7 +27,7 @@ const MISLEADING_GRADUATION_PATTERNS: Array<{
   },
   {
     name: "finish then graduate workflow",
-    pattern: /discern finish\s*→\s*discern graduate/i,
+    pattern: /discern done\s*→\s*discern graduate/i,
   },
   {
     name: "finished branch auto-graduates",

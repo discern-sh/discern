@@ -5,7 +5,7 @@ of what was proven and what would land._
 
 ## What it is
 
-When `discern finish` passes on a clean committed tree ahead of the trunk, it
+When `discern done` passes on a clean committed tree ahead of the trunk, it
 renders **the receipt**: one screen of markdown carrying the branch, what ran
 (each capability, check, and scope gate with its command, outcome, and
 duration), the diffstat vs the trunk, the branch's commit list, and the exact
@@ -20,18 +20,18 @@ rendering of those fields, never a second computation
 
 A dirty tree earns no receipt: the diff vs the trunk would describe a different
 tree than the one the gate validated. Commit the intended final tree, then run
-the final `finish` on the clean HEAD.
+the final `done` on the clean HEAD.
 
-The same identity rule holds across time, not just at the edges: `finish` pins
-the tree (HEAD plus cleanliness) before any job runs and re-verifies the pin at
+The same identity rule holds across time, not just at the edges: `done` pins the
+tree (HEAD plus cleanliness) before any job runs and re-verifies the pin at
 stamp time, so a commit made _while_ the gate was running earns no receipt
 either (`data.gate_receipt.status` reports `skipped_head_moved`). The receipt
-vouches only for the exact tree the gate actually read — re-run `finish` on the
+vouches only for the exact tree the gate actually read — re-run `done` on the
 final commit.
 
 ## Where it appears
 
-- **`discern finish`** prints it at the tail of a green human run and carries it
+- **`discern done`** prints it at the tail of a green human run and carries it
   in the `--json`/MCP envelope as `data.receipt`, with a hint beside it: relay
   the receipt to your owner and stop; graduate only once they accept.
 - **The marker.** The green run stores the markdown beside the validated sha in
@@ -49,11 +49,11 @@ final commit.
 
 ## The review moment
 
-Nobody calls a review verb; the receipt and the hints are the affordance. A
-green finish emits the receipt, the compiled guidance tells the agent to relay
-it and wait, and the owner reads discern's own deterministic account of what was
-proven — instead of the agent narrating its own grade — digs into the raw diff
-if they want to, and approves with a word: accept.
+Nobody calls a review verb; the receipt and the hints are the affordance. A a
+green `discern done` run emits the receipt, the compiled guidance tells the
+agent to relay it and wait, and the owner reads discern's own deterministic
+account of what was proven — instead of the agent narrating its own grade — digs
+into the raw diff if they want to, and approves with a word: accept.
 
 ## See also
 

@@ -18,9 +18,9 @@ These work the same regardless of language or framework (shown here as
   worktree note in the project guidelines).
 - **`discern prepare`** is the fast inner loop — applies the fix-stage work,
   then the check-stage work; no build, no tests.
-- **`discern finish`** is the full gate — (in a worktree) a fail-fast merge
-  check first, then fixers and build, then checks and tests in parallel, then
-  any scope `gate`s whose scope changed. Run it before declaring a change done.
+- **`discern done`** is the full gate — (in a worktree) a fail-fast merge check
+  first, then fixers and build, then checks and tests in parallel, then any
+  scope `gate`s whose scope changed. Run it before declaring a change done.
 - **`discern doctor`** verifies the install is sound (hooks present, every
   configured capability and check resolvable, git worktree support, required
   tools on PATH).
@@ -70,14 +70,14 @@ compiled in. To _see it work_, either scaffold it into a temp directory with
 **Your first green gate.** From the repo root:
 
 ```sh
-discern finish     # or: deno task gate
+discern done     # or: deno task gate
 ```
 
 That runs `deno fmt` (fix), then `deno lint` + `deno check src/main.ts` (check
 stage) in parallel with `deno task test` (test). There is no `build` capability
 (the release build is not part of the gate). A clean checkout should pass; if it
-does not, `discern doctor` and the [finish-gate gotchas](finish-gate-gotchas.md)
-explain what to fix.
+does not, `discern doctor` and the [gate gotchas](done-gate-gotchas.md) explain
+what to fix.
 
 **Working in this repo.** discern self-hosts the worktree workflow
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md), as amended by

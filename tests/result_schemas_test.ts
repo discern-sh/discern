@@ -172,7 +172,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "coupling",
   "docs",
   "doctor",
-  "finish",
+  "done",
   "graduate",
   "help",
   "improve",
@@ -327,7 +327,7 @@ Deno.test("the step vocabularies (kind/disposition/outcome) are closed enums der
   );
 });
 
-Deno.test("finish result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
+Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);

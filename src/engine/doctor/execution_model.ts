@@ -4,7 +4,7 @@
  * must be idempotent or fast" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
- *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions
+ *  - the gate verbs (`done` / `prepare` / `test` / `ratchets`) are pure functions
  *    of config, so their step lists are built by walking the REAL plan builders
  *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
  *    {@link buildRatchetPlan}) — a test asserts they are byte-derived, so they can
@@ -177,7 +177,7 @@ function step(
 }
 
 /** Annotate one planned gate job (capability/check/scope-gate) — the shared
- * projection the `finish`/`prepare`/`test` derivations all funnel through, so a job's
+ * projection the `done`/`prepare`/`test` derivations all funnel through, so a job's
  * label, command (the note), and stage-specific hint come from the real plan. */
 function annotateJob(job: PlannedJob): ExecutionStep {
   if (job.kind === "scope-gate") {
@@ -196,7 +196,7 @@ function annotateJob(job: PlannedJob): ExecutionStep {
 
 // ── gate verbs (byte-derived from the real plan builders) ───────────────────
 
-/** `finish` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
+/** `done` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
  * preconditions, then the fix → build → check∥test → scope-gate jobs. All scopes are
  * passed as "changed" so every scope gate renders (as conditional, not skipped). */
 function finishVerb(cfg: DiscernConfig): VerbPlan {
@@ -220,7 +220,7 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
     }
   }
   return {
-    verb: "finish",
+    verb: "done",
     when: "Before you call a change done — the full gate.",
     steps,
   };
@@ -259,7 +259,7 @@ function ratchetsVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "ratchets",
     when:
-      "On demand — slow and clean-tree-only by default, so never part of `discern finish`.",
+      "On demand — slow and clean-tree-only by default, so never part of `discern done`.",
     steps,
   };
 }

@@ -3,7 +3,7 @@
  * skills analog of `checkGuidanceCurrent` (ADR 0034). These drive the check against
  * REAL bundled skills materialized into a temp dir, then mutate the materialized
  * state and assert the drift is classified the way the gate consumes it: `stale`
- * blocks `finish`, `missing`/`foreign` do not.
+ * blocks `done`, `missing`/`foreign` do not.
  */
 
 import { assert, assertEquals } from "@std/assert";

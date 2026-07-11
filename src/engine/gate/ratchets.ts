@@ -874,7 +874,7 @@ async function pinRatchetsResult(
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
         ? "Carried the gate-pass receipt forward — `discern graduate` will skip the redundant gate re-run."
-        : "No current gate-pass receipt to carry forward — run `discern finish` before graduating, or graduate re-runs the gate.",
+        : "No current gate-pass receipt to carry forward — run `discern done` before graduating, or graduate re-runs the gate.",
     ],
   };
 }
@@ -883,7 +883,7 @@ async function pinRatchetsResult(
  * Compute the `ratchets` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
  * Slow and ON DEMAND: it runs every ratchet's measurement command (and a git read
- * of main's baseline), so it is NOT part of `finish`. `dryRun` returns the plan
+ * of main's baseline), so it is NOT part of `done`. `dryRun` returns the plan
  * (no git, no measurement); an empty config is a clean pass. Non-dry-run checks
  * require a clean tree unless forced for ratchet authoring. Otherwise it applies
  * the plan QUIET — the measurement output flows through a silent Out so a caller

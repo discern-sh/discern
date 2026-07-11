@@ -1,6 +1,6 @@
-# Finish-gate gotchas
+# Done-gate gotchas
 
-_Non-obvious ways the `finish` gate fails — each with its fix. The everyday gate
+_Non-obvious ways the `done` gate fails — each with its fix. The everyday gate
 procedure lives in [getting-started.md](getting-started.md) and
 [code-conventions.md](code-conventions.md); this page is the "why did it fail in
 a way the message didn't explain" reference._
@@ -25,9 +25,9 @@ gate has something useful to point at on day one.
 
 ### `main` advanced during your session
 
-**Symptom.** `discern finish` stops almost immediately — before the fixers,
-build, checks, or tests run — with a message that your branch does not contain
-the latest `main`. It does **not** merge for you.
+**Symptom.** `discern done` stops almost immediately — before the fixers, build,
+checks, or tests run — with a message that your branch does not contain the
+latest `main`. It does **not** merge for you.
 
 **Cause.** The merge check is the gate's **first** step, fail-fast (ADR 0049).
 While you were working, `main` moved, so your branch is behind it. Because a
@@ -39,14 +39,14 @@ fix/build/check/test on a result you are about to throw away.
 **Fix.** Commit your work, then run `discern integrate` — it brings `main` in
 and re-materializes the agent files + skills in one step. (On a conflict it
 aborts cleanly and names the files. Resolve them with `git merge main`, commit
-the merge, then carry on.) Then run `discern finish` again to verify the
-correct, merged tree. (In the main checkout, not a worktree, this check is a
-no-op — there is nothing to integrate into.)
+the merge, then carry on.) Then run `discern done` again to verify the correct,
+merged tree. (In the main checkout, not a worktree, this check is a no-op —
+there is nothing to integrate into.)
 
 ### A generated or local discern artifact was force-added
 
 **Symptom.** `discern status` warns that discern-managed ignored artifacts are
-tracked by Git, or `discern finish` stops before running jobs with
+tracked by Git, or `discern done` stops before running jobs with
 `failed_stage: "tracked_artifacts"`. The named files are usually generated agent
 files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or
 machine-local provider state under `.claude/`.
@@ -60,34 +60,34 @@ artifact.
 **Fix.** Remove it from the index without deleting the working-tree copy:
 `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any
 generated artifacts that are missing, commit the index change, and re-run
-`discern finish`.
+`discern done`.
 
 ### The fix stage reformatted a file you already committed
 
-**Symptom.** `finish` stops right at the end — every stage green — reporting
-that the fix stage left uncommitted changes (`failed_stage: "fix_drift"`). It
-names a file, often a trivial Markdown reflow, that you thought was already
-committed and done.
+**Symptom.** `done` stops right at the end — every stage green — reporting that
+the fix stage left uncommitted changes (`failed_stage: "fix_drift"`). It names a
+file, often a trivial Markdown reflow, that you thought was already committed
+and done.
 
 **Cause.** The fix stage (a formatter or codemod — here `deno fmt`) runs first
 and mutates in place. If you committed a file that was not yet in the
 formatter's canonical form — the everyday case for hand-written prose, where
 editing a paragraph leaves a wrap the formatter will not accept — the next
-`finish` reformats it and leaves the result uncommitted. `finish` blocks on
-this, so the change cannot ride along uncommitted into `graduate`, which would
-otherwise strand it staged in the main checkout.
+`done` reformats it and leaves the result uncommitted. `done` blocks on this, so
+the change cannot ride along uncommitted into `graduate`, which would otherwise
+strand it staged in the main checkout.
 
 **Fix.** The diff is the formatter's own output: review it (`git diff`), commit
-it (`git add -A && git commit`), then re-run `finish`. To skip the round trip,
-run `finish` (or `prepare`) **before** your final commit, so the fixer's changes
-are part of it rather than a follow-up. A fixer reworking files you have not
+it (`git add -A && git commit`), then re-run `done`. To skip the round trip, run
+`done` (or `prepare`) **before** your final commit, so the fixer's changes are
+part of it rather than a follow-up. A fixer reworking files you have not
 committed yet — your normal inner loop — never trips this; only an
 already-committed file does.
 
 ### A check passes alone but fails in the full run
 
 **Symptom.** You run one test (or linter) over the files you changed and it is
-green, but the same step goes red inside `discern finish`.
+green, but the same step goes red inside `discern done`.
 
 **Cause.** Shared state or ordering. The gate runs the full suite — often in
 parallel — so tests that lean on a shared resource (a file, a database row, a
@@ -112,7 +112,7 @@ half-written while something read them).
 **Fix.** Rebuild from clean and re-run. The gate already orders `build` (and
 `fix`) **before** `check`/`test` so artifacts are complete before anything reads
 them — so if you are hitting this, you likely ran a step by hand out of order,
-or a partial build was left behind. Let `discern finish` run the stages in order
+or a partial build was left behind. Let `discern done` run the stages in order
 rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
@@ -134,10 +134,10 @@ non-zero exit) rather than a clear "not found".
 
 ### A command hangs, then fails with a timeout
 
-**Symptom.** `discern finish` sits on a stage with no further output, then —
-after `[gate].timeout` seconds (default 600) — fails that stage with a
-diagnostic that the command "timed out … and was killed". The command works fine
-when you run it by hand.
+**Symptom.** `discern done` sits on a stage with no further output, then — after
+`[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that
+the command "timed out … and was killed". The command works fine when you run it
+by hand.
 
 **Cause.** A gate command never finishes. The usual culprit is a **watch-mode
 test runner** or a **dev server** wired into a capability. Run by hand in your
@@ -177,14 +177,14 @@ wherever the gate runs.
 
 ### A failure shows up as exit 0
 
-**Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to
+**Symptom.** You pipe `discern done` into `tee`, `tail`, or another command to
 capture its output, and it appears to succeed even though a stage clearly
 failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's.
 The real non-zero status is masked by the pipe.
 
-**Fix.** Run `discern finish` bare so its true exit code surfaces. If you must
+**Fix.** Run `discern done` bare so its true exit code surfaces. If you must
 capture output, use a method that preserves the original exit status (for
 example, redirect to a file rather than piping, or set your shell's `pipefail`
 option).

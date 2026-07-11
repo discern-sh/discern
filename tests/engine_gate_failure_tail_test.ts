@@ -105,12 +105,12 @@ const FAILING_TEST = [
   "",
 ].join("\n");
 
-Deno.test("finish: a failing gate ends on the actionable recap, surviving `2>&1 | tail`", async () => {
+Deno.test("done: a failing gate ends on the actionable recap, surviving `2>&1 | tail`", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, FAILING_CHECK);
     await gitInit(dir);
-    await assertActionableFailureTail(dir, ["finish"], "finish");
+    await assertActionableFailureTail(dir, ["done"], "done");
   });
 });
 

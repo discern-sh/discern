@@ -730,7 +730,7 @@ Deno.test("inherit-main-env-vars creates the worktree env file when absent", asy
 
 // ── with-gotchas — the failure pointer + exit-code passthrough ──────────────
 //
-// `finish` and `with-gotchas` both print the same "a gate step failed" pointer.
+// `done` and `with-gotchas` both print the same "a gate step failed" pointer.
 // Here we drive the wrapper directly: a failing command must surface the pointer
 // AND propagate the command's own exit code (the wrapper deliberately omits
 // `set -e` so it observes the failure rather than dying on it).

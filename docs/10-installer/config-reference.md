@@ -90,7 +90,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `paths` | string[] | — | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. |
 | `neutral` | boolean | `false` | true: changes here need no gate (docs, agent guidance). |
 | `previewable` | boolean | `false` | true: a person could see changes here — worth a preview link. |
-| `gate` | string \| string[] | — | A command discern finish runs when this scope changed (a sub-component with its own self-contained gate). |
+| `gate` | string \| string[] | — | A command discern done runs when this scope changed (a sub-component with its own self-contained gate). |
 
 ## `[worktree]`
 
@@ -128,7 +128,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 
 ## `[ratchets.<name>]`
 
-[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.
+[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern done`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -142,7 +142,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 
 ## `[gate]`
 
-Ergonomics for the parallel gate stages (and scope gates). These affect how `discern finish` runs its concurrent jobs.
+Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -156,7 +156,7 @@ Co-change coupling detection — a zero-config, read-only advisory that mines gi
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `in_gate` | boolean | `false` | Surface the co-change advisory during the gate too — both `discern finish` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail. |
+| `in_gate` | boolean | `false` | Surface the co-change advisory during the gate too — both `discern done` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail. |
 
 ## `[recipes]`
 

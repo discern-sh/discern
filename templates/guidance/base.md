@@ -2,7 +2,7 @@
 
 This project uses **discern**, a stack-neutral agentic-development harness.
 Everything discern knows about this project lives in one root file,
-**`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_finish`,
+**`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`,
 …) — the **primary surface**, each returning a structured result you read directly.
 
 ## Operating discern
@@ -14,7 +14,7 @@ Everything discern knows about this project lives in one root file,
   returns its path. Nothing relocates you, so re-root into that path and work from
   inside it, never on the trunk,or in a worktree you didn't create. (See *Isolated
   worktree workflow* below.)
-- **`discern_finish` is the bar for "done".** It runs the project's whole quality
+- **`discern_done` is the bar for "done".** It runs the project's whole quality
   gate; don't call a change finished until the final tree passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just
   the tests); on a failure read the result's `diagnostics[]` — the failing command

@@ -12,7 +12,7 @@ worktree workflow, ratchets, the guideline compiler) compiled in as TypeScript
 under [`src/engine/`](../../src/engine/). A project never has a committed copy
 of the engine — it lives in the binary
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by
-running its own engine from source (`discern finish`), so there is **no** second
+running its own engine from source (`discern done`), so there is **no** second
 copy to keep in sync and nothing that can drift.
 
 What an install lays down is **one root file, `discern.toml`, plus one visible
@@ -96,7 +96,7 @@ discern's built-in guidance plus this repo's own
 - To discard an abandoned worktree, run `discern worktree drop <id>` from the
   main checkout — it refuses without `--force` when commits not on the trunk or
   uncommitted changes would be lost.
-- Drive the gate yourself any time: `discern finish` (the full gate, also
+- Drive the gate yourself any time: `discern done` (the full gate, also
   `deno task gate`), `discern prepare` (fast: fixers + checks), and
   `discern doctor` (health check). In this repo the dev wrapper runs them
   against the current checkout's own engine.

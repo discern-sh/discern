@@ -1,5 +1,5 @@
 /**
- * OS-interrupt propagation E2E — interrupting a running `finish` must stop the
+ * OS-interrupt propagation E2E — interrupting a running `done` must stop the
  * gate's jobs, not orphan them.
  *
  * The class this guards: gate jobs are spawned `detached` (their own process
@@ -58,7 +58,7 @@ function alive(pid: number): boolean {
 }
 
 for (const sig of INTERRUPT_SIGNALS) {
-  Deno.test(`an interrupted finish (${sig}) kills the in-flight gate job and dies by the interrupt`, async () => {
+  Deno.test(`an interrupted done run (${sig}) kills the in-flight gate job and dies by the interrupt`, async () => {
     const dir = await Deno.makeTempDir({ prefix: "discern-gate-interrupt-" });
     try {
       await scaffoldEngine(dir);
@@ -86,7 +86,7 @@ for (const sig of INTERRUPT_SIGNALS) {
           DENO_JSON,
           "-A",
           MAIN_TS,
-          "finish",
+          "done",
         ],
         cwd: dir,
         env: await engineEnv(),

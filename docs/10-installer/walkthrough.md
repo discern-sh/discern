@@ -63,9 +63,9 @@ When the scaffold is ready, the agent runs `discern setup done`. This is not a
 rubber stamp: discern first refuses if any of the authored setup is still
 uncommitted (the proof runs on committed history, and "the branch keeps every
 commit" has to be true), then **proves the gate** — it refreshes the generated
-files, runs `discern doctor`, runs `discern finish`, and then runs the whole
-gate again in a **throwaway worktree copy**, so a project that passes on your
-machine but would break in an isolated worktree can't complete setup silently.
+files, runs `discern doctor`, runs `discern done`, and then runs the whole gate
+again in a **throwaway worktree copy**, so a project that passes on your machine
+but would break in an isolated worktree can't complete setup silently.
 
 If that all passes, discern records that setup is complete and serves a
 **reactivation** note: the MCP tools, session hooks, and project rules it wired
@@ -85,10 +85,10 @@ what you see:
    which creates an isolated git worktree on an `agent/…` branch and moves into
    it. Your `main` checkout is left alone; the agent works in a copy.
 2. **It writes the change.** Ordinary editing and testing, in the worktree.
-3. **It runs the gate.** `discern finish` formats, builds, lints, type-checks,
-   and tests — and won't call the work done until the whole tree passes. If a
-   step fails, discern hands the agent the exact failing command and its output,
-   so the agent fixes and re-runs rather than guessing.
+3. **It runs the gate.** `discern done` formats, builds, lints, type-checks, and
+   tests — and won't call the work done until the whole tree passes. If a step
+   fails, discern hands the agent the exact failing command and its output, so
+   the agent fixes and re-runs rather than guessing.
 4. **It reports ready.** The agent tells you the change is green and waits — it
    does not land anything on its own.
 
@@ -108,5 +108,5 @@ keeping your `discern.toml` and everything in `discern/`. See
 - [What discern writes to your repo](what-discern-writes.md) — the footprint in
   full.
 - [FAQ & troubleshooting](faq.md) — when a step doesn't go as above.
-- [The quality gate](../20-quality-gate/README.md) — what `discern finish`
+- [The quality gate](../20-quality-gate/README.md) — what `discern done`
   actually runs.

@@ -1961,9 +1961,9 @@ function doneHints(
 function verdictSentence(a: SetupAssurance): string {
   switch (a.verdict) {
     case "full":
-      return "Quality coverage: full — every standard check is enforced, so `discern finish` runs the complete recommended gate.";
+      return "Quality coverage: full — every standard check is enforced, so `discern done` runs the complete recommended gate.";
     case "minimal":
-      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern finish` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
+      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern done` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
     case "partial":
       return `Quality coverage: partial — ${a.enforced} of ${a.total} standard checks enforced. Setup is complete, but not every recommended protection is active yet.`;
   }
@@ -1981,7 +1981,7 @@ function assuranceLines(a: SetupAssurance): string[] {
       ? "•"
       : "·";
     const label = c.state === "enforced"
-      ? "enforced — runs on every `discern finish`"
+      ? "enforced — runs on every `discern done`"
       : c.state === "deferred"
       ? (c.reason !== undefined
         ? `deferred — ${c.reason}`
@@ -2124,7 +2124,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
  * marker may remain, AND every derived per-step completion check must pass (ADR
  * 0078) — the latter catches a skeleton whose marker was deleted without the file
  * being meaningfully filled (the shallow-compliance failure). The proof — `refresh`
- * → `doctor` → `finish` — then makes the gate's definition-of-done structural:
+ * → `doctor` → `done` — then makes the gate's definition-of-done structural:
  * completion can't be recorded unless the install is healthy and the gate actually
  * passes. `--force` is the manual-setup escape hatch: it skips the completeness
  * checks AND the proof.
@@ -2285,7 +2285,7 @@ type GateProof =
 /**
  * Run the completion proof `discern setup done` requires before recording
  * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the generated agent files are
- * current), then `doctor` (the install is healthy), then `finish` (the gate is green
+ * current), then `doctor` (the install is healthy), then `done` (the gate is green
  * with whatever capabilities were just wired) — all in the main checkout — then a
  * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy
  * every future task runs in (the main checkout being the one place agents are told
@@ -2346,8 +2346,8 @@ async function proveGateGreen(
       ok: false,
       exitCode: emitDoneGateFailure(
         json,
-        "finish",
-        "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
+        "done",
+        "the quality gate is not green; run `discern done`, fix the failures, then re-run",
       ),
     };
   }
@@ -2418,10 +2418,10 @@ async function proveWorktreeViable(
       };
     case "uncreatable":
       // Couldn't create a probe (e.g. an unborn branch) — not the app's fault. Report it
-      // un-proven rather than blocking; the first real `discern finish` in a worktree
+      // un-proven rather than blocking; the first real `discern done` in a worktree
       // will prove it.
       log.info(
-        `Skipped the worktree probe (${outcome.reason}); your first \`discern finish\` in a worktree will prove it.`,
+        `Skipped the worktree probe (${outcome.reason}); your first \`discern done\` in a worktree will prove it.`,
       );
       return { ok: true, worktreeProven: false };
   }
@@ -2458,7 +2458,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
  */
 function emitDoneGateFailure(
   json: boolean,
-  stage: "refresh" | "doctor" | "finish" | "worktree_probe",
+  stage: "refresh" | "doctor" | "done" | "worktree_probe",
   detail: string,
 ): number {
   const message = `setup is not finished — ${detail}.`;
@@ -2473,7 +2473,7 @@ function emitDoneGateFailure(
   } else {
     console.error(`discern: ${message}`);
     console.error(
-      `       (\`discern setup done\`'s completion proof is refresh → doctor → finish, then a worktree probe; the ${stage} step failed.)`,
+      `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
     );
     console.error(
       "       Fix it and re-run, or pass --force to record completion without the proof.",

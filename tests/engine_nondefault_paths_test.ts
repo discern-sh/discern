@@ -98,7 +98,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     assertEquals(r.code, 0, r.output);
 
     // The full gate passes on the repointed layout exactly as on the default one.
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(JSON.parse(r.stdout).ok, true, r.output);
 
@@ -119,14 +119,14 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
       `status must flag rendered skills stale after a repoint\n${r.stdout}`,
     );
 
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, `finish must refuse stale skills\n${r.output}`);
     assertStringIncludes(r.output, "refresh");
 
     // Refresh re-renders; finish is green again and the skills speak the new path.
     r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(
       await Deno.readTextFile(

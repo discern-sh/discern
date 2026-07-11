@@ -702,7 +702,7 @@ export interface SkillsDriftEntry {
    * on a fresh checkout; non-blocking, exactly like a missing guidance file).
    * `stale` — the dir exists but an effective skill is absent / differs from its
    * source, or a managed entry lingers that is no longer effective (real drift: a
-   * hand-edit or an un-refreshed change; this is what blocks `finish`).
+   * hand-edit or an un-refreshed change; this is what blocks `done`).
    * `foreign` — an unmanaged entry discern never placed (reported, never clobbered —
    * mirrors materialization's never-touch-a-drop-in contract; non-blocking).
    * discern-allow-retrospective: "no longer effective" is the current effective set.

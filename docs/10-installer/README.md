@@ -125,7 +125,7 @@ Edit the schema, not the generated files.
 ## Guides
 
 - [walkthrough.md](walkthrough.md) — one honest session end to end: install →
-  the setup conversation → shipping a first change → `finish` → `graduate`.
+  the setup conversation → shipping a first change → `done` → `graduate`.
 - [what-discern-writes.md](what-discern-writes.md) — the whole footprint (what
   discern creates, merges into, and keeps), what runs on your machine, and how
   `discern uninstall` removes it.

@@ -1,7 +1,7 @@
 /**
  * Smoke tests for the engine-test harness itself: prove the scaffold-and-shell-
  * out path works and lock in the baseline behaviour of the core recipes
- * (`--help`, `finish`, `doctor`, unknown-recipe) before feature tests build on
+ * (`--help`, `done`, `doctor`, unknown-recipe) before feature tests build on
  * the same harness.
  */
 
@@ -15,7 +15,7 @@ Deno.test("engine smoke: discern --help lists commands and exits 0", async () =>
     const r = await runAgent(dir, ["--help"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Commands:");
-    assertStringIncludes(r.stdout, "finish");
+    assertStringIncludes(r.stdout, "done");
     // `graduate` is promoted to a top-level command; the worktree group still
     // surfaces its colon-spelled sub-verbs in its description, so the top-level
     // help teaches both the promotion and the colon spelling.
@@ -24,11 +24,11 @@ Deno.test("engine smoke: discern --help lists commands and exits 0", async () =>
   });
 });
 
-Deno.test("engine smoke: finish on a fresh no-op gate passes and says so", async () => {
+Deno.test("engine smoke: done on a fresh no-op gate passes and says so", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     // Every slot ships as a no-op, so the gate is honest about checking nothing.
     assertStringIncludes(r.stdout, "no-op");

@@ -1265,7 +1265,7 @@ export type DiscernConfigResult = {
   };
 };
 
-export type DiscernFinishResult = {
+export type DiscernDoneResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1336,7 +1336,7 @@ export type DiscernFinishResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "finish";
+  verb: "done";
   data?: {
     failed_stage:
       | "fix"
@@ -2990,7 +2990,7 @@ export type DiscernCliJsonResult =
   | DiscernDocsResult
   | DiscernHelpResult
   | DiscernConfigResult
-  | DiscernFinishResult
+  | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
   | DiscernImproveResult
@@ -3022,7 +3022,7 @@ export interface DiscernResultByVerb {
   docs: DiscernDocsResult;
   help: DiscernHelpResult;
   config: DiscernConfigResult;
-  finish: DiscernFinishResult;
+  done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
   improve: DiscernImproveResult;
@@ -3060,7 +3060,7 @@ export interface DiscernResultByCommand {
   "config set-scope": DiscernConfigResult;
   "config set-ratchet": DiscernConfigResult;
   "config set": DiscernConfigResult;
-  finish: DiscernFinishResult;
+  done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
   improve: DiscernImproveResult;
@@ -3095,7 +3095,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_doctor: DiscernDoctorResult;
   discern_docs: DiscernDocsResult;
   discern_help: DiscernHelpResult;
-  discern_finish: DiscernFinishResult;
+  discern_done: DiscernDoneResult;
   discern_prepare: DiscernPrepareResult;
   discern_test: DiscernTestResult;
   discern_improve: DiscernImproveResult;
@@ -3113,7 +3113,7 @@ export interface DiscernMcpToolResultByTool {
   discern_doctor: DiscernMcpToolResult<DiscernDoctorResult>;
   discern_docs: DiscernMcpToolResult<DiscernDocsResult>;
   discern_help: DiscernMcpToolResult<DiscernHelpResult>;
-  discern_finish: DiscernMcpToolResult<DiscernFinishResult>;
+  discern_done: DiscernMcpToolResult<DiscernDoneResult>;
   discern_prepare: DiscernMcpToolResult<DiscernPrepareResult>;
   discern_test: DiscernMcpToolResult<DiscernTestResult>;
   discern_improve: DiscernMcpToolResult<DiscernImproveResult>;
@@ -3131,7 +3131,7 @@ export type DiscernMcpStructuredContent =
   | DiscernDoctorResult
   | DiscernDocsResult
   | DiscernHelpResult
-  | DiscernFinishResult
+  | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
   | DiscernImproveResult
@@ -3148,7 +3148,7 @@ export type DiscernMcpJsonResult =
   | DiscernDoctorMcpToolResult
   | DiscernDocsMcpToolResult
   | DiscernHelpMcpToolResult
-  | DiscernFinishMcpToolResult
+  | DiscernDoneMcpToolResult
   | DiscernPrepareMcpToolResult
   | DiscernTestMcpToolResult
   | DiscernImproveMcpToolResult
@@ -3169,9 +3169,7 @@ export type DiscernDocsMcpToolResult = DiscernMcpToolResult<DiscernDocsResult>;
 
 export type DiscernHelpMcpToolResult = DiscernMcpToolResult<DiscernHelpResult>;
 
-export type DiscernFinishMcpToolResult = DiscernMcpToolResult<
-  DiscernFinishResult
->;
+export type DiscernDoneMcpToolResult = DiscernMcpToolResult<DiscernDoneResult>;
 
 export type DiscernPrepareMcpToolResult = DiscernMcpToolResult<
   DiscernPrepareResult

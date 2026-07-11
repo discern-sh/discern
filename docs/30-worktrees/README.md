@@ -84,7 +84,7 @@ deterministic inverse of graduate, and what the gate's merge check
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`graduate`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
 is about to land — running the whole gate, or skipping the re-run when the
-recorded receipt proves the agent's own `finish` already passed this commit
+recorded receipt proves the agent's own `done` already passed this commit
 ([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
 the branch on the **trunk** — the single push target of the landing model
 ([ADR 0110](../_adr/0110-the-landing-model.md)): the trunk is fast-forwarded to
@@ -144,7 +144,7 @@ listed (`data.unlanded_branches`) with the pull-axis recovery (`start --from` /
 `integrate --from`); a missing trunk reports `ahead` as an honest null, never a
 fabricated `0 ahead`. And when the worktree the tools aim at stays pristine
 while the main checkout accumulates changes — the signature of an agent editing
-the trunk while the gate runs elsewhere — `status` and `finish` both raise an
+the trunk while the gate runs elsewhere — `status` and `done` both raise an
 explicit **silent-divergence** warning naming the fix (`cd <worktree> && …`
 prefixes, and the `path` parameter on discern's MCP tools).
 [`identity`](../../src/engine/worktree/identity.ts) resolves a Worktree's stable
@@ -177,7 +177,7 @@ named `worktree_probe` stage, so the wiring that makes a copy viable
 (`[worktree].steps` / `ensure` / `resources` / `inherit_env`) is fixed while a
 capable agent is present, not discovered on the first real task. `smoke` — a
 fast "does it boot?" [Capability](../00-orientation/glossary.md#capability) —
-makes that probe sharp: because `discern finish` runs it wherever the gate runs,
+makes that probe sharp: because `discern done` runs it wherever the gate runs,
 every finish re-proves the app boots in a Worktree too.
 
 **Where they land.** `WorktreeCreate` places each checkout under

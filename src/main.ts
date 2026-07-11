@@ -24,6 +24,11 @@ import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
+  normalizeVerbVariant,
+  retiredCommandMessage,
+  retiredVerbSuccessor,
+} from "./shared/vocabulary.ts";
+import {
   beginOptsFrom,
   hasScaffoldIntent,
   runSetupBegin,
@@ -158,11 +163,11 @@ export function buildCli(hideSetup: boolean): RootCommand {
     )
     .example(
       "Agent on the trunk?",
-      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern finish  →  report ready for review",
+      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
     )
     .example(
       "Agent in a worktree?",
-      "(write code...)  →  discern finish  →  report ready for review",
+      "(write code...)  →  discern done  →  report ready for review",
     )
     .globalOption(
       "--json",
@@ -813,7 +818,7 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
 
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
-  const argv = args;
+  let argv = args;
   // The raw first token — helper dispatch below is deliberately positional,
   // and it names the attempted verb in a pre-resolution config error.
   let verb = argv[0];
@@ -884,6 +889,38 @@ export async function main(args: string[]): Promise<void> {
       console.log(operatorHelp(cli as unknown as Command, { color }));
       await printProjectRecipes();
       Deno.exit(0);
+      return;
+    }
+
+    // A retired spelling is not an alias: it refuses before recipe fallthrough or
+    // Cliffy dispatch and names the one canonical successor. JSON mode keeps the
+    // same refusal in the uniform result envelope.
+    const successor = retiredVerbSuccessor(verb);
+    if (successor !== undefined) {
+      const message = retiredCommandMessage(verb, successor);
+      if (argv.includes("--json")) {
+        emitResult({
+          ok: false,
+          verb,
+          error: "renamed_command",
+          message,
+        });
+      } else {
+        console.error(`discern: ${message}`);
+      }
+      Deno.exit(1);
+    }
+
+    // Grammatical variants are forgiveness, not aliases: rewrite only the verb
+    // token, then let every normal canonical routing decision run unchanged.
+    const canonicalVerb = normalizeVerbVariant(verb, KNOWN_VERBS);
+    if (canonicalVerb !== verb) {
+      const index = argv.indexOf(verb);
+      if (index !== -1) {
+        argv = [...argv];
+        argv[index] = canonicalVerb;
+      }
+      verb = canonicalVerb;
     }
 
     // Explicit help: Cliffy's help plus the project-recipe listing.

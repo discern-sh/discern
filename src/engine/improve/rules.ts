@@ -188,7 +188,7 @@ function excerpt(text: string, max = 240): string {
 
 // ── the categories ──────────────────────────────────────────────────────────
 
-/** Quality gate — is `discern finish` actually checking anything? Core. */
+/** Quality gate — is `discern done` actually checking anything? Core. */
 const GATE: Category = {
   name: "gate",
   title: "Quality gate",
@@ -203,7 +203,7 @@ const GATE: Category = {
       teach:
         "A gate that runs no tests can't catch regressions — the single highest-" +
         "leverage capability to wire. Add your suite as [capabilities].test (or a " +
-        "test-stage [checks.<name>]) so `discern finish` runs it before work is called done.",
+        "test-stage [checks.<name>]) so `discern done` runs it before work is called done.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         capWired(ctx, "test") || checkInStage(ctx, "test")
           ? { status: "pass", detail: "a test-stage command is wired" }
@@ -252,7 +252,7 @@ const GATE: Category = {
       id: "gate.fast-feedback",
       title: "The gate stays fast enough to run every time",
       ask:
-        "Given the test command below, and that `discern finish` runs it on every " +
+        "Given the test command below, and that `discern done` runs it on every " +
         "graduation and whenever a change is called done — does the gate stay fast " +
         "as the suite grows, and is the runner using the parallelism it offers? " +
         "Parallel execution depends on isolated tests: each owning its own temp dir, " +
@@ -326,7 +326,7 @@ const SETUP: Category = {
       title: "Failure-pointer (gotchas) doc set",
       weight: 1,
       fix:
-        'discern config set project.gotchas_doc "docs/.../finish-gate-gotchas.md" (and write it)',
+        'discern config set project.gotchas_doc "docs/.../done-gate-gotchas.md" (and write it)',
       teach:
         "When a gate stage fails in a non-obvious way, discern points the agent at " +
         "[project].gotchas_doc. Keeping a living list of your stack's traps there turns " +

@@ -4,7 +4,7 @@
  *
  * This is the SINGLE source of the compiled-file content. The writer
  * (`compileGuidelines`) renders here and writes; the currency checker
- * (`checkGuidanceCurrent`, consumed by `discern status` and `discern finish`)
+ * (`checkGuidanceCurrent`, consumed by `discern status` and `discern done`)
  * renders here and compares to disk. Because both go through
  * {@link renderAgentFiles}, the check can never disagree with what a refresh would
  * produce — there is no second copy of the compile logic, and no stored hash to

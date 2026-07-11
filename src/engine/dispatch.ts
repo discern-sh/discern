@@ -81,7 +81,7 @@ import type { DiscernResult } from "../shared/result.ts";
 /** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
  * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
-  "finish",
+  "done",
   "prepare",
   "test",
   "improve",
@@ -136,7 +136,7 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
  * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
  * forces a conscious choice here rather than silently drifting. */
 export const ENGINE_RECIPE_NAMES: readonly string[] = [
-  "finish",
+  "done",
   "prepare",
   "test",
   "improve",
@@ -166,8 +166,8 @@ function displayName(name: string): string {
   if (name.startsWith("worktree-")) {
     return "worktree " + name.slice("worktree-".length);
   }
-  if (name.startsWith("finish-")) {
-    return `finish:${name.slice("finish-".length)}`;
+  if (name.startsWith("done-")) {
+    return `done:${name.slice("done-".length)}`;
   }
   return name;
 }
@@ -255,8 +255,10 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
  * unconditionally (ADR 0101: the subsystems are all core). */
 export function attachEngineCommands(root: Command): void {
   root
-    .command("finish")
-    .description("The full quality gate — run before calling work done.")
+    .command("done")
+    .description(
+      "Run your finishing steps (including formatters), then verify the full quality gate.",
+    )
     .option(
       "--json",
       "Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).",
@@ -351,7 +353,7 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("ratchets")
     .description(
-      "Check every metric ratchet (slow; on demand, not part of finish).",
+      "Check every metric ratchet (slow; on demand, outside `discern done`).",
     )
     .arguments("[names...:string]")
     .option(

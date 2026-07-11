@@ -47,7 +47,7 @@ The rules:
 
 - **The engine and installer are TypeScript under `src/**` — edit them in
   place.** There is no second copy, no hash tracking, no drift to detect. The
-  gate (`discern finish`) type-checks and tests them.
+  gate (`discern done`) type-checks and tests them.
 - **`templates/**` is the distribution surface** — edit the seed/skill/guidance
   _source_ here (keep it generic; see below). To reflect a bundled-skill or
   built-in-guidance edit in this repo's own skills and guidelines, run
@@ -63,14 +63,14 @@ The rules:
 never `templates/`, which only holds the generic built-in guidance _other_
 projects receive. Then run `discern refresh` to recompile the agent files
 (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — gitignored build artifacts you
-never hand-edit (ADR 0034); `discern finish` fails if one drifts from its
-source. Keep the prose provider-agnostic: one source compiles to every agent.
-Nothing overwrites your `guidance.md`.
+never hand-edit (ADR 0034); `discern done` fails if one drifts from its source.
+Keep the prose provider-agnostic: one source compiles to every agent. Nothing
+overwrites your `guidance.md`.
 
 | To change…                                      | Edit…                                     | Then run                           |
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
-| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern finish`                   |
-| an installer command                            | `src/commands/**` (in place)              | `discern finish`                   |
+| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern done`                     |
+| an installer command                            | `src/commands/**` (in place)              | `discern done`                     |
 | a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
 | the built-in harness guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
 | a seed file users receive                       | `templates/…`                             | —                                  |
@@ -104,7 +104,7 @@ word "ADR" stays legal everywhere: discern ships an ADR discipline.
 ## The gate
 
 - `discern prepare` — fast inner loop: fix + check, no tests.
-- `discern finish` — full gate (run from the repo root): `deno fmt` (fix) →
+- `discern done` — full gate (run from the repo root): `deno fmt` (fix) →
   `deno lint` + `deno check` (check) ∥ `deno task test` (test). This is the repo
   running its **own** TS engine, so a regression in the engine surfaces here.
 
@@ -128,7 +128,7 @@ The MCP `discern_*` tools are a separately-spawned, long-lived server running
 the **main** checkout's engine, not your worktree's — so for branch-only changes
 (a bundled skill, guidance, or engine edit not yet on `main`) they can report
 stale results against main, not your branch. Trust the engine run from source —
-`discern finish` — over the MCP `discern_*` tools whenever they disagree.
+`discern done` — over the MCP `discern_*` tools whenever they disagree.
 
 Everything supports discern's own **`--json`** flag; always pass it for
 optimised machine-readable output. It reaches the underlying `discern <cmd>`
@@ -140,11 +140,11 @@ exactly as an end user would, so discern's full range is open to you too.
 `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the
 TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and
 hooks resolve the binary like a real install). It is the behavioral parity
-oracle for the engine. If a bad engine change ever breaks `discern finish`
-itself, run `deno task test` directly. Add engine coverage to
-`tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
-Iterate on one suite with `deno task test tests/<name>_test.ts` (or
-`--filter <name>`) instead of running the whole suite each loop.
+oracle for the engine. If a bad engine change ever breaks `discern done` itself,
+run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`;
+installer coverage to the other `tests/*_test.ts`. Iterate on one suite with
+`deno task test tests/<name>_test.ts` (or `--filter <name>`) instead of running
+the whole suite each loop.
 
 ## Conventions & gotchas
 
@@ -154,7 +154,7 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   module-boundary types, no non-null assertions (`!`), no `process`/node globals
   (import from `node:process`), no thrown literals, `eqeqeq`. Match the
   surrounding code and write to these the first time — the gate enforces every
-  rule, so fighting the linter just costs a `finish` loop.
+  rule, so fighting the linter just costs a `done` loop.
 - **Several artifacts and schemas are generated.** The `deno task codegen`
   command rewrites `docs/10-installer/config-reference.md`, `schema/*.json`, and
   `types/*.d.ts` automatically. The codegen command is wired in to discern's own

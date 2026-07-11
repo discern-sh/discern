@@ -268,7 +268,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // "Wired" means the SAME thing the gate, status, and improve mean: the command
   // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
   // wired). Re-deriving that with a looser predicate would let doctor call a no-op
-  // capability healthy while `discern finish` runs nothing for it.
+  // capability healthy while `discern done` runs nothing for it.
   const wiredCaps = Object.entries(config.capabilities)
     .filter(([, v]) => toCommandList(v).length > 0).map(([k]) => k);
   checks.push({

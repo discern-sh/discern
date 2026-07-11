@@ -3,7 +3,7 @@
  *
  * Git cannot tell us whether ignored files were edited: ignored files are outside
  * the index by design. The honest signal is therefore a worktree-local baseline
- * recorded after discern finishes preparing the worktree, then a later comparison
+ * recorded after discern donees preparing the worktree, then a later comparison
  * before the worktree is removed. We report changed ignored roots only, collapsed
  * to top-level directories so generated trees do not flood the user.
  */

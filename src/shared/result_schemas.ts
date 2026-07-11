@@ -238,7 +238,7 @@ export const ReceiptSchema = z.strictObject({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-/** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
+/** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
  * `receipt` is present on a green run over a clean committed tree ahead of the
@@ -1115,8 +1115,8 @@ export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
 /** `setup` output: envelope + the phased setup/welcome `data`. */
 export const SetupOutputSchema = resultOutputSchema("setup", SetupDataSchema);
 
-/** `finish` output: envelope + the gate's `data`. */
-export const FinishOutputSchema = resultOutputSchema("finish", GateDataSchema);
+/** `done` output: envelope + the gate's `data`. */
+export const FinishOutputSchema = resultOutputSchema("done", GateDataSchema);
 
 /** `prepare` output: envelope only (except top-level config parse errors). */
 export const PrepareOutputSchema = datalessResultOutputSchema("prepare");

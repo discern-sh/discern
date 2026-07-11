@@ -76,7 +76,7 @@ export function makeTempArtifact(kind: TempArtifactKind): Promise<string> {
  * Reap expired artifacts when a sweep is due — at most once per
  * {@link SWEEP_INTERVAL_MS} per process, so a long-lived MCP server keeps
  * reaping while a burst of short CLI runs pays once. Called by the gate verbs
- * (`finish`/`prepare`/`test`) before their jobs spawn. Best-effort: retention
+ * (`done`/`prepare`/`test`) before their jobs spawn. Best-effort: retention
  * is hygiene, never load-bearing, so a failure never reaches the verb.
  */
 export async function sweepDueTempArtifacts(): Promise<void> {

@@ -1,16 +1,16 @@
 # The quality gate
 
-_`discern finish` — the compound gate that fixes, builds, checks, and tests
-before work is called done._
+_`discern done` — the compound gate that fixes, builds, checks, and tests before
+work is called done._
 
 > **New here?** Start with the [orientation tier](../00-orientation/) —
 > [concepts](../00-orientation/concepts.md) and
 > [what setup added to your repo](../00-orientation/after-setup.md) — before the
-> mechanism below. If a `discern finish` just went red, jump straight to
+> mechanism below. If a `discern done` just went red, jump straight to
 > [when the gate fails](when-the-gate-fails.md).
 
 This subtree covers the gate and everything it runs. The built-in
-[`finish`](../../src/engine/gate/finish.ts) verb first runs fail-fast
+[`done`](../../src/engine/gate/finish.ts) verb first runs fail-fast
 preconditions: the **merge check** — in a Worktree, that the branch contains the
 latest `main` ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)); the
 tracked-artifacts guard, which refuses discern-managed ignored artifacts that
@@ -60,7 +60,7 @@ with no build or test. `--json` emits the **`DiscernResult` envelope** — the o
 result shape every verb returns
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)):
 `{ok, verb, steps, diagnostics?, hints?, data}`, a serialization of the plan
-`finish` executed, not a re-derivation. Each Capability/Check/Scope gate is a
+`done` executed, not a re-derivation. Each Capability/Check/Scope gate is a
 `steps[]` entry with its outcome, duration, output artifact path, and
 lightweight line counts. A genuine failure also yields a `diagnostics[]` entry
 carrying the command to reproduce it and its captured output: either a clean,
@@ -77,7 +77,7 @@ rerouted), so the combined stdout+stderr is exactly that one object — safe for
 an agent to capture
 ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md),
 [ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
-`finish --dry-run` prints the plan (the jobs and Scope gates that _would_ run)
+`done --dry-run` prints the plan (the jobs and Scope gates that _would_ run)
 without running anything
 ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)); it is honest that it
 cannot predict which jobs fail-fast would skip. A green run over a clean
@@ -92,10 +92,10 @@ the repo a change touches and **fail open** (an unknown path runs more gates,
 never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
 (ADR 0018); **Ratchets** hold never-loosen metric floors and ceilings — a raw
 value or, via `per`, a rate that doesn't rise just because the project grew — on
-demand, outside `finish` because they are slow (ADR 0003, ADR 0057).
+demand, outside `done` because they are slow (ADR 0003, ADR 0057).
 
 Alongside the gate sits the **[continuous-improvement coach](improve.md)**:
-where `finish` asks _did this change pass?_,
+where `done` asks _did this change pass?_,
 [`improve`](../../src/engine/improve/rules.ts) asks _what should get better
 next?_ It reports objective baseline health, keeps qualitative reviews visible,
 and prioritizes one action. Deterministic rules remain distinct from subjective
@@ -109,24 +109,24 @@ asks _is this setup any good?_,
 with what?_ — mining git history for the files that move together and naming the
 sibling a change is likely missing. It is purely advisory and **never blocks**
 (it only ever adds `hints[]`), surfacing on demand or, behind
-`[coupling].in_gate`, at the tail of `finish`. It is the discovery end of the
+`[coupling].in_gate`, at the tail of `done`. It is the discovery end of the
 canonical-set discipline (ADR 0051) that the gate's parity tests enforce
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## In this section
 
-| Leaf                                               | What it covers                                                                                                                                                       |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern finish`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                             |
-| [`ratchets.md`](ratchets.md)                       | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                       |
-| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).    |
-| [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope (ADR 0114).                                 |
-| [`ci.md`](ci.md)                                   | How to run `discern finish` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
-| [`improve.md`](improve.md)                         | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                     |
-| [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                  |
+| Leaf                                               | What it covers                                                                                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern done`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                             |
+| [`ratchets.md`](ratchets.md)                       | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                     |
+| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).  |
+| [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope (ADR 0114).                               |
+| [`ci.md`](ci.md)                                   | How to run `discern done` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
+| [`improve.md`](improve.md)                         | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                   |
+| [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                |
 
 ## See also
 
 - [concepts.md](../00-orientation/concepts.md) — the gate in the daily loop.
-- [finish-gate-gotchas.md](../80-development/finish-gate-gotchas.md) —
-  non-obvious ways `finish` fails.
+- [done-gate-gotchas.md](../80-development/done-gate-gotchas.md) — non-obvious
+  ways `done` fails.

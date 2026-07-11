@@ -65,7 +65,7 @@ worktree-local refresh from rewriting the tracked config to
 discern does not set an MCP `cwd`; Codex starts the project-scoped server from
 the project root by default, and overriding that can detach the server from the
 project's `discern.toml`. The startup timeout gives slower local starts a little
-room, and the tool timeout is long enough for `discern_finish`, `discern_test`,
+room, and the tool timeout is long enough for `discern_done`, `discern_test`,
 and ratchets.
 
 discern does not set `sandbox_mode`, `approval_policy`, `approvals_reviewer`,

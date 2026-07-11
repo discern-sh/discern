@@ -3,10 +3,10 @@
  * plan ({@link JobGroup}s, built in `plan.ts`) and the {@link DiscernResult} the
  * verbs return. One place runs a group's jobs (serial for the mutating fix stage,
  * parallel otherwise) and one place walks an ordered group list stopping at the
- * first failure, so `finish`, `prepare`, and `test` all execute jobs identically —
+ * first failure, so `done`, `prepare`, and `test` all execute jobs identically —
  * the same job runner, the same banners, the same captured-output diagnostics.
  *
- * `finish` composes more on top (scope-gate selection, the guidance/merge checks),
+ * `done` composes more on top (scope-gate selection, the guidance/merge checks),
  * so it drives {@link runGroup} itself; `prepare`/`test` are exactly "run these
  * groups, serialize the result" and use {@link runJobGroups} wholesale.
  */
@@ -73,7 +73,7 @@ export interface StagesRun {
 
 /**
  * Run an ordered list of job groups, stopping at the first group that fails — the
- * shared inner loop behind `prepare` and `test`. `finish` does not use this (it
+ * shared inner loop behind `prepare` and `test`. `done` does not use this (it
  * interleaves scope classification between the stage groups and the scope gates),
  * but it runs each group through the same {@link runGroup}.
  */

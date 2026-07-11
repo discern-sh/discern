@@ -60,7 +60,7 @@ dir = "{{docs_dir}}"
 # prepended) plus YOUR sources below into one generated file per
 # provider. The generated files are build artifacts — gitignored, never
 # hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
-# `discern refresh`; `discern status` / `discern finish` flag a generated file
+# `discern refresh`; `discern status` / `discern done` flag a generated file
 # that has drifted from its source.
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -154,7 +154,7 @@ dir = "discern/skills"
 # any depth, a "/seg/" segment, or an exact path.
 #   neutral     = true   changes here need no gate (docs, agent guidance)
 #   previewable = true   a person could see changes here — worth a preview link
-#   gate        = "..."  a command `discern finish` runs when this scope changed
+#   gate        = "..."  a command `discern done` runs when this scope changed
 #                        (a sub-component with its own self-contained gate)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ ensure = []  # converge, e.g. ["<install deps>"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [ratchets] — never-loosen quality floors, enforced on demand by `discern ratchets`
-# (slow, so NOT part of `discern finish`). None configured means none run — defining
+# (slow, so NOT part of `discern done`). None configured means none run — defining
 # one is what turns the subsystem on.
 #
 # A ratchet is a number you only ever want to improve: line coverage, a bundle-
@@ -342,7 +342,7 @@ ensure = []  # converge, e.g. ["<install deps>"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These
-# affect how `discern finish` runs its concurrent jobs.
+# affect how `discern done` runs its concurrent jobs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [gate]
@@ -380,7 +380,7 @@ timeout = 600
 # ─────────────────────────────────────────────────────────────────────────────
 
 [coupling]
-# Surface the advisory during the gate too — `discern finish` AND the fast inner
+# Surface the advisory during the gate too — `discern done` AND the fast inner
 # loop `discern prepare` (as hints, at the tail — it never affects pass/fail), so
 # the nudge meets a change while it is hot. Off by default; opt in to get the
 # nudge in the gate as well as on demand.
@@ -392,7 +392,7 @@ in_gate = false
 # `# desc: ...` line into the directory below and it becomes a first-class
 # `discern <name>` command, listed by `discern --help` under "Project recipes". This
 # directory is yours: `discern upgrade` never writes or refreshes anything here. A name
-# that collides with a built-in engine recipe (finish, worktree setup, …) is ignored
+# that collides with a built-in engine recipe (done, worktree setup, …) is ignored
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `discern`
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,

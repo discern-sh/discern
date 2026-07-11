@@ -75,16 +75,15 @@ blank map is worse than none
 
 ### Engine
 
-The stack-neutral logic behind the `discern` run-time verbs (`finish`,
-`prepare`, `improve`, `status`, the `worktree` command group, `integrate`,
-`graduate`, `ratchets`, `refresh`, `scopes`, `coupling`, …), written in
-**TypeScript and compiled into the binary** under
-[`src/engine/`](../../src/engine/) (sharing [`src/shared/`](../../src/shared/)
-with the Installer). The Engine knows nothing stack-specific — it runs the
-[Capabilities](#capability), [Checks](#check), [Scopes](#scope), and
-[worktree settings](#worktree-settings) a project declares in `discern.toml`. It
-is the limit case of [the binary's](#the-binarys-files) files: not installed
-into a project at all.
+The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
+`improve`, `status`, the `worktree` command group, `integrate`, `graduate`,
+`ratchets`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
+compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
+[`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
+stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
+[Scopes](#scope), and [worktree settings](#worktree-settings) a project declares
+in `discern.toml`. It is the limit case of [the binary's](#the-binarys-files)
+files: not installed into a project at all.
 
 ### Dispatcher
 
@@ -213,10 +212,9 @@ the current template, with comments and canonical placement. Existing values are
 never rewritten by scaffold reconciliation
 ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
 
-For `.gitignore`, the project owns everything outside the
-`# --- discern ---` / `# --- /discern ---` block. `upgrade`
-reconciles only that block to the current fragment and absorbs known legacy
-discern-owned fragments
+For `.gitignore`, the project owns everything outside the `# --- discern ---` /
+`# --- /discern ---` block. `upgrade` reconciles only that block to the current
+fragment and absorbs known legacy discern-owned fragments
 ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
 
 ### The binary's files
@@ -233,7 +231,7 @@ limit case: the binary's, but **bundled** inside it, not on disk in a project at
 all. (This bucket replaces the retired notion of a "managed file" — there are no
 content hashes, no `.new` preservation, and no drift detection, because nothing
 here is committed at all; drift between a generated file and its source is
-caught by `discern finish`'s currency check instead.)
+caught by `discern done`'s currency check instead.)
 
 ### Merged file
 
@@ -253,14 +251,14 @@ reproduced by re-running that command rather than edited directly.
 refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
 `GEMINI.md`) and materializes the configured agents' skills dirs. They are all
 [the binary's](#the-binarys-files) gitignored build artifacts; the reviewable,
-tracked form is your `[guidance].sources`, and `discern finish` flags a
-generated file that has drifted from its source (ADR 0034).
+tracked form is your `[guidance].sources`, and `discern done` flags a generated
+file that has drifted from its source (ADR 0034).
 
 ---
 
 ## The quality gate
 
-Terms for `discern finish` and what it runs. Covered in depth under
+Terms for `discern done` and what it runs. Covered in depth under
 [`../20-quality-gate/`](../20-quality-gate/).
 
 ### Capability
@@ -305,7 +303,7 @@ no longer a user-facing word.
 
 ### Gate
 
-`discern finish` — the compound quality gate: (in a worktree) the main-merged
+`discern done` — the compound quality gate: (in a worktree) the main-merged
 check first, as a fail-fast precondition, then the Capability and Check
 [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
 [Scope](#scope) `gate`s that fired. Each Capability and Check runs as its own
@@ -328,7 +326,7 @@ lint-error count), declared under `[ratchets]` and held against `main`. It
 **inlines its own `run`**, the command that prints
 `DISCERN_METRIC <metric>
 <number>`. Ratchets are slow, so they run on demand via
-`discern ratchets`, not as part of `finish`
+`discern ratchets`, not as part of `done`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
@@ -430,11 +428,11 @@ sources extend it rather than replace it.
 [generated](#generated-file) by `discern refresh` from the built-in guidance
 sections plus the Guidance source. They carry no banner — they open with the
 guidance itself, and drift from their source is caught by `discern status` /
-`discern finish`
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Which files
-are emitted is set by `[guidance].agents` (`claude_code` → `CLAUDE.md`, `codex`
-→ `AGENTS.md`, `gemini` → `GEMINI.md`). All are gitignored build artifacts;
-`AGENTS.md` is the **canonical** one (it holds the full body the others import).
+`discern done` ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
+Which files are emitted is set by `[guidance].agents` (`claude_code` →
+`CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). All are gitignored
+build artifacts; `AGENTS.md` is the **canonical** one (it holds the full body
+the others import).
 
 ### Skill
 

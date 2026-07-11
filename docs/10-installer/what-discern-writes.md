@@ -48,9 +48,9 @@ leaves the rest alone.
 - **`discern.toml`** — the one root file, your configuration. discern owns a
   fixed scaffold of documented sections and keys (restored if missing on
   `upgrade`) and never touches the values you set.
-- **The `.gitignore` block** — one delimited `# --- discern ---` block
-  listing discern's generated artifacts. Your own ignore rules outside the block
-  are untouched.
+- **The `.gitignore` block** — one delimited `# --- discern ---` block listing
+  discern's generated artifacts. Your own ignore rules outside the block are
+  untouched.
 - **The per-agent integration files** — for each coding agent you configure,
   discern merges its MCP server, its session hooks, and a couple of permission
   defaults into that agent's own committed config files (`.mcp.json`,
@@ -79,7 +79,7 @@ without the binary will not see them — see
 ## What runs on your machine
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts`
-block: **it runs the commands you configure.** The gate (`discern finish`) runs
+block: **it runs the commands you configure.** The gate (`discern done`) runs
 exactly the `format` / `build` / `lint` / `test` commands in your
 `discern.toml`; a Scope gate or a Ratchet runs the command you wrote for it; a
 project recipe is your own executable. discern adds no commands of its own

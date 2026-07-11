@@ -238,7 +238,7 @@
             "type": "boolean"
           },
           "gate": {
-            "description": "A command discern finish runs when this scope changed (a sub-component with its own self-contained gate).",
+            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate).",
             "anyOf": [
               {
                 "type": "string"

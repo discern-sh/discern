@@ -1,5 +1,5 @@
 /**
- * `finish` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
+ * `done` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
  * pure {@link GatePlan} (the job groups + scope-gates + merge check) is computed
  * first (`buildGatePlan`, from the typed config and the changed scopes), then a
  * thin executor applies it. `--dry-run` renders the plan and touches nothing;
@@ -73,7 +73,7 @@ import {
  * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
  * with a `default`), so a new failed-stage label is a COMPILE error here until it is
  * given a message — it can never silently fall through to a generic "a stage failed".
- * Only `finish` looks a message up (its `check`/`test` are fused into `check/test`);
+ * Only `done` looks a message up (its `check`/`test` are fused into `check/test`);
  * `prepare`/`test` print their own inline headline, so the `check`/`test` entries
  * exist for vocabulary completeness rather than a current caller.
  */
@@ -93,7 +93,7 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   merge:
-    "Run `discern integrate` to bring the trunk in and re-materialize, then re-run finish.",
+    "Run `discern integrate` to bring the trunk in and re-materialize, then re-run `discern done`.",
 };
 
 /** The human die message for a failed stage. Exported so `graduate` names the stage
@@ -460,11 +460,11 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern finish` on the clean HEAD before handoff or graduation.";
+        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or graduation.";
       case "skipped_head_moved":
-        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern finish\` on the final commit before handoff or graduation.`;
+        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or graduation.`;
       case "record_failed":
-        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
+        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later \`discern done\` run records one.`;
       case "unavailable":
         return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern graduate\` may need to re-run the gate.`;
       case "cleared":
@@ -473,7 +473,7 @@ function gateReceiptHint(
     }
   }
   if (receipt.status === "clear_failed") {
-    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern finish\` after fixing the failure.`;
+    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern done\` after fixing the failure.`;
   }
   return undefined;
 }
@@ -510,7 +510,7 @@ function buildGateHints(
   );
   if (cleanFinishRecorded && Object.keys(cfg.ratchets).length > 0) {
     hints.push(
-      "Run ratchets as needed with `discern ratchets` (slow and outside `discern finish`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
+      "Run ratchets as needed with `discern ratchets` (slow and outside `discern done`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
     );
   }
   if (
@@ -579,7 +579,7 @@ async function dryRunGate(
   const engine = gatePlanToEngine(plan);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
-    emitResult(previewResult("finish", engine));
+    emitResult(previewResult("done", engine));
     return 0;
   }
   renderPlan(outSink(makeOut(colorEnabled())), engine);
@@ -587,7 +587,7 @@ async function dryRunGate(
 }
 
 /**
- * Compute the `finish` {@link DiscernResult} without printing or exiting — the
+ * Compute the `done` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server (and any in-process caller) renders instead of the
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
  * runs the gate, routing the human narration to stderr (json semantics) so a
@@ -603,14 +603,14 @@ export async function finishResult(
     const cfg = await loadConfig(root);
     const changed = await classifyScopes(root, cfg);
     return previewResult(
-      "finish",
+      "done",
       gatePlanToEngine(buildGatePlan(cfg, changed)),
     );
   }
   return (await runGate(root, true, opts.signal)).result;
 }
 
-/** Run `finish`. Returns a process exit code. */
+/** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
   opts: { json: boolean; dryRun?: boolean },
@@ -627,7 +627,7 @@ export async function runFinish(
     renderFailureTail(out, {
       cfg,
       root,
-      verb: "finish",
+      verb: "done",
       headline: failMessage(failedStage),
       diagnostics: result.diagnostics ?? [],
     });

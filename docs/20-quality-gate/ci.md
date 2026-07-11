@@ -1,13 +1,13 @@
 # Run the gate on GitHub Actions
 
-_Protect your `main` branch: run `discern finish` on every pull request, then
+_Protect your `main` branch: run `discern done` on every pull request, then
 require that check before anything can merge._
 
 ## Protect your main branch
 
 Local gates are discipline: a person or tool can still push around them. CI
 turns the gate into repository policy once the integration branch is protected.
-Every pull request and every push to that branch runs the same `discern finish`
+Every pull request and every push to that branch runs the same `discern done`
 command you run locally; GitHub branch protection or a rule set is what blocks
 bypasses until that check is green.
 
@@ -103,7 +103,7 @@ jobs:
           exit 1
 
       - name: Run the gate
-        run: discern finish
+        run: discern done
 
       - name: Assert a clean tree
         run: git diff --exit-code
@@ -143,7 +143,7 @@ Keep the stack setup section honest. `discern` runs the commands in
 `discern.toml`; it does not install Node packages, Python packages, Deno, a
 database client, a browser, or any other tool those commands need. The workflow
 includes common Deno, Node, and Python setup paths, but a different stack needs
-its setup steps before `discern finish`.
+its setup steps before `discern done`.
 
 Do not add `discern refresh` to CI just because the generated agent files are
 missing on a fresh clone. That is expected: those files are generated artifacts,
@@ -184,7 +184,7 @@ flipped globally:
   refresh in the environment's own setup, not in the gate job, for the reason in
   [What to customize](#what-to-customize).
 - **Rely on the gate in CI.** For the gate specifically, the workflow above
-  installs discern and runs `discern finish` on every pull request, so a change
+  installs discern and runs `discern done` on every pull request, so a change
   that originates in a cloud environment is still held to the same bar before it
   can land — whether or not that environment had discern while the work
   happened.
@@ -197,12 +197,12 @@ bar (the CI gate).
 
 This spends GitHub Actions minutes on every pull request update and every push
 to the integration branch. The cost is the time to install the runner toolchain
-plus the time your `discern finish` capabilities and checks already take. Use
-the cache knobs for your stack once the plain workflow is green.
+plus the time your `discern done` capabilities and checks already take. Use the
+cache knobs for your stack once the plain workflow is green.
 
 ## Ratchets
 
-`discern ratchets` stays outside `discern finish` because metric checks can be
+`discern ratchets` stays outside `discern done` because metric checks can be
 slow. Add a second, pull-request-only job once the project has ratchets
 configured:
 
@@ -230,10 +230,10 @@ requests that loosen a configured metric.
 ## Troubleshooting
 
 Start with `discern doctor`. It checks the install, the config, and the tools
-the gate expects. If CI fails after `doctor` is clean, run `discern finish`
+the gate expects. If CI fails after `doctor` is clean, run `discern done`
 locally and compare the failing capability with the CI log; the runner is often
 missing one dependency your machine already had.
 
 Other CI systems use the same shape: check out the repo, install a pinned
-`discern`, install the project toolchain, run `discern finish`, and assert the
-fix stage changed nothing.
+`discern`, install the project toolchain, run `discern done`, and assert the fix
+stage changed nothing.

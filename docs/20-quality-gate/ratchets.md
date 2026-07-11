@@ -12,12 +12,12 @@ weakening it.
 
 Ratchets are **slow and on demand**. They run their measurement commands (a full
 coverage run, a release build), so they are deliberately **not** part of
-`discern finish` — running them on every gate would make the inner loop crawl.
-Run them yourself with `discern ratchets` when you want to check the line is
-held: before landing a branch, in a pull-request-only CI job, or after a change
-you expect to move a metric. A non-dry-run needs a clean worktree (the
-measurement must reflect committed state); `--dry-run` previews which ratchets
-would run without measuring anything.
+`discern done` — running them on every gate would make the inner loop crawl. Run
+them yourself with `discern ratchets` when you want to check the line is held:
+before landing a branch, in a pull-request-only CI job, or after a change you
+expect to move a metric. A non-dry-run needs a clean worktree (the measurement
+must reflect committed state); `--dry-run` previews which ratchets would run
+without measuring anything.
 
 Nothing about a ratchet you never define costs you anything — an undefined
 metric is simply not measured (design principle 9). You add a ratchet only where
@@ -43,7 +43,7 @@ The fields:
   only rise, a ceiling may only fall, so a branch can tighten the gate but never
   loosen it.
 - **`run`** — the command that measures the metric. It runs on demand under
-  `discern ratchets`, never as part of `finish`.
+  `discern ratchets`, never as part of `done`.
 - **`metric`** — the metric name the `run` command emits (defaults to the
   ratchet name). Naming it lets one command emit several metrics.
 - **`margin`** — headroom `discern ratchets --pin` leaves when it tightens this
@@ -129,7 +129,7 @@ already lives.
 
 Pin is the way to re-pin a baseline — never hand-edit the number. Because its
 commit changes only `[ratchets]` limits, which the gate never reads, pin carries
-a green `discern finish` receipt forward onto it, so a follow-up
+a green `discern done` receipt forward onto it, so a follow-up
 `discern
 graduate` still skips the redundant gate re-run
 ([ADR 0106](../_adr/0106-ratchets-pin-carries-the-gate-receipt.md)).
@@ -171,7 +171,7 @@ do when it fires.
 
 ## See also
 
-- [The quality gate](README.md) — where ratchets sit relative to `finish`.
+- [The quality gate](README.md) — where ratchets sit relative to `done`.
 - [concepts.md](../00-orientation/concepts.md) — the Ratchet concept in the
   wider picture.
 - [the-result-envelope.md](the-result-envelope.md) — the result shape

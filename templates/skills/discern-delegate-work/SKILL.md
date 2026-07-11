@@ -65,7 +65,7 @@ Anchor the prompt in the real tree, then tell the agent to verify those anchors 
 
 A handful of constraints hold for any task in any discern project. Fold them in so the fresh agent inherits them rather than rediscovering them:
 
-- **The gate is the bar for done.** The agent must run the full quality gate (`discern_finish`) to green before calling the work complete, iterating with the fast loop (`discern_prepare`) and fixing from the reported diagnostics.
+- **The gate is the bar for done.** The agent must run the full quality gate (`discern_done`) to green before calling the work complete, iterating with the fast loop (`discern_prepare`) and fixing from the reported diagnostics.
 - **Commit atomically.** One logical step per commit, clear messages, so the result reviews cleanly step by step.
 - **Never hand-edit generated files.** Change the source and re-run the producing command; the gate flags drift either way.
 - **Cure the class, not the symptom.** A real fix leaves behind a check that fails on the whole class of defect (the `discern-cure-a-bug` skill is the procedure).

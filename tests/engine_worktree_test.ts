@@ -817,7 +817,7 @@ Deno.test("integrate end-to-end: a behind finish points at integrate, which then
 
     // 1. finish fails fast on the merge check and names the remedy — the verb, not a
     //    bare `git merge` (the rest of the gate never runs).
-    const behind = await runAgent(wt, ["finish"]);
+    const behind = await runAgent(wt, ["done"]);
     assertEquals(behind.code, 1, behind.output);
     assertStringIncludes(behind.output, "discern integrate");
 
@@ -831,7 +831,7 @@ Deno.test("integrate end-to-end: a behind finish points at integrate, which then
 
     // 3. finish now passes against the merged, re-materialized tree — with no
     //    intervening `discern refresh` (the bundled refresh already made it current).
-    const after = await runAgent(wt, ["finish"]);
+    const after = await runAgent(wt, ["done"]);
     assertEquals(after.code, 0, after.output);
   });
 });

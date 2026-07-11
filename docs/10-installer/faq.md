@@ -57,7 +57,7 @@ When the MCP server is genuinely unreachable, fall back to the `discern` CLI
 with `--json` in the meantime — every tool has a CLI verb behind it — and run
 `discern doctor` to see which side is missing.
 
-## `discern finish` failed and I'm not sure why
+## `discern done` failed and I'm not sure why
 
 Start with the failure discern hands back: for each failed job it names the
 tool, a command to reproduce just that failure, and the captured output. Your
@@ -91,7 +91,7 @@ gate  = "npm --prefix apps/web test"
 ```
 
 A change under `apps/web/` now runs that app's own gate as part of
-`discern finish`, while a change elsewhere skips it. The root `[capabilities]`
+`discern done`, while a change elsewhere skips it. The root `[capabilities]`
 still cover what's shared across the repo; each scope adds what's local to one
 component.
 
@@ -163,6 +163,6 @@ a public issue.
   how to remove it.
 - [The walkthrough](walkthrough.md) — one end-to-end session, start to finish.
 - [When the gate fails](../20-quality-gate/when-the-gate-fails.md) — reading and
-  fixing a red `discern finish`.
+  fixing a red `discern done`.
 - [CI and cloud agents](../20-quality-gate/ci.md) — running the gate outside
   your machine.

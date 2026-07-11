@@ -124,7 +124,7 @@ export interface StepResult {
 }
 
 /**
- * The gate's **failed-stage vocabulary** — every label `finish`/`prepare`/`test`
+ * The gate's **failed-stage vocabulary** — every label `done`/`prepare`/`test`
  * can record as the stage that failed (the value carried in `GateData.failed_stage`
  * and the key the human die message is looked up by). A CLOSED set: typing every hop
  * to it, deriving the Zod `failed_stage` enum (`result_schemas.ts`) from it, and
@@ -135,7 +135,7 @@ export interface StepResult {
  * The members, by origin:
  *  - `fix` / `build` / `check` / `test` — one capability stage's job group failed
  *    (`prepare` runs `check` alone; `discern test` runs `test` alone);
- *  - `check/test` — `finish` fuses the read-only checks and the tests into ONE group,
+ *  - `check/test` — `done` fuses the read-only checks and the tests into ONE group,
  *    so their combined failure reports this label rather than `check` or `test`;
  *  - `scope_gates` — a changed scope's self-contained gate failed;
  *  - `fix_drift` — the fix stage left uncommitted changes (ADR 0047);
@@ -243,7 +243,7 @@ export interface Diagnostic {
 export interface DiscernResult<TData = unknown> {
   /** Did the verb succeed? The one field every consumer can rely on. */
   ok: boolean;
-  /** The verb that produced this result ("finish", "graduate", "doctor", …). */
+  /** The verb that produced this result ("done", "graduate", "doctor", …). */
   verb: string;
   /**
    * True when this is a preview (`--dry-run`): nothing was applied. The ONE

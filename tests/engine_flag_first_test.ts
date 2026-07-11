@@ -153,12 +153,12 @@ Deno.test("the shadowed-recipe warning fires with a global flag placed first", a
     await scaffoldEngine(dir);
     await gitInit(dir);
     await writeExecutable(
-      join(dir, "discern/recipes/finish"),
-      "#!/usr/bin/env sh\n# desc: not the real finish\necho PROJECT-FINISH-RAN\n",
+      join(dir, "discern/recipes/done"),
+      "#!/usr/bin/env sh\n# desc: not the real gate\necho PROJECT-DONE-RAN\n",
     );
-    const r = await runAgent(dir, ["--no-color", "finish"]);
+    const r = await runAgent(dir, ["--no-color", "done"]);
     assert(
-      !r.output.includes("PROJECT-FINISH-RAN"),
+      !r.output.includes("PROJECT-DONE-RAN"),
       "the shadowed project recipe must not run",
     );
     assertStringIncludes(r.stderr, "shadowed");

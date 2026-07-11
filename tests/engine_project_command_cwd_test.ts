@@ -67,7 +67,7 @@ Deno.test("all gate command groups execute at the resolved root from a nested CL
     const nested = join(dir, "src/deep");
     await Deno.mkdir(nested, { recursive: true });
 
-    const result = await runAgent(dir, ["finish", "--json"], { cwd: nested });
+    const result = await runAgent(dir, ["done", "--json"], { cwd: nested });
     assertEquals(result.code, 0, result.output);
     const canonicalRoot = await Deno.realPath(dir);
 

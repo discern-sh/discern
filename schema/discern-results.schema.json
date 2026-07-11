@@ -4423,8 +4423,8 @@
         "verb"
       ]
     },
-    "DiscernFinishResult": {
-      "title": "DiscernFinishResult",
+    "DiscernDoneResult": {
+      "title": "DiscernDoneResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -4639,7 +4639,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "finish"
+          "const": "done"
         },
         "data": {
           "anyOf": [
@@ -10253,8 +10253,8 @@
         "isError"
       ]
     },
-    "DiscernFinishMcpToolResult": {
-      "title": "DiscernFinishMcpToolResult",
+    "DiscernDoneMcpToolResult": {
+      "title": "DiscernDoneMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10276,7 +10276,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernFinishResult"
+          "$ref": "#/$defs/DiscernDoneResult"
         },
         "isError": {
           "type": "boolean"
@@ -10714,7 +10714,7 @@
           "$ref": "#/$defs/DiscernConfigResult"
         },
         {
-          "$ref": "#/$defs/DiscernFinishResult"
+          "$ref": "#/$defs/DiscernDoneResult"
         },
         {
           "$ref": "#/$defs/DiscernPrepareResult"
@@ -10783,7 +10783,7 @@
           "docs": "#/$defs/DiscernDocsResult",
           "help": "#/$defs/DiscernHelpResult",
           "config": "#/$defs/DiscernConfigResult",
-          "finish": "#/$defs/DiscernFinishResult",
+          "done": "#/$defs/DiscernDoneResult",
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
           "improve": "#/$defs/DiscernImproveResult",
@@ -10818,7 +10818,7 @@
           "$ref": "#/$defs/DiscernHelpMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernFinishMcpToolResult"
+          "$ref": "#/$defs/DiscernDoneMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernPrepareMcpToolResult"
@@ -10965,14 +10965,14 @@
       "schema": "#/$defs/DiscernConfigResult"
     },
     {
-      "id": "finish",
-      "verb": "finish",
+      "id": "done",
+      "verb": "done",
       "commands": [
-        "finish"
+        "done"
       ],
-      "mcpTool": "discern_finish",
-      "schema": "#/$defs/DiscernFinishResult",
-      "mcpToolResultSchema": "#/$defs/DiscernFinishMcpToolResult"
+      "mcpTool": "discern_done",
+      "schema": "#/$defs/DiscernDoneResult",
+      "mcpToolResultSchema": "#/$defs/DiscernDoneMcpToolResult"
     },
     {
       "id": "prepare",

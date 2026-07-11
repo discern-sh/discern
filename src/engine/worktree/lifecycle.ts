@@ -130,8 +130,8 @@ import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
 // graduate validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate-pass receipt when nothing changed since
-// the agent's own `finish`, so a clean-merging but gate-breaking `integrate` (or any
-// tree never run through `finish`) cannot fast-forward onto the trunk unvalidated.
+// the agent's own `done`, so a clean-merging but gate-breaking `integrate` (or any
+// tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { failMessage, finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
 // integrate classifies the merge's incoming files into the project's scopes for its
@@ -1152,7 +1152,7 @@ async function buildGraduatePlan(
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      `Branch is behind ${trunkBranch}. Run \`discern integrate\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern finish\` gates on this same check.`,
+      `Branch is behind ${trunkBranch}. Run \`discern integrate\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern done\` gates on this same check.`,
     );
   }
   if (merged.kind === "missing") {
@@ -1229,15 +1229,15 @@ function offTrunkGraduateRefusal(
 }
 
 // How many of the gate's diagnostics ride inline in a graduate refusal before the agent
-// is pointed at `discern finish` for the rest — a cap so a gate that failed with many
+// is pointed at `discern done` for the rest — a cap so a gate that failed with many
 // findings can't flood graduate's refusal message.
 const GRADUATE_DIAG_CAP = 10;
 
 /**
- * The graduate refusal when the branch does NOT pass `finish` at the tree it would land
+ * The graduate refusal when the branch does NOT pass `done` at the tree it would land
  * (ADR 0067). Leads with the gate's own failed-stage message (the same {@link failMessage}
- * SSOT `finish` prints), then a capped list of the surfaced diagnostics, then the recovery:
- * run `discern finish` to see the full output and fix it. The branch keeps all its commits
+ * SSOT `done` prints), then a capped list of the surfaced diagnostics, then the recovery:
+ * run `discern done` to see the full output and fix it. The branch keeps all its commits
  * and the worktree is intact (this precedes every teardown/removal).
  */
 function graduateGateRefusal(
@@ -1253,8 +1253,8 @@ function graduateGateRefusal(
   if (diags.length > shown.length) {
     shown.push(`  … (+${diags.length - shown.length} more)`);
   }
-  return `Branch '${branch}' does not pass \`discern finish\`, so it cannot land. ` +
-    `${headline} Run \`discern finish\` to see the full output and fix it, then commit ` +
+  return `Branch '${branch}' does not pass \`discern done\`, so it cannot land. ` +
+    `${headline} Run \`discern done\` to see the full output and fix it, then commit ` +
     `and re-run \`discern graduate\` — your branch keeps all its commits.` +
     (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
 }
@@ -1270,7 +1270,7 @@ function movedDuringGraduationRefusal(
   return `Branch '${branch}' moved while this graduation was validating it — ` +
     `a commit landed after the gate run began, so the tree that would land ` +
     `is not the tree the gate tested. Nothing was changed and the worktree ` +
-    `is intact. Re-run \`discern finish\` on the final commit from ` +
+    `is intact. Re-run \`discern done\` on the final commit from ` +
     `${worktreePath}, then \`discern graduate\` again.`;
 }
 
@@ -1282,7 +1282,7 @@ async function assertGraduateBranchStillCurrent(
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
       `Branch is behind ${trunkBranch} after the gate finished. ` +
-        `Run \`discern integrate\` from this worktree, then \`discern finish\` and ` +
+        `Run \`discern integrate\` from this worktree, then \`discern done\` and ` +
         `\`discern graduate\` again. The worktree has not been removed.`,
     );
   }
@@ -1327,10 +1327,10 @@ async function executeGraduatePlan(
 
   // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
   // gate, so a clean-merging but gate-breaking `integrate` (or any tree never run through
-  // `finish` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
+  // `done` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
   // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
   // so a refusal leaves the branch and worktree intact.
-  //   FAST PATH: a gate-pass receipt proves the current clean HEAD already passed `finish`
+  //   FAST PATH: a gate-pass receipt proves the current clean HEAD already passed `done`
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `integrate`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
@@ -1467,7 +1467,7 @@ async function executeGraduatePlan(
         `resources included, and your commits are safe on ` +
         `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
         `\`discern integrate\` to bring the new ${trunk} in beneath your work, ` +
-        `then \`discern finish\`, then \`discern graduate\` again. ` +
+        `then \`discern done\`, then \`discern graduate\` again. ` +
         `Git said:\n    ${ff.stderr.trim()}`,
     );
   }
@@ -1739,7 +1739,7 @@ async function summarizeIntegration(
   const { source, predicted } = opts;
   const fallback = [
     `Integrated ${source} and re-materialized the agent files — run ` +
-    `\`discern finish\` to verify against the merged tree.`,
+    `\`discern done\` to verify against the merged tree.`,
   ];
   // Nothing to diff against without the two load-bearing anchors.
   if (anchors.before === "" || anchors.main === "") {
@@ -1802,8 +1802,8 @@ function integrateHints(
 ): string[] {
   const verb = predicted ? "Would integrate" : "Integrated";
   const next = predicted
-    ? "run `discern integrate` to apply, then `discern finish`."
-    : "run `discern finish` to verify against the merged tree.";
+    ? "run `discern integrate` to apply, then `discern done`."
+    : "run `discern done` to verify against the merged tree.";
   const hints: string[] = [];
 
   if (data.overlap.length > 0) {
@@ -2127,7 +2127,7 @@ async function executeIntegratePlan(
 /**
  * Bring an integration source into this worktree's branch and re-materialize the
  * agent files + skills — the `discern integrate` command, the deterministic
- * inverse of `graduate` and the action that resolves `finish`'s fail-fast merge
+ * inverse of `graduate` and the action that resolves `done`'s fail-fast merge
  * check. The source is the trunk by default; `--from <ref>` pulls any ref instead
  * (the landing model's pull axis — how work composes below the trunk). Runs from
  * inside a linked worktree only; merges into a clean tree only. When the branch

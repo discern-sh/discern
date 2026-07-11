@@ -53,12 +53,13 @@ of committed `discern.toml`**:
 > randomness, absolute path, or gitignored/per-worktree file. The generated
 > agent files are untracked and gate-checked for currency
 > ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and
-> `finish` recompile in memory and compare to disk, so a context that read
-> mutable state would make the file perpetually "stale" and break the gate
-> everywhere. A determinism test and the currency test guard this.
+> `done` recompile in memory and compare to disk, so a context that read mutable
+> state would make the file perpetually "stale" and break the gate everywhere. A
+> determinism test and the currency test guard this.
 >
 > The classic trap: use `config.project.main_branch` (committed), **never** the
-> `DISCERN_MAIN_BRANCH` env override (applied at runtime in the worktree/git layer).
+> `DISCERN_MAIN_BRANCH` env override (applied at runtime in the worktree/git
+> layer).
 
 **To add a variable or predicate:** add it to `guidanceContext`, deriving it
 solely from the loaded config, then use it in a section. Add one only when a

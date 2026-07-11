@@ -252,7 +252,7 @@ export function strictInput(shape: z.ZodRawShape): z.ZodType {
 const TOOL_PRIORITY = [
   "discern_status",
   "discern_start",
-  "discern_finish",
+  "discern_done",
   "discern_prepare",
   "discern_test",
   "discern_integrate",
@@ -320,7 +320,7 @@ export const TOOLS: McpTool[] = orderTools([
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
-      "has a recorded discern_finish pass (when honored, data.gate_receipt.receipt " +
+      "has a recorded discern_done pass (when honored, data.gate_receipt.receipt " +
       "carries the receipt markdown to relay to your owner at the review moment); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.ratchets lists the configured ratchets. " +
@@ -337,7 +337,7 @@ export const TOOLS: McpTool[] = orderTools([
       "data.unlanded_branches lists branches holding unlanded work with no " +
       "worktree. Set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
-      "advisory next-steps (e.g. run discern_finish, ready for owner review, or — when on " +
+      "advisory next-steps (e.g. run discern_done, ready for owner review, or — when on " +
       "the trunk — run discern_start to begin in your own isolated worktree) — never " +
       "an unverified pass/fail.",
     inputSchema: {
@@ -369,13 +369,14 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root) => refreshResult(root),
   }),
   defineTool({
-    name: "discern_finish",
-    title: "Run the quality gate",
+    name: "discern_done",
+    title: "Verify the claim that the change is done",
     outputSchema: FinishOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Run the discern quality gate (formatters, checks, tests, scope gates) and " +
-      "return the structured result: per-step outcomes plus normalized diagnostics " +
+      "Claim this change is done: run its finishing steps, including format, then " +
+      "verify lint, type-check, tests, and scope gates. Return the structured result " +
+      "with per-step outcomes plus normalized diagnostics " +
       "(tool, file/line when available, message, and the exact command to reproduce " +
       "each failure). A green run over a clean committed tree ahead of the trunk " +
       "also carries data.receipt — the compact review summary (data.receipt.markdown) " +
@@ -399,7 +400,7 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
-      "quick check to run while iterating, before the full discern_finish. NOTE: the " +
+      "quick check to run while iterating, before the full discern_done. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
     inputSchema: { ...PATH_PARAM },
     run: (root, _args, signal) => prepareResult(root, signal),
@@ -427,7 +428,7 @@ export const TOOLS: McpTool[] = orderTools([
       "the limit was not loosened versus `{{main_branch}}`. Returns the per-ratchet " +
       "steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
-      "discern_finish; run it as needed. Non-dry-run calls require a clean worktree " +
+      "discern_done; run it as needed. Non-dry-run calls require a clean worktree " +
       "unless force is set while authoring or debugging ratchets. Set dry_run to " +
       "preview which ratchets would run — it measures nothing, with or without " +
       "pin. Set pin to " +
@@ -667,7 +668,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Bring the latest `{{main_branch}}` into THIS worktree's branch and " +
       "re-materialize the " +
       "generated agent files + skills, in one deterministic step — the inverse of " +
-      "discern_graduate, and the action that resolves discern_finish's merge check " +
+      "discern_graduate, and the action that resolves discern_done's merge check " +
       "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
       "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
       "nothing to look up or confirm for the routine call. " +
@@ -726,7 +727,7 @@ export const TOOLS: McpTool[] = orderTools([
       "it is the first-class way to get your own workspace, so you NEVER adopt an " +
       "existing idle worktree (each belongs to another line of work; a clean working " +
       "tree doesn't mean it's free). On success it RE-AIMS these discern tools at the " +
-      "new worktree automatically — your later discern_finish / discern_integrate / " +
+      "new worktree automatically — your later discern_done / discern_integrate / " +
       "discern_graduate operate on it with nothing for you to thread. But that moves " +
       "only the discern tools: you MUST still move your OWN file operations into " +
       "data.path — re-root there, or if you can't change your working root, prefix " +
@@ -775,7 +776,7 @@ export const TOOLS: McpTool[] = orderTools([
       ),
     },
     // A successful start re-aims the working root at the worktree it just created, so
-    // the subsequent finish/integrate/graduate operate on it with nothing to thread.
+    // the subsequent done/integrate/graduate calls operate on it with nothing to thread.
     reaimOnSuccess: (result) => (result.data as StartData | undefined)?.path,
     run: (root, args) =>
       startToolResult(root, {
@@ -900,7 +901,7 @@ async function startToolResult(
 /**
  * The result hint `discern_start` surfaces over MCP (ADR 0062 §4): the two
  * load-bearing halves the server cannot enforce on its own. (1) The discern tools are
- * now aimed at the new worktree automatically — finish/integrate/graduate follow.
+ * now aimed at the new worktree automatically — done/integrate/graduate follow.
  * (2) The agent must STILL move its own file operations into `path`, because the
  * server cannot relocate the client's session — and if it doesn't, its edits land on
  * the trunk while the gate runs in the worktree, so the two diverge. Written for the
@@ -912,7 +913,7 @@ async function startToolResult(
  */
 export function mcpStartHint(path: string): string {
   return `discern's tools are now aimed at the new worktree at ${path} — your ` +
-    `discern_finish / discern_integrate / discern_graduate calls operate on it ` +
+    `discern_done / discern_integrate / discern_graduate calls operate on it ` +
     `automatically hereafter. You must STILL move your own file operations into ` +
     `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
     `capability). If you can't change your working root: prefix every shell ` +
@@ -1419,7 +1420,7 @@ export function buildInstructions(): string {
     "situation, what the gate would fire, and advisory next steps.",
     "- If generated agent files or materialized skills are missing/stale, call " +
     "discern_refresh. It rewrites discern-generated and co-managed artifacts only.",
-    "- Before calling any change done, run discern_finish on the final tree (the full gate). While " +
+    "- Before calling any change done, run discern_done on the final tree (the full gate). While " +
     "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
     "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
     "the command to reproduce it, the captured output — and fix from those rather " +
@@ -1431,11 +1432,11 @@ export function buildInstructions(): string {
     "- Read THIS project's own documentation with discern_docs.",
     "- Ask discern_improve for the single highest-value project improvement.",
     "- Run quality ratchets with discern_ratchets as needed — slow and " +
-    "on-demand, so NOT part of discern_finish. Non-dry-run ratchets require a " +
+    "on-demand, so NOT part of discern_done. Non-dry-run ratchets require a " +
     "clean worktree unless force=true while authoring ratchets.",
     "- Starting work from the trunk (the main checkout)? Run discern_start to " +
     "create your own isolated worktree: it returns the new worktree's path and " +
-    "re-aims these tools at it, so your later finish/integrate/graduate operate " +
+    "re-aims these tools at it, so your later done/integrate/graduate calls operate " +
     "on the new worktree automatically. You must still move your OWN file " +
     "operations into that path: re-root there, or if you can't change your " +
     "working root, prefix every shell command with `cd <path> &&` and pass `path` " +
@@ -1453,10 +1454,10 @@ export function buildInstructions(): string {
     "unnecessary.",
     "- Only when the user explicitly asks to hand off or land a finished branch " +
     '("graduate this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
-    "should you use discern_graduate. Do not treat a green finish or status hint as " +
+    "should you use discern_graduate. Do not treat a green gate run or status hint as " +
     "permission to graduate; if no handoff was requested, stop and report the " +
     "branch ready for review. Commit the work with a real message, run the final " +
-    "clean discern_finish for that commit, then just call the tool (the single deterministic implementation — " +
+    "clean discern_done for that commit, then just call the tool (the single deterministic implementation — " +
     "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
     "it refuses cleanly with the exact next step, e.g. run discern_integrate " +
     "first) and relay its structured result. Landing is trunk-only and " +

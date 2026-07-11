@@ -138,11 +138,11 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: ConfigOutputSchema,
   },
   {
-    id: "finish",
-    commands: ["finish"],
-    verb: "finish",
+    id: "done",
+    commands: ["done"],
+    verb: "done",
     schema: FinishOutputSchema,
-    mcpTool: "discern_finish",
+    mcpTool: "discern_done",
   },
   {
     id: "prepare",

@@ -90,8 +90,8 @@ export async function fixDriftDiagnostic(
       `the start of this run, leaving uncommitted changes:\n` +
       paths.map((p) => `  • ${p}`).join("\n") +
       `\n\nThis is the fix stage's own output — review it, commit it ` +
-      `(e.g. \`git add -A && git commit\`), then re-run \`discern finish\`. A clean ` +
-      `finish must mean a clean tree: graduating now would strand these changes ` +
+      `(e.g. \`git add -A && git commit\`), then re-run \`discern done\`. A clean ` +
+      `a clean \`discern done\` run must mean a clean tree: graduating now would strand these changes ` +
       `staged-but-uncommitted in the main checkout.` +
       (diff.success && diff.stdout.trim() !== "" ? `\n\n${diff.stdout}` : ""),
   );

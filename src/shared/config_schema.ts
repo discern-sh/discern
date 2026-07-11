@@ -169,7 +169,7 @@ const scopeValue = z.strictObject({
     "true: a person could see changes here — worth a preview link.",
   ),
   gate: commandOrList.optional().describe(
-    "A command discern finish runs when this scope changed (a sub-component with its own self-contained gate).",
+    "A command discern done runs when this scope changed (a sub-component with its own self-contained gate).",
   ),
 });
 
@@ -395,7 +395,7 @@ const ratchetsSection = z.record(z.string().regex(NAME_RE), ratchetValue)
   .default(
     {},
   ).describe(
-    "[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern finish`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.",
+    "[ratchets.<name>] — never-loosen quality floors, enforced on demand by `discern ratchets` (slow, so NOT part of `discern done`). A ratchet is a number you only ever want to improve. If the number grows just because the project grew (alerts, TODOs, type errors over a growing tree), ratchet a rate, not the raw count: add `per` so growth alone never breaches it.",
   );
 
 const gateSection = z.strictObject({
@@ -409,12 +409,12 @@ const gateSection = z.strictObject({
     "Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed and the stage fails with a plain-language timeout diagnostic — so the gate can never hang. One generous global budget (default 600 = 10 minutes): long enough for a real test suite, short enough that a stuck command (a watch-mode runner or a dev server wired without its single-run form) is caught within minutes rather than never. Set to 0 to disable the limit (not recommended — the gate can then hang indefinitely).",
   ),
 }).prefault({}).describe(
-  "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern finish` runs its concurrent jobs.",
+  "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
 );
 
 const couplingSection = z.strictObject({
   in_gate: z.boolean().default(false).describe(
-    "Surface the co-change advisory during the gate too — both `discern finish` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail.",
+    "Surface the co-change advisory during the gate too — both `discern done` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail.",
   ),
 }).prefault({}).describe(
   "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks.",

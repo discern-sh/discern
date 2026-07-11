@@ -6,7 +6,7 @@
  * discern` (or equivalent), then a `discern upgrade` that rewrites this project
  * to the new templates — the running server keeps executing the engine and
  * embedded templates it was compiled with. A stale `discern_refresh` from this
- * server and a fresh CLI `discern finish` then rewrite the generated files back
+ * server and a fresh CLI `discern done` then rewrite the generated files back
  * and forth until the client restarts. Nothing else catches this drift; a
  * restart (so the client starts the server fresh from the new binary) is the fix.
  *
@@ -41,7 +41,7 @@ export function versionMismatchHint(
   if (installedVersion === undefined || installedVersion === serverVersion) {
     return undefined;
   }
-  return `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern finish can rewrite generated files back and forth).`;
+  return `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern done can rewrite generated files back and forth).`;
 }
 
 /** A cheap change-key for a file (inode + mtime + size), or `undefined` when the

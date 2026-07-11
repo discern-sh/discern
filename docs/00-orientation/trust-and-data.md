@@ -23,7 +23,7 @@ file operations.
 
 The read-only verbs — `discern status`, `discern doctor`, `discern improve`, and
 the docs and help browsers — only observe; they never run the commands in your
-config. Those run only when you run a gate verb (`discern finish`, `prepare`,
+config. Those run only when you run a gate verb (`discern done`, `prepare`,
 `test`, or `ratchets`). So a glance at your project never executes anything, and
 what the gate will run is all in one file you can read.
 

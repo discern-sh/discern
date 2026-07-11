@@ -33,7 +33,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
 
 // ── finish ──────────────────────────────────────────────────────────────────
 
-Deno.test("finish --dry-run lists the gate plan and runs nothing", async () => {
+Deno.test("done --dry-run lists the gate plan and runs nothing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -50,14 +50,14 @@ Deno.test("finish --dry-run lists the gate plan and runs nothing", async () => {
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--dry-run"]);
+    const r = await runAgent(dir, ["done", "--dry-run"]);
     assertEquals(r.code, 0, r.output); // dry-run never fails on a job
     assertStringIncludes(r.stdout, "Gate plan");
     assertStringIncludes(r.stdout, "lint");
   });
 });
 
-Deno.test("finish --dry-run --json emits the plan, not a run report", async () => {
+Deno.test("done --dry-run --json emits the plan, not a run report", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -74,11 +74,11 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--dry-run", "--json"]);
+    const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     // A preview is a DiscernResult carrying only `plan` (no executed `steps`).
-    assertEquals(obj.verb, "finish");
+    assertEquals(obj.verb, "done");
     assertEquals(obj.steps, undefined);
     assertEquals(obj.plan.title, "Gate plan");
     assert(
@@ -88,7 +88,7 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
   });
 });
 
-Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
+Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
   // Regression guard for the scope-classification TIMING (ADR 0027): scopes are
   // classified from the working tree AFTER the fix stage runs, so a fix-stage
   // codemod that creates a file inside a scope makes that scope's gate fire. If
@@ -114,7 +114,7 @@ Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fire
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assert(

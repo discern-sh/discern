@@ -2,7 +2,7 @@
  * `test` — run the project's `test` stage on its own (the gate runs it in parallel
  * with the read-only checks; this runs just the tests, on demand). It goes through
  * the gate's job runner, so a failure carries the SAME `steps[]` + structured
- * `diagnostics[]` `finish` returns (ADR 0028), not a bare `ok:false`.
+ * `diagnostics[]` `done` returns (ADR 0028), not a bare `ok:false`.
  *
  * One core ({@link runTestGate}) runs the test group; {@link testResult} runs it
  * quiet and returns the {@link DiscernResult} the MCP server (and the CLI's `--json`)

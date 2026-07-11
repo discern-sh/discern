@@ -163,7 +163,7 @@ Deno.test("gate timeout: 0 disables the watchdog (no spurious kill of a fast job
   assertEquals(r.results[0]?.timedOutAfterS, undefined);
 });
 
-Deno.test("gate timeout: a never-exiting test command fails `discern finish` with the watch-mode diagnostic", async () => {
+Deno.test("gate timeout: a never-exiting test command fails `discern done` with the watch-mode diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -184,7 +184,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern finish` wit
     await gitInit(dir);
 
     const start = Date.now();
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     const elapsed = Date.now() - start;
 
     assertEquals(r.code, 1, r.output);
@@ -211,7 +211,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern finish` wit
 
 /**
  * Drive a never-exiting command wired into some stage kind through the full
- * `discern finish` under a tiny budget, and assert it fails with the actionable
+ * `discern done` under a tiny budget, and assert it fails with the actionable
  * timeout diagnostic — bounded, not a hang. `wiring` is the config section(s) that
  * place the `sleep 9999`; `jobLabel` is the diagnostic's `tool`; `changedFile`
  * (scope gates only) marks the scope changed so its gate fires.
@@ -243,7 +243,7 @@ async function assertStageKindTimesOut(opts: {
     }
 
     const start = Date.now();
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     const elapsed = Date.now() - start;
 
     assertEquals(r.code, 1, r.output);
@@ -299,7 +299,7 @@ for (const stage of STAGES) {
   });
 }
 
-// The escaped-descendant variant through the FULL finish: the command exits
+// The escaped-descendant variant through the FULL done: the command exits
 // clean but leaves a detached daemon holding its output pipes, so only the
 // kill path's drain bound (not the tree-kill) can end the job. The gate must
 // still fail within budget with the actionable timeout diagnostic — before the

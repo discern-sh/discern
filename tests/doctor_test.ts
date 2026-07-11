@@ -990,7 +990,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
     // Every configurable verb the issue-template goal needs is covered.
     for (
       const v of [
-        "finish",
+        "done",
         "prepare",
         "test",
         "ratchets",
@@ -1003,7 +1003,7 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
     ) {
       modelVerb(payload, v);
     }
-    const finish = modelVerb(payload, "finish");
+    const finish = modelVerb(payload, "done");
     // A built-in precondition is discern's, and every step carries a hint.
     const merge = finish.steps.find((s) => s.label === "merge-check");
     assert(merge !== undefined, "finish should run the merge-check");

@@ -75,7 +75,7 @@ function receiptFile(dir: string): string {
   return join(dir, ".git", "discern-gate-receipt");
 }
 
-/** Seed a prior `finish` vouch: write `sha` (default current HEAD) to the receipt. */
+/** Seed a prior `done` vouch: write `sha` (default current HEAD) to the receipt. */
 async function seedReceipt(dir: string, sha?: string): Promise<void> {
   const head = sha ?? await gitOut(dir, "rev-parse", "HEAD");
   await Deno.writeTextFile(receiptFile(dir), `${head}\n`);

@@ -135,5 +135,5 @@ If any of those break, the doc is too thin or too thick.
    - **Subtree-overlap observations** — code you noticed that belongs in another subtree.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or redundant.
 
-Do not commit. Do not run the finish gate. Do not edit anything outside your
+Do not commit. Do not run the full gate. Do not edit anything outside your
 assigned subtree under the configured documentation root.

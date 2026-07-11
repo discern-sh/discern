@@ -328,7 +328,7 @@ export async function statusResult(
 
   // Silent divergence (worktree view): this worktree is pristine while the main
   // checkout accumulates changes — the signature of edits landing on the trunk
-  // while the gate runs here. One wording, shared with `finish`.
+  // while the gate runs here. One wording, shared with `done`.
   const divergence = location === "worktree"
     ? await detectSilentDivergence(root, mainBranch)
     : undefined;
@@ -488,7 +488,7 @@ async function fleetEntryFor(
 
 /** What the gate would fire: the wired capabilities (canonical order), the declared
  * checks, and the scope gates the current change triggers — reusing the gate's own
- * scope-gate selection (`planScopeGates`) so status and `finish` agree. */
+ * scope-gate selection (`planScopeGates`) so status and `done` agree. */
 function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
   const capabilities = (Object.keys(KNOWN_CAPABILITIES) as Capability[])
     .filter((c) => toCommandList(cfg.capabilities[c]).length > 0);
@@ -603,7 +603,7 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
-  /** Whether the current clean HEAD already has a recorded `discern finish` pass. */
+  /** Whether the current clean HEAD already has a recorded `discern done` pass. */
   gateReceipt: GateReceiptCheckData | undefined;
 }
 
@@ -711,8 +711,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         firedScopes.length > 0
           ? `Changes in ${
             firedScopes.join(", ")
-          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern finish\` on the clean HEAD before calling work done.`
-          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern finish` on the clean HEAD before calling work done.",
+          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern done\` on the clean HEAD before calling work done.`
+          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
       );
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
@@ -723,7 +723,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or any user-requested graduation.${overlapNote}`,
       );
     }
     if (
@@ -739,11 +739,11 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         );
       } else if (ctx.gateReceipt?.status === "honored") {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern finish\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern graduate\` only if the user explicitly accepts.`,
+          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern done\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern graduate\` only if the user explicitly accepts.`,
         );
       } else {
         hints.push(
-          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern finish\` pass; run \`discern finish\` before reporting the branch ready for review or any user-requested graduation.`,
+          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern done\` pass; run \`discern done\` before reporting the branch ready for review or any user-requested graduation.`,
         );
       }
     }
@@ -939,7 +939,7 @@ function gateReceiptSummary(receipt: GateReceiptCheckData): string {
     case "honored":
       return "clean HEAD has a recorded pass";
     case "missing":
-      return "no recorded clean finish pass";
+      return "no recorded receipt for this clean commit";
     case "stale":
       return receipt.recorded !== undefined && receipt.head !== undefined
         ? `stale pass at ${receipt.recorded.slice(0, 12)}; HEAD is ${
@@ -1104,7 +1104,7 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
 
   if (data.gate_receipt !== undefined) {
     out.raw(
-      `  ${label("finish")}${gateReceiptSummary(data.gate_receipt)}\n`,
+      `  ${label("done")}${gateReceiptSummary(data.gate_receipt)}\n`,
     );
   }
 

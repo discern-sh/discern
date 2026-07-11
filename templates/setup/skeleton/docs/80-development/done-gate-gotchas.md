@@ -1,6 +1,6 @@
-# Finish-gate gotchas
+# Done-gate gotchas
 
-*Non-obvious ways `discern finish` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
+*Non-obvious ways `discern done` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
 
 The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). So the explanation is one step away even for an agent that has never hit the failure.
 
@@ -14,15 +14,15 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### `main` advanced during your session
 
-**Symptom.** `discern finish` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `main`. It does **not** merge for you.
+**Symptom.** `discern done` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `main`. It does **not** merge for you.
 
 **Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to integrate and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, then run `discern integrate` — it brings `main` into your branch and re-materializes the generated agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern finish` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
+**Fix.** Commit your work, then run `discern integrate` — it brings `main` into your branch and re-materializes the generated agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to integrate into.)
 
 ### A check passes alone but fails in the full run
 
-**Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `discern finish`.
+**Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `discern done`.
 
 **Cause.** Shared state or ordering. The gate runs the full suite — often in parallel — so tests that lean on a shared resource (a file, a database row, a global, a fixed port) or that assume they run in a particular order pass in isolation and collide at scale. A targeted run never exercises the collision.
 
@@ -34,7 +34,7 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 **Cause.** A `build` capability produces artifacts that a later `check`/`test` stage reads, and the artifacts on disk are from a previous run (or were half-written while something read them).
 
-**Fix.** Rebuild from clean and re-run. The gate already orders `build` (and `fix`) **before** `check`/`test` so artifacts are complete before anything reads them — so if you are hitting this, you likely ran a step by hand out of order, or a partial build was left behind. Let `discern finish` run the stages in order rather than invoking a check directly against stale output.
+**Fix.** Rebuild from clean and re-run. The gate already orders `build` (and `fix`) **before** `check`/`test` so artifacts are complete before anything reads them — so if you are hitting this, you likely ran a step by hand out of order, or a partial build was left behind. Let `discern done` run the stages in order rather than invoking a check directly against stale output.
 
 ### A merge pulled in a new dependency
 
@@ -46,7 +46,7 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### A command hangs, then fails with a timeout
 
-**Symptom.** `discern finish` sits on a stage with no further output, then — after `[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that the command "timed out … without exiting". The command works fine when you run it by hand.
+**Symptom.** `discern done` sits on a stage with no further output, then — after `[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that the command "timed out … without exiting". The command works fine when you run it by hand.
 
 **Cause.** A gate command never exits. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a capability. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to *watching* for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely.
 
@@ -62,11 +62,11 @@ These arise from how the harness works (git worktrees, parallel stages, build ar
 
 ### A failure shows up as exit 0
 
-**Symptom.** You pipe `discern finish` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.
+**Symptom.** You pipe `discern done` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.
 
 **Cause.** A pipeline reports the **last** command's exit code, not the gate's. The real non-zero status is masked by the pipe.
 
-**Fix.** Run `discern finish` bare so its true exit code surfaces. If you must capture output, use a method that preserves the original exit status (for example, redirect to a file rather than piping, or set your shell's `pipefail` option).
+**Fix.** Run `discern done` bare so its true exit code surfaces. If you must capture output, use a method that preserves the original exit status (for example, redirect to a file rather than piping, or set your shell's `pipefail` option).
 
 ### The gate skips a step you expected it to run (scope detection)
 

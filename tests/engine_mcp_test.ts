@@ -389,7 +389,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const list = await mcp.recv();
     assertEquals(list.id, 2);
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    assert(names.includes("discern_finish"), JSON.stringify(names));
+    assert(names.includes("discern_done"), JSON.stringify(names));
     assert(names.includes("discern_refresh"), JSON.stringify(names));
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
@@ -409,23 +409,23 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_graduate"), JSON.stringify(names));
     assert(names.includes("discern_integrate"), JSON.stringify(names));
 
-    // tools/call discern_finish {dry_run:true} → the preview DiscernResult.
+    // tools/call discern_done {dry_run:true} → the preview DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: { dry_run: true } },
+      params: { name: "discern_done", arguments: { dry_run: true } },
     });
     const call = await mcp.recv();
     assertEquals(call.id, 3);
     assertEquals(call.result.isError, false);
     const finish = call.result.structuredContent;
     assertEquals(finish.ok, true);
-    assertEquals(finish.verb, "finish");
+    assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // The text content mirrors the structured content (same serialized object).
-    assert(call.result.content[0].text.includes('"verb": "finish"'));
+    assert(call.result.content[0].text.includes('"verb": "done"'));
 
     // tools/call discern_scopes → its DiscernResult.
     await mcp.send({
@@ -667,7 +667,7 @@ Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validati
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: { dry_run: "yes" } },
+      params: { name: "discern_done", arguments: { dry_run: "yes" } },
     });
     const rejected = await mcp.recv();
     const text = JSON.stringify(rejected);
@@ -916,17 +916,17 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
     assertEquals(refused.result.isError, true);
     assertEquals(refused.result.structuredContent.error, "not_set_up");
 
-    // `discern_finish` is a gate PROOF verb — un-gated during setup (ADR 0065) so
+    // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: {} },
+      params: { name: "discern_done", arguments: {} },
     });
     const finish = await mcp.recv();
-    assertEquals(finish.result.structuredContent.verb, "finish");
+    assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
     assert(
       (finish.result.structuredContent.hints ?? []).some((h: string) =>
@@ -1348,7 +1348,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_finish",
+        name: "discern_done",
         arguments: { path: worktree },
       },
     });
@@ -2026,7 +2026,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     ]);
     const MUTATING_TOOLS = new Set([
       "discern_refresh",
-      "discern_finish",
+      "discern_done",
       "discern_prepare",
       "discern_test",
       "discern_ratchets",
@@ -2091,7 +2091,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       false,
     );
     assertEquals(
-      byName.get("discern_finish")?.annotations?.openWorldHint,
+      byName.get("discern_done")?.annotations?.openWorldHint,
       undefined,
     );
     assertEquals(
@@ -2109,7 +2109,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
 
     // The advertised outputSchema names the envelope fields it validates, and
     // finish's narrows `data` to the gate payload.
-    const finishProps = byName.get("discern_finish")?.outputSchema?.properties;
+    const finishProps = byName.get("discern_done")?.outputSchema?.properties;
     assert(finishProps?.ok !== undefined, "finish outputSchema has ok");
     assert(finishProps?.verb !== undefined, "finish outputSchema has verb");
     assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
@@ -2139,7 +2139,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
       [
         "discern_status",
         "discern_start",
-        "discern_finish",
+        "discern_done",
         "discern_prepare",
         "discern_test",
         "discern_integrate",
@@ -2484,7 +2484,7 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     // It names the operating model's core tools (orient, gate) — the "when to use
     // which tool" block.
     assert(instructions.includes("discern_status"), instructions);
-    assert(instructions.includes("discern_finish"), instructions);
+    assert(instructions.includes("discern_done"), instructions);
     // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
     // 0062 retired the location-branched instructions): start, integrate, graduate.
     assert(instructions.includes("discern_start"), instructions);
@@ -2495,7 +2495,7 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
       instructions,
     );
     assert(
-      instructions.includes("Do not treat a green finish or status hint"),
+      instructions.includes("Do not treat a green gate run or status hint"),
       instructions,
     );
     // Diagnostics and ratchets are always present (every subsystem is core).
@@ -2899,7 +2899,7 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
 //
 // The class this guards: gate jobs run in their own detached process groups, so
 // the ONLY thing that can stop them is the runner's abort controller. Before
-// this wiring, a client cancelling a discern_finish call (or killing the server)
+// this wiring, a client cancelling a discern_done call (or killing the server)
 // left the gate running invisibly to completion — orphaned processes racing the
 // user's next run over shared build state.
 // ---------------------------------------------------------------------------
@@ -2944,7 +2944,7 @@ function pidAlive(pid: number): boolean {
   }
 }
 
-/** Initialize handshake + the in-flight sleeper gate: start a discern_finish
+/** Initialize handshake + the in-flight sleeper gate: start a discern_done
  * call (request id 2), wait until its check job is running, return the job's
  * PID. Shared by the cancel and shutdown tests so both interrupt the same
  * genuinely-running gate. */
@@ -2964,7 +2964,7 @@ async function startInFlightFinish(
     jsonrpc: "2.0",
     id: 2,
     method: "tools/call",
-    params: { name: "discern_finish", arguments: {} },
+    params: { name: "discern_done", arguments: {} },
   });
   const pidFile = join(dir, "gate.pid");
   await pollUntil(
@@ -2976,7 +2976,7 @@ async function startInFlightFinish(
   return jobPid;
 }
 
-Deno.test("mcp: cancelling an in-flight discern_finish tree-kills its gate jobs", async () => {
+Deno.test("mcp: cancelling an in-flight discern_done tree-kills its gate jobs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());

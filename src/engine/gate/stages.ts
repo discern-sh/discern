@@ -20,7 +20,7 @@ import { capStage, type Stage } from "../../shared/capabilities.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 import { expandDocsDirReference } from "../../shared/docs_path.ts";
 
-/** One gate job with the metadata `finish --json` reports. */
+/** One gate job with the metadata `done --json` reports. */
 export interface StageJob {
   label: string;
   command: string;

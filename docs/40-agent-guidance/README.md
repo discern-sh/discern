@@ -31,10 +31,10 @@ has no import directive to point with. Cursor and GitHub Copilot read
 when one of them is configured without Codex, `discern refresh` still emits the
 canonical `AGENTS.md` they read. When no canonical file is emitted or reused,
 each mirror falls back to the full body. They carry no banner — `discern status`
-/ `discern finish` flag a generated file that has drifted from its source
-instead. Driving several agents from one source is what keeps guidance
-provider-agnostic — write the rule once, every agent gets it. The built-in
-guidance is **config-aware** — each built-in section is rendered through a small
+/ `discern done` flag a generated file that has drifted from its source instead.
+Driving several agents from one source is what keeps guidance provider-agnostic
+— write the rule once, every agent gets it. The built-in guidance is
+**config-aware** — each built-in section is rendered through a small
 [templating engine](the-templating-engine.md) so the generic shipped prose names
 your real branch and paths and omits content for anything you haven't configured
 (the ratchets section compiles in only when at least one ratchet is defined —
@@ -59,7 +59,7 @@ shipped skill speaks your configured paths, never discern's defaults —
 [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)), authored
 skills **symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files, comparing against the _rendered_ source:
-`discern status` / `discern finish` flag a skills dir that has drifted from the
+`discern status` / `discern done` flag a skills dir that has drifted from the
 effective set, so a hand-edited copy — or a path reconfiguration awaiting
 `refresh` — is caught, not silent
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), extended to

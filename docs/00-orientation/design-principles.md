@@ -32,7 +32,7 @@ being portable — it can only serve the stack it learned. Stack-neutrality is t
 whole product: one harness that drops into any repository, in any language,
 answering to whatever agent drives it.
 
-**How it shows up.** `finish` builds its stages by iterating over whatever
+**How it shows up.** `done` builds its stages by iterating over whatever
 `[capabilities]` and `[checks]` declare
 ([finish.ts](../../src/engine/gate/finish.ts) via
 [stages.ts](../../src/engine/gate/stages.ts)), deriving each known capability's
@@ -171,9 +171,9 @@ attributes failure to a single capability or check
 ## 6. Self-host the harness — the repo runs on the engine it ships
 
 discern runs on itself. This repo's gate _is_ the binary's own engine, invoked
-straight from source via `discern finish` (where `discern` runs the engine of
-the checkout you are in). Because the engine lives in one place — compiled into
-the binary, never copied into a project — there is no second committed copy that
+straight from source via `discern done` (where `discern` runs the engine of the
+checkout you are in). Because the engine lives in one place — compiled into the
+binary, never copied into a project — there is no second committed copy that
 could drift, and so nothing to keep in sync. The gate that ships is the gate the
 maintainer runs; there is no separate "dev" path that could diverge from what
 users get.
@@ -185,7 +185,7 @@ breaks our own build the same day, not a user's repo months later. Collapsing
 the engine to a single home goes one better: a whole class of drift becomes
 impossible by construction, rather than something a gate must _detect_.
 
-**How it shows up.** The `deno.json` `gate` task runs `discern finish`, so the
+**How it shows up.** The `deno.json` `gate` task runs `discern done`, so the
 repo gates itself with the same engine it ships; there is no `selfcheck` or
 `shellcheck` Check, because there is no installed copy to compare against
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding

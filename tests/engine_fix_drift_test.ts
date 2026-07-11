@@ -102,7 +102,7 @@ Deno.test("the strand snapshot reads both sides of -z rename records verbatim", 
 
 // ── wired: the gate behaviour ───────────────────────────────────────────────────
 
-Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_drift", async () => {
+Deno.test("done: a fixer that reformats a COMMITTED-clean file fails with fix_drift", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -111,7 +111,7 @@ Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_
     await Deno.writeTextFile(join(dir, "doc.md"), "hello   \n");
     await gitInit(dir); // commits everything → tree clean at finish-start
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -128,7 +128,7 @@ Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_
   });
 });
 
-Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
+Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -138,7 +138,7 @@ Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT t
     // The agent edits doc.md but has NOT committed it — its own work-in-progress.
     await Deno.writeTextFile(join(dir, "doc.md"), "world   \n");
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout);
@@ -151,8 +151,8 @@ Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT t
 });
 
 // ── wired: the graduate boundary (ADR 0061) ─────────────────────────────────────
-// The same fixed-point property `finish` enforces, brought to `graduate` — so a branch an
-// agent committed WITHOUT a clean `finish` (e.g. running only a scope gate on a docs edit,
+// The same fixed-point property `done` enforces, brought to `graduate` — so a branch an
+// agent committed WITHOUT a clean `done` (e.g. running only a scope gate on a docs edit,
 // never the formatter) cannot fast-forward unformatted Markdown onto the trunk LOCALLY,
 // where CI's trailing `git diff --exit-code` never runs.
 
@@ -164,7 +164,7 @@ Deno.test("graduate: refuses (non-destructively) when the fix stage would reform
     await gitInit(dir); // main: config + fixer committed, fix-stage clean
     const wt = await addWorktree(dir, "gamma");
 
-    // The agent skips `finish` and commits an unformatted doc straight onto the branch.
+    // The agent skips `done` and commits an unformatted doc straight onto the branch.
     await Deno.writeTextFile(join(wt, "doc.md"), "hello   \n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
