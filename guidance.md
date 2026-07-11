@@ -93,6 +93,14 @@ there. And don't "fix" a leak by banning domain words in the gate: a denylist
 just relocates the same vocabulary into tracked test history — this rule,
 applied while editing, is the safeguard.
 
+One vocabulary **is** gated, because it's structural rather than open-ended:
+**internal ADR citations never ship**. An "(ADR 0034)" in an error message,
+upgrade note, or template is repo-internal shorthand no other project's users
+or agents can follow. Cite ADRs in code comments, `docs/`, and commit messages;
+keep shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces
+this — string literals under `src/`, all text under `templates/`). The concept
+word "ADR" stays legal everywhere: discern ships an ADR discipline.
+
 ## The gate
 
 - `discern prepare` — fast inner loop: fix + check, no tests.
