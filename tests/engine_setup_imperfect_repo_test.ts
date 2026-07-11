@@ -21,6 +21,7 @@ import {
 } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { isValidDocsDir } from "../src/shared/docs_path.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
 async function repoOnBranch(dir: string, branch: string): Promise<void> {
@@ -503,5 +504,140 @@ Deno.test("re-begin never imports a surviving compiled agent file that matches d
       hints.some((h) => h.includes("discern's own compiled output")),
       `expected a skip hint: ${JSON.stringify(hints)}`,
     );
+  });
+});
+
+// ── Re-entry convergence: a resumed/forced begin reaches a clean run's end state ──
+//
+// The class behind B46/B47/B48: a `begin` step whose correctness depended on state that
+// only the FIRST run had (the freshly-written ScaffoldOutcome, the branch setup started on,
+// the freshInstall flag). When a first attempt fails early and the user simply re-runs, the
+// second run must re-derive that state from what is persisted (the committed config, the real
+// repo branches, the on-disk wiring) and converge to EXACTLY the install a clean first run
+// produces — machinery committed, the right `[project].main_branch`, only the configured
+// agents' seeds. A member that diverges (wiring left uncommitted, `main` stamped on a master
+// repo, DEFAULT_AGENTS scaffolded over a differently-configured project) fails here. Each
+// case injects one documented early-failure, re-runs `begin`, and asserts convergence on the
+// dimension it governs; the shared harness proves the retried run is not merely non-erroring
+// but END-STATE-EQUAL to a clean run.
+
+/** The end-state invariants a clean `begin` establishes, that a re-run must also reach. */
+interface ReentryConvergence {
+  /** discern's harness wiring is committed on the setup branch (nothing uncommitted). */
+  machineryCommitted: boolean;
+  /** The stamped `[project].main_branch`. */
+  mainBranch: string;
+  /** The agents whose per-agent seed files were laid (sorted). */
+  scaffoldedAgents: string[];
+}
+
+/** Whether discern.toml is committed (tracked, no uncommitted change) in `dir`. */
+async function configIsCommitted(dir: string): Promise<boolean> {
+  const tracked = await gitOut(dir, "ls-files", "--", "discern.toml");
+  if (tracked.trim() === "") {
+    return false; // never committed
+  }
+  const dirty = await gitOut(
+    dir,
+    "status",
+    "--porcelain",
+    "--",
+    "discern.toml",
+  );
+  return dirty.trim() === "";
+}
+
+/** Read the convergence invariants from an install on the setup branch. */
+async function readConvergence(dir: string): Promise<ReentryConvergence> {
+  const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+  const cfg = parseConfigOrThrow(toml);
+  const scaffoldedAgents: string[] = [];
+  // A per-agent hooks/settings file present on disk is the observable "this agent was
+  // scaffolded" signal, one per provider that writes one.
+  const probes: Record<string, string> = {
+    claude_code: ".claude/settings.json",
+    codex: ".codex/hooks.json",
+    gemini: ".gemini/settings.json",
+  };
+  for (const [agent, rel] of Object.entries(probes)) {
+    if (await exists(join(dir, rel))) {
+      scaffoldedAgents.push(agent);
+    }
+  }
+  scaffoldedAgents.sort();
+  return {
+    machineryCommitted: await configIsCommitted(dir),
+    mainBranch: cfg.project.main_branch,
+    scaffoldedAgents,
+  };
+}
+
+Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retried and committed on re-run", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+    await gitInit(dir);
+
+    // First begin: a rejecting pre-commit hook makes the machinery auto-commit FAIL, so
+    // discern's wiring lands on the discern-setup branch uncommitted (the B46 setup).
+    const hook = join(dir, ".git", "hooks", "pre-commit");
+    await Deno.writeTextFile(hook, "#!/bin/sh\nexit 1\n");
+    await Deno.chmod(hook, 0o755);
+    const first = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(first.code, 0, first.output);
+    assertEquals(
+      JSON.parse(first.stdout).data.machinery_committed,
+      false,
+      "precondition: the first commit must have failed",
+    );
+    assertEquals(
+      await configIsCommitted(dir),
+      false,
+      "precondition: the wiring is uncommitted after the failed first run",
+    );
+
+    // The user fixes the environment (removes the failing hook) and simply RE-RUNS begin.
+    await Deno.remove(hook);
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(re.code, 0, re.output);
+
+    // Convergence: the re-run reports the wiring committed, and it truly is — the resume
+    // re-attempted the commit it skipped before, rather than leaving it uncommitted forever.
+    const data = JSON.parse(re.stdout).data;
+    assertEquals(data.branch, "discern-setup");
+    assertEquals(
+      data.machinery_committed,
+      true,
+      `re-run must retry the machinery commit; got ${JSON.stringify(data)}`,
+    );
+    const conv = await readConvergence(dir);
+    assertEquals(
+      conv.machineryCommitted,
+      true,
+      "discern's wiring must be committed after the retry",
+    );
+    // The committed set is discern's machinery only — the authored seeds stay for the agent.
+    const committed =
+      (await gitOut(dir, "show", "--name-only", "--format=", "HEAD"))
+        .split("\n").map((s) => s.trim()).filter(Boolean).sort();
+    assertEquals(committed, [
+      ".claude/settings.json",
+      ".gitignore",
+      ".mcp.json",
+      "discern.toml",
+    ]);
   });
 });

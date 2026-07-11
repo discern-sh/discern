@@ -72,6 +72,7 @@ import {
 import {
   allGuidanceFilePaths,
   allGuidanceFiles,
+  providerFor,
   reactivationHandoff,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
@@ -1016,6 +1017,19 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     if (branch !== undefined) {
       freshInstall = (await resolveConfigPath(destDir)) === undefined;
     }
+  } else if (!opts.dryRun && !opts.allowDirty) {
+    // A resume that materialized its config from disk (freshInstall was already false,
+    // so the isolation block above was skipped) can still be sitting ON the setup branch
+    // — a first run that scaffolded there and then failed before committing the wiring.
+    // Recover that fact so the machinery commit below retries, rather than leaving
+    // discern's wiring permanently uncommitted. Only when actually on the branch and in a
+    // git repo; --dry-run / --allow-dirty own their git themselves.
+    const current =
+      (await runGit(["branch", "--show-current"], { cwd: destDir })).stdout
+        .trim();
+    if (current === SETUP_BRANCH) {
+      setupBranch = SETUP_BRANCH;
+    }
   }
 
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
@@ -1035,16 +1049,26 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   // --- Commit the scaffolded machinery (discern owns its own wiring) ---
-  // When `begin` created the isolated `discern-setup` branch (the fresh-install path:
-  // a clean git repo, not --dry-run / --allow-dirty), commit the harness machinery it
-  // just wrote — the config, the `.gitignore` fragment, and the per-agent MCP + hooks
-  // files — as one commit, so a coding agent never has to commit discern's own
-  // permission-widening wiring (a pre-approved MCP server), which its safety classifier
-  // is rightly trained to refuse. Best-effort and fail-open (a commit failure falls back
-  // to the agent committing by hand); skipped when setup proceeds in place with no branch.
+  // When `begin` is on the isolated `discern-setup` branch, commit the harness machinery
+  // — the config, the `.gitignore` fragment, and the per-agent MCP + hooks files — as one
+  // commit, so a coding agent never has to commit discern's own permission-widening wiring
+  // (a pre-approved MCP server), which its safety classifier is rightly trained to refuse.
+  // Best-effort and fail-open (a commit failure falls back to the agent committing by
+  // hand); skipped when setup proceeds in place with no branch.
+  //
+  // This run may not have scaffolded: a resume of an abandoned `discern-setup` branch
+  // recomputes `freshInstall=false` and skips the scaffold, so `scaffold` is undefined —
+  // yet the earlier run may have written the wiring and then failed to commit it (a missing
+  // git identity, a rejecting pre-commit hook, an interrupted process). So the commit must
+  // re-derive its target set from PERSISTED STATE, not only from this run's `ScaffoldOutcome`:
+  // when a scaffold is in hand its written paths are authoritative; on a resume the machinery
+  // paths come from the config's configured agents (via the provider registry). Either way we
+  // commit only the ones git reports as uncommitted, so a fully-committed resume is a no-op.
   let machineryCommit: AutoCommitOutcome | undefined;
-  if (setupBranch !== undefined && scaffold !== undefined) {
-    machineryCommit = await commitScaffoldedMachinery(destDir, scaffold);
+  if (setupBranch !== undefined) {
+    machineryCommit = scaffold !== undefined
+      ? await commitScaffoldedMachinery(destDir, scaffold)
+      : await commitPendingMachinery(destDir);
   }
   const machineryCommitted = machineryCommit?.state === "committed";
 
@@ -1401,8 +1425,93 @@ async function commitScaffoldedMachinery(
   ]
     .filter((p) => !authoredContentSeeds(scaffold.guidanceRel).has(p))
     .sort();
+  return await commitMachineryPaths(root, paths);
+}
+
+/**
+ * The union of discern's machinery file paths a project's CONFIGURED agents wire —
+ * derived from the provider registry ({@link providerFor} over `[guidance].agents`),
+ * never a hand-copied list, so a new provider or wiring category auto-enrols (the same
+ * single-source derivation `tests/engine_setup_test.ts`'s B10 guard asserts against). The
+ * always-present harness files (`discern.toml`, the `.gitignore` fragment) are included
+ * unconditionally. This is the machinery set a RESUMED `begin` re-derives when this run
+ * produced no {@link ScaffoldOutcome} to read the written paths from.
+ */
+function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
+  const paths = new Set<string>([CONFIG_REL, ".gitignore"]);
+  for (const agent of cfg.guidance.agents) {
+    const provider = providerFor(agent);
+    if (provider === undefined) {
+      continue;
+    }
+    if (provider.mcp.kind === "wired") {
+      paths.add(provider.mcp.integration.configFile);
+    }
+    if (provider.hooks !== undefined) {
+      paths.add(provider.hooks.settingsFile);
+    }
+    if (provider.worktreeApp !== undefined) {
+      paths.add(provider.worktreeApp.configFile);
+    }
+    if (provider.projectRules !== undefined) {
+      paths.add(provider.projectRules.rulesFile);
+    }
+  }
+  return [...paths].sort();
+}
+
+/**
+ * Commit discern's harness wiring on a RESUME of `begin` — the path that reaches the
+ * `discern-setup` branch without re-scaffolding (an abandoned earlier run recomputes
+ * `freshInstall=false`). The earlier run wrote the machinery but may have failed to commit
+ * it (a missing git identity, a rejecting pre-commit hook, an interrupted process), leaving
+ * discern's essential wiring permanently uncommitted with nothing downstream to catch it —
+ * the exact gap this closes. Re-derives the machinery set from the persisted config's
+ * configured agents ({@link machineryPathsFromConfig}), keeps only the paths git reports as
+ * currently uncommitted (so a resume whose wiring is already committed is a clean no-op, not
+ * an empty-commit error), and commits them like the fresh path. Best-effort and fail-open —
+ * a broken config or a git failure never fails `begin`; the agent can still commit by hand.
+ */
+async function commitPendingMachinery(
+  root: string,
+): Promise<AutoCommitOutcome> {
+  let cfg: DiscernConfig;
+  try {
+    cfg = await loadConfig(root);
+  } catch {
+    // No readable config to derive the machinery set from — nothing to retry here;
+    // doctor / the agent surface the broken config.
+    return { state: "skipped" };
+  }
+  const machinery = new Set(machineryPathsFromConfig(cfg));
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
+  if (!status.success) {
+    return { state: "skipped" };
+  }
+  const pending = parsePorcelainZ(status.stdout)
+    .map((entry) => entry.path)
+    .filter((p) => machinery.has(p))
+    .sort();
+  if (pending.length === 0) {
+    // The wiring is already committed (or was never written) — nothing to retry.
+    return { state: "skipped" };
+  }
+  return await commitMachineryPaths(root, pending);
+}
+
+/**
+ * Stage exactly `paths` and commit them as the single `discern: scaffold harness` commit —
+ * the shared executor behind both the fresh-scaffold and the resume machinery commits.
+ * Scoped to the given pathspecs on both `add` and `commit` (never `git add -A`, never a
+ * bare `git commit`), so nothing the agent authored can be swept in. Best-effort and
+ * fail-open: a git failure returns its cause for the caller to relay, never throws.
+ */
+async function commitMachineryPaths(
+  root: string,
+  paths: string[],
+): Promise<AutoCommitOutcome> {
   if (paths.length === 0) {
-    // Nothing scaffolded to commit (e.g. a fully-idempotent re-run).
+    // Nothing to commit (e.g. a fully-idempotent re-run).
     return { state: "skipped" };
   }
   const add = await runGit(["add", "--", ...paths], { cwd: root });
@@ -1410,7 +1519,7 @@ async function commitScaffoldedMachinery(
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
-    ["commit", "-m", "discern: scaffold harness"],
+    ["commit", "-m", "discern: scaffold harness", "--", ...paths],
     { cwd: root },
   );
   return commit.success
