@@ -99,26 +99,37 @@ Deno.test("the engine colour choke point obeys the threaded decision, beating it
 
 Deno.test("operatorHelp honours the resolved 'no colour' decision, stripping Cliffy's own escapes", () => {
   const root = buildCli(false) as unknown as Command;
-  // Precondition: under `deno test` NO_COLOR is unset and Deno.noColor is false, so
-  // Cliffy's getHelp() DOES colour the base. If it ever stops, this guard would pass
-  // vacuously — assert the escapes are actually there to strip.
-  assert(
-    ansiCount(root.getHelp()) > 0,
-    "Cliffy's base help is expected to be coloured in the test process",
-  );
 
-  // The resolved decision governs: color:false yields a completely plain help — the
-  // exact regression B36 named (the flag ignored because the base was pre-coloured).
+  // The core, env-independent guard for the B36 help member: whatever Cliffy's own
+  // getHelp() emitted, the resolved "no colour" decision yields a completely plain
+  // help. This holds regardless of the ambient colour state, so it is the assertion
+  // that runs everywhere — including under the gate, which normalises child jobs to
+  // NO_COLOR (so getHelp() there is already plain and this proves the strip is at
+  // least idempotent). The DISCRIMINATING proof — that a genuinely COLOURED base is
+  // stripped — needs colour to actually be available, which only holds when
+  // Deno.noColor is false; the real-CLI subprocess sweep below (which sets its own
+  // NO_COLOR="") carries that proof in the gate's forced-NO_COLOR environment.
   assertEquals(
     ansiCount(operatorHelp(root, { color: false })),
     0,
     "operatorHelp(color:false) must emit zero ANSI escapes",
   );
-  // color:true keeps colour, so the option is a real switch, not a one-way strip.
-  assert(
-    ansiCount(operatorHelp(root, { color: true })) > 0,
-    "operatorHelp(color:true) must keep colour",
-  );
+
+  // When colour IS available in-process (a direct `deno test`, NO_COLOR unset),
+  // getHelp() colours the base — so we can prove color:false STRIPS real escapes
+  // (not a vacuous pass) and color:true KEEPS them (a real switch, not a one-way
+  // strip). Skipped only when the environment has forced colour off, where neither
+  // is observable in-process.
+  if (!Deno.noColor) {
+    assert(
+      ansiCount(root.getHelp()) > 0,
+      "with colour available, Cliffy's base help is expected to be coloured",
+    );
+    assert(
+      ansiCount(operatorHelp(root, { color: true })) > 0,
+      "operatorHelp(color:true) must keep colour when colour is available",
+    );
+  }
 });
 
 /**
