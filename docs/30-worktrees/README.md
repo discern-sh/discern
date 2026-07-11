@@ -125,7 +125,10 @@ action — `status` hints carry the command to the human.
 Worktrees and **reclaims the resources of any Worktree that vanished without a
 clean teardown** (the garbage-collection safety net); it only ever removes
 fully-merged, clean worktrees — discarding real work is `drop`'s job, behind its
-explicit `--force`. [`status`](../../src/engine/status/status.ts) uses the same
+explicit `--force`. That eligibility is judged twice: by the read-only scan the
+confirmation prompt shows, and again per candidate just before each removal — so
+a worktree or orphan that gains work while the prompt waits is skipped, not swept.
+[`status`](../../src/engine/status/status.ts) uses the same
 ordinary Git-clean boundary as prune for its local and fleet `clean` fields:
 tracked changes and untracked non-ignored files make a Worktree dirty, while
 ignored provider-local/generated files stay out of the signal. Status also tells

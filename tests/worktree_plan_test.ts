@@ -214,6 +214,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     },
     orphanScan: {
       mainRepo: "/repo",
+      mainBranch: "main",
       removable: [],
       kept: [],
     },
@@ -239,6 +240,7 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     },
     orphanScan: {
       mainRepo: "/repo",
+      mainBranch: "main",
       removable: [{ path: "/repo/.wt/orphan", reason: "clean" }],
       kept: [{
         path: "/repo/.wt/dirty",

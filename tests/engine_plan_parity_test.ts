@@ -137,6 +137,75 @@ Deno.test("parity: worktree prune apply consumes the built scan instead of re-sc
   );
 });
 
+Deno.test("parity: every destructive scan-consuming apply re-validates candidates at apply time", async () => {
+  // The prune plan can sit at a confirmation prompt for minutes while agents
+  // keep working in the candidate worktrees, so a scan-consuming apply that
+  // trusts its scan's eligibility verdict destroys work created in the window
+  // (the original bug: pruneGitWorktrees force-removed a worktree that gained
+  // uncommitted edits after the scan). The discipline: every destructive
+  // primitive in a scan-consuming apply pairs with an apply-time re-check of
+  // the condition the scan judged. This guard enumerates the scan-consuming
+  // functions from the source itself — a NEW apply auto-enrols — and requires
+  // the pairing per destructive primitive. It proves presence of the re-check,
+  // not its placement; the behavioral race tests in
+  // engine_worktree_prune_test.ts pin what the re-check must actually do.
+  const source = await Deno.readTextFile("src/engine/worktree/git.ts");
+
+  // Every top-level function whose first parameter is one of the scan shapes.
+  const declRe =
+    /(?:export )?(?:async )?function (\w+)\(\s*scan: (?:GitWorktreePruneScan|OrphanWorktreeSweepScan)\b/g;
+  const nextDeclRe = /\n(?:export )?(?:async )?function |\n\/\*\*/g;
+  const bodies = new Map<string, string>();
+  for (const m of source.matchAll(declRe)) {
+    const start = (m.index ?? 0) + m[0].length;
+    nextDeclRe.lastIndex = start;
+    const next = nextDeclRe.exec(source);
+    bodies.set(m[1] ?? "", source.slice(start, next?.index ?? source.length));
+  }
+  for (
+    const expected of [
+      "pruneGitWorktrees",
+      "sweepOrphanWorktrees",
+      "pruneStaleWorktreeMetadata",
+    ]
+  ) {
+    assert(
+      bodies.has(expected),
+      `scan-consuming apply enumeration lost ${expected} — fix the guard's regex`,
+    );
+  }
+
+  // destructive primitive → the apply-time re-check that must accompany it.
+  const pairings: [needle: string, recheck: RegExp, rule: string][] = [
+    [
+      "removeWorktreeSafely(",
+      /CandidateChanged\(/,
+      "a worktree/orphan removal must re-check the candidate against live state",
+    ],
+    [
+      '"-D"',
+      /branchIsMerged\(/,
+      "a branch deletion must re-check merged-ness at apply time",
+    ],
+    [
+      "Deno.remove(",
+      /StillMatches\(/,
+      "a metadata prune must re-read the admin entry at apply time",
+    ],
+  ];
+  for (const [name, body] of bodies) {
+    for (const [needle, recheck, rule] of pairings) {
+      if (!body.includes(needle)) {
+        continue;
+      }
+      assert(
+        recheck.test(body),
+        `${name} uses ${needle} without an apply-time re-check: ${rule}`,
+      );
+    }
+  }
+});
+
 Deno.test("parity: worktree teardown apply destroys nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parityteardown");
