@@ -68,8 +68,12 @@ export class ConfigParseError extends Error {
 
 // ── shared building blocks (reused by the live config AND the document) ────────
 
-/** TOML bare-key shape, enforced for check/scope/ratchet/resource names. */
-const NAME_RE = /^[A-Za-z0-9_-]+$/;
+/** TOML bare-key shape, enforced for check/scope/ratchet/resource names. The ONE
+ * definition of record-key legality: the `z.record` key schema below applies it at
+ * load, the generated JSON Schema carries it as `propertyNames.pattern`, and the
+ * settable-path walker reads that pattern back — so `config set` can never write a
+ * `<name>` the next load would reject. */
+export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** The agent/provider files discern knows how to emit — the single source for
  * the document's `agents` enum, the generated editor JSON Schema (so it can never
@@ -728,13 +732,31 @@ function liveSchemaJson(): Record<string, unknown> {
   return liveJsonSchema;
 }
 
+/** The record-key name pattern a schema node enforces on its `<name>` segments,
+ * read from the JSON Schema's `propertyNames.pattern` — the same constraint the
+ * runtime `z.record(z.string().regex(NAME_RE), …)` key schema applies. Returns
+ * undefined for a node that names no pattern (then any key is legal). */
+function recordKeyPattern(node: Record<string, unknown>): RegExp | undefined {
+  const propertyNames = node.propertyNames;
+  if (!isRecord(propertyNames) || typeof propertyNames.pattern !== "string") {
+    return undefined;
+  }
+  return new RegExp(propertyNames.pattern);
+}
+
 /**
  * Walk the live JSON Schema along a dotted key. `found` is whether every segment
  * resolved (a record section — `checks`, `scopes`, `ratchets`,
- * `worktree.resources` — accepts any `<name>` segment, descending into the value
- * shape); `node` is the schema node the path lands on. The ONE walk behind both
- * {@link isSettableConfigPath} and {@link settableConfigValueKind}, so "does this
- * path exist" and "what does it hold" can never disagree.
+ * `worktree.resources` — accepts a `<name>` segment matching the section's
+ * `propertyNames.pattern`, descending into the value shape); `node` is the schema
+ * node the path lands on. The ONE walk behind both {@link isSettableConfigPath}
+ * and {@link settableConfigValueKind}, so "does this path exist" and "what does it
+ * hold" can never disagree.
+ *
+ * The record-key pattern is enforced here so the walker refuses exactly the
+ * `<name>` shapes the runtime `z.record` key schema would refuse — otherwise
+ * `config set` would accept a key (a space, a slash, non-ASCII) it then writes as
+ * a `[checks.<bad name>]` header the next load rejects.
  */
 function settableSchemaNode(
   dotted: string,
@@ -751,7 +773,12 @@ function settableSchemaNode(
     if (props !== undefined && Object.hasOwn(props, seg)) {
       node = isRecord(child) ? child : undefined;
     } else if (isRecord(node.additionalProperties)) {
-      // A record table: `seg` is a `<name>`; descend into the value shape.
+      // A record table: `seg` is a `<name>`. It is only settable when it matches
+      // the record's key pattern — the same legality the runtime validator holds.
+      const pattern = recordKeyPattern(node);
+      if (pattern !== undefined && !pattern.test(seg)) {
+        return { found: false, node: undefined };
+      }
       node = node.additionalProperties;
     } else {
       return { found: false, node: undefined }; // unknown key, not a record table

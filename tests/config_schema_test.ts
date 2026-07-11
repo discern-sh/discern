@@ -5,8 +5,10 @@ import {
   ConfigValidationError,
   configWriteIssues,
   isSettableConfigPath,
+  NAME_RE,
   parseConfig,
   parseConfigOrThrow,
+  RECORD_ENTRY_SCHEMAS,
   settableConfigValueKind,
   toCommand,
   toCommandList,
@@ -186,6 +188,47 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("ratchets.coverage.bogus"));
+});
+
+Deno.test("isSettableConfigPath refuses every record-key <name> the runtime validator refuses", () => {
+  // The class: the settable-path walker must enforce record-key legality exactly
+  // as the runtime `z.record` key schema does — otherwise `config set` writes a
+  // `[<family>.<bad name>]` header the next load rejects (B41). Driven off two
+  // single sources of truth: RECORD_ENTRY_SCHEMAS (every record family, so a new
+  // one auto-enrols) and NAME_RE (the one key pattern). For each family we build a
+  // header with an illegal name and assert BOTH oracles agree it is refused — the
+  // walker (isSettableConfigPath) and the runtime validator (configWriteIssues).
+  const illegalNames = ["bad name", "a/b", "a.b", "für", "a:b", "a+b", ""];
+  const legalNames = ["ok", "cov-1", "a_b", "X9"];
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    // A representative leaf key for this family, read from its schema shape (not a
+    // hand-copied name) so the guard follows the schema.
+    const leafKey = Object.keys(schema.shape)[0];
+    assert(leafKey !== undefined, `${family} has no keys`);
+    for (const name of legalNames) {
+      assert(NAME_RE.test(name)); // sanity: these are legal by the one pattern
+      assert(
+        isSettableConfigPath(`${family}.${name}.${leafKey}`),
+        `${family}.${name}.${leafKey} should be settable (legal name)`,
+      );
+    }
+    for (const name of illegalNames) {
+      assert(!NAME_RE.test(name)); // sanity: these violate the one pattern
+      const path = `${family}.${name}.${leafKey}`;
+      assert(
+        !isSettableConfigPath(path),
+        `${path} must NOT be settable — the runtime validator refuses this key`,
+      );
+      // The runtime validator refuses the equivalent header too: the walker and
+      // the loader agree, which is the whole point (no accept-then-reject gap).
+      const header = `[${family}."${name}"]\n${leafKey} = "x"\n`;
+      const issues = configWriteIssues(header);
+      assert(
+        issues.length > 0,
+        `runtime validator must refuse ${header} (parity with the walker)`,
+      );
+    }
+  }
 });
 
 Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
