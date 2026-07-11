@@ -11,6 +11,12 @@ import { dirname, fromFileUrl, join } from "@std/path";
 // `dirname` is used both for the fixtures path and by `stagePreset`'s mkdir.
 import { runCli, withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
+import {
+  applyConfigDoc,
+  type DiscernConfigDoc,
+  docHasFills,
+} from "../src/lib/config_doc.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
 
 /** Absolute path to the fixture presets dir (passed via DISCERN_PRESETS_DIR). */
 const FIXTURE_PRESETS = join(
@@ -74,6 +80,27 @@ Deno.test("preset overlays the example preset's files and config fills", async (
       toml,
       "# discern | https://discern.sh | project configuration file",
     ); // comment survived
+  });
+});
+
+Deno.test("preset --json without --yes emits exactly one envelope and applies (no confirm hang)", async () => {
+  // The confirm is auto-answered under --json (B53): the machine stream carries
+  // one parseable envelope, never a prompt, and the overlay still lands.
+  await withTempDir(async (dir) => {
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    const r = await runCli(["preset", "example", "--json"], dir, PRESET_ENV);
+    assertEquals(r.code, 0, r.stderr);
+    // Exactly one envelope line on stdout, and nothing prompt-like leaked.
+    const line = r.stdout.trim();
+    assert(
+      line.length > 0 && !line.includes("\n"),
+      `expected a single envelope line, got:\n${r.stdout}`,
+    );
+    const result = JSON.parse(line);
+    assertEquals(result.ok, true);
+    assertEquals(result.verb, "preset");
+    // The overlay applied despite no --yes, because json mode auto-proceeds.
+    assert(await exists(join(dir, "discern/recipes/example-deploy")));
   });
 });
 
@@ -445,5 +472,158 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
     assertEquals(JSON.parse(r.stdout).ok, true);
     // The overlay still applied normally despite the missing agents key.
     assert(await exists(join(dir, "discern/recipes/example-deploy")));
+  });
+});
+
+// ── Class guard: no fill-bearing field is silently dropped (B54) ─────────────
+//
+// The class: a preset whose ONLY config fill is field X is silently dropped
+// whenever the gate that decides "is there anything to apply?" tests a
+// hand-copied field list that has drifted from the fields `applyConfigDoc`
+// actually consumes. (`docs.dir` was the dropped member.) The cure derives that
+// gate (`docHasFills`) from `applyConfigDoc` itself; this guard proves every
+// fill-bearing field survives, and is driven off the routine so a new field
+// auto-enrols.
+
+/**
+ * The set of fill-bearing top-level document keys, read straight from
+ * `applyConfigDoc` — a maximal document applied to an empty editor fills a path
+ * under exactly the keys the routine consumes, so this is the single source of
+ * truth for what a preset must not drop, never a hand-copied list.
+ */
+function fillBearingKeys(): Set<string> {
+  const maximal: DiscernConfigDoc = {
+    docs: { dir: "documentation/" },
+    capabilities: { test: "echo t" },
+    checks: { chk: { stage: "check", run: "echo c" } },
+    scopes: { sco: { paths: ["x/**"] } },
+    ratchets: { rat: { direction: "up", limit: 1, run: "echo r" } },
+  };
+  const report = applyConfigDoc(new TomlEditor(""), maximal);
+  return new Set(report.filled.map((path) => path.split(".")[0] ?? path));
+}
+
+/**
+ * A minimal preset.json fragment per fill-bearing key, each landing a fill on a
+ * fresh scaffold, paired with the dotted path its fill discloses. `docs.dir`
+ * uses a non-default directory so it applies (lands) rather than being kept.
+ */
+const SINGLE_FIELD_PRESETS: Record<
+  string,
+  { fragment: Record<string, unknown>; disclosed: string }
+> = {
+  docs: {
+    fragment: { docs: { dir: "documentation/" } },
+    disclosed: "docs.dir",
+  },
+  capabilities: {
+    fragment: { capabilities: { test: "echo solo test" } },
+    disclosed: "capabilities.test",
+  },
+  checks: {
+    fragment: { checks: { solo: { stage: "check", run: "echo solo" } } },
+    disclosed: "checks.solo",
+  },
+  scopes: {
+    fragment: { scopes: { solo: { paths: ["solo/**"] } } },
+    disclosed: "scopes.solo",
+  },
+  ratchets: {
+    fragment: {
+      ratchets: { solo: { direction: "up", limit: 1, run: "echo solo" } },
+    },
+    disclosed: "ratchets.solo",
+  },
+};
+
+Deno.test("every fill-bearing document field has a single-field preset guard (no drift)", () => {
+  // The per-field table must cover EXACTLY the fields the routine fills — no
+  // more, no fewer. A field added to `applyConfigDoc` without a case here fails
+  // this, forcing the guard to grow with the routine.
+  assertEquals(
+    new Set(Object.keys(SINGLE_FIELD_PRESETS)),
+    fillBearingKeys(),
+    "SINGLE_FIELD_PRESETS must cover exactly applyConfigDoc's fill-bearing keys",
+  );
+});
+
+Deno.test("docHasFills is true for a document whose only fill is one field", () => {
+  // The unit half of the cure: the gate that decides whether to apply agrees
+  // with the routine for a document carrying just one fill (docs-only included).
+  assert(!docHasFills({}), "an empty document carries no fills");
+  for (const [key, { fragment }] of Object.entries(SINGLE_FIELD_PRESETS)) {
+    assert(
+      docHasFills(fragment as DiscernConfigDoc),
+      `docHasFills must see the fill in a ${key}-only document`,
+    );
+  }
+});
+
+Deno.test("a preset whose only fill is one field is never silently dropped", async () => {
+  // The e2e half: for each fill-bearing field, a preset carrying only that field
+  // reaches `applyConfigDoc` and discloses its fill in the result — as applied,
+  // or (for a value the fresh scaffold already sets, like docs.dir) as kept.
+  // Pre-fix, a docs-only preset never reached `applyConfigDoc`, so its fill was
+  // in NEITHER list — silently dropped. The invariant is "disclosed, not
+  // vanished", which holds uniformly across every field.
+  for (
+    const [key, { fragment, disclosed }] of Object.entries(SINGLE_FIELD_PRESETS)
+  ) {
+    await withTempDir(async (dir) => {
+      await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+      const { env } = await stagePreset(dir, `only-${key}`, {
+        "preset.json": JSON.stringify({ version: "2", ...fragment }),
+      });
+
+      const r = await runCli(
+        ["preset", `only-${key}`, "--yes", "--json"],
+        dir,
+        env,
+      );
+      assertEquals(r.code, 0, r.stderr);
+      const result = JSON.parse(r.stdout);
+      assertEquals(result.ok, true, `${key}: preset must succeed`);
+      const applied = result.data.config_fills_applied as string[];
+      const skipped = result.data.config_fills_skipped as string[];
+      assert(
+        [...applied, ...skipped].includes(disclosed),
+        `${key}-only preset must disclose ${disclosed} (applied or kept), not drop it; applied=${
+          JSON.stringify(applied)
+        } skipped=${JSON.stringify(skipped)}`,
+      );
+    });
+  }
+});
+
+Deno.test("a docs-only preset actually writes docs.dir when the project has not set it", async () => {
+  // The applied (not merely disclosed) proof for the field that regressed: with
+  // the scaffold's own `docs.dir` removed, a docs-only preset must LAND its fill
+  // — the whole failure mode was this write being skipped before apply.
+  await withTempDir(async (dir) => {
+    await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
+    // Drop the scaffold's [docs] dir so the preset's value is not "already set".
+    const original = await Deno.readTextFile(join(dir, "discern.toml"));
+    const stripped = original
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("dir ="))
+      .join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), stripped);
+
+    const { env } = await stagePreset(dir, "docsonly", {
+      "preset.json": JSON.stringify({
+        version: "2",
+        docs: { dir: "documentation/" },
+      }),
+    });
+    const r = await runCli(["preset", "docsonly", "--yes", "--json"], dir, env);
+    assertEquals(r.code, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assertEquals(result.data.config_fills, true);
+    assert(
+      (result.data.config_fills_applied as string[]).includes("docs.dir"),
+      "docs.dir must be applied when not pre-set",
+    );
+    const toml = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(toml, 'dir = "documentation/"');
   });
 });

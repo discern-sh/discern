@@ -98,6 +98,12 @@ generated agent files and materialized skills, strips discern's entries from the
 co-managed agent files (leaving your own settings untouched), and removes the
 `.gitignore` block. Preview it first with `discern uninstall --dry-run`.
 
+If it cannot resolve discern's bundled `templates/` tree, it can't identify the
+template-seeded permission and scalar entries in a co-managed settings file, so
+it leaves them rather than guess. It says so plainly instead of leaving them
+silently: the result and the human view name each such file and why, so you can
+finish the strip by hand.
+
 It **keeps your content**: `discern.toml` and the whole `discern/` namespace
 stay — plain files at paths you chose, valuable without the tool. Everything the
 namespace holds is ordinary Markdown you can read, move, or keep. Removing the

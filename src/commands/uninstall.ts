@@ -94,13 +94,26 @@ interface KeptItem {
   why: string;
 }
 
+/** A co-owned file whose strip could not be completed, and why — surfaced so an
+ * uninstall says plainly what it could not clean rather than leaving it silently. */
+interface IncompleteStrip {
+  rel: string;
+  reason: string;
+}
+
 /** The computed, read-only uninstall plan. */
 interface UninstallPlan {
   ops: RemovalOp[];
   kept: KeptItem[];
   /** Directories to remove if they empty out once their discern files are gone. */
   emptyDirCandidates: Set<string>;
+  /** False when discern's `templates/` tree could not be resolved, so a hooks
+   * target's template-seeded permission/scalar entries can't be identified and
+   * are left in place — the cause behind any {@link incompleteStrips}. */
   templatesAvailable: boolean;
+  /** Co-owned files stripped without their seed template, so template-seeded
+   * entries may remain. Never silent: surfaced in the result and the human view. */
+  incompleteStrips: IncompleteStrip[];
 }
 
 /** The one line that removes the binary itself (install-method agnostic). */
@@ -213,6 +226,7 @@ async function computeUninstallPlan(
     kept: [],
     emptyDirCandidates: new Set<string>(),
     templatesAvailable: true,
+    incompleteStrips: [],
   };
   const abs = (rel: string): string => join(root, rel);
   const noteDelete = (rel: string, isDir: boolean, reason: string): void => {
@@ -299,6 +313,22 @@ async function computeUninstallPlan(
       hasMcp: job.hasMcp,
       hooksTemplateText,
     });
+    // A hooks target stripped without its seed template keeps whatever
+    // permission/scalar entries that template contributed — the strip can't
+    // identify them. Record it (unless the file was removed outright, leaving
+    // nothing behind) so the result and the human view say so plainly.
+    if (
+      job.hooksTemplateRel !== undefined &&
+      hooksTemplateText === undefined &&
+      stripped !== null
+    ) {
+      plan.incompleteStrips.push({
+        rel,
+        reason: plan.templatesAvailable
+          ? "discern's hooks seed template was not found, so template-seeded permission/scalar entries may remain"
+          : "discern's templates/ tree could not be resolved, so template-seeded permission/scalar entries may remain",
+      });
+    }
     pushCoOwnedOp(plan, rel, existing, stripped, "co-owned agent settings");
   }
   for (const rel of tomlMcpFiles) {
@@ -408,12 +438,20 @@ async function applyUninstallPlan(
   await pruneEmptyDirs(root, plan.emptyDirCandidates);
 }
 
-/** The `--json` / result payload for an uninstall plan. */
+/** The `--json` / result payload for an uninstall plan. Surfaces every plan
+ * fact a caller acts on — including whether the strip degraded (templates
+ * unresolved) and which files may retain template-seeded entries, so nothing the
+ * plan computed is left unreported. */
 function planData(plan: UninstallPlan): Record<string, unknown> {
   return {
     removed: plan.ops.filter((o) => o.action === "delete").map((o) => o.rel),
     stripped: plan.ops.filter((o) => o.action === "rewrite").map((o) => o.rel),
     kept: plan.kept.map((k) => k.rel),
+    templates_available: plan.templatesAvailable,
+    incomplete_strips: plan.incompleteStrips.map((s) => ({
+      rel: s.rel,
+      reason: s.reason,
+    })),
     binary_hint: BINARY_HINT,
   };
 }
@@ -441,6 +479,20 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
     );
     for (const op of rewrites) {
       log.detail(`${op.rel} — ${op.reason}`);
+    }
+  }
+
+  // Loud, not silent: name any co-owned file discern could not fully strip and
+  // why, so the user can finish the job by hand rather than be left with orphans.
+  if (plan.incompleteStrips.length > 0) {
+    log.line();
+    log.warn(
+      applied
+        ? "some template-seeded settings could not be removed — check these by hand:"
+        : "some template-seeded settings cannot be removed — you would need to check these by hand:",
+    );
+    for (const item of plan.incompleteStrips) {
+      log.detail(`${item.rel} — ${item.reason}`);
     }
   }
 
@@ -555,6 +607,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     const proceed = await confirmProceed(
       "Remove discern's wiring from this project?",
       options.yes,
+      options.json,
     );
     if (!proceed) {
       log.info("Aborted — nothing was changed.");

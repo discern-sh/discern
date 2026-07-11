@@ -19,6 +19,7 @@ import {
 import { join } from "@std/path";
 import {
   canPrompt,
+  promptAllowed,
   resolveBrief,
   resolveSetupConfig,
 } from "../src/lib/prompts.ts";
@@ -82,6 +83,31 @@ Deno.test("resolveBrief throws a clear error for a missing @path", async () => {
 Deno.test("canPrompt(true) is false — --yes always suppresses prompts", () => {
   // `--yes` short-circuits before any TTY check, so this holds in CI too.
   assertEquals(canPrompt(true), false);
+});
+
+// ---- promptAllowed: no interactive prompt is reachable under --json (B53) ---
+//
+// The class: a blocking Cliffy prompt reachable while `--json` is the output
+// contract — it would render to stdout and hang a machine caller that holds a
+// TTY. The cure forbids prompting in json mode BEFORE the TTY check, at the one
+// choke `confirmProceed` routes through. The interactive gate is injected here
+// as "a TTY is present" (`() => true`) so the json veto is proven independent of
+// the test process's own (absent) terminal — pre-fix, json was ignored and this
+// returned true.
+
+Deno.test("promptAllowed forbids prompting under --json even with a TTY present", () => {
+  const ttyPresent = (_yes: boolean): boolean => true;
+  // json wins regardless of --yes or the interactive gate: never prompt.
+  assertEquals(promptAllowed(false, true, ttyPresent), false);
+  assertEquals(promptAllowed(true, true, ttyPresent), false);
+});
+
+Deno.test("promptAllowed defers to the interactive gate when not --json", () => {
+  const ttyPresent = (_yes: boolean): boolean => true;
+  const noTty = (_yes: boolean): boolean => false;
+  // Outside json mode the ordinary interactive decision stands.
+  assertEquals(promptAllowed(false, false, ttyPresent), true);
+  assertEquals(promptAllowed(false, false, noTty), false);
 });
 
 // ---- resolveSetupConfig (prompts suppressed via flags.yes) ------------------

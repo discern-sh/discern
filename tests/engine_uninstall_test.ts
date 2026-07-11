@@ -177,6 +177,55 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
   });
 });
 
+Deno.test("uninstall surfaces incomplete strips when the templates tree can't resolve", async () => {
+  // B52: with discern's templates/ unresolvable, a hooks target's
+  // template-seeded permission/scalar entries can't be identified and are left
+  // in place. That must never be silent — the result reports it (which files,
+  // why) so the user can finish by hand. Pointing DISCERN_TEMPLATES_DIR at a
+  // non-directory makes resolveTemplatesDir throw, exactly the failure mode.
+  await withTempDir(async (dir) => {
+    await wireFullHarness(dir);
+    const bogus = join(dir, "no-such-templates-dir");
+
+    const result = await runAgent(dir, ["uninstall", "--json"], {
+      env: { DISCERN_TEMPLATES_DIR: bogus },
+    });
+    assertEquals(result.code, 0, result.output);
+    const envelope = JSON.parse(result.stdout);
+    assert(envelope.ok, result.output);
+
+    // The plan fact is consumed, not dropped: templates were unavailable…
+    assertEquals(
+      envelope.data.templates_available,
+      false,
+      "templates_available must surface in the result",
+    );
+    // …and at least one co-owned hooks target is named as only-partially cleaned.
+    const incomplete = envelope.data.incomplete_strips;
+    assert(Array.isArray(incomplete));
+    assert(
+      incomplete.length > 0,
+      "an unresolvable templates tree must yield at least one incomplete strip",
+    );
+    for (const item of incomplete) {
+      assert(typeof item.rel === "string" && item.rel.length > 0);
+      assert(
+        typeof item.reason === "string" && item.reason.length > 0,
+        "each incomplete strip must say why",
+      );
+    }
+    // The human view says it too (a warning naming the files).
+    const human = await runAgent(dir, ["uninstall", "--dry-run"], {
+      env: { DISCERN_TEMPLATES_DIR: bogus },
+    });
+    assertEquals(human.code, 0, human.output);
+    assert(
+      /template-seeded settings cannot be removed/.test(human.output),
+      `human view must warn about incomplete strips; got:\n${human.output}`,
+    );
+  });
+});
+
 Deno.test("uninstall --dry-run reports the plan and changes nothing", async () => {
   await withTempDir(async (dir) => {
     await wireFullHarness(dir);

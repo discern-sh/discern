@@ -21,7 +21,7 @@ import {
   type DiscernConfigDoc,
 } from "../shared/config_schema.ts";
 import type { InitFlags } from "./prompts.ts";
-import type { TomlEditor } from "./toml_edit.ts";
+import { TomlEditor } from "./toml_edit.ts";
 
 // The document's shape, its major version, and its editor JSON Schema all derive
 // from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
@@ -126,6 +126,21 @@ export interface ConfigFillReport {
   filled: string[];
   /** Paths kept as the project's own (only with `skipExisting`). */
   skipped: string[];
+}
+
+/**
+ * Whether a document carries any config fill at all — the single-source answer
+ * to "is there anything for {@link applyConfigDoc} to write?". It IS
+ * `applyConfigDoc`: it runs the same routine against a throwaway empty editor
+ * and asks whether it touched any path, so the set of fill-bearing fields can
+ * never drift from the set the apply-routine actually consumes (a caller must
+ * not hand-copy that field list — a docs-only preset was silently dropped
+ * exactly because one had). A malformed document throws here, the same way it
+ * would at apply time, so the caller reports it once.
+ */
+export function docHasFills(doc: DiscernConfigDoc): boolean {
+  const report = applyConfigDoc(new TomlEditor(""), doc);
+  return report.filled.length > 0 || report.skipped.length > 0;
 }
 
 /**

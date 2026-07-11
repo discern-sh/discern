@@ -7,10 +7,19 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { removeGitignoreBlock } from "../src/commands/uninstall.ts";
 import { stripDiscernFromJsonSettings } from "../src/lib/settings_strip.ts";
 import { stripDiscernFromCodexEnv } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+
+const UNINSTALL_SRC = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "..",
+  "src",
+  "commands",
+  "uninstall.ts",
+);
 
 const BEGIN = "# --- discern harness ---";
 const END = "# --- /discern harness ---";
@@ -169,4 +178,90 @@ Deno.test("TomlEditor.deleteRootKey removes a pre-section key and leaves the res
   assert(out.includes("[setup]"));
   // Absent key is a no-op returning false.
   assertEquals(editor.deleteRootKey("missing"), false);
+});
+
+// ── Class guard: every UninstallPlan field is consumed (B52) ─────────────────
+//
+// The class: a plan field computed and never read. The plan/apply split
+// (ADR 0027) only holds if the executor and renderer honour every plan fact —
+// `templatesAvailable` was computed and consumed nowhere, so an uninstall left
+// template-seeded settings orphaned in silence. This structural guard reads the
+// `UninstallPlan` interface from source and asserts each declared field is
+// referenced by one of the functions that ACT on a built plan; a new
+// consumer-less field fails the gate. Driven off the interface itself (not a
+// hand-copied field list), so a new field auto-enrols.
+
+/** Extract a `{ … }`-delimited block starting at the first `{` after `marker`. */
+function blockAfter(source: string, marker: string): string {
+  const start = source.indexOf(marker);
+  assert(start !== -1, `could not find ${marker} in uninstall.ts`);
+  const open = source.indexOf("{", start);
+  assert(open !== -1, `no opening brace after ${marker}`);
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  throw new Error(`unterminated block after ${marker}`);
+}
+
+/** The top-level field names declared in the `UninstallPlan` interface body. */
+function uninstallPlanFields(source: string): string[] {
+  const body = blockAfter(source, "interface UninstallPlan");
+  const fields: string[] = [];
+  let depth = 0;
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    // Only inspect lines at the interface's own top level (skip nested shapes).
+    const opens = (line.match(/\{/g) ?? []).length;
+    const closes = (line.match(/\}/g) ?? []).length;
+    if (
+      depth === 0 && !line.startsWith("*") && !line.startsWith("/") &&
+      !line.startsWith("//")
+    ) {
+      const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\??\s*:/);
+      if (m && m[1] !== undefined) {
+        fields.push(m[1]);
+      }
+    }
+    depth += opens - closes;
+  }
+  return fields;
+}
+
+Deno.test("every UninstallPlan field is read by a plan-consuming function (no orphan facts)", async () => {
+  const source = await Deno.readTextFile(UNINSTALL_SRC);
+  const fields = uninstallPlanFields(source);
+  // Sanity: the parser found the real fields, including the one B52 was about.
+  assert(
+    fields.length >= 4,
+    `parsed too few plan fields: ${fields.join(", ")}`,
+  );
+  assert(
+    fields.includes("templatesAvailable"),
+    "expected templatesAvailable among the parsed fields",
+  );
+
+  // The functions that act on an already-built plan. A field read by NONE of
+  // them is computed for nothing — the exact defect B52 was.
+  const consumers = [
+    blockAfter(source, "function planData"),
+    blockAfter(source, "function renderPlan"),
+    blockAfter(source, "function applyUninstallPlan"),
+  ].join("\n");
+
+  const orphans = fields.filter((f) => !consumers.includes(`.${f}`));
+  assertEquals(
+    orphans,
+    [],
+    `UninstallPlan fields computed but never consumed: ${
+      orphans.join(", ")
+    }. ` +
+      `Every plan fact must be read by planData, renderPlan, or ` +
+      `applyUninstallPlan — surface it or drop it.`,
+  );
 });
