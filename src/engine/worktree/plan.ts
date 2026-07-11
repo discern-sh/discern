@@ -142,7 +142,7 @@ function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
  * integration that may proceed. */
 export interface IntegratePlan {
   /** The source being merged in: the integration branch (`[project].main_branch`
-   * / `MAIN_BRANCH`), or the `--from` ref. */
+   * / `DISCERN_MAIN_BRANCH`), or the `--from` ref. */
   source: string;
   /** Whether `source` came from an explicit `--from` (vs the trunk default). */
   fromOverride: boolean;

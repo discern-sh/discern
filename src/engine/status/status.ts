@@ -136,7 +136,8 @@ export async function statusResult(
   }
 
   const cfg = await loadConfig(root);
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    cfg.project.main_branch;
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
   // the main checkout (or no git repo) does not.

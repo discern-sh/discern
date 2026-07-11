@@ -1334,7 +1334,7 @@ export async function dispatchRecipeOrSuggest(
   const recipeFile = join(recipesAbs, verb.replace(/:/g, "-"));
 
   if (await isExecutable(recipeFile)) {
-    const mainBranch = Deno.env.get("MAIN_BRANCH") ||
+    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
       cfg.project.main_branch;
     const tomlPath = join(root, (await installedConfigRel(root)) ?? CONFIG_REL);
     const child = new Deno.Command(recipeFile, {

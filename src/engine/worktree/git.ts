@@ -10,13 +10,15 @@
  * `Deno.exit`. The lifecycle layer drives them; the dispatcher decides the
  * process exit code.
  *
- * The integration branch is read from `MAIN_BRANCH` (env) / `[project].main_branch`
+ * The integration branch is read from `DISCERN_MAIN_BRANCH` (env) /
+ * `[project].main_branch`
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import type { EnvReader } from "../../shared/env.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   parsePorcelainZ,
@@ -39,13 +41,16 @@ export class WorktreeGitError extends Error {
 }
 
 /**
- * The integration branch: `MAIN_BRANCH` env wins (the dispatcher exports it from
+ * The integration branch: `DISCERN_MAIN_BRANCH` env wins (the dispatcher exports it from
  * `[project].main_branch`); otherwise `fallback` (a config-derived value the
  * lifecycle layer passes when calling outside a dispatched env); otherwise
  * `main`.
  */
-export function integrationBranch(fallback?: string): string {
-  const env = Deno.env.get("MAIN_BRANCH");
+export function integrationBranch(
+  fallback?: string,
+  envReader: EnvReader = Deno.env,
+): string {
+  const env = envReader.get("DISCERN_MAIN_BRANCH");
   if (env !== undefined && env !== "") {
     return env;
   }
@@ -1459,7 +1464,8 @@ async function aheadBehind(
 
 /**
  * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
- * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). The `clean`
+ * integration branch (`DISCERN_MAIN_BRANCH` / `mainBranchFallback` / `main`). The
+ * `clean`
  * predicate is the user-facing / removal-safety one: no tracked changes and no
  * untracked non-ignored files. Pure reads — `rev-parse`, `branch`,
  * `status --porcelain --untracked-files=normal`, `rev-list` — so it never mutates
@@ -1645,7 +1651,7 @@ export async function listWorktreeFleet(
 export interface PruneScanOptions {
   /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
-  /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
 }
 
@@ -2178,7 +2184,7 @@ export async function pruneStaleWorktreeMetadata(
 export interface SweepScanOptions {
   /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
-  /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
 }
 

@@ -30,7 +30,7 @@ branch_prefix = "{{branch_prefix}}"
 # The integration branch the gate merges into and worktrees graduate onto.
 # Detected from your repository at setup (origin/HEAD, then the branch setup
 # started from, then init.defaultBranch). Override per-invocation with the
-# MAIN_BRANCH env var.
+# DISCERN_MAIN_BRANCH env var.
 main_branch = "main"
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
@@ -396,7 +396,7 @@ in_gate = false
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `discern`
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
-# MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
+# DISCERN_MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
 # config by calling the binary (`discern config get <key>`) and resolves worktree
 # identity with `discern identity --db|--site|--port|--resource <name>`.
 # ─────────────────────────────────────────────────────────────────────────────

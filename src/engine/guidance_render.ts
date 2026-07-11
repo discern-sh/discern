@@ -69,7 +69,8 @@ export const guidanceAgents = resolveConfiguredAgents;
  * commit (no git branch/status, env, clock, randomness, absolute paths, or
  * gitignored/per-worktree files); that purity is what keeps the generated files'
  * currency check deterministic and the gate stable (ADR 0034). In particular
- * `main_branch` is the committed `[project].main_branch`, NEVER the `MAIN_BRANCH`
+ * `main_branch` is the committed `[project].main_branch`, NEVER the
+ * `DISCERN_MAIN_BRANCH`
  * env override — that runtime override lives in the worktree/git layer, not in the
  * loaded config this reads. Keep it minimal: add a variable or predicate only when
  * a template actually uses it.

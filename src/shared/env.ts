@@ -118,6 +118,6 @@ export function recipeEnvVars(e: RecipeEnv): Record<string, string> {
     DISCERN_TOML: e.tomlPath,
     DISCERN_RECIPES: e.recipesAbs,
     DISCERN_RECIPES_DIR: e.recipesDir,
-    MAIN_BRANCH: e.mainBranch,
+    DISCERN_MAIN_BRANCH: e.mainBranch,
   };
 }

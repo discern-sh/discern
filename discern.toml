@@ -28,7 +28,7 @@ slug = "discern"
 branch_prefix = "agent/"
 
 # The integration branch the gate merges into and worktrees graduate onto.
-# Override per-invocation with the MAIN_BRANCH env var.
+# Override per-invocation with the DISCERN_MAIN_BRANCH env var.
 main_branch = "main"
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
@@ -422,7 +422,7 @@ in_gate = true
 # with a warning — the engine always wins, so a project file can never redefine
 # the core gate. A recipe is a standalone executable in any language: `discern`
 # exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
-# MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
+# DISCERN_MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
 # config by calling the binary (`discern config get <key>`) and resolves worktree
 # identity with `discern identity --db|--site|--port|--resource <name>`.
 # ─────────────────────────────────────────────────────────────────────────────

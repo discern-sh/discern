@@ -58,7 +58,7 @@ of committed `discern.toml`**:
 > everywhere. A determinism test and the currency test guard this.
 >
 > The classic trap: use `config.project.main_branch` (committed), **never** the
-> `MAIN_BRANCH` env override (applied at runtime in the worktree/git layer).
+> `DISCERN_MAIN_BRANCH` env override (applied at runtime in the worktree/git layer).
 
 **To add a variable or predicate:** add it to `guidanceContext`, deriving it
 solely from the loaded config, then use it in a section. Add one only when a

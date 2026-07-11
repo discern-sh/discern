@@ -782,7 +782,8 @@ async function pinRatchetsResult(
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorReceipt = await inspectGateReceipt(root);
 
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    cfg.project.main_branch;
   // A green check on this exact clean HEAD already paid for every measurement and
   // recorded a measurement receipt; replay its values rather than measuring again.
   const reused = await reusableMeasurements(root, plan);
@@ -938,7 +939,8 @@ export async function ratchetsResult(
         message: dirtyMessage,
       };
     } else {
-      const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+      const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+        cfg.project.main_branch;
       const out = makeOut(colorEnabled(), { quiet: true });
       // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
       // for the exact tree they read, so a mid-measurement commit voids the stamp.
@@ -1050,7 +1052,8 @@ export async function runRatchets(
   // Human path: narrate live (each ratchet's measurement output flows through `out`).
   const cfg = await loadConfig(root);
   const out = makeOut(colorEnabled(), { quiet: false });
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    cfg.project.main_branch;
   const plan = buildRatchetPlan(cfg);
 
   // --dry-run: show the plan, touch nothing — no git, no measurement.
