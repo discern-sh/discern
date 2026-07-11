@@ -376,8 +376,9 @@
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
-            "type": "number"
+            "description": "Headroom `discern ratchets --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a ratchet un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [

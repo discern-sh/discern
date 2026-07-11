@@ -146,6 +146,29 @@ Deno.test("ratchet direction defaults up; metric is optional (falls back to name
   assertEquals(r.limit, 80);
 });
 
+Deno.test("a ratchet margin cannot be negative (a negative margin pins a failing limit)", () => {
+  // The class' schema half (B31): a negative margin makes `ratchets --pin` compute
+  // a limit the just-measured value fails (a floor pinned above / a ceiling below
+  // the measurement). Refuse it at load — margin is headroom, never a tightening —
+  // so the bad state is unrepresentable. Zero and positive margins stay valid.
+  const bad = parseConfig(
+    `[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = -5\n`,
+  );
+  assertEquals(bad.config, undefined);
+  assert(
+    bad.issues.some((i) => i.path === "ratchets.cov.margin"),
+    JSON.stringify(bad.issues),
+  );
+  for (const margin of ["0", "0.5", "5", "100000"]) {
+    assertEquals(
+      parseConfig(`[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`)
+        .issues,
+      [],
+      `margin ${margin} must validate`,
+    );
+  }
+});
+
 Deno.test("a ratchet `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {
   // The class: a config shape that VALIDATES but then selects nothing/everything
   // contrary to intent (B42). An empty pathspec list would reach `git ls-files --`

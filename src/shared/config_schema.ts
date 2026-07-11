@@ -194,13 +194,16 @@ const ratchetValue = z.strictObject({
   scale: z.number().default(1).describe(
     'Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".',
   ),
-  margin: z.number().default(0).describe(
+  margin: z.number().min(
+    0,
+    "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so the value just measured would fail it.",
+  ).default(0).describe(
     "Headroom `discern ratchets --pin` leaves when it tightens this limit to the " +
       "measured value: pin sets a floor to measured−margin (up) or a ceiling to " +
       "measured+margin (down), and leaves a ratchet un-pinned when the improvement " +
-      "is smaller than its margin. Default 0 pins to the exact measured value; give " +
-      "a metric that drifts on unrelated changes (bundle size, coverage) a margin so " +
-      "a pinned limit isn't tripped by ordinary fluctuation.",
+      "is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured " +
+      "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
+      "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
   ),
 });
 
