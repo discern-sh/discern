@@ -397,6 +397,34 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
   });
 });
 
+Deno.test("status fleet (human): a long worktree id and branch are shown in full, never truncated", async () => {
+  // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
+  // `discern worktree drop <id>` / a `git …<branch>` command. A fixed-width column
+  // that clipped them left the reader unable to type the very name the row points
+  // at — the dead end that motivated content-sized columns. Names longer than the
+  // former 19-char (worktree) / 23-char (branch) caps guard that regression.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const id = "drop-this-stale-worktree-please"; // 31 chars > the old 19 cap
+    await addWorktree(dir, id);
+    const branch = `agent/${id}`; // 37 chars > the old 23 cap
+
+    const r = await runAgent(dir, ["status"]); // human mode (no --json)
+    assertEquals(r.code, 0, r.output);
+    // The full id must appear verbatim — that string IS the `discern worktree drop`
+    // target, so a reader can select it straight from the table.
+    assertStringIncludes(r.output, id);
+    // The full branch must survive too — it feeds the `git diff`/`git branch -D` hints.
+    assertStringIncludes(r.output, branch);
+    // And no clipped remnant of either (the tell of a reintroduced fixed-width cap).
+    assert(
+      !r.output.includes("…"),
+      `no column should truncate an identifier: ${r.output}`,
+    );
+  });
+});
+
 Deno.test("status: from a worktree, the default is local; --all adds the fleet", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

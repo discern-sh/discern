@@ -953,11 +953,6 @@ function gateReceiptSummary(receipt: GateReceiptCheckData): string {
   }
 }
 
-/** Truncate `s` to `n` chars with an ellipsis, for fixed-width table columns. */
-function trunc(s: string, n: number): string {
-  return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
-}
-
 /** A compact relative age ("3d ago", "2h ago", "just now") from an ISO timestamp,
  * for the fleet table's Last Activity column. "—" when unknown. */
 function relativeAge(iso: string | undefined): string {
@@ -1132,36 +1127,85 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
   }
 }
 
-/** Render the fleet survey as an aligned table. */
+/** One fleet-table column: its header and how to read its (plain-text) cell from a
+ * row. The set is defined once and drives the header, the width measurement, and
+ * every data row, so those three can never fall out of alignment. */
+interface FleetColumn {
+  header: string;
+  value: (e: StatusFleetEntry) => string;
+}
+
+const FLEET_COLUMN_SPECS: FleetColumn[] = [
+  // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
+  // `discern worktree drop <id>` or a `git …<branch>` command, so their columns
+  // size to the widest value and are never truncated: a clipped id is one the
+  // reader can't type back.
+  //
+  // The WORKTREE cell falls back id → basename (never the branch): `worktree drop`
+  // resolves a target by path, basename, or id — not by branch — so a branch like
+  // `agent/<name>` is not a name it accepts. This matches the id ?? basename(path)
+  // the drop hints use, keeping the column always a valid drop target.
+  {
+    header: "WORKTREE",
+    value: (e) => e.is_main ? "(main)" : (e.id ?? basename(e.path)),
+  },
+  { header: "BRANCH", value: (e) => e.branch || "(detached)" },
+  {
+    header: "STATE",
+    value: (e) =>
+      e.broken === true
+        ? "broken"
+        // Unknown is unknown — never rendered as "clean".
+        : e.git_unavailable === true
+        ? "unreadable"
+        : e.clean === true
+        ? "clean"
+        : `${e.changed_files} changed`,
+  },
+  {
+    header: "AHEAD/BEHIND",
+    value: (e) =>
+      e.is_main
+        ? "—"
+        : e.ahead === undefined
+        ? "?/?"
+        : `${e.ahead}/${e.behind}`,
+  },
+  { header: "LAST ACTIVITY", value: (e) => relativeAge(e.last_activity) },
+];
+
+/** Render the fleet survey as an aligned table whose columns size to their content,
+ * so an identifier is always shown in full (see {@link FLEET_COLUMN_SPECS}). */
 function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   const c = out.c;
-  out.raw(
-    `\n  ${c.dim}${"WORKTREE".padEnd(20)}${"BRANCH".padEnd(24)}${
-      "STATE".padEnd(12)
-    }${"AHEAD/BEHIND".padEnd(13)}LAST ACTIVITY${c.reset}\n`,
-  );
+
+  // Each column's width is the widest of its header and every cell it holds. Cells
+  // are plain text; the only ANSI is the `← you` marker appended after the final
+  // column, so it never skews a width.
+  const sized = FLEET_COLUMN_SPECS.map((col) => ({
+    ...col,
+    width: Math.max(
+      col.header.length,
+      ...fleet.map((e) => col.value(e).length),
+    ),
+  }));
+
+  // One rendered row: each cell padded to its column width except the last (no
+  // trailing pad before the newline or the `← you` marker), joined by a 2-space
+  // gutter. `valueOf` supplies either the header or a row's cell.
+  const line = (valueOf: (col: typeof sized[number]) => string): string =>
+    sized
+      .map((col, i) =>
+        i === sized.length - 1 ? valueOf(col) : valueOf(col).padEnd(col.width)
+      )
+      .join("  ");
+
+  out.raw(`\n  ${c.dim}${line((col) => col.header)}${c.reset}\n`);
   for (const e of fleet) {
-    const name = e.is_main ? "(main)" : (e.id ?? e.branch ?? basename(e.path));
-    const state = e.broken === true ? "broken" : e.git_unavailable === true
-      // Unknown is unknown — never rendered as "clean".
-      ? "unreadable"
-      : e.clean === true
-      ? "clean"
-      : `${e.changed_files} changed`;
-    const counts = e.is_main
-      ? "—"
-      : e.ahead === undefined
-      ? "?/?"
-      : `${e.ahead}/${e.behind}`;
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
-    out.raw(
-      `  ${trunc(name, 19).padEnd(20)}${
-        trunc(e.branch || "(detached)", 23).padEnd(24)
-      }${state.padEnd(12)}${counts.padEnd(13)}${
-        relativeAge(e.last_activity)
-      }${you}\n`,
-    );
+    out.raw(`  ${line((col) => col.value(e))}${you}\n`);
   }
+
   // The ownership framing for humans (the agent-facing form is the --json-only hint):
   // only when the survey holds a line of work other than the current one.
   if (fleet.some((e) => !e.is_main && !e.is_current)) {
