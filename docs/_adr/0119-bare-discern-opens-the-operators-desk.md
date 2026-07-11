@@ -38,9 +38,8 @@ verb is what tests, docs plumbing, and parity guards see.
   otherwise. Pipes, CI, and `--json` get byte-identical help exactly as before.
   There is deliberately NO detection of agent environment markers: the repo's
   convention is no vendor/framework sniffing outside explicit vendor-integration
-  territory, and TTY-ness is the honest signal. `discern
-  desk` invoked without
-  a TTY (or with `--json`) refuses with a structured `not_interactive` result
+  territory, and TTY-ness is the honest signal. `discern desk` invoked without a
+  TTY (or with `--json`) refuses with a structured `interactive_only` result
   pointing at `status`.
 - **Pre-setup behaviour is untouched.** The desk sits strictly behind the
   existing welcome/help split: only after `shouldWelcomeBare` declines does the
@@ -72,10 +71,10 @@ verb is what tests, docs plumbing, and parity guards see.
   same reason — it wields human supervisory actions no agent should reach).
 - An agent that runs bare `discern` in a harness that allocates a PTY would see
   the desk instead of help. Accepted residual: the desk is read-only until a
-  human presses a key, quits on `q`/escape, and every mutation sits behind a
-  confirm — an agent that wanders in can only leave or deliberately act, and an
-  agent deliberately acting through the desk is no more empowered than one
-  running the underlying verbs it already has.
+  human presses a key, quits on Ctrl-C or its Quit entry, and every mutation
+  sits behind a confirm — an agent that wanders in can only leave or
+  deliberately act, and an agent deliberately acting through the desk is no more
+  empowered than one running the underlying verbs it already has.
 - The v0 desk is a prompt-flow (list → pick → act → loop), not a persistent
   alt-screen application. If living with it proves the sessions are ambient
   rather than transactional, a render-loop upgrade is additive and changes no
