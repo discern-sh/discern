@@ -99,6 +99,91 @@ Deno.test("scopes emits ONLY declared SCOPE_MARKERS alongside the configured sco
   });
 });
 
+// The CLASS guard for B27: "a marker derived from a filtered view when its
+// contract is defined over the unfiltered set". The `previewable` marker's
+// contract is "a previewable-flagged scope changed" — a property of the
+// previewable flag ALONE, independent of the neutral flag. It used to be read
+// off `fired`, computed over NON-neutral scopes only, so a scope that was both
+// neutral AND previewable changed without ever lighting the marker. This drives
+// the full cross-product of the two flags off one table and asserts the marker
+// tracks `previewable` at every neutral setting — so re-filtering the marker's
+// input by any other flag re-breaks it here. The neutral+previewable row is the
+// case the pre-fix derivation dropped.
+Deno.test("previewable marker tracks the previewable flag at every neutral setting", async (t) => {
+  const cases: {
+    neutral: boolean;
+    previewable: boolean;
+    wantPreviewable: boolean;
+    wantCode: boolean;
+  }[] = [
+    // previewable, non-neutral: the ordinary human-visible gated scope.
+    {
+      neutral: false,
+      previewable: true,
+      wantPreviewable: true,
+      wantCode: true,
+    },
+    // previewable AND neutral: fires no gate, but a person can still see it —
+    // the marker MUST light (the regression this guard exists for).
+    {
+      neutral: true,
+      previewable: true,
+      wantPreviewable: true,
+      wantCode: false,
+    },
+    // not previewable: the marker must stay dark whether neutral or not.
+    {
+      neutral: false,
+      previewable: false,
+      wantPreviewable: false,
+      wantCode: true,
+    },
+    {
+      neutral: true,
+      previewable: false,
+      wantPreviewable: false,
+      wantCode: false,
+    },
+  ];
+  for (const c of cases) {
+    const name = `neutral=${c.neutral} previewable=${c.previewable}`;
+    await t.step(name, async () => {
+      await withTempDir(async (dir) => {
+        await scaffoldEngine(dir);
+        await writeConfig(
+          dir,
+          [
+            "[project]",
+            'slug = "engine-test"',
+            'main_branch = "main"',
+            "",
+            "[scopes.zone]",
+            'paths = ["zone/**"]',
+            ...(c.neutral ? ["neutral = true"] : []),
+            ...(c.previewable ? ["previewable = true"] : []),
+            "",
+          ].join("\n"),
+        );
+        await gitInit(dir);
+        await writeExecutable(join(dir, "zone/x.txt"), "x");
+
+        const result = await classifyScopes(dir);
+        assertEquals(
+          result.includes(PREVIEWABLE_MARKER),
+          c.wantPreviewable,
+          `${name}: previewable marker — got [${result}]`,
+        );
+        // Guard against over-firing: a neutral change must never count as code.
+        assertEquals(
+          result.includes(CODE_MARKER),
+          c.wantCode,
+          `${name}: code marker — got [${result}]`,
+        );
+      });
+    });
+  }
+});
+
 Deno.test("scopes: a rename OUT of a gated scope still fires the vacated scope", async (t) => {
   // A rename is a deletion from the old scope plus an addition elsewhere. Dropping
   // the vacated (old) path would run FEWER gates than a plain deletion of the same
