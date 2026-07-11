@@ -683,7 +683,8 @@ async function resolveProjectState(): Promise<ProjectState> {
 }
 
 /**
- * Whether a bare `discern` (no verb) should print the setup WELCOME rather than help.
+ * Whether a verbless `discern` (bare, or global flags alone) should print the
+ * setup WELCOME rather than help.
  * In a project: whenever setup is still outstanding (the resume path). Not in a
  * project: always — including outside a git work tree. That last case was once
  * restricted "to avoid touching a stray dir", but the welcome writes nothing, so
@@ -717,14 +718,78 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   ...KNOWN_ENGINE_VERBS,
 ]);
 
+/** A parsed CLI invocation: the verb Cliffy will dispatch, and the argv left
+ * for a non-Cliffy dispatch target (a project recipe) once that verb token is
+ * removed — leading global flags preserved, in order. */
+export interface CliInvocation {
+  verb: string | undefined;
+  argsWithoutVerb: string[];
+}
+
+/**
+ * Resolve the verb a raw argv addresses the way Cliffy will: the FIRST token
+ * that is not one of the root command's global flags. Cliffy accepts global
+ * flags on either side of the subcommand (`discern --json docs` ≡
+ * `discern docs --json`), so every pre-Cliffy routing decision — the setup
+ * redirect (ADR 0036), the welcome/help split, shadow warnings, recipe
+ * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
+ * flag smuggles the invocation past the router and straight into Cliffy.
+ *
+ * Only KNOWN global flags are skipped: an unknown leading flag stays the
+ * "verb" so it falls through to Cliffy, which owns the unknown-option error.
+ */
+export function resolveInvocation(
+  argv: readonly string[],
+  globalFlags: ReadonlySet<string>,
+): CliInvocation {
+  let i = 0;
+  while (i < argv.length) {
+    const token = argv[i];
+    if (token === undefined || !globalFlags.has(token)) {
+      break;
+    }
+    i++;
+  }
+  const verb = argv[i];
+  return {
+    verb,
+    argsWithoutVerb: verb === undefined
+      ? [...argv]
+      : [...argv.slice(0, i), ...argv.slice(i + 1)],
+  };
+}
+
+/**
+ * The root command's global flag tokens, read from the Cliffy registration
+ * itself so {@link resolveInvocation}'s flag-skipping can never drift from
+ * what Cliffy actually accepts before a subcommand. Every global flag must be
+ * a valueless boolean — a value-taking one would need lookahead here, which
+ * `tests/engine_flag_first_test.ts` enforces structurally.
+ */
+export function globalFlagTokens(root: Command): ReadonlySet<string> {
+  const tokens = new Set<string>();
+  for (const option of root.getOptions(true)) {
+    if (option.global === true) {
+      for (const flag of option.flags) {
+        tokens.add(flag);
+      }
+    }
+  }
+  return tokens;
+}
+
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
   const argv = args;
-  const verb = argv[0];
+  // The raw first token — helper dispatch below is deliberately positional,
+  // and it names the attempted verb in a pre-resolution config error.
+  let verb = argv[0];
 
   try {
     // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
-    // before Cliffy so a wrapped command's flags pass through raw.
+    // before Cliffy so a wrapped command's flags pass through raw. Keyed on the
+    // FIRST token on purpose — helpers are internal plumbing always invoked
+    // verb-first, and everything after the helper name must reach it untouched.
     if (verb !== undefined) {
       const helperCode = await dispatchHelper(verb, argv.slice(1));
       if (helperCode !== null) {
@@ -736,34 +801,44 @@ export async function main(args: string[]): Promise<void> {
     // redirect/self-hiding know whether setup is still outstanding.
     const { inProject, configOk, bootstrapped } = await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
+    const cli = buildCli(hideSetup);
 
-    // Bare `discern`: pre-setup, this prints the read-only WELCOME — the install
-    // message tells the user to "tell your coding agent to run discern" (ADR 0036),
-    // and the welcome dual-addresses both readers and funnels the agent into the
-    // staged handshake (ADR 0075). It writes nothing, so it shows even in a non-git
-    // directory (leading with the git-init step); once the project is set up, bare
-    // `discern` falls through to help.
+    // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
+    // verb the way Cliffy will — the first non-global-flag token — and key
+    // every routing decision below on it. Keying on argv[0] would let
+    // `discern --json docs` slip past the setup redirect that catches
+    // `discern docs --json`.
+    const invocation = resolveInvocation(
+      argv,
+      globalFlagTokens(cli as unknown as Command),
+    );
+    verb = invocation.verb;
+
+    // No verb (bare `discern`, or global flags alone): pre-setup, this prints
+    // the read-only WELCOME — the install message tells the user to "tell your
+    // coding agent to run discern" (ADR 0036), and the welcome dual-addresses
+    // both readers and funnels the agent into the staged handshake (ADR 0075).
+    // It writes nothing, so it shows even in a non-git directory (leading with
+    // the git-init step); once the project is set up, it falls through to help.
     if (verb === undefined) {
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(
           await runSetupWelcome({
-            json: false,
-            noColor: noColorFrom(undefined),
+            json: argv.includes("--json"),
+            noColor: noColorFrom(
+              argv.includes("--no-color") ? false : undefined,
+            ),
           }),
         );
       }
-      console.log(
-        operatorHelp(buildCli(hideSetup) as unknown as Command),
-      );
+      console.log(operatorHelp(cli as unknown as Command));
       await printProjectRecipes();
       Deno.exit(0);
     }
 
     // Explicit help: Cliffy's help plus the project-recipe listing.
     if (verb === "-h" || verb === "--help") {
-      console.log(
-        operatorHelp(buildCli(hideSetup) as unknown as Command),
-      );
+      console.log(operatorHelp(cli as unknown as Command));
       await printProjectRecipes();
       Deno.exit(0);
     }
@@ -798,12 +873,16 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
-    // project-owned executable recipe, or an "unknown recipe" suggestion.
+    // project-owned executable recipe, or an "unknown recipe" suggestion. The
+    // recipe receives the rest of argv verbatim — a leading global flag included,
+    // exactly as if it had been passed after the recipe name.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
-      Deno.exit(await dispatchRecipeOrSuggest(verb, argv.slice(1)));
+      Deno.exit(
+        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb),
+      );
     }
 
-    await buildCli(hideSetup).parse(argv);
+    await cli.parse(argv);
   } catch (err) {
     // An unparseable or schema-invalid discern.toml must read as a clean
     // diagnostic, not a raw stack trace — in both human and `--json` modes (a
