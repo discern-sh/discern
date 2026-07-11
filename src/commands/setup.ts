@@ -322,16 +322,24 @@ function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
 }
 
 /**
- * Detect the repository's real integration branch for the scaffold to stamp: the
- * remote's declared default (`origin/HEAD`) wins, then the branch checked out
- * when setup started — so this must run BEFORE the `discern-setup` checkout —
- * then the user's configured `init.defaultBranch` (a tiebreaker for a detached
- * HEAD only: vendor builds bake a default into it — Apple's git ships
- * `init.defaultBranch = main` in an unmaskable baked-in config — so consulting
- * it ahead of the checked-out branch would stamp `main` on every macOS `master`
- * repo, the exact bug this detection exists to fix). Undefined outside a git
- * repo, when every probe comes back empty, or when the current branch is already
- * `discern-setup` (a resume — never an integration branch).
+ * Detect the repository's real integration branch for the scaffold to stamp, in
+ * descending order of reliability:
+ *   1. the remote's declared default (`origin/HEAD`);
+ *   2. the branch checked out when setup started — so this must run BEFORE the
+ *      `discern-setup` checkout;
+ *   3. when setup STARTED on `discern-setup` (a retry after a first attempt created
+ *      the branch and then failed pre-config), the branch that `discern-setup` was
+ *      forked from, recovered from the actual local branches
+ *      ({@link forkParentBranch}) — the checked-out branch can't answer here, and
+ *      falling straight to `init.defaultBranch` would stamp `main` on a `master` repo;
+ *   4. only as a last resort, the user's configured `init.defaultBranch` — a
+ *      detached-HEAD-with-no-branches tiebreaker. Vendor builds bake a default into it
+ *      (Apple's git ships `init.defaultBranch = main` in an unmaskable config), so
+ *      consulting it ahead of the real branches would stamp `main` on every macOS
+ *      `master` repo — the exact bug this detection exists to fix, in both its
+ *      first-run and its retry-on-`discern-setup` forms.
+ *
+ * Undefined outside a git repo or when every probe comes back empty.
  */
 async function detectIntegrationBranch(
   destDir: string,
@@ -362,11 +370,61 @@ async function detectIntegrationBranch(
   if (current !== "" && current !== SETUP_BRANCH) {
     return current;
   }
+  // Started ON discern-setup (a retry): recover the branch it was forked from from
+  // the actual repo branches, rather than trusting the vendor-baked init default.
+  if (current === SETUP_BRANCH) {
+    const forkParent = await forkParentBranch(destDir);
+    if (forkParent !== undefined) {
+      return forkParent;
+    }
+  }
   const configured =
     (await runGit(["config", "init.defaultBranch"], { cwd: destDir })).stdout
       .trim();
   if (configured !== "") {
     return configured;
+  }
+  return undefined;
+}
+
+/**
+ * The local branch `discern-setup` was forked from, recovered for the retry case
+ * where setup re-runs while already checked out on `discern-setup` (a first attempt
+ * created the branch and then failed before writing the config). `ensureSetupBranch`
+ * forks `discern-setup` from the integration branch, so that branch is an ANCESTOR of
+ * `discern-setup`'s tip (identical to it when the failed run made no commits). Among
+ * the local branches that are ancestors of `discern-setup`, the closest fork point is
+ * the one with the most recent commit — the integration branch — so return the newest
+ * such branch. Undefined when no other local branch qualifies (a lone `discern-setup`),
+ * leaving the caller to fall back to `init.defaultBranch`.
+ */
+async function forkParentBranch(destDir: string): Promise<string | undefined> {
+  // Local branch names, newest commit first, so the first qualifying ancestor is the
+  // closest fork point. `for-each-ref` lists ref NAMES (not tracked-file paths), so
+  // git's path quoting never applies — no `-z` decode needed.
+  const refs = await runGit(
+    [
+      "for-each-ref",
+      "--sort=-committerdate",
+      "--format=%(refname:short)",
+      "refs/heads",
+    ],
+    { cwd: destDir },
+  );
+  if (!refs.success) {
+    return undefined;
+  }
+  for (const branch of refs.stdout.split("\n").map((l) => l.trim())) {
+    if (branch === "" || branch === SETUP_BRANCH) {
+      continue;
+    }
+    const isAncestor = await runGit(
+      ["merge-base", "--is-ancestor", branch, SETUP_BRANCH],
+      { cwd: destDir },
+    );
+    if (isAncestor.success) {
+      return branch;
+    }
   }
   return undefined;
 }

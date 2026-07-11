@@ -705,3 +705,71 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
     );
   });
 });
+
+Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real integration branch, not init.defaultBranch", async () => {
+  await withTempDir(async (dir) => {
+    await repoOnBranch(dir, "master");
+    // Simulate a vendored git baking init.defaultBranch=main (Apple's git ships this
+    // unmaskable): the wrong stamp for a master repo, and the value the old fallthrough
+    // reached for once HEAD was discern-setup.
+    await git(dir, "config", "init.defaultBranch", "main");
+
+    // First begin fails PRE-CONFIG on an invalid --slug — but only AFTER
+    // ensureSetupBranch created and checked out discern-setup (the slug is rejected in
+    // resolveSetupConfig, inside scaffoldHarness, which runs after the checkout). So the
+    // retry below starts life ON discern-setup with no config written.
+    const first = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--slug",
+      "Invalid Slug!!",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(first.code, 1, first.output);
+    assertEquals(JSON.parse(first.stdout).error, "invalid_option");
+    assertEquals(
+      await gitOut(dir, "branch", "--show-current"),
+      "discern-setup",
+      "precondition: the failed first run left us on the setup branch",
+    );
+    assert(
+      !(await exists(join(dir, "discern.toml"))),
+      "precondition: nothing was written before the pre-config failure",
+    );
+
+    // Retry with a valid slug. Detection can no longer read the original branch from
+    // HEAD (it is discern-setup); it must recover the fork parent (master) from the
+    // actual branches rather than stamping init.defaultBranch's `main`.
+    const re = await runAgent(dir, [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--json",
+      "--slug",
+      "valid-slug",
+      "--agents",
+      "claude_code",
+    ]);
+    assertEquals(re.code, 0, re.output);
+
+    // Convergence: the stamped integration branch is master — exactly what a clean
+    // first run on this repo stamps. The pre-fix code stamps `main` here, silently
+    // disarming the gate's behind-main merge check and dead-ending `setup land`.
+    const conv = await readConvergence(dir);
+    assertEquals(
+      conv.mainBranch,
+      "master",
+      `a retry on discern-setup must stamp the real integration branch, not ` +
+        `init.defaultBranch; stamped ${conv.mainBranch}`,
+    );
+
+    // End to end: land works onto the recovered branch (it would dead-end on a wrong
+    // `main` stamp that does not exist locally).
+    const land = await runAgent(dir, ["setup", "land"]);
+    assertEquals(land.code, 0, land.output);
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
+  });
+});
