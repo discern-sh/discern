@@ -84,6 +84,19 @@ Deno.test("the plaintext edition file backs the negotiation", () => {
   assert(stat.isFile);
 });
 
+Deno.test("the production entrypoint serves the same handler via Deno.serve", async () => {
+  // Deno Deploy runs the entrypoint with `deno run` and waits for a server to
+  // bind, so site/main.ts — not serve.ts's bare `{ fetch }` export — is what
+  // production runs. Guard that it stays a Deno.serve over this same handler,
+  // so the entrypoint can't silently drift or be dropped.
+  const main = await Deno.readTextFile(
+    new URL("../site/main.ts", import.meta.url),
+  );
+  assertStringIncludes(main, 'from "./serve.ts"');
+  assertStringIncludes(main, "Deno.serve(");
+  assertStringIncludes(main, "handler");
+});
+
 Deno.test("unknown paths 404 in the reader's own format", async () => {
   const asHtml = await get("/no-such-page", BROWSER);
   assertEquals(asHtml.status, 404);

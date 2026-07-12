@@ -6,11 +6,13 @@
  * unconditionally.
  *
  * The same handler runs everywhere, which is the parity guarantee:
- *   locally      `deno task site`   (`deno serve` on port 4507)
- *   production   Deno Deploy        (this file is the entrypoint)
+ *   locally      `deno task site`   (`deno serve` consumes the default export)
+ *   production   Deno Deploy runs `main.ts`, a `Deno.serve` over this handler
  *
- * Both consume the default `{ fetch }` export — there is no separate local
- * server path.
+ * The new Deno Deploy runs an entrypoint with `deno run`, which won't start a
+ * server from a bare `{ fetch }` export — so `main.ts` binds the port. There is
+ * still no separate handler: both paths serve the export at the foot of this
+ * file.
  */
 
 import { docsLlmsSection, loadDocsSite, serveDocs } from "./docs.ts";
