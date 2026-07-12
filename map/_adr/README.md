@@ -136,6 +136,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0125 — An explicit `[guidance] agents = []` means no agents](0125-explicit-empty-agents-means-no-agents.md)
 - [0126 — Internal ADR citations never ship](0126-no-adr-citations-in-shipped-strings.md)
 - [0127 — Map freshness ships file-linked facts, not verdicts](0127-map-freshness-ships-file-facts.md)
+- [0128 — The ignore block enumerates ownership; compiled guidance is tracked](0128-enumerated-ownership-tracked-guidance.md)
 
 ## Superseded and consolidated ADRs
 
