@@ -3,44 +3,32 @@
 _The Deno/TypeScript CLI that scaffolds discern into a project and keeps it
 upgradable._
 
-This subtree covers the scaffolding face of discern under [`src/`](../../src/) —
-the [`commands/`](../../src/commands/) and [`lib/`](../../src/lib/) that drive
-an install (the [Engine](../00-orientation/glossary.md#engine) under
-[`src/engine/`](../../src/engine/) is the run-time half). The **Installer** lays
-down the seed and Skill files bundled into the binary (their source is
-[`templates/`](../../templates/)) and writes **discern** into a project, then
-refreshes it over time **without clobbering** the files you own. It compiles to
-standalone binaries in `dist/` via `deno task build`; an installed project never
-needs Deno.
+This subtree covers discern's scaffolding code under [`src/`](../../src/): the
+[`commands/`](../../src/commands/) and [`lib/`](../../src/lib/) that drive an
+install. The [Engine](../00-orientation/glossary.md#engine) under
+[`src/engine/`](../../src/engine/) is the run-time half. The **Installer**
+writes the bundled seeds from [`templates/`](../../templates/) into a project,
+then refreshes binary-owned files **without clobbering** yours. It compiles to
+standalone binaries in `dist/`; installed projects do not need Deno.
 
-The command surface is five installer verbs: `setup` (the staged, zero-config
-scaffold handshake — welcome → verify → begin → done), `upgrade` (run pending
-migrations, re-materialize Skills, reconcile the fixed `discern.toml` scaffold,
-and recompile guidance), `doctor` (verify an install and report pending Schema
-steps), `config` (comment-preserving `discern.toml` edits), and `preset`
-(overlay a reusable preset). Routing lives in [`main.ts`](../../src/main.ts);
-each verb's logic is in `src/commands/`.
+Five installer verbs form the surface: `setup` (welcome → verify → begin →
+done), `upgrade` (migrate and refresh), `doctor` (verify the install), `config`
+(comment-preserving `discern.toml` edits), and `preset` (apply a reusable
+preset). [`main.ts`](../../src/main.ts) routes them to `src/commands/`.
 
-Each human touchpoint of the handshake **serves a pre-composed, first-person
-_message to your human_** the agent relays — the consent conversation at
-`verify`, the started moment at `begin`, and the completion summary at `done` —
-so a terse agent that only couriers discern's words still delivers a complete
-first experience (rewording into the agent's own voice is allowed; dropping a
-point is not). A fresh `setup begin` requires an explicit **`--confirmed`**
-attestation that the consent conversation happened; without it — and outside the
-declarative `--config` / `--allow-dirty` paths and the write-nothing `--dry-run`
-preview — `begin` refuses before writing anything and re-serves that same
-consent message
+Each handshake touchpoint serves a first-person message for the agent to relay:
+consent at `verify`, the started moment at `begin`, and completion at `done`.
+Even an agent acting only as courier therefore delivers the full experience; it
+may reword, but not drop, a point. A fresh `setup begin` requires a
+**`--confirmed`** attestation that consent happened. Without it — outside the
+declarative `--config` / `--allow-dirty` paths and write-nothing `--dry-run` —
+`begin` writes nothing and re-serves the consent message
 ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
-`setup done` then closes the handshake: it refuses while any tracked change or
-untracked authored-setup file sits uncommitted (the proof runs on committed
-history; untracked files outside the setup footprint — an env file with secrets
-— never block), then proves the gate — `refresh → doctor →
-finish` in the main
-checkout, then a **throwaway worktree probe** that branches from the
-now-complete HEAD and runs the gate in a copy, so a project that passes here but
-breaks in a worktree (an env-anchored app whose untracked `.env` or dependency
-dir never travels) cannot complete setup silently
+`setup done` closes the handshake. It first requires committed setup work;
+untracked files outside that footprint, such as a secret-bearing env file, do
+not block. It then proves `refresh → doctor → done` in the main checkout and
+repeats the gate in a **throwaway worktree** from the same HEAD. A project that
+works here but breaks in a copy therefore cannot complete setup silently
 ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 The ideas worth understanding here: the **disposition**-driven scaffold, with
@@ -57,9 +45,8 @@ into this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md) —
 the `14 → 15` step gathered the authored surface into the visible `discern/`
 [Namespace](../00-orientation/glossary.md#namespace) —
 [ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
-`upgrade` validates the migrated config before stamping that schema, and
-`upgrade` refuse a config stamped by a newer binary rather than silently
-downgrading it
+`upgrade` validates the migrated config before stamping that schema, and refuses
+a config stamped by a newer binary rather than silently downgrading it
 ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). The
 config-scaffold reconciliation is separate from behaviour-changing migrations:
 it is additive and only-if-absent, and is recorded in
