@@ -188,8 +188,9 @@ _Product positioning, messaging, and launch/content tasks._
       go public. Consider a `curl`-pipe installer as the secondary path for the
       `/start` audience, who often lack Homebrew. Evidence: `site/pages/*.html`,
       `site/text/discern.txt`.
-- [ ] **Site launch: create the Deno Deploy project and point DNS.** One-time
-      account/DNS work only the maintainer can do; the steps are written up in
+- [ ] **Site launch: create the Deno Deploy org + app and point DNS.** One-time
+      account/DNS work only the maintainer can do, on the new `console.deno.com`
+      (Deploy Classic shuts down 2026-07-20); the steps are written up in
       `map/90-site/publishing.md`.
 - [ ] **Regenerate the homepage receipt at deploy time.** The `/` receipt
       section bakes numbers from a real `discern done` run recorded at build

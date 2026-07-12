@@ -12,6 +12,7 @@ Everything lives under [`site/`](../../site/):
 | Piece                                                  | Role                                                                      |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [`site/serve.ts`](../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
+| [`site/main.ts`](../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/docs.ts`](../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/pages/`](../../site/pages/)                     | The HTML editions, one self-contained file per page.                      |
 | [`site/text/discern.txt`](../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
