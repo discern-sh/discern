@@ -12,18 +12,21 @@ Everything lives under [`site/`](../../site/):
 | Piece                                                  | Role                                                                      |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [`site/serve.ts`](../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
+| [`site/docs.ts`](../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/pages/`](../../site/pages/)                     | The HTML editions, one self-contained file per page.                      |
 | [`site/text/discern.txt`](../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
 
 The routes, from the handler's exported `PAGES` table:
 
-| Route       | Page                        | Text client receives                    |
-| ----------- | --------------------------- | --------------------------------------- |
-| `/`         | the engineers edition       | the plaintext edition                   |
-| `/agents`   | the agent's manual          | the plaintext edition                   |
-| `/start`    | the prompt-builders edition | the same HTML                           |
-| `/careers`  | the careers page            | the same HTML                           |
-| `/llms.txt` | —                           | the plaintext edition, for every reader |
+| Route       | Page                        | Text client receives                     |
+| ----------- | --------------------------- | ---------------------------------------- |
+| `/`         | the engineers edition       | the plaintext edition                    |
+| `/agents`   | the agent's manual          | the plaintext edition                    |
+| `/start`    | the prompt-builders edition | the same HTML                            |
+| `/careers`  | the careers page            | the same HTML                            |
+| `/docs/…`   | the rendered manual         | the page's raw Markdown                  |
+| `/llms.txt` | —                           | the plaintext edition plus a docs index, |
+|             |                             | for every reader                         |
 
 ## Reader negotiation
 
@@ -40,7 +43,10 @@ Negotiated responses carry `Vary: Accept, User-Agent`.
 exported `PAGES` table — every declared route must serve its page, negotiable
 routes must serve the plaintext edition to text clients, and the plaintext file
 itself must exist. A page added to the table auto-enrols; a route without its
-file fails the gate.
+file fails the gate. [`tests/site_docs_test.ts`](../../tests/site_docs_test.ts)
+does the same for the docs section by iterating the discovered tree — rendering,
+negotiation, search-index and llms.txt coverage, and link integrity all
+auto-enrol a new map leaf.
 
 ## Operating it
 

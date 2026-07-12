@@ -11,8 +11,8 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { handler } from "../site/serve.ts";
 import {
-  type DocsPage,
   docsLlmsSection,
+  type DocsPage,
   loadDocsSite,
   rewriteLinks,
   sectionSlugOf,

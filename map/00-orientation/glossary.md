@@ -68,7 +68,12 @@ own documentation, which discern never touches; pointing `[map].dir` at existing
 docs is deliberate consent to apply the map discipline there. This repo uses the
 root `map/` default. `setup begin` scaffolds it eagerly and the setup authoring
 pass fills it — a blank map is worse than none
-([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). Listing surfaces
+(`discern map --json`, `discern help`) describe each leaf with a title derived
+from its first heading and a one-line description derived from its lead
+paragraph; a leaf may open with optional frontmatter (`title`, `description`,
+`order`, `publish`) to override a derived value when the derivation reads poorly
+([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)).
 
 ### Engine
 
