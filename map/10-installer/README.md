@@ -116,6 +116,9 @@ Edit the schema, not the generated files.
 - [what-discern-writes.md](what-discern-writes.md) — the whole footprint (what
   discern creates, merges into, and keeps), what runs on your machine, and how
   `discern uninstall` removes it.
+- [artifact-ownership.md](artifact-ownership.md) — the per-kind posture behind
+  the managed `.gitignore` block: compiled guidance tracked, materialized and
+  machine-local artifacts ignored.
 - [faq.md](faq.md) — common questions and troubleshooting, fronted by
   `discern doctor`.
 
