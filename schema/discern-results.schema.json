@@ -3694,6 +3694,62 @@
                     ]
                   }
                 },
+                "regions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "page_count": {
+                        "type": "number"
+                      },
+                      "staleness": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "behind",
+                              "unknown"
+                            ]
+                          },
+                          "pages_changed_at": {
+                            "type": "string"
+                          },
+                          "code_changes_since": {
+                            "type": "number"
+                          },
+                          "code_paths": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "code_paths"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "title",
+                      "description",
+                      "page_count",
+                      "staleness"
+                    ]
+                  }
+                },
                 "doc": {
                   "type": "object",
                   "properties": {
@@ -4041,6 +4097,62 @@
                       "section",
                       "slug",
                       "title"
+                    ]
+                  }
+                },
+                "regions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "page_count": {
+                        "type": "number"
+                      },
+                      "staleness": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "behind",
+                              "unknown"
+                            ]
+                          },
+                          "pages_changed_at": {
+                            "type": "string"
+                          },
+                          "code_changes_since": {
+                            "type": "number"
+                          },
+                          "code_paths": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "code_paths"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "title",
+                      "description",
+                      "page_count",
+                      "staleness"
                     ]
                   }
                 },
@@ -5592,6 +5704,21 @@
                     },
                     "why": {
                       "type": "string"
+                    },
+                    "against": {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string"
+                        },
+                        "excerpt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "excerpt"
+                      ]
                     }
                   },
                   "required": [
