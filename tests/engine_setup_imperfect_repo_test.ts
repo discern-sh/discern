@@ -286,7 +286,7 @@ Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a l
     const res = JSON.parse(r.stdout);
     assertEquals(res.error, "invalid_option");
     assertStringIncludes(res.message, "placeholder");
-    assertStringIncludes(res.message, "--map docs/");
+    assertStringIncludes(res.message, "--map notes/map/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
     assert(!(await exists(join(dir, "<their-docs-path>"))));
     assert(!(await exists(join(dir, "discern.toml"))));

@@ -30,17 +30,17 @@ discern serves a first-person **consent message** the agent relays verbatim (or
 in its own words) — it tells you, plainly:
 
 - what discern will write (one `discern.toml`, a visible `discern/` namespace
-  for your guidance and docs, the agent files each coding agent needs, a
-  delimited `.gitignore` block);
-- that there is **no lock-in** — the namespace is plain Markdown you own, the
-  generated files can always be rebuilt from it, and `discern uninstall` takes
-  the wiring back out;
-- one real question: should discern manage a **fresh docs tree** at `map/`, or
-  adopt your project's **existing docs** directory?
+  for your guidance, the map at `map/`, the agent files each coding agent needs,
+  a delimited `.gitignore` block);
+- that there is **no lock-in** — everything authored is plain Markdown you own,
+  the generated files can always be rebuilt from it, and `discern uninstall`
+  takes the wiring back out;
+- and, if your project has its own `docs/` folder, reassurance that it stays
+  untouched: the map is discern's own separate tree, never your documentation.
 
-You answer in plain language — _"yes, go ahead; use a fresh docs tree; set up
-Claude Code and Codex."_ The agent doesn't proceed until you've said yes; a
-fresh setup requires the agent to attest that this conversation happened.
+You answer in plain language — _"yes, go ahead; set up Claude Code and Codex."_
+The agent doesn't proceed until you've said yes; a fresh setup requires the
+agent to attest that this conversation happened.
 
 ## 3. The agent scaffolds
 
@@ -49,7 +49,7 @@ isolated `discern-setup` branch so your `main` is never touched mid-setup — an
 it starts that branch **from** your trunk — the shared landing branch, usually
 `main` — refusing to begin from an unlanded feature branch (whose own commits
 would otherwise ride along when the setup accepts). It lays down the scaffold —
-`discern.toml`, the `discern/` namespace, the docs skeleton — records a short
+`discern.toml`, the `discern/` namespace, the map skeleton — records a short
 brief of what you're building, and prints a **setup brief** the agent then works
 through: wiring the gate commands for your stack first — so the project is
 protected before anything else happens — then filling in your guidance and

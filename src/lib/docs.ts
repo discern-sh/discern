@@ -53,7 +53,8 @@ export interface DocEntry {
   order?: number | undefined;
 }
 
-/** The indexed docs tree for one project. */
+/** An indexed tree of Markdown documents — the project map, or discern's own
+ * bundled manual (`help` browses with the same machinery). */
 export interface DocsTree {
   /** The docs dir's parent (paths in `entries` are relative to this). */
   root: string;
@@ -202,9 +203,9 @@ function internalAdmits(
 }
 
 /**
- * Index the project's docs tree. Returns undefined when no docs directory
- * exists (the caller turns that into a friendly "nothing to browse" message).
- * `dir` overrides the default `[map].dir` location.
+ * Index a documentation tree — the project map by default. Returns undefined
+ * when no such directory exists (the caller turns that into a friendly
+ * "nothing to browse" message). `dir` overrides the default `[map].dir` location.
  *
  * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
  * are excluded by default — the browser shows only the user-facing tree.

@@ -5,6 +5,12 @@
 > default from `discern/docs/` to `map/`. The map identity and consent reasoning
 > are unchanged; the prior-path alternatives below remain historical.
 
+> **Amendment ([ADR 0131](0131-setup-never-adopts-existing-docs.md)):** The
+> setup consent question offering to point `[map].dir` at existing docs is
+> retired — setup reassures that an existing `docs/` folder stays untouched and
+> never offers adoption. Pointing the map at real documentation remains a
+> deliberate config act; it is simply never suggested.
+
 **Status**: accepted; builds on
 [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md);
 extends [ADR 0080](0080-configured-agent-map-root.md)

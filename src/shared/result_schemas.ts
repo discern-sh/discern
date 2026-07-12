@@ -793,8 +793,8 @@ export type SetupVerifyConflict = z.infer<typeof SetupVerifyConflictSchema>;
 /**
  * The grounded, read-only findings `verify` reports about THIS repo — the machine lane
  * of the preflight. The consent conversation itself never rides these fields; it stays
- * in the `guidance` prose. A new finding (e.g. a docs-tree-under-another-name
- * detection) enrolls HERE, so the schema and the real output can't drift (ADR 0041).
+ * in the `guidance` prose. A new finding (e.g. a new repo probe) enrolls HERE,
+ * so the schema and the real output can't drift (ADR 0041).
  */
 export const SetupVerifyFindingsSchema = z.strictObject({
   git: z.strictObject({

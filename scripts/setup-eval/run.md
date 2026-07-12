@@ -36,8 +36,8 @@ deno task setup-eval:fixture -- --flavor node
 ```
 
 The command prints the fixture path. Keep that path as `FIXTURE` for the runner.
-Fixtures include an existing `docs/` tree by default so the docs-home consent
-question is graded. Add `--no-docs` only for a focused no-docs variant.
+Fixtures include an existing `docs/` folder by default so the existing-docs
+reassurance is graded. Add `--no-docs` only for a focused no-docs variant.
 
 ## Discern Checkout
 
@@ -95,8 +95,7 @@ scripts/setup-eval/run-claude.sh \
   --phase continue \
   --result-dir "$RESULT_DIR" \
   --agent-model "$CLAUDE_MODEL" \
-  --model-id "$CLAUDE_MODEL" \
-  --map-answer docs/discern/
+  --model-id "$CLAUDE_MODEL"
 ```
 
 The continuation invocation is:
@@ -136,8 +135,7 @@ scripts/setup-eval/run-codex.sh \
   --phase continue \
   --result-dir "$RESULT_DIR" \
   --agent-model "$CODEX_MODEL" \
-  --model-id "$CODEX_MODEL" \
-  --map-answer docs/discern/
+  --model-id "$CODEX_MODEL"
 ```
 
 The continuation invocation is:

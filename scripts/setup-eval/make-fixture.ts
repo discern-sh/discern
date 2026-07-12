@@ -41,7 +41,7 @@ Options:
   --flavor <deno|node>   Fixture stack to create (default: deno)
   --flavour <deno|node>  Alias for --flavor
   --dir <path>           Create the fixture in this empty directory instead of a temp dir
-  --with-docs            Include an existing docs/ tree (default)
+  --with-docs            Include an existing docs/ folder (default)
   --no-docs              Omit docs/
   --json                 Print machine-readable output
   -h, --help             Show this help
@@ -170,7 +170,7 @@ Stack: ${flavor}
       "docs/README.md",
       `# Project Notes
 
-This existing docs tree represents human-written project notes. The setup eval
+This docs/ folder holds human-written project notes. The setup eval
 checks whether the agent keeps it separate from discern's agent documentation.
 `,
     );
@@ -316,7 +316,7 @@ function printHuman(result: FixtureResult): void {
 Initial branch:
   ${result.branch}
 
-Existing docs tree:
+Existing docs/ folder:
   ${result.docs ?? "(none)"}
 
 Sanity check:

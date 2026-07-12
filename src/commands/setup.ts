@@ -903,8 +903,8 @@ async function recordProvenance(
 }
 
 /**
- * Phase 2 — lay the doc skeletons under `root`, non-destructively. The docs tree
- * is all-or-nothing: skipped entirely when the configured docs dir already
+ * Phase 2 — lay the doc skeletons under `root`, non-destructively. The map tree
+ * is all-or-nothing: skipped entirely when the configured map dir already
  * exists, so an existing tree is never mixed with the skeleton shape. The
  * deferred-work ledger (`[project].todo`) is an independent single-file seed,
  * laid only when absent.
@@ -1011,7 +1011,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       log,
       opts,
       "invalid_option",
-      `--map received a literal placeholder (${opts.map}) — substitute the real project-relative path to the docs folder (e.g. --map docs/), or omit the flag to keep discern's map at its default home.`,
+      `--map received a literal placeholder (${opts.map}) — substitute the real project-relative directory for the map (e.g. --map notes/map/), or omit the flag to keep discern's map at its default home.`,
     );
     return 1;
   }
@@ -1828,7 +1828,7 @@ function emitSetupIncomplete(
 /**
  * The uncommitted changes that block `setup done` (the clean-tree precondition):
  * every uncommitted change to a TRACKED file, plus untracked files inside the
- * authored-setup footprint (the configured docs tree, the guidance source, the
+ * authored-setup footprint (the configured map tree, the guidance source, the
  * deferred-work ledger, the brief). The completion proof and `setup accept` operate
  * on committed history only — the worktree probe branches from HEAD, so anything
  * uncommitted is invisible to it, and a completion recorded over it would claim a

@@ -17,7 +17,6 @@ interface Options {
   /** Which resume turn this is (1-based); only meaningful for `--phase resume`. */
   attempt: number;
   discernCheckout: string | undefined;
-  docsAnswer: string;
   extraArgs: string[];
   fixture: string | undefined;
   help: boolean;
@@ -77,7 +76,6 @@ Options:
   --result-dir <path>            Reuse a result directory; required for --phase continue/resume
   --agent-model <model>          Pass a model flag to the agent CLI
   --model-id <id>                Human answer for setup's --model question
-  --map-answer <path>           Human answer for the docs-home question (default: docs/discern/)
   --session-id <id>              Resume a specific agent session when supported
   --extra-agent-arg <arg>        Append one raw argument to the agent CLI; repeat as needed
   --json                         Print the run record as JSON
@@ -115,7 +113,6 @@ function parseArgs(args: readonly string[]): Options {
   let agent: Agent | undefined;
   let agentModel: string | undefined;
   let discernCheckout: string | undefined;
-  let docsAnswer = "docs/discern/";
   let fixture: string | undefined;
   let help = false;
   let json = false;
@@ -165,10 +162,6 @@ function parseArgs(args: readonly string[]): Options {
       const parsed = valueAfter(args, index, arg);
       modelId = parsed.value;
       index = parsed.next;
-    } else if (arg === "--map-answer") {
-      const parsed = valueAfter(args, index, arg);
-      docsAnswer = parsed.value;
-      index = parsed.next;
     } else if (arg === "--session-id") {
       const parsed = valueAfter(args, index, arg);
       sessionId = parsed.value;
@@ -193,7 +186,6 @@ function parseArgs(args: readonly string[]): Options {
     agentModel,
     attempt,
     discernCheckout,
-    docsAnswer,
     extraArgs,
     fixture,
     help,
@@ -302,17 +294,14 @@ function resumePrompt(): string {
   return `Nothing more from me beyond what you've already seen — my earlier answers stand, and anything I didn't specify is your call. Please keep going.`;
 }
 
-function continuePrompt(
-  modelId: string | undefined,
-  docsAnswer: string,
-): string {
+function continuePrompt(modelId: string | undefined): string {
   const modelAnswer = modelId === undefined || modelId.trim() === ""
     ? "I don't know my exact model id, so skip recording it rather than guessing."
     : `if you need my model id, it is \`${modelId}\`.`;
   return `Yes — here are my answers:
 
 - You are the most capable model I have; ${modelAnswer}
-- If you asked where documentation should go: keep my existing docs untouched and use \`${docsAnswer}\` for discern's.
+- If you asked anything about my existing docs or where documentation should go: keep my docs untouched, and put discern's map in its default home.
 - The default worktree location is fine.
 - I'm ready — go ahead and see the whole setup through.`;
 }
@@ -590,7 +579,7 @@ async function main(): Promise<void> {
   const prompt = opts.phase === "first"
     ? firstPrompt()
     : opts.phase === "continue"
-    ? continuePrompt(opts.modelId, opts.docsAnswer)
+    ? continuePrompt(opts.modelId)
     : resumePrompt();
   const promptFile = join(resultDir, `prompt-${stem}.md`);
   const stdoutFile = join(resultDir, `transcript-${stem}.stdout.jsonl`);

@@ -180,7 +180,7 @@ async function pathExists(path: string): Promise<boolean> {
 
 /**
  * Walk the scaffolded surface for files that still carry a skeleton marker —
- * every `.md` under the configured docs tree, plus the guidance seed. Returns
+ * every `.md` under the configured map tree, plus the guidance seed. Returns
  * repo-relative paths, sorted. Cheap (a handful of small files) but still worth
  * gating on `!bootstrapped` at the call site so a finished project pays nothing.
  * The guidance-seed check is narrowed to the `setup fills this` sentinel (its

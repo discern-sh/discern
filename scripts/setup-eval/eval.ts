@@ -13,7 +13,6 @@ const SCRIPT_DIR = dirname(fromFileUrl(import.meta.url));
 const MAKE_FIXTURE = join(SCRIPT_DIR, "make-fixture.ts");
 const RUN_AGENT = join(SCRIPT_DIR, "run-agent.ts");
 const DEFAULT_BASELINE_SHA = "37ff892";
-const DEFAULT_DOCS_ANSWER = "docs/discern/";
 /** How many generic keep-going turns to send after the continuation before calling
  * the run stalled. One is normal (the brief's discovery batch is a real pause);
  * needing all of them is a finding worth grading, not retrying past. */
@@ -33,7 +32,6 @@ interface RawOptions {
   claudeModelId: string | undefined;
   codexModel: string | undefined;
   codexModelId: string | undefined;
-  docsAnswer: string;
   dryRun: boolean;
   extraClaudeArgs: string[];
   extraCodexArgs: string[];
@@ -53,7 +51,6 @@ interface RawOptions {
 interface ResolvedOptions {
   agents: Agent[];
   agentModels: Record<Agent, string | undefined>;
-  docsAnswer: string;
   dryRun: boolean;
   extraArgs: Record<Agent, string[]>;
   flavors: Flavor[];
@@ -156,8 +153,7 @@ Options:
   --changed-checkout <path>   Changed checkout to evaluate (default: current repo)
   --agents <list>             claude,codex
   --flavors <list>            deno,node (alias: --flavours)
-  --no-docs                   Create fixtures without an existing docs/ tree
-  --map-answer <path>        Consent answer for discern's docs tree (default: ${DEFAULT_DOCS_ANSWER})
+  --no-docs                   Create fixtures without an existing docs/ folder
   --codex-model <model>       Pass --model to codex
   --claude-model <model>      Pass --model to claude
   --codex-model-id <id>       Model id used in the consent continuation
@@ -220,7 +216,6 @@ function parseArgs(args: readonly string[]): RawOptions {
     claudeModelId: undefined,
     codexModel: undefined,
     codexModelId: undefined,
-    docsAnswer: DEFAULT_DOCS_ANSWER,
     dryRun: false,
     extraClaudeArgs: [],
     extraCodexArgs: [],
@@ -271,10 +266,6 @@ function parseArgs(args: readonly string[]): RawOptions {
       raw.withDocs = false;
     } else if (arg === "--with-docs") {
       raw.withDocs = true;
-    } else if (arg === "--map-answer") {
-      const parsed = valueAfter(args, index, arg);
-      raw.docsAnswer = parsed.value;
-      index = parsed.next;
     } else if (arg === "--codex-model") {
       const parsed = valueAfter(args, index, arg);
       raw.codexModel = parsed.value;
@@ -423,7 +414,7 @@ async function resolveOptions(raw: RawOptions): Promise<ResolvedOptions> {
   let withDocs = raw.withDocs ?? true;
   if (interactive && raw.withDocs === undefined) {
     withDocs = await Confirm.prompt({
-      message: "Include an existing docs/ tree in each fixture?",
+      message: "Include an existing docs/ folder in each fixture?",
       default: true,
     });
   }
@@ -477,7 +468,6 @@ async function resolveOptions(raw: RawOptions): Promise<ResolvedOptions> {
   return {
     agents,
     agentModels,
-    docsAnswer: raw.docsAnswer,
     dryRun: raw.dryRun,
     extraArgs: {
       claude: raw.extraClaudeArgs,
@@ -637,7 +627,6 @@ async function runAgentPhase(params: {
   agentModel: string | undefined;
   attempt?: number;
   checkout: string;
-  docsAnswer: string;
   extraArgs: string[];
   fixture: string;
   modelId: string | undefined;
@@ -657,8 +646,6 @@ async function runAgentPhase(params: {
     params.phase,
     "--result-dir",
     params.resultDir,
-    "--map-answer",
-    params.docsAnswer,
   ];
   if (params.phase === "resume" && params.attempt !== undefined) {
     args.push("--attempt", String(params.attempt));
@@ -789,7 +776,6 @@ async function runOne(params: {
       agent: params.agent,
       agentModel: params.opts.agentModels[params.agent],
       checkout: params.checkout.path,
-      docsAnswer: params.opts.docsAnswer,
       extraArgs: params.opts.extraArgs[params.agent],
       fixture: fixture.path,
       modelId: params.opts.modelIds[params.agent],
@@ -814,7 +800,6 @@ async function runOne(params: {
       agent: params.agent,
       agentModel: params.opts.agentModels[params.agent],
       checkout: params.checkout.path,
-      docsAnswer: params.opts.docsAnswer,
       extraArgs: params.opts.extraArgs[params.agent],
       fixture: fixture.path,
       modelId: params.opts.modelIds[params.agent],
@@ -848,7 +833,6 @@ async function runOne(params: {
         agentModel: params.opts.agentModels[params.agent],
         attempt,
         checkout: params.checkout.path,
-        docsAnswer: params.opts.docsAnswer,
         extraArgs: params.opts.extraArgs[params.agent],
         fixture: fixture.path,
         modelId: params.opts.modelIds[params.agent],

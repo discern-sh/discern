@@ -1,7 +1,7 @@
 /**
  * Optional YAML-style frontmatter on documentation leaves.
  *
- * A leaf in the docs tree may open with a fenced metadata block:
+ * A leaf in the map may open with a fenced metadata block:
  *
  * ```
  * ---

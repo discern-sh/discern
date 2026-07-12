@@ -360,7 +360,7 @@ Deno.test("verify's consent guidance is identical and faithful across the human 
   });
 });
 
-Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent instructions as a conflict", async () => {
+Deno.test("verify reassures about existing docs, and surfaces agent instructions as a conflict", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     await Deno.mkdir(join(dir, "docs"));
@@ -373,8 +373,8 @@ Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent
     );
     const d = res.data;
     const kinds = d.conflicts.map((c: { kind: string }) => c.kind);
-    // An existing docs/ tree is NOT a conflict: the map's namespace default
-    // collides with nothing (ADR 0100) — the choice rides the consent message.
+    // An existing docs/ folder is NOT a conflict: the map's own default home
+    // collides with nothing (ADR 0100) — the message reassures, nothing more.
     assert(
       !kinds.includes("existing_docs"),
       `existing docs must not be a conflict: ${JSON.stringify(kinds)}`,
@@ -385,24 +385,22 @@ Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent
     );
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
     assertEquals(d.findings.docs.exists, true);
-    // With a docs/ tree present, the relay message promises it stays untouched,
-    // names the map's default home, and offers pointing [map].dir as the opt-in.
+    // With a docs/ folder present, the relay message promises it stays untouched
+    // and names the map's separate home — and never offers to point discern at
+    // the human's docs (the retired ADR 0100 opt-in; ADR 0131).
     assertStringIncludes(d.guidance, "You already have a docs/ folder");
     assertStringIncludes(d.guidance, "discern won't touch it");
     assertStringIncludes(d.guidance, SOURCE_PATHS.map.defaultPath);
-    assertStringIncludes(d.guidance, "keep them separate (the default)");
-    // The opt-in serves the REAL detected path, never a placeholder a verbatim-
-    // copying agent would scaffold literally.
-    assertStringIncludes(d.guidance, "--map docs/");
-    assert(!d.guidance.includes("<their-docs-path>"));
-    // The default command carries no --map: the opt-in is an addition, never a
-    // placeholder that pushes agents to pass one.
+    assert(
+      !d.guidance.includes("--map"),
+      "the existing-docs adoption offer must not return",
+    );
     assert(!d.next_action.includes("--map"));
     SetupVerifyOutputSchema.parse(res);
   });
 });
 
-Deno.test("verify asks no docs question when the project has no docs tree", async () => {
+Deno.test("verify asks no docs question when the project has no docs folder", async () => {
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const d = JSON.parse(

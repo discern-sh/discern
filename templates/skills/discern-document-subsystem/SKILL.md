@@ -46,7 +46,7 @@ A good manifest is what keeps the doc accurate and stops two documenters from co
 
 ## 3. Document the subtree, following the brief
 
-Hand the documenter the brief plus this subtree's scope manifest, and produce every file the manifest lists — the `README.md` (≈250 words, plain language, ends with a table of leaves) and each leaf (400–800 words, precise, file-pathed, per the brief's template). Honour the brief's hard rules: real names only, verified paths, no modal verbs about the system, relative links inside the configured docs tree, the length ceiling, a "Current state & gotchas" section that quotes real TODO/FIXME comments.
+Hand the documenter the brief plus this subtree's scope manifest, and produce every file the manifest lists — the `README.md` (≈250 words, plain language, ends with a table of leaves) and each leaf (400–800 words, precise, file-pathed, per the brief's template). Honour the brief's hard rules: real names only, verified paths, no modal verbs about the system, relative links inside the configured documentation tree, the length ceiling, a "Current state & gotchas" section that quotes real TODO/FIXME comments.
 
 **Refreshing rather than writing fresh?** Update only what drifted — re-read the source, fix stale claims and paths, keep wording the manifest says to preserve. Don't rewrite a sound doc for its own sake.
 

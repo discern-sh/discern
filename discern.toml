@@ -367,9 +367,9 @@ limit     = 132018824
 margin    = 1000000
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
-# Public-docs leaf-density standard — hold the public docs tree at or above a
+# Public-map leaf-density standard — hold the map's public tree at or above a
 # rising floor of non-README Markdown leaves per 10,000 public-doc words. The
-# metric excludes underscore-prefixed docs trees (_private, _internal, _adr) so
+# metric excludes underscore-prefixed subtrees (_private, _internal, _adr) so
 # private notes and ADR churn cannot satisfy or breach the public-docs budget.
 [standards.public_doc_leaf_density]
 metric    = "public_doc_leaves"

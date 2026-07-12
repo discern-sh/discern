@@ -73,7 +73,7 @@ Every category applies to every install — every subsystem is core
 | `gate`      | tests, static analysis, formatter · test depth, isolation, parallelism               |
 | `setup`     | setup complete, gotchas doc present · failure memory is actionable                   |
 | `guidance`  | substantive source, compiled files · knowledge is project-specific and non-inferable |
-| `docs`      | docs tree, ADRs · pages match code and form a navigable tree                         |
+| `map`       | map tree, ADRs · pages match code and form a navigable tree                          |
 | `worktrees` | (no objective rule) · shared external resources are declared per worktree            |
 | `standards` | at least one standard · missing signals and raw growing-tree counts are reviewed     |
 | `skills`    | recurring-task opportunities · authored skills are executable, verifiable playbooks  |

@@ -46,7 +46,7 @@ export interface ImprovementContext {
   gotchasDocSet: boolean;
   /** Whether the configured `[project].gotchas_doc` resolves to a real file. */
   gotchasDocExists: boolean;
-  /** Whether the configured docs tree has a `README.md`. */
+  /** Whether the configured map tree has a `README.md`. */
   mapTree: boolean;
   /** Configured project-relative documentation root. */
   mapDir: string;
