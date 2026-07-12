@@ -9,7 +9,11 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import {
+  KIT_VERSION,
+  SCHEMA_VERSION,
+  UPDATE_CHANNEL,
+} from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Fresh install in `dir`. */
@@ -126,5 +130,28 @@ Deno.test("upgrade --check (human) confirms an up-to-date install and exits zero
     const r = await runCli(["upgrade", "--check"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertStringIncludes(r.stderr, "up to date");
+  });
+});
+
+Deno.test("upgrade --check on a current install tells the truth: version, channel, no network", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+
+    // Human surface: the installed version and the one real update channel —
+    // never an implied network poll (discern makes no network requests).
+    const human = await runCli(["upgrade", "--check"], dir);
+    assertEquals(human.code, 0, human.stderr);
+    assertStringIncludes(human.stderr, `discern ${KIT_VERSION}`);
+    assertStringIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
+    assertStringIncludes(human.stderr, UPDATE_CHANNEL);
+    assertStringIncludes(human.stderr, "never checks the network");
+
+    // JSON surface: the same facts ride the envelope.
+    const json = await runCli(["upgrade", "--check", "--json"], dir);
+    assertEquals(json.code, 0, json.stderr);
+    const res = JSON.parse(json.stdout);
+    assertEquals(res.data.kit_version, KIT_VERSION);
+    assertEquals(res.hints.length >= 1, true);
+    assertStringIncludes(res.hints.join("\n"), UPDATE_CHANNEL);
   });
 });

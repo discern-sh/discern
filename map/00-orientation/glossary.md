@@ -88,7 +88,10 @@ The verb-routing front of the `discern` binary
 root (the nearest ancestor with a `discern.toml`), routes a known verb to its
 built-in handler, and on an _unknown_ verb execs a matching project
 [Recipe](#recipe) with the `DISCERN_*` environment exported. A built-in verb
-wins over a same-named recipe (warning on the shadow).
+wins over a same-named recipe (warning on the shadow). A word matching nothing
+reports `unknown command` with a did-you-mean suggestion — familiar words from
+other tools ("init", "sync", "land", …) name the canonical verb — and a pointer
+at `discern help`.
 
 ### Recipe
 
@@ -113,7 +116,7 @@ depth under [`../10-installer/`](../10-installer/).
 The `discern` binary's semantic version (e.g. `1.0.0`), declared once in
 `deno.json` and read everywhere through
 [`version.ts`](../../src/lib/version.ts). Shown by `--version`. Getting a newer
-binary (via `install.sh`/`brew`/a future `self-update`) is a separate axis from
+binary (by re-running the install script) is a separate axis from
 `discern upgrade`, which brings a _project_ into line with the binary it is run
 from.
 

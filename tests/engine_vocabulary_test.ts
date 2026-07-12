@@ -6,9 +6,13 @@ import {
 } from "@std/assert";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
+  COMMAND_SYNONYM_SUGGESTIONS,
+  didYouMeanHint,
   normalizeVerbVariant,
   RETIRED_COMMAND_REDIRECTS,
   retiredCommandMessage,
+  UNKNOWN_COMMAND_POINTER,
+  unknownCommandMessage,
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
 import { withTempDir } from "./helpers.ts";
@@ -97,6 +101,88 @@ Deno.test("explicit grammatical variants reach the same canonical result", async
       assertStringIncludes(forgiven.stdout, `"verb":"${canonical}"`);
     }
   });
+});
+
+Deno.test("every command synonym suggests its canonical verb on both surfaces", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    for (
+      const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
+    ) {
+      const human = await runAgent(dir, [synonym]);
+      assertEquals(human.code, 1, human.output);
+      assertStringIncludes(human.stderr, unknownCommandMessage(synonym));
+      assertStringIncludes(human.stderr, didYouMeanHint(canonical));
+      assertStringIncludes(human.stderr, UNKNOWN_COMMAND_POINTER);
+
+      const json = await runAgent(dir, [synonym, "--json"]);
+      assertEquals(json.code, 1, json.output);
+      assertEquals(json.stderr, "", "the --json stream must stay pure");
+      const res = JSON.parse(json.stdout);
+      assertEquals(res.ok, false);
+      assertEquals(res.verb, synonym);
+      assertEquals(res.error, "unknown_command");
+      assertEquals(res.message, unknownCommandMessage(synonym));
+      assertEquals(res.hints, [
+        didYouMeanHint(canonical),
+        UNKNOWN_COMMAND_POINTER,
+      ]);
+    }
+  });
+});
+
+Deno.test("an unknown word with no suggestion still refuses with a hint under --json", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const word = "zzzz-nothing-like-a-verb";
+    const json = await runAgent(dir, [word, "--json"]);
+    assertEquals(json.code, 1, json.output);
+    assertEquals(json.stderr, "", "the --json stream must stay pure");
+    const res = JSON.parse(json.stdout);
+    assertEquals(res.ok, false);
+    assertEquals(res.verb, word);
+    assertEquals(res.error, "unknown_command");
+    assert(Array.isArray(res.hints) && res.hints.length >= 1);
+    assertEquals(res.hints, [UNKNOWN_COMMAND_POINTER]);
+  });
+});
+
+Deno.test("the unknown-command lesson shows even outside a project", async () => {
+  await withTempDir(async (dir) => {
+    // No scaffold on purpose: a newcomer's very first guess often lands before
+    // any discern.toml exists, and must still name the right verb.
+    for (
+      const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
+    ) {
+      const r = await runAgent(dir, [synonym]);
+      assertEquals(r.code, 1, r.output);
+      assertStringIncludes(r.stderr, unknownCommandMessage(synonym));
+      assertStringIncludes(r.stderr, didYouMeanHint(canonical));
+    }
+  });
+});
+
+Deno.test("synonyms are suggestions only: none dispatches, every suggested verb is canonical", () => {
+  for (
+    const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
+  ) {
+    assert(
+      !KNOWN_VERBS.has(synonym),
+      `synonym "${synonym}" must never be a registered verb`,
+    );
+    assert(
+      RETIRED_COMMAND_REDIRECTS[synonym] === undefined,
+      `"${synonym}" cannot be both a retired spelling and a synonym`,
+    );
+    assert(
+      normalizeVerbVariant(synonym, KNOWN_VERBS) === synonym,
+      `synonym "${synonym}" must not normalize into a verb — that would be a silent forward`,
+    );
+    assert(
+      KNOWN_VERBS.has(canonical),
+      `synonym "${synonym}" suggests "${canonical}", which is not a registered verb`,
+    );
+  }
 });
 
 Deno.test("retired spellings are absent from the canonical verb registry", () => {

@@ -11,6 +11,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
+import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import {
+  COMMAND_SYNONYM_SUGGESTIONS,
+  RETIRED_COMMAND_REDIRECTS,
+} from "../src/shared/vocabulary.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
@@ -372,4 +377,58 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
     ),
     "the dogfood index must exclude discern's own internal subtrees",
   );
+});
+
+// ── `help <verb>` fallthrough ────────────────────────────────────────────────
+//
+// Git users type `git help push` and `git push --help` interchangeably, and git
+// forwards one to the other. `discern help <verb>` does the same: for every
+// registered verb it renders that verb's own command help, byte-identical to
+// `<verb> --help`. Driven off the verb registry, never a hand list, so a new
+// verb auto-enrols.
+
+Deno.test("help <verb> matches <verb> --help for every registered verb", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const env = { DISCERN_DOCS_DIR: help };
+    await Promise.all([...KNOWN_VERBS].map(async (verb) => {
+      const direct = await runCli([verb, "--help"], dir, env);
+      const fallthrough = await runCli(["help", verb], dir, env);
+      assertEquals(direct.code, 0, `${verb} --help failed:\n${direct.stderr}`);
+      assertEquals(
+        fallthrough.code,
+        0,
+        `help ${verb} failed:\n${fallthrough.stderr}`,
+      );
+      assertEquals(
+        fallthrough.stdout,
+        direct.stdout,
+        `help ${verb} diverged from ${verb} --help`,
+      );
+    }));
+  });
+});
+
+Deno.test("help <target> teaches for retired spellings and synonyms", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const env = { DISCERN_DOCS_DIR: help };
+    for (
+      const [retired, successor] of Object.entries(RETIRED_COMMAND_REDIRECTS)
+        .filter(([spelling]) => !spelling.includes(" "))
+    ) {
+      const r = await runCli(["help", retired], dir, env);
+      assertEquals(r.code, 1, r.stdout + r.stderr);
+      assertStringIncludes(r.stderr, "was renamed");
+      assertStringIncludes(r.stderr, successor);
+    }
+    for (
+      const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
+    ) {
+      const r = await runCli(["help", synonym], dir, env);
+      assertEquals(r.code, 1, r.stdout + r.stderr);
+      assertStringIncludes(r.stderr, `unknown command "${synonym}"`);
+      assertStringIncludes(r.stderr, `discern ${canonical}`);
+    }
+  });
 });

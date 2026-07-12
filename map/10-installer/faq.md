@@ -118,9 +118,9 @@ Two separate axes, deliberately kept distinct:
   `discern.toml` scaffold and the `.gitignore` block, and re-materializes the
   skills and compiled agent files. It never rewrites your values, guidance, or
   authored skills, and its clean-tree guard keeps it revertible.
-- **Getting a newer discern _itself_** — re-run your installer (for example
-  `brew upgrade discern`). discern makes no network calls and never
-  auto-updates, so a new version is always something you ask for.
+- **Getting a newer discern _itself_** — re-run the install script from the
+  README. discern makes no network calls and never auto-updates, so a new
+  version is always something you ask for.
 
 Which axis a schema mismatch needs depends on its direction, and
 `discern doctor` names the right one. An install OLDER than your binary migrates
@@ -146,9 +146,9 @@ removes the `.gitignore` block. Preview it first with
 
 It keeps your content: `discern.toml` and the whole `discern/` folder stay, as
 plain Markdown at paths you chose — worth keeping with or without the tool.
-Removing the binary itself is a separate step your installer handles (for
-example `brew uninstall discern`). [What discern writes](what-discern-writes.md)
-is the full footprint, with removal covered end to end.
+Removing the binary itself is a separate step: delete the file `which discern`
+reports. [What discern writes](what-discern-writes.md) is the full footprint,
+with removal covered end to end.
 
 ## Where do I report a bug?
 

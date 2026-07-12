@@ -85,6 +85,44 @@ const MAP = join(REPO_ROOT, "map");
 const TESTS = join(REPO_ROOT, "tests");
 const RECIPES = join(REPO_ROOT, "recipes");
 
+/**
+ * discern's one update channel is the install script (`src/lib/version.ts`
+ * defines the sentence every surface cites). Naming any other channel — a
+ * package manager, a self-update — promises distribution the product doesn't
+ * have. The scan covers everything a user or their agent reads: the binary's
+ * source, the shipped templates, and the public map (`discern help` serves it).
+ * Excluded: `_`-prefixed internal map trees, `map/80-development` (contributor
+ * docs, where the repo's own dev Brewfile is legitimately named), and the
+ * frozen historical fixtures.
+ */
+Deno.test("no shipped surface invents an update channel", async () => {
+  const banned = [/\bbrew\b/i, /\bself-update\b/i];
+  const offenders: string[] = [];
+  const files = [
+    ...await textFiles(SRC),
+    ...await textFiles(TEMPLATES),
+    ...(await textFiles(MAP)).filter(([rel]) =>
+      !rel.startsWith("map/_") && !rel.startsWith("map/80-development")
+    ),
+  ];
+  for (const [rel, text] of files) {
+    for (const pattern of banned) {
+      const hit = text.match(pattern);
+      if (hit !== null) {
+        offenders.push(`${rel} contains ${JSON.stringify(hit[0])}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "a shipped surface names an update channel discern doesn't have — cite " +
+      `UPDATE_CHANNEL (src/lib/version.ts) instead:\n  ${
+        offenders.join("\n  ")
+      }`,
+  );
+});
+
 const ROOT_TEXT_FILES = [
   "README.md",
   "CONTRIBUTING.md",
