@@ -54,11 +54,11 @@ doesn't collide. It provisions per-worktree external
   `start` and `update` both take `from` (any ref) — work composes below the
   trunk; only `accept` lands on it.
 - **`discern_accept`** is only for an explicit user handoff/land request. After
-  a green `discern done` run on a completed task, relay the receipt to your owner and stop;
-  call it only once they explicitly ask to land (unless pre-authorized).
-  It lands on the trunk (`main`) — fast-forwarded, the worktree
-  removed, the merged branch deleted — and refreshes the trunk checkout it
-  leaves behind.
+  a green `discern done` run on a completed task, relay the receipt to your owner
+  and stop; land only once they accept, passing `--confirmed` (standing
+  pre-authorization counts). It lands on the trunk (`main`) —
+  fast-forwarded, the worktree removed, the merged branch deleted — and refreshes
+  the trunk checkout it leaves behind.
 
 While iterating, use `discern_prepare`, `discern_test`, or a targeted project
 command. When the final tree is ready, commit it first, then run

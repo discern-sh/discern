@@ -141,6 +141,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0130 — The docs site renders the help tree through the shared discovery module](0130-docs-site-renders-the-help-tree.md)
 - [0131 — Setup never offers to adopt existing docs](0131-setup-never-adopts-existing-docs.md)
 - [0133 — Standards join the gate: verified always, measured by default](0133-standards-join-the-gate.md)
+- [0134 — Landing attests consent: `accept` requires a `--confirmed` attestation](0134-accept-attests-consent.md)
 
 ## Superseded and consolidated ADRs
 

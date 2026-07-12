@@ -53,7 +53,10 @@ Nobody calls a review verb; the receipt and the hints are the affordance. A
 green `discern done` run emits the receipt, the compiled guidance tells the
 agent to relay it and wait, and the owner reads discern's own deterministic
 account of what was proven — instead of the agent narrating its own grade — digs
-into the raw diff if they want to, and approves with a word: accept.
+into the raw diff if they want to, and approves with a word: accept. The agent
+then lands with `discern accept --confirmed`, whose attestation _is_ that
+acceptance — so no work lands on a consent held only in the agent's own summary
+([ADR 0134](../_adr/0134-accept-attests-consent.md)).
 
 ## See also
 

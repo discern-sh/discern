@@ -94,13 +94,21 @@ always cleanly (the gate proved the branch contains the trunk), then the
 Worktree removed, and the merged branch deleted. Composition happens on the pull
 axis instead: `start --from` and `update --from` build on any ref, so
 multi-phase work assembles below the trunk and only the finished whole crosses
-to it. Acceptance refuses — naming the way back — when the main checkout is
-parked on a branch other than the trunk, and never silently switches it. After
-landing, it runs `discern refresh` in the trunk checkout it leaves behind, so
-generated guidance, materialized skills, and provider integrations match the
-landed sources
-([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md)), and it
-prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
+to it. Before any git runs, acceptance refuses — read-only and mutation-free —
+without the `--confirmed` attestation: the fact that the owner has accepted this
+landing, or gave standing pre-authorization. The refusal re-serves the review
+moment (relay the receipt, then re-run with `--confirmed`) so the highest-stakes
+act never lands on a consent that lived only in an agent's own summary — the
+landing counterpart to `setup begin`'s scaffold attestation, sharing its
+`awaiting_consent` refusal slug
+([ADR 0134](../_adr/0134-accept-attests-consent.md), extending
+[ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+Acceptance also refuses — naming the way back — when the main checkout is parked
+on a branch other than the trunk, and never silently switches it. After landing,
+it runs `discern refresh` in the trunk checkout it leaves behind, so generated
+guidance, materialized skills, and provider integrations match the landed
+sources ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md)), and
+it prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
 the landing record, pasteable into a PR body. Its main-checkout precondition
 also cares about tracked changes, not untracked local scratch; the worktree
 precondition is stricter because acceptance refuses any tracked, not staged,
