@@ -56,10 +56,10 @@ dir = "map/"
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
 # `discern refresh` compiles discern's built-in guidance (always
 # prepended) plus YOUR sources below into one generated file per
-# provider. The generated files are build artifacts — gitignored, never
-# hand-edited. Edit your sources below (the tracked, reviewable form) and re-run
-# `discern refresh`; `discern status` / `discern done` flag a generated file
-# that has drifted from its source.
+# provider. The generated files are committed so every agent — cloud
+# included — reads them, but never hand-edited: edit your sources below and
+# re-run `discern refresh`; `discern status` / `discern done` flag a generated
+# file that has drifted from its source.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [guidance]

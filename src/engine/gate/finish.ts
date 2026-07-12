@@ -257,10 +257,10 @@ async function runGate(
   }
 
   // 1b. Discern-owned ignored artifacts must not be tracked. A forced `git add -f`
-  //     can put generated agent files, materialized skills, or machine-local provider
-  //     state into the index despite the canonical .gitignore block. Block before the
-  //     currency checks: a tracked generated file can be byte-current, but it is still
-  //     the wrong review unit and would accept a derivative into history.
+  //     can put materialized skills or machine-local provider state into the index
+  //     despite the canonical .gitignore block. Scoped to that block's enumerated
+  //     rules, so the tracked-by-default compiled guidance files and a user's own
+  //     files under a provider directory are never flagged.
   let trackedArtifactsDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const tracked = await trackedDiscernIgnoredArtifacts(root);
@@ -274,11 +274,12 @@ async function runGate(
   //     fail-fast precondition beside the merge check (ADR 0056). Its verdict is
   //     invariant across the gate for the same reason the merge check's is: the gate
   //     never runs `discern refresh`, and its fix stage formats SOURCE code, never the
-  //     guidance sources or the gitignored generated agent files those checks read —
+  //     guidance sources or the generated agent files those checks read —
   //     so checking here gives the same answer as checking last, while skipping the
   //     slow build/check∥test/scope-gate sweep when the only problem is stale drift the
   //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent
-  //     file only (a MISSING one is the legitimate fresh-checkout state — see ADR 0034).
+  //     file only (a MISSING one is tolerated: a tree that has not built them yet, or a
+  //     project that deliberately keeps them untracked — see ADR 0034/0128).
   //     discern-allow-retrospective: "no longer matching" is the live drift this detects.
   let guidanceDiag: Diagnostic | undefined;
   if (failedStage === null) {

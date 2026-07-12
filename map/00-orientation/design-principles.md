@@ -91,13 +91,14 @@ committed `discern.toml`, the merged `settings.json`/`.gitignore`, and the
 `discern/` namespace content — the guidance source, authored skills, recipes,
 the map, the ledger, the brief, each config-pointable elsewhere) are written
 once by `setup` (or by you) and never touched again, so `upgrade` cannot clobber
-an edit. _The binary's_ files (the gitignored, re-published artifacts — the
-materialized skills, the compiled agent files
-`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always safe to overwrite precisely
-because they are not yours to edit; they are rewritten on every recompile
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). Migrations are
-idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade stays
-revertible with `git checkout`.
+an edit. _The binary's_ files (the re-published artifacts — the materialized
+skills, the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always
+safe to overwrite precisely because they are not yours to edit; they are
+rewritten on every recompile
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md),
+[ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Migrations
+are idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade
+stays revertible with `git checkout`.
 
 **Why it matters.** A tool that can lose your work on a re-run is a tool you
 stop running — and an un-runnable `upgrade` means installs rot. Safety is what
@@ -124,7 +125,7 @@ The `discern` binary is self-contained — V8 is baked in — so a target projec
 needs no Deno, no Node, nothing but the one binary on `PATH` plus `git`. The
 engine ships _inside_ the binary as compiled TypeScript; it is never installed
 into the project as files that would drag a runtime along. What lands in a
-project is config, gitignored artifacts, and generated guidance — data, not a
+project is config, generated artifacts, and compiled guidance — data, not a
 second program.
 
 **Why it matters.** A tool that imposes a runtime cannot honestly claim to drop
@@ -310,9 +311,10 @@ that helped grow them.
 expensive — and nothing discern removes on the way out was ever the user's.
 
 **How it shows up.** The namespace holds only plain-markdown content the user
-owns; the generated artifacts are gitignored, so deleting them leaves no tracked
-litter; assets a user wants unbranded are one `git mv` plus one config key away,
-before or after uninstall
+owns; the generated artifacts are regenerable outputs, and uninstall removes
+them cleanly (the committed agent files land in the removal commit); assets a
+user wants unbranded are one `git mv` plus one config key away, before or after
+uninstall
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
 ---

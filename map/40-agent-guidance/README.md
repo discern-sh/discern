@@ -20,18 +20,19 @@ agent's skills directory.
 
 The compiled files are
 [Generated](../00-orientation/glossary.md#generated-file): never hand-edited,
-always reproduced by re-running the verb, and gitignored build artifacts (ADR
-0034) — the reviewable, tracked form is your `[guidance].sources`. `AGENTS.md`
-holds the full compiled body — the single on-disk source the mirrors point back
-at (the **canonical** file). Both `CLAUDE.md` and `GEMINI.md` **import**
-`AGENTS.md` via the `@`-include their CLIs share rather than duplicating it (so
-they can never drift); `AGENTS.md` is the canonical body precisely because Codex
-has no import directive to point with. Cursor and GitHub Copilot read
-`AGENTS.md` natively, so they add no duplicate provider-specific guidance file;
-when one of them is configured without Codex, `discern refresh` still emits the
-canonical `AGENTS.md` they read. When no canonical file is emitted or reused,
-each mirror falls back to the full body. They carry no banner — `discern status`
-/ `discern done` flag a generated file that has drifted from its source instead.
+always reproduced by re-running the verb, and committed by default so every
+agent — cloud included — reads them from a clone (ADR 0128) — the reviewable
+source is your `[guidance].sources`. `AGENTS.md` holds the full compiled body —
+the single on-disk source the mirrors point back at (the **canonical** file).
+Both `CLAUDE.md` and `GEMINI.md` **import** `AGENTS.md` via the `@`-include
+their CLIs share rather than duplicating it (so they can never drift);
+`AGENTS.md` is the canonical body precisely because Codex has no import
+directive to point with. Cursor and GitHub Copilot read `AGENTS.md` natively, so
+they add no duplicate provider-specific guidance file; when one of them is
+configured without Codex, `discern refresh` still emits the canonical
+`AGENTS.md` they read. When no canonical file is emitted or reused, each mirror
+falls back to the full body. They carry no banner — `discern status` /
+`discern done` flag a generated file that has drifted from its source instead.
 Driving several agents from one source is what keeps guidance provider-agnostic
 — write the rule once, every agent gets it. The built-in guidance is
 **config-aware** — each built-in section is rendered through a small

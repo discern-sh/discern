@@ -36,8 +36,8 @@ in sync.
 A project's entire discern footprint is a single root file, **`discern.toml`**.
 Everything else is bundled in the binary, a **config-pointed** location the user
 chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`),
-or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are gitignored
-build artifacts; as vendor-specific files and paths are materialized). Every
+or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are compiled,
+committed outputs; vendor-specific files and paths are materialized). Every
 subsystem is core (ADR 0101) — `[capabilities]` is the gate's command table, and
 the one per-skill knob is `[skills].exclude`.
 
@@ -62,10 +62,11 @@ The rules:
 **Agent guidance is yours.** Customise it by editing `guidance.md` (this file) —
 never `templates/`, which only holds the generic built-in guidance _other_
 projects receive. Then run `discern refresh` to recompile the agent files
-(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — gitignored build artifacts you
-never hand-edit (ADR 0034); `discern done` fails if one drifts from its source.
-Keep the prose provider-agnostic: one source compiles to every agent. Nothing
-overwrites your `guidance.md`.
+(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you never
+hand-edit (ADR 0128); `discern done` fails if one drifts from its source, so
+commit the refreshed copies with the source change. Keep the prose
+provider-agnostic: one source compiles to every agent. Nothing overwrites your
+`guidance.md`.
 
 | To change…                                      | Edit…                                     | Then run                           |
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |

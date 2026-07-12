@@ -14,18 +14,19 @@ config files are all committed, so a fresh clone builds, runs, and tests exactly
 as it would if discern had never been involved — discern adds configuration and
 text, never a runtime dependency.
 
-What a plain clone is missing is only the **generated, gitignored** files, which
-don't travel with the repo by design:
+The compiled agent files (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`) are
+committed, so a teammate's coding agent — and any cloud agent working from a
+bare clone — reads the same guidance yours does, no binary required. What a
+plain clone is missing is only what needs the binary to exist:
 
-- the compiled agent files (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`), so a
-  coding agent reads none of your guidance;
-- the materialized skills (`.claude/skills/`, `.agents/skills/`);
+- the materialized skills (`.claude/skills/`, `.agents/skills/`), rebuilt by
+  `discern refresh`;
 - the `discern_*` MCP tools, which need the discern binary to run.
 
-Their absence is deliberate: the reviewable source is your
-`discern/guidance.md`, not the compiled copy, so discern doesn't track the copy.
-(The [CI page](../20-quality-gate/ci.md) tells the same story for cloud-agent
-environments, and how to opt into shipping the artifacts if you want them.)
+The reviewable source stays your `discern/guidance.md`; the gate's currency
+check keeps the committed copies from drifting. (The
+[CI page](../20-quality-gate/ci.md) tells the same story for cloud-agent
+environments.)
 
 ## The one-minute path to full function
 

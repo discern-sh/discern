@@ -6,7 +6,7 @@ writes or co-manages the files below when Claude Code is enabled in
 
 | File                    | Role                                             | Ownership             |
 | ----------------------- | ------------------------------------------------ | --------------------- |
-| `CLAUDE.md`             | Pointer to the canonical compiled guidance file  | Generated, gitignored |
+| `CLAUDE.md`             | Pointer to the canonical compiled guidance file  | Generated, committed  |
 | `.claude/skills/`       | Materialized Claude Code Skills                  | Generated, gitignored |
 | `.mcp.json`             | Project MCP server entry                         | Co-managed, tracked   |
 | `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Co-managed, tracked   |

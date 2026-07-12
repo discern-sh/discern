@@ -35,8 +35,8 @@ in its own words) — it tells you, plainly:
   for your guidance and docs, the agent files each coding agent needs, a
   delimited `.gitignore` block);
 - that there is **no lock-in** — the namespace is plain Markdown you own, the
-  generated files are gitignored, and `discern uninstall` takes the wiring back
-  out;
+  generated files can always be rebuilt from it, and `discern uninstall` takes
+  the wiring back out;
 - one real question: should discern manage a **fresh docs tree** at `map/`, or
   adopt your project's **existing docs** directory?
 

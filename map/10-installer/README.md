@@ -35,11 +35,11 @@ The ideas worth understanding here: the **disposition**-driven scaffold, with
 ownership in three buckets —
 [yours](../00-orientation/glossary.md#your-files--yours) (committed seeds,
 write-once), a co-managed `discern.toml` scaffold, and
-[the binary's](../00-orientation/glossary.md#the-binarys-files) (gitignored,
-re-published artifacts) — so `upgrade` overwrites the binary's files, restores
-missing fixed config sections/keys, and leaves project-owned values alone; and
-the **Schema-version** [Migration](../00-orientation/glossary.md#migration)
-chain that evolves an install's shape, stamped into `[meta].schema_version` in
+[the binary's](../00-orientation/glossary.md#the-binarys-files) (re-published
+artifacts) — so `upgrade` overwrites the binary's files, restores missing fixed
+config sections/keys, and leaves project-owned values alone; and the
+**Schema-version** [Migration](../00-orientation/glossary.md#migration) chain
+that evolves an install's shape, stamped into `[meta].schema_version` in
 `discern.toml` (the `5 → 6` step dissolved the old hidden `.discern/` directory
 into this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md) — and
 the `14 → 15` step gathered the authored surface into the visible `discern/`

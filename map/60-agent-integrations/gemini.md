@@ -5,7 +5,7 @@ co-manages the files below when Gemini is enabled in `[guidance].agents`:
 
 | File                    | Role                                            | Ownership             |
 | ----------------------- | ----------------------------------------------- | --------------------- |
-| `GEMINI.md`             | Pointer to the canonical compiled guidance file | Generated, gitignored |
+| `GEMINI.md`             | Pointer to the canonical compiled guidance file | Generated, committed  |
 | `.agents/skills/`       | Materialized Agent Skills                       | Generated, gitignored |
 | `.gemini/settings.json` | MCP server entry and session-start hook         | Co-managed, tracked   |
 

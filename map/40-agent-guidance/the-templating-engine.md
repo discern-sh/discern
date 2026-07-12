@@ -50,8 +50,8 @@ of committed `discern.toml`**:
 
 > **Invariant (load-bearing).** The context must read **nothing that varies
 > between two runs on the same commit** — no git branch/status, env var, clock,
-> randomness, absolute path, or gitignored/per-worktree file. The generated
-> agent files are untracked and gate-checked for currency
+> randomness, absolute path, or ignored/per-worktree file. The generated agent
+> files are gate-checked for currency
 > ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and
 > `done` recompile in memory and compare to disk, so a context that read mutable
 > state would make the file perpetually "stale" and break the gate everywhere. A

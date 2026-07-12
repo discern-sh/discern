@@ -45,9 +45,9 @@ discern edits a small, marked region of these files and leaves the rest alone.
 
 ## Generated — rebuilt on demand, safe to ignore
 
-These are built from your guidance and skills, and they're gitignored, so they
-never clutter your history. You don't edit them — you edit the source, and they
-rebuild.
+These are built from your guidance and skills. You don't edit them — you edit
+the source, and they rebuild. The agent files are committed, so cloud agents
+read the same instructions; the materialized skills stay out of your history.
 
 - **The agent files** — `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` (whichever agents
   you set up), each compiled from discern's built-in guidance plus your
@@ -56,9 +56,10 @@ rebuild.
 - **The materialized skills** — `.claude/skills/` and `.agents/skills/`, the
   task playbooks discern makes available to your agents.
 
-Because these are gitignored, a fresh clone won't have them until discern
-rebuilds them — see [working with a team](../30-worktrees/team-workflow.md) for
-what a collaborator sees.
+The agent files are committed, so they travel with a clone; the materialized
+skills are ignored, and a fresh clone won't have them until discern rebuilds
+them — see [working with a team](../30-worktrees/team-workflow.md) for what a
+collaborator sees.
 
 ## Appears later — the worktrees folder
 
@@ -72,8 +73,9 @@ automatically; a stray one is cleaned up with `discern worktree prune`.
 ## The short version
 
 One config file and one folder are yours. A marked block in a few shared files
-is discern's to keep current. Everything generated is gitignored and rebuilt on
-demand. Nothing is hidden, and none of it is permanent —
+is discern's to keep current. Everything generated is rebuilt on demand — the
+agent files committed so every agent reads them, the skills kept out of your
+history. Nothing is hidden, and none of it is permanent —
 [what discern writes](../10-installer/what-discern-writes.md) is the full
 footprint, and `discern uninstall` takes it all back out.
 

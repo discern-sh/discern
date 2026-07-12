@@ -14,8 +14,8 @@
 
 import { join } from "@std/path";
 import {
-  agentArtifactPosture,
   type AgentArtifactPosture,
+  agentArtifactPosture,
   allGuidanceFilePaths,
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
@@ -27,7 +27,6 @@ export const DISCERN_GITIGNORE_END = "# --- /discern ---";
 
 const GITIGNORE_FRAGMENT_NAME = ".gitignore.fragment";
 const TARGET_REL = ".gitignore";
-
 
 export interface GitignoreReconcileOperation {
   kind: "create-block" | "replace-block";

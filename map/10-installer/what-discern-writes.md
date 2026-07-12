@@ -59,22 +59,25 @@ leaves the rest alone.
   stay as they are. The [per-agent pages](../60-agent-integrations/) list the
   exact file per agent.
 
-### The binary's — generated, gitignored, rebuilt on demand
+### The binary's — generated, rebuilt on demand
 
 These are produced from bundled sources on `discern refresh` and are always safe
-to overwrite, so they are gitignored by default
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): the
-reviewable, tracked form is your guidance source, not the compiled output.
+to overwrite; the reviewable source is your guidance file, not the compiled
+output, and the gate's currency check catches a drifted copy
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 
 - **The compiled agent files** — `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`
   (whichever agents you configured), compiled from the built-in guidance plus
-  your `discern/guidance.md`.
+  your `discern/guidance.md`. Committed by default
+  ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)), so an
+  ephemeral environment that clones your repo without the binary still reads
+  them.
 - **The materialized skills** — `.claude/skills/` and the cross-tool
   `.agents/skills/`, republished from the bundled and authored skill sources.
-
-Because these are gitignored, an ephemeral environment that clones your repo
-without the binary will not see them — see
-[the CI and cloud-agent notes](../20-quality-gate/ci.md) for that story.
+  Ignored via the managed `.gitignore` block, so they stay out of your history
+  and rebuild wherever the binary runs — see
+  [the CI and cloud-agent notes](../20-quality-gate/ci.md) for what a clone
+  without the binary sees.
 
 ## What runs on your machine
 
