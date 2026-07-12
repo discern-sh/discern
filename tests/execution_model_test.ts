@@ -27,6 +27,7 @@ import {
   buildStandardPlan,
   standardPlanToEngine,
 } from "../src/engine/gate/standard_plan.ts";
+import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts";
 
 /** A config rich enough to induce EVERY step kind across the whole model: a job in
  * each stage, a scope gate, a standard, a per-worktree resource (create/destroy/
@@ -91,12 +92,16 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
   };
 
   // done: the exact label sequence the gate's own plan projection produces (the
-  // fail-fast preconditions + every job, in group order).
+  // fail-fast preconditions + every job, standards included, in group order).
   assertEquals(
     labels("done"),
-    gatePlanToEngine(buildGatePlan(cfg, Object.keys(cfg.scopes))).steps.map(
-      (s) => s.label,
-    ),
+    gatePlanToEngine(
+      buildGatePlan(
+        cfg,
+        Object.keys(cfg.scopes),
+        planStandardJobsFromConfig(buildStandardPlan(cfg).standards),
+      ),
+    ).steps.map((s) => s.label),
   );
   // prepare: the fix + check job labels, from preparePlanGroups.
   assertEquals(
