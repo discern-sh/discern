@@ -143,7 +143,10 @@ export interface StepResult {
  *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `merge` — the branch is behind the integration branch (the fail-fast
- *    precondition, ADR 0050).
+ *    precondition, ADR 0050);
+ *  - `standards` — a `[standards]` limit failed verification against the trunk:
+ *    loosened or deleted on this branch, or the trunk's config was fetched but
+ *    does not parse (the fail-fast never-loosen precondition).
  *
  * Defined in this base vocabulary module (not the engine) because `result_schemas.ts`
  * — a `shared/` module that must NOT import the engine — derives the `failed_stage`
@@ -162,6 +165,7 @@ export const FAILED_STAGES = [
   "guidance",
   "skills",
   "merge",
+  "standards",
 ] as const;
 
 /** One failed-stage label ({@link FAILED_STAGES}). */

@@ -18,10 +18,15 @@
  */
 
 import { runGit } from "../../shared/subprocess.ts";
-import type { Receipt } from "../../shared/result_schemas.ts";
+import type {
+  GateStandard,
+  Receipt,
+  StandardsLimitsData,
+} from "../../shared/result_schemas.ts";
 import type { StepResult } from "../../shared/result.ts";
 import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./receipt.ts";
+import { fmtRate } from "./standards.ts";
 
 /** Commits listed in the receipt before "… and N more" (one-screen budget). */
 const RECEIPT_COMMIT_CAP = 10;
@@ -61,6 +66,62 @@ function stepRow(r: StepResult): string {
   } | ${r.outcome}${duration} |`;
 }
 
+/** One standards bullet: the value against its bound, how it was obtained
+ * (measured with its cost / replayed from a commit / deferred / skipped). */
+function standardLine(o: GateStandard): string {
+  const bound = o.direction === "up" ? "floor" : "ceiling";
+  if (o.measurement === "deferred") {
+    return `- ${o.name} — deferred (measure = "on-demand"; ${bound} ${o.limit} still verified) — run \`discern standards\``;
+  }
+  if (o.measurement === "skipped") {
+    return `- ${o.name} — not measured (the gate stopped before it ran)`;
+  }
+  const value = o.value !== undefined ? `${fmtRate(o.value)} ` : "";
+  const standing = o.verdict ?? "unmeasured";
+  const how = o.measurement === "replayed"
+    ? ` — replayed from \`${
+      (o.replayed_from ?? "").slice(0, 7)
+    }\` (inputs unchanged)`
+    : o.duration_s !== undefined && o.duration_s > 0
+    ? ` · ${o.duration_s}s`
+    : "";
+  return `- ${o.name} ${value}(${bound} ${o.limit}, ${standing})${how}`;
+}
+
+/** The receipt's standards section: the Tier-1 verification line — "limits
+ * verified against the trunk", or the LOUD unverified disclosure — then one
+ * line per standard. Empty when no standards are configured (the section
+ * earns its space only when there is something to vouch for). */
+function standardsSection(
+  standards: GateStandard[],
+  limits: StandardsLimitsData | undefined,
+): string[] {
+  if (standards.length === 0 && limits === undefined) {
+    return [];
+  }
+  const lines: string[] = [""];
+  if (limits === undefined || limits.status === "verified") {
+    lines.push(
+      `Standards (limits verified against ${code(limits?.trunk ?? "")}):`,
+    );
+  } else if (limits.status === "unverified") {
+    lines.push(
+      `Standards (limits UNVERIFIED — trunk config unavailable: ${
+        limits.reason ?? "unknown"
+      }):`,
+    );
+  } else {
+    lines.push(
+      `Standards (limit verification FAILED against ${code(limits.trunk)}):`,
+    );
+  }
+  lines.push("");
+  for (const o of standards) {
+    lines.push(standardLine(o));
+  }
+  return lines;
+}
+
 /**
  * Render the receipt markdown from its envelope pieces: the gathered git `facts`
  * and the result's `steps[]`. Pure — exported so a test can pin the exact output
@@ -69,6 +130,8 @@ function stepRow(r: StepResult): string {
 export function renderReceiptMarkdown(
   facts: ReceiptFacts,
   steps: StepResult[],
+  standards: GateStandard[] = [],
+  limits?: StandardsLimitsData,
 ): string {
   const lines: string[] = [
     `### Receipt — ${code(facts.branch)}`,
@@ -90,6 +153,8 @@ export function renderReceiptMarkdown(
   } else {
     lines.push("(no capability or check is wired — nothing ran)");
   }
+
+  lines.push(...standardsSection(standards, limits));
 
   lines.push("", `Commits (${facts.commits_total}):`, "");
   for (const c of facts.commits) {
@@ -151,6 +216,8 @@ export async function buildGateReceipt(
   root: string,
   trunk: string,
   steps: StepResult[],
+  standards: GateStandard[] = [],
+  limits?: StandardsLimitsData,
 ): Promise<Receipt | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
@@ -175,5 +242,8 @@ export async function buildGateReceipt(
     insertions: delta.insertions,
     deletions: delta.deletions,
   };
-  return { ...facts, markdown: renderReceiptMarkdown(facts, steps) };
+  return {
+    ...facts,
+    markdown: renderReceiptMarkdown(facts, steps, standards, limits),
+  };
 }

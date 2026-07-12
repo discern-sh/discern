@@ -187,13 +187,21 @@ export function stageGroup(
 }
 
 /**
- * The combined check∥test group `done` runs — both stages' jobs in ONE parallel
- * group, so the read-only checks and the tests overlap. (`prepare` runs the check
- * stage alone; `discern test` runs the test stage alone — each via {@link
- * stageGroup}.)
+ * The combined check∥test group `done` runs — both stages' jobs, plus the
+ * standards' measurement jobs, in ONE parallel group, so the read-only checks,
+ * the tests, and the measurements all overlap (never a serial tail). (`prepare`
+ * runs the check stage alone; `discern test` runs the test stage alone — each
+ * via {@link stageGroup} — so neither ever measures a standard.)
  */
-export function checkTestGroup(cfg: DiscernConfig): JobGroup | undefined {
-  const jobs = [...planStageJobs(cfg, "check"), ...planStageJobs(cfg, "test")];
+export function checkTestGroup(
+  cfg: DiscernConfig,
+  standardJobs: PlannedJob[] = [],
+): JobGroup | undefined {
+  const jobs = [
+    ...planStageJobs(cfg, "check"),
+    ...planStageJobs(cfg, "test"),
+    ...standardJobs,
+  ];
   if (jobs.length === 0) {
     return undefined;
   }
@@ -211,8 +219,13 @@ export function checkTestGroup(cfg: DiscernConfig): JobGroup | undefined {
  * from the typed config alone. These are independent of the changed scopes, so the
  * executor can run them BEFORE classifying scopes (preserving the gate's original
  * timing, where a fix-stage edit is reflected in the scope classification).
+ * `standardJobs` (when `[standards]` is configured) join the check∥test group;
+ * with none, the plan is byte-identical to a standards-free gate — zero cost.
  */
-export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
+export function buildStageGroups(
+  cfg: DiscernConfig,
+  standardJobs: PlannedJob[] = [],
+): JobGroup[] {
   const groups: JobGroup[] = [];
   const fix = stageGroup(cfg, "fix");
   if (fix !== undefined) {
@@ -222,7 +235,7 @@ export function buildStageGroups(cfg: DiscernConfig): JobGroup[] {
   if (build !== undefined) {
     groups.push(build);
   }
-  const checkTest = checkTestGroup(cfg);
+  const checkTest = checkTestGroup(cfg, standardJobs);
   if (checkTest !== undefined) {
     groups.push(checkTest);
   }
@@ -302,9 +315,13 @@ export function composeGatePlan(
  * classifies scopes once, read-only); the apply path classifies scopes AFTER the
  * stage groups run and {@link composeGatePlan}s the same shape.
  */
-export function buildGatePlan(cfg: DiscernConfig, changed: string[]): GatePlan {
+export function buildGatePlan(
+  cfg: DiscernConfig,
+  changed: string[],
+  standardJobs: PlannedJob[] = [],
+): GatePlan {
   return composeGatePlan(
-    buildStageGroups(cfg),
+    buildStageGroups(cfg, standardJobs),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
   );

@@ -567,6 +567,7 @@ Deno.test("standards: a plan/projection length mismatch is a failed integrity st
     limitKey: "standards.coverage.limit",
     scale: 1,
     margin: 0,
+    gateMeasure: true,
   };
   const failure = standardPlanIntegrityFailure({ standards: [standard] }, []);
   assert(failure !== undefined, "a mismatch must produce a failed step");

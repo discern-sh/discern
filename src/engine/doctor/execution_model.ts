@@ -38,6 +38,7 @@ import {
   stageGroup,
 } from "../gate/plan.ts";
 import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
+import { planStandardJobsFromConfig } from "../gate/standards_gate.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
@@ -126,7 +127,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   standard: {
     actor: "project",
     hint:
-      "Your measurement command for a never-loosen metric. On demand only (`discern standards`), never part of the gate; the result is compared to its limit versus the trunk.",
+      'Your measurement command for a never-loosen metric. Runs inside `discern done`\'s parallel check/test group by default (replayed for free when its declared `inputs` are untouched; deferred to `discern standards` when measure = "on-demand"), and the limit is verified against the trunk on every gate run.',
   },
 };
 
@@ -187,6 +188,14 @@ function annotateJob(job: PlannedJob): ExecutionStep {
       condition: `when scope '${scope}' changed`,
     });
   }
+  if (job.kind === "standard") {
+    return step("standard", job.label, {
+      note: job.willRun ? job.command : job.note ?? job.command,
+      ...(job.willRun
+        ? { condition: "unless its declared `inputs` are untouched (replayed)" }
+        : {}),
+    });
+  }
   // A capability/check job's reportStage is always a real Stage (never "scope_gates").
   return step("job", job.label, {
     note: job.command,
@@ -197,10 +206,16 @@ function annotateJob(job: PlannedJob): ExecutionStep {
 // ── gate verbs (byte-derived from the real plan builders) ───────────────────
 
 /** `done` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
- * preconditions, then the fix → build → check∥test → scope-gate jobs. All scopes are
- * passed as "changed" so every scope gate renders (as conditional, not skipped). */
+ * preconditions, then the fix → build → check∥test (standards included) →
+ * scope-gate jobs. All scopes are passed as "changed" so every scope gate
+ * renders (as conditional, not skipped); the standards jobs come from the same
+ * config-only planner the dry-run uses (replay is a run-time decision). */
 function finishVerb(cfg: DiscernConfig): VerbPlan {
-  const plan = buildGatePlan(cfg, Object.keys(cfg.scopes));
+  const plan = buildGatePlan(
+    cfg,
+    Object.keys(cfg.scopes),
+    planStandardJobsFromConfig(buildStandardPlan(cfg).standards),
+  );
   const steps: ExecutionStep[] = [];
   if (plan.mergeCheck) {
     steps.push(step("merge-check", "merge-check"));
@@ -259,7 +274,7 @@ function standardsVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "standards",
     when:
-      "On demand — slow and clean-tree-only by default, so never part of `discern done`.",
+      "On demand — the full standalone measurement pass (always measures, never replays): deferred standards, pinning a gain, CI. The gate already measures the rest on every `discern done`.",
     steps,
   };
 }

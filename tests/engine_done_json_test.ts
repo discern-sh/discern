@@ -662,7 +662,10 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     const hints = obj.hints.join("\n");
     assertStringIncludes(hints, "docs"); // update-the-docs nudge
-    assertStringIncludes(hints, "discern standards"); // standards configured → check them
+    // The standard was measured IN the gate (not deferred to a follow-up verb),
+    // so no "run discern standards" nudge is owed — the step itself is the record.
+    const stdStep = stepFor(obj, "standard:cov");
+    assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
 
     // Human mode renders the exact same hint strings (one source of truth).
     const human = await runAgent(dir, ["done"]);

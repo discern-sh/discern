@@ -28,6 +28,7 @@ import { RawConfig } from "../../shared/config_read.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import {
   buildStandardPlan,
+  loosenedLimitReason,
   perNote,
   pinnedLimit,
   type PlannedStandard,
@@ -107,6 +108,43 @@ async function standardMainValue(
   mainBranch: string,
   key: string,
 ): Promise<number | undefined> {
+  const trunk = await readTrunkConfig(root, mainBranch);
+  return trunk.kind === "parsed" ? trunk.config.getNumber(key) : undefined;
+}
+
+/** How reading the trunk's committed config went — the evidence Tier 1 (the
+ * gate's never-loosen verification) distinguishes: a parsed config, no config
+ * on the trunk at all (a fresh install on this branch), an unreadable trunk (a
+ * missing ref — an unborn repo, or a CI clone that never fetched it), or a
+ * config that was fetched but does not parse. */
+export type TrunkConfigRead =
+  | { kind: "parsed"; config: RawConfig }
+  | { kind: "absent" }
+  | { kind: "unreadable"; reason: string }
+  | { kind: "parse_failed"; reason: string };
+
+/**
+ * Read the trunk's committed config RAW (it may be older or un-migrated — it
+ * must not trip the current schema). The `rev:./path` spelling is load-bearing
+ * (see {@link standardMainValue}). The trunk ref is resolved FIRST so a missing
+ * ref (unborn repo, unfetched CI clone) is distinguished from a trunk that
+ * simply has no config yet — the two get opposite Tier-1 postures (loud
+ * unverified vs a vacuous pass).
+ */
+export async function readTrunkConfig(
+  root: string,
+  mainBranch: string,
+): Promise<TrunkConfigRead> {
+  const ref = await runGit(
+    ["rev-parse", "--verify", "--quiet", `${mainBranch}^{commit}`],
+    { cwd: root },
+  );
+  if (!ref.success) {
+    return {
+      kind: "unreadable",
+      reason: `the trunk '${mainBranch}' does not resolve to a commit here`,
+    };
+  }
   for (const rel of ["discern.toml", ".discern/config.toml"]) {
     const out = await runGit(["show", `${mainBranch}:./${rel}`], {
       cwd: root,
@@ -114,12 +152,18 @@ async function standardMainValue(
     if (!out.success) {
       continue;
     }
-    // Read main's (possibly older, possibly un-migrated) config RAW — it must
-    // not trip the current schema; only one number is needed out of it.
-    const cfg = new RawConfig(out.stdout);
-    return cfg.getNumber(key);
+    try {
+      return { kind: "parsed", config: new RawConfig(out.stdout) };
+    } catch (error) {
+      return {
+        kind: "parse_failed",
+        reason: `the trunk's ${rel} does not parse: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
   }
-  return undefined;
+  return { kind: "absent" };
 }
 
 /** Run one standard's measurement command at the resolved project root, returning
@@ -179,7 +223,7 @@ async function measureExtent(
 
 /** Format a normalized value compactly: integers bare, otherwise up to two decimals
  * with trailing zeros trimmed (18.699… → "18.7", 18 → "18"). */
-function fmtRate(n: number): string {
+export function fmtRate(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
@@ -188,10 +232,12 @@ function fmtRate(n: number): string {
  * a caller that can't hear the live logger (MCP, `--json`) still learns WHY. The
  * metric-reading failures also carry the measurement `output`: the evidence needed to
  * see why no metric emerged. */
-interface StandardVerdict {
+export interface StandardVerdict {
   held: boolean;
   /** The value compared to the limit (rate or count); absent when unmeasurable. */
   value?: number;
+  /** The one-line pass summary, exactly as narrated; absent when it failed. */
+  summary?: string;
   /** The failure reason, exactly as narrated; absent when the standard held. */
   reason?: string;
   /** The measurement command's captured output, when it is the failure's evidence. */
@@ -200,6 +246,133 @@ interface StandardVerdict {
    * measurement is what failed or fell short; absent for the structural failures
    * (a loosened limit, a missing command), where re-running measures nothing. */
   reproduce_cmd?: string;
+}
+
+/**
+ * Compare an already-known `value` to a standard's limit — the pure final third
+ * of a standard's verdict, shared by a fresh measurement, the pin's receipt
+ * replay, and the gate's input-keyed replay, so "past the limit" is decided by
+ * ONE comparison (epsilon tolerance included) everywhere. `shown`/`breakdown`
+ * carry the human rendering when the caller normalized a rate.
+ */
+export function compareValueToLimit(
+  r: Pick<PlannedStandard, "name" | "metric" | "direction" | "limit" | "per">,
+  value: number,
+  shown: string,
+  breakdown: string,
+): StandardVerdict {
+  const { name, metric, direction, limit, per } = r;
+  if (direction === "up") {
+    if (value + 1e-9 < limit) {
+      return {
+        held: false,
+        value,
+        reason:
+          `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`,
+      };
+    }
+    return {
+      held: true,
+      value,
+      summary:
+        `standard '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
+    };
+  }
+  if (value - 1e-9 > limit) {
+    // A raw-count ceiling that a growing tree can breach on its own is the classic
+    // trap — point at the fix the moment it bites.
+    const growHint = per === undefined
+      ? " If this counts items over a tree you grow, it rises with size — hold a rate instead (add `per`)."
+      : "";
+    return {
+      held: false,
+      value,
+      reason:
+        `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`,
+    };
+  }
+  return {
+    held: true,
+    value,
+    summary:
+      `standard '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
+  };
+}
+
+/**
+ * Judge one standard from its measurement command's captured `output` — the
+ * metric read, the optional `per` normalization, and the limit comparison,
+ * with no narration and no subprocess beyond a `per` extent count. The ONE
+ * evaluation behind the standalone verb's check and the gate's measurement
+ * jobs, so a metric means the same thing wherever it was measured.
+ */
+export async function evaluateMeasuredOutput(
+  r: PlannedStandard,
+  output: string,
+  root: string,
+): Promise<StandardVerdict> {
+  const { name, metric, per, scale, command } = r;
+  const measuredStr = extractMetric(output, metric);
+  if (measuredStr === undefined) {
+    return {
+      held: false,
+      reason:
+        `standard '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`,
+      output,
+      reproduce_cmd: command,
+    };
+  }
+  if (!isNumber(measuredStr)) {
+    return {
+      held: false,
+      reason:
+        `standard '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`,
+      output,
+      reproduce_cmd: command,
+    };
+  }
+  const measured = Number(measuredStr);
+
+  // Normalize to a rate when `per` is set: value = metric / denominator * scale, so
+  // a growing tree never breaches the limit on its own. `breakdown` shows the raw
+  // numbers behind the rate; for a plain count it is empty and `value` is `measured`.
+  let value = measured;
+  let breakdown = "";
+  if (per !== undefined) {
+    let denom: number;
+    if (per.kind === "metric") {
+      const d = readEmittedNumber(output, per.metric);
+      if (d === undefined) {
+        return {
+          held: false,
+          reason:
+            `standard '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`,
+          output,
+          reproduce_cmd: command,
+        };
+      }
+      denom = d;
+    } else {
+      denom = await measureExtent(root, per.measure, per.globs);
+    }
+    if (denom <= 0) {
+      const what = per.kind === "metric"
+        ? `'per' metric '${per.metric}' is ${denom}`
+        : `${per.measure} over ${per.globs.join(", ")} measured 0`;
+      return {
+        held: false,
+        reason:
+          `standard '${name}': cannot calculate a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`,
+      };
+    }
+    value = (measured / denom) * scale;
+    breakdown = ` (${measuredStr} per ${denom}${
+      per.kind === "extent" ? ` ${per.measure}` : ""
+    }${scale === 1 ? "" : ` ×${scale}`})`;
+  }
+  const shown = per !== undefined ? fmtRate(value) : measuredStr;
+  const verdict = compareValueToLimit(r, value, shown, breakdown);
+  return verdict.held ? verdict : { ...verdict, reproduce_cmd: command };
 }
 
 /** Check one planned standard: the never-loosen read, the measurement, the comparison.
@@ -219,16 +392,7 @@ async function loosenedVsMainReason(
   mainBranch: string,
 ): Promise<string | undefined> {
   const main = await standardMainValue(root, mainBranch, r.limitKey);
-  if (main === undefined) {
-    return undefined;
-  }
-  if (r.direction === "up" && r.limit < main) {
-    return `standard '${r.name}': floor ${main} -> ${r.limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
-  }
-  if (r.direction === "down" && r.limit > main) {
-    return `standard '${r.name}': ceiling ${main} -> ${r.limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
-  }
-  return undefined;
+  return loosenedLimitReason(r.name, r.direction, r.limit, main, mainBranch);
 }
 
 async function standardCheck(
@@ -261,84 +425,13 @@ async function standardCheck(
   const output = await measure(command, root);
   out.raw(output.endsWith("\n") || output === "" ? output : `${output}\n`);
 
-  const measuredStr = extractMetric(output, metric);
-  if (measuredStr === undefined) {
-    const reason =
-      `standard '${name}': could not read metric '${metric}'. Emit a line: DISCERN_METRIC ${metric} <number>.`;
-    out.error(reason);
-    return { held: false, reason, output, reproduce_cmd: command };
-  }
-  if (!isNumber(measuredStr)) {
-    const reason =
-      `standard '${name}': metric '${metric}' value is not a number: '${measuredStr}'.`;
-    out.error(reason);
-    return { held: false, reason, output, reproduce_cmd: command };
-  }
-  const measured = Number(measuredStr);
-
-  // Normalize to a rate when `per` is set: value = metric / denominator * scale, so
-  // a growing tree never breaches the limit on its own. `breakdown` shows the raw
-  // numbers behind the rate; for a plain count it is empty and `value` is `measured`.
-  let value = measured;
-  let breakdown = "";
-  if (per !== undefined) {
-    let denom: number;
-    if (per.kind === "metric") {
-      const d = readEmittedNumber(output, per.metric);
-      if (d === undefined) {
-        const reason =
-          `standard '${name}': could not read 'per' metric '${per.metric}'. Emit a line: DISCERN_METRIC ${per.metric} <number>.`;
-        out.error(reason);
-        return { held: false, reason, output, reproduce_cmd: command };
-      }
-      denom = d;
-    } else {
-      denom = await measureExtent(root, per.measure, per.globs);
-    }
-    if (denom <= 0) {
-      const what = per.kind === "metric"
-        ? `'per' metric '${per.metric}' is ${denom}`
-        : `${per.measure} over ${per.globs.join(", ")} measured 0`;
-      const reason =
-        `standard '${name}': cannot calculate a rate — ${what} (nothing to divide by). Check the 'per' pathspec/metric.`;
-      out.error(reason);
-      return { held: false, reason };
-    }
-    value = (measured / denom) * scale;
-    breakdown = ` (${measuredStr} per ${denom}${
-      per.kind === "extent" ? ` ${per.measure}` : ""
-    }${scale === 1 ? "" : ` ×${scale}`})`;
-  }
-  const shown = per !== undefined ? fmtRate(value) : measuredStr;
-
-  // compare the value (rate or count) vs limit (epsilon tolerance)
-  if (direction === "up") {
-    if (value + 1e-9 < limit) {
-      const reason =
-        `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`;
-      out.error(reason);
-      return { held: false, value, reason, reproduce_cmd: command };
-    }
-    out.ok(
-      `standard '${name}': ${metric} ${shown} meets the floor ${limit}${breakdown}.`,
-    );
+  const verdict = await evaluateMeasuredOutput(r, output, root);
+  if (verdict.held) {
+    out.ok(verdict.summary ?? `standard '${name}' held.`);
   } else {
-    if (value - 1e-9 > limit) {
-      // A raw-count ceiling that a growing tree can breach on its own is the classic
-      // trap — point at the fix the moment it bites.
-      const growHint = per === undefined
-        ? " If this counts items over a tree you grow, it rises with size — hold a rate instead (add `per`)."
-        : "";
-      const reason =
-        `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`;
-      out.error(reason);
-      return { held: false, value, reason, reproduce_cmd: command };
-    }
-    out.ok(
-      `standard '${name}': ${metric} ${shown} within the ceiling ${limit}${breakdown}.`,
-    );
+    out.error(verdict.reason ?? `standard '${name}' failed.`);
   }
-  return { held: true, value };
+  return verdict;
 }
 
 /** One standard's measured outcome, carried alongside its {@link StepResult} so the

@@ -52,6 +52,17 @@ export interface PlannedStandard {
   /** Headroom `standards --pin` leaves when tightening this limit to the measured
    * value (default 0 → pin to the exact measurement). Same units as `limit`. */
   margin: number;
+  /** Whether the gate measures this standard (`measure = "gate"`, the default);
+   * false defers the measurement to the standalone `standards` verb. The
+   * never-loosen limit check is NOT governed by this — it runs regardless. */
+  gateMeasure: boolean;
+  /** The paths the metric reads (scope-paths globs, `${map.dir}` expanded) —
+   * when every change since the last recorded measurement falls outside them,
+   * the gate replays that value. Absent = always measure. */
+  inputs?: string[];
+  /** Per-job `timeout` override for the gate's measurement job (seconds; `0`
+   * disables the bound), replacing the global `[gate].timeout`. */
+  timeoutS?: number;
 }
 
 /** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
@@ -97,6 +108,9 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
   const standards: PlannedStandard[] = Object.entries(cfg.standards).map(
     ([name, spec]: [string, StandardConfig]) => {
       const per = resolvePer(spec.per, cfg.map.dir);
+      const inputs = spec.inputs?.map((glob) =>
+        expandMapDirReference(glob, cfg.map.dir)
+      );
       return {
         name,
         metric: spec.metric ?? name,
@@ -106,11 +120,42 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
         limitKey: `standards.${name}.limit`,
         scale: spec.scale,
         margin: spec.margin,
+        gateMeasure: spec.measure === "gate",
+        ...(inputs !== undefined ? { inputs } : {}),
+        ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
         ...(per !== undefined ? { per } : {}),
       };
     },
   );
   return { standards };
+}
+
+/**
+ * The never-loosen comparison, pure: the branch's `limit` against the trunk's
+ * recorded value, in the branch's `direction`. Returns the failure reason —
+ * the words every surface narrates — or undefined when the limit is not
+ * loosened (tightened, unchanged, or new on the branch: `mainValue`
+ * undefined). The ONE comparison behind the standalone verb's per-standard
+ * check AND the gate's Tier-1 verification, so the two can never disagree on
+ * what "loosened" means.
+ */
+export function loosenedLimitReason(
+  name: string,
+  direction: "up" | "down",
+  limit: number,
+  mainValue: number | undefined,
+  mainBranch: string,
+): string | undefined {
+  if (mainValue === undefined) {
+    return undefined;
+  }
+  if (direction === "up" && limit < mainValue) {
+    return `standard '${name}': floor ${mainValue} -> ${limit} vs ${mainBranch} — the floor only rises. Raise the metric, don't loosen the gate.`;
+  }
+  if (direction === "down" && limit > mainValue) {
+    return `standard '${name}': ceiling ${mainValue} -> ${limit} vs ${mainBranch} — the ceiling only falls. Lower the metric, don't loosen the gate.`;
+  }
+  return undefined;
 }
 
 /**

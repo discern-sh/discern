@@ -344,19 +344,26 @@ export type StandardMeasurementsCheck =
   | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
 
 /**
- * Record a green `standards` check's per-standard measured values against the HEAD
- * pinned BEFORE the measurements ran, for a subsequent `--pin` on that same clean
- * HEAD to reuse. Mirrors {@link recordGateOutcome}'s conditions: only a CLEAN tree
+ * Record a green check's per-standard measured values against the HEAD pinned
+ * BEFORE the measurements ran — written by a green `standards` check AND by a
+ * green gate run over a clean committed tree, for a subsequent `--pin` on that
+ * same clean HEAD to reuse and for the gate's input-keyed replay to baseline
+ * against. Mirrors {@link recordGateOutcome}'s conditions: only a CLEAN tree
  * with a readable HEAD that still matches the pin earns a receipt (a dirty check —
  * `--force` — records nothing, since the values describe a tree no pin will ever
  * see; a mid-measurement commit records nothing, since the values describe the
- * pinned tree, not the commit now at HEAD). Best-effort: an I/O hiccup never fails
- * the check that produced the measurements. Returns whether a receipt was written.
+ * pinned tree, not the commit now at HEAD). A PARTIAL record (the gate with a
+ * deferred standard) MERGES into an existing same-HEAD receipt rather than
+ * clobbering a fuller one, so check → done → pin still measures once.
+ * `durations` (whole seconds per standard) ride along so a defer/replay decision
+ * can be made from data. Best-effort: an I/O hiccup never fails the run that
+ * produced the measurements. Returns whether a receipt was written.
  */
 export async function recordStandardMeasurements(
   cwd: string,
   values: Record<string, number>,
   pin: ValidatedTreePin,
+  durations: Record<string, number> = {},
 ): Promise<boolean> {
   const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
   if (path === undefined || pin.head === undefined || !pin.clean) {
@@ -368,9 +375,18 @@ export async function recordStandardMeasurements(
     return false;
   }
   try {
+    const existing = parseMeasurements(
+      await Deno.readTextFile(path).catch(() => ""),
+    );
+    const merged = existing !== undefined && existing.head === pin.head
+      ? {
+        values: { ...existing.values, ...values },
+        durations: { ...existing.durations, ...durations },
+      }
+      : { values, durations };
     await Deno.writeTextFile(
       path,
-      `${JSON.stringify({ head: pin.head, values })}\n`,
+      `${JSON.stringify({ head: pin.head, ...merged })}\n`,
     );
     return true;
   } catch {
@@ -434,12 +450,37 @@ export async function inspectStandardMeasurements(
   return { status: "honored", values: parsed.values };
 }
 
+/** A parsed measurement receipt: the commit its values describe, the values,
+ * and each measurement's recorded duration (whole seconds; may be empty — a
+ * pre-durations receipt still parses). */
+export interface StandardMeasurements {
+  head: string;
+  values: Record<string, number>;
+  durations: Record<string, number>;
+}
+
+/** A map of finite numbers, or undefined when `raw` is anything else. */
+function finiteNumberMap(raw: unknown): Record<string, number> | undefined {
+  if (typeof raw !== "object" || raw === null) {
+    return undefined;
+  }
+  const out: Record<string, number> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return undefined;
+    }
+    out[name] = value;
+  }
+  return out;
+}
+
 /** Parse the receipt file's JSON defensively: a `head` sha string plus a `values`
- * map of finite numbers, or `undefined` for anything else — the file sits on disk
- * between runs, so its content is evidence to validate, not a trusted structure. */
+ * map of finite numbers (and optional `durations`), or `undefined` for anything
+ * else — the file sits on disk between runs, so its content is evidence to
+ * validate, not a trusted structure. */
 function parseMeasurements(
   raw: string,
-): { head: string; values: Record<string, number> } | undefined {
+): StandardMeasurements | undefined {
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -449,19 +490,64 @@ function parseMeasurements(
   if (typeof data !== "object" || data === null) {
     return undefined;
   }
-  const { head, values } = data as { head?: unknown; values?: unknown };
+  const { head, values, durations } = data as {
+    head?: unknown;
+    values?: unknown;
+    durations?: unknown;
+  };
   if (typeof head !== "string" || head === "") {
     return undefined;
   }
-  if (typeof values !== "object" || values === null) {
+  const parsedValues = finiteNumberMap(values);
+  if (parsedValues === undefined) {
     return undefined;
   }
-  const out: Record<string, number> = {};
-  for (const [name, value] of Object.entries(values)) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      return undefined;
-    }
-    out[name] = value;
+  const parsedDurations = durations === undefined
+    ? {}
+    : finiteNumberMap(durations);
+  if (parsedDurations === undefined) {
+    return undefined;
   }
-  return { head, values: out };
+  return { head, values: parsedValues, durations: parsedDurations };
+}
+
+/**
+ * The recorded measurement baselines reachable from this worktree, nearest
+ * first: its OWN measurement receipt, then the main checkout's (via the shared
+ * git common dir) — the trunk's last recorded measurement, which gives a fresh
+ * worktree a baseline before it has measured anything itself. Unlike
+ * {@link inspectStandardMeasurements} (the pin's strict same-HEAD honor rule),
+ * these are candidates for the gate's input-keyed replay: the CALLER must
+ * verify each `head` is an ancestor of the current HEAD and that the standard's
+ * declared inputs are untouched since. Best-effort: unreadable or malformed
+ * files are simply absent.
+ */
+export async function measurementBaselines(
+  cwd: string,
+): Promise<StandardMeasurements[]> {
+  const own = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  const common = await runGit(["rev-parse", "--git-common-dir"], { cwd });
+  const commonDir = common.success ? common.stdout.trim() : "";
+  const trunk = commonDir === "" ? undefined : join(
+    commonDir.startsWith("/") ? commonDir : join(cwd, commonDir),
+    MEASUREMENTS_FILE,
+  );
+  const paths = [own, trunk].filter((p): p is string => p !== undefined);
+  const out: StandardMeasurements[] = [];
+  const seen = new Set<string>();
+  for (const path of paths) {
+    if (seen.has(path)) {
+      continue; // the main checkout: its own admin file IS the common-dir file
+    }
+    seen.add(path);
+    const raw = await Deno.readTextFile(path).catch(() => undefined);
+    if (raw === undefined) {
+      continue;
+    }
+    const parsed = parseMeasurements(raw);
+    if (parsed !== undefined) {
+      out.push(parsed);
+    }
+  }
+  return out;
 }

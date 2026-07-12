@@ -4749,7 +4749,8 @@
                         "tracked_artifacts",
                         "guidance",
                         "skills",
-                        "merge"
+                        "merge",
+                        "standards"
                       ]
                     },
                     {
@@ -4762,6 +4763,83 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "standards": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down"
+                        ]
+                      },
+                      "limit": {
+                        "type": "number"
+                      },
+                      "measurement": {
+                        "type": "string",
+                        "enum": [
+                          "measured",
+                          "replayed",
+                          "deferred",
+                          "skipped"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "verdict": {
+                        "type": "string",
+                        "enum": [
+                          "improved",
+                          "held",
+                          "regressed"
+                        ]
+                      },
+                      "duration_s": {
+                        "type": "number"
+                      },
+                      "replayed_from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "direction",
+                      "limit",
+                      "measurement"
+                    ]
+                  }
+                },
+                "standards_limits": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "verified",
+                        "loosened",
+                        "unverified",
+                        "parse_failed"
+                      ]
+                    },
+                    "trunk": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "trunk"
+                  ]
                 },
                 "receipt": {
                   "type": "object",

@@ -21,17 +21,40 @@ import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
   buildGateResult,
-  buildStageGroups,
+  checkTestGroup,
   composeGatePlan,
   gatePlanToEngine,
+  type JobGroup,
   planScopeGates,
   scopeGatesGroup,
+  stageGroup,
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
-import { pinValidatedTree, recordGateOutcome } from "./receipt.ts";
+import {
+  clearStandardMeasurements,
+  pinValidatedTree,
+  recordGateOutcome,
+  recordStandardMeasurements,
+} from "./receipt.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
+import { buildStandardPlan } from "./standard_plan.ts";
+import { fmtRate } from "./standards.ts";
+import {
+  buildGateStandardJobs,
+  gateStandardsData,
+  planStandardJobsFromConfig,
+  type ResolvedStandard,
+  resolveStandardActions,
+  resolveStandardActionsFromConfig,
+  standardJobLabel,
+  verifyTrunkLimits,
+} from "./standards_gate.ts";
+import type {
+  GateStandard,
+  StandardsLimitsData,
+} from "../../shared/result_schemas.ts";
 import {
   fixDriftDiagnostic,
   fixDriftPaths,
@@ -94,6 +117,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   merge:
     "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
+  standards:
+    "A [standards] limit failed verification against the trunk — a limit only tightens on a branch; the diagnostics name each standard and both values.",
 };
 
 /** The human die message for a failed stage. Exported so `accept` names the stage
@@ -246,6 +271,49 @@ async function runGate(
     out.warn(mergeWarning);
   }
 
+  // 1a. The never-loosen verification (Tier 1, ADR 0133) — every configured
+  //     [standards] limit against the trunk's committed copy, deletions included.
+  //     Placed HERE, directly after the merge check: it is the cheapest
+  //     precondition after it (one git read, milliseconds), it guards the very
+  //     config every later job table was built from, and the merge check must
+  //     precede it so the baseline is the freshest merged-in trunk copy. Not
+  //     configurable — an escape hatch here would defeat the guarantee the
+  //     product leads with. An unreadable trunk skips LOUDLY (a warning + the
+  //     receipt discloses it); a trunk config that was fetched but does not
+  //     parse fails hard; never a silent pass either way.
+  const stdPlan = buildStandardPlan(cfg);
+  let standardsLimits: StandardsLimitsData | undefined;
+  let tier1Diagnostics: Diagnostic[] = [];
+  let limitsWarning: string | undefined;
+  if (failedStage === null) {
+    const verification = await verifyTrunkLimits(
+      root,
+      mainBranch,
+      stdPlan.standards,
+    );
+    tier1Diagnostics = verification.diagnostics;
+    if (verification.blocking) {
+      failedStage = "standards";
+    }
+    // With no standards anywhere (none configured, none on the trunk), the
+    // verification is vacuous — carry nothing, so a standards-free project's
+    // result stays byte-identical to before.
+    if (
+      stdPlan.standards.length > 0 ||
+      verification.summary.status === "loosened" ||
+      verification.summary.status === "parse_failed"
+    ) {
+      standardsLimits = verification.summary;
+    }
+    if (standardsLimits?.status === "unverified") {
+      limitsWarning =
+        `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
+          standardsLimits.reason ?? "unknown"
+        }). Fetch the trunk where the gate runs (in CI: \`git fetch origin ${mainBranch}:${mainBranch}\`) so limits are verified.`;
+      out.warn(limitsWarning);
+    }
+  }
+
   // 1a-bis. Silent divergence: the gate is running in a PRISTINE worktree while
   //     the main checkout accumulates uncommitted changes — the signature of an
   //     agent that could not re-root and is editing the trunk while validating
@@ -312,13 +380,14 @@ async function runGate(
   //    hide behind a green result (ADR 0047). Skip the snapshots when no fix stage is wired, or
   //    when a fail-fast precondition (the merge or a currency check) already failed
   //    (nothing downstream runs).
-  const stageGroups = buildStageGroups(cfg);
-  const hasFix = stageGroups.some((g) => g.stage === "fix");
+  const preGroups = [stageGroup(cfg, "fix"), stageGroup(cfg, "build")]
+    .filter((g): g is JobGroup => g !== undefined);
+  const hasFix = preGroups.some((g) => g.stage === "fix");
   const dirtyBeforeFix = hasFix && failedStage === null
     ? await worktreeDirtyPaths(root)
     : null;
   let dirtyAfterFix: Set<string> | null = null;
-  for (const group of stageGroups) {
+  for (const group of preGroups) {
     if (failedStage !== null) {
       break;
     }
@@ -330,6 +399,52 @@ async function runGate(
       dirtyAfterFix = await worktreeDirtyPaths(root);
     }
   }
+
+  // 2a. Resolve the standards' gate actions AFTER the fix stage — a fixer's
+  //     edits are changes an input-keyed replay must count — and only on the
+  //     live path: when a precondition or an early stage already failed, the
+  //     config-only resolution (measure/defer; replay is a run-time decision)
+  //     keeps the report honest without claiming replays nothing verified.
+  //     Zero cost when [standards] is empty: no jobs, no reads, no fields.
+  const resolved: ResolvedStandard[] = stdPlan.standards.length === 0
+    ? []
+    : failedStage === null
+    ? await resolveStandardActions(root, stdPlan.standards)
+    : resolveStandardActionsFromConfig(stdPlan.standards);
+  const gateStandards = buildGateStandardJobs(root, resolved);
+  const checkTest = checkTestGroup(cfg, gateStandards.jobs);
+
+  // 2b. The check∥test group — capabilities, checks, tests, AND the standards'
+  //     measurement jobs, one parallel group under one scheduler (fail-fast,
+  //     buffering, the per-job timeout). Replayed standards settle first: their
+  //     synthesized results are seeded so the serialization reads them like any
+  //     other outcome — and a replayed value the branch's own tightened limit
+  //     now fails is a genuine gate failure.
+  let replayFailure = false;
+  if (failedStage === null && checkTest !== undefined) {
+    for (const [label, result] of gateStandards.synthesized) {
+      results.set(label, result);
+      if (result.code !== 0) {
+        replayFailure = true;
+      }
+    }
+    if (
+      !(await runGroup(
+        checkTest,
+        results,
+        runOpts,
+        out,
+        gateStandards.evaluators,
+      ))
+    ) {
+      failedStage = "check/test";
+    } else if (replayFailure) {
+      failedStage = "check/test";
+    }
+  }
+  const stageGroups = checkTest !== undefined
+    ? [...preGroups, checkTest]
+    : preGroups;
 
   // 3. Classify the changed scopes AFTER the stage groups — preserving the gate's
   //    original timing, so a fix-stage edit is reflected and scope selection keeps
@@ -369,8 +484,41 @@ async function runGate(
   const plan = composeGatePlan(stageGroups, sgGroup, changed);
   const result = await buildGateResult(plan, results, failedStage);
   const jobOutputHints = result.hints ?? [];
+  // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
+  //     the Tier-1 verification, plus the measured value patched into each
+  //     measured step's note — the receipt renders FROM these, never a second
+  //     computation.
+  const standardsData: GateStandard[] = gateStandardsData(
+    resolved,
+    gateStandards,
+  );
+  if (result.data !== undefined) {
+    if (standardsData.length > 0) {
+      result.data.standards = standardsData;
+    }
+    if (standardsLimits !== undefined) {
+      result.data.standards_limits = standardsLimits;
+    }
+  }
+  for (const o of standardsData) {
+    if (o.measurement !== "measured" || o.value === undefined) {
+      continue;
+    }
+    const step = (result.steps ?? []).find(
+      (s) => s.step.label === standardJobLabel(o.name),
+    );
+    if (step !== undefined && step.step.note !== undefined) {
+      step.step.note = `${step.step.note}, measured ${fmtRate(o.value)}`;
+    }
+  }
   // The fail-fast checks aren't plan-group jobs, so their diagnostics are attached
   // here, like the merge stage's failed_stage rides in `data` without a job entry.
+  if (tier1Diagnostics.length > 0) {
+    result.diagnostics = [
+      ...tier1Diagnostics,
+      ...(result.diagnostics ?? []),
+    ];
+  }
   if (trackedArtifactsDiag !== undefined) {
     result.diagnostics = [
       ...(result.diagnostics ?? []),
@@ -391,8 +539,47 @@ async function runGate(
   // agent relays to its owner at the review moment. Built before the marker write so
   // the marker can store the markdown beside the sha it vouches for.
   const receipt = failedStage === null
-    ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
+    ? await buildGateReceipt(
+      root,
+      mainBranch,
+      result.steps ?? [],
+      standardsData,
+      standardsLimits,
+    )
     : undefined;
+  // Record the measurement receipt (ADR 0112, extended by ADR 0133): a green
+  // gate over a clean committed tree records every value it holds (measured or
+  // replayed — a replayed value is a real measurement of an identical input
+  // set), so an immediate `standards --pin` replays instead of re-measuring and
+  // the next gate run has a baseline to replay against. Durations ride along so
+  // a defer decision can be made from data. Fail-closed on red: a failing
+  // standard's values must not stay reusable.
+  if (failedStage === null) {
+    const values: Record<string, number> = {};
+    const durations: Record<string, number> = {};
+    for (const o of standardsData) {
+      if (
+        o.value !== undefined &&
+        (o.measurement === "measured" || o.measurement === "replayed")
+      ) {
+        values[o.name] = o.value;
+        if (o.duration_s !== undefined) {
+          durations[o.name] = o.duration_s;
+        }
+      }
+    }
+    if (Object.keys(values).length > 0) {
+      await recordStandardMeasurements(root, values, treePin, durations);
+    }
+  } else if (
+    standardsData.some(
+      (o) =>
+        o.verdict === "regressed" ||
+        (o.measurement === "measured" && o.value === undefined),
+    )
+  ) {
+    await clearStandardMeasurements(root);
+  }
   // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
@@ -430,17 +617,21 @@ async function runGate(
       ? await couplingGateHints(root)
       : [];
   const receiptHint = gateReceiptHint(gateReceipt, failedStage);
+  const deferredStandards = standardsData
+    .filter((o) => o.measurement === "deferred")
+    .map((o) => o.name);
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
+    ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
       cfg,
       changed,
       failedStage,
-      gateReceipt.status === "recorded",
       emittedReceipt !== undefined,
+      deferredStandards,
     ),
     ...jobOutputHints,
     ...couplingHints,
@@ -483,15 +674,15 @@ function gateReceiptHint(
  * The agent-facing "what next" hints for a finished gate — the SINGLE source of
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
  * human success tail. On a failure: where the project documents its known gate
- * failures (when a `gotchas_doc` is set). On success: update the docs, check the
- * standards, view a previewable change.
+ * failures (when a `gotchas_doc` is set). On success: update the docs, run any
+ * deferred standards, view a previewable change.
  */
 function buildGateHints(
   cfg: DiscernConfig,
   changed: string[],
   failedStage: FailedStage | null,
-  cleanFinishRecorded: boolean,
   receiptEmitted: boolean,
+  deferredStandards: string[],
 ): string[] {
   if (failedStage !== null) {
     const doc = cfg.project.gotchas_doc;
@@ -509,9 +700,11 @@ function buildGateHints(
   hints.push(
     "If you changed documented behaviour, update the docs to match before you finish.",
   );
-  if (cleanFinishRecorded && Object.keys(cfg.standards).length > 0) {
+  if (deferredStandards.length > 0) {
     hints.push(
-      "Run standards as needed with `discern standards` (slow and outside `discern done`; non-dry-run standards require a clean worktree unless forced for standard authoring).",
+      `${deferredStandards.length} standard(s) deferred from the gate (measure = "on-demand"): ${
+        deferredStandards.join(", ")
+      } — the never-loosen limit check still ran; measure them with \`discern standards\` as needed.`,
     );
   }
   if (
@@ -576,7 +769,7 @@ async function dryRunGate(
 ): Promise<number> {
   const cfg = await loadConfig(root);
   const changed = await classifyScopes(root, cfg);
-  const plan = buildGatePlan(cfg, changed);
+  const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg));
   const engine = gatePlanToEngine(plan);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
@@ -605,10 +798,21 @@ export async function finishResult(
     const changed = await classifyScopes(root, cfg);
     return previewResult(
       "done",
-      gatePlanToEngine(buildGatePlan(cfg, changed)),
+      gatePlanToEngine(buildGatePlan(cfg, changed, dryRunStandardJobs(cfg))),
     );
   }
   return (await runGate(root, true, opts.signal)).result;
+}
+
+/** The standards jobs a `--dry-run` plan lists: the pure, config-only
+ * resolution (measure or defer). A replay is a run-time decision over the tree
+ * and the recorded baseline, which an honest plan cannot predict — a measured
+ * standard listed here may still replay when the real run finds its inputs
+ * untouched. */
+function dryRunStandardJobs(
+  cfg: DiscernConfig,
+): ReturnType<typeof planStandardJobsFromConfig> {
+  return planStandardJobsFromConfig(buildStandardPlan(cfg).standards);
 }
 
 /** Run `done`. Returns a process exit code. */

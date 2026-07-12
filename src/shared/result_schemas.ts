@@ -238,15 +238,67 @@ export const ReceiptSchema = z.strictObject({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
+/** How one configured standard's measurement went in a gate run. The SSOT for the
+ * measurement-disposition vocabulary — the engine types its outcomes from these. */
+export const STANDARD_MEASUREMENTS = [
+  "measured", // the run command executed inside the gate's parallel group
+  "replayed", // the recorded baseline value stood in — its inputs were untouched
+  "deferred", // measure = "on-demand": the gate skipped only the measurement
+  "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
+] as const;
+/** One measurement disposition ({@link STANDARD_MEASUREMENTS}). */
+export type StandardMeasurementDisposition =
+  (typeof STANDARD_MEASUREMENTS)[number];
+
+/** A measured (or replayed) value's standing against its limit. */
+export const STANDARD_VERDICTS = ["improved", "held", "regressed"] as const;
+/** One standard verdict ({@link STANDARD_VERDICTS}). */
+export type StandardVerdictLabel = (typeof STANDARD_VERDICTS)[number];
+
+/** One standard's outcome in a gate run: what the gate did about its measurement
+ * (`measurement`), the value and its standing when one exists (`value` absent for
+ * deferred/skipped and for an unreadable metric — the diagnostic carries why), the
+ * measurement's wall-clock cost, and — for a replay — the commit whose recorded
+ * measurement stood in. */
+export const GateStandardSchema = z.strictObject({
+  name: z.string(),
+  direction: z.enum(["up", "down"]),
+  limit: z.number(),
+  measurement: z.enum(STANDARD_MEASUREMENTS),
+  value: z.number().optional(),
+  verdict: z.enum(STANDARD_VERDICTS).optional(),
+  duration_s: z.number().optional(),
+  replayed_from: z.string().optional(),
+});
+export type GateStandard = z.infer<typeof GateStandardSchema>;
+
+/** How the gate's never-loosen verification of `[standards]` limits against the
+ * trunk went: `verified` (none loosened — vacuously so for limits new on the
+ * branch or a trunk with no config yet), `loosened` (a limit loosened or an
+ * entry deleted — the gate fails; per-standard diagnostics carry both values),
+ * `unverified` (the trunk cannot be read — an unborn repo or an unfetched CI
+ * clone; the gate proceeds LOUDLY, never silently), or `parse_failed` (the
+ * trunk's config was fetched but does not parse — the gate fails). */
+export const StandardsLimitsSchema = z.strictObject({
+  status: z.enum(["verified", "loosened", "unverified", "parse_failed"]),
+  trunk: z.string(),
+  reason: z.string().optional(),
+});
+export type StandardsLimitsData = z.infer<typeof StandardsLimitsSchema>;
+
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
  * `receipt` is present on a green run over a clean committed tree ahead of the
  * trunk — the review-moment summary; `gate_receipt` reports how recording it in the
- * marker file went. */
+ * marker file went. `standards`/`standards_limits` are present when `[standards]`
+ * is configured: the per-standard measurement outcomes and the never-loosen
+ * verification against the trunk. */
 export const GateDataSchema = z.strictObject({
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
+  standards: z.array(GateStandardSchema).optional(),
+  standards_limits: StandardsLimitsSchema.optional(),
   receipt: ReceiptSchema.optional(),
   gate_receipt: z.strictObject({
     status: z.enum([

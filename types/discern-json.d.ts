@@ -1372,8 +1372,24 @@ export type DiscernDoneResult = {
       | "guidance"
       | "skills"
       | "merge"
+      | "standards"
       | null;
     scopes_changed: Array<string>;
+    standards?: Array<{
+      name: string;
+      direction: "up" | "down";
+      limit: number;
+      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      value?: number;
+      verdict?: "improved" | "held" | "regressed";
+      duration_s?: number;
+      replayed_from?: string;
+    }>;
+    standards_limits?: {
+      status: "verified" | "loosened" | "unverified" | "parse_failed";
+      trunk: string;
+      reason?: string;
+    };
     receipt?: {
       branch: string;
       trunk: string;
