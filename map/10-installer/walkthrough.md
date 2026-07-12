@@ -48,12 +48,13 @@ fresh setup requires the agent to attest that this conversation happened.
 
 With your consent, the agent runs `discern setup begin`. discern works on an
 isolated `discern-setup` branch so your `main` is never touched mid-setup — and
-it starts that branch **from** your integration branch, refusing to begin from
-an unlanded feature branch (whose own commits would otherwise ride along when
-the setup accepts). It lays down the scaffold — `discern.toml`, the `discern/`
-namespace, the docs skeleton — records a short brief of what you're building,
-and prints a **setup brief** the agent then works through: filling in your
-guidance, sketching the first docs, wiring the gate commands for your stack.
+it starts that branch **from** your trunk — the shared landing branch, usually
+`main` — refusing to begin from an unlanded feature branch (whose own commits
+would otherwise ride along when the setup accepts). It lays down the scaffold —
+`discern.toml`, the `discern/` namespace, the docs skeleton — records a short
+brief of what you're building, and prints a **setup brief** the agent then works
+through: filling in your guidance, sketching the first docs, wiring the gate
+commands for your stack.
 
 You watch this happen. It's ordinary file edits on a branch you can read.
 

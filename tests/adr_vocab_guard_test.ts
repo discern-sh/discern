@@ -29,6 +29,8 @@ const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
 const MAP = join(REPO_ROOT, "map");
 const MOCKUPS = join(REPO_ROOT, "mockups");
+const RECIPES = join(REPO_ROOT, "recipes");
+const SKILLS = join(REPO_ROOT, "skills");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
@@ -36,6 +38,8 @@ const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
 /** Retired product-category wording; one README category phrase remains searchable. */
 const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
+/** Retired human-facing name for the shared branch; user copy calls it the trunk. */
+const INTEGRATION_BRANCH = /\bintegration branch\b/gi;
 
 type Literal = { text: string; line: number };
 
@@ -195,6 +199,17 @@ function harnessLines(rel: string, text: string): string[] {
   return findings;
 }
 
+/** Human-readable line findings for the retired shared-branch label. */
+function integrationBranchLines(rel: string, text: string): string[] {
+  const findings: string[] = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    for (const hit of line.match(INTEGRATION_BRANCH) ?? []) {
+      findings.push(`${rel}:${index + 1} contains "${hit}"`);
+    }
+  }
+  return findings;
+}
+
 Deno.test("src/ string literals never cite ADR numbers", async () => {
   const offenders: string[] = [];
   for await (
@@ -262,9 +277,9 @@ Deno.test("user-facing source strings never use the retired harness category", a
   );
 });
 
-Deno.test("shipped templates and public map prose never use the retired harness category", async () => {
+Deno.test("shipped templates, skills, recipes, and public map prose never use the retired harness category", async () => {
   const offenders: string[] = [];
-  for (const root of [TEMPLATES, MAP]) {
+  for (const root of [TEMPLATES, SKILLS, RECIPES, MAP]) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
       if (
@@ -321,6 +336,63 @@ Deno.test("root guidance, config, and landing mockups retire harness; README kee
   assert(
     /\bquality harness\b/i.test(readme),
     'README.md\'s sole category use must read "quality harness"',
+  );
+});
+
+Deno.test("user-facing output consistently calls the shared branch the trunk", async () => {
+  const offenders: string[] = [];
+  for await (
+    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  ) {
+    const source = await Deno.readTextFile(entry.path);
+    const rel = relative(REPO_ROOT, entry.path);
+    for (const { text, line } of stringLiterals(source)) {
+      for (const hit of text.match(INTEGRATION_BRANCH) ?? []) {
+        offenders.push(`${rel}:${line} string contains "${hit}"`);
+      }
+    }
+  }
+
+  for (const root of [TEMPLATES, RECIPES, MAP, MOCKUPS]) {
+    for await (const entry of walk(root, { includeDirs: false })) {
+      const rel = relative(REPO_ROOT, entry.path);
+      if (rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")) {
+        continue;
+      }
+      let contents: string;
+      try {
+        contents = await Deno.readTextFile(entry.path);
+      } catch {
+        continue;
+      }
+      offenders.push(
+        ...integrationBranchLines(rel, visibleMarkdown(contents)),
+      );
+    }
+  }
+
+  for (
+    const rel of [
+      "README.md",
+      "CONTRIBUTING.md",
+      "guidance.md",
+      "discern.toml",
+    ]
+  ) {
+    offenders.push(
+      ...integrationBranchLines(
+        rel,
+        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+      ),
+    );
+  }
+
+  assertEquals(
+    offenders,
+    [],
+    `retired shared-branch wording leaked into user-facing output:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

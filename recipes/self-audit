@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# desc: summarize this checkout against the discern harness
+# desc: summarize this checkout against discern's quality bar
 
 exec deno run --allow-run=discern - <<'DISCERN_SELF_AUDIT'
 async function runJson(label, args) {

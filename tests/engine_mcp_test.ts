@@ -2505,7 +2505,7 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
   });
 });
 
-Deno.test("discern mcp: the rendered surface names the project's configured integration branch", async () => {
+Deno.test("discern mcp: the rendered surface names the project's configured trunk", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);

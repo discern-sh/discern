@@ -421,7 +421,9 @@ export async function createResources(
       if (!ok) {
         if (spec.required) {
           throw new WorktreeGitError(
-            `Worktree resource '${spec.name}' create step failed.`,
+            `Creating required worktree resource '${spec.name}' failed. Fix its ` +
+              `configured create command or prerequisites, then re-run ` +
+              `\`discern worktree setup\`.`,
           );
         }
         ctx.log.warn(

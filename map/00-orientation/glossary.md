@@ -73,7 +73,7 @@ pass fills it — a blank map is worse than none
 
 The stack-neutral logic behind the `discern` run-time verbs (`done`, `prepare`,
 `improvement`, `status`, the `worktree` command group, `update`, `accept`,
-`standards`, `refresh`, `scopes`, `coupling`, …), written in **TypeScript and
+`standards`, `refresh`, `impact`, `coupling`, …), written in **TypeScript and
 compiled into the binary** under [`src/engine/`](../../src/engine/) (sharing
 [`src/shared/`](../../src/shared/) with the Installer). The Engine knows nothing
 stack-specific — it runs the [Capabilities](#capability), [Checks](#check),
@@ -96,8 +96,7 @@ A project's **own** `discern` verb — a language-agnostic executable under
 `[recipes].dir` (default `discern/recipes`). The binary execs it on an unknown
 verb, with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
 (`some:verb` → `some-verb`). A recipe reads config through the
-`discern config get|array|has|
-subsections|keys` surface and worktree identity
+`discern config get|array|has|subsections|keys` surface and worktree identity
 through `discern identity --db|--site|--port|--resource <name>` — it does
 **not** source a shell library. On a name collision with a built-in verb the
 binary wins ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
@@ -123,11 +122,10 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **17** — the `15 → 16` step
-retires the `[features]` toggles so every subsystem is core
-([ADR 0101](../_adr/0101-retire-the-features-toggles.md)), and `16 → 17` drops
-`[worktree].graduate_to` so `discern accept` always lands on the trunk
-([ADR 0110](../_adr/0110-the-landing-model.md)).
+leave it untouched. The current shape is schema **19** — `17 → 18` renames the
+quality-number table to `[standards]`, and `18 → 19` renames the
+agent-maintained documentation table to `[map]` while preserving every existing
+install's directory.
 
 ### Migration
 
@@ -135,10 +133,10 @@ One **idempotent** step that brings an install from Schema version `N` to `N+1`.
 `upgrade` reads `[meta].schema_version` (from `discern.toml`, or a legacy
 `.discern/config.toml` for a pre-6 install), runs every pending step in order up
 to the binary's, validates the migrated config, then re-stamps it. If the
-project records a newer schema than the binary supports and `upgrade` refuse and
-point the user at reinstalling discern instead of stamping the config down. A
-step can edit the config comment-preserving, move/rewrite files, and deep-merge
-settings — the `5 → 6` step moves the config to the root, relocates
+project records a newer schema than the binary supports and `upgrade` refuses
+and point the user at reinstalling discern instead of stamping the config down.
+A step can edit the config comment-preserving, move/rewrite files, and
+deep-merge settings — the `5 → 6` step moves the config to the root, relocates
 guidance/recipes/authored skills out of `.discern/`, prunes the pristine bundled
 skills, and deletes `.discern/`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md),
@@ -259,9 +257,10 @@ Terms for `discern done` and what it runs. Covered in depth under
 
 ### Capability
 
-One of a small, **closed** vocabulary of things a project can do, declared flat
-under `[capabilities]` in `discern.toml`: `format`, `build`, `lint`,
-`typecheck`, `test`, and `smoke` (a fast "does it boot?" check —
+A configured project command for one known kind of work. Capabilities form a
+small, **closed** vocabulary declared flat under `[capabilities]` in
+`discern.toml`: `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` (a
+fast "does it boot?" check —
 [ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)). Each is a name
 mapped to a command (or a list run in order); the Engine **derives the gate
 [Stage](#stage)** from the name, so an author never writes a scheduling keyword.
@@ -299,29 +298,31 @@ no longer a user-facing word.
 
 ### Gate
 
-`discern done` — the compound quality gate: (in a worktree) the main-merged
-check first, as a fail-fast precondition, then the Capability and Check
-[Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then any
-[Scope](#scope) `gate`s that fired. Each Capability and Check runs as its own
-labelled job, so a failure is attributed to the precise one. `discern prepare`
-is the fast inner loop — the fix-stage then check-stage work, no build or test.
+The project's full quality check, run with `discern done`. In a worktree it
+checks that the branch contains the latest trunk first, then runs the Capability
+and Check [Stages](#stage) in order (`fix ∥ build`, then `check ∥ test`), then
+any [Scope](#scope) `gate`s that fired. Each Capability and Check runs as its
+own labelled job, so a failure is attributed to the precise one.
+`discern prepare` is the fast inner loop — the fix-stage then check-stage work,
+no build or test.
 
 ### Scope
 
-A named region of the repo a change can touch, declared as a `[scopes.<name>]`
-table: `paths` (the defining globs) plus optional `neutral` / `previewable`
-booleans and a `gate` command run only when that Scope changed — it skips
-irrelevant work and fires a sub-component's own gate. Classification **fails
-open**: a path matching no Scope counts as a real code change, so it runs more
-gates, never fewer ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+A named region of the repository a change can touch, declared as a
+`[scopes.<name>]` table: `paths` (the defining globs) plus optional `neutral` /
+`previewable` booleans and a `gate` command run only when that Scope changed —
+it skips irrelevant work and fires a sub-component's own gate. Classification
+**fails open**: a path matching no Scope counts as a real code change, so it
+runs more gates, never fewer
+([ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ### Standard
 
-A never-loosen quality floor or ceiling (line coverage, a size budget, a
-lint-error count), declared under `[standards]` and held against `main`. It
+Standards are _numbers that can never get worse_: never-loosen floors or
+ceilings such as line coverage, a size budget, or a lint-error count. A Standard
+is declared under `[standards]` and held against the [Trunk](#trunk). It
 **inlines its own `run`**, the command that prints
-`DISCERN_METRIC <metric>
-<number>`. Standards are slow, so they run on demand
+`DISCERN_METRIC <metric> <number>`. Standards are slow, so they run on demand
 via `discern standards`, not as part of `done`
 ([ADR 0003](../_adr/0003-named-metric-ratchets.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
@@ -355,10 +356,17 @@ Terms for the isolated-worktree workflow. Covered in depth under
 
 ### Worktree
 
-A throwaway, isolated `git worktree` (and its branch) for a single change, so an
-agent never works directly in the main checkout. Each gets a deterministic
+A separate checkout and branch for one change, created with `git worktree`, so
+an agent never works directly in the main checkout. Each gets a deterministic
 dev-server port and any per-worktree [resources](#worktree-resource) a project
 declares, so concurrent worktrees never collide.
+
+### Trunk
+
+The shared branch accepted work lands on, configured by `[project].main_branch`
+and usually named `main`. The main checkout is the long-lived checkout that
+holds it; worktrees bring the trunk into their own branches with
+`discern update`, then land back on it with `discern accept`.
 
 ### Worktree settings
 
@@ -384,23 +392,23 @@ project-namespaced handle is read with `identity --resource <name>` or the
 
 ### Update
 
-What `discern update` does: bring the latest integration branch
-(`[project].main_branch`) into the current worktree's branch and re-materialize
-the generated agent files + [Skills](#skill), in one deterministic step — the
-inverse of [Accept](#accept). A no-op when the branch already contains main. It
-merges into a clean tree only, and on a conflict it aborts the merge and reports
-the conflicting files. The action the [Gate](#gate)'s fail-fast merge check
-points a behind branch at ([ADR 0055](../_adr/0055-integrate-verb.md)).
+What `discern update` does: bring the latest [Trunk](#trunk) into the current
+worktree's branch and re-materialize the generated agent files +
+[Skills](#skill), in one deterministic step — the inverse of [Accept](#accept).
+A no-op when the branch already contains main. It merges into a clean tree only,
+and on a conflict it aborts the merge and reports the conflicting files. The
+action the [Gate](#gate)'s fail-fast merge check points a behind branch at
+([ADR 0055](../_adr/0055-integrate-verb.md)).
 
 ### Accept
 
-What `discern accept` does: land the worktree's branch on the trunk (a role →
-`[project].main_branch`, whether that is `main`, `master`, …) and tear the
-worktree down (its resources destroyed, directory pruned, the now-merged branch
-deleted). Requires the branch to already carry the trunk, so the landing is
-always a clean fast-forward. The trunk is the one landing target
-([ADR 0110](../_adr/0110-the-landing-model.md)); composing on unlanded work
-happens on the pull side instead (`start --from`, `update --from`).
+What `discern accept` does: land the worktree's branch on the [Trunk](#trunk)
+(whether that is `main`, `master`, …) and tear the worktree down (its resources
+destroyed, directory pruned, the now-merged branch deleted). Requires the branch
+to already carry the trunk, so the landing is always a clean fast-forward. The
+trunk is the one landing target ([ADR 0110](../_adr/0110-the-landing-model.md));
+composing on unlanded work happens on the pull side instead (`start --from`,
+`update --from`).
 
 ---
 
@@ -442,8 +450,7 @@ configured agent's skills dir (gitignored, [the binary's](#the-binarys-files)):
 built-ins **rendered** through the strict template engine — path tokens become
 the configured paths
 ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)) — and
-authored skills **symlinked** so edits are live. `discern skills
-list` shows the
+authored skills **symlinked** so edits are live. `discern skills list` shows the
 set; `discern skills eject <name>` copies a built-in into your dir to customize;
 `[skills].exclude` drops named skills from materialization
 ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).

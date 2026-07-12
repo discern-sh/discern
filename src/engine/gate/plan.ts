@@ -503,7 +503,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       label: "merge-check",
       disposition: "gate",
       note:
-        "verify this branch contains the integration branch before running the gate (no-op in the main checkout)",
+        "verify this branch contains the trunk — the shared landing branch — before running the gate (no-op in the main checkout)",
     });
   }
   if (plan.trackedArtifactsCheck) {

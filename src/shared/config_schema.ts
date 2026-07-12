@@ -235,7 +235,7 @@ const projectSection = z.strictObject({
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
   main_branch: z.string().default("main").describe(
-    "The integration branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
+    "The trunk: the shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
   ),
   gotchas_doc: z.string().default("").describe(
     "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",

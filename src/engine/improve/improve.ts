@@ -190,7 +190,7 @@ function selectNextAction(categories: readonly CategoryResult[]): NextAction {
     action:
       "Review whether the configured practices are effective, not merely present.",
     why:
-      "Baseline health covers only facts discern can prove mechanically; a clear baseline is not the same as being done.",
+      "Automated practice health covers only facts discern can prove mechanically; a clear score is not the same as being done.",
   };
 }
 
@@ -288,7 +288,7 @@ export async function improvementResult(
       ? {
         error: "below_min_score",
         message:
-          `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
+          `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
       }
       : {}),
   };
@@ -357,7 +357,7 @@ function renderSummary(
   const c = out.c;
   out.heading(`discern improvement${slug ? ` · ${slug}` : ""}`);
   out.raw(
-    `  Baseline health  ${
+    `  Automated practice health  ${
       bar(report.score, c, out.color)
     }  ${c.bold}${report.score}/100${c.reset}\n`,
   );
@@ -540,7 +540,7 @@ export async function runImprovement(
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   if (belowMin) {
     out.error(
-      `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
+      `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
     );
     return 1;
   }

@@ -399,7 +399,10 @@ async function runEnsureSteps(
     const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
     if (code !== 0) {
       if (opts.fatal) {
-        throw new WorktreeGitError(`Ensure step failed: ${step}`);
+        throw new WorktreeGitError(
+          `The worktree ensure step failed: ${step}. Fix that command or its ` +
+            `prerequisites, then re-run \`discern worktree setup\`.`,
+        );
       }
       ctx.log.warn(`Ensure step failed (continuing): ${step}`);
       failed.push(step);
@@ -428,14 +431,8 @@ export async function worktreeSetup(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
-  // 1. must be inside a linked worktree
-  try {
-    await assertInWorktree("discern worktree setup", ctx.cwd);
-  } catch {
-    throw new WorktreeGitError(
-      "discern worktree setup must be run from inside a linked git worktree, not the main checkout.",
-    );
-  }
+  // 1. must be inside a worktree
+  await assertInWorktree("discern worktree setup", ctx.cwd);
 
   // Build the plan ONCE — the dry-run renders it and the apply records its
   // outcomes against it, so the preview and the `--json` report can't drift.
@@ -493,7 +490,8 @@ export async function worktreeSetup(
     await recordResourceEnv(ctx, identity, settings);
   } else if (readResourceSpecs(ctx.config).length > 0) {
     throw new WorktreeGitError(
-      "Could not resolve this worktree's git identity for resource setup.",
+      "Discern could not identify this worktree in Git, so it could not set up its " +
+        "resources. Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
 
@@ -517,7 +515,10 @@ export async function worktreeSetup(
       ctx.log.info(`Setup step: ${step}`);
       const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
       if (code !== 0) {
-        throw new WorktreeGitError(`Setup step failed: ${step}`);
+        throw new WorktreeGitError(
+          `The worktree setup step failed: ${step}. Fix that command or its ` +
+            `prerequisites, then re-run \`discern worktree setup\`.`,
+        );
       }
     }
     // One-shot scaffolding may have rewritten the env file wholesale (the
@@ -646,7 +647,8 @@ export async function createAndSetupWorktree(
         throw new WorktreeGitError(
           `The new worktree at ${dir} has no discern config — the ref it ` +
             `branched from doesn't carry discern.toml. Branch from a ref that ` +
-            `contains it (land your setup on the trunk first, or pass --from <ref>).`,
+            `contains it: land setup on the trunk first, or pass --from <ref>, then ` +
+            `re-run.`,
         );
       }
       throw e;
@@ -746,13 +748,7 @@ export async function worktreeTeardown(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
-  try {
-    await assertInWorktree("discern worktree teardown", ctx.cwd);
-  } catch {
-    throw new WorktreeGitError(
-      "discern worktree teardown must be run from inside a linked git worktree, not the main checkout.",
-    );
-  }
+  await assertInWorktree("discern worktree teardown", ctx.cwd);
 
   const plan = await buildTeardownPlan(ctx);
   if (opts.dryRun ?? false) {
@@ -811,7 +807,7 @@ async function buildDropPlan(
   await assertNotInWorktree("discern worktree drop", ctx.cwd);
   if (target.trim() === "") {
     throw new WorktreeGitError(
-      "discern worktree drop needs a target — a worktree id or path.",
+      "discern worktree drop needs a target. Pass a worktree id or path, then re-run.",
     );
   }
   const trunk = integrationBranch(ctx.config.project.main_branch);
@@ -819,7 +815,10 @@ async function buildDropPlan(
     !row.isMain
   );
   if (fleet.length === 0) {
-    throw new WorktreeGitError("No linked worktrees exist to drop.");
+    throw new WorktreeGitError(
+      "There are no worktrees to drop. Run `discern status` to review the current " +
+        "worktrees; if none is listed, there is nothing to remove.",
+    );
   }
 
   // Match by canonical path, by directory basename, or by resolved worktree id.
@@ -850,7 +849,7 @@ async function buildDropPlan(
     const known = fleet.map((row) => basename(row.path)).join(", ");
     throw new WorktreeGitError(
       `No worktree matches '${target}'. Known worktrees: ${known}. ` +
-        `Pass a worktree id (the directory name) or its path.`,
+        `Pass one of those worktree ids (the directory name) or its path, then re-run.`,
     );
   }
 
@@ -1015,7 +1014,8 @@ export async function worktreeDrop(
     throw new WorktreeGitError(
       `Worktree removal failed for ${plan.targetPath}: ${
         e instanceof Error ? e.message : String(e)
-      }\nRun 'git worktree list' to investigate.`,
+      }\nRun \`git worktree list\` to inspect its state, fix the problem it shows, ` +
+        `then re-run \`discern worktree drop ${plan.id}\`.`,
     );
   }
   steps.push({
@@ -1038,7 +1038,9 @@ export async function worktreeDrop(
     );
     if (!del.success) {
       throw new WorktreeGitError(
-        `The worktree was removed, but deleting its branch '${plan.branch}' failed. Git said:\n    ${del.stderr.trim()}`,
+        `The worktree was removed, but Git could not delete its branch ` +
+          `'${plan.branch}'. Delete it with \`git branch -D ${plan.branch}\` after ` +
+          `reviewing the error below.\nGit said: ${del.stderr.trim()}`,
       );
     }
     ctx.log.ok(`Deleted branch ${plan.branch}.`);
@@ -1096,7 +1098,10 @@ async function buildAcceptPlan(
 ): Promise<AcceptPlan> {
   // diagnose
   if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
-    throw new WorktreeGitError("Not inside a git repository.");
+    throw new WorktreeGitError(
+      "discern accept needs a Git worktree, but this directory is outside a Git " +
+        "repository. Move into the worktree that holds the finished branch, then re-run.",
+    );
   }
   const gitDir = (await run(["rev-parse", "--absolute-git-dir"])).stdout.trim();
   const commonRaw = (await run(["rev-parse", "--git-common-dir"])).stdout
@@ -1104,7 +1109,9 @@ async function buildAcceptPlan(
   const gitCommonDir = await realPathOrLifecycle(commonRaw, ctx.cwd);
   if (gitDir === gitCommonDir) {
     throw new WorktreeGitError(
-      "This is the main repo, not a worktree — nothing to accept.",
+      "discern accept runs inside a worktree — a separate checkout and branch for " +
+        "one change — but this is the main checkout. Move into the finished worktree " +
+        "path shown by `discern status`, then re-run.",
     );
   }
   const worktreePath = (await run(["rev-parse", "--show-toplevel"])).stdout
@@ -1120,12 +1127,15 @@ async function buildAcceptPlan(
   const mainRepo = await mainRepoPath(ctx.cwd);
   if (mainRepo === undefined) {
     throw new WorktreeGitError(
-      "Could not determine main repo path from 'git worktree list'.",
+      "Discern could not find the main checkout from Git's worktree records. Run " +
+        "`git worktree repair`, then re-run `discern accept`.",
     );
   }
   if (mainRepo === worktreePath) {
     throw new WorktreeGitError(
-      "Current worktree appears to be the main worktree — refusing to proceed.",
+      "Git identifies this path as the main checkout, so there is no worktree branch " +
+        "to accept. Move into the finished worktree shown by `discern status`, then " +
+        "re-run `discern accept`.",
     );
   }
 
@@ -1152,7 +1162,8 @@ async function buildAcceptPlan(
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      `Branch is behind ${trunkBranch}. Run \`discern update\` to bring ${trunkBranch} in and re-materialize, then re-run — \`discern done\` gates on this same check.`,
+      `This branch is behind the trunk (${trunkBranch}). Run \`discern update\` to ` +
+        `bring it in, then \`discern done\`, then re-run \`discern accept\`.`,
     );
   }
   if (merged.kind === "missing") {
@@ -1168,7 +1179,9 @@ async function buildAcceptPlan(
     (await run(["status", "--porcelain", "-z"])).stdout.trim() !== "";
   if (worktreeDirty) {
     throw new WorktreeGitError(
-      "Worktree has uncommitted changes. Commit or stash them yourself, then re-run — acceptance only lands clean branches and will not create WIP commits.",
+      "This worktree has uncommitted changes, so acceptance cannot land a stable " +
+        "commit. Commit or stash them, then re-run `discern accept`; discern never " +
+        "creates a work-in-progress commit for you.",
     );
   }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
@@ -1188,7 +1201,8 @@ async function buildAcceptPlan(
   if (mainDirty) {
     throw new WorktreeGitError(
       `Main checkout at ${mainRepo} has uncommitted tracked changes on '${mainBranch}'. ` +
-        `Commit or stash them yourself, then re-run — acceptance will not move your main-repo work for you. ` +
+        `Commit or stash them, then re-run \`discern accept\`; acceptance will not move ` +
+        `your main-checkout work for you. ` +
         `Your worktree branch '${worktreeBranch}' is untouched and still holds all its commits.`,
     );
   }
@@ -1281,7 +1295,7 @@ async function assertAcceptBranchStillCurrent(
   const merged = await assertMainMerged(cwd, trunkBranch);
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
-      `Branch is behind ${trunkBranch} after the gate finished. ` +
+      `This branch fell behind the trunk (${trunkBranch}) while the gate ran. ` +
         `Run \`discern update\` from this worktree, then \`discern done\` and ` +
         `\`discern accept\` again. The worktree has not been removed.`,
     );
@@ -1320,7 +1334,9 @@ async function executeAcceptPlan(
   const worktreeBranch = await ensureWorktreeBranch(identity.branch, ctx.cwd);
   if (worktreeBranch === "") {
     throw new WorktreeGitError(
-      "Worktree is in detached HEAD state and ensure-worktree-branch could not create a named branch.",
+      `This worktree is detached from a named branch, and discern could not create ` +
+        `one. Run \`git switch -c ${identity.branch}\` here, then re-run ` +
+        `\`discern accept\`.`,
     );
   }
   const { worktreePath, mainRepo, trunk } = plan;
@@ -1462,8 +1478,8 @@ async function executeAcceptPlan(
     // the explanation.
     throw new WorktreeGitError(
       `The trunk (${trunk}) moved while this acceptance was running — most ` +
-        `likely another line of work landed first — so the fast-forward was ` +
-        `refused and nothing was changed. Your worktree is fully intact, ` +
+        `likely another line of work landed first — so Git did not move it and ` +
+        `nothing was changed. Your worktree is fully intact, ` +
         `resources included, and your commits are safe on ` +
         `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
         `\`discern update\` to bring the new ${trunk} in beneath your work, ` +
@@ -1486,7 +1502,9 @@ async function executeAcceptPlan(
     await removeWorktreeSafely(worktreePath, mainRepo);
   } catch {
     throw new WorktreeGitError(
-      `Worktree removal failed for ${worktreePath}. The branch ${worktreeBranch} holds your commits; run 'git worktree list' to investigate.`,
+      `The branch landed, but removing the worktree at ${worktreePath} failed. ` +
+        `Your commits remain on ${worktreeBranch}. Run \`git worktree list\` to ` +
+        `inspect its state, then run \`discern worktree prune\` from the main checkout.`,
     );
   }
   ctx.log.ok("Worktree directory removed.");
@@ -1496,7 +1514,9 @@ async function executeAcceptPlan(
   const del = await run(["branch", "-d", worktreeBranch], mainRepo);
   if (!del.success) {
     throw new WorktreeGitError(
-      `git branch -d ${worktreeBranch} failed after merging it into ${trunk}. Git said:\n    ${del.stderr.trim()}`,
+      `The branch landed on the trunk (${trunk}), but Git could not delete the merged ` +
+        `branch ${worktreeBranch}. Review the error below, then delete it with ` +
+        `\`git branch -d ${worktreeBranch}\`.\nGit said: ${del.stderr.trim()}`,
     );
   }
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
@@ -2062,7 +2082,8 @@ async function executeUpdatePlan(
     }
     case "dirty":
       throw new WorktreeGitError(
-        "Commit or stash your changes first, then re-run — update merges into a clean tree.",
+        "This worktree has uncommitted tracked changes, and update merges only into a " +
+          "clean tree. Commit or stash them, then re-run `discern update`.",
       );
     case "conflict":
       throw new WorktreeGitError(
@@ -2286,7 +2307,9 @@ export async function mintFreeWorktree(
     }
   }
   throw new WorktreeGitError(
-    "discern start: could not mint a unique worktree id after many attempts.",
+    "discern start could not find an unused worktree name after many attempts. " +
+      "Choose a more specific `--name`, inspect existing worktrees with `discern " +
+      "status`, then re-run.",
   );
 }
 
@@ -2324,7 +2347,7 @@ async function resolveStartPoint(
   throw new WorktreeGitError(
     `New worktrees branch from the trunk, but the local branch '${trunk}' ` +
       `doesn't exist. Set [project].main_branch to the branch this project ` +
-      `uses, or pass \`--from <ref>\` to branch from a specific ref.`,
+      `uses, or pass \`--from <ref>\` to branch from a specific ref, then re-run.`,
   );
 }
 
@@ -2341,8 +2364,8 @@ async function assertProjectRootIsRepoToplevel(
   const toplevel = await repoToplevel(ctx.root);
   if (toplevel === undefined) {
     throw new WorktreeGitError(
-      "discern start: this project is not inside a git repository — run `git init` " +
-        "and make a first commit, then re-run.",
+      "discern start needs a Git repository, but this project is outside one. Run " +
+        "`git init` and make a first commit, then re-run.",
     );
   }
   const root = await Deno.realPath(ctx.root).catch(() => ctx.root);
@@ -2351,7 +2374,8 @@ async function assertProjectRootIsRepoToplevel(
       `discern.toml lives at ${root}, but the git repository's root is ` +
         `${toplevel}. Worktrees are whole-repository checkouts, so discern must ` +
         `be installed at the repository root — move discern.toml (and its ` +
-        `authored files) to ${toplevel}, or make ${root} its own repository.`,
+        `authored files) to ${toplevel}, or make ${root} its own repository, then ` +
+        `re-run \`discern start\`.`,
     );
   }
 }
@@ -2728,13 +2752,7 @@ export async function worktreePrune(
   ctx: LifecycleContext,
   opts: WorktreePruneOptions = {},
 ): Promise<void> {
-  try {
-    await assertNotInWorktree("discern worktree prune", ctx.cwd);
-  } catch {
-    throw new WorktreeGitError(
-      "discern worktree prune must be run from the main checkout, not a linked worktree.",
-    );
-  }
+  await assertNotInWorktree("discern worktree prune", ctx.cwd);
   const json = opts.json ?? false;
   const plan = await buildPrunePlan(ctx, opts.extraScanDirs);
   const enginePlan = prunePlanToEngine(plan);
@@ -2767,7 +2785,10 @@ export async function worktreePrune(
     }
     renderPlan(loggerSink(ctx.log), enginePlan);
     if (!(await confirmProceed("Remove the prune candidates above?", false))) {
-      throw new WorktreeGitError("Prune aborted; nothing was removed.");
+      throw new WorktreeGitError(
+        "Pruning was cancelled, so nothing was removed. Re-run when you are ready, " +
+          "or pass `--yes` after reviewing the plan.",
+      );
     }
   }
 
@@ -2801,7 +2822,10 @@ export async function worktreePrune(
     );
   }
   if (prune.failed || sweep.failed || gc.failed) {
-    throw new WorktreeGitError("One or more cleanups failed.");
+    throw new WorktreeGitError(
+      "One or more worktree cleanups failed. Review the failed steps above, fix " +
+        "their reported causes, then re-run `discern worktree prune`.",
+    );
   }
   ctx.log.ok("Prune complete.");
 

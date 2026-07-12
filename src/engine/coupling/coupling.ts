@@ -593,7 +593,7 @@ function couplingHints(
     hints.push(
       "Co-change advisory (from git history; advisory only, never blocks, and NOT " +
         "exhaustive) — files that usually change with what you've changed on this branch " +
-        "(vs the integration branch) but aren't among those changes:",
+        "(vs the trunk, the shared landing branch) but aren't among those changes:",
     );
     for (const p of shown) {
       hints.push(
@@ -804,7 +804,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     out.heading("Co-change advisory");
     out.raw(
       `  ${c.dim}Files that usually change with ${changedPhrase} (vs ` +
-        `the integration branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
+        `the trunk, the shared landing branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
     );
     // Group partners under the file that drew them, in ranked order (the Map keeps
     // first-seen order, and data.partners is already ranked strongest-first).

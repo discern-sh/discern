@@ -292,8 +292,8 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
 
     const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Worktree has uncommitted changes");
-    assertStringIncludes(r.output, "will not create WIP commits");
+    assertStringIncludes(r.output, "This worktree has uncommitted changes");
+    assertStringIncludes(r.output, "never creates a work-in-progress commit");
     assertEquals(
       await exists(wt),
       true,
@@ -468,7 +468,7 @@ Deno.test("accept: refuses a branch behind main before dirty-tree handling or re
 
     const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Branch is behind main");
+    assertStringIncludes(r.output, "behind the trunk (main)");
     assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
@@ -515,7 +515,7 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
     const r = await runAgent(wt, ["accept"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Branch is behind main");
+    assertStringIncludes(r.output, "behind the trunk (main)");
     assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
@@ -621,7 +621,7 @@ Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror
     // refusal: run from the main checkout, accept has no current worktree to move.
     const r = await runAgent(dir, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "not a worktree");
+    assertStringIncludes(r.output, "runs inside a worktree");
   });
 });
 
@@ -1301,7 +1301,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
     const wt = await mainWithSetup(dir, "fatal-ensure", { ensure: ["exit 7"] });
     const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Ensure step failed");
+    assertStringIncludes(r.output, "worktree ensure step failed");
     // Aborted before the agent-file refresh + sentinel — setup never completed.
     assertEquals(
       r.output.includes("Worktree setup complete"),

@@ -312,9 +312,12 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: READ_ONLY,
     description:
       "Start here: call discern_status to report what is true right now and what " +
-      "to do next — pure observation, never runs the gate, tests, standards, or " +
-      'touches anything. data.location is "worktree" or "main"; data.git carries ' +
-      "branch, Git-clean state, changed-files, and ahead/behind the integration branch — and, when " +
+      "to do next — pure observation, never runs the gate (the project's full " +
+      "quality check), tests, or standards (quality numbers that can never get " +
+      "worse), and never touches anything. data.location is " +
+      '"worktree" (a separate checkout and branch for one change) or "main"; data.git carries ' +
+      "branch, Git-clean state, changed-files, and ahead/behind the trunk " +
+      "(`{{main_branch}}`), the shared landing branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
       "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
@@ -323,7 +326,8 @@ export const TOOLS: McpTool[] = orderTools([
       "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt " +
       "carries the receipt markdown to relay to your owner at the review moment); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
-      "resources; data.standards lists the configured standards. " +
+      "resources; data.standards lists the configured quality standards — numbers " +
+      "that can never get worse. " +
       "data.stale_generated flags generated agent files, data.stale_materialized " +
       "the materialized skills, and data.stale_integrations provider integration " +
       "files, that have drifted from their sources (call " +
@@ -361,10 +365,11 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: RefreshOutputSchema.shape,
     annotations: REFRESH,
     description:
-      "Repair stale generated agent files, materialized skills, and provider " +
+      "Refresh the generated agent files, materialized skills, and provider " +
       "integration artifacts. It rewrites discern-generated or co-managed artifacts " +
       "only; edit guidance sources, skill sources, or explicit provider config for " +
-      "durable changes. Idempotent: a second call with the same inputs writes nothing.",
+      "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
+      "Use discern_update for this branch; use `discern upgrade` for discern itself.",
     inputSchema: { ...PATH_PARAM },
     run: (root) => refreshResult(root),
   }),
@@ -374,11 +379,13 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: FinishOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Claim this change is done: run its finishing steps, including format, then " +
-      "verify lint, type-check, tests, and scope gates. Return the structured result " +
+      "Claim this change is done: run finishing steps, including format, which may " +
+      "rewrite files; then verify lint, type-check, tests, and scope gates. A scope is " +
+      "a named region of the repository with its own check. Return the structured result " +
       "with per-step outcomes plus normalized diagnostics " +
       "(tool, file/line when available, message, and the exact command to reproduce " +
-      "each failure). A green run over a clean committed tree ahead of the trunk " +
+      "each failure). A green run over a clean committed tree ahead of the trunk — " +
+      "the shared landing branch (`{{main_branch}}`) — " +
       "also carries data.receipt — the compact review summary (data.receipt.markdown) " +
       "to relay VERBATIM to your owner when the task is complete, waiting for their " +
       "explicit instruction before calling discern_accept. Set dry_run to preview the plan without " +
@@ -398,7 +405,8 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: PrepareOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Run the fast inner-loop gate — the fix-stage fixers, then the read-only " +
+      "Run the fast inner-loop gate — the project's quick quality check — with the " +
+      "fix-stage fixers, then the read-only " +
       "check-stage jobs (no build, no tests) — and return the result envelope. The " +
       "quick check to run while iterating, before the full discern_done. NOTE: the " +
       "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
@@ -411,7 +419,8 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: TestOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Run the project's test capability on its own (the `test` stage, outside the " +
+      "Run the project's test capability — its configured test command — on its own " +
+      "(the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
     inputSchema: { ...PATH_PARAM },
@@ -429,6 +438,7 @@ export const TOOLS: McpTool[] = orderTools([
       "steps[]. SLOW " +
       "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
       "discern_done; run it as needed. Non-dry-run calls require a clean worktree " +
+      "(a separate checkout and branch for one change) " +
       "unless force is set while authoring or debugging standards. Set dry_run to " +
       "preview which standards would run — it measures nothing, with or without " +
       "pin. Set pin to " +
@@ -470,7 +480,8 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: READ_ONLY,
     description:
       "Verify the discern install and return each check as an actionable result: " +
-      "config validity, schema currency, whether the declared capability commands " +
+      "config validity, schema currency, whether the declared capability commands — " +
+      "configured project commands such as format, lint, and test — " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix. data.execution_model lists, per configurable " +
       "verb, the ordered steps it runs — each marked project (your configured command) " +
@@ -486,9 +497,10 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: ImpactOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Show this change's impact: list which configured gate scopes the current " +
-      "branch and working tree wake, which decides which scope gates the quality " +
-      "gate fires.",
+      "Show this change's impact: list which configured scopes — named regions of " +
+      "the repository with their own checks — the current branch and working tree " +
+      "wake. This decides which extra checks the gate, the project's full quality " +
+      "check, runs.",
     inputSchema: { ...PATH_PARAM },
     run: (root) => impactResult(root),
   }),
@@ -624,9 +636,10 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: DESTRUCTIVE,
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
-      "Accept THIS worktree's branch onto the trunk (`{{main_branch}}`) — the " +
-      "one place work lands: tear down the worktree's resources, fast-forward the " +
-      "trunk to the branch tip, remove the clean worktree, and delete the " +
+      "Accept THIS worktree's branch onto the trunk (`{{main_branch}}`) — the shared " +
+      "landing branch. A worktree is a separate checkout and branch for one change. " +
+      "Tear down the worktree's resources, advance the trunk directly to the branch " +
+      "tip, remove the clean worktree, and delete the " +
       "now-merged branch. It then refreshes the trunk checkout it leaves behind, " +
       "so generated guidance, skills, and provider integrations match the landed " +
       "tree. This is the single deterministic implementation — " +
@@ -667,7 +680,8 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: UpdateOutputSchema.shape,
     annotations: UPDATE,
     description:
-      "Merge the trunk's latest (`{{main_branch}}`) into THIS worktree's branch and " +
+      "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
+      "worktree's branch and " +
       "re-materialize the " +
       "generated agent files + skills, in one deterministic step — the inverse of " +
       "discern_accept, and the action that resolves discern_done's merge check " +
@@ -722,9 +736,10 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StartOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Create a fresh ISOLATED worktree from the main checkout — your own line of " +
-      "work — on its own branch, set it up, and return where it landed (data.path). " +
-      "The new branch forks from the trunk (`{{main_branch}}`) regardless of what " +
+      "Create a fresh ISOLATED worktree — a separate checkout and branch for one " +
+      "change — from the main checkout, set it up, and return where it landed " +
+      "(data.path). The new branch forks from the trunk (`{{main_branch}}`), the " +
+      "shared landing branch, regardless of what " +
       "branch the main checkout is sitting on — you do NOT need to check or pass " +
       "anything for the normal case. " +
       "Use this when you are on the trunk (the main checkout) and about to start work: " +
@@ -1416,7 +1431,8 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern supplies this project's quality gate and worktree workflow, and these tools are the primary " +
+    "discern supplies this project's quality gate (its full quality check) and " +
+    "worktree workflow (a separate checkout and branch for each change), and these tools are the primary " +
     "surface for working in it — prefer them over shelling out to the `discern` " +
     "CLI; each returns a structured result you can read directly.",
     "",
@@ -1435,10 +1451,12 @@ export function buildInstructions(): string {
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
-    "- Run quality standards with discern_standards as needed — slow and " +
+    "- Run quality standards — numbers that can never get worse — with " +
+    "discern_standards as needed. They are slow and " +
     "on-demand, so NOT part of discern_done. Non-dry-run standards require a " +
     "clean worktree unless force=true while authoring standards.",
-    "- Starting work from the trunk (the main checkout)? Run discern_start to " +
+    "- Starting work from the main checkout, which holds the trunk (the shared " +
+    "landing branch)? Run discern_start to " +
     "create your own isolated worktree: it returns the new worktree's path and " +
     "re-aims these tools at it, so your later done/update/accept calls operate " +
     "on the new worktree automatically. You must still move your OWN file " +

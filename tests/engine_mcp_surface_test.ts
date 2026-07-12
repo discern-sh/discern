@@ -14,7 +14,7 @@
  * differs from production.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import {
@@ -229,6 +229,43 @@ Deno.test("mcp surface: every argument-shaped token names a declared tool input"
     offenders.length === 0,
     `MCP prose invents arguments the strict input schemas reject:\n` +
       offenders.join("\n"),
+  );
+});
+
+Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
+  const anchors: Record<string, readonly string[]> = {
+    discern_done: [
+      "format",
+      "lint",
+      "type-check",
+      "tests",
+      "may rewrite files",
+    ],
+    discern_update: ["trunk's latest", "discern_accept", "discern_refresh"],
+    discern_impact: ["scopes", "named regions of the repository"],
+    discern_standards: [
+      "numbers that can never get worse",
+      "limits may only improve",
+    ],
+    discern_improvement: [
+      "ranked next action",
+      "health audit",
+      "open qualitative reviews",
+    ],
+  };
+  for (const [name, expected] of Object.entries(anchors)) {
+    const tool = TOOLS.find((candidate) => candidate.name === name);
+    assert(tool !== undefined, `${name} is not registered`);
+    for (const phrase of expected) {
+      assertStringIncludes(tool.description, phrase);
+    }
+  }
+
+  const standards = TOOLS.find((tool) => tool.name === "discern_standards");
+  assert(standards !== undefined);
+  assert(
+    !/ratchet/i.test(standards.description),
+    "standards description must route without the retired noun",
   );
 });
 

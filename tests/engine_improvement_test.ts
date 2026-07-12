@@ -343,7 +343,7 @@ Deno.test("improvement: the human report leads with coaching context", async () 
     ]);
     assertEquals(code, 0);
     assertStringIncludes(stdout, "discern improvement");
-    assertStringIncludes(stdout, "Baseline health");
+    assertStringIncludes(stdout, "Automated practice health");
     assertStringIncludes(stdout, "improvement reviews open");
     assertStringIncludes(stdout, "Next action:");
     assertStringIncludes(stdout, "weakest first");

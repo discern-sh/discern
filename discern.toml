@@ -27,7 +27,7 @@ slug = "discern"
 # Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
 branch_prefix = "agent/"
 
-# The integration branch the gate merges into and completed work lands on.
+# The trunk: the shared branch the gate merges into and completed work lands on.
 # Override per-invocation with the DISCERN_MAIN_BRANCH env var.
 main_branch = "main"
 

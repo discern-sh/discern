@@ -1037,7 +1037,7 @@ Deno.test("status: incoming_overlap is absent when behind but none of your files
   });
 });
 
-Deno.test("status warns when the configured integration branch is missing locally", async () => {
+Deno.test("status warns when the configured trunk is missing locally", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -1051,7 +1051,7 @@ Deno.test("status warns when the configured integration branch is missing locall
     assertEquals(obj.data.git.behind_integration, null);
     assert(
       (obj.hints ?? []).some((h: string) =>
-        h.includes("local integration branch 'main' is missing") &&
+        h.includes("trunk branch 'main' is not available locally") &&
         h.includes("[project].main_branch")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,
@@ -1061,7 +1061,7 @@ Deno.test("status warns when the configured integration branch is missing locall
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      "local integration branch 'main' is missing",
+      "trunk branch 'main' is not available locally",
     );
     assertStringIncludes(human.output, "[project].main_branch");
   });

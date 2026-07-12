@@ -71,7 +71,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "merge-check": {
     actor: "discern",
     hint:
-      "Built-in fail-fast precondition: the branch must already contain the latest integration branch before the gate spends time. A no-op in the main checkout.",
+      "Built-in fail-fast precondition: the branch must already contain the latest trunk — the shared landing branch — before the gate spends time. A no-op in the main checkout.",
   },
   "tracked-artifacts-check": {
     actor: "discern",
@@ -126,7 +126,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   standard: {
     actor: "project",
     hint:
-      "Your measurement command for a never-loosen metric. On demand only (`discern standards`), never part of the gate; the result is compared to its limit versus the integration branch.",
+      "Your measurement command for a never-loosen metric. On demand only (`discern standards`), never part of the gate; the result is compared to its limit versus the trunk.",
   },
 };
 
@@ -340,7 +340,7 @@ function ensureVerb(cfg: DiscernConfig): VerbPlan {
 function updateVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
     step("git", "merge", {
-      note: "merge the integration branch into this branch",
+      note: "merge the trunk into this branch",
     }),
     step("refresh", "refresh agent files", {
       note: "re-materialize agent files + skills",
@@ -354,7 +354,7 @@ function updateVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "update",
     when:
-      "When the branch is behind the integration branch (the gate's merge check points here). A no-op when already up to date.",
+      "When the branch is behind the trunk (the gate's merge check points here). A no-op when already up to date.",
     steps,
   };
 }

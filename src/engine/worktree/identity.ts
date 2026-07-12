@@ -188,7 +188,8 @@ export function resourceForId(slug: string, id: string, name: string): string {
 export function validateOverrideId(raw: string): string {
   if (!OVERRIDE_ID_RE.test(raw)) {
     throw new IdentityError(
-      `identity: invalid DISCERN_WORKTREE_ID '${raw}'. Use letters, numbers, dots, dashes, or underscores.`,
+      `DISCERN_WORKTREE_ID '${raw}' is invalid. Use only letters, numbers, dots, ` +
+        `dashes, or underscores, then re-run \`discern identity\`.`,
     );
   }
   return sanitizeSlug(raw);
@@ -438,7 +439,8 @@ export async function loadIdentitySettings(
   const slug = sanitizeSlug(rawSlug);
   if (slug === "") {
     throw new IdentityError(
-      "identity: project slug resolved to an empty value (set [project].slug or DISCERN_PROJECT_SLUG).",
+      "The project slug is empty. Set [project].slug or DISCERN_PROJECT_SLUG, then " +
+        "re-run `discern identity`.",
     );
   }
   return {
@@ -531,7 +533,8 @@ async function metadataIdFromGit(path: string): Promise<string> {
       const commonGitDir = await normalizeCommonGitDir(path, commonRaw ?? "");
       if (gitDir === commonGitDir) {
         throw new IdentityError(
-          "identity: refused - target is the main checkout, not a linked worktree.",
+          "The target is the main checkout, not a worktree. Pass a worktree path " +
+            "shown by `discern status`, then re-run `discern identity`.",
         );
       }
       return basename(gitDir);
@@ -558,7 +561,8 @@ async function metadataIdFromGit(path: string): Promise<string> {
   }
 
   throw new IdentityError(
-    `identity: could not resolve linked-worktree metadata for ${path}.`,
+    `Discern could not resolve Git worktree metadata for ${path}. Run ` +
+      `\`git worktree repair\`, then re-run \`discern identity\`.`,
   );
 }
 
@@ -601,7 +605,8 @@ export async function resolveWorktreeId(
   const id = sanitizeSlug(rawId);
   if (id === "") {
     throw new IdentityError(
-      `identity: git metadata id '${rawId}' did not contain any safe characters.`,
+      `Git's worktree id '${rawId}' contains no safe characters. Set a safe ` +
+        `DISCERN_WORKTREE_ID, then re-run \`discern identity\`.`,
     );
   }
 

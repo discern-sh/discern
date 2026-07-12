@@ -62,8 +62,9 @@ export function integrationBranch(
 
 /** One-line warning when the configured integration branch cannot be checked. */
 export function missingIntegrationBranchWarning(branch: string): string {
-  return `Merge check skipped: local integration branch '${branch}' is missing. ` +
-    `Create it locally, or set [project].main_branch to the branch this project uses.`;
+  return `The merge check could not run because the trunk branch '${branch}' is ` +
+    `not available locally. Create that local branch, or set ` +
+    `[project].main_branch to the branch this project uses, then re-run.`;
 }
 
 /**
@@ -194,17 +195,21 @@ export async function assertInWorktree(
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   if (absoluteGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused — current directory is not inside a git repository.`,
+      `${label} needs a Git repository, but this directory is outside one. Move ` +
+        `into the project checkout, or run \`git init\` here first, then re-run.`,
     );
   }
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused — could not resolve the shared git directory.`,
+      `${label} could not identify this repository's shared Git directory. Run ` +
+        `\`git worktree repair\`, then re-run.`,
     );
   }
   if (absoluteGitDir === commonGitDir) {
     throw new WorktreeGitError(
-      `${label}: refused — must be run from inside a linked git worktree, not the main checkout.`,
+      `${label} runs only inside a worktree — a separate checkout and branch for ` +
+        `one change — not the main checkout. Run \`discern start\` from the main ` +
+        `checkout, move into the path it prints, then re-run.`,
     );
   }
 }
@@ -221,17 +226,20 @@ export async function assertNotInWorktree(
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   if (absoluteGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused - current directory is not inside a git repository.`,
+      `${label} needs a Git repository, but this directory is outside one. Move ` +
+        `into the project checkout, or run \`git init\` here first, then re-run.`,
     );
   }
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused - could not resolve the shared git directory.`,
+      `${label} could not identify this repository's shared Git directory. Run ` +
+        `\`git worktree repair\`, then re-run.`,
     );
   }
   if (absoluteGitDir !== commonGitDir) {
     throw new WorktreeGitError(
-      `${label}: refused - must be run from the main checkout, not a linked git worktree.`,
+      `${label} runs only from the main checkout, not a worktree. Move to the ` +
+        `first path shown by \`git worktree list\`, then re-run.`,
     );
   }
 }
@@ -747,7 +755,8 @@ export async function ensureWorktreeBranch(
   const headRun = await git(["rev-parse", "--short=8", "HEAD"], cwd);
   if (!headRun.success) {
     throw new WorktreeGitError(
-      "ensure-worktree-branch: could not resolve HEAD to create a branch.",
+      "This worktree is not on a named branch, and Git could not resolve its current " +
+        "commit. Run `git status` to repair or restore the checkout, then re-run.",
     );
   }
   const headSha = headRun.stdout.trim();
@@ -769,14 +778,17 @@ export async function ensureWorktreeBranch(
   const valid = await git(["check-ref-format", "--branch", candidate], cwd);
   if (!valid.success) {
     throw new WorktreeGitError(
-      `ensure-worktree-branch: generated invalid branch name: ${candidate}`,
+      `Discern generated the invalid branch name '${candidate}'. Set ` +
+        `[project].branch_prefix to a Git-safe prefix, then re-run.`,
     );
   }
 
   const switched = await git(["switch", "-c", candidate], cwd);
   if (!switched.success) {
     throw new WorktreeGitError(
-      `ensure-worktree-branch: failed to create branch ${candidate}: ${switched.stderr.trim()}`,
+      `This worktree is detached, and Git could not create branch '${candidate}'. ` +
+        `Fix the Git error below, then run \`git switch -c ${candidate}\` and re-run ` +
+        `the discern command.\nGit said: ${switched.stderr.trim()}`,
     );
   }
   return candidate;
@@ -810,7 +822,8 @@ export async function addWorktree(
   const run = await git(args, mainRepo);
   if (!run.success) {
     throw new WorktreeGitError(
-      `git worktree add failed for '${dir}' on branch '${branch}': ${run.stderr.trim()}`,
+      `Git could not create the worktree at '${dir}' on branch '${branch}'. Fix the ` +
+        `Git error below, then re-run the command.\nGit said: ${run.stderr.trim()}`,
     );
   }
 }
@@ -894,7 +907,7 @@ export async function resolveCommitRef(
 ): Promise<string> {
   if (ref.trim() === "") {
     throw new WorktreeGitError(
-      "A ref name is required — pass a branch, tag, or commit.",
+      "A ref name is required. Pass a branch, tag, or commit, then re-run.",
     );
   }
   const candidates = await matchingRefs(cwd, ref);
@@ -902,7 +915,7 @@ export async function resolveCommitRef(
     throw new WorktreeGitError(
       `The ref '${ref}' is ambiguous — it names ${
         candidates.join(" and ")
-      }. Pass the full name (e.g. ${candidates[0]}) so the right one is used.`,
+      }. Pass the full name (e.g. ${candidates[0]}), then re-run.`,
     );
   }
   // Exactly one ref matches → resolve that full name (no precedence in play);
@@ -915,7 +928,7 @@ export async function resolveCommitRef(
     const evidence = run.stderr.trim();
     throw new WorktreeGitError(
       `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
-        `List local branches with \`git branch\`.` +
+        `List local branches with \`git branch\`, choose one, then re-run.` +
         (evidence === "" ? "" : `\n(git: ${evidence})`),
     );
   }
@@ -1253,8 +1266,8 @@ export async function registeredWorktreeRecord(
  * way through is git's own `git worktree unlock`. */
 function lockedWorktreeRefusal(path: string): WorktreeGitError {
   return new WorktreeGitError(
-    `refused — the worktree at '${path}' is locked (git worktree lock), and ` +
-      `discern never removes a locked worktree. Unlock it first ` +
+    `The worktree at '${path}' is locked with \`git worktree lock\`, so discern ` +
+      `left it untouched. Unlock it first ` +
       `(git worktree unlock ${path}), then re-run.`,
   );
 }
@@ -1280,7 +1293,8 @@ export async function removeWorktreeSafely(
   const mainFirst = await firstWorktreePath(cwd);
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
-      "remove-worktree-safely: not inside a git repository.",
+      "Worktree removal needs a Git repository, but this directory is outside one. " +
+        "Move into the project's main checkout, then re-run.",
     );
   }
   const mainRepo = await realPathOr(mainFirst);
@@ -1289,7 +1303,8 @@ export async function removeWorktreeSafely(
 
   if (canonical === mainRepo) {
     throw new WorktreeGitError(
-      `remove-worktree-safely: refused — '${canonical}' is the main checkout.`,
+      `'${canonical}' is the main checkout, which worktree removal never deletes. ` +
+        `Pass a worktree path instead; use \`git worktree list\` to find one.`,
     );
   }
 
@@ -1315,7 +1330,8 @@ export async function removeWorktreeSafely(
   // computed before removal so the rm -rf fallback stays authorised mid-race.
   if (!registered && !gitlinked) {
     throw new WorktreeGitError(
-      `remove-worktree-safely: refused — '${canonical}' is not a git worktree of this repository.`,
+      `'${canonical}' is not a worktree of this repository, so discern left it ` +
+        `untouched. Pass a path from \`git worktree list\`, then re-run.`,
     );
   }
 
@@ -1824,7 +1840,8 @@ async function staleMetadataForRecord(
     }
   }
   throw new WorktreeGitError(
-    `worktree prune: could not resolve stale metadata for '${rec.path}'.`,
+    `Worktree pruning could not resolve stale Git metadata for '${rec.path}'. Run ` +
+      `\`git worktree repair\`, then re-run \`discern worktree prune\`.`,
   );
 }
 
@@ -1843,7 +1860,8 @@ export async function scanGitWorktreesForPrune(
   const repoRoot = rootRun.success ? rootRun.stdout.trim() : "";
   if (repoRoot === "") {
     throw new WorktreeGitError(
-      "This command must be run from inside a Git repository.",
+      "Worktree pruning needs a Git repository, but this directory is outside one. " +
+        "Move into the project's main checkout, then re-run.",
     );
   }
   if (
@@ -1854,7 +1872,9 @@ export async function scanGitWorktreesForPrune(
       .success
   ) {
     throw new WorktreeGitError(
-      `Expected local '${mainBranch}' branch to exist; aborting.`,
+      `The trunk branch '${mainBranch}' is not available locally, so worktree ` +
+        `pruning cannot prove which work is landed. Create that local branch, or set ` +
+        `[project].main_branch correctly, then re-run.`,
     );
   }
 
@@ -1864,7 +1884,8 @@ export async function scanGitWorktreesForPrune(
   const commonGitDir = await commonGitDirFrom(repoRoot);
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      "worktree prune: could not resolve the shared git directory.",
+      "Worktree pruning could not identify the repository's shared Git directory. " +
+        "Run `git worktree repair`, then re-run `discern worktree prune`.",
     );
   }
 
@@ -2277,7 +2298,8 @@ export async function scanOrphanWorktreesForSweep(
   const mainFirst = await firstWorktreePath();
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
-      "sweep-orphan-worktrees: not inside a git repository.",
+      "Orphan worktree cleanup needs a Git repository, but this directory is outside " +
+        "one. Move into the project's main checkout, then re-run.",
     );
   }
   const mainRepo = await realPathOr(mainFirst);
@@ -2505,7 +2527,8 @@ export async function inheritMainEnvVars(
   const mainRepo = await mainRepoPath();
   if (mainRepo === undefined) {
     throw new WorktreeGitError(
-      "inherit-main-env-vars: could not resolve the main checkout.",
+      "Discern could not find the main checkout while copying environment values. " +
+        "Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
   let mainHasAny = false;

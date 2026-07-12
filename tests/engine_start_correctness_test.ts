@@ -279,7 +279,7 @@ Deno.test("a start whose setup fails discards the partial worktree (no debris)",
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 1, r.output);
     const result = JSON.parse(r.stdout) as { message: string };
-    assertStringIncludes(result.message, "Setup step failed");
+    assertStringIncludes(result.message, "worktree setup step failed");
     await assertNoStartDebris(dir, r.output);
   });
 });

@@ -110,7 +110,7 @@ Deno.test("done up to date: the merge precondition passes and the capability run
   });
 });
 
-Deno.test("done warns when the configured integration branch is missing locally", async () => {
+Deno.test("done warns when the configured trunk is missing locally", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -122,7 +122,7 @@ Deno.test("done warns when the configured integration branch is missing locally"
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      "local integration branch 'main' is missing",
+      "trunk branch 'main' is not available locally",
     );
     assertStringIncludes(human.output, "[project].main_branch");
     assertStringIncludes(human.output, MARKER);
@@ -132,7 +132,7 @@ Deno.test("done warns when the configured integration branch is missing locally"
     const obj = JSON.parse(json.stdout);
     assert(
       (obj.hints ?? []).some((h: string) =>
-        h.includes("local integration branch 'main' is missing") &&
+        h.includes("trunk branch 'main' is not available locally") &&
         h.includes("[project].main_branch")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,

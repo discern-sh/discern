@@ -6,10 +6,10 @@ require that check before anything can merge._
 ## Protect your main branch
 
 Local gates are discipline: a person or tool can still push around them. CI
-turns the gate into repository policy once the integration branch is protected.
-Every pull request and every push to that branch runs the same `discern done`
-command you run locally; GitHub branch protection or a rule set is what blocks
-bypasses until that check is green.
+turns the gate into repository policy once the trunk — the shared landing
+branch, usually `main` — is protected. Every pull request and every push to that
+branch runs the same `discern done` command you run locally; GitHub branch
+protection or a rule set is what blocks bypasses until that check is green.
 
 Create `.github/workflows/discern-gate.yml`:
 
@@ -131,7 +131,7 @@ ephemeral cloud-agent environments, cost, and standards.
 
 ## Adapting the workflow
 
-Change the integration branch if your project does not use `main`:
+Change the trunk branch name if your project does not use `main`:
 
 ```yaml
 on:
@@ -196,9 +196,9 @@ bar (the CI gate).
 ## Cost
 
 This spends GitHub Actions minutes on every pull request update and every push
-to the integration branch. The cost is the time to install the runner toolchain
-plus the time your `discern done` capabilities and checks already take. Use the
-cache knobs for your stack once the plain workflow is green.
+to the trunk. The cost is the time to install the runner toolchain plus the time
+your `discern done` capabilities and checks already take. Use the cache knobs
+for your stack once the plain workflow is green.
 
 ## Standards
 

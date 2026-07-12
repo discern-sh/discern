@@ -1425,7 +1425,7 @@ async function ensureSetupBranch(
     )).success;
     if (targetExists && current !== integrationBranchName) {
       const message =
-        `setup starts from your integration branch (\`${integrationBranchName}\`) so the finished ` +
+        `setup starts from your trunk (\`${integrationBranchName}\`), the shared landing branch, so the finished ` +
         `work can land back onto it cleanly — you are on \`${current}\`, and a setup branch forked ` +
         `from it would carry this branch's own commits onto \`${integrationBranchName}\` when landed. ` +
         `Check out \`${integrationBranchName}\` (\`git checkout ${integrationBranchName}\`), then re-run ` +

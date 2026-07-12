@@ -205,7 +205,7 @@ export async function runSetupAccept(
       ok: false,
       error: "no_target",
       message:
-        `the integration branch \`${target}\` doesn't exist in this repository yet — in a ` +
+        `the trunk branch \`${target}\` doesn't exist in this repository yet — in a ` +
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
         `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +

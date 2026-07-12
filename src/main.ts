@@ -153,15 +153,16 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .version(KIT_VERSION)
     .usage("<command> [options]")
     .description(
-      "Operate your project's quality gate and isolated git-worktree workflow " +
-        "— a stack-neutral system; `discern setup` scaffolds it the first time.",
+      "Operate your project's quality gate (its full quality check) and Git " +
+        "worktrees (a separate checkout and branch for each change); `discern setup` " +
+        "scaffolds the stack-neutral system the first time.",
     )
     .example(
       "Orient yourself",
       "discern status",
     )
     .example(
-      "Agent on the trunk?",
+      "Agent in the main checkout?",
       "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
     )
     .example(
@@ -275,7 +276,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
 
   const setupAccept = new Command()
     .description(
-      "Land the finished setup branch onto the integration branch (fast-forward or merge).",
+      "Land the finished setup branch on the trunk — the shared landing branch, usually `main`.",
     )
     .option("--dry-run", "Print the plan and change nothing.")
     .action(async (options) => {
@@ -363,7 +364,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
   root
     .command("upgrade")
     .description(
-      "Refresh config schema, skills, and guidance to match the installed binary.",
+      "Upgrade discern itself in this project: migrate its config and refresh bundled " +
+        "skills and guidance. Use `discern update` for this branch; use `discern " +
+        "refresh` for generated agent files alone.",
     )
     .option(
       "--dry-run",
@@ -391,7 +394,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   root
     .command("uninstall")
     .description(
-      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and docs).",
+      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and map).",
     )
     .option(
       "--dry-run",
@@ -541,7 +544,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setCapability = new Command()
     .description(
-      `Set a [capabilities] entry (${capabilityList()}).`,
+      `Set a capability — a configured project command for one known kind of work (${capabilityList()}).`,
     )
     .arguments("<name:string> <command:string>")
     .option("--dry-run", "Print the edit and write nothing.")
@@ -555,7 +558,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setCheck = new Command()
-    .description("Set or create a [checks.<name>] table (custom gate work).")
+    .description(
+      "Set a custom command in the gate — the project's full quality check.",
+    )
     .arguments("<name:string>")
     .option(
       "--stage <stage:string>",
@@ -578,7 +583,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setScope = new Command()
-    .description("Set a [scopes.<name>] table (paths + optional attributes).")
+    .description(
+      "Set a scope — a named region of the repository a change can touch.",
+    )
     .arguments("<name:string> <globs...:string>")
     .option("--neutral", "Changes here need no gate.")
     .option("--previewable", "A person could see changes here.")
@@ -597,7 +604,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setStandard = new Command()
-    .description("Set or create a [standards.<name>] table.")
+    .description(
+      "Set a quality standard — standards are numbers that can never get worse.",
+    )
     .arguments("<name:string>")
     .option("--limit <n:string>", "The floor (up) or ceiling (down).", {
       required: true,
