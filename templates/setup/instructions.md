@@ -152,6 +152,8 @@ Prefer these over hand-editing TOML. The format/lint/typecheck/test/build a stac
 
 Before you run the gate here for the first time, **run `discern refresh`**: it is idempotent and brings every generated file current, and `discern done`'s currency check fails on stale files until `refresh` recompiles them — the same move you'll repeat after editing `{{guidance_path}}` in Step 5, since the agent files compile from that source. Then **`discern done`** (or the faster **`discern prepare`**) confirms each fill passes — both run during setup, and `discern setup done` proves the whole gate green before completion — so a confident fill is exactly the low-stakes, reversible change to proceed on. A capability you can't pin down waits as a comment beside the unset key: an omitted capability is "knowably absent", so a wrong guess never breaks the gate.
 
+**Mark the first green gate out loud — it is the moment the promise lands.** When `discern done` first passes, tell the user plainly: the gate is live, `discern` now checks every change for them, and if setup stopped right here the project would already be protected — everything still to come (the principles, the guidance, the map) is authored under its watch.
+
 Detection lookup (signal file → ecosystem → the usual tools to suggest):
 
 | Signal file(s) | Ecosystem | Typical capability fills (format · lint · typecheck · test · build) |
