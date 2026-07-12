@@ -850,7 +850,14 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       ].join("\n"),
     );
     await runAgent(dir, ["refresh"]);
-    await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
+    // The compiled guidance files are tracked by design — add them normally.
+    // Machine-local state forced into the index is what the check catches.
+    await git(dir, "add", "AGENTS.md", "CLAUDE.md");
+    await Deno.writeTextFile(
+      join(dir, ".claude", "settings.local.json"),
+      "{}\n",
+    );
+    await git(dir, "add", "-f", ".claude/settings.local.json");
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
@@ -869,7 +876,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
     assertStringIncludes(diag.reproduce_cmd, "git ls-files --");
     assertStringIncludes(
       diag.output,
-      "git rm -r --cached -- AGENTS.md CLAUDE.md",
+      "git rm -r --cached -- .claude/settings.local.json",
     );
     assertStringIncludes(diag.output, "discern refresh");
     assertEquals(diagFor(obj, "guidance"), undefined);

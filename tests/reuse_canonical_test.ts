@@ -91,16 +91,16 @@ Deno.test("agentFileContents: reuse-canonical supplies the canonical for pointer
   assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
 });
 
-Deno.test("reuse-canonical: the read path is still gitignore-covered by the seed fragment", () => {
-  // A reuse-canonical provider's `path` (the canonical it reads) must remain a
-  // covered build artifact — it is, because the canonical provider contributes
-  // that same path to the seed fragment.
+Deno.test("reuse-canonical: the read path is tracked — never ignored by the seed fragment", () => {
+  // A reuse-canonical provider's `path` (the canonical it reads) is a compiled
+  // guidance file, tracked by default so a bare clone carries it — an ignore
+  // rule for it would blind exactly the agents that read it natively.
   const repo = fromFileUrl(new URL("../", import.meta.url));
   const lines = Deno.readTextFileSync(
     join(repo, "templates", ".gitignore.fragment"),
   ).split("\n").map((l) => l.trim());
   assert(
-    ignoreCovers(lines, REUSE.path, false),
-    `the canonical file ${REUSE.path} a reuse-canonical provider reads must be gitignored`,
+    !ignoreCovers(lines, REUSE.path, false),
+    `the canonical file ${REUSE.path} a reuse-canonical provider reads must stay trackable`,
   );
 });
