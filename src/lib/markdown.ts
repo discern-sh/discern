@@ -430,6 +430,36 @@ export function inlineToPlain(text: string): string {
   return parseInline(text).map((s) => s.text).join("");
 }
 
+/**
+ * First prose paragraph after the document's title heading, flattened to one
+ * plain line. The shared derivation behind every doc description — map-overview
+ * regions and per-leaf listings alike — so a doc's one-liner always reads the
+ * same wherever it surfaces.
+ */
+export function leadParagraph(markdown: string, fallback: string): string {
+  const lines = markdown.split(/\r?\n/);
+  let sawTitle = false;
+  const paragraph: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!sawTitle && /^#{1,6}\s+/.test(line)) {
+      sawTitle = true;
+      continue;
+    }
+    if (!sawTitle || line === "") {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    if (/^(#{1,6}\s+|---+$|```|>)/.test(line)) {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    paragraph.push(line);
+  }
+  const plain = inlineToPlain(paragraph.join(" ")).trim();
+  return plain || fallback;
+}
+
 // ── block rendering ──────────────────────────────────────────────────────--
 
 /** A delimiter row like `|---|:--:|` that marks the line above as a table head. */

@@ -24,7 +24,8 @@ import {
   resolve,
   SEPARATOR,
 } from "@std/path";
-import { inlineToPlain } from "./markdown.ts";
+import { inlineToPlain, leadParagraph } from "./markdown.ts";
+import { parseFrontmatter } from "./frontmatter.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
@@ -44,6 +45,12 @@ export interface DocEntry {
   slug: string;
   /** Title from the first Markdown heading, or a humanised slug as a fallback. */
   title: string;
+  /** One-line description: the lead paragraph, or `""` when the doc has none. */
+  description: string;
+  /** False when frontmatter withholds the doc from published surfaces. */
+  publish: boolean;
+  /** Explicit sibling ordering from frontmatter, when present. */
+  order?: number | undefined;
 }
 
 /** The indexed docs tree for one project. */
@@ -135,19 +142,23 @@ function humanise(slug: string): string {
 
 /**
  * A sort key that yields reading order: within any directory `README.md` comes
- * first, `_`-prefixed directories come after public directories, and all other
- * entries fall in path order. Compared lexicographically.
+ * first, then leaves with a frontmatter `order` (ascending, ties by name), then
+ * the rest in name order; `_`-prefixed directories come after public
+ * directories. Compared lexicographically.
  */
-function sortKey(relPath: string): string {
+function sortKey(relPath: string, order?: number): string {
   const segs = relPath.split("/");
   return segs
-    .map((seg, idx) =>
-      idx === segs.length - 1 && seg.toLowerCase() === "readme.md"
-        ? "\x00"
-        : idx < segs.length - 1 && seg.startsWith("_")
-        ? `\uffff${seg.toLowerCase()}`
-        : seg.toLowerCase()
-    )
+    .map((seg, idx) => {
+      const last = idx === segs.length - 1;
+      if (last && seg.toLowerCase() === "readme.md") return "\x00";
+      if (!last && seg.startsWith("_")) return `\uffff${seg.toLowerCase()}`;
+      if (last && order !== undefined) {
+        const rank = String(Math.max(0, Math.trunc(order))).padStart(9, "0");
+        return `\x01${rank}~${seg.toLowerCase()}`;
+      }
+      return seg.toLowerCase();
+    })
     .join("/");
 }
 
@@ -235,19 +246,36 @@ export async function discoverDocs(opts: {
     const section = parts.length > 1 ? (parts[0] ?? "") : "";
     const slug = basename(absPath).replace(/\.md$/i, "");
 
-    let title: string;
+    let title = humanise(slug);
+    let description = "";
+    let publish = true;
+    let order: number | undefined;
     try {
-      title = extractTitle(await Deno.readTextFile(absPath)) ?? humanise(slug);
+      const { meta, body } = parseFrontmatter(await Deno.readTextFile(absPath));
+      title = meta.title ?? extractTitle(body) ?? title;
+      description = meta.description ?? leadParagraph(body, "");
+      publish = meta.publish ?? true;
+      order = meta.order;
     } catch {
-      title = humanise(slug);
+      // An unreadable file keeps the humanised-slug fallback.
     }
 
-    entries.push({ path, absPath, relToDocs, section, slug, title });
+    entries.push({
+      path,
+      absPath,
+      relToDocs,
+      section,
+      slug,
+      title,
+      description,
+      publish,
+      order,
+    });
   }
 
   entries.sort((a, b) => {
-    const ka = sortKey(a.relToDocs);
-    const kb = sortKey(b.relToDocs);
+    const ka = sortKey(a.relToDocs, a.order);
+    const kb = sortKey(b.relToDocs, b.order);
     return ka < kb ? -1 : ka > kb ? 1 : 0;
   });
 

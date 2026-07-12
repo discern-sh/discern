@@ -170,7 +170,13 @@ export interface DocsOptions {
 
 /** The machine-readable record for one doc (sans content). */
 function toRecord(e: DocEntry): DocRecord {
-  return { path: e.path, section: e.section, slug: e.slug, title: e.title };
+  return {
+    path: e.path,
+    section: e.section,
+    slug: e.slug,
+    title: e.title,
+    description: e.description,
+  };
 }
 
 /** Index payload; `help` deliberately omits a local map_dir path. */

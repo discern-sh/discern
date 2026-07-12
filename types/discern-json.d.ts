@@ -1053,6 +1053,7 @@ export type DiscernMapResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
     }>;
     regions?: Array<{
       name: string;
@@ -1067,6 +1068,7 @@ export type DiscernMapResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
       content: string;
     };
     candidates?: Array<string>;
@@ -1075,6 +1077,7 @@ export type DiscernMapResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
     }>;
   } | {
     issues: Array<{
@@ -1164,6 +1167,7 @@ export type DiscernHelpResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
     }>;
     regions?: Array<{
       name: string;
@@ -1178,6 +1182,7 @@ export type DiscernHelpResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
       content: string;
     };
     candidates?: Array<string>;
@@ -1186,6 +1191,7 @@ export type DiscernHelpResult = {
       section: string;
       slug: string;
       title: string;
+      description: string;
     }>;
   } | {
     issues: Array<{

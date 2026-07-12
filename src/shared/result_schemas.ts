@@ -706,6 +706,7 @@ const docRecordSchema = z.strictObject({
   section: z.string(),
   slug: z.string(),
   title: z.string(),
+  description: z.string(),
 });
 export type DocRecord = z.infer<typeof docRecordSchema>;
 

@@ -23,6 +23,7 @@ import {
   groupDocs,
   resolveDoc,
 } from "../src/lib/docs.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 
@@ -59,6 +60,8 @@ function entry(path: string): DocEntry {
     section: parts.length > 1 ? (parts[0] ?? "") : "",
     slug: filename.replace(/\.md$/i, ""),
     title: filename,
+    description: "",
+    publish: true,
   };
 }
 
@@ -149,6 +152,83 @@ Deno.test("groupDocs creates ordered top-level picker groups", () => {
       "docs/_adr/0001-first.md",
     ],
   );
+});
+
+Deno.test("frontmatter parses scalar overrides and passes non-blocks through", () => {
+  // A well-formed block: every recognised key, plus an ignored unknown one.
+  const parsed = parseFrontmatter(
+    "---\n" +
+      "title: Overridden\n" +
+      'description: "One quoted line."\n' +
+      "order: 2\n" +
+      "publish: false\n" +
+      "future_key: ignored\n" +
+      "# a comment\n" +
+      "---\n" +
+      "# Heading\n\nBody.\n",
+  );
+  assertEquals(parsed.meta, {
+    title: "Overridden",
+    description: "One quoted line.",
+    order: 2,
+    publish: false,
+  });
+  assertEquals(parsed.body, "# Heading\n\nBody.\n");
+
+  // Not frontmatter: an unclosed fence, a non-scalar line, no block at all.
+  for (
+    const doc of [
+      "---\ntitle: Unclosed\n",
+      "---\nitems:\n  - nested\n---\nbody\n",
+      "# Plain doc\n",
+    ]
+  ) {
+    const passthrough = parseFrontmatter(doc);
+    assertEquals(passthrough.meta, {});
+    assertEquals(passthrough.body, doc);
+  }
+});
+
+Deno.test("discoverDocs derives descriptions and honours frontmatter overrides", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/gamma.md"),
+      "---\ntitle: Gamma Renamed\ndescription: Meta wins.\norder: 1\n---\n" +
+        "# Gamma\n\nDerived paragraph that loses to the override.\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/hidden.md"),
+      "---\npublish: false\n---\n# Hidden\n\nWithheld from publication.\n",
+    );
+
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+
+    // Derivation: alpha's description is its lead paragraph, title unchanged.
+    const alpha = tree.entries.find((e) => e.slug === "alpha");
+    assertExists(alpha);
+    assertEquals(alpha.title, "Alpha");
+    assertEquals(alpha.description, "The alpha body.");
+    assertEquals(alpha.publish, true);
+
+    // Overrides: frontmatter beats both derivations; order pulls gamma ahead
+    // of the alphabetical siblings, README still first.
+    const gamma = tree.entries.find((e) => e.slug === "gamma");
+    assertExists(gamma);
+    assertEquals(gamma.title, "Gamma Renamed");
+    assertEquals(gamma.description, "Meta wins.");
+    assertEquals(
+      tree.entries.filter((e) => e.section === "00-intro").map((e) => e.slug),
+      ["README", "gamma", "alpha", "beta", "hidden"],
+    );
+
+    // publish: false travels on the entry for publishing surfaces to honour.
+    const hidden = tree.entries.find((e) => e.slug === "hidden");
+    assertExists(hidden);
+    assertEquals(hidden.publish, false);
+    assertEquals(hidden.title, "Hidden");
+  });
 });
 
 Deno.test("formatDocsExport adds only source comments and separator newlines", () => {
