@@ -1,5 +1,9 @@
 # ADR 0102: One paths registry, rendered artifacts, and leakage guards
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `docs` → `map` where it names the command, config, or tree; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted; builds on
 [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md);
 extends [ADR 0026](0026-typed-config-schema.md) (the schema stays the config
@@ -72,9 +76,9 @@ Current reality, mapped before this decision:
      [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md),
      enforced: every project-tree write site must target a registry path, a
      provider-registry path, or an enumerated shim.
-  5. **Dogfooding on non-defaults.** This repo permanently points `[docs].dir`
-     at root `docs/`, so any hard-coded new default diverges from the repo
-     agents can see — leaks become loud.
+  5. **Dogfooding on non-defaults.** This repo permanently points `[map].dir` at
+     root `map/`, so any hard-coded new default diverges from the repo agents
+     can see — leaks become loud.
 
 ## Consequences
 

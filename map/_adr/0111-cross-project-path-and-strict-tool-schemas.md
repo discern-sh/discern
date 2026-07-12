@@ -1,5 +1,8 @@
 # ADR 0111: The MCP surface refuses undeclared arguments, and `discern_start` takes a cross-project `path`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `graduate` → `accept`; the decision and reasoning are unchanged.
+
 **Status**: accepted. Refines the `path` override of
 [ADR 0062](0062-mcp-server-working-root.md) §2; builds on the MCP surface of
 [ADR 0045](0045-mcp-is-core-infrastructure.md) and
@@ -18,13 +21,12 @@ Two independent causes lined up:
 1. **`discern_start` was the only root-operating tool without `path`.** ADR 0062
    §2 gave every root-operating tool the `path` override, resolved through
    `findRoot` — which climbs to the nearest `discern.toml` with no fence around
-   the spawn project. So `discern_status`, `discern_finish`, even
-   `discern_graduate` already operated on _any_ discern project on disk when
-   handed a path into it. `start` alone was carved out ("its root is the
-   creation source, a separate concern") — the surface promised cross-project
-   targeting on every verb except the one a line of work begins with, and an
-   agent that learned `path` from the other fourteen tools reasonably inferred
-   the fifteenth.
+   the spawn project. So `discern_status`, `discern_done`, even `discern_accept`
+   already operated on _any_ discern project on disk when handed a path into it.
+   `start` alone was carved out ("its root is the creation source, a separate
+   concern") — the surface promised cross-project targeting on every verb except
+   the one a line of work begins with, and an agent that learned `path` from the
+   other fourteen tools reasonably inferred the fifteenth.
 
 2. **Unknown arguments were silently stripped.** Tool schemas registered as Zod
    raw shapes; the SDK validates a call against an _open_ object, which discards
@@ -56,8 +58,8 @@ explicitly.
 A registry-driven guard (`tests/engine_mcp_test.ts`) calls every tool live with
 an undeclared argument and asserts the loud refusal, so a new tool auto-enrols.
 Landing the guard immediately caught two of our own tests still passing a `to`
-argument left over from the removed `graduate_to` model — silently stripped
-until then. The class was live in this repo's own suite.
+argument left over from the removed `accept_to` model — silently stripped until
+then. The class was live in this repo's own suite.
 
 ### 2. `discern_start` declares `path`, with creation-target semantics
 
@@ -67,9 +69,9 @@ worktree for the discern project containing this path**. Resolution is the same
 project's trunk under the _target_ project's config; the
 refuses-inside-a-worktree precondition evaluates against the target; and on
 success the re-aim follows the new worktree exactly as for a same-project start
-— deliberately an exception to §2's "one-call steer" rule, just as graduate's
-`heldRootMissing` re-root already is, because a start's whole contract is that
-the tools follow the line of work it opens.
+— deliberately an exception to §2's "one-call steer" rule, just as the
+`heldRootMissing` re-root in `accept` already is, because a start's whole
+contract is that the tools follow the line of work it opens.
 
 ### 3. Cross-project targeting is a supported scenario, not an accident
 
@@ -100,7 +102,7 @@ flags a stale server.
   shipped to every project on the next upgrade.
 - After a cross-project start, the held working root points at _another
   project's_ worktree until the next lifecycle transition, and a cross-project
-  graduate re-aims to _that project's_ main checkout — the session's no-`path`
+  accept re-aims to _that project's_ main checkout — the session's no-`path`
   default is then theirs, not the spawn project's. `discern_status` surfaces the
   active root (ADR 0062 §4), so the divergence stays one call from visible; an
   agent returning to the spawn project passes `path` or starts there anew.

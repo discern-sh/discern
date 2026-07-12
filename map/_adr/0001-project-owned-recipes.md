@@ -1,5 +1,9 @@
 # ADR 0001: Project-owned recipes live in an unmanaged `.discern/recipes/`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the
+> decision and reasoning are unchanged.
+
 > **Current-state note.** Recipes now live at the config-pointed `[recipes].dir`
 > (default `recipes/`), not `.discern/recipes/`
 > ([ADR 0020](0020-dissolve-discern-dir.md)), and read config via
@@ -21,7 +25,7 @@ the engine-always-wins shadow rule survives.
 
 ## Context
 
-`bin/agent` is the task-runner surface a coding agent drives: `agent finish`,
+`discern` is the task-runner surface a coding agent drives: `discern done`,
 `agent worktree exit`, and more. It dispatches a verb to a file by mapping `:`
 to `-` and running `.discern/engine/<recipe>`. Recipes are auto-discovered from
 the files on disk — drop one in and it works, no registry.
@@ -35,8 +39,8 @@ nowhere to put it except that managed directory. Doing so is hazardous:
   manifest, so it is treated as "not provably ours" — but it sits among files
   `upgrade` rewrites, and a future engine recipe of the same name would land as
   a `.new` sibling or, worse, shadow it.
-- **Name collisions.** A project recipe named `finish` would silently shadow or
-  be shadowed by the engine's, with no warning — a footgun either direction.
+- **Name collisions.** A project recipe named `done` would silently shadow or be
+  shadowed by the engine's, with no warning — a footgun either direction.
 - **No clean separation.** `agent --help` and the manifest can't tell "the kit's
   commands" from "this project's commands".
 
@@ -60,8 +64,8 @@ the engine, kept strictly separate from the managed engine.
   engine first, then the project recipes dir. A project recipe whose name
   collides with a built-in engine recipe is **never run** — instead `bin/agent`
   prints a warning to stderr that the project recipe is shadowed and should be
-  renamed. The core commands (`finish`, `worktree command group`, …) can never
-  be broken or redefined by a project file.
+  renamed. The core commands (`done`, `worktree command group`, …) can never be
+  broken or redefined by a project file.
 - **Discovery + help.** A project recipe carries a `# desc:` line, exactly like
   a top-level engine command, and surfaces under its own **"Project recipes"**
   group in `agent --help`. The unknown-recipe "did you mean…?" suggester also
@@ -84,11 +88,12 @@ the engine, kept strictly separate from the managed engine.
   and project commands in separate groups; the manifest still tracks only the
   engine.
 - The engine-always-wins rule means a project cannot accidentally (or
-  intentionally) redefine `finish`. The cost is that a project recipe _can_ be
+  intentionally) redefine `done`. The cost is that a project recipe _can_ be
   silently inert if it collides — mitigated by the explicit shadow warning on
   every dispatch attempt and its omission from help.
 - `bin/agent` does one extra `config_get` per run to read `[recipes].dir`. It
-  already reads config for `MAIN_BRANCH`, so this is folded into the same load.
+  already reads config for `DISCERN_MAIN_BRANCH`, so this is folded into the
+  same load.
 - Backward compatible: no `[recipes]` section and no `.discern/recipes/` dir
   means the default dir simply doesn't exist, and resolution is unchanged.
 
@@ -99,7 +104,7 @@ the engine, kept strictly separate from the managed engine.
   directory, and fits the declarative-config direction. The default keeps the
   zero-config case trivial.
 - **Project recipes win over the engine (override semantics).** Rejected:
-  letting a project file redefine `finish` is a footgun that can silently break
+  letting a project file redefine `done` is a footgun that can silently break
   the gate the kit exists to provide. Extension, not override.
 - **A manifest-tracked but "user-editable" engine file.** Rejected: it muddies
   the managed/seed model the whole upgrade story rests on. A separate unmanaged

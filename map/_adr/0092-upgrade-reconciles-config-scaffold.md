@@ -1,11 +1,15 @@
 # ADR 0092: `upgrade` reconciles the fixed `discern.toml` scaffold
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
 
 `discern.toml` is both the project's config and the reference implementation a
-user reads to understand the harness. A fresh `discern setup` writes the current
+user reads to understand discern. A fresh `discern setup` writes the current
 template: documented sections, keys in deliberate order, and default values that
 teach the shape. Existing installs, however, only advanced through versioned
 migrations. Once an install recorded the current `[meta].schema_version`,
@@ -43,7 +47,7 @@ It repairs only the fixed scaffold:
   with its attached comments and canonical key order;
 - existing values are never rewritten;
 - named record tables (`[checks.<name>]`, `[scopes.<name>]`,
-  `[ratchets.<name>]`, `[worktree.resources.<name>]`) are treated as
+  `[standards.<name>]`, `[worktree.resources.<name>]`) are treated as
   project-owned population and are not recreated merely because the template
   seeded an example/default entry.
 
@@ -64,9 +68,9 @@ projects get the same repair path users will receive.
 
 The ownership model becomes more precise. `discern.toml` is no longer described
 as an entirely untouched seed. Its fixed scaffold is co-managed by the binary;
-its values, capabilities, checks, scopes, ratchets, resources, guidance sources,
-and project comments remain the project's. That is a deliberate narrowing of the
-old "seed files are never touched" phrasing.
+its values, capabilities, checks, scopes, standards, resources, guidance
+sources, and project comments remain the project's. That is a deliberate
+narrowing of the old "seed files are never touched" phrasing.
 
 This is not a full formatter. Stale comments beside already-present keys are not
 rewritten, sections are not reordered wholesale, and removed named record tables

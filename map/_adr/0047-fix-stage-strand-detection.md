@@ -1,4 +1,9 @@
-# ADR 0047: Finish blocks a fix stage that strands uncommitted changes
+# ADR 0047: `done` blocks a fix stage that strands uncommitted changes
+
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, the retired product-category wording → `discern`, the gate, or the
+> bar; the decision and reasoning are unchanged.
 
 **Status**: accepted. Mirrors, for the working tree, the generated-artifact
 currency check from [ADR 0034](0034-agents-md-untracked-currency-check.md);
@@ -8,23 +13,22 @@ envelope from [ADR 0028](0028-result-envelope-and-diagnostics.md).
 
 ## Context
 
-The `fix` stage runs first in `finish` and is **meant** to mutate the tree — a
+The `fix` stage runs first in `done` and is **meant** to mutate the tree — a
 formatter, an import-sorter, a codemod. It auto-fixes and exits zero, so the
-gate goes green. But `finish` never checked what the fix stage left behind, and
+gate goes green. But `done` never checked what the fix stage left behind, and
 the success tail said only "Everything built and all checks passed." Nothing
 told the agent the working tree was now dirty.
 
 That gap had teeth in the final lifecycle. The healthy order is _iterate on
-uncommitted work → commit the intended final tree → run `finish` on the clean
-HEAD → hand off or graduate only when asked_. If the fix stage reformats a file
-the agent already committed — the everyday case for `deno fmt`, which reflows
+uncommitted work → commit the intended final tree → run `done` on the clean HEAD
+→ hand off or accept only when asked_. If the fix stage reformats a file the
+agent already committed — the everyday case for `deno fmt`, which reflows
 committed Markdown to 80 columns — that reformat lands uncommitted, and a plain
-green `finish` would tell the agent the branch is done even though the worktree
-is no longer clean. Graduation now refuses dirty worktrees
+green `done` would tell the agent the branch is done even though the worktree is
+no longer clean. Acceptance now refuses dirty worktrees
 ([ADR 0094](0094-final-lifecycle-checks-require-clean-trees.md)), but surfacing
-the formatter diff at `finish` is still the useful point of failure: the agent
-is already looking at the gate result and can commit the fixer output
-deliberately.
+the formatter diff at `done` is still the useful point of failure: the agent is
+already looking at the gate result and can commit the fixer output deliberately.
 
 Two facts framed the fix:
 
@@ -33,17 +37,17 @@ Two facts framed the fix:
   stage can only dirty a file the agent committed in a non-canonical state — or
   was mid-editing. The first is the trap; the second is the normal inner loop
   and must stay silent.
-- **CI already guards this**, with a `git diff --exit-code` after `finish`. So
-  the property is wanted; it was simply absent from the _local_ gate an agent
-  actually runs. (The harness was extracted from a project whose only fixers
-  were code formatters, which reformat the agent's active, uncommitted work —
-  never a committed-then-finished doc — so the gap never surfaced there.
-  Pointing `deno fmt` at hand-written prose docs is what exposed it.)
+- **CI already guards this**, with a `git diff --exit-code` after `done`. So the
+  property is wanted; it was simply absent from the _local_ gate an agent
+  actually runs. (Discern was extracted from a project whose only fixers were
+  code formatters, which reformat the agent's active, uncommitted work — never a
+  committed-then-finished doc — so the gap never surfaced there. Pointing
+  `deno fmt` at hand-written prose docs is what exposed it.)
 
 ## Decision
 
-**`finish` blocks when the fix stage strands changes on a previously clean
-tracked file**, detected by a before/after snapshot around the fix stage.
+**`done` blocks when the fix stage strands changes on a previously clean tracked
+file**, detected by a before/after snapshot around the fix stage.
 
 - **The signal is `D1 \ D0`.** Snapshot the set of tracked-dirty paths
   immediately before the fix stage (`D0`) and immediately after it (`D1`). The
@@ -71,7 +75,7 @@ tracked file**, detected by a before/after snapshot around the fix stage.
   capped `git diff` of them (so the agent sees the change is the fixer's own,
   usually trivial), and says to commit and re-run; `git diff` is its reproduce
   command.
-- **It blocks; it does not auto-fix.** `finish` neither commits nor stages the
+- **It blocks; it does not auto-fix.** `done` neither commits nor stages the
   fixer output. A gate is not a committer: it surfaces the diff and lets the
   agent commit it.
 - **No toggle.** A fix stage exists to produce changes you then commit; a green
@@ -80,20 +84,20 @@ tracked file**, detected by a before/after snapshot around the fix stage.
 
 ## Consequences
 
-- **A green local `finish` now means a clean tree** (in tracked files), the same
-  guarantee CI gave — so the bar the harness advertises for "done" is finally
-  true at the point an agent checks it.
+- **A green local `done` now means a clean tree** (in tracked files), the same
+  guarantee CI gave — so the bar discern advertises for "done" is finally true
+  at the point an agent checks it.
 - **The macrograph-era implicit discipline becomes enforced.** "The agent will
   have run the formatter before committing" held for code by habit and failed
   for prose; the check turns it into an invariant independent of content type or
   editing rhythm.
 - **The surprise moves early and explained.** The agent commits the fixer output
-  at `finish` (with a diff in hand) instead of reaching a later dirty-tree
+  at `done` (with a diff in hand) instead of reaching a later dirty-tree
   refusal. It is the same one commit either way, but with the cause in view.
 - **CI's `git diff --exit-code` becomes partly redundant but stays.** It still
   catches tracked mutations from _non-fix_ stages (a test that writes a tracked
   file), which this check, scoped to the fix stage, does not.
-- **Two extra `git status` calls per `finish`** (skipped when no fix stage is
+- **Two extra `git status` calls per `done`** (skipped when no fix stage is
   wired), plus one `git diff` only when a strand is found. Negligible, and the
   gate already shells to git for scope classification and the merge check.
 - **A new `failed_stage` value, `fix_drift`,** joins the envelope. Consumers
@@ -101,8 +105,8 @@ tracked file**, detected by a before/after snapshot around the fix stage.
   and the diagnostic make it self-explanatory.
 - **A fixer that emits a new untracked file can still leave the worktree
   dirty.** Accepted: that case is visible in `git status` and outside CI's diff
-  guard too. Graduation refuses it under ADR 0094; catching it in `finish`
-  remains a possible later extension.
+  guard too. Acceptance refuses it under ADR 0094; catching it in `done` remains
+  a possible later extension.
 
 ## Alternatives considered
 
@@ -111,7 +115,7 @@ tracked file**, detected by a before/after snapshot around the fix stage.
   — that _is_ the current failure mode. `ok:false` with a diagnostic is the
   signal that reliably changes behaviour.
 - **Exclude Markdown from `deno fmt` (project-level).** Rejected as the fix: it
-  abandons automated doc formatting (which the prose check and ratchet
+  abandons automated doc formatting (which the prose check and standard
   complement, not replace) and leaves the engine gap — any mutating fixer, in
   any project, has the same trap. This is an engine fix, not a config
   workaround.

@@ -1,5 +1,8 @@
 # ADR 0108: One global timeout bounds every gate job
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`; the decision and reasoning are unchanged.
+
 **Status**: accepted; reuses the tree-kill path from
 [ADR 0105](0105-interruption-reaches-detached-gate-jobs.md) (the detached
 process-group SIGTERM→SIGKILL escalation), serializes through
@@ -10,11 +13,11 @@ diagnostic), and is guarded class-wide per
 ## Context
 
 The gate spawned every job and awaited it with no upper bound. One never-exiting
-command therefore hung `discern finish` forever, and — because `[gate].stream`
+command therefore hung `discern done` forever, and — because `[gate].stream`
 defaults to buffered — silently: a pre-launch audit against real projects
 watched the gate print "Checking and testing…" and wait until it was killed by
-hand. An MCP `discern_finish` call blocks the agent's tool call the same way,
-with no output at all.
+hand. An MCP `discern_done` call blocks the agent's tool call the same way, with
+no output at all.
 
 This is not an exotic edge case; it is the **single worst first-hour failure**
 discern can produce. The everyday trigger is a test capability wired in its bare
@@ -83,7 +86,7 @@ Two deliberate choices:
 - The default is a policy, not a law: a project with a genuinely long job raises
   `[gate].timeout`; one that accepts the risk sets `0`. Neither can weaken the
   protection for anyone else, because the key is per-install and defaulted safe.
-- `discern finish` run against a checkout whose engine predates this key will
+- `discern done` run against a checkout whose engine predates this key will
   reject the new `[gate].timeout` line as an unknown key — expected for any new
   config key; scaffold reconciliation backfills it into existing installs.
 
@@ -114,5 +117,5 @@ cancellation source shares:
 
 The class guard gained the escaped-descendant member: a detached, own-session
 pipe-holder driven through the runner (watchdog and external-abort variants) and
-through the full `finish`, asserting the run stays bounded and the timeout is
+through the full `done`, asserting the run stays bounded and the timeout is
 diagnosed, never swallowed.

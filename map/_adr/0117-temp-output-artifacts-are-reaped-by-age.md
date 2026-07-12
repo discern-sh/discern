@@ -1,5 +1,8 @@
 # ADR 0117: Temp output artifacts are reaped by age, from one registry
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`; the decision and reasoning are unchanged.
+
 **Status**: accepted; refines
 [ADR 0096](0096-passing-jobs-keep-output-artifacts.md) and
 [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)
@@ -13,7 +16,7 @@ repo-local log dir) but not how long: nothing in discern ever deleted one, on
 the presumption the OS's periodic temp cleanup would.
 
 That presumption failed empirically. Gate runs are agent-frequency events (one
-file per job, per `finish`/`prepare`/`test`), and on discern's own development
+file per job, per `done`/`prepare`/`test`), and on discern's own development
 machine the temp dir accumulated over thirty thousand orphaned
 `discern-job-*.log` files (hundreds of MB) spanning many days — the OS cleanup
 demonstrably not keeping pace. On a Linux host where `/tmp` is a size-limited
@@ -34,7 +37,7 @@ reaps expired ones.**
   architectural test bans `Deno.makeTempFile`/`makeTempDir` elsewhere in `src/`,
   so a future artifact family cannot silently opt out of retention — adding a
   kind to the registry enrols it in naming and reaping at once.
-- The sweep runs at the gate-verb entries (`finish`/`prepare`/`test`) before any
+- The sweep runs at the gate-verb entries (`done`/`prepare`/`test`) before any
   job spawns — never inside artifact creation, which sits between a job's spawn
   and its abort wiring, where even a bounded sweep would delay the kill path
   (ADR 0105). It fires at most once per hour per process and removes at most 500

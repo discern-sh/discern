@@ -1,5 +1,8 @@
 # ADR 0090: setup proves the project runs in a worktree, and `smoke` joins the known capabilities
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`; the decision and reasoning are unchanged.
+
 **Status**: accepted; builds on [ADR 0075](0075-setup-staged-handshake.md) (the
 staged handshake, stateless derived progress),
 [ADR 0078](0078-setup-pages-and-per-step-proof.md) (stateless pages, derived
@@ -7,7 +10,7 @@ per-step proof, the two-lane rule), [ADR 0065](0065-setup-keeps-its-promises.md)
 (`setup done` is a proven gate), [ADR 0052](0052-worktree-sibling-placement.md)
 (worktree sibling placement), and [ADR 0017](0017-capabilities-model.md) (the
 closed capability vocabulary, tied to its satellites by the forcing functions of
-[ADR 0051](0051-forcing-functions-over-conventions.md)).
+[ADR 0051](0051-canonical-set-parity.md)).
 
 ## Context
 
@@ -49,7 +52,7 @@ where the work lives.
    boots in THIS checkout" — a FAST, side-effect-light command (a framework's
    inspire/about, a CLI `--version`, a script that loads config and exits),
    never an e2e suite (that belongs in `[checks.<name>]`). It rides the `test`
-   stage rather than a dedicated one, so every `discern finish` — which already
+   stage rather than a dedicated one, so every `discern done` — which already
    runs inside worktrees during normal work — re-proves boot wherever the gate
    runs, at minimal blast radius. The forcing functions (ADR 0051) auto-enrol it
    into assurance, `doctor`, derived progress, `config set-capability`, and the
@@ -63,17 +66,17 @@ where the work lives.
    `worktreeSetup`) and removal (`removeWorktreeSafely`) cores the rest of the
    lifecycle uses, so the probe exercises precisely what a real worktree does:
    its `[worktree.setup]` steps/ensure, its resources, its env inheritance.
-   After `refresh → doctor → finish` pass in the main checkout, and when
+   After `refresh → doctor → done` passes in the main checkout, and when
    `[features].worktrees` is on, `setup done` probes a worktree and runs the
-   finish core inside it. A red probe blocks `done` with a named
-   `worktree_probe` stage and leaves `[meta].bootstrapped` unrecorded;
-   `worktree_proven` rides the `--json` envelope and the human render.
+   gate core inside it. A red probe blocks `done` with a named `worktree_probe`
+   stage and leaves `[meta].bootstrapped` unrecorded; `worktree_proven` rides
+   the `--json` envelope and the human render.
 
 3. **The brief gains a Step 8** — "Prove the project runs in a worktree" —
-   walking the agent through the same probe (`discern start` → `discern finish`
-   in the copy) and the `[worktree]` wiring for whatever a fresh copy is
-   missing, with a stack-keyed readiness table. The old Step 8
-   (record/summarise) becomes Step 9.
+   walking the agent through the same probe (`discern start` → `discern done` in
+   the copy) and the `[worktree]` wiring for whatever a fresh copy is missing,
+   with a stack-keyed readiness table. The old Step 8 (record/summarise) becomes
+   Step 9.
 
 The load-bearing design choices, and the explicit *no*s:
 
@@ -104,8 +107,8 @@ The load-bearing design choices, and the explicit *no*s:
   provisioning.
 
 - **`smoke` is not mandatory.** An absent capability stays "knowably absent"
-  (ADR 0017); the probe runs the whole finish gate, so a project with no `smoke`
-  still has its `format`/`lint`/`test` re-proven in a worktree.
+  (ADR 0017); the probe runs the whole gate, so a project with no `smoke` still
+  has its `format`/`lint`/`test` re-proven in a worktree.
 
 ## Consequences
 
@@ -115,25 +118,25 @@ The load-bearing design choices, and the explicit *no*s:
   present to fix or record it — exactly what remains.
 
 - **The guarantee is continuously maintained, not asserted once.** Normal work
-  already runs `discern finish` in worktrees, and `smoke` now re-proves boot
-  there on every run — so a later change that breaks worktree viability is
-  caught by the gate, not months later by a user.
+  already runs `discern done` in worktrees, and `smoke` now re-proves boot there
+  on every run — so a later change that breaks worktree viability is caught by
+  the gate, not months later by a user.
 
 - **More surface, held by existing disciplines.** A new lifecycle core, a fourth
   proof leg, a sixth capability, and a new brief step are new moving parts —
   kept coherent by the forcing functions (which auto-enrol `smoke`), the probe
   reusing the create/remove cores, and the parser-validated brief spine.
 
-- **`setup done` now creates and destroys a worktree** (a refresh + finish
-  inside it). Bounded: one throwaway worktree at the end of a one-time setup,
-  skipped entirely when worktrees are off or `--force` is used.
+- **`setup done` now creates and destroys a worktree** (a refresh + gate inside
+  it). Bounded: one throwaway worktree at the end of a one-time setup, skipped
+  entirely when worktrees are off or `--force` is used.
 
 ## Alternatives considered
 
 - **A dedicated `smoke` gate stage instead of riding `test`.** Rejected: adding
   a stage ripples through `STAGES`, every stage-group builder, `prepare`/`test`
   inclusion, and the forcing functions, for no behavioral gain — `smoke` on the
-  `test` stage already runs on every `finish`, in and out of worktrees.
+  `test` stage already runs on every `done`, in and out of worktrees.
 
 - **Have the agent attest worktree viability (self-report).** Rejected by the
   governing lesson of ADR 0075/0077/0078: everything structurally enforced

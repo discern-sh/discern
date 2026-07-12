@@ -1,5 +1,9 @@
 # ADR 0068: Tests inject env/cwd seams so the suite can run `--parallel`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current
+> test pointer uses `standards` (formerly `ratchets`); the decision and
+> reasoning are unchanged.
+
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make
 that safe, every function that consults ambient process state — an env override
 or the working directory — takes an injectable seam (an `EnvReader` defaulting
@@ -25,7 +29,7 @@ process-global and leak across any files running at the same instant. Worse,
 leaked variable is also inherited by every subprocess the tests spawn through
 `runAgent`/`runCli`. The failure actually observed in a parallel run: `git_test`
 set an empty `PATH` for its "unrunnable git" case, and a concurrent
-`engine_ratchets_test` spawned `deno` against that empty PATH —
+`engine_standards_test` spawned `deno` against that empty PATH —
 `NotFound: Failed to spawn 'deno'`. The victim varies with scheduling, and the
 rate was ~10% of parallel runs: green often enough that flipping the flag on and
 seeing one pass looks safe.

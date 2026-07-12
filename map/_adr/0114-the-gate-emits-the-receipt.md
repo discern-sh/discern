@@ -1,8 +1,13 @@
 # ADR 0114: a green gate emits the receipt
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, and the gate-pass artifact → the receipt; the decision and reasoning
+> are unchanged.
+
 **Status**: accepted. Builds on
 [ADR 0028](0028-result-envelope-and-diagnostics.md) (the one-object result rule)
-and [ADR 0067](0067-graduate-validates-the-landed-tree.md) (the gate-pass
+and [ADR 0067](0067-accept-validates-the-landed-tree.md) (the gate receipt
 vouch); the review moment it serves is the landing model's
 ([ADR 0110](0110-the-landing-model.md)) handoff point.
 
@@ -26,7 +31,7 @@ so field and marker share one spelling.
 
 ## Decision
 
-**A green `finish` over a clean committed tree ahead of the trunk renders the
+**A green `done` over a clean committed tree ahead of the trunk renders the
 receipt — a compact, deterministic markdown review summary — derives it once
 from the result envelope, and every later surface relays that one artifact.**
 
@@ -40,12 +45,12 @@ from the result envelope, and every later surface relays that one artifact.**
   trunk would describe a different tree than the one the gate validated. The
   receipt therefore exists exactly when the ADR 0067 vouch records — and the
   marker now stores the markdown beside the validated sha, so `status` and
-  `graduate` surface the receipt without re-running the gate, under the same
+  `accept` surface the receipt without re-running the gate, under the same
   identity rule (any commit, amend, or edit silently invalidates both).
 - **No review verb.** Nobody calls "review": the receipt plus the hints are the
-  affordance. `finish` prints it and hints relay-then-wait; the review-ready
+  affordance. `done` prints it and hints relay-then-wait; the review-ready
   `status` hint carries the stored receipt and the exact inspection command
-  (`git diff <trunk>...<branch>`); `graduate` prints it as the landing record,
+  (`git diff <trunk>...<branch>`); `accept` prints it as the landing record,
   pasteable into a PR body.
 
 ## Consequences
@@ -57,13 +62,13 @@ from the result envelope, and every later surface relays that one artifact.**
   sha) and the human summary (the rest). A pre-receipt marker still parses (its
   markdown is simply empty), and an old binary reading a new marker sees a sha
   that cannot match HEAD — fail-closed, the gate just re-runs.
-- **`ratchets --pin`'s carry-forward drops the markdown.** The pin commit moves
+- **`standards --pin`'s carry-forward drops the markdown.** The pin commit moves
   HEAD, so the stored commit list would be stale; the carried vouch is written
-  sha-only, and a graduate after a pin simply lands without printing a receipt.
+  sha-only, and acceptance after a pin simply lands without printing a receipt.
   Honest over convenient.
-- **The envelope grew** (`data.receipt` on `finish`, `receipt` on `graduate` and
-  on the honored `gate_receipt` check), through the result-schema codegen, so
-  the MCP output schemas and published contracts stay tied to reality.
+- **The envelope grew** (`data.receipt` on `done`, `receipt` on `accept` and on
+  the honored `gate_receipt` check), through the result-schema codegen, so the
+  MCP output schemas and published contracts stay tied to reality.
 
 ## Alternatives considered
 
@@ -73,6 +78,6 @@ from the result envelope, and every later surface relays that one artifact.**
   source every rendering derives from (ADR 0028); a consumer that wants the
   facts should not parse markdown discern itself rendered.
 - **Render at relay time instead of storing in the marker.** Rejected: after the
-  finish that proved the tree, only the marker knows what ran without re-running
-  the gate — and re-rendering later would fabricate durations for a run that
-  isn't the one that vouched.
+  `done` run that proved the tree, only the marker knows what ran without
+  re-running the gate — and re-rendering later would fabricate durations for a
+  run that isn't the one that vouched.

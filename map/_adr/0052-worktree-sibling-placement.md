@@ -1,5 +1,8 @@
 # ADR 0052: Worktrees live in a configurable sibling directory, not nested `.claude/worktrees`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `graduate` → `accept`; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -81,9 +84,10 @@ entirely.
 - **"Restore the old nesting" is one config line.** A project that preferred the
   nested layout sets `root = ".claude/worktrees"`.
 - **No data migration of existing worktrees.** A worktree created before the
-  flip is found, graduated, and pruned exactly as before — git tracks it by its
-  admin dir, not its path. (Moving the _repo_ would break a worktree's absolute
-  `.git` link, but that is a pre-existing git property, unchanged here.)
+  flip is found, landed with `accept`, and pruned exactly as before — git tracks
+  it by its admin dir, not its path. (Moving the _repo_ would break a worktree's
+  absolute `.git` link, but that is a pre-existing git property, unchanged
+  here.)
 
 ## Alternatives considered
 

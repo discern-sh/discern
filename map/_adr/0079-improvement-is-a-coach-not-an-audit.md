@@ -1,4 +1,8 @@
-# ADR 0079: `improve` is a coach, not an audit
+# ADR 0079: `improvement` is a coach, not an audit
+
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `improve` → `improvement`; the decision
+> and reasoning are unchanged.
 
 **Status**: accepted. Extends [ADR 0029](0029-best-practices-audit.md): its
 deterministic-rule and qualitative-review split remains; this decision changes
@@ -28,15 +32,16 @@ which to choose one vocabulary.
 
 ## Decision
 
-Hard-rename the verb to **`improve`** and its MCP tool to **`discern_improve`**.
-There is no `audit` alias. The CLI verb registry remains the canonical set; the
-existing parity guards force the command registration, recipe-name surface, MCP
-table, grouped help, schemas, and tests to move in lockstep.
+Hard-rename the verb to **`improvement`** and its MCP tool to
+**`discern_improvement`**. There is no `audit` alias. The CLI verb registry
+remains the canonical set; the existing parity guards force the command
+registration, recipe-name surface, MCP table, grouped help, schemas, and tests
+to move in lockstep.
 
-Position `improve` as a continuous-improvement coach:
+Position `improvement` as a continuous-improvement coach:
 
-- The score is presented as **Baseline health**, followed by separate, non-dim
-  lines for the number of objectively weak rules and the number of open
+- The score is presented as **Automated practice health**, followed by separate,
+  non-dim lines for the number of objectively weak rules and the number of open
   improvement reviews. `100/100` therefore means only "nothing objectively
   weak."
 - Every successful result carries one structured `next_action`, rendered near
@@ -50,7 +55,7 @@ Position `improve` as a continuous-improvement coach:
 Keep deterministic rules and qualitative reviews distinct. Broaden the latter to
 describe the shape of good practice—behavioural and isolated tests, actionable
 failure memory, current and navigable docs, non-inferable guidance,
-rate-normalized ratchets, isolated worktree resources, and executable
+rate-normalized standards, isolated worktree resources, and executable
 skills—without moving those judgements into the score.
 
 ## Consequences
@@ -61,23 +66,23 @@ skills—without moving those judgements into the score.
   coexisting with judgement work. The score is less likely to terminate the
   improvement conversation prematurely.
 - CLI scripts and MCP clients using `audit` / `discern_audit` break and must
-  move to `improve` / `discern_improve`. This is intentional; maintaining two
-  names would keep the rejected frame alive and double the surface that parity
-  guards must account for.
+  move to `improvement` / `discern_improvement`. This is intentional;
+  maintaining two names would keep the rejected frame alive and double the
+  surface that parity guards must account for.
 - The priority algorithm is intentionally simple and explainable. Deterministic
   weight is a proxy for value, and catalog order is editorial judgement for
   qualitative reviews; neither claims to know project-specific effort or
   urgency.
 - Subjective reviews remain stateless. The agent lands its judgement as a real
-  project change, then reruns `improve`, preserving ADR 0029's model.
+  project change, then reruns `improvement`, preserving ADR 0029's model.
 
 ## Alternatives considered
 
 - **Keep `audit`, change only the headline.** Rejected: the noun still frames a
   periodic inspection, while the product behaviour is an ongoing coaching loop.
-- **Add `improve` as an alias.** Rejected: it avoids a short migration at the
-  cost of two permanent public names, stale examples, and ambiguity about which
-  tool an agent should prefer.
+- **Add `improvement` as an alias.** Rejected: it avoids a short migration at
+  the cost of two permanent public names, stale examples, and ambiguity about
+  which tool an agent should prefer.
 - **Remove the score.** Rejected: deterministic baseline health is a useful,
   enforceable signal through `--min-score`. The problem was presenting it as
   completeness, not measuring objective wiring.

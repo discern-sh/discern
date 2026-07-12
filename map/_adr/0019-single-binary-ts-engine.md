@@ -1,18 +1,23 @@
 # ADR 0019: Collapse into one binary with a TypeScript-native engine
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `scopes` → `impact`
+> where it names the verb, the retired product-category wording → `discern`, the
+> gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
 
 discern was **two programs**. The installer (`src/`) was Deno/TypeScript,
 compiled to a self-contained binary. The engine — the gate, the worktree
-lifecycle, ratchets, scope classification, the guideline compiler, the `agent`
+lifecycle, standards, scope classification, the guideline compiler, the `agent`
 dispatcher — was **POSIX shell**, committed into each project under
 `.discern/engine/` as **managed** files the installer kept byte-identical to
 `templates/`.
 
-That split bought portability (the installed harness needed no runtime) but
-charged three rents:
+That split bought portability (an installed discern project needed no runtime)
+but charged three rents:
 
 1. **DX confusion.** `agent` is a repo-local file, not on `PATH`; `.discern/`
    files invisibly drive it; two command vocabularies (`discern` vs `agent`,
@@ -42,7 +47,7 @@ delete the committed-engine sync machinery with it.
 
 1. **The engine is TypeScript** (`src/engine/**`), sharing `src/shared/**` with
    the installer. The gate, `jobsInStage`/`cmdsInStage`, the parallel/serial job
-   runner, scope-glob classification, ratchets, the worktree lifecycle +
+   runner, scope-glob classification, standards, the worktree lifecycle +
    identity (POSIX-`cksum`-faithful), the guideline compiler, and the dispatcher
    are all TS. The `--json` gate contract
    ([ADR 0004](_superseded/0004-structured-finish-json.md)) is reproduced
@@ -51,9 +56,9 @@ delete the committed-engine sync machinery with it.
    _better_ than portable `sh`'s best-effort sibling kill, not just different.
 
 2. **`discern` is the one command; `agent` is dropped.** The former engine
-   recipes are first-class `discern` subcommands (`finish`, `tidy`, `test`,
-   `ratchets`, `guidelines`, the `worktree` command group, `identity`,
-   `scopes`). The root `agent` file is no longer scaffolded; worktree hooks,
+   recipes are first-class `discern` subcommands (`done`, `tidy`, `test`,
+   `standards`, `guidelines`, the `worktree` command group, `identity`,
+   `impact`). The root `agent` file is no longer scaffolded; worktree hooks,
    docs, and compiled guidance repoint to `discern`.
 
 3. **"Managed files" retire.** With no committed engine to sync, there is no
@@ -74,8 +79,8 @@ delete the committed-engine sync machinery with it.
    wins on a name collision (warn on shadow).
 
 5. **Names unchanged.** `discern`, `.discern/`, the `@db@`/`@project_slug@`
-   worktree tokens, and the `[capabilities]`/`[checks]`/`[scopes]`/`[ratchets]`
-   config shape all survive this cutover. Renaming the harness was left to a
+   worktree tokens, and the `[capabilities]`/`[checks]`/`[scopes]`/`[standards]`
+   config shape all survive this cutover. Renaming discern was left to a
    separate, later change — since carried out (see
    [ADR 0022](0022-rename-to-discern.md)).
 
@@ -89,8 +94,8 @@ dual-vocabulary renderer.
   [ADR 0010](_superseded/0010-self-host-the-harness.md)).** The repo no longer
   commits a second engine copy to gate for drift — there _is_ no second copy and
   no drift to detect. It runs its own engine via the binary
-  (`deno task dev finish`). The regression class ADR 0010's `selfcheck` guarded
-  is made structurally impossible: there is nothing that can drift.
+  (`deno task dev done`). The regression class ADR 0010's `selfcheck` guarded is
+  made structurally impossible: there is nothing that can drift.
 - **[ADR 0012](_superseded/0012-engine-noglob-default.md) (engine noglob)
   retires.** Glob classification is in-memory TS (`engine/scopes/glob.ts`);
   `set -f` and the `DISCERN_ENGINE_RECIPE` marker are gone. A project recipe is

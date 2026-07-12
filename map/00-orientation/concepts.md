@@ -98,9 +98,9 @@ wording, never thinning the points). The docs question is consent, not
 collision-avoidance: the [map](glossary.md#map) defaults to its own `map/`, and
 the message asks whether discern should instead manage the project's existing
 documentation — pointing `[map].dir` (via `begin --map`) is that explicit
-consent ([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); the persisted
-`[map].dir` then drives every docs-aware surface
-([ADR 0080](../_adr/0080-configured-agent-docs-root.md)). **Nothing is written
+consent ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)); the
+persisted `[map].dir` then drives every docs-aware surface
+([ADR 0080](../_adr/0080-configured-agent-map-root.md)). **Nothing is written
 until `discern setup begin`** — the first mutating step, which requires an
 explicit `--confirmed` attestation that the consent conversation happened,
 refusing and re-serving that message without it (outside the declarative
@@ -150,7 +150,7 @@ _enforced_, _deferred_, or _absent_, plus an overall verdict — so "the gate is
 proven" never reads as "every protection runs" when, say, no test suite is
 wired; it names **where the work lives** (on the `discern-setup` branch, not yet
 on `main`) and the one command to land it, `discern setup accept`
-([ADR 0081](../_adr/0081-setup-land-command.md)); and it reminds the agent to
+([ADR 0081](../_adr/0081-setup-accept-command.md)); and it reminds the agent to
 start a fresh session (the wired MCP tools and session hooks load only at
 session start) and to deepen the setup with `discern improvement`.
 

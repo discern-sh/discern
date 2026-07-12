@@ -1,4 +1,9 @@
-# ADR 0018: Consolidate the harness vocabulary into four layers
+# ADR 0018: Consolidate discern vocabulary into four layers
+
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where
+> it names the command, config, or tree, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
 
 > **Current-state note.** Lands together with its sibling
 > [ADR 0017](0017-capabilities-model.md) (declare capabilities, derive the gate)
@@ -11,7 +16,7 @@
 [ADR 0017](0017-capabilities-model.md) replaced slots + phases with
 capabilities, but slot/phase was only the largest of several parallel concepts a
 newcomer had to hold at once. Counting the nouns the docs introduced as peers:
-slots, phases, scopes, side gates, ratchets, evidence, adapters, recipes,
+slots, phases, scopes, side gates, standards, evidence, adapters, recipes,
 skills, guidelines, managed, seed — **twelve**, presented as a flat list. Each
 is individually defensible; together they bury the product's actual shape under
 vocabulary.
@@ -23,12 +28,12 @@ a home:
   command by a scope name that the `[scopes]` table already defined — so the
   same region was named in two places, and "side gate" was a separate noun for
   what is really just "a scope that has a gate."
-- **Ratchets referenced a separate measurement slot.** A `[ratchets.<name>]`
+- **Standards referenced a separate measurement slot.** A `[standards.<name>]`
   pointed at a phase-less `[slots.<name>]` whose only job was to emit the
   metric. That indirection — and the "measurement slot" concept it forced —
-  bought nothing; the command could live on the ratchet.
+  bought nothing; the command could live on the standard.
 - **`[evidence]` was a lightly-used gate** (require a per-branch work artifact
-  before `finish`), off by default, that most installs never touched but every
+  before `done`), off by default, that most installs never touched but every
   reader still had to learn.
 - **"Adapter" was overloaded.** It named both the installable overlay
   (`add-adapter`, `adapter.json`) _and_ the worktree database/dev-server seams —
@@ -47,7 +52,7 @@ vocabulary lands at once rather than in drips.
 Consolidate the parallel concepts, and present what remains as **four layers**
 instead of a flat list:
 
-1. **The gate — your definition of done:** capabilities, scopes, ratchets.
+1. **The gate — your definition of done:** capabilities, scopes, standards.
 2. **The workspace — isolated worktrees:** worktrees and their settings.
 3. **The agent surface — what agents read and run:** guidelines (always-on),
    skills (on-demand), recipes (your `agent` verbs).
@@ -67,7 +72,7 @@ The concrete moves:
 
   ```toml
   [scopes.docs]
-  paths   = ["docs/", ".discern/"]
+  paths   = ["map/", ".discern/"]
   neutral = true
 
   [scopes.native]
@@ -75,20 +80,20 @@ The concrete moves:
   gate  = "make -C native check"   # ← the former "side gate"
   ```
 
-- **A ratchet inlines its measurement command.** `[ratchets.<name>]` gains a
+- **A standard inlines its measurement command.** `[standards.<name>]` gains a
   required **`run`** (which emits `DISCERN_METRIC <metric> <n>`); the `slot`
   reference and the "measurement slot" concept are gone.
 
   ```toml
-  [ratchets.coverage]
+  [standards.coverage]
   direction = "up"
   limit     = 80
   run       = "deno task coverage"
   ```
 
 - **`[evidence]` is cut.** The config section, the `agent evidence` recipe, the
-  `finish` pre-check, the `.discern/evidence/` store, and its `.gitignore` line
-  all go. A project that wants a pre-finish artifact gate writes a `[check]`.
+  `done` pre-check, the `.discern/evidence/` store, and its `.gitignore` line
+  all go. A project that wants a pre-`done` artifact gate writes a `[check]`.
 
 - **"Adapter" splits.** The installable overlay becomes a **preset**:
   `add-adapter` → `preset`, `adapters/` → `presets/`, `adapter.json` →
@@ -102,7 +107,7 @@ The concrete moves:
   once and never touched); the _word_ "seed" is replaced by "yours" / "your
   files" everywhere it faces a reader.
 
-The explicit **no**s: side gates are not a separate table; ratchets do not
+The explicit **no**s: side gates are not a separate table; standards do not
 reference a slot; "adapter" no longer names two things; evidence is not a
 first-class gate.
 
@@ -126,7 +131,7 @@ first-class gate.
   no installed file to move.
 - **A migration is owed and the convergence test is the guard.** The schema 3→4
   step (paired with [ADR 0017](0017-capabilities-model.md)) transforms
-  `[scopes]`/`[scopes.side_gates]` into scope tables, inlines ratchet runs, and
+  `[scopes]`/`[scopes.side_gates]` into scope tables, inlines standard runs, and
   deletes `[evidence]`; the "upgrade ≡ fresh init" test and an idempotent re-run
   keep it honest.
 - **Amends earlier records.** Supersedes
@@ -134,7 +139,7 @@ first-class gate.
   unchanged; its config _home_ moves onto the scope) and
   [ADR 0007](0007-adapter-contract.md) (the overlay contract is unchanged; the
   name is now preset / `preset.json`); amends
-  [ADR 0003](0003-named-metric-ratchets.md) (inline `run`),
+  [ADR 0003](0003-named-metric-standards.md) (inline `run`),
   [ADR 0004](_superseded/0004-structured-finish-json.md) (gate results are
   per-scope, labelled `scope:<name>`), and
   [ADR 0005](0005-declarative-config.md) (the `config` sub-verbs and
@@ -149,9 +154,9 @@ first-class gate.
   be written twice and made "side gate" a noun the docs had to introduce; the
   `gate` key on the scope says the same thing with one fewer concept.
 - **Keep the measurement-slot indirection.** Rejected: it existed only because
-  the old model had nowhere else to put the command. With ratchets able to carry
-  their own `run`, the indirection — and the "a slot with no phase is secretly a
-  different thing" footgun — is pure overhead.
+  the old model had nowhere else to put the command. With standards able to
+  carry their own `run`, the indirection — and the "a slot with no phase is
+  secretly a different thing" footgun — is pure overhead.
 - **Keep "adapter" for both meanings.** Rejected: the overload was a documented
   source of confusion ([ADR 0007](0007-adapter-contract.md) had to spell out
   which one `adapter.json` meant). "Preset" for the overlay and "worktree

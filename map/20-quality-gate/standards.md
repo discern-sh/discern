@@ -75,7 +75,7 @@ run       = "echo DISCERN_METRIC guidance_words $(cat guidance/*.md | wc -w)"
 
 discern reads the last `DISCERN_METRIC <name> <number>` line the command emits,
 compares the number to the limit, and asserts the limit was not loosened versus
-`main` ([ADR 0003](../_adr/0003-named-metric-ratchets.md)).
+`main` ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
 ## Raw counts versus rates
 
@@ -99,7 +99,7 @@ is refused, so a `per` extent can never silently measure the whole repository),
 or a second metric the same command emits — and `scale` expresses the rate
 against a readable unit (per 1,000 words, per 10,000). The metric then measures
 density, not volume, so a branch that adds prose at the same quality holds the
-line ([ADR 0057](../_adr/0057-rate-ratchets.md)).
+line ([ADR 0057](../_adr/0057-rate-standards.md)).
 
 ## Capturing a gain: `discern standards --pin`
 
@@ -123,7 +123,7 @@ measurement: the flow measures once. Any new commit, uncommitted edit, or red
 check silently invalidates the receipt and the pin measures fresh; only the
 never-loosen comparison is always re-checked live, because `main` can advance
 while the branch stands still
-([ADR 0112](../_adr/0112-ratchet-measurement-receipt.md)). `--dry-run` renders
+([ADR 0112](../_adr/0112-standard-measurement-receipt.md)). `--dry-run` renders
 the plan and measures nothing, with or without `--pin`: what a pin would change
 is knowable only by measuring, and the check's hints are where that answer
 already lives.
@@ -133,7 +133,7 @@ commit changes only `[standards]` limits, which the gate never reads, pin
 carries a green `discern done` receipt forward onto it, so a follow-up
 `discern
 accept` still skips the redundant gate re-run
-([ADR 0106](../_adr/0106-ratchets-pin-carries-the-gate-receipt.md)).
+([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
 For a metric that drifts on every commit — a bundle size, a coverage percentage
 — set a `margin` so pin leaves headroom instead of pinning to an exact value the

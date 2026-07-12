@@ -1,5 +1,9 @@
 # ADR 0045: The MCP server is core infrastructure, not a feature toggle
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `docs` → `map` where it names the command,
+> config, or tree; the decision and reasoning are unchanged.
+
 **Status**: accepted; revises the feature set from
 [ADR 0020](0020-dissolve-discern-dir.md) (which introduced `[features]`, `mcp`
 among them) and builds on [ADR 0041](0041-self-describing-mcp-surface.md) and
@@ -47,14 +51,14 @@ doctor — always on, never a `[features]` member.**
   (ADR 0041) is the guard that they stay in lockstep.
 - **Wiring is unconditional.** `refresh` / `upgrade` / worktree-setup always
   (re-)establish the server for every configured agent (idempotently,
-  best-effort). The `mcp` verb is registered unconditionally, like `finish` and
+  best-effort). The `mcp` verb is registered unconditionally, like `done` and
   `status`.
 - **The removal path goes with the toggle.** With no "off" state, the
   feature-off branch, the now permanently-empty `mcp_removed` result field, and
   the thereby-orphaned `unwireProviderMcp` / `unregisterClaudeCodeMcp` /
   registry `unregister` hook are dead code — kept only, they would misrepresent
   a capability discern no longer has. They are removed wholesale (single source
-  of truth; no dead code). What stays gated is unchanged: the `docs`- and
+  of truth; no dead code). What stays gated is unchanged: the `map`- and
   `worktrees`-gated MCP **tools** still appear only when their own feature is
   on.
 - **Schema 10 → 11 drops the key.** A migration deletes `[features].mcp`

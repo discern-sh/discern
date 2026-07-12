@@ -1,5 +1,9 @@
 # ADR 0107: `upgrade` reconciles the record-table doc banners
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -8,15 +12,15 @@ ADR 0092 gave `discern upgrade` a config-scaffold reconciliation pass: it
 inserts a missing fixed section or fixed key from the current template, with its
 documentation, so a current-schema config stops drifting from what a fresh setup
 would show. That pass deliberately stops short of the record tables —
-`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`,
+`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`,
 `[worktree.resources.<name>]` — because their named entries are project-owned
 population, not scaffold. It also is "not a full formatter": stale comments
 beside an already-present key are left as the project wrote them.
 
 Those two exclusions leave a gap. A record table's knobs — the fields a
-`[ratchets.<name>]` accepts, say — are documented once, in the `# ───`-ruled
+`[standards.<name>]` accepts, say — are documented once, in the `# ───`-ruled
 **banner** that introduces the family, not on any single key the reconciler
-could backfill. When a new knob is added (a ratchet's `margin`), the shipped
+could backfill. When a new knob is added (a standard's `margin`), the shipped
 template's banner gains a line for it and the schema-generated config reference
 gains an entry, but an existing install's banner never changes: it is neither a
 missing section nor a missing fixed key, and its family is a skipped record
@@ -43,7 +47,7 @@ A managed banner is identified structurally, not by a hand-kept list:
 `# [<record>…]` identity — naming one of the record families — as a banner that
 opens there and closes at the next `# ───` rule, with only comment lines
 between. That family's banner is refreshed to the current template's version
-wholesale when it differs. Everything a project owns — the `[ratchets.<name>]`
+wholesale when it differs. Everything a project owns — the `[standards.<name>]`
 tables themselves, their values, and the comments a user wrote above them —
 lives _outside_ the rule pair, so it is never touched. A banner that does not
 close cleanly (a blank or live line intervenes, or the rule never recurs) is
@@ -64,7 +68,7 @@ where no upgrade would surface it.
 `discern upgrade` now carries a record table's newly-documented knobs to every
 existing install, not just to fresh setups and the config reference. discern's
 own root config and downstream pre-launch test projects get the same repair path
-users receive; the repo's own `[ratchets]` banner, which had lagged behind
+users receive; the repo's own `[standards]` banner, which had lagged behind
 `per`, `scale`, and `margin`, is brought current by the same code.
 
 The ownership model narrows once more, and the narrowing is explicit: the prose

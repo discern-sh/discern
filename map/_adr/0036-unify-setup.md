@@ -1,5 +1,10 @@
 # ADR 0036: Unify setup under one zero-config `discern setup`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, the retired product-category wording → `discern`, the gate, or the
+> bar; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 Amends and **consolidates**
@@ -63,7 +68,7 @@ by bare `discern`, and market it as zero-configuration.**
   questions in chat. The declarative `--config`/`--brief`/flag path is retained
   for CI and presets.
 - **Pre-setup, the work verbs hard-redirect.** Until `[meta].bootstrapped` is
-  recorded, `finish` / `prepare` / `test` / `ratchets` / `graduate` refuse and
+  recorded, `done` / `prepare` / `test` / `standards` / `accept` refuse and
   point at `discern setup` (exit non-zero; a structured `not_set_up` result
   under `--json`). This amends ADR 0024's "nudge, not gate" stance for these
   verbs: an empty gate pre-setup reports a false "all-green," which is worse
@@ -97,9 +102,9 @@ carried, beyond the rename:
 - **Structured proposal mechanism.** Use `discern config set-*` (comment-
   preserving, validated) to propose capability fills, rather than hand-editing
   TOML.
-- **Green-gate completion proof.** End by running `discern finish` and
-  confirming it is genuinely green with the activated capabilities — proof the
-  harness is real, not merely that the config parses.
+- **Green-gate completion proof.** End by running `discern done` and confirming
+  it is genuinely green with the activated capabilities — proof the discern
+  setup is real, not merely that the config parses.
 
 ## Consequences
 

@@ -1,5 +1,9 @@
 # ADR 0101: Retire the `[features]` toggles
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (which
 introduced the `[features]` set) and completes the trajectory of
 [ADR 0045](0045-mcp-is-core-infrastructure.md) (which removed `mcp` from it)
@@ -17,7 +21,7 @@ doctor, the MCP server, and the gate planner.
 Three observations, made while every toggle still has zero external users:
 
 1. **The toggle test.** A subsystem that costs nothing when unused needs no
-   switch. Worktrees you never start, ratchets you never define, an advisory
+   switch. Worktrees you never start, standards you never define, an advisory
    verb you never invoke — the escape is behavioral. A toggle earns its keep
    only when an _unused_ feature still imposes a real cost.
 2. **Each toggle is a combinatorial promise.** Both states of every toggle must
@@ -43,13 +47,13 @@ the same fact.
   checks are always wired. Nothing forces a session to call `start` — not using
   the workflow remains the escape, configuring it away does not. The duplicate
   `[worktree].enabled` key retires at the same time.
-- **Ratchets activate by presence, not by toggle.** With no `[ratchets]` tables
-  defined the subsystem is naturally inert; defining one is the act that turns
-  it on. The ratchets guidance section compiles in only when at least one
-  ratchet is configured — gating on configuration, not on a switch.
+- **Standards activate by presence, not by toggle.** With no `[standards]`
+  tables defined the subsystem is naturally inert; defining one is the act that
+  turns it on. The standards guidance section compiles in only when at least one
+  standard is configured — gating on configuration, not on a switch.
 - **Guidance, docs, and the coupling advisory are core.** Guidance is discern's
   only channel to agents — disabling it severed the nervous system. The map is
-  the product ([ADR 0100](0100-doctree-is-the-agents-map.md)). Coupling is
+  the product ([ADR 0100](0100-project-map-is-the-agents-map.md)). Coupling is
   read-only, self-calibrating, and invoked on demand; its one real cost decision
   (`[coupling].in_gate`) is behavior configuration and stays.
 - **Skills keep one knob, in reduced form: `[skills].exclude`.** Materialized
@@ -72,7 +76,7 @@ the same fact.
 - A future subsystem that genuinely passes the toggle test can get a toggle back
   compatibly; nothing re-opens by default.
 - Users who want less discern do it behaviorally (don't start worktrees, define
-  no ratchets, exclude skills by name) — every escape remains, none of them
+  no standards, exclude skills by name) — every escape remains, none of them
   configurational existence-switches.
 
 ## Alternatives considered

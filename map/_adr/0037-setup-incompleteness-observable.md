@@ -1,5 +1,9 @@
 # ADR 0037: Setup-incompleteness is an observable state, not a prose handoff
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `docs` → `map` where it names the command, config, or tree; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 Hardens the handoff introduced by [ADR 0036](0036-unify-setup.md) (unify init +
@@ -102,7 +106,7 @@ The explicit **no**s:
   presents success, and the brief can't be mistaken for a summary. Regression is
   guarded by `tests/engine_setup_handoff_test.ts`.
 - The marker walk runs on `status` and on every session start while
-  `!bootstrapped` — bounded to `docs/**.md` + `guidance.md`, and gated so a
+  `!bootstrapped` — bounded to `map/**.md` + `guidance.md`, and gated so a
   finished project never pays for it.
 - A worktrees-off install has no SessionStart hook, so it loses defence (3);
   defences (1), (2), (4) still apply. Acceptable for a rare configuration.

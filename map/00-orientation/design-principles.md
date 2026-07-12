@@ -237,7 +237,7 @@ property; a warning is a hope.
 **How it shows up.** Every source path has a prescriptive default in the
 [paths registry](../../src/shared/paths_registry.ts) and a config key that
 points it anywhere; setup asks the docs question as consent
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)) instead of silently
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)) instead of silently
 adopting an existing `docs/`; the write-surface test holds the boundary.
 
 ---
@@ -294,9 +294,9 @@ understanding — which is exactly what makes it worth a human's read.
 
 **How it shows up.** The map defaults to its own `map/` and is scaffolded
 eagerly at `setup begin`
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)); pointing `[map].dir` at
-existing documentation is the user's explicit act; the docs scope's prose check
-and currency discipline treat drift as a failure.
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)); pointing
+`[map].dir` at existing documentation is the user's explicit act; the docs
+scope's prose check and currency discipline treat drift as a failure.
 
 ---
 

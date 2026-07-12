@@ -28,6 +28,7 @@ const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
 const MAP = join(REPO_ROOT, "map");
+const ADRS = join(MAP, "_adr");
 const MOCKUPS = join(REPO_ROOT, "mockups");
 const RECIPES = join(REPO_ROOT, "recipes");
 const SKILLS = join(REPO_ROOT, "skills");
@@ -41,6 +42,13 @@ const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
 const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
 /** Retired human-facing name for the shared branch; user copy calls it the trunk. */
 const INTEGRATION_BRANCH = /\bintegration branch\b/gi;
+/** Callable/config/artifact pointers that are legal only in reviewed history. */
+const RETIRED_ADR_POINTER =
+  /\b(?:discern|agent)[ _](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality [Rr]atchet\b|\b[Rr]atchet feature\b|\b[Tt]he harness\b|\b[Hh]arness's\b/g;
+const RETIRED_ACTIVE_ADR_PATH =
+  /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
+const ADR_0120_AMENDMENT =
+  "Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md))";
 
 type Literal = { text: string; line: number };
 
@@ -339,6 +347,39 @@ Deno.test("root guidance, config, and landing mockups retire harness; README kee
   assert(
     /\bquality harness\b/i.test(readme),
     'README.md\'s sole category use must read "quality harness"',
+  );
+});
+
+Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", async () => {
+  const offenders: string[] = [];
+  for await (const entry of walk(ADRS, { includeDirs: false, maxDepth: 1 })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (
+      !rel.endsWith(".md") ||
+      rel.endsWith("/0000-template.md") ||
+      rel.endsWith("/README.md") ||
+      rel.endsWith("/0120-launch-verb-canon.md")
+    ) continue;
+    const contents = await Deno.readTextFile(entry.path);
+    const retired = contents.match(RETIRED_ADR_POINTER) ?? [];
+    if (retired.length > 0 && !contents.includes(ADR_0120_AMENDMENT)) {
+      offenders.push(
+        `${rel} retains ${
+          JSON.stringify(retired[0])
+        } without an ADR 0120 amendment`,
+      );
+    }
+    const name = rel.slice(rel.lastIndexOf("/") + 1);
+    if (RETIRED_ACTIVE_ADR_PATH.test(name)) {
+      offenders.push(`${rel} retains retired vocabulary in its active path`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `untriaged launch vocabulary remains in the active ADR set:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

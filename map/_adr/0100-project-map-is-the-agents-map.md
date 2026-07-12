@@ -1,8 +1,13 @@
 # ADR 0100: The documentation tree is the agent-maintained map, not the project's own docs
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> config uses `[map]` (formerly `[docs]`), and ADR 0120 later moved the fresh
+> default from `discern/docs/` to `map/`. The map identity and consent reasoning
+> are unchanged; the prior-path alternatives below remain historical.
+
 **Status**: accepted; builds on
 [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md);
-extends [ADR 0080](0080-configured-agent-docs-root.md)
+extends [ADR 0080](0080-configured-agent-map-root.md)
 
 ## Context
 
@@ -18,9 +23,9 @@ formally distinguished them:
    entirely _by agents_: it records what an agent can infer about the codebase,
    which is not the same thing as what a human would choose to write about it.
 
-The conflation is dangerous in exactly one direction. `[docs].dir` has defaulted
+The conflation is dangerous in exactly one direction. `[map].dir` has defaulted
 to `docs/` — the conventional home of artifact 1 — while discern's guidance
-instructs agents to keep "the docs" current after a green finish. In a
+instructs agents to keep "the docs" current after a green `done` run. In a
 brownfield repo whose `docs/` is real, published documentation, that is an
 instruction to restructure someone's website. Setup has papered over the
 collision with an all-or-nothing skeleton skip and an advisory `docs/discern/`
@@ -46,7 +51,7 @@ no doc states it.
   never writes to a path it wasn't defaulted or pointed to, so the
   restructure-someone's-website failure mode becomes impossible rather than
   warned against.
-- **Pointing `[docs].dir` at real documentation is deliberate consent** to apply
+- **Pointing `[map].dir` at real documentation is deliberate consent** to apply
   the map discipline there — the right choice for some projects (discern's own
   repo does exactly this), and always the user's explicit act, offered as a
   question during setup rather than silently defaulted.
@@ -56,7 +61,7 @@ no doc states it.
   imposing on the user's tree — a hedge the namespace makes unnecessary. A
   skeleton must not land without the authoring pass that fills it; a blank map
   is worse than none.
-- **`TODO.md` gets the same classification.** It is the harness's deferred-work
+- **`TODO.md` gets the same classification.** It is discern's deferred-work
   ledger — written and read by agents in discern's workflow, not the team's
   backlog (that is their tracker). It lives at `discern/TODO.md` by default,
   with its own config key for teams who want it elsewhere.

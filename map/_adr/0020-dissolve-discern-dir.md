@@ -1,5 +1,9 @@
 # ADR 0020: Dissolve `.discern/` — one root config file, config-driven point-and-override, feature toggles
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; **supersedes
 [ADR 0016](_superseded/0016-consolidate-install-surface.md)**; the
 single-root-file **config** footprint is narrowed for _runtime_ per-worktree
@@ -17,8 +21,8 @@ ownership rules stand
 
 [ADR 0016](_superseded/0016-consolidate-install-surface.md) consolidated
 everything the kit owned under a hidden `.discern/` namespace: `config.toml`,
-`guidelines/`, `brief.md`, `recipes/`, and `skills/`. That answered "the harness
-is all over the place" — but the single-binary cutover
+`guidelines/`, `brief.md`, `recipes/`, and `skills/`. That answered "discern is
+all over the place" — but the single-binary cutover
 ([ADR 0019](0019-single-binary-ts-engine.md)) changed the calculus, and three DX
 problems remained, all about the _install footprint_ rather than the tool:
 
@@ -42,7 +46,7 @@ freely.
 **Dissolve `.discern/`.** The entire discern footprint in a project becomes
 **one root file: `discern.toml`.** Everything else is one of three things:
 
-1. **Bundled in the binary** — the engine (already), the built-in harness
+1. **Bundled in the binary** — the engine (already), the built-in discern
    guidance (`templates/guidance/*`), and the built-in skills
    (`templates/skills/`).
 2. **A config-pointed location you choose**, with a sensible discoverable
@@ -65,13 +69,13 @@ Concretely:
   directory is ever part-tracked/part-ignored — `[skills].dir` is 100% yours,
   `.claude/skills/` is 100% generated. `discern skills list|eject` manage the
   set.
-- **Built-in harness guidance is bundled, always-on, and feature-aware.** The
+- **Built-in discern guidance is bundled, always-on, and feature-aware.** The
   compiler assembles
   `[built-in base] + [built-in section per enabled feature] +
   [your [guidance].sources]`
   into each provider file in `[guidance].agents`. A generated banner heads every
   output; only `AGENTS.md` is tracked.
-- **`[features]` toggles whole subsystems** (worktrees, ratchets, guidance,
+- **`[features]` toggles whole subsystems** (worktrees, standards, guidance,
   skills, docs); each defaults on. A disabled feature vanishes coherently: its
   verbs hide from `--help` (and error "feature disabled" if invoked), its hooks
   aren't written, its guidance section is omitted, and its doctor checks skip.

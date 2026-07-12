@@ -15,7 +15,7 @@ self-reported. The brief an agent works through, however, stayed a single
 ~8,000- token prose blob: `setup begin` printed the **whole** nine-step brief up
 front, `setup step <n>` re-served one step as a raw markdown slice
 (`extractStep`), and `setup done` proved completion only structurally — no
-skeleton marker remained and `refresh → doctor → finish` was green.
+skeleton marker remained and `refresh → doctor → done` was green.
 
 Clean-room runs with no-context agents (the target user) exposed two failure
 modes the single-blob shape could not reach:
@@ -73,7 +73,7 @@ completion from re-derived repo state.**
    authoring work each checkable step asked for is actually evident —
    `design-principles.md` holds ≥3 principles, `guidance.md` has a real pitch
    and a Conventions section, ≥1 capability is wired. These **supplement**
-   (never replace) the marker + `refresh → doctor → finish` proof, and a skipped
+   (never replace) the marker + `refresh → doctor → done` proof, and a skipped
    step fails `done` with a diagnostic naming the unmet check. Each predicate's
    human `describe` is the same text as its step's `completion_check` spine
    field, tied by a forcing-function test (ADR 0051) so the two cannot drift.

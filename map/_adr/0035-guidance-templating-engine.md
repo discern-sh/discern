@@ -1,5 +1,11 @@
 # ADR 0035: A strict, config-only template engine for the built-in guidance
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where
+> it names the command, config, or tree, the shared-branch label → the trunk,
+> `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted; builds on
 [ADR 0034](0034-agents-md-untracked-currency-check.md) (the generated agent
 files are untracked and gate-checked for currency) and the compile model of
@@ -14,26 +20,27 @@ section per enabled feature] + [your sources]`
 the **distribution surface** — every project, in every language and domain,
 receives them verbatim. That gave two problems the research on effective
 agent-instruction files
-([`docs/_private/research/agent-instruction-files-research.md`](../_private/research/agent-instruction-files-research.md))
+([`map/_private/research/agent-instruction-files-research.md`](../_private/research/agent-instruction-files-research.md))
 flags directly:
 
 - **Generic prose can't be concrete.** The shipped text could only refer to "the
-  integration branch" or "`[project].branch_prefix`" in the abstract, where the
-  evidence rewards naming the project's _actual_ branch and commands.
-- **Inert sections still cost tokens.** A project with the `ratchets` feature on
-  but **no** ratchet declared, or the worktree workflow on but **no** resources,
-  still received the full ratchet / resource-lifecycle prose — "Context Bloat,"
-  the #2 catalogued smell: guidance that doesn't apply, diluting the signal.
+  trunk" or "`[project].branch_prefix`" in the abstract, where the evidence
+  rewards naming the project's _actual_ branch and commands.
+- **Inert sections still cost tokens.** A project with the `standards` feature
+  on but **no** standard declared, or the worktree workflow on but **no**
+  resources, still received the full standard / resource-lifecycle prose —
+  "Context Bloat," the #2 catalogued smell: guidance that doesn't apply,
+  diluting the signal.
 
 A feature toggle (`BUILTIN_SECTIONS`) already drops a whole section when its
 _feature_ is off, but that is too coarse: the feature can be on while the thing
 it describes is unconfigured.
 
 The binding constraint is ADR 0034's currency invariant. The generated files are
-untracked and **gate-checked**: `discern status` / `discern finish` recompile
-them in memory via `renderAgentFiles` and compare byte-for-byte to disk; a
-mismatch fails the gate. So any per-project rendering must be a **pure function
-of committed configuration** — if it read the current branch, the clock, an env
+untracked and **gate-checked**: `discern status` / `discern done` recompile them
+in memory via `renderAgentFiles` and compare byte-for-byte to disk; a mismatch
+fails the gate. So any per-project rendering must be a **pure function of
+committed configuration** — if it read the current branch, the clock, an env
 var, or any per-worktree/gitignored file, the file would be perpetually "stale"
 and break the gate on every machine.
 
@@ -55,11 +62,11 @@ it before concatenation.
 - **Context is a pure function of committed config.** `guidanceContext(config)`
   in `guidance_render.ts` is the only mapping; it reads nothing that varies
   between two runs on the same commit. In particular `main_branch` is the
-  committed `[project].main_branch`, **never** the `MAIN_BRANCH` env override
-  (that runtime override lives in the worktree/git layer, not in the loaded
-  config). The starting set is two variables — `branch_prefix`, `main_branch` —
-  and two predicates — `has_ratchets`, `has_worktree_resources`. A name is added
-  only when a template uses it.
+  committed `[project].main_branch`, **never** the `DISCERN_MAIN_BRANCH` env
+  override (that runtime override lives in the worktree/git layer, not in the
+  loaded config). The starting set is two variables — `branch_prefix`,
+  `main_branch` — and two predicates — `has_standards`,
+  `has_worktree_resources`. A name is added only when a template uses it.
 - **Built-in sections only.** The user's `[guidance].sources` are appended
   verbatim and never templated — their markdown may legitimately contain
   `{{…}}`.
@@ -78,9 +85,9 @@ shared `{{}}` delimiter never collides.
 ## Consequences
 
 - **The shipped guidance is concrete and lean.** Generic prose now names the
-  project's real branch prefix and integration branch, and config-gated sections
-  (ratchets, worktree resources) appear only when the project actually uses them
-  — directly countering Context Bloat.
+  project's real branch prefix and trunk, and config-gated sections (standards,
+  worktree resources) appear only when the project actually uses them — directly
+  countering Context Bloat.
 - **The currency invariant is preserved, and load-bearing.** Because the context
   is config-only, two recompiles on one commit are byte-identical, so the gate
   stays green. This is now a rule future maintainers must hold: **every new
@@ -107,8 +114,8 @@ shared `{{}}` delimiter never collides.
   token contract would conflate two unrelated responsibilities.
 - **Suppress inert sections with more feature flags instead of predicates.**
   Rejected: "feature on but nothing declared" is exactly the case a coarse
-  feature flag can't express; the predicate reads the actual config (`ratchets`,
-  `worktree.resources`).
+  feature flag can't express; the predicate reads the actual config
+  (`standards`, `worktree.resources`).
 - **A real template library.** Rejected: a new dependency and far more surface
   than a few dozen lines need, against the "as short as it can be" guidance and
   the repo's single-binary discipline.

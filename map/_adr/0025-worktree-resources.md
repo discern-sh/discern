@@ -1,5 +1,8 @@
 # ADR 0025: Generalize the worktree db/dev-server adapters into per-worktree resources with orphan GC
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `graduate` → `accept`; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -102,7 +105,7 @@ dual config shape forever.
   old "DBs leak forever," but it does mean prune can run a destructive `dropdb`
   from the main checkout; the conservative guards, `gc = false` opt-out, and
   `--dry-run` bound that blast radius.
-- **One mechanism, one mental model.** Setup/teardown/graduate/prune all flow
+- **One mechanism, one mental model.** Setup/teardown/accept/prune all flow
   through the same resource layer; db and dev_server have no privileged status.
 - **State returns under `.git/`** — a deliberate, narrow exception to ADR 0020's
   "the footprint is a single root `discern.toml`." 0020 is about the _config_

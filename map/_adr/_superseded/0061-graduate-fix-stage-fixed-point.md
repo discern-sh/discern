@@ -1,12 +1,12 @@
 # ADR 0061: Graduate enforces the fix stage's fixed point before landing
 
 > **Retired — superseded by
-> [ADR 0067](../0067-graduate-validates-the-landed-tree.md).** Graduate now
+> [ADR 0067](../0067-accept-validates-the-landed-tree.md).** Graduate now
 > validates the whole gate at the landing boundary (fast-pathed by a gate-pass
 > receipt), subsuming this fix-stage-only guard. Kept for history.
 
 **Status**: superseded by
-[ADR 0067](../0067-graduate-validates-the-landed-tree.md), which runs the WHOLE
+[ADR 0067](../0067-accept-validates-the-landed-tree.md), which runs the WHOLE
 gate at the graduate landing boundary (fast-pathed by a gate-pass receipt),
 subsuming this fix-stage-only guard — a fix-stage strand is now caught as a
 `fix_drift` gate failure. The context below records why graduate gained a

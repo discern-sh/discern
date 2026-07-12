@@ -1,5 +1,9 @@
 # ADR 0096: Passing jobs keep output artifacts
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; refines
 [ADR 0028](0028-result-envelope-and-diagnostics.md) and
 [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)
@@ -84,7 +88,7 @@ failing examples, summarize past errors, or pass through harmless diagnostics.
 
 **Only add counts, with no output file.** Rejected because it recreates the
 original visibility problem at one remove: an agent can see that something was
-loud but still cannot inspect it without re-running outside the harness.
+loud but still cannot inspect it without re-running outside discern.
 
 **Only persist output for suspicious passing jobs.** Rejected because deciding
 whether output is suspicious is the fragile part. Persisting every job's output

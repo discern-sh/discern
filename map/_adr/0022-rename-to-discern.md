@@ -1,5 +1,9 @@
 # ADR 0022: Rename the harness to discern
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -25,11 +29,12 @@ a rename would disturb.
 **Adopt `discern` as the harness's final public name, and apply it as a hard
 rename with no back-compatibility shim.**
 
-- **One name, everywhere.** The CLI verb is `discern` (`discern finish` reads as
+- **One name, everywhere.** The CLI verb is `discern` (`discern done` reads as
   an instruction); the root config is `discern.toml`; the recipe and worktree
-  environment is `DISCERN_*` (including the `DISCERN_METRIC` ratchet token); the
-  release assets, installer, config schema, docs, ADRs, bundled guidance, and
-  bundled skills all carry the new name. The project homepage is **discern.sh**.
+  environment is `DISCERN_*` (including the `DISCERN_METRIC` protocol token);
+  the release assets, installer, config schema, docs, ADRs, bundled guidance,
+  and bundled skills all carry the new name. The project homepage is
+  **discern.sh**.
 - **Hard rename, no shim.** The binary recognises only `discern.toml` and
   `DISCERN_*`; it does not also read the old spellings as a fallback. A shim was
   rejected: with no installed base it would be permanent complexity guarding a

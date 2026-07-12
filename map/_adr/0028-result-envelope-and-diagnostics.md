@@ -1,5 +1,11 @@
 # ADR 0028: One result envelope per verb, with normalized failure diagnostics
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, `scopes` → `impact` where it names the verb, the retired
+> product-category wording → `discern`, the gate, or the bar; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted; **supersedes
 [ADR 0004](_superseded/0004-structured-finish-json.md)**; extends
 [ADR 0027](0027-plan-apply-engine-execution.md)
@@ -11,10 +17,10 @@ serialize `(plan, results)` to `--json` rather than re-deriving it. That was the
 right seam — but it was only half-walked, and the asymmetry showed at the CLI's
 agent-facing surface:
 
-1. **No single result object.** `finish` hand-built a bespoke `GateReport`
+1. **No single result object.** `done` hand-built a bespoke `GateReport`
    (`{ok, jobs[], scope_gates[], failed_stage, scopes_changed}`, the old ADR
-   0004 shape). The worktree/ratchet verbs shared a _different_ generic shape
-   (`{ok, steps[]}`). `scopes` emitted a bare JSON array; `skills list` a
+   0004 shape). The worktree/standard verbs shared a _different_ generic shape
+   (`{ok, steps[]}`). `impact` emitted a bare JSON array; `skills list` a
    bespoke array; the installer verbs (`doctor`/`setup`/…) each had their own
    `Logger.jsonResult` payload. Six-plus disjoint shapes; some carried a
    top-level `ok`, some didn't. An agent couldn't even rely on `result.ok`.
@@ -26,12 +32,12 @@ agent-facing surface:
 
 3. **Failures carried no structured "why".** A gate job's combined stdout+stderr
    _was_ captured (the default buffered runner held it) — and then written to
-   the human stream and **discarded**. `finish --json` told an agent _which
-   stage_ and _which job_ failed and nothing more: no output, no command, no
-   file/line. The agent's loop was act → re-run → scrape stderr → guess.
+   the human stream and **discarded**. `done --json` told an agent _which stage_
+   and _which job_ failed and nothing more: no output, no command, no file/line.
+   The agent's loop was act → re-run → scrape stderr → guess.
 
 discern's whole pitch is **stack-neutral commands**. The unique thing a neutral
-harness is positioned to give — that no per-tool agent integration can — is
+discern is positioned to give — that no per-tool agent integration can — is
 **stack-neutral _results_**: a uniform failure shape across every language and
 tool. We were one seam short of it. With no external users yet (ADR 0009's
 pre-1.0 license to break), now is the time to unify rather than accrete a
@@ -49,7 +55,7 @@ binary import without a cycle.
 ```ts
 interface DiscernResult {
   ok: boolean; // the one field EVERY consumer can rely on
-  verb: string; // "finish" | "graduate" | "doctor" | …
+  verb: string; // "done" | "accept" | "doctor" | …
   plan?: EnginePlan; // a preview (dry-run): what WOULD run
   steps?: StepResult[]; // an apply: what ran and how each turned out
   diagnostics?: Diagnostic[]; // normalized failures — the structured "why"
@@ -65,7 +71,7 @@ dropped). A preview carries `plan` + `dry_run` and no `steps`; an apply carries
 one object through one shared renderer (`renderPlan`), so they cannot disagree.
 For an **apply**, the settled step summary is rendered from `steps[]` through
 the shared `renderStepResults`; the JSON serializes those same `steps[]`. A verb
-may add bespoke human _advice_ (finish's success tail, doctor's per-check fix
+may add bespoke human _advice_ (`done`'s success tail, doctor's per-check fix
 hints) on top, and **live streamed job/progress output stays a side-channel**
 (you cannot render post-hoc bytes from a settled object) — though under `--json`
 that side-channel is itself silenced (see the _Update_ below).
@@ -123,7 +129,7 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   output remains a side-channel.
 - **One contract to learn and to test.** `serializeResult` is the single wire
   definition; new verbs get the envelope automatically.
-- **Breaking — every `--json` shape changed.** `finish` no longer emits
+- **Breaking — every `--json` shape changed.** `done` no longer emits
   `jobs[]`/`scope_gates[]`/`failed_stage` at top level (now `steps[]` +
   `diagnostics[]`, with `failed_stage`/`scopes_changed` under `data`); the
   worktree/installer/query verbs move onto the envelope likewise. Acceptable
@@ -143,7 +149,7 @@ verbs is `serializeResult` over stdio — a third rendering of the same spine.
   knowledge into a stack-neutral core — the exact coupling discern exists to
   avoid — and never keeps pace with every tool. The tiered design gets ~80% of
   the value (capture) with zero parsing and offers the rest as opt-in.
-- **Keep `finish`'s bespoke `GateReport` and only unify the others.** Rejected:
+- **Keep `done`'s bespoke `GateReport` and only unify the others.** Rejected:
   the flagship verb is the one an agent consumes most; leaving it a snowflake
   defeats the "one object" goal and keeps two result systems alive.
 - **Force every verb's payload into `steps[]`.** Rejected: a doctor check or a
@@ -172,7 +178,7 @@ It rests on three structural commitments:
   serializes an envelope to `stdout`; every hand-rolled `console.log` emission
   is removed (`serializeResult` stays the one wire-shape definition).
 - **A `hints?: string[]` field** promotes advice that was human-only — the
-  gotchas-doc pointer on a failed gate, the ratchets / dev-server / docs nudges
+  gotchas-doc pointer on a failed gate, the standards / dev-server / docs nudges
   on a clean one — into the envelope, so going quiet loses nothing.
 
 Agents are steered to `--json` through the **compiled guidance**, never

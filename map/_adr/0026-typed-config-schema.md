@@ -1,5 +1,9 @@
 # ADR 0026: One typed (Zod) config schema as the single source of truth
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `docs` → `map` where it names the
+> command, config, or tree; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -61,7 +65,7 @@ defines every section, key, type, **default**, and **human description**
   `.default(...)`, defined once.
 
 - **Strict everywhere.** Unknown sections/keys, a dead
-  `[worktree.db]`/`[worktree.dev_server]` adapter, a ratchet with no `run`, a
+  `[worktree.db]`/`[worktree.dev_server]` adapter, a standard with no `run`, a
   non-boolean feature, a bad stage/direction — all fail at load with a
   path-qualified message. The closed `[capabilities]` vocabulary
   ([ADR 0017](0017-capabilities-model.md)) is now enforced by the type system,
@@ -77,18 +81,18 @@ defines every section, key, type, **default**, and **human description**
   (`deno task codegen`, `src/shared/config_codegen.ts`):
   `schema/discern-config.schema.json` from a `configDocSchema` that reuses the
   _same_ Zod building blocks as the live config, and
-  `docs/10-installer/config-reference.md` from the live schema's
-  `.describe(...)` annotations. The two staleness bugs are gone **as a
-  consequence of generation**, not patched by hand. The init/preset config
-  document (`DiscernConfigDoc`) is `z.input<configDocSchema>` — a
-  mechanically-derived subset, so it cannot diverge from the live shape.
+  `map/10-installer/config-reference.md` from the live schema's `.describe(...)`
+  annotations. The two staleness bugs are gone **as a consequence of
+  generation**, not patched by hand. The init/preset config document
+  (`DiscernConfigDoc`) is `z.input<configDocSchema>` — a mechanically-derived
+  subset, so it cannot diverge from the live shape.
 
 - **The narrow exception: `RawConfig`.** Two jobs need un-validated, generic
   dotted-key access and must NOT trip the schema: the `discern config get/…`
-  recipe passthrough (a `jq`-for-the-config over arbitrary keys) and the ratchet
-  "never-loosen vs main" baseline (which reads an _older_, possibly un-migrated
-  `git show main:discern.toml` for one number). `RawConfig` carries no schema
-  knowledge, so there is nothing in it to drift.
+  recipe passthrough (a `jq`-for-the-config over arbitrary keys) and the
+  standard "never-loosen vs main" baseline (which reads an _older_, possibly
+  un-migrated `git show main:discern.toml` for one number). `RawConfig` carries
+  no schema knowledge, so there is nothing in it to drift.
 
 - **The template stays hand-authored; tests bind it to the schema.** See the
   boundary below.
@@ -130,7 +134,7 @@ So the split is:
 
 A schema change that isn't regenerated **fails the gate**: sync tests assert
 each committed generated artifact equals its generator output, in the test stage
-that CI runs (`deno task dev finish`). That guard is what stops the drift from
+that CI runs (`deno task dev done`). That guard is what stops the drift from
 coming back.
 
 ## Consequences

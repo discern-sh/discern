@@ -8,7 +8,8 @@
  */
 
 import { assert } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { walk } from "@std/fs";
+import { dirname, fromFileUrl, join, relative } from "@std/path";
 
 const ADR_DIR = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -58,6 +59,35 @@ Deno.test("ADR index: every relative link in the README resolves to a file", asy
   assert(
     dangling.length === 0,
     `map/_adr/README.md links files that do not exist: ${dangling.join(", ")}`,
+  );
+});
+
+Deno.test("ADR record: every relative Markdown-file link resolves", async () => {
+  const dangling: string[] = [];
+  for await (
+    const entry of walk(ADR_DIR, { includeDirs: false, exts: [".md"] })
+  ) {
+    const text = await Deno.readTextFile(entry.path);
+    for (
+      const match of text.matchAll(
+        /\]\((?!https?:|mailto:|#)([^)#]+\.md)(?:#[^)]*)?\)/g,
+      )
+    ) {
+      const target = match[1] ?? "";
+      try {
+        await Deno.stat(join(dirname(entry.path), target));
+      } catch {
+        dangling.push(
+          `${relative(ADR_DIR, entry.path)} -> ${target}`,
+        );
+      }
+    }
+  }
+  assert(
+    dangling.length === 0,
+    `ADR links point at files that do not exist:\n${
+      dangling.sort().join("\n")
+    }`,
   );
 });
 

@@ -1,5 +1,9 @@
 # ADR 0089: Machine-local provider settings stay ignored
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `graduate` → `accept`, `integrate` → `update`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -15,11 +19,10 @@ running. Claude Code uses `.claude/settings.local.json` for local permission
 grants and overrides. That file is not shared project policy; it is per-user
 state. The old `.gitignore` fragment ignored `/.claude/*` and then un-ignored
 both `.claude/settings.json` and `.claude/settings.local.json`, leaving the
-local file untracked but visible in `git status`. In real setup and graduation
+local file untracked but visible in `git status`. In real setup and acceptance
 runs, that porcelain noise was enough to defeat predicates that meant "no
-tracked work to protect": `setup done` skipped its marker auto-commit,
-`integrate` refused a merge, `graduate` refused because the main checkout looked
-dirty.
+tracked work to protect": `setup done` skipped its marker auto-commit, `update`
+refused a merge, `accept` refused because the main checkout looked dirty.
 
 The same class is not Claude-specific. Codex and other agents can leave
 provider-local scratch or permission state around while discern is checking
@@ -29,7 +32,7 @@ predicate. Other places need the ordinary Git-clean view: `discern status`
 answers whether a worktree has any tracked changes or untracked non-ignored
 files, and worktree pruning must not delete a checkout that contains untracked
 user work. Gate receipts stay stricter still because they vouch for the exact
-tree `graduate` may land.
+tree `accept` may land.
 
 ## Decision
 
@@ -44,16 +47,16 @@ Cleanliness predicates are explicit about what they protect:
   diff against `HEAD`, staging only `discern.toml`, and committing only that
   path. Unrelated tracked, staged, or untracked changes neither block the marker
   commit nor get swept into it.
-- `integrate` and `graduate`'s main-checkout precondition use tracked-only
-  porcelain. Untracked local scratch is left alone because those operations do
-  not stage or remove it.
+- `update` and `accept`'s main-checkout precondition use tracked-only porcelain.
+  Untracked local scratch is left alone because those operations do not stage or
+  remove it.
 - `discern status` and its fleet survey use ordinary Git-clean porcelain:
   tracked changes and untracked non-ignored files make a worktree dirty. Ignored
   provider-local files stay invisible because `.gitignore` marks them
   disposable, not because status hides all untracked files.
 - Scope classification still includes untracked files, because it answers "which
   paths changed?" for the gate.
-- Gate receipts, graduation's worktree-clean precondition, and `worktree prune`
+- Gate receipts, acceptance's worktree-clean precondition, and `worktree prune`
   stay stricter, because they guard exact-tree validation or possible data loss.
 
 The explicit no: discern does not add a broad provider-local denylist. A
@@ -63,7 +66,7 @@ machine-local; shared project config remains tracked.
 ## Consequences
 
 - Claude Code permission grants in `.claude/settings.local.json` no longer
-  create permanent porcelain noise or block setup/graduation.
+  create permanent porcelain noise or block setup/acceptance.
 - The fix is vendor-neutral at the predicate level: ignored provider-local
   scratch does not make status dirty, while untracked project work still does.
 - Existing installs converge on upgrade through schema 14 instead of requiring
@@ -85,5 +88,5 @@ machine-local; shared project config remains tracked.
   `.claude/settings.json` and `.codex/config.toml`.
 - **Keep pristine-tree checks and ask agents to stash local files.** Rejected:
   it makes routine provider runtime state part of discern's control flow,
-  causing setup and graduation to fail for reasons unrelated to the safety
+  causing setup and acceptance to fail for reasons unrelated to the safety
   invariant.

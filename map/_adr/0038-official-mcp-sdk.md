@@ -1,5 +1,9 @@
 # ADR 0038: The MCP server runs on the official TypeScript SDK over stdio
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current tool
+> pointers use `discern_map` (formerly `discern_docs`) and `discern_accept`
+> (formerly `discern_graduate`); the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -63,7 +67,7 @@ Specifics worth recording:
   arguments register a Zod raw shape (all fields optional) and therefore require
   an `arguments` object on the call — which conformant clients always send.
 - **Feature-gated tools are simply not registered** when their feature is off
-  (`discern_docs`, `discern_graduate`). They are absent from `tools/list`, and a
+  (`discern_map`, `discern_accept`). They are absent from `tools/list`, and a
   call to one gets the SDK's standard "tool not found" error result — replacing
   the old bespoke `feature_disabled` envelope. The per-call `not_initialized`
   envelope (no `discern.toml`) is preserved inside each handler.

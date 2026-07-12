@@ -1,5 +1,9 @@
 # ADR 0118: Preset config fills never overwrite a present value
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -25,7 +29,7 @@ only ever fired against values a user had authored.
 
 Preset config fills are **fill-if-absent, never overwrite** — the same rule as
 the file half. A fill whose target already carries a real value (a set key, or a
-present `[checks.*]` / `[scopes.*]` / `[ratchets.*]` table) is skipped; a
+present `[checks.*]` / `[scopes.*]` / `[standards.*]` table) is skipped; a
 commented-out template hint does not count as a value. `applyConfigDoc` gains a
 `skipExisting` mode and returns a per-path report (`filled` / `skipped`), which
 `preset` surfaces everywhere the user decides or reviews: the dry-run (JSON

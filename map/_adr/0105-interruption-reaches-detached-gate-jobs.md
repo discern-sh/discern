@@ -1,5 +1,9 @@
 # ADR 0105: Interruption reaches the gate's detached job groups
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `graduate` → `accept`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted; follows
 [ADR 0028](0028-result-envelope-and-diagnostics.md) (the result envelope the
 cancelled run still serializes into) and
@@ -13,7 +17,7 @@ runner can tree-kill a whole job — grandchildren included — with one group
 signal. That mechanism had exactly one trigger: a fail-fast sibling failure
 inside `runParallel`. No externally-initiated shutdown reached it:
 
-- **MCP request cancellation.** A client cancelling a `discern_finish` call
+- **MCP request cancellation.** A client cancelling a `discern_done` call
   (`notifications/cancelled`) aborted nothing — the tool handlers dropped the
   SDK's per-request abort signal, so the gate ran invisibly to completion inside
   the still-alive server. Cancel twice and retry, and three concurrent gates
@@ -22,7 +26,7 @@ inside `runParallel`. No externally-initiated shutdown reached it:
 - **OS interrupts.** The detachment that enables tree-killing also removes the
   free delivery a foreground child gets: the terminal's Ctrl-C reaches discern
   and never its jobs. With no signal listener anywhere, an interrupted
-  `discern finish` orphaned every in-flight job.
+  `discern done` orphaned every in-flight job.
 - **Server shutdown.** stdin EOF closed the transport and exited the process,
   leaving an in-flight call's detached jobs running.
 
@@ -49,8 +53,9 @@ source the tree-kill already listens to.
   interrupt, and — once the last run has settled and reaped its children —
   re-raises the signal with the default disposition restored, so the process
   still dies with the conventional killed-by-signal status. Living in the
-  runner, it covers every gate caller (the CLI verbs, setup's probes, graduate's
-  re-run, the MCP server process) with no per-entry-point wiring to forget.
+  runner, it covers every gate caller (the CLI verbs, setup's probes, the gate
+  re-run inside `accept`, the MCP server process) with no per-entry-point wiring
+  to forget.
 
 SIGKILL is explicitly out of scope: no handler runs, so its orphans are
 unpreventable; the covered paths are every interruption a user or agent actually

@@ -1,5 +1,9 @@
 # ADR 0066: `discern --help` groups commands by post-processing Cliffy's help
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`;
+> the decision and reasoning are unchanged.
+
 **Status**: accepted. Restructures the root `--help` from a flat,
 registration-ordered command dump into named, ordered groups read from a
 `COMMAND_GROUPS` map ([`src/cli_help.ts`](../../src/cli_help.ts)), applied by
@@ -12,7 +16,7 @@ and pinned by a forcing-function guard in the spirit of
 In an already-installed project `discern --help` lists ~22 top-level verbs in
 one flat block, in command-registration order. That order is installer-first
 (`upgrade`/`doctor` and the doc browsers register before the engine verbs), so
-the verbs a person touches every loop — `status`, `prepare`, `finish` — scatter
+the verbs a person touches every loop — `status`, `prepare`, `done` — scatter
 below the ones they touch monthly, and the headline pitched _scaffolding_
 (`setup`) even though `setup` is hidden once the project is bootstrapped. The
 list reads as a dump, not an operator's map.
@@ -75,7 +79,7 @@ rather than vanished.
 ## Consequences
 
 - **The help reads as an operator's map.** The agentic-loop verbs lead; the
-  worktree lifecycle reads start → integrate → graduate; setup/maintenance and
+  worktree lifecycle reads start → update → accept; setup/maintenance and
   inspect/explore sink. A first-time reader sees the 3–4 commands that matter
   without parsing all 22, and the group notes signal that the loop and worktree
   verbs are the agent's to run, not the human's.

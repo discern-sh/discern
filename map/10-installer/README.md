@@ -70,9 +70,9 @@ Setup's documentation skeleton is also config-pointed. `[map].dir` defaults to
 with nothing; `setup verify`'s consent conversation asks whether discern should
 instead manage the project's existing docs, and `setup begin --map <path>`
 persists and scaffolds the chosen root
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)). The docs browser and
-quality-gate declarations resolve the same field
-([ADR 0080](../_adr/0080-configured-agent-docs-root.md)).
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The docs browser
+and quality-gate declarations resolve the same field
+([ADR 0080](../_adr/0080-configured-agent-map-root.md)).
 
 `setup begin` resolves its destination before writing: inside an existing
 install it walks to the nearest ancestor with `discern.toml`; before install, in

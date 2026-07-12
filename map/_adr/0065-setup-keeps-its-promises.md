@@ -1,5 +1,10 @@
 # ADR 0065: `discern setup` keeps its promises
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, `integrate` → `update`, `docs` → `map` where it names the command,
+> config, or tree; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 Hardens the setup flow established by [ADR 0036](0036-unify-setup.md) (unify
@@ -18,9 +23,9 @@ scaffold prints promises its own structure does not keep at the moment it prints
 them.** The brief is prose; the files and state behind it didn't match.
 
 - **The brief prescribes an impossible order.** Step 8 tells the agent to run
-  `discern finish` (the "prove the gate is green" proof ADR 0036 calls for)
-  _before_ `discern setup done`. But `finish` is one of the `SETUP_GATED_VERBS`
-  — it hard-redirects with _"this project isn't set up yet"_ until `setup done`
+  `discern done` (the "prove the gate is green" proof ADR 0036 calls for)
+  _before_ `discern setup done`. But `done` is one of the `SETUP_GATED_VERBS` —
+  it hard-redirects with _"this project isn't set up yet"_ until `setup done`
   records `[meta].bootstrapped`. The proof step cannot execute in the order the
   brief gives. Worse, **no test caught it**: the engine test harness scaffolds
   with `bootstrapped = true` by default, so every gate test runs in the one
@@ -33,12 +38,12 @@ them.** The brief is prose; the files and state behind it didn't match.
   the pipeline reads from.
 
 - **The brief says "flesh out the stub" of a `guidance.md` that was never
-  laid.** `laySkeletons` seeds `docs/` and `TODO.md` only. The agent had to
+  laid.** `laySkeletons` seeds `map/` and `TODO.md` only. The agent had to
   create `guidance.md` from nothing, and `setup done` could not catch its
   absence — `findSkeletonMarkers` only flags a `guidance.md` that _exists_ and
   still carries a marker.
 
-- **The scaffold links to files it doesn't create.** The seed `docs/README.md`
+- **The scaffold links to files it doesn't create.** The seed `map/README.md`
   links `_adr/README.md` and `_internal/`; neither is laid by setup. Dead links
   on day one.
 
@@ -69,23 +74,23 @@ it prints it; existing guidance is adopted rather than replaced; and a fresh
 setup runs isolated on its own branch.** Concretely:
 
 1. **`discern setup done` proves completion structurally.** It runs, in order,
-   `refresh` → `doctor` → `finish` (calling the result cores directly, which sit
+   `refresh` → `doctor` → `done` (calling the result cores directly, which sit
    below the router/MCP gate, so no setup bypass plumbing is needed) and records
-   `[meta].bootstrapped = true` **only when doctor and finish are green**
+   `[meta].bootstrapped = true` **only when doctor and `done` are green**
    (markers must already be clear, as before). `--force` remains the escape
    hatch: it bypasses both the marker check and the gate and records completion
-   regardless. The agent no longer runs `finish` as a separate pre-`done` step —
+   regardless. The agent no longer runs `done` as a separate pre-`done` step —
    `setup done` _is_ the green-gate proof, so "the gate is real" can no longer
    be reported without being true.
 
-2. **The gate's proof verbs are usable during setup.** `finish`, `prepare`,
-   `test`, and `ratchets` are removed from `SETUP_GATED_VERBS` so the agent can
-   iterate while wiring capabilities — and test a ratchet it wires — during
+2. **The gate's proof verbs are usable during setup.** `done`, `prepare`,
+   `test`, and `standards` are removed from `SETUP_GATED_VERBS` so the agent can
+   iterate while wiring capabilities — and test a standard it wires — during
    Step 7. They are **not** silent: while `!bootstrapped` each carries a
    `hints[]` entry stating setup is unfinished and this output is indicative
    until `discern setup
-   done` passes. `docs`, `graduate`, and `integrate`
-   stay gated — pre-setup they browse an empty tree or act on branch work that
+   done` passes. `map`, `accept`, and `update` stay
+   gated — pre-setup they browse an empty tree or act on branch work that
    doesn't exist yet. This **revises ADR 0036's** uniform redirect: the "empty
    gate reads as a false all-green" risk it guarded against is now covered by
    ADR 0037's incompleteness signaling (the `status` banner, the session
@@ -144,9 +149,9 @@ The explicit **no**s:
   — NOT FINISHED" frame, the tail-survivable footer, and the `setup done` gate
   all stand. Making `setup done` run the gate _strengthens_ it: completion is
   now proven, not asserted.
-- **`setup done` does not weaken to a warning.** A red doctor or finish blocks
-  completion (short of `--force`). If the install is unhealthy or the gate is
-  red, setup genuinely is not done.
+- **`setup done` does not weaken to a warning.** A red doctor or `done` run
+  blocks completion (short of `--force`). If the install is unhealthy or the
+  gate is red, setup genuinely is not done.
 - **No new schema or CLI interactivity.** The completion marker stays
   `[meta].bootstrapped`; `discern setup` the command stays non-interactive.
 
@@ -164,8 +169,8 @@ The explicit **no**s:
   repo must commit/stash (or pass `--allow-dirty`) before setup will run.
 - `setup done` is slower — it runs the full gate, including tests — but that
   cost buys a real definition-of-done, and it is a one-time event that already
-  asked the agent to run `finish` by hand.
-- Un-gating the proof verbs (`finish`/`prepare`/`test`/`ratchets`) leans on ADR
+  asked the agent to run `done` by hand.
+- Un-gating the proof verbs (`done`/`prepare`/`test`/`standards`) leans on ADR
   0037's signaling to carry the "not done yet" message; the per-command hint
   makes that explicit at each call site rather than relying only on `status`.
 - The single-source discipline holds: the `_adr/` skeleton is shared with the
@@ -178,11 +183,11 @@ The explicit **no**s:
 
 ## Alternatives considered
 
-- **Reorder the brief: `setup done` first, then `finish`.** Rejected — it marks
+- **Reorder the brief: `setup done` first, then `done`.** Rejected — it marks
   setup complete _before_ proving the gate, the opposite of what the proof step
   is for, and `setup done` refuses while markers remain anyway.
-- **Keep `finish` gated; let only `setup done` run it internally.** Rejected as
-  insufficient: the agent still needs `finish`/`prepare`/`test` to iterate while
+- **Keep `done` gated; let only `setup done` run it internally.** Rejected as
+  insufficient: the agent still needs `done`/`prepare`/`test` to iterate while
   wiring capabilities in Step 7, and blocking them there is the exact footgun
   that surfaced. Un-gating with a hint serves both.
 - **Detect a pre-existing agent file by a generated-file sentinel rather than

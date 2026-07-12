@@ -1,8 +1,13 @@
 # ADR 0099: Consolidate the authored surface under a visible `discern/` namespace
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** ADR 0120
+> supersedes this record's map-placement details, including the `[docs]` row and
+> `docs/…` paths below: live config uses `[map]`, and a fresh tree defaults to
+> `map/`. The remaining namespace decision and reasoning are unchanged.
+
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (its
 config-pointing and ownership rules stand; its root-scatter defaults are
-revised) and [ADR 0080](0080-configured-agent-docs-root.md) (the docs default
+revised) and [ADR 0080](0080-configured-agent-map-root.md) (the docs default
 moves inside the namespace)
 
 ## Context
@@ -53,10 +58,10 @@ defaults become:
 - **The placement rule.** A path defaults into the namespace exactly when
   discern is the reason it looks the way it does: inputs discern consumes
   (guidance sources, authored skills, recipes, the brief) and knowledge its
-  discipline maintains (the map — [ADR 0100](0100-doctree-is-the-agents-map.md)
-  — and the ledger). Content the user authors for their own audiences never
-  defaults there. Future files get placed by this rule, not by re-litigating the
-  layout.
+  discipline maintains (the map —
+  [ADR 0100](0100-project-map-is-the-agents-map.md) — and the ledger). Content
+  the user authors for their own audiences never defaults there. Future files
+  get placed by this rule, not by re-litigating the layout.
 - **Placement is consent.** A file at its namespace default carries an implicit
   write-license: agents maintain it freely and staleness is a defect. A config
   key pointed outside the namespace is an explicit write-license: the user typed

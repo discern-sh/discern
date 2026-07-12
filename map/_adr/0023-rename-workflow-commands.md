@@ -1,17 +1,22 @@
 # ADR 0023: Rename and promote the workflow commands
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `graduate` → `accept`, the retired
+> product-category wording → `discern`, the gate, or the bar; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
 
-With the harness renamed to discern ([ADR 0022](0022-rename-to-discern.md)),
-three run-time verbs no longer read as well as the public CLI deserves:
+With discern renamed to discern ([ADR 0022](0022-rename-to-discern.md)), three
+run-time verbs no longer read as well as the public CLI deserves:
 
 - **`tidy`** is the fast inner loop (the fix stage, then the read-only checks).
   "Tidy" reads as an optional cleanup, not as the thing you run _before_ the
   full gate. The mental model is "get the change ready, then prove it done."
-- **`worktree exit`** graduates a worktree's branch back to the main checkout
-  for review. It is one of the most frequent actions in the workflow, yet it was
+- **`worktree exit`** accepts a worktree's branch back to the main checkout for
+  review. It is one of the most frequent actions in the workflow, yet it was
   buried in the `worktree` namespace beside the rarely-typed plumbing
   (`teardown`, `prune`, `ensure`) — and "exit" undersells it (you are not
   exiting, you are promoting finished work).
@@ -29,11 +34,11 @@ rename with no aliases.**
 
 - **`tidy` → `prepare`.** Behaviour is unchanged: run the fix-stage commands,
   then the check-stage commands; never build or test. The name states intent —
-  `discern prepare` readies a change; `discern finish` proves it done.
-- **`worktree exit` → `graduate` (promoted to top-level).** Behaviour, safety
+  `discern prepare` readies a change; `discern done` proves it done.
+- **`worktree exit` → `accept` (promoted to top-level).** Behaviour, safety
   checks, and reporting are unchanged. It moves from the `worktree` group to a
-  first-class `discern graduate`, because graduating finished work for review is
-  a primary action in the workflow, not worktree plumbing. The lower-level
+  first-class `discern accept`, because landing accepted work for review is a
+  primary action in the workflow, not worktree plumbing. The lower-level
   worktree management stays namespaced (`worktree teardown`, `worktree prune`,
   `worktree ensure`, bare `worktree`, `identity`).
 - **`guidelines` → `refresh`.** Behaviour is unchanged _for now_ (compile the
@@ -53,8 +58,8 @@ The canonical workflow now reads:
 discern setup
 discern setup
 discern prepare    # fast inner loop: fixers + checks, no build/test
-discern finish     # full definition-of-done gate
-discern graduate   # graduate the isolated worktree branch back for review
+discern done       # full definition-of-done gate
+discern accept     # land the isolated worktree branch for review
 discern refresh    # refresh generated agent files, skills, integration artifacts
 ```
 
@@ -62,14 +67,14 @@ discern refresh    # refresh generated agent files, skills, integration artifact
 
 - Internal symbols followed the user-facing rename **where they named the
   command**: `runTidy` → `runPrepare` (and `gate/tidy.ts` → `gate/prepare.ts`),
-  and `worktreeExit` → `graduate`. The guidance compiler kept its name
+  and `worktreeExit` → `accept`. The guidance compiler kept its name
   (`compileGuidelines`, `guidelines.ts`, `GuidelinesResult`) because it is bound
   to the unchanged `[guidance]` model, not to the old command spelling — only
   its user-facing strings (the generated-file banner, the run summary) now say
   `refresh`.
 - The promotion changed the command surface: the `worktree` group no longer
-  lists `exit`, and `graduate` is a top-level verb gated on the `worktrees`
-  feature. The engine smoke test asserts the promotion (top-level `graduate`,
+  lists `exit`, and `accept` is a top-level verb gated on the `worktrees`
+  feature. The engine smoke test asserts the promotion (top-level `accept`,
   group still surfacing its colon sub-verbs).
 - **No migration step ships.** The rename touches verbs, not the config schema,
   so `[meta].schema_version` is unchanged. A downstream project adapts by
@@ -87,8 +92,7 @@ discern refresh    # refresh generated agent files, skills, integration artifact
   debt ADR 0022 already argued against.
 - **Leave `worktree exit` namespaced (rename only).** Rejected: graduating is a
   primary, frequent action; keeping it beside the plumbing kept underselling the
-  common path. Promotion makes "finish, then graduate" read as the workflow it
-  is.
+  common path. Promotion makes "done, then accept" read as the workflow it is.
 - **Rename the `[guidance]` model and `compileGuidelines` too.** Rejected for
   now: the command broadens, but the guidance model is stable and the compiler
   is a cross-module contract; churning it would cost more than it teaches.

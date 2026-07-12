@@ -80,13 +80,13 @@ a conflict is resolved by hand (`git merge`, fix, commit), re-running
 `discern update` restores everything the aborted merge skipped. It is the
 deterministic inverse of accept, and what the gate's merge check
 ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)) points a behind branch at
-([ADR 0055](../_adr/0055-integrate-verb.md),
+([ADR 0055](../_adr/0055-update-verb.md),
 [ADR 0059](../_adr/0059-worktree-setup-ensure.md)). When a change is done,
 [`accept`](../../src/engine/worktree/lifecycle.ts) validates the exact tree it
 is about to land — running the whole gate, or skipping the re-run when the
 recorded receipt proves the agent's own `done` already passed this commit
-([ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)) — then lands
-the branch on the **trunk** — the single push target of the landing model
+([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)) — then lands the
+branch on the **trunk** — the single push target of the landing model
 ([ADR 0110](../_adr/0110-the-landing-model.md)): the trunk is fast-forwarded to
 the **validated commit** — never a branch name resolved at merge time, so a
 commit made while the validation ran is refused rather than landed untested —
@@ -99,7 +99,7 @@ parked on a branch other than the trunk, and never silently switches it. After
 landing, it runs `discern refresh` in the trunk checkout it leaves behind, so
 generated guidance, materialized skills, and provider integrations match the
 landed sources
-([ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md)), and it
+([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md)), and it
 prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree —
 the landing record, pasteable into a PR body. Its main-checkout precondition
 also cares about tracked changes, not untracked local scratch; the worktree
@@ -222,7 +222,7 @@ inspectable before they act.
   db/dev-server adapters into per-worktree resources with orphan GC.
 - [ADR 0052](../_adr/0052-worktree-sibling-placement.md) — placing Worktrees in
   a configurable sibling directory instead of nested `.claude/worktrees`.
-- [ADR 0055](../_adr/0055-integrate-verb.md) — `update`, the third verb in the
+- [ADR 0055](../_adr/0055-update-verb.md) — `update`, the third verb in the
   worktree lifecycle: bring `main` into the branch and re-materialize in one
   deterministic step.
 - [ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md) — `start`,
@@ -231,8 +231,8 @@ inspectable before they act.
 - [ADR 0059](../_adr/0059-worktree-setup-ensure.md) — `[worktree.setup].ensure`,
   the convergent bucket that re-runs every pass (creation, session start,
   update) to keep the worktree's environment current with the tree.
-- [ADR 0098](../_adr/0098-graduate-refreshes-the-landing-checkout.md) —
-  acceptance refreshes the checkout it leaves behind.
+- [ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md) — acceptance
+  refreshes the checkout it leaves behind.
 - [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
   any ref (`start --from` / `update --from`), land only on the trunk.
 - [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare

@@ -1,5 +1,9 @@
 # ADR 0053: A gate guard keeps comments in the present tense, not narrating the codebase's past
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `docs` → `map` where it names the command,
+> config, or tree; the decision and reasoning are unchanged.
+
 **Status**: accepted; applies the
 [ADR 0049](0049-bug-class-discipline-built-in.md) fix-the-class discipline to a
 prose convention, and is the comment-side analogue of the retired-token guard in
@@ -10,7 +14,7 @@ _Reconciling_ below).
 ## Context
 
 The project asks that a comment describe what the code does **now**; history
-belongs in `docs/` and ADRs
+belongs in `map/` and ADRs
 ([design principle §2](../00-orientation/design-principles.md)). The rule had
 only a _plea_ behind it — a line of guidance — and the plea kept getting
 bypassed. Coding agents especially reflexively narrate the change they just
@@ -69,7 +73,7 @@ a checkable predicate, not a plea.
   config (`templates/discern.toml.tmpl`, the gitignore fragment) and this repo's
   own root `discern.toml` — the config a prospective user reads first. Out of
   scope by design, because narrating the past is correct there: `tests/` (they
-  narrate the past they guard against), `docs/` prose and `templates/`
+  narrate the past they guard against), `map/` prose and `templates/`
   guidance/skills (documenting history, ADR lifecycle, and troubleshooting
   symptoms), and ADRs. The config surface was added after main's
   worktree-placement change leaked "restores the old nesting" into the shipped
@@ -121,7 +125,7 @@ is never read as a comment.
   or — where a constraint was real — re-anchored to something durable (a live
   parity fixture, an ADR) instead of a comparison to deleted code.
 - **The lesson lands at the moment of the mistake.** A future backward-looking
-  comment fails `finish` with a message naming the marker and the escape hatch,
+  comment fails `done` with a message naming the marker and the escape hatch,
   teaching the author — including one who never read the guidance — then and
   there. This is the structural answer to "context instructions keep getting
   bypassed".

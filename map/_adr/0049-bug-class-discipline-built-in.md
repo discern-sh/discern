@@ -1,5 +1,10 @@
 # ADR 0049: Ship the fix-the-class discipline as built-in guidance and a bundled skill
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where
+> it names the command, config, or tree, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 > **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as
@@ -20,14 +25,14 @@ detector — not prose — is what lets "done" mean the whole class cannot retur
 unnoticed, not that you patched the one case in front of you.
 
 discern already ships disciplines to every project it scaffolds: the quality
-gate, the worktree workflow, the docs/ADR habit, and two bundled skills
+gate, the worktree workflow, the map/ADR habit, and two bundled skills
 (`document-subsystem`, `write-adr`). But everything in the _built-in_ guidance
 under `templates/guidance/` so far describes how to operate discern itself — the
-gate, ratchets, worktrees. A general development discipline that is not about
+gate, standards, worktrees. A general development discipline that is not about
 discern's own mechanics had never been part of the always-on surface. This
 decision answers a question of scope. **Does a universal engineering discipline
 belong in discern's built-in guidance, on by default for every project — or is
-that overreach for a stack-neutral harness?**
+that overreach for a stack-neutral development system?**
 
 Three facts make the scope call:
 
@@ -67,7 +72,7 @@ bundled skill — the same default-on footprint every discern project receives.*
   a fix lacks a class-detector. No automated check can tell a class-detector
   from an ordinary single-instance test, so such a gate would be either
   trivially satisfied or wrong. Always-on guidance and an on-demand skill carry
-  the discipline — the same way discern carries the docs/ADR habit — not a new
+  the discipline — the same way discern carries the map/ADR habit — not a new
   gate stage.
 - **The bundled skills are themselves guarded by the discipline.** A class-level
   fitness test (`tests/skills_wellformed_test.ts`) iterates _every_ directory
@@ -117,7 +122,7 @@ bundled skill — the same default-on footprint every discern project receives.*
   precisely when the agent _doesn't_ think to reach for a bug-class skill. The
   always-on norm puts the expectation in front of the agent on every bug, with
   the skill as the deeper procedure behind it.
-- **Gate-level enforcement — fail `finish` when a fix lands without a new
+- **Gate-level enforcement — fail `done` when a fix lands without a new
   class-detector.** Rejected as out of scope and likely not feasible: no
   automated check separates a class-detector from a single-instance test, so the
   check would misfire on most fixes, or any test at all would satisfy it. The

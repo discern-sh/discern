@@ -1,5 +1,9 @@
 # ADR 0006: Opt-in streamed output and fail-fast cancellation for the parallel runner
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 > **Current-state note.** The `[gate].stream` and `fail_fast` config flags
 > defined here still ship (`fail_fast` defaults on since 1.0). The POSIX-shell
 > runner and its `set -f`/signal machinery were replaced by the TypeScript job
@@ -19,12 +23,12 @@ off (interleaved live output trades legibility for immediacy — opt in per
 project), so the original decision below now reads "stream opt-in; fail_fast
 opt-out".
 
-Because `finish` reads the flag once and exports it, it applies uniformly to
-every parallel stage **including side gates** — which therefore now abort on the
-first failing gate by default, superseding the run-all default ADR 0002 chose
-under the old opt-in regime. A monorepo that wants every side-gate failure in
-one pass sets `fail_fast = false`. (`run_serial`, used by the `fix` stage, is
-inherently fail-fast: a failed fixer stops the chain regardless of this flag.)
+Because `done` reads the flag once and exports it, it applies uniformly to every
+parallel stage **including side gates** — which therefore now abort on the first
+failing gate by default, superseding the run-all default ADR 0002 chose under
+the old opt-in regime. A monorepo that wants every side-gate failure in one pass
+sets `fail_fast = false`. (`run_serial`, used by the `fix` stage, is inherently
+fail-fast: a failed fixer stops the chain regardless of this flag.)
 
 ## Context
 
@@ -74,11 +78,11 @@ fail_fast = false   # cancel in-flight siblings when one job fails
   to that child, so cancellation reaches the actual slot command, not just the
   wrapping subshell.
 - **Default unchanged.** With neither flag set (every existing install, and
-  every caller other than `finish`), `run_parallel` behaves exactly as before:
+  every caller other than `done`), `run_parallel` behaves exactly as before:
   buffered, grouped, wait-for-all. The new code lives behind the flags.
-- **`finish` reads the config and exports the flags.** `tidy`/`test` run
-  serially via `eval` and are unaffected; side-gates (which use `run_parallel`)
-  inherit the same behaviour as the slot phases.
+- **`done` reads the config and exports the flags.** `tidy`/`test` run serially
+  via `eval` and are unaffected; side-gates (which use `run_parallel`) inherit
+  the same behaviour as the slot phases.
 
 ### Honest limitations (degrade gracefully)
 
@@ -117,7 +121,7 @@ fail_fast = false   # cancel in-flight siblings when one job fails
   accepted, documented trade.
 - **`setsid`/process-group kills for exact cancellation.** Not portable (absent
   on macOS); the `TERM`-trap-forwarding approach is the portable best-effort
-  that works everywhere the harness runs.
+  that works everywhere discern runs.
 - **A non-portable `wait -n` poll.** `wait -n` (bash 4.3+) would avoid the
   1-second poll, but it isn't POSIX. Integer-`sleep` polling keeps the engine
   dependency-free.

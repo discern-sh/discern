@@ -1,5 +1,9 @@
 # ADR 0087: Prefix the bundled skills with `discern-` and expand the set to nine
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -51,11 +55,11 @@ New skills:
 - `discern-diagnose-a-bug` — prove a bug's cause (reproduction, falsifying
   hypothesis loop, history interrogation) before any fix; hands the proven class
   to `discern-cure-a-bug`.
-- `discern-ratchet-a-metric` — the judgement around the ratchet feature:
+- `discern-standard-a-metric` — the judgement around the standard feature:
   defendable metrics, rates over raw counts, limits at today's value, the
-  never-loosen discipline, and the graduate-at-zero end state.
+  never-loosen discipline, and the retire-at-zero end state.
 - `discern-outlaw-a-pattern` — codebase-wide pattern elimination as legislation:
-  detector, falling ratchet (a one-way door, not gradualism — removal goes as
+  detector, falling standard (a one-way door, not gradualism — removal goes as
   fast as budget allows), permanent gate rule at zero.
 - `discern-teach-the-project` — route a session's lesson to exactly one of the
   project's knowledge surfaces (guidance line, authored skill, recipe, doc,

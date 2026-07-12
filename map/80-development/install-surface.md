@@ -226,14 +226,14 @@ see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by
 including the ADR pack) and the deferred-work ledger at `[project].todo`
 (default `discern/TODO.md`), and the setup brief's authoring pass fills them —
 the map is eager, and never left empty
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)). The documenter brief
-and scope-manifest template land lazily, on the
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The documenter
+brief and scope-manifest template land lazily, on the
 [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 skill's first use. The skeleton sources ship with whatever creates them —
 [`templates/setup/skeleton/`](../../templates/setup/skeleton/) for setup, a
 `skeleton/` dir inside each carrying skill — and are copied to the
 **configured** destinations, with path tokens rendered
-([ADR 0080](../_adr/0080-configured-agent-docs-root.md),
+([ADR 0080](../_adr/0080-configured-agent-map-root.md),
 [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ## Bookkeeping & integration

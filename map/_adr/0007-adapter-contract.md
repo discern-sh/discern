@@ -1,5 +1,9 @@
 # ADR 0007: The adapter contract — a file overlay plus config fills
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 > **Current-state note.** The "adapter" is now the **preset** — `preset`,
 > `preset.json`, `presets/` (renamed by
 > [ADR 0018](0018-vocabulary-consolidation.md)); read every "adapter" below as
@@ -27,13 +31,13 @@ otherwise unchanged.
 machinery as `setup`, but nothing was bundled, the contract was undocumented,
 and — critically — it could only overlay **files**. An adapter could add a
 project recipe, a skill, a guideline fragment, or a doc, but it could **not**
-contribute **slots, scopes, side-gates, or ratchets**, because those live in the
-single `discern.toml`, which is a seed (already present) that a file overlay
+contribute **slots, scopes, side-gates, or standards**, because those live in
+the single `discern.toml`, which is a seed (already present) that a file overlay
 leaves untouched. So an "adapter" couldn't actually do the stack-specific half
 of what an adapter is for.
 
 ADR 0005 added a comment-preserving `TomlEditor` and the `applyAnswerFills`
-routine that `setup --config` uses to write slots/scopes/side-gates/ratchets
+routine that `setup --config` uses to write slots/scopes/side-gates/standards
 into the generated `discern.toml`. That is exactly the missing capability — an
 adapter should be able to carry the same fills.
 
@@ -57,7 +61,7 @@ and prove it with a clearly-labelled fake example adapter used only in a test
 - **One file is special: `adapter.json`** at the adapter root. It is metadata,
   not scaffolded (it is filtered out of the overlay). It is an
   `setup --config`-shaped document whose `slots` / `scopes` / `side_gates` /
-  `ratchets` are applied to the project's existing `discern.toml` via
+  `standards` are applied to the project's existing `discern.toml` via
   `TomlEditor` (comments preserved), reusing `applyAnswerFills`. An optional
   `description` is shown when listing adapters.
 

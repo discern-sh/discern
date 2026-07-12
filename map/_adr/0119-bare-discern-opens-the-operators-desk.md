@@ -1,5 +1,8 @@
 # ADR 0119: bare `discern` opens the operator's desk
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `graduate` → `accept`; the decision and reasoning are unchanged.
+
 **Status**: accepted. Builds on [ADR 0036](0036-unify-setup.md) (the pre-setup
 redirect), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result
 envelope), and [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply).
@@ -46,10 +49,10 @@ verb is what tests, docs plumbing, and parity guards see.
   TTY branch run.
 - **The desk is a renderer, never a source of truth.** It reads state through
   `statusResult` (the fleet survey) and dispatches the same lifecycle cores the
-  CLI and MCP surfaces share (`graduateResult`, `integrateResult`,
-  `worktreeDrop`). It computes no state of its own; its only owned logic is
-  presentation — bucketing rows into decision order and mapping row state to
-  legal actions — and that logic is pure and unit-tested.
+  CLI and MCP surfaces share (`acceptResult`, `updateResult`, `worktreeDrop`).
+  It computes no state of its own; its only owned logic is presentation —
+  bucketing rows into decision order and mapping row state to legal actions —
+  and that logic is pure and unit-tested.
 - **Every action echoes the CLI command it ran.** The desk teaches the verb
   vocabulary instead of becoming a second dialect; an operator who watches the
   desk work can drive the CLI, and transcripts stay legible next to agent

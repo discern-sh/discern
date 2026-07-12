@@ -1,5 +1,9 @@
 # ADR 0058: `discern start` — spawn a worktree from the main checkout, and a status guardrail that points at it
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`;
+> the decision and reasoning are unchanged.
+
 **Status**: accepted. Completes the entry of the worktree lifecycle alongside
 [ADR 0011](0011-adopt-worktree-workflow.md) (the workflow), respects the
 sibling-placement convention of [ADR 0052](0052-worktree-sibling-placement.md),
@@ -13,9 +17,9 @@ describes remain; only the hiding from `tools/list` goes.
 
 discern isolates every line of work in its own linked worktree, and wraps the
 _transitions_ of a worktree's life in deterministic verbs:
-[`integrate`](0055-integrate-verb.md) brings `main` in, and `graduate` hands the
-branch back. But the **first** transition — _get into a worktree at all_ — had a
-hole. The Claude Code `WorktreeCreate` hook creates the worktree
+[`update`](0055-update-verb.md) brings `main` in, and `accept` hands the branch
+back. But the **first** transition — _get into a worktree at all_ — had a hole.
+The Claude Code `WorktreeCreate` hook creates the worktree
 ([ADR 0040](0040-worktree-hooks-in-the-binary.md)), and that hook fires only
 when an orchestrator drives it. An agent invoked directly on the **main
 checkout** had no first-class way to spin up its own isolated worktree.
@@ -38,8 +42,8 @@ tells an agent on the trunk to use it.
 Add **`discern start`** (the tool **`discern_start`**): run from the main
 checkout, it mints a fresh worktree, creates it on its own `agent/<id>` branch
 at the configured sibling location, runs its first-time setup, and reports where
-it landed. It is a naming-convention sibling of `finish` / `graduate` /
-`integrate`, and follows the same plan/apply shape
+it landed. It is a naming-convention sibling of `done` / `accept` / `update`,
+and follows the same plan/apply shape
 ([ADR 0027](0027-plan-apply-engine-execution.md)): a `startResult` core returns
 a `DiscernResult` the CLI `--json`, the human renderer, and the MCP tool all
 render; `--dry-run` previews and touches nothing.
@@ -75,17 +79,17 @@ and creating a pointless sibling. Two guards: the tool sets
 **`requiresLocation: "main"`**, so a server rooted in a worktree does not
 register it (it is absent from `tools/list` and from the instructions); and
 `startResult` refuses defensively via `assertNotInWorktree`, mapping to the same
-`precondition_failed` envelope `graduate` / `integrate` use, in case it is ever
+`precondition_failed` envelope `accept` / `update` use, in case it is ever
 invoked anyway.
 
-The same field gates the mirror image. `discern_graduate` and
-`discern_integrate` act on the _current_ worktree and can't run on the trunk, so
-they take **`requiresLocation: "worktree"`** and are hidden from a main-rooted
-server. The listing is therefore symmetric: a main-rooted server offers
-`discern_start` (and not graduate/integrate); a worktree-rooted one offers
-graduate/integrate (and not start). The CLI has no fixed root to tailor against
-— it is invoked fresh at the user's cwd — so its equivalent is the same verbs
-_refusing_ in the wrong location with a clear message, which they already do.
+The same field gates the mirror image. `discern_accept` and `discern_update` act
+on the _current_ worktree and can't run on the trunk, so they take
+**`requiresLocation: "worktree"`** and are hidden from a main-rooted server. The
+listing is therefore symmetric: a main-rooted server offers `discern_start` (and
+not accept/update); a worktree-rooted one offers accept/update (and not start).
+The CLI has no fixed root to tailor against — it is invoked fresh at the user's
+cwd — so its equivalent is the same verbs _refusing_ in the wrong location with
+a clear message, which they already do.
 
 ### 3. A status guardrail on the trunk
 
@@ -119,7 +123,7 @@ the CLI.
   mode no longer has "no other option" behind it.
 - `discern start` only _creates_ a worktree to inhabit. It never hops into,
   adopts, or prunes an existing one — that boundary keeps it complementary to
-  the unexposed `worktree` command group and to `graduate` / `integrate`, which
+  the unexposed `worktree` command group and to `accept` / `update`, which
   operate _on_ the current worktree.
 - discern now owns a worktree-id generator. Only `discern start` uses it; every
   other path still derives identity from an externally supplied name, so the
@@ -128,8 +132,8 @@ the CLI.
 - The MCP surface is now **location-aware**: a single `requiresLocation` field
   hides any tool whose precondition the server's own root already fails, so the
   list is tailored to where the server runs (`discern_start` on the trunk;
-  `discern_graduate` / `discern_integrate` in a worktree). The mechanism is
-  reusable for any future location-specific verb.
+  `discern_accept` / `discern_update` in a worktree). The mechanism is reusable
+  for any future location-specific verb.
 
 ## See also
 
@@ -137,8 +141,8 @@ the CLI.
   completes the entry to.
 - [ADR 0052](0052-worktree-sibling-placement.md) — the sibling placement
   convention `start` resolves through the feature layer.
-- [ADR 0055](0055-integrate-verb.md) — `integrate`, the middle transition;
-  `start` is the same plan/apply, lifecycle-verb shape applied to the entry.
+- [ADR 0055](0055-update-verb.md) — `update`, the middle transition; `start` is
+  the same plan/apply, lifecycle-verb shape applied to the entry.
 - [ADR 0033](0033-status-verb-and-location-aware-scope.md) — the location-aware
   status verb the trunk guardrail extends.
 - [ADR 0045](0045-mcp-is-core-infrastructure.md) — the MCP surface the

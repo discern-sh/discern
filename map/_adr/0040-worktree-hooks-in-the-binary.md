@@ -1,5 +1,9 @@
 # ADR 0040: The worktree hooks parse their payload in the binary (no jq)
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 > **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the
@@ -67,7 +71,7 @@ materialization). The engine keeps a convention-free
 explicit directory.
 
 **git stays a hard requirement and is now asserted.** `git` is irreducible to
-the worktree workflow, ratchets, graduation, and `status`. `discern doctor`
+the worktree workflow, standards, acceptance, and `status`. `discern doctor`
 gained an explicit `git` check (it previously verified only `sh` and capability
 commands), reporting the resolved `git --version` as triage context, plus an
 environment summary line (discern version · os/arch · git) for bug reports.

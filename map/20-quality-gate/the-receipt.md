@@ -37,10 +37,9 @@ final commit.
   ask you to land.
 - **The marker.** The green run stores the markdown beside the validated sha in
   the per-worktree marker file (`discern-gate-receipt`, inside the git admin dir
-  — the vouch of
-  [ADR 0067](../_adr/0067-graduate-validates-the-landed-tree.md)), so later
-  verbs can surface the receipt without re-running the gate. Any new commit,
-  amend, or uncommitted edit silently invalidates it.
+  — the vouch of [ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)),
+  so later verbs can surface the receipt without re-running the gate. Any new
+  commit, amend, or uncommitted edit silently invalidates it.
 - **`discern status`**, when the clean HEAD has a recorded pass, carries the
   stored markdown in `data.gate_receipt.receipt`, and its review-ready hint
   names the moment's two affordances: relay the receipt, and inspect the raw
@@ -50,7 +49,7 @@ final commit.
 
 ## The review moment
 
-Nobody calls a review verb; the receipt and the hints are the affordance. A a
+Nobody calls a review verb; the receipt and the hints are the affordance. A
 green `discern done` run emits the receipt, the compiled guidance tells the
 agent to relay it and wait, and the owner reads discern's own deterministic
 account of what was proven — instead of the agent narrating its own grade — digs

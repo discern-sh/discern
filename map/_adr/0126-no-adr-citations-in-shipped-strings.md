@@ -1,5 +1,9 @@
 # ADR 0126: Internal ADR citations never ship
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `docs` → `map` where it names the command, config, or tree; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -41,7 +45,7 @@ embedding no decision content in the guard. The domain-vocabulary rule guards
 against enumerating an open set; this guard matches a shape.
 
 The replacement is displacement, not deletion: the citation moves to a code
-comment beside the string (or to `docs/`), and the shipped copy carries only the
+comment beside the string (or to `map/`), and the shipped copy carries only the
 explanation a user can act on.
 
 ## Consequences

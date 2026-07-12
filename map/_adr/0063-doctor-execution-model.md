@@ -1,5 +1,9 @@
 # ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`; the decision and reasoning are unchanged.
+
 **Status**: accepted; **amended** — see the _Update_ sections below. Adds an
 `execution_model` section to `doctor` (human + the `--json`
 `data.execution_model`), derived from the same plan builders the gate runs
@@ -20,10 +24,10 @@ step that carries no warning as safe.
 Dropping it is truer to this ADR's own thesis. The title is "facts, not
 judgments", and whether a step is destructive is exactly a judgment — one
 discern is not positioned to make for an arbitrary user command. The model still
-answers the motivating "why did `graduate` tear down my database?", but by
-showing the `destroy` command verbatim as a `[project]` step rather than
-labelling it. The reader draws the destructive conclusion from the command, as
-they already do for every other judgment the model leaves to them.
+answers the motivating "why did `accept` tear down my database?", but by showing
+the `destroy` command verbatim as a `[project]` step rather than labelling it.
+The reader draws the destructive conclusion from the command, as they already do
+for every other judgment the model leaves to them.
 
 ## Update (checks render after the human model)
 
@@ -53,16 +57,16 @@ discern's power — one gate, an isolated-worktree workflow, an
 author-once→compile pipeline — comes with opacity. Tracing _what runs when_ took
 a full debugging session even for someone fluent in the codebase. Shipped to
 end-users, the predictable support questions are "why did this command run
-**here**?", "why is the formatter so slow?", and "why did `graduate` tear down
-my database?" — each rooted in not seeing the ordered sequence of steps behind a
+**here**?", "why is the formatter so slow?", and "why did `accept` tear down my
+database?" — each rooted in not seeing the ordered sequence of steps behind a
 verb, which of them are the user's own configured commands versus discern's
 built-ins, and which can lose data.
 
 The facts already exist, scattered: the gate verbs are pure functions of config
-(`buildGatePlan`, `preparePlanGroups`, `stageGroup`, `buildRatchetPlan`); the
+(`buildGatePlan`, `preparePlanGroups`, `stageGroup`, `buildStandardPlan`); the
 worktree lifecycle executors encode a fixed-but-conditional sequence; each
 `PlanStep.kind` already distinguishes a user-configured step (`job`,
-`scope-gate`, `ratchet`, resource/setup commands) from a built-in one
+`scope-gate`, `standard`, resource/setup commands) from a built-in one
 (`merge-check`, `git`, `refresh`, …). What was missing was a single, honest,
 annotated rendering a confused human — or their coding agent — could read to
 answer "what runs when I call X, in what order, which parts are mine, what must
@@ -94,7 +98,7 @@ configuration.**
 - **The hint registry is a forcing function.** A single `Record<StepKind, …>` of
   annotations (actor + hint + destructive) is TOTAL over `STEP_KINDS`, so a
   newly-added engine step kind is a **compile error** until it is documented —
-  the same shape as `finish`'s total `Record<FailedStage, string>` fail-message
+  the same shape as `done`'s total `Record<FailedStage, string>` fail-message
   table. A sibling `Record<Stage, …>` does the same for the per-stage job hints.
   A coverage test asserts every `STEP_KIND` appears in at least one verb's
   model. The hint _text_ is sourced from canonical prose (the config-template

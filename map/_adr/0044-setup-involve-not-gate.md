@@ -1,5 +1,9 @@
 # ADR 0044: Setup involves the user and proceeds — it does not gate every step
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 Revises the setup-brief interaction model established by
@@ -20,8 +24,8 @@ involve."
 agents without the background to ship reliable software unaided — and,
 crucially, someone who gets spooked when an agent silently installs outside
 tools or changes their project without explanation. Setup is their first contact
-with the harness; it sets the tone for whether `discern` reads as help or as a
-black box.
+with discern; it sets the tone for whether `discern` reads as help or as a black
+box.
 
 The brief ADR 0036 wrote optimised for safety-by-consent: "propose, don't
 overwrite … show it and let them confirm rather than silently committing," and a

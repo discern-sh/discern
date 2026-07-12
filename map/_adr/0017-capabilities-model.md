@@ -1,5 +1,9 @@
 # ADR 0017: Declare capabilities, derive the gate — retire slots + phases
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 > **Current-state note.** Lands together with its sibling
 > [ADR 0018](0018-vocabulary-consolidation.md) (the four-layer vocabulary
 > consolidation) — one 3→4 schema migration, best read as a pair.
@@ -33,10 +37,10 @@ project. Two frictions followed:
    carries no semantics — neither the engine nor an agent knows what guarantee
    it provides. The set of slots was open-ended, and you cannot report what is
    _missing_ from an open-ended set. This blocks the things readiness enables:
-   an `agent doctor` that tells a newcomer whether the harness is actually
-   wired, and a future `discern audit` that could advise _other_ repositories
-   toward best-practice tooling — both of which need to reason over a closed,
-   known vocabulary.
+   an `agent doctor` that tells a newcomer whether discern is actually wired,
+   and a future `discern audit` that could advise _other_ repositories toward
+   best-practice tooling — both of which need to reason over a closed, known
+   vocabulary.
 
 2. **The phase vocabulary leaked onto the user surface.** Because a slot _had_
    to carry a `phase`, every author met the four scheduling buckets on day one —
@@ -107,8 +111,8 @@ of things a project can do. The engine derives the scheduling.
 
 The explicit **no**s: no user-facing `phase` key; no open-ended capability names
 (custom work is a `[check]`, not an invented capability); no `:` no-op (absence
-is meaningful); no "measurement slot" (a phase-less slot read by a ratchet —
-that moves to the ratchet's inline `run`, see
+is meaningful); no "measurement slot" (a phase-less slot read by a standard —
+that moves to the standard's inline `run`, see
 [ADR 0018](0018-vocabulary-consolidation.md)).
 
 ## Consequences
@@ -142,8 +146,8 @@ that moves to the ratchet's inline `run`, see
   [ADR 0006](0006-long-slot-ergonomics.md) (the `[gate]` stream/fail_fast
   ergonomics survive untouched); amends
   [ADR 0004](_superseded/0004-structured-finish-json.md) (per-job, not
-  per-slot); amends [ADR 0003](0003-named-metric-ratchets.md) (the measurement
-  slot it relied on becomes the ratchet's inline `run`). Design principle #1
+  per-slot); amends [ADR 0003](0003-named-metric-standards.md) (the measurement
+  slot it relied on becomes the standard's inline `run`). Design principle #1
   ("push every stack fact behind a named slot") is reworded to "a named
   capability" and links here.
 

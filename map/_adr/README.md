@@ -5,15 +5,16 @@ documents capturing a significant decision about the kit's design, the context
 that forced it, and the reasoning behind it.
 
 discern _ships_ the ADR discipline to the projects it scaffolds via its bundled
-`write-adr` skill, which creates `docs/_adr/` on demand from its skeleton at
-[`templates/skills/write-adr/skeleton/docs/_adr/`](../../templates/skills/write-adr/skeleton/docs/_adr/).
+`discern-write-adr` skill, which creates `map/_adr/` on demand from its skeleton
+at
+[`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../templates/skills/discern-write-adr/skeleton/docs/_adr/).
 This directory is discern applying that discipline to itself — recording the
 decisions behind the engine and installer here, in the same format.
 
 **The canonical ADR format is the one discern ships:**
-[`templates/skills/write-adr/skeleton/docs/_adr/README.md`](../../templates/skills/write-adr/skeleton/docs/_adr/README.md),
+[`templates/skills/discern-write-adr/skeleton/docs/_adr/README.md`](../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md),
 with the copy-paste template at
-[`templates/skills/write-adr/skeleton/docs/_adr/0000-template.md`](../../templates/skills/write-adr/skeleton/docs/_adr/0000-template.md).
+[`templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md`](../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md).
 Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first
 real ADR is `0001`); state the decision in the title; write one only when the
 decision is hard to reverse, surprising without context, and a real trade-off.
@@ -29,16 +30,16 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 ## Index
 
 - [0001 — Project-owned recipes](0001-project-owned-recipes.md)
-- [0003 — Named metric ratchets](0003-named-metric-ratchets.md)
+- [0003 — Named metric standards](0003-named-metric-standards.md)
 - [0005 — Declarative config](0005-declarative-config.md)
 - [0006 — Long-slot ergonomics](0006-long-slot-ergonomics.md)
 - [0007 — Adapter contract](0007-adapter-contract.md)
 - [0009 — 1.0: drop backward compatibility](0009-one-point-zero-drop-backward-compat.md)
 - [0011 — Adopt the worktree workflow](0011-adopt-worktree-workflow.md)
 - [0014 — A versioned, reversible migration system](0014-versioned-migration-system.md)
-- [0015 — `discern docs` browser + terminal Markdown renderer](0015-docs-browser.md)
+- [0015 — `discern map` browser + terminal Markdown renderer](0015-map-browser.md)
 - [0017 — Declare capabilities, derive the gate](0017-capabilities-model.md)
-- [0018 — Consolidate the harness vocabulary into four layers](0018-vocabulary-consolidation.md)
+- [0018 — Consolidate discern vocabulary into four layers](0018-vocabulary-consolidation.md)
 - [0019 — Collapse into one binary with a TypeScript-native engine](0019-single-binary-ts-engine.md)
 - [0020 — Dissolve `.discern/` into a single root `discern.toml`](0020-dissolve-discern-dir.md)
 - [0021 — Migrations insert a new section's documented block at its canonical position](0021-migrations-insert-documented-sections.md)
@@ -62,24 +63,24 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0043 — The provider registry is the enforced single source for every agent surface](0043-registry-derived-agent-parity.md)
 - [0044 — Setup involves the user and proceeds; it does not gate every step](0044-setup-involve-not-gate.md)
 - [0045 — The MCP server is core infrastructure, not a feature toggle](0045-mcp-is-core-infrastructure.md)
-- [0047 — Finish blocks a fix stage that strands uncommitted changes](0047-fix-stage-strand-detection.md)
+- [0047 — `done` blocks a fix stage that strands uncommitted changes](0047-fix-stage-strand-detection.md)
 - [0049 — Ship the fix-the-class discipline as built-in guidance and a bundled skill](0049-bug-class-discipline-built-in.md)
 - [0050 — Run the merge check first, as a fail-fast precondition](0050-merge-check-fail-fast.md)
 - [0051 — Every internal canonical set is tied to its satellites by a forcing function](0051-canonical-set-parity.md)
 - [0052 — Worktrees live in a configurable sibling directory, not nested `.claude/worktrees`](0052-worktree-sibling-placement.md)
 - [0053 — A gate guard keeps comments in the present tense, not narrating the codebase's past](0053-comment-currency-guard.md)
 - [0054 — One module owns process spawning](0054-subprocess-single-source.md)
-- [0055 — `discern integrate`, the third verb in the worktree lifecycle (merge + re-materialize)](0055-integrate-verb.md)
-- [0057 — Ratchet a rate, not a raw count, via an optional `per` denominator](0057-rate-ratchets.md)
+- [0055 — `discern update`, the third verb in the worktree lifecycle (merge + re-materialize)](0055-update-verb.md)
+- [0057 — Hold a rate, not a raw count, via an optional `per` denominator](0057-rate-standards.md)
 - [0058 — `discern start` spawns a worktree from the main checkout, and a status guardrail points at it](0058-start-verb-spawn-worktree-from-trunk.md)
 - [0059 — `[worktree.setup].ensure`, a convergent setup bucket that re-runs every pass](0059-worktree-setup-ensure.md)
 - [0060 — Worktree shell commands adopt the gate's capture-on-failure output convention](0060-worktree-command-output-capture.md)
 - [0062 — The MCP server tracks its own working root, retiring location-based tool visibility](0062-mcp-server-working-root.md)
 - [0063 — `discern doctor` prints the execution model — facts, not judgments](0063-doctor-execution-model.md)
-- [0064 — `integrate` reports what changed beneath the branch](0064-integrate-change-summary.md)
+- [0064 — `update` reports what changed beneath the branch](0064-update-change-summary.md)
 - [0065 — `discern setup` keeps its promises](0065-setup-keeps-its-promises.md)
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](0066-grouped-cli-help.md)
-- [0067 — Graduate validates the exact tree it lands, fast-pathed by a gate-pass receipt](0067-graduate-validates-the-landed-tree.md)
+- [0067 — Accept validates the exact tree it lands, fast-pathed by a gate receipt](0067-accept-validates-the-landed-tree.md)
 - [0068 — Tests inject env/cwd seams so the suite can run `--parallel`](0068-parallel-safe-tests-env-cwd-injection.md)
 - [0069 — A fresh install resolves its default agent set by PATH auto-detection](0069-agent-auto-detect-at-setup.md)
 - [0070 — An agent that reads the canonical `AGENTS.md` is modelled as "reuse-canonical", emitting nothing](0070-reuse-canonical-guidance.md)
@@ -88,12 +89,12 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0073 — discern co-manages Codex's auto-generated `environment.toml`, and reuses the cwd-based teardown verb for its cleanup](0073-codex-worktree-lifecycle-comanagement.md)
 - [0074 — Claude Code and GitHub Copilot co-own the shared `.mcp.json`, through one stdio writer](0074-co-owned-mcp-json.md)
 - [0075 — `discern setup` is a staged, consent-driven handshake](0075-setup-staged-handshake.md)
-- [0076 — The engine commits the harness machinery it scaffolds](0076-engine-commits-scaffolded-machinery.md)
+- [0076 — The engine commits discern machinery it scaffolds](0076-engine-commits-scaffolded-machinery.md)
 - [0077 — The setup agent is the configuration engine — transparency over interrogation](0077-setup-agent-is-the-configuration-engine.md)
 - [0078 — Setup steps are stateless machine-readable pages with derived per-step proof](0078-setup-pages-and-per-step-proof.md)
-- [0079 — `improve` is a coach, not an audit](0079-improve-is-a-coach-not-an-audit.md)
-- [0080 — The agent documentation tree has one configured root](0080-configured-agent-docs-root.md)
-- [0081 — `discern setup land`, a main-checkout landing command for the finished setup](0081-setup-land-command.md)
+- [0079 — `improvement` is a coach, not an audit](0079-improvement-is-a-coach-not-an-audit.md)
+- [0080 — The agent map has one configured root](0080-configured-agent-map-root.md)
+- [0081 — `discern setup accept`, a main-checkout landing command for the finished setup](0081-setup-accept-command.md)
 - [0082 — Codex project config grants the discern worktree root, not broader sandbox control](0082-codex-project-config-writable-root.md)
 - [0083 — Captured diagnostic output is normalized and offloaded when truncated](0083-normalize-and-offload-diagnostic-output.md)
 - [0084 — Co-change coupling detection is a non-blocking advisory, recomputed on demand](0084-co-change-coupling-advisory.md)
@@ -109,25 +110,25 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0095 — Standardize the prelaunch CLI vocabulary](0095-prelaunch-cli-vocabulary.md)
 - [0096 — Passing jobs keep output artifacts](0096-passing-jobs-keep-output-artifacts.md)
 - [0097 — Publish generated JSON result contracts](0097-publish-json-result-contracts.md)
-- [0098 — Graduate refreshes the landing checkout](0098-graduate-refreshes-the-landing-checkout.md)
+- [0098 — Accept refreshes the landing checkout](0098-accept-refreshes-the-landing-checkout.md)
 - [0099 — Consolidate the authored surface under a visible `discern/` namespace](0099-consolidate-authored-surface-under-discern-namespace.md)
-- [0100 — The documentation tree is the agent-maintained map, not the project's own docs](0100-doctree-is-the-agents-map.md)
+- [0100 — The documentation tree is the agent-maintained map, not the project's own docs](0100-project-map-is-the-agents-map.md)
 - [0101 — Retire the `[features]` toggles](0101-retire-the-features-toggles.md)
 - [0102 — One paths registry, rendered artifacts, and leakage guards](0102-paths-registry-and-rendered-artifacts.md)
 - [0103 — Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere](0103-setup-holds-up-on-imperfect-repos.md)
 - [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 - [0105 — Interruption reaches the gate's detached job groups](0105-interruption-reaches-detached-gate-jobs.md)
-- [0106 — `ratchets --pin` captures a measured gain and carries the gate-pass receipt across it](0106-ratchets-pin-carries-the-gate-receipt.md)
+- [0106 — `standards --pin` captures a measured gain and carries the gate receipt across it](0106-standards-pin-carries-the-gate-receipt.md)
 - [0107 — `upgrade` reconciles the record-table doc banners](0107-config-banners-are-managed-regions.md)
 - [0108 — One global timeout bounds every gate job](0108-gate-job-timeout.md)
 - [0109 — `discern start` accepts an optional name, normalised to a branch-safe slug](0109-worktree-start-optional-name.md)
 - [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
 - [0111 — The MCP surface refuses undeclared arguments, and `discern_start` takes a cross-project `path`](0111-cross-project-path-and-strict-tool-schemas.md)
-- [0112 — A measurement receipt lets check → pin measure once](0112-ratchet-measurement-receipt.md)
+- [0112 — A measurement receipt lets check → pin measure once](0112-standard-measurement-receipt.md)
 - [0113 — Installing a new dependency is a consent point in setup](0113-installing-a-dependency-is-a-consent-point.md)
 - [0114 — A green gate emits the receipt](0114-the-gate-emits-the-receipt.md)
 - [0115 — Under a nested project root, every verb works correctly or refuses loudly](0115-nested-root-verbs-work-or-refuse.md)
-- [0116 — Receipts vouch only for the pinned tree, and graduate lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
+- [0116 — Receipts vouch only for the pinned tree, and accept lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
 - [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
 - [0119 — Bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
@@ -144,7 +145,7 @@ without cluttering the active index above.
 - [0002 — First-class side-gates](_superseded/0002-first-class-side-gates.md) —
   replaced by the capabilities/checks model (0017) and the scope `gate` key
   (0018)
-- [0004 — Structured `finish --json`](_superseded/0004-structured-finish-json.md)
+- [0004 — Structured `agent finish --json`](_superseded/0004-structured-finish-json.md)
   — superseded by the result envelope (0028)
 - [0008 — Declarative managed-set](_superseded/0008-declarative-managed-set.md)
   — made moot by the single binary (0019)

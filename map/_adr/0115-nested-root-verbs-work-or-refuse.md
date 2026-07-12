@@ -1,8 +1,12 @@
 # ADR 0115: under a nested project root, every verb works correctly or refuses loudly
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `scopes` → `impact`
+> where it names the verb; the decision and reasoning are unchanged.
+
 **Status**: accepted. Complements [ADR 0011](0011-adopt-worktree-workflow.md)
-(the worktree workflow) and [ADR 0003](0003-named-metric-ratchets.md)
-(named-metric ratchets).
+(the worktree workflow) and [ADR 0003](0003-named-metric-standards.md)
+(named-metric standards).
 
 ## Context
 
@@ -15,10 +19,10 @@ considered, and the engine silently assumed the root IS the top level in the
 places where git's path conventions make the two differ:
 
 - git resolves a bare `rev:path` against the repository **top level**, so the
-  ratchet baseline read (`git show <main>:discern.toml`) found nothing, returned
-  "no baseline", and the never-loosen half of every ratchet — the guarantee the
-  feature exists for — was silently disabled while the measurement half kept
-  passing.
+  standard baseline read (`git show <main>:discern.toml`) found nothing,
+  returned "no baseline", and the never-loosen half of every standard — the
+  guarantee the feature exists for — was silently disabled while the measurement
+  half kept passing.
 - `git diff --name-only`, `git status --porcelain`, and `git log --name-only`
   all emit **toplevel-relative** paths regardless of cwd, while scope globs,
   coupling queries, and the strand diagnostic all speak **root-relative** paths.
@@ -42,23 +46,23 @@ refuses loudly. Silent misbehaviour is the defect; the class is guarded by
   `stripRepoPathPrefix` (in `src/engine/scopes/scopes.ts`, beside
   `parsePorcelainPaths`) resolve the root's prefix inside the repo once and
   normalize every git-emitted path list: the scope classifier (`collectPaths`,
-  feeding the gate, `status`, and `scopes`), the co-change miner, and the
+  feeding the gate, `status`, and `impact`), the co-change miner, and the
   fix-stage strand snapshot. Paths outside the project subtree are dropped — a
   sibling project's changes in a shared repository are not this project's. The
-  ratchet baseline is read with the cwd-relative `rev:./path` spelling.
+  standard baseline is read with the cwd-relative `rev:./path` spelling.
 - **The worktree lifecycle keeps its refusal.** A worktree is a whole-repository
   checkout; a nested root's copy would nest inside the repo with its
   `discern.toml` where nothing looks for it. `start` refuses with the move-it
   message, and `doctor`'s repository-shape check reports the same fact. This is
   a deliberate _no_: the lifecycle is not being taught the shape.
 - **Repo-wide reads that only tighten stay repo-wide.** The clean-tree guards
-  (`ratchets`, `--pin`, receipts) read `git status` across the whole repository:
-  under a nested root, sibling dirt blocks with a loud message. Conservative and
-  honest, so it stands.
+  (`standards`, `--pin`, receipts) read `git status` across the whole
+  repository: under a nested root, sibling dirt blocks with a loud message.
+  Conservative and honest, so it stands.
 
 ## Consequences
 
-- A monorepo-nested discern project gets a truthful gate: ratchets hold their
+- A monorepo-nested discern project gets a truthful gate: standards hold their
   never-loosen guarantee, scope gates fire, coupling answers — verified by the
   nested-root suite, which pins each key engine path (and the refusals) against
   one shared fixture. A future git-facing reader that skips the normalization
@@ -74,7 +78,7 @@ refuses loudly. Silent misbehaviour is the defect; the class is guarded by
 
 - **Refuse the shape everywhere** (make every verb demand the root be the top
   level). Honest but heavy-handed: the measurement surface has no structural
-  reason not to work, and hard-refusing would brick `finish`/`ratchets` for any
+  reason not to work, and hard-refusing would brick `done`/`standards` for any
   monorepo fold-in that works today apart from the silent bugs.
 - **Support the worktree lifecycle nested** (worktrees of the whole repo with
   re-rooting into the subdir). A real feature with real value, but a redesign of

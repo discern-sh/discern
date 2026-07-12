@@ -25,9 +25,9 @@ sweep dispatches, found the remaining names failing in reproducible ways:
   prior points at the wrong verb.
 - **A name its own config disclaims.** The `[docs]` config comment must open by
   explaining that the tree is "conceptually distinct from human-curated project
-  docs," and [ADR 0100](0100-doctree-is-the-agents-map.md) already teaches the
-  correct word: the tree is _the map_. A first-week user typing `discern docs`
-  plausibly wants discern's own manual, which is `help`'s job.
+  docs," and [ADR 0100](0100-project-map-is-the-agents-map.md) already teaches
+  the correct word: the tree is _the map_. A first-week user typing
+  `discern docs` plausibly wants discern's own manual, which is `help`'s job.
 - **Guidance that translates a verb into the word it should have been.** The
   bundled guidance must say "`discern_finish` is the bar for done" — the
   teaching sentence contains the better name.
@@ -85,7 +85,7 @@ and `help` are unchanged. Why each contested word won:
   the audit funds one deliverable, the single highest-value next action, and the
   loop is find it, land it, lock it in. The breadth belongs in the help line;
   `improvements` and `improve` both forward via forgiveness.
-- **`map`** — [ADR 0100](0100-doctree-is-the-agents-map.md)'s own language,
+- **`map`** — [ADR 0100](0100-project-map-is-the-agents-map.md)'s own language,
   promoted to the verb. A map carries the authority contract ("a stale map is a
   defect") and cannot be misread as discern's own manual. The tree moves to
   `map/` on disk too: keeping the retired name as the address would recreate the

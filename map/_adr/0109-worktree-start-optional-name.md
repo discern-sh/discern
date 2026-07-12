@@ -1,5 +1,9 @@
 # ADR 0109: `discern start` accepts an optional name, normalised to a branch-safe slug
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; extends
 [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md) (the `start` verb and
 its `generateWorktreeId`), reuses the identity sanitiser from
@@ -24,7 +28,7 @@ identifiable name from the task. That is a clear UX win, and discern should
 match it — a named worktree is legible in `discern status`, in the fleet survey,
 and in the directory listing.
 
-discern, though, uses **no AI of its own** — it is a deterministic harness. It
+discern, though, uses **no AI of its own** — it is a deterministic system. It
 cannot summarise a task into a name. Only the caller (an agent) knows the task
 and can name it. So the feature is really: let the caller optionally supply a
 name, and have discern do the deterministic part well.

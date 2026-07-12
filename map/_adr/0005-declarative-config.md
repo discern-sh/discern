@@ -1,5 +1,9 @@
 # ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `setup --config`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 > **Current-state note.** `setup --config` is retired — `setup` redirects to
 > `discern setup` ([ADR 0036](0036-unify-setup.md)). The comment-preserving
 > `TomlEditor`, the `discern config` surface, and the published JSON Schema all
@@ -24,15 +28,15 @@ name, an optional **`version`** (a document declaring a major this build doesn't
 understand is refused, not misread), an accepted **`$schema`** pointer, and a
 **published JSON Schema** at `schema/discern-config.schema.json` for editor
 validation. `setup --config` and `adapter.json` (ADR 0007) are its two
-consumers. The `ratchets` field also drops the pre-1.0 `coverage_min` number
-shorthand (ADR 0003): every ratchet is a table.
+consumers. The `standards` field also drops the pre-1.0 `coverage_min` number
+shorthand (ADR 0003): every standard is a table.
 
 ## Context
 
 discern exists to be driven by other tools: a wrapping scaffolder runs
 `discern setup` and then layers its own stack-specific pieces on top. Today that
 layering means **hand-editing `discern.toml`** — there is no supported way to
-set slots, scopes, side-gates, or ratchets programmatically. Non-interactive
+set slots, scopes, side-gates, or standards programmatically. Non-interactive
 `setup` takes discrete flags (`--name`, `--slug`, `--source-globs`,
 `--brief @file`, …) that cover only the `[project]` identity and the `web`
 scope; everything else a real project needs is left to the scaffolder to write
@@ -80,13 +84,13 @@ This editor is the one place TOML editing lives. It targets the documented
 discern config set-slot <name> --phase <phase> --run <cmd>
 discern config set-scope <name> <glob>...
 discern config set-side-gate <scope> --run <cmd>
-discern config set-ratchet <name> --limit <n> [--metric <m>] [--direction up|down] [--slot <s>]
+discern config set-standard <name> --limit <n> [--metric <m>] [--direction up|down] [--slot <s>]
 discern config set <dotted.key> <value> [--number | --bool | --string]
 ```
 
 Each finds `discern.toml` in the cwd, applies the edit through `TomlEditor`, and
 writes it back — comments intact. Light validation matches `doctor`'s
-expectations (slot `--phase` ∈ the known phases; ratchet `--direction` ∈
+expectations (slot `--phase` ∈ the known phases; standard `--direction` ∈
 `up`/`down`; `--limit` numeric; names are TOML-bare-key shaped). `set` infers
 the value type (numeric → number, `true`/`false` → bool, else string),
 overridable with `--number`/`--bool`/`--string`.
@@ -100,7 +104,7 @@ and `--dry-run` (report the edits, write nothing) — parity with
 `setup --config answers.json` (or `--config -` for stdin) reads a JSON answers
 file and scaffolds non-interactively. Base fields mirror the flags (`name`,
 `slug`, `branch_prefix`, `source_globs`, `brief`, `agents`); the value-add is
-`slots`, `scopes`, `side_gates`, and `ratchets`, which are applied to the
+`slots`, `scopes`, `side_gates`, and `standards`, which are applied to the
 **generated** `discern.toml` via `TomlEditor` _as part of building the plan_ —
 so `--dry-run` and `--json` show the final file and `apply` writes it, with no
 separate edit step. Explicit flags override file values; the file overrides
@@ -114,7 +118,7 @@ defaults.
   "slots": { "test": { "phase": "test", "run": "vitest run" } },
   "scopes": { "native": ["native/**"] },
   "side_gates": { "native": "make -C native check" },
-  "ratchets": {
+  "standards": {
     "coverage_min": 80,
     "bundle": { "direction": "down", "limit": 500000, "slot": "bundlesize" }
   }

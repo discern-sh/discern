@@ -1,5 +1,9 @@
 # ADR 0083: Captured diagnostic output is normalized and offloaded when truncated
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; refines
 [ADR 0028](0028-result-envelope-and-diagnostics.md)
 
@@ -21,7 +25,7 @@ tail boundary. Even when the text is clean, some failures produce enough output
 that a 16 KB inline excerpt is too much context for an agent to carry by
 default.
 
-The constraint is still discern's central one: the harness must not learn the
+The constraint is still discern's central one: discern must not learn the
 semantics of any particular tool. Normalizing terminal transport controls and
 bounding the inline view are generic output hygiene; parsing compiler or test
 messages is stack knowledge and remains out of Tier 0.
@@ -69,7 +73,7 @@ The explicit noes:
 
 ## Consequences
 
-An agent reading a failed `discern_finish`, `discern_prepare`, or `discern_test`
+An agent reading a failed `discern_done`, `discern_prepare`, or `discern_test`
 result gets clean, bounded text instead of terminal-control noise. A noisy
 progress bar collapses before the cap is applied, so progress bytes cannot bury
 the real failure. When the excerpt is insufficient, the full normalized capture

@@ -101,7 +101,7 @@ next?_ It reports objective baseline health, keeps qualitative reviews visible,
 and prioritizes one action. Deterministic rules remain distinct from subjective
 reviews the agent judges against cited material
 ([ADR 0029](../_adr/0029-best-practices-audit.md),
-[ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)).
+[ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md)).
 
 Alongside it sits the **[co-change advisory](coupling.md)**: where `improvement`
 asks _is this setup any good?_,

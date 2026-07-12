@@ -1,5 +1,9 @@
 # ADR 0011: Adopt the isolated-worktree workflow for discern's own development
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 > **Current-state note.** The worktree workflow is still how discern develops
 > itself, but the mechanics moved on: the hooks parse their payload inside the
 > binary rather than shelling out to `bin/agent worktree lifecycle helpers`
@@ -13,11 +17,11 @@
 
 ## Context
 
-[ADR 0010](_superseded/0010-self-host-the-harness.md) installed the harness into
-this repo and made `agent finish` the gate, but it deliberately **deferred** one
-piece: whether to develop discern inside the harness's own isolated git
-worktrees. The `SessionStart`/`WorktreeCreate`/`WorktreeRemove` hooks shipped
-scaffolded but dormant, and the open question was parked in `TODO.md`.
+[ADR 0010](_superseded/0010-self-host-the-harness.md) installed discern into
+this repo and made `discern done` the gate, but it deliberately **deferred** one
+piece: whether to develop discern inside discern's own isolated git worktrees.
+The `SessionStart`/`WorktreeCreate`/`WorktreeRemove` hooks shipped scaffolded
+but dormant, and the open question was parked in `TODO.md`.
 
 Two things make the call easy now. First, the configuration is already in place:
 `[worktree] enabled = true`, with both adapter seams (`db`, `dev_server`) empty
@@ -33,7 +37,7 @@ them to `sh -c` removes the one thing standing between "scaffolded" and
 
 Adopt the worktree workflow as the way discern is developed: each line of work
 gets its own isolated worktree under `.claude/worktrees/`, created and torn down
-by the harness hooks.
+by discern hooks.
 
 - **The hooks run under `/bin/sh`, not `zsh`.** Both the root
   `.claude/settings.json` and the shipped `templates/.claude/settings.json.tmpl`
@@ -50,7 +54,7 @@ by the harness hooks.
 
 - Branch work is isolated by default: a worktree per line of work, its own
   checkout, no stomping on the main tree mid-session. This is the workflow the
-  harness exists to provide, now exercised by its own author — the same
+  discern exists to provide, now exercised by its own author — the same
   validation argument as ADR 0010.
 - The hooks are live, so a breakage in them now affects day-to-day development,
   not only downstream users. They stay deliberately thin (a few lines of POSIX
@@ -65,8 +69,8 @@ by the harness hooks.
 ## Alternatives considered
 
 - **Keep developing on `main` directly.** Simplest, but it leaves the
-  most-distinctive part of the harness unexercised by its own author and forgoes
-  the isolation the tool is built to give. The dormant-hooks status quo was only
+  most-distinctive part of discern unexercised by its own author and forgoes the
+  isolation the tool is built to give. The dormant-hooks status quo was only
   ever meant to be temporary (ADR 0010 parked it in `TODO.md`); leaving it
   parked indefinitely is the non-decision this ADR exists to end.
 - **Enable the hooks but leave the choice informal.** That is effectively the

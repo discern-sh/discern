@@ -1,5 +1,8 @@
 # ADR 0084: Co-change coupling detection is a non-blocking advisory, recomputed on demand
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -69,7 +72,7 @@ The advisory:
   deciding **essential** (lock it) or **incidental** (ignore);
 - **never touches `ok`, the exit code, or `failed_stage`.** Behind
   `[coupling].in_gate` (default off) the diff-aware advisory rides at the
-  **tail** of `discern finish`, with strand detection, because it reads the diff
+  **tail** of `discern done`, with strand detection, because it reads the diff
   and is therefore dependency-bearing — never a fail-fast precondition. It is
   suppressed entirely until the install is bootstrapped, so the in-session setup
   an agent runs stays uncluttered. The gate path uses a stricter presentation
@@ -110,7 +113,7 @@ abstract score, so the advisory reads to a non-expert.
 Automatic gate hints add one more fixed presentation bar over that broad model:
 surface the pair only when confidence is high, or when repeated evidence meets a
 moderate confidence floor. This keeps `discern coupling` useful as a discovery
-tool while making `prepare`/`finish` nudges rarer and more relevant.
+tool while making `prepare`/`done` nudges rarer and more relevant.
 
 **It recomputes on demand, bounded by `window` — there is NO cache in v1.** Each
 call re-mines the history. The window is a fixed COMMIT COUNT, not a time span,

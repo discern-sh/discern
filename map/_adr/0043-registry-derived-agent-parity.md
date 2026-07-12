@@ -1,5 +1,8 @@
 # ADR 0043: The provider registry is the enforced single source for every agent surface
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`; the decision and reasoning are unchanged.
+
 **Status**: accepted; completes [ADR 0031](0031-typed-provider-integration.md),
 extends the currency check of
 [ADR 0034](0034-agents-md-untracked-currency-check.md) to skills, and **builds
@@ -38,9 +41,9 @@ registry grew:
   grouped `.claude/` only; `skills.ts` kept a `CLAUDE_SKILLS_REL` duplicate of
   the registry value; the default agent set was encoded three times.
 - **Skills had no currency check.** Guidance files were guarded by
-  `checkGuidanceCurrent` (ADR 0034: `status` advisory, `finish` blocks on
-  stale), but materialized skills dirs had no equivalent — a hand-edited,
-  removed, or upgrade-stale skill was invisible to the gate.
+  `checkGuidanceCurrent` (ADR 0034: `status` advisory, `done` blocks on stale),
+  but materialized skills dirs had no equivalent — a hand-edited, removed, or
+  upgrade-stale skill was invisible to the gate.
 - **`GEMINI.md` duplicated the full body** though Gemini CLI supports the same
   `@path` import as Claude Code.
 
@@ -99,7 +102,7 @@ everywhere.**
    discipline.** `checkSkillsCurrent` is the stateless skills analog of
    `checkGuidanceCurrent`: re-resolve the effective set and diff against disk
    (bundled = byte-equal to source, authored = live symlink to `[skills].dir`),
-   no stored hash. Same dispositions as ADR 0034 — `status` advisory; `finish`
+   no stored hash. Same dispositions as ADR 0034 — `status` advisory; `done`
    blocks on `stale` only; `missing` (a not-yet-materialized dir on a fresh
    checkout) and `foreign` (an unmanaged drop-in, never clobbered) do not block.
 
@@ -126,8 +129,7 @@ the registry without a test tying it back.
   surfaces) until every satellite is taught — the architectural guarantee the
   SSOT policy wants.
 - **Skills are guarded like guidance.** A drifted materialized skill is caught
-  at `finish` and surfaced at `status`, closing the asymmetry ADR 0034 left
-  open.
+  at `done` and surfaced at `status`, closing the asymmetry ADR 0034 left open.
 - **One agent file holds the body.** With Gemini pointing at `AGENTS.md`, the
   compiled guidance lives in exactly one file; the others import it and cannot
   drift.
@@ -144,9 +146,9 @@ the registry without a test tying it back.
 - **Store an expected hash for skills.** Rejected for the same reason ADR 0034
   rejected it for guidance: a second source of truth to keep in sync. Recompile
   (here, re-resolve) and compare is stateless and always correct.
-- **Block `finish` on missing/foreign skills.** Rejected: a gitignored artifact
-  is legitimately absent on a fresh checkout (would red-light first-run CI), and
-  a foreign drop-in must never be presented as discern's to fix. Only `stale`
+- **Block `done` on missing/foreign skills.** Rejected: a gitignored artifact is
+  legitimately absent on a fresh checkout (would red-light first-run CI), and a
+  foreign drop-in must never be presented as discern's to fix. Only `stale`
   blocks.
 - **Leave `GEMINI.md` a full copy.** Rejected once Gemini's `@path` import was
   verified — the duplication was unforced, and the pointer makes all three

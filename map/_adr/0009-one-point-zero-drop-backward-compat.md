@@ -1,5 +1,9 @@
 # ADR 0009: 1.0 — drop backward compatibility, with a one-shot `upgrade`
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -9,13 +13,13 @@ constraint: **existing `discern.toml` files keep working untouched**. That
 constraint earned its keep early, but it also forced compromises that ossified
 into the design:
 
-- Coverage was a privileged _built-in_ ratchet — a bespoke `coverage_min`
+- Coverage was a privileged _built-in_ standard — a bespoke `coverage_min`
   scalar, a reserved name, a `0`-disables rule, and a fragile last-`NN%`
-  output-scraping fallback — sitting beside the general `[ratchets.<name>]`
+  output-scraping fallback — sitting beside the general `[standards.<name>]`
   model it should have just been an instance of.
 - `coverage` was overloaded as a slot _phase_, conflating "what gate stage runs
   it" with "run it on demand, not in the gate".
-- The gate ran a whole _phase_ as one joined `&&` command, so `finish --json`
+- The gate ran a whole _phase_ as one joined `&&` command, so `done --json`
   could only report per-phase, never per-slot.
 - `fail_fast` defaulted off to preserve the old run-everything behaviour, even
   though an agent-driven gate almost always wants a fast abort.
@@ -37,13 +41,13 @@ Cut **1.0**, lift the backward-compatibility constraint, and make the clean
 changes the constraint had blocked. Each lands in its own commit and amends the
 ADR it touches (see the _Update (1.0)_ sections):
 
-- **Unify ratchets** — coverage becomes `[ratchets.coverage]` like any other;
+- **Unify standards** — coverage becomes `[standards.coverage]` like any other;
   the scalar, reserved name, `0`-disables rule, `%` fallback, the `coverage`
-  phase, and the `finish:coverage`/`finish:ratchets` split are all removed. One
-  command, `agent ratchets`. (ADR 0003)
+  phase, and the historical `finish:coverage`/`finish:ratchets` split are all
+  removed. One current command, `discern standards`. (ADR 0003)
 - **Per-slot execution** — each `[slots.<name>]` runs as its own tracked job
-  (`fix` serial, the rest concurrent within their stage); `finish --json`
-  reports per-slot. (ADRs 0002, 0004)
+  (`fix` serial, the rest concurrent within their stage); `done --json` reports
+  per-slot. (ADRs 0002, 0004)
 - **`fail_fast` defaults on** — opt out, not in; it applies to side gates too.
   (ADR 0006)
 - **A first-class config document** — the `setup --config` / `adapter.json`
@@ -58,9 +62,9 @@ ADR it touches (see the _Update (1.0)_ sections):
 
 Ship a one-shot `discern upgrade` that rewrites a pre-1.0 `discern.toml` to the
 1.0 shape in place (comment-preserving): `coverage_min` → a
-`[ratchets.coverage]` table, the `coverage` slot phase → a measurement slot, and
-`{{db}}` … → `@db@` …. It is idempotent (a clean 1.0 file reports nothing to do)
-and honours `--dry-run`/`--json`. It touches only `discern.toml`; the engine
+`[standards.coverage]` table, the `coverage` slot phase → a measurement slot,
+and `{{db}}` … → `@db@` …. It is idempotent (a clean 1.0 file reports nothing to
+do) and honours `--dry-run`/`--json`. It touches only `discern.toml`; the engine
 itself is refreshed by `discern upgrade`, as always.
 
 To close the loop, **`upgrade` and `doctor` detect a pre-1.0 config** (reusing
@@ -82,7 +86,7 @@ The kit version moves to **1.0.0**.
 
 ## Consequences
 
-- The model is materially simpler: one ratchet shape, one execution unit (the
+- The model is materially simpler: one standard shape, one execution unit (the
   slot), one fast-by-default gate, one versioned config document, one token
   delimiter per layer, one declared managed-set. Several special-cases and ~tens
   of lines of fallback logic are gone.

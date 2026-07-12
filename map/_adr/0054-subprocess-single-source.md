@@ -1,5 +1,9 @@
 # ADR 0054: One module owns process spawning — git and `sh -c` funnel through shared runners
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted; extends [ADR 0051](0051-canonical-set-parity.md)'s
 drive-off-the-live-tree guard discipline to subprocess spawning, and clears the
 last open-coded remnants of the shell engine that preceded the single binary
@@ -8,11 +12,11 @@ last open-coded remnants of the shell engine that preceded the single binary
 ## Context
 
 The engine drives two kinds of external process: git, and operator-supplied
-shell commands (gate jobs, ratchet measurements, worktree setup steps). Each was
-spawned where it was needed — nine `new Deno.Command(…)` git sites and several
-`sh -c` sites — every one re-deciding the same details: how to resolve the git
-binary, whether to capture or inherit stdio, how to decode output, what an empty
-command means, and what a failed spawn returns.
+shell commands (gate jobs, standard measurements, worktree setup steps). Each
+was spawned where it was needed — nine `new Deno.Command(…)` git sites and
+several `sh -c` sites — every one re-deciding the same details: how to resolve
+the git binary, whether to capture or inherit stdio, how to decode output, what
+an empty command means, and what a failed spawn returns.
 
 Open-coding each call is how a shell script works — every `git …` and every
 `$(…)` is just another line — and the scatter carried three concrete costs:
@@ -20,7 +24,7 @@ Open-coding each call is how a shell script works — every `git …` and every
 - **An inconsistency that had become a latent bug.** The `GIT_BIN` override was
   resolved at five sites and hard-coded to `"git"` at four (the installer's
   tree-cleanliness check, scope classification, the fix-stage strand check, the
-  ratchet baseline read). A project pointing `GIT_BIN` at a wrapper got it
+  standard baseline read). A project pointing `GIT_BIN` at a wrapper got it
   honored in some operations and bypassed in others.
 - **Conventions defined more than once.** The empty-command `:` no-op lived in
   three places; the "could not spawn" code `127` in two; the "git missing → a

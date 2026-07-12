@@ -1,5 +1,9 @@
 # ADR 0104: `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; implements
 [design principle 12](../00-orientation/design-principles.md) (exit honesty) and
 [13](../00-orientation/design-principles.md) (a provable footprint); inverts
@@ -50,10 +54,11 @@ uninstall that misses a new file silently breaks the promise it exists to keep.
 - **The forcing function is a round-trip test, not a compile error.** The strip
   logic a co-owned file needs is inherently per-file (a JSON settings merge and
   a TOML config merge reverse differently), so the tie is a runtime guard
-  (`engine_uninstall_test.ts`): wire the full harness for every known agent,
-  uninstall, and assert every registry-declared created path is gone and the
-  co-owned files are byte-restored. A new provider file auto-enrols — the test
-  fails until uninstall handles it (ADR 0051's runtime-forcing-function form).
+  (`engine_uninstall_test.ts`): wire the full discern setup for every known
+  agent, uninstall, and assert every registry-declared created path is gone and
+  the co-owned files are byte-restored. A new provider file auto-enrols — the
+  test fails until uninstall handles it (ADR 0051's runtime-forcing-function
+  form).
 - **Co-owned strips are exact and conservative.** A hook group is removed only
   when every command in it invokes the `discern` binary; a permission or a
   set-if-absent scalar is removed only when it still equals what discern seeded;
@@ -67,10 +72,10 @@ uninstall that misses a new file silently breaks the promise it exists to keep.
   accepted, valuable without the tool (principle 12). The verb ends by listing
   what stayed and the one install-method-agnostic line to remove the binary
   itself.
-- **CLI-only, deliberately not an MCP tool.** Uninstalling the harness is a
-  human's decision; exposing it as a `discern_*` tool would invite an agent to
-  reach for it mid-session. It is the one read/run verb intentionally absent
-  from the MCP surface for that reason (recorded so the verb-parity guard's MCP
+- **CLI-only, deliberately not an MCP tool.** Uninstalling discern is a human's
+  decision; exposing it as a `discern_*` tool would invite an agent to reach for
+  it mid-session. It is the one read/run verb intentionally absent from the MCP
+  surface for that reason (recorded so the verb-parity guard's MCP
   reconciliation reads as intent, not omission).
 - **It refuses while linked worktrees are active**, and refuses to run from a
   worktree rather than the main checkout — never pull the wiring out from under
@@ -118,4 +123,4 @@ uninstall that misses a new file silently breaks the promise it exists to keep.
   exit-honesty verb exists to avoid.
 - **Exposing uninstall as an MCP tool for symmetry with the other read/run
   verbs.** Rejected: the asymmetry is the point (see Decision) — an agent should
-  not be one tool call away from removing the harness it is working inside.
+  not be one tool call away from removing discern it is working inside.

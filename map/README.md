@@ -34,7 +34,7 @@ Two commands read a documentation tree, and they read **different** ones:
   root; [ADR 0120](_adr/0120-launch-verb-canon.md)). This repo uses that
   default. It takes a one-call `--dir` override, and (unlike `help`) is refused
   before setup, since the project's tree is empty until setup seeds and fills it
-  ([ADR 0080](_adr/0080-configured-agent-docs-root.md)).
+  ([ADR 0080](_adr/0080-configured-agent-map-root.md)).
 
 Both share one implementation and the same surfaces: an interactive picker on a
 TTY, and `--list` / `--json` / `--raw` / `--export` off one.

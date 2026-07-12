@@ -1,5 +1,9 @@
 # ADR 0095: Standardize the prelaunch CLI vocabulary
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current
+> read-only question is `impact`; the intermediate `scopes` spelling was
+> retired. The remaining decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -24,7 +28,7 @@ The launched CLI has one canonical spelling for each job:
 
 - `identity` replaces `worktree-name`.
 - `preset` replaces `add-preset`.
-- `scopes` replaces `changed-scopes`.
+- `impact` replaces `changed-scopes` (and the intermediate `scopes` spelling).
 - `worktree setup` is the explicit setup action; bare `worktree` is a help-only
   command group.
 - The worktree colon forms are removed; the spaced subcommands are the only

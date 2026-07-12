@@ -22,9 +22,9 @@ the agent in the loop supplies judgement.
   It becomes an open **review** with a question, the material to judge it
   against, and a teach describing what good looks like.
 
-**Baseline health is computed from deterministic rules only** (weighted;
-`partial` earns half credit). It says how much is objectively weak, not how
-complete or mature the project is. A `100/100` baseline can—and normally
+**Automated practice health is computed from deterministic rules only**
+(weighted; `partial` earns half credit). It says how much is objectively weak,
+not how complete or mature the project is. A `100/100` baseline can—and normally
 does—sit beside open improvement reviews. Those reviews cover questions such as:
 
 - are tests isolated enough for parallel execution, and do they protect
@@ -51,10 +51,10 @@ Every successful result carries one `next_action`.
 2. Once no objective gap remains, the first applicable qualitative review leads.
    Catalog order is therefore priority order for judgement work.
 
-The human report places that action directly below **Baseline health** and the
-explicit **N improvement reviews open** line. The full weakest-first detail
-remains available for context, but the user does not have to turn a checklist
-into a priority queue themselves.
+The human report places that action directly below **Automated practice health**
+and the explicit **N improvement reviews open** line. The full weakest-first
+detail remains available for context, but the user does not have to turn a
+checklist into a priority queue themselves.
 
 ## Categories
 
@@ -83,8 +83,9 @@ discern improvement --min-score 70      # fail below a baseline-health floor
 
 The command was a hard rename from `audit`; there is no `audit` alias. `improve`
 is accepted only as a grammatical variant and normalizes silently to
-`improvement`. See [ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md)
-for the trade-off.
+`improvement`. See
+[ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md) for the
+trade-off.
 
 ## Result envelope
 
@@ -132,9 +133,9 @@ apply the action, rerun the coach, and continue the improvement loop.
 
 ## See also
 
-- [ADR 0079](../_adr/0079-improve-is-a-coach-not-an-audit.md) — why the verb is
-  a hard rename and how next-action priority works.
+- [ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md) — why the verb
+  is a hard rename and how next-action priority works.
 - [ADR 0029](../_adr/0029-best-practices-audit.md) — why deterministic and
   subjective rules remain distinct.
-- [ADR 0057](../_adr/0057-rate-ratchets.md) — why growing-tree counts should be
+- [ADR 0057](../_adr/0057-rate-standards.md) — why growing-tree counts should be
   normalized into rates.

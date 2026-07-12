@@ -1,5 +1,9 @@
 # ADR 0075: `discern setup` is a staged, consent-driven handshake
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `docs` → `map` where it names the command, config, or tree; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted; revises [ADR 0036](0036-unify-setup.md) (unify init +
 bootstrap into one `discern setup`),
 [ADR 0037](0037-setup-incompleteness-observable.md) (incompleteness is
@@ -94,7 +98,7 @@ hard invariant is that nothing is written until `begin`.** Four phases:
    version it observed). The declarative `--config`/flag path (CI, presets)
    lands here too and skips the handshake.
 
-4. **`discern setup done` → unchanged proof.** `refresh → doctor → finish`, then
+4. **`discern setup done` → unchanged proof.** `refresh → doctor → done`, then
    `[meta].bootstrapped` (ADR 0065). It now also emits the **provider-aware
    reactivation handoff**: the `discern_*` MCP tools, session hooks, and project
    rules are wired but load at session start, so each configured agent is told
@@ -178,9 +182,9 @@ The explicit *no*s:
   the precise path that will appear beside your checkout — which is both better
   UX and the natural home for the teaching moment that discern's docs tree is
   "what is inferable from the code," distinct from a hand-curated one.
-  [ADR 0080](0080-configured-agent-docs-root.md) makes the chosen location
+  [ADR 0080](0080-configured-agent-map-root.md) makes the chosen location
   persistent: `verify` remains read-only and passes it to `begin`, which records
-  `[docs].dir`.
+  `[map].dir`.
 
 - **Provenance makes triage possible.** `doctor` surfaces who set the project
   up; a broken-install report can be read against the model that produced it.

@@ -22,7 +22,7 @@ place: **last**, after the scope gates. A stale `CLAUDE.md` or a drifted
 `.claude/skills/` blocked the gate only at the end — so an agent paid the full
 fix/build/check∥test cost, then read "run `discern refresh` and re-run." That
 re-run discards the gate's whole result, exactly the waste ADR 0050 removed for
-the merge check. `discern integrate` ([ADR 0055](../0055-integrate-verb.md)) now
+the merge check. `discern integrate` ([ADR 0055](../0055-update-verb.md)) now
 bundles the refresh into a merge, but a hand-edit or a forgotten refresh still
 strands drift, and the gate still surfaced it last.
 

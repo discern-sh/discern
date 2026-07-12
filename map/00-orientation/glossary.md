@@ -67,7 +67,7 @@ own documentation, which discern never touches; pointing `[map].dir` at existing
 docs is deliberate consent to apply the map discipline there. This repo uses the
 root `map/` default. `setup begin` scaffolds it eagerly and the setup authoring
 pass fills it — a blank map is worse than none
-([ADR 0100](../_adr/0100-doctree-is-the-agents-map.md)).
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).
 
 ### Engine
 
@@ -324,7 +324,7 @@ is declared under `[standards]` and held against the [Trunk](#trunk). It
 **inlines its own `run`**, the command that prints
 `DISCERN_METRIC <metric> <number>`. Standards are slow, so they run on demand
 via `discern standards`, not as part of `done`
-([ADR 0003](../_adr/0003-named-metric-ratchets.md),
+([ADR 0003](../_adr/0003-named-metric-standards.md),
 [ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
 
 ### Co-change advisory
@@ -398,7 +398,7 @@ worktree's branch and re-materialize the generated agent files +
 A no-op when the branch already contains main. It merges into a clean tree only,
 and on a conflict it aborts the merge and reports the conflicting files. The
 action the [Gate](#gate)'s fail-fast merge check points a behind branch at
-([ADR 0055](../_adr/0055-integrate-verb.md)).
+([ADR 0055](../_adr/0055-update-verb.md)).
 
 ### Accept
 

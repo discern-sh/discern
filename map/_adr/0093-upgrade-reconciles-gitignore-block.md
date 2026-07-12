@@ -1,15 +1,20 @@
 # ADR 0093: `upgrade` reconciles the discern `.gitignore` block
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar, the managed gitignore markers → `discern`; the decision and reasoning
+> are unchanged.
+
 **Status**: accepted
 
 ## Context
 
 The shipped `.gitignore` fragment protects discern's generated artifacts:
 compiled agent files, materialized skills, and provider-local machine state.
-Fresh setup appended that fragment once, guarded only by
-`# --- discern harness ---`. Existing installs then moved forward through a mix
-of schema migrations and the registry-derived `ensureAgentArtifactsIgnored`
-helper, each adding only the one rule it knew was missing.
+Fresh setup appended that fragment once, guarded only by `# --- discern ---`.
+Existing installs then moved forward through a mix of schema migrations and the
+registry-derived `ensureAgentArtifactsIgnored` helper, each adding only the one
+rule it knew was missing.
 
 That split ownership model did not converge. A project upgraded across several
 releases could accumulate multiple `# discern:` sections, stale comments, and
@@ -33,9 +38,9 @@ The constraints are tight:
 discern owns exactly one delimited block in `.gitignore`:
 
 ```gitignore
-# --- discern harness ---
+# --- discern ---
 ...
-# --- /discern harness ---
+# --- /discern ---
 ```
 
 Fresh setup writes the canonical block. `discern upgrade` reconciles the same
@@ -63,7 +68,7 @@ block is preserved.
 ## Consequences
 
 Users who have upgraded across many discern releases can run `discern upgrade`
-once and end up with one readable, current harness block instead of a pile of
+once and end up with one readable, current discern block instead of a pile of
 historical fragments. Future ignore-rule changes converge through the same path
 rather than through one-off migrations.
 

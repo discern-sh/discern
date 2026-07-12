@@ -1,4 +1,9 @@
-# ADR 0076: The engine commits the harness machinery it scaffolds
+# ADR 0076: The engine commits discern machinery it scaffolds
+
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `docs` → `map` where it names the command, config, or tree, the
+> retired product-category wording → `discern`, the gate, or the bar; the
+> decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -35,11 +40,11 @@ The pressure was to extend that ownership backward to `begin`.
 
 ## Decision
 
-The engine commits the harness machinery it scaffolds. After `begin` scaffolds
-and records provenance, and before it prints the brief, it commits **exactly**
-the machinery — the config, the `.gitignore` block, the per-agent MCP + hooks
-files, and any app-managed worktree-lifecycle config an agent declares (Codex's
-`environment.toml`) — as one `discern: scaffold harness` commit on the
+The engine commits discern machinery it scaffolds. After `begin` scaffolds and
+records provenance, and before it prints the brief, it commits **exactly** the
+machinery — the config, the `.gitignore` block, the per-agent MCP + hooks files,
+and any app-managed worktree-lifecycle config an agent declares (Codex's
+`environment.toml`) — as one `discern: scaffold wiring` commit on the
 `discern-setup` branch. The committed set is derived from the scaffold outcome
 (the written seed paths ∪ the MCP-wired paths ∪ the worktree-app-wired paths),
 minus the authored-content seeds — the union of every category discern itself
@@ -49,7 +54,7 @@ MCP wiring) only has to flow into that outcome once to be covered here.
 The explicit **no**s:
 
 - It commits **only** discern's machinery — never `git add -A`. The
-  authored-content seeds the agent fills (`guidance.md`, the `docs/` skeletons,
+  authored-content seeds the agent fills (`guidance.md`, the map skeletons,
   `TODO.md`, and the optional `brief.md`) are deliberately left uncommitted as
   the agent's to write and commit. The generated agent files
   (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are gitignored and never force-added.

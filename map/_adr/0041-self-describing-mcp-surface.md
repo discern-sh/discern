@@ -1,5 +1,10 @@
 # ADR 0041: A self-describing MCP surface built on typed result schemas
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, `scopes` → `impact` where it names the verb, `docs` → `map` where it
+> names the command, config, or tree; the decision and reasoning are unchanged.
+
 **Status**: accepted; extends [ADR 0038](0038-official-mcp-sdk.md) and
 [ADR 0028](0028-result-envelope-and-diagnostics.md)
 
@@ -30,7 +35,7 @@ Two correctness gaps also sat under the surface we were about to formalize.
 their joined stage command ran through `runShellInherit`, which discards output
 under the quiet `--json` rule
 ([ADR 0030](_superseded/0030-quiet-json-output.md)) — so the result an agent
-reads carried no `steps[]` and no `diagnostics[]`, unlike `finish`. Baking a
+reads carried no `steps[]` and no `diagnostics[]`, unlike `done`. Baking a
 schema over that hole would have enshrined it.
 
 ## Decision
@@ -41,16 +46,16 @@ a single source**.
 **One Zod source per result shape (the SSOT spine).**
 `src/shared/result_schemas.ts` defines, once: an **envelope schema** that
 mirrors exactly what `serializeResult` emits; a **per-verb `data` schema** for
-each verb that carries `data` (`status`, `audit`, `doctor`, `scopes`,
-`docs`/`help`, `finish`'s gate data, `ratchets`); and a **per-verb output
-schema** — the envelope with `data` narrowed to that verb's shape. The shape is
-tied to reality from both ends:
+each verb that carries `data` (`status`, `audit`, `doctor`, `impact`,
+`map`/`help`, `done`'s gate data, `standards`); and a **per-verb output schema**
+— the envelope with `data` narrowed to that verb's shape. The shape is tied to
+reality from both ends:
 
 - **Compile time:** each verb's core types its `data` as `z.infer<…>` of its
   schema (the `status`/`doctor` shapes _moved into_ `result_schemas.ts` and the
-  cores import the inferred types back; `finish`/`audit`/`scopes`/`docs` tie
-  theirs via the data type or a `satisfies`). A core that drifts from its schema
-  no longer compiles.
+  cores import the inferred types back; `done`/`audit`/`impact`/`map` tie theirs
+  via the data type or a `satisfies`). A core that drifts from its schema no
+  longer compiles.
 - **Run time:** a faithfulness test runs every verb across its modes (success,
   failure, refusal, dry-run, and the per-verb variants) and asserts the real
   `serializeResult` output validates against its schema; the envelope schema is
@@ -63,27 +68,27 @@ wrong, and we fix the mismatch, never widen to `z.any()`.
 
 **Every tool advertises `title`, `outputSchema`, and honest `annotations`.** The
 annotations are truthful `ToolAnnotations` hints: read-only (`status`, `doctor`,
-`scopes`, `audit`, `docs`, `help`), mutating (`finish`, `prepare`, `test`,
-`ratchets` — they run commands / rewrite files), and destructive (`graduate` —
-it tears down resources and moves the branch). `ToolAnnotations` is declared
+`impact`, `audit`, `map`, `help`), mutating (`done`, `prepare`, `test`,
+`standards` — they run commands / rewrite files), and destructive (`accept` — it
+tears down resources and moves the branch). `ToolAnnotations` is declared
 locally because the SDK keeps that type behind a `types.js` subpath its package
 `exports` map doesn't expose.
 
 **The server ships `instructions`** — the native "when to use which tool" block,
 loaded by capable clients on connect — carrying the strong MCP-first stance
-(prefer the tools over the CLI) and made feature-aware (the docs/graduate lines
+(prefer the tools over the CLI) and made feature-aware (the map/accept lines
 drop when their feature is off), mirroring the tool gating.
 
-**`discern_ratchets` is exposed**, over a `ratchetsResult` core factored out of
-the CLI path, annotated mutating and described as slow / on-demand — explicitly
-**not** part of `finish`.
+**`discern_standards` is exposed**, over a `standardsResult` core factored out
+of the CLI path, annotated mutating and described as slow / on-demand —
+explicitly **not** part of `done`.
 
 **Resources pair with the tools, they do not replace them.** Five resources —
 `discern://status`, `discern://scopes`, `discern://config`, `discern://help` (+
 a `{target}` template), and `discern://docs` (+ template) — are computed **fresh
 on every read** (no subscriptions, no `listChanged`), serve the verb's `data`
 payload rather than the full envelope, and are gated exactly like their tools
-(the docs resource on the `docs` feature and on setup completion; help always).
+(the docs resource on the `map` feature and on setup completion; help always).
 Resources are application-driven and not reliably auto-injected across the ~80%
 of clients, so the **tools stay the reliable path** and resources are the
 elegant attachable surface beside them.
@@ -92,14 +97,14 @@ The explicit **no**s:
 
 - **The `worktree` command group is NOT exposed** as tools or resources. They
   are hook-driven, and an agent must never hop between or prune the worktree it
-  is sitting in. `graduate` is the one lifecycle op exposed, and it stays the
-  only one.
+  is sitting in. `accept` is the one lifecycle op exposed, and it stays the only
+  one.
 - **No prompts, no progress / cancellation / logging / subscriptions, no
   Streamable HTTP.** Deferred — uneven client support, and they earn nothing for
   a local stdio tool today.
 
 **Prerequisite fix:** `prepare` and `test` now run through the gate's job runner
-(the machinery `finish` uses), so a failure carries the same `steps[]` +
+(the machinery `done` uses), so a failure carries the same `steps[]` +
 `diagnostics[]` — closing the correctness hole _before_ its shape was baked into
 a schema.
 

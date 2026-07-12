@@ -1,5 +1,10 @@
 # ADR 0029: A best-practices audit that splits deterministic from subjective rules
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `docs` → `map` where it names the
+> command, config, or tree, the retired product-category wording → `discern`,
+> the gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted; renders off
 [ADR 0028](0028-result-envelope-and-diagnostics.md)
 
@@ -8,18 +13,18 @@
 `discern doctor` answers _is this install valid and runnable?_ — a pass/fail
 health check (the config parses, the schema is current, the commands resolve).
 It deliberately says nothing about whether a project actually **follows** the
-harness's best practices: tests wired into the gate, substantive guidance, a
-docs tree with ADRs, a quality ratchet, per-worktree resources for anything
-shared. A freshly-installed harness is a green gate you grow into — but nothing
+discern's best practices: tests wired into the gate, substantive guidance, a
+docs tree with ADRs, a quality standard, per-worktree resources for anything
+shared. A fresh discern install is a green gate you grow into — but nothing
 pointed at _where_ to grow, taught an agent _how_, or let an agent **surface
 those improvements on its own**.
 
 The hard part is that "best practice" is only half mechanical. Some of it is
 crisply decidable from the config and the tree (_is a test command wired? does
-`docs/_adr` hold a real ADR?_). The rest needs **judgement**: is the guidance
+`map/_adr` hold a real ADR?_). The rest needs **judgement**: is the guidance
 genuinely project-specific, or generic filler an agent could infer from the
-code? Do the docs still match the code? Is there an un-ratcheted metric worth
-holding? discern is **one self-contained, deterministic binary** — no model, no
+code? Do the docs still match the code? Is there a metric worth holding to a
+standard? discern is **one self-contained, deterministic binary** — no model, no
 network, runs offline in CI — so it cannot answer those itself. The temptation
 is to approximate them with heuristics (word counts, keyword presence), but that
 buys false precision: a 400-character `guidance.md` can still be vacuous.

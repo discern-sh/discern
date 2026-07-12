@@ -1,5 +1,9 @@
 # ADR 0062: The MCP server tracks its own working root, and retires location-based tool visibility
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
+> `accept`, `integrate` → `update`; the decision and reasoning are unchanged.
+
 **Status**: accepted. Revises the location-aware tool _visibility_ of
 [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md) §2 (the
 `requiresLocation` hiding) while keeping its defensive refusals; builds on the
@@ -21,10 +25,10 @@ worktree, and continues working in it. But the agent moves by `cd`-ing in its
 _own_ shell (the Bash tool's process); the MCP subprocess never sees it. So the
 server stays rooted in the main checkout, and from that stale connection:
 
-- `discern_graduate` / `discern_integrate` are **hidden** (the
+- `discern_accept` / `discern_update` are **hidden** (the
   `requiresLocation: "worktree"` gate, ADR 0058 §2), so the agent that just
   built a feature in the worktree cannot finish it; and
-- worse, _every_ verb — `discern_finish`, `discern_status` — operates on the
+- worse, _every_ verb — `discern_done`, `discern_status` — operates on the
   **main checkout**, not the worktree. A gate run from the stale connection
   gates a clean, unchanged trunk: a false green.
 
@@ -38,9 +42,9 @@ empirically confirmed against discern's own server: `discern_status` reports
 `location: "worktree"` only when the session was _opened in_ the worktree; a
 session opened on the trunk reports `location: "main"` for its whole life.
 
-Retiring the visibility gate alone — the instinctive "just un-hide graduate" —
+Retiring the visibility gate alone — the instinctive "just un-hide accept" —
 does not help and makes the DX worse: on a main-rooted server, a revealed
-`discern_graduate` runs against the trunk and refuses ("nothing to graduate"). A
+`discern_accept` runs against the trunk and refuses ("nothing to accept"). A
 visible-but-refusing tool is more confusing than a hidden one. **The frozen root
 is the disease; visibility is a symptom.** And telling the agent to go open a
 fresh session turns `discern_start` into a verb that starts nothing and asks the
@@ -58,10 +62,10 @@ root (`findRoot()`), and re-pointed on exactly two lifecycle transitions:
 - **`discern_start`** sets it to the worktree it just created
   (`result.data.path`). `start` stops being a no-op at the MCP layer: it cannot
   relocate the client's session, but it _can_ re-aim the live server, so
-  subsequent `finish` / `integrate` / `graduate` calls operate on the new
-  worktree with nothing for the agent to thread.
-- **`discern_graduate`** re-aims it to the **main checkout the branch landed
-  in** — carried in the result's `data.root`
+  subsequent `done` / `update` / `accept` calls operate on the new worktree with
+  nothing for the agent to thread.
+- **`discern_accept`** re-aims it to the **main checkout the branch landed in**
+  — carried in the result's `data.root`
   ([ADR 0072](0072-typed-mcp-status-forcing-function.md)-style typed data) —
   since the worktree it operated on is removed.
 
@@ -70,11 +74,11 @@ root (`findRoot()`), and re-pointed on exactly two lifecycle transitions:
   > the trunk (true for Claude Code). Phase B's Codex `environment.toml` wiring
   > ([ADR 0073](0073-codex-worktree-lifecycle-comanagement.md)) made the Codex
   > _app_ spawn the server **inside its worktree** for the first time, so the
-  > spawn root IS the worktree being graduated — re-aiming there would strand
-  > the server in the grave of the directory it just removed. Re-aiming to the
-  > landing main checkout is correct for a server launched anywhere; it equals
-  > the spawn root in the trunk-launched case, so nothing changed for Claude
-  > Code.
+  > spawn root IS the worktree being landed by `accept` — re-aiming there would
+  > strand the server in the grave of the directory it just removed. Re-aiming
+  > to the landing main checkout is correct for a server launched anywhere; it
+  > equals the spawn root in the trunk-launched case, so nothing changed for
+  > Claude Code.
 
 Resolution per call is `args.path ?? workingRoot`. The verb **cores stay pure**
 — they remain functions of an explicit `root`; the working root is a thin,
@@ -84,7 +88,7 @@ project command** the core launches. Resolving configuration, scopes, and git
 state against one root while allowing `format`/`test`/scope-gate commands to
 inherit the MCP process cwd would certify a different checkout from the one the
 commands actually checked. The gate runner therefore requires `cwd = root`;
-ratchet measurements and command-resolution probes use the same rule. This also
+standard measurements and command-resolution probes use the same rule. This also
 applies to a short-lived CLI invoked below the project root: root discovery, not
 the caller's subdirectory, defines project-command execution.
 
@@ -96,15 +100,15 @@ non-project path falls through the existing `not_initialized` envelope). `path`
 wins over the working root for that one call.
 
 > **Refined (Phase B).** "For that one call" has one exception: a
-> `path`-override `discern_graduate` that **removes the directory the held root
+> `path`-override `discern_accept` that **removes the directory the held root
 > points at**. A launch-pinned agent (Codex) spawns the server inside its
-> worktree and graduates it _by `path`_, then issues a follow-up call with no
+> worktree and accepts it _by `path`_, then issues a follow-up call with no
 > `path` — which would resolve the now-deleted worktree. So the re-aim runs even
 > on a `path` override, but **only when the held root no longer exists**
-> (`heldRootMissing` in `runTool`): graduate that removed _your_ root re-roots
-> you to where it landed; graduating some _other_ worktree by path leaves your
-> live held root untouched, preserving the one-call rule for every
-> non-destructive case.
+> (`heldRootMissing` in `runTool`): accept that removed _your_ root re-roots you
+> to where it landed; graduating some _other_ worktree by path leaves your live
+> held root untouched, preserving the one-call rule for every non-destructive
+> case.
 
 > **Refined ([ADR 0111](0111-cross-project-path-and-strict-tool-schemas.md)).**
 > Two of this section's edges moved. `discern_start`, originally the one
@@ -119,7 +123,7 @@ wins over the working root for that one call.
 
 The held working root is not mere convenience over a bare `path` parameter — it
 is a **safety default**. Path-only and stateless has a sharp edge: an agent that
-forgets `path` on `discern_finish` silently gates the _spawn_ root, the
+forgets `path` on `discern_done` silently gates the _spawn_ root, the
 false-green this whole record exists to prevent. Defaulting to the last-started
 worktree turns "forgot the parameter" into the right thing.
 
@@ -128,9 +132,9 @@ worktree turns "forgot the parameter" into the right thing.
 The `requiresLocation`-driven hiding from `tools/list` (ADR 0058 §2) is removed;
 all worktree-lifecycle tools are always listed. This is what makes a re-aimed
 server usable: once `discern_start` re-points the working root to a worktree,
-`discern_graduate` must be _callable_, so it can no longer be hidden by the
+`discern_accept` must be _callable_, so it can no longer be hidden by the
 server's spawn location. The **defensive refusals stay** — `start` still refuses
-from inside a worktree, `graduate` / `integrate` still refuse on the trunk — so
+from inside a worktree, `accept` / `update` still refuse on the trunk — so
 correctness is unchanged; only the UX-level hiding goes. Visibility is no longer
 the safety boundary; the cores are.
 
@@ -158,8 +162,8 @@ server cannot detect this, two things are load-bearing, not optional:
 ## Consequences
 
 - The motivating failure is fixed at the root: a single session can
-  `discern_start` then `discern_graduate` the same worktree without re-rooting
-  the MCP connection. The headline regression test — start→graduate over one
+  `discern_start` then `discern_accept` the same worktree without re-rooting the
+  MCP connection. The headline regression test — start→accept over one
   main-rooted connection — guards it.
 - The MCP server gains **one piece of mutable process state.** This is a genuine
   step away from the "resolved once, immutable" model the server held before
@@ -178,8 +182,8 @@ server cannot detect this, two things are load-bearing, not optional:
   project commands follow the former explicitly; they never inherit the MCP
   process cwd. The alignment requirement remains because the agent's own edits
   still follow the latter.
-- The `tools/list` is slightly noisier — an agent on the trunk now sees
-  `graduate` / `integrate` (which refuse cleanly). Traded for never-stuck.
+- The `tools/list` is slightly noisier — an agent on the trunk now sees `accept`
+  / `update` (which refuse cleanly). Traded for never-stuck.
 - Adjacent and out of scope: a sandboxed agent (Codex defaults its sandbox on)
   may force the resolved git common-dir read-only and break worktree commits
   regardless of the working root
@@ -192,7 +196,7 @@ server cannot detect this, two things are load-bearing, not optional:
   original instinct. Rejected as the _sole_ mechanism because a forgotten `path`
   silently gates the wrong tree — the held default exists precisely to make the
   dangerous omission safe. We keep `path` as the override, not the only lever.
-- **Dynamic visibility via `tools/list_changed`.** Reveal `graduate` once a
+- **Dynamic visibility via `tools/list_changed`.** Reveal `accept` once a
   worktree is active. Rejected: no trigger, inconsistent client support, and the
   revealed tool would still hit the wrong root.
 - **Keep the gate; require a fresh worktree-rooted session.** The "correct"

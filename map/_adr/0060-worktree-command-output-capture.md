@@ -1,5 +1,9 @@
 # ADR 0060: Worktree shell commands adopt the gate's capture-on-failure output convention
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `integrate` → `update`, the retired product-category wording →
+> `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+
 **Status**: accepted. Resolves a leak surfaced by
 [ADR 0059](0059-worktree-setup-ensure.md), and aligns the worktree shell runner
 with the gate's job convention (`engine/jobs/command.ts`).
@@ -21,8 +25,8 @@ conventions:
 
 [ADR 0059](0059-worktree-setup-ensure.md) made `[worktree.setup].ensure`
 **convergent** — it now runs at session start (the `SessionStart` hook →
-`worktree ensure`) and on `discern integrate`, not only at one-time creation.
-The `SessionStart` hook's **stdout is injected into the agent as context**. So a
+`worktree ensure`) and on `discern update`, not only at one-time creation. The
+`SessionStart` hook's **stdout is injected into the agent as context**. So a
 chatty `ensure` command — `vale sync`, which streams a download progress bar —
 leaked its raw output straight into **every session's agent context**. The same
 tool run as the `[checks.prose]` gate job never leaks, because the gate
@@ -60,8 +64,8 @@ the logger's narration channel.
 
 - **The Vale leak is gone.** A successful `vale sync` at session start is
   silent, so it never enters agent context; a failed one surfaces on stderr.
-- **One convention across the harness.** Automated commands — gate jobs and
-  worktree commands alike — are quiet on success and loud on failure.
+- **One convention across discern.** Automated commands — gate jobs and worktree
+  commands alike — are quiet on success and loud on failure.
 - **Interactive setup loses live progress.** `discern worktree setup`/`start` no
   longer streams a long `npm ci`/`vale sync` line-by-line; it is silent until
   the command finishes or fails. The pre-run `→ Setup step: …` /

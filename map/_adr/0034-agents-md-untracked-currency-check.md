@@ -1,5 +1,9 @@
 # ADR 0034: AGENTS.md is an untracked build artifact, guarded by a currency check
 
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use `finish` → `done`, `graduate` → `accept`; the decision and
+> reasoning are unchanged.
+
 **Status**: accepted; supersedes the _tracking_ decision in — and
 **consolidates** — [ADR 0032](_superseded/0032-claude-md-imports-agents-md.md)
 (whose surviving contribution, the `@AGENTS.md` pointer, is described in §1–2
@@ -80,7 +84,7 @@ It is surfaced as:
 
 - **`discern status`** — an advisory hint on _either_ condition (read-only
   observation; never blocks).
-- **`discern finish`** — a built-in gate step (a `guidance-check`, disposition
+- **`discern done`** — a built-in gate step (a `guidance-check`, disposition
   `gate`, like the merge check) that **blocks on `stale` only**, gated on the
   `guidance` feature. A `missing` file is _not_ a failure: an untracked artifact
   is legitimately absent on a fresh clone, so blocking it would break
@@ -93,7 +97,7 @@ It is surfaced as:
 catches byte drift, but it cannot catch a byte-current artifact that was forced
 into Git with `git add -f`. `discern status` therefore reports
 `tracked_ignored_artifacts` for any tracked path matched by discern's own
-generated/local ignore model, and `discern finish` blocks with
+generated/local ignore model, and `discern done` blocks with
 `failed_stage: "tracked_artifacts"`. The diagnostic tells the agent to remove
 the paths from the index with `git rm -r --cached -- <path...>`, then run
 `discern refresh`. The detector is derived from the same provider-registry
@@ -108,17 +112,17 @@ generated file or skills directory auto-enrols.
   `guidance.md`/config diffs — the thing a human should actually read — instead
   of as a regenerated `AGENTS.md`. The derivative no longer churns the tree.
 - **The deterrent is now real and self-explaining.** An agent that edits
-  `AGENTS.md` is told, at `finish` time, exactly what it would lose (the diff)
-  and where the edit belongs. The same check doubles as the guard that config
-  and guidance edits were actually compiled.
+  `AGENTS.md` is told, at `done` time, exactly what it would lose (the diff) and
+  where the edit belongs. The same check doubles as the guard that config and
+  guidance edits were actually compiled.
 - **CI shifts off the tracked-file trick.** The `git diff --exit-code` guard for
-  a stale `AGENTS.md` (ADR 0032) is replaced by the `finish` check. Because the
+  a stale `AGENTS.md` (ADR 0032) is replaced by the `done` check. Because the
   check blocks on `stale` and not `missing`, a fresh checkout with no
   `AGENTS.md` stays green; drift is caught the moment the file exists and
   disagrees.
 - **Forced tracking is self-healing.** If an agent overrides the ignore block
   and stages a generated/local artifact anyway, the next `status` names it and
-  the next `finish` refuses to bless the branch until the index is repaired.
+  the next `done` refuses to bless the branch until the index is repaired.
 - **One self-healing path.** `renderAgentFiles` being the single renderer means
   a future change to the compile (a new feature section, a provider) is
   reflected in the check automatically.
@@ -142,15 +146,15 @@ generated file or skills directory auto-enrols.
   currency check makes the tracked-file guard redundant. Untracking also stops a
   regenerated `AGENTS.md` from dirtying the tree every time a worktree
   refreshes.
-- **Warn only in `status`, but let `finish` pass.** Rejected: status is the
-  right orientation surface for the next agent, but the branch should not be
-  able to graduate with a known generated/local artifact in history. The gate is
-  the durable guardrail.
-- **Block `finish` on `missing` too.** Rejected: an untracked artifact is
-  expected to be absent on a fresh checkout, so blocking would red-light
-  first-run CI for every consumer. `status` still surfaces `missing` advisorily,
-  and the normal flows (worktree create, init, upgrade) all run `refresh`, so a
-  working tree has the file.
+- **Warn only in `status`, but let `done` pass.** Rejected: status is the right
+  orientation surface for the next agent, but the branch should not be able to
+  accept with a known generated/local artifact in history. The gate is the
+  durable guardrail.
+- **Block `done` on `missing` too.** Rejected: an untracked artifact is expected
+  to be absent on a fresh checkout, so blocking would red-light first-run CI for
+  every consumer. `status` still surfaces `missing` advisorily, and the normal
+  flows (worktree create, init, upgrade) all run `refresh`, so a working tree
+  has the file.
 - **Auto-heal: run `refresh` in the `fix` stage.** Rejected: silently
   regenerating would erase a deliberate hand-edit before anyone saw it — the
   opposite of the rescue. The check shows the diff first and lets the agent move
