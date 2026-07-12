@@ -120,7 +120,9 @@ smoke     = "deno task dev --version"
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
 # `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
 # list); `provides` an optional free-text label. Use this for anything outside
-# the six capabilities above.
+# the six capabilities above. A check may not reuse a name wired under
+# [capabilities] — the gate keys each job's result by its label, so the two
+# would collide.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # `prose` lints the map with Vale at the check stage — error-severity findings block
@@ -135,7 +137,9 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
 # optional flags tune the gate for changes there. Classification fails OPEN: a
 # path matching no scope counts as a real code change, so an unknown path runs
-# MORE gates, never fewer. Globs use ** for "any depth".
+# MORE gates, never fewer. Globs use ** for "any depth" — a directory prefix
+# ("src/**"), a standard glob ("src/**/*.ext", "src/*"), a "*.ext" suffix at
+# any depth, a "/seg/" segment, or an exact path.
 #   neutral     = true   changes here need no gate (docs, agent guidance)
 #   previewable = true   a person could see changes here — worth a preview link
 #   gate        = "..."  a command `discern done` runs when this scope changed
