@@ -27,12 +27,12 @@ its landing page.
 
 ## Rendering
 
-Markdown renders at request time with `@deno/gfm` and caches for the process
-lifetime — files are immutable per deployment, so the cache never invalidates.
-Syntax highlighting is deliberately monochrome (weights and shades of ink): in
-this design family, color belongs to verdicts alone. Relative links rewrite to
-routes when the target is published, and to the repository on GitHub when it is
-not (ADRs, internal tiers, source files), so no reference dead-ends.
+Markdown renders at request time and caches for the process lifetime — files are
+immutable per deployment, so the cache never invalidates. Syntax highlighting is
+deliberately monochrome (weights and shades of ink): in this design family,
+color belongs to verdicts alone. Relative links rewrite to routes when the
+target is published, and to the repository on GitHub when it is not (ADRs,
+internal tiers, source files), so no reference dead-ends.
 
 ## Reader negotiation
 
