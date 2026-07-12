@@ -5,7 +5,7 @@
 ## Context
 
 The site (ADR 0129) targets Deno Deploy. Deploy Classic — the `dash.deno.com`
-dashboard the publishing notes were written against — shuts down on 20 July
+dashboard the publishing notes were written against — shuts down on July 20,
 2026, superseded by the new Deno Deploy at `console.deno.com`. The platforms
 differ in a way that reaches the code, not just the setup screens.
 

@@ -27,7 +27,7 @@ open http://localhost:4507/       # renders the engineers edition
 ## Deploy to production (Deno Deploy)
 
 > The old dashboard at `dash.deno.com` is **Deploy Classic**, which shuts down
-> on **20 July 2026**. Set the site up on the new Deno Deploy at
+> on **July 20, 2026**. Set the site up on the new Deno Deploy at
 > <https://console.deno.com>. A fresh site skips straight to the steps below;
 > the [migration guide](https://docs.deno.com/deploy/migration_guide/) is only
 > needed to move a pre-existing Classic project.
@@ -58,8 +58,8 @@ One-time setup, in the console at <https://console.deno.com>
    the registrar create the records the console lists — the `_acme-challenge`
    record it shows (so Deploy can provision the TLS certificate) and the
    `CNAME`/`ANAME` that points the domain at the app. If the DNS sits behind
-   Cloudflare, leave the `_acme-challenge` record unproxied (grey cloud) or
-   verification stalls. See the
+   Cloudflare, turn the proxy off for the `_acme-challenge` record (set it to
+   DNS only) or verification stalls. See the
    [domains reference](https://docs.deno.com/deploy/reference/domains/).
 
 After that, every push to `main` deploys automatically. A manual deploy from a
