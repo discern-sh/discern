@@ -29,6 +29,7 @@ import { gateReceiptHonored } from "../gate/receipt.ts";
 import {
   accept,
   IdentityError,
+  type LifecycleContext,
   lifecycleContext,
   update,
   worktreeDrop,
@@ -54,6 +55,52 @@ const BACK = "\x00back";
 export interface DeskOptions {
   /** Present for surface parity only — the desk has no JSON form; it refuses. */
   json?: boolean;
+}
+
+type DeskSelectOptions = Parameters<typeof Select.prompt<string>>[0];
+type DeskMaybePromise<T> = T | Promise<T>;
+
+/** The terminal and effect boundary behind the desk's interactive session.
+ * Production uses {@link DEFAULT_DESK_RUNTIME}; tests replace it with a scripted
+ * runtime so every supervisory path is exercised without pretending a pipe is a
+ * terminal or touching a real worktree. */
+export interface DeskRuntime {
+  canPrompt(): boolean;
+  findRoot(): DeskMaybePromise<string | undefined>;
+  loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
+  status(root: string): DeskMaybePromise<{
+    ok: boolean;
+    data?: StatusData | undefined;
+    message?: string | undefined;
+  }>;
+  mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
+  receiptHonored(path: string): DeskMaybePromise<boolean>;
+  makeOut(): Out;
+  error(message: string): void;
+  select(options: DeskSelectOptions): DeskMaybePromise<string>;
+  confirm(message: string, defaultTo: boolean): DeskMaybePromise<boolean>;
+  input(message: string): DeskMaybePromise<string>;
+  pause(out: Out): DeskMaybePromise<void>;
+  lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
+  accept(
+    ctx: LifecycleContext,
+    opts: { dryRun?: boolean },
+  ): DeskMaybePromise<void>;
+  update(
+    ctx: LifecycleContext,
+    opts: { dryRun?: boolean },
+  ): DeskMaybePromise<void>;
+  drop(
+    ctx: LifecycleContext,
+    target: string,
+    opts: { dryRun?: boolean; force?: boolean },
+  ): DeskMaybePromise<void>;
+  git(
+    args: string[],
+    cwd: string,
+  ): DeskMaybePromise<{ success: boolean; stdout: string; stderr: string }>;
+  shell(command: string, cwd: string): DeskMaybePromise<void>;
+  now(): number;
 }
 
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
@@ -94,6 +141,39 @@ function deskLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
+/** The real terminal/git implementation. Keeping the boundary in one value
+ * makes the whole interactive surface scriptable while the CLI still calls the
+ * same functions with the same options. */
+export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
+  canPrompt: () => canPrompt(false),
+  findRoot: () => findRoot(),
+  loadConfig: (root) => loadConfig(root),
+  status: (root) => statusResult(root),
+  mainRepoPath: (root) => mainRepoPath(root),
+  receiptHonored: (path) => gateReceiptHonored(path),
+  makeOut: () => makeOut(colorEnabled()),
+  error: (message) => console.error(message),
+  select: (options) => Select.prompt<string>(options),
+  confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
+  input: (message) => Input.prompt({ message }),
+  pause: (out) => awaitEnter(out),
+  lifecycle: (root) => lifecycleContext(root, deskLogger()),
+  accept: (ctx, opts) => accept(ctx, opts),
+  update: (ctx, opts) => update(ctx, opts),
+  drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
+  git: (args, cwd) => runGit(args, { cwd }),
+  shell: async (command, cwd) => {
+    const child = new Deno.Command(command, {
+      cwd,
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).spawn();
+    await child.status;
+  },
+  now: () => Date.now(),
+};
+
 /** Run a git read in `cwd` and print its output under a heading ("(none)" when
  * empty) — the desk's inspect view; failures print git's stderr, never throw. */
 async function printGitRead(
@@ -101,8 +181,9 @@ async function printGitRead(
   cwd: string,
   args: string[],
   title: string,
+  runtime: DeskRuntime,
 ): Promise<void> {
-  const res = await runGit(args, { cwd });
+  const res = await runtime.git(args, cwd);
   const body = (res.success ? res.stdout : res.stderr).trimEnd();
   out.heading(title);
   out.raw(body === "" ? `${out.c.dim}(none)${out.c.reset}\n` : `${body}\n`);
@@ -158,7 +239,11 @@ function renderHeader(
 }
 
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */
-async function pickRow(rows: DeskRow[], out: Out): Promise<string> {
+async function pickRow(
+  rows: DeskRow[],
+  out: Out,
+  runtime: DeskRuntime,
+): Promise<string> {
   const paint = (s: string): string =>
     out.color ? `${out.c.bold}${out.c.cyan}${s}${out.c.reset}` : s;
   const dim = (s: string): string =>
@@ -181,7 +266,7 @@ async function pickRow(rows: DeskRow[], out: Out): Promise<string> {
   options.push({ name: dim("Refresh"), value: REFRESH });
   options.push({ name: dim("Quit"), value: QUIT });
   try {
-    return await Select.prompt({
+    return await runtime.select({
       message: rows.length === 0
         ? "No efforts in flight — nothing needs a decision"
         : "Pick an effort  ·  type to filter",
@@ -208,44 +293,50 @@ async function dispatchAction(
   config: DiscernConfig,
   row: DeskRow,
   action: DeskAction,
+  runtime: DeskRuntime,
 ): Promise<boolean> {
   const trunk = config.project.main_branch;
   const target = basename(row.entry.path);
   switch (action) {
     case "accept": {
       echoCommand(out, `discern accept  (in ${target})`);
-      const ctx = await lifecycleContext(row.entry.path, deskLogger());
-      await accept(ctx, { dryRun: true });
-      if (!(await confirmOrNo(`Land ${row.entry.branch} on ${trunk}?`, true))) {
+      const ctx = await runtime.lifecycle(row.entry.path);
+      await runtime.accept(ctx, { dryRun: true });
+      if (
+        !(await runtime.confirm(`Land ${row.entry.branch} on ${trunk}?`, true))
+      ) {
         return false;
       }
-      await accept(ctx, {});
-      await awaitEnter(out);
+      await runtime.accept(ctx, {});
+      await runtime.pause(out);
       return true;
     }
     case "update": {
       echoCommand(out, `discern update  (in ${target})`);
-      const ctx = await lifecycleContext(row.entry.path, deskLogger());
-      await update(ctx, { dryRun: true });
+      const ctx = await runtime.lifecycle(row.entry.path);
+      await runtime.update(ctx, { dryRun: true });
       if (
-        !(await confirmOrNo(`Merge ${trunk} into ${row.entry.branch}?`, true))
+        !(await runtime.confirm(
+          `Merge ${trunk} into ${row.entry.branch}?`,
+          true,
+        ))
       ) {
         return false;
       }
-      await update(ctx, {});
-      await awaitEnter(out);
+      await runtime.update(ctx, {});
+      await runtime.pause(out);
       return true;
     }
     case "drop": {
       echoCommand(out, `discern worktree drop ${target}`);
-      const ctx = await lifecycleContext(root, deskLogger());
-      await worktreeDrop(ctx, target, { dryRun: true });
-      if (!(await confirmOrNo(`Drop ${target}?`, false))) {
+      const ctx = await runtime.lifecycle(root);
+      await runtime.drop(ctx, target, { dryRun: true });
+      if (!(await runtime.confirm(`Drop ${target}?`, false))) {
         return false;
       }
       try {
-        await worktreeDrop(ctx, target, {});
-        await awaitEnter(out);
+        await runtime.drop(ctx, target, {});
+        await runtime.pause(out);
         return true;
       } catch (e) {
         if (!(e instanceof WorktreeGitError)) {
@@ -256,10 +347,9 @@ async function dispatchAction(
         out.warn(e.message);
         let typed: string;
         try {
-          typed = await Input.prompt({
-            message:
-              `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
-          });
+          typed = await runtime.input(
+            `Type the branch name (${row.entry.branch}) to discard it permanently — anything else cancels`,
+          );
         } catch {
           typed = "";
         }
@@ -268,8 +358,8 @@ async function dispatchAction(
           return false;
         }
         echoCommand(out, `discern worktree drop ${target} --force`);
-        await worktreeDrop(ctx, target, { force: true });
-        await awaitEnter(out);
+        await runtime.drop(ctx, target, { force: true });
+        await runtime.pause(out);
         return true;
       }
     }
@@ -277,13 +367,7 @@ async function dispatchAction(
       const shell = Deno.env.get("SHELL") ?? "/bin/sh";
       echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
       out.info("Exit the shell to return to the desk.");
-      const child = new Deno.Command(shell, {
-        cwd: row.entry.path,
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
-      }).spawn();
-      await child.status;
+      await runtime.shell(shell, row.entry.path);
       return true;
     }
     case "inspect": {
@@ -297,18 +381,21 @@ async function dispatchAction(
         cwd,
         ["log", "--oneline", "--no-decorate", "-15", `${trunk}..HEAD`],
         `Commits not on ${trunk}`,
+        runtime,
       );
       await printGitRead(
         out,
         cwd,
         ["status", "--short"],
         "Uncommitted changes",
+        runtime,
       );
       await printGitRead(
         out,
         cwd,
         ["diff", "--stat", `${trunk}...HEAD`],
         `Diffstat vs ${trunk}`,
+        runtime,
       );
       if (row.receiptHonored) {
         out.ok("gate receipt: this clean HEAD holds a recorded pass");
@@ -324,6 +411,7 @@ async function actOn(
   root: string,
   config: DiscernConfig,
   row: DeskRow,
+  runtime: DeskRuntime,
 ): Promise<void> {
   while (true) {
     const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
@@ -338,7 +426,7 @@ async function actOn(
     ];
     let action: string;
     try {
-      action = await Select.prompt({
+      action = await runtime.select({
         message: `${row.entry.branch}  ·  ${row.summary}`,
         options,
       });
@@ -350,7 +438,14 @@ async function actOn(
     }
     try {
       if (
-        await dispatchAction(out, root, config, row, action as DeskAction)
+        await dispatchAction(
+          out,
+          root,
+          config,
+          row,
+          action as DeskAction,
+          runtime,
+        )
       ) {
         return;
       }
@@ -370,7 +465,10 @@ async function actOn(
  * ended (including "nothing to do"), 1 for a refusal (no TTY, `--json`, no
  * project) or a failed survey.
  */
-export async function runDesk(opts: DeskOptions = {}): Promise<number> {
+export async function runDesk(
+  opts: DeskOptions = {},
+  runtime: DeskRuntime = DEFAULT_DESK_RUNTIME,
+): Promise<number> {
   if (opts.json ?? false) {
     emitResult({
       ok: false,
@@ -381,21 +479,21 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
     });
     return 1;
   }
-  if (!canPrompt(false)) {
-    console.error(
+  if (!runtime.canPrompt()) {
+    runtime.error(
       "discern desk needs an interactive terminal (stdin and stdout TTYs) — in a pipe or script use `discern status`.",
     );
     return 1;
   }
-  const root = await findRoot();
+  const root = await runtime.findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    runtime.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
-  const out = makeOut(colorEnabled());
-  const config = await loadConfig(root);
+  const out = runtime.makeOut();
+  const config = await runtime.loadConfig(root);
 
-  const first = await statusResult(root);
+  const first = await runtime.status(root);
   if (!first.ok || first.data === undefined) {
     out.error(first.message ?? "the status survey failed.");
     return 1;
@@ -403,7 +501,7 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
   if (first.data.location === "worktree") {
     // The desk supervises the fleet, and the fleet's actions (drop, accept)
     // operate from the main checkout — point home rather than half-work here.
-    const mainRepo = await mainRepoPath(root);
+    const mainRepo = await runtime.mainRepoPath(root);
     out.info(
       `The desk runs from the main checkout${
         mainRepo !== undefined ? `: cd ${mainRepo}` : ""
@@ -422,23 +520,23 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
         !entry.is_main && entry.broken !== true &&
         entry.git_unavailable !== true
       ) {
-        receiptByPath.set(entry.path, await gateReceiptHonored(entry.path));
+        receiptByPath.set(entry.path, await runtime.receiptHonored(entry.path));
       }
     }
-    const rows = buildDeskRows(fleet, receiptByPath, Date.now());
+    const rows = buildDeskRows(fleet, receiptByPath, runtime.now());
     renderHeader(out, config, root, data);
 
-    const choice = await pickRow(rows, out);
+    const choice = await pickRow(rows, out, runtime);
     if (choice === QUIT) {
       return 0;
     }
     if (choice !== REFRESH) {
       const row = rows.find((r) => r.entry.path === choice);
       if (row !== undefined) {
-        await actOn(out, root, config, row);
+        await actOn(out, root, config, row, runtime);
       }
     }
-    const next = await statusResult(root);
+    const next = await runtime.status(root);
     if (!next.ok || next.data === undefined) {
       out.error(next.message ?? "the status survey failed.");
       return 1;
