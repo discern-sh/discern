@@ -9,21 +9,21 @@ Contributor-facing: this subtree is not bundled into `discern help`.
 
 Everything lives under [`site/`](../../site/):
 
-| Piece                                             | Role                                                                       |
-| ------------------------------------------------- | -------------------------------------------------------------------------- |
-| [`site/serve.ts`](../../site/serve.ts)            | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
-| [`site/pages/`](../../site/pages/)                | The HTML editions, one self-contained file per page.                       |
-| [`site/text/discern.txt`](../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.      |
+| Piece                                                  | Role                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [`site/serve.ts`](../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
+| [`site/pages/`](../../site/pages/)                     | The HTML editions, one self-contained file per page.                      |
+| [`site/text/discern.txt`](../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
 
 The routes, from the handler's exported `PAGES` table:
 
-| Route             | Page                     | Text client receives     |
-| ----------------- | ------------------------ | ------------------------ |
-| `/`               | the engineers edition    | the plaintext edition    |
-| `/agents`         | the agent's manual       | the plaintext edition    |
-| `/start`          | the prompt-builders edition | the same HTML         |
-| `/careers`        | the careers page         | the same HTML            |
-| `/llms.txt`       | —                        | the plaintext edition, for every reader |
+| Route       | Page                        | Text client receives                    |
+| ----------- | --------------------------- | --------------------------------------- |
+| `/`         | the engineers edition       | the plaintext edition                   |
+| `/agents`   | the agent's manual          | the plaintext edition                   |
+| `/start`    | the prompt-builders edition | the same HTML                           |
+| `/careers`  | the careers page            | the same HTML                           |
+| `/llms.txt` | —                           | the plaintext edition, for every reader |
 
 ## Reader negotiation
 
@@ -44,14 +44,14 @@ file fails the gate.
 
 ## Operating it
 
-[publishing.md](publishing.md) covers running the site locally and deploying
-it to production.
+[publishing.md](publishing.md) covers running the site locally and deploying it
+to production.
 
 ## Current state & gotchas
 
 - The pages load Tailwind from a CDN and fonts from Google Fonts. The root
-  [`TODO.md`](../../TODO.md) tracks self-hosting both before launch — the
-  pages advertise "no analytics on this page", and third-party asset requests
-  undercut that claim.
+  [`TODO.md`](../../TODO.md) tracks self-hosting both before launch — the pages
+  advertise "no analytics on this page", and third-party asset requests undercut
+  that claim.
 - `mockups/landing/` is the design archive. Pages are promoted from there into
   `site/pages/` deliberately; the two are not synced.

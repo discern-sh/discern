@@ -177,21 +177,21 @@ _Product positioning, messaging, and launch/content tasks._
       pages and the plaintext edition lead with it. Stand up the tap (or switch
       the copy to the install path that will exist at launch) before the pages
       go public. Consider a `curl`-pipe installer as the secondary path for the
-      `/start` audience, who often lack Homebrew. Evidence:
-      `site/pages/*.html`, `site/text/discern.txt`.
+      `/start` audience, who often lack Homebrew. Evidence: `site/pages/*.html`,
+      `site/text/discern.txt`.
 - [ ] **Site launch: create the Deno Deploy project and point DNS.** One-time
       account/DNS work only the maintainer can do; the steps are written up in
       `map/90-site/publishing.md`.
 - [ ] **Regenerate the homepage receipt at deploy time.** The `/` receipt
       section bakes numbers from a real `discern done` run recorded at build
-      time. Automate refreshing it (a small script that runs the gate, reads
-      the envelope, and rewrites the receipt values) as part of the deploy
-      flow, so the artifact always cites a current run. Evidence:
-      `site/pages/index.html` (#receipt).
+      time. Automate refreshing it (a small script that runs the gate, reads the
+      envelope, and rewrites the receipt values) as part of the deploy flow, so
+      the artifact always cites a current run. Evidence: `site/pages/index.html`
+      (#receipt).
 - [ ] **Re-capture the /agents DIAGNOSTICS transcript for real before launch.**
-      The man page states its example output is "genuine output, captured
-      3 July 2026 … nothing shown is altered" — inherited from the mockup.
-      Reproduce the one-character defect for real, capture the actual
+      The man page states its example output is "genuine output, captured 3 July
+      2026 … nothing shown is altered" — inherited from the mockup. Reproduce
+      the one-character defect for real, capture the actual
       `discern test --json` envelope and the passing `discern done`, and swap
       the numbers in; the page's honesty framing depends on it. Evidence:
       `site/pages/agents.html` (§DIAGNOSTICS).
