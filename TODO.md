@@ -125,6 +125,16 @@ _Nothing outstanding._
       repo/version values re-checked and a later `setup`/binary affordance that
       writes the workflow for users. Evidence: `map/20-quality-gate/ci.md`.
 
+- [ ] **`engine_mcp_test.ts` flakes under parallel load: 5s response budget.**
+      The MCP tests spawn a real server subprocess and wait a fixed 5000ms per
+      response. Under a busy machine + `deno test --parallel`, 2–5 of them time
+      out while the same suite passes clean in isolation (observed twice in one
+      session: full gate 3 and 5 timeouts, isolated runs 46/46 in 30–64s).
+      Scale the budget (env-driven multiplier, or derive from a baseline ping)
+      so a loaded machine doesn't fail an unrelated gate run. Evidence:
+      `tests/engine_mcp_test.ts:76` (`timed out waiting for MCP response after
+      5000ms`).
+
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
 _Work built but not merged, or otherwise at risk of being lost. Nothing
