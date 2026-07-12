@@ -88,7 +88,10 @@ The verb-routing front of the `discern` binary
 root (the nearest ancestor with a `discern.toml`), routes a known verb to its
 built-in handler, and on an _unknown_ verb execs a matching project
 [Recipe](#recipe) with the `DISCERN_*` environment exported. A built-in verb
-wins over a same-named recipe (warning on the shadow).
+wins over a same-named recipe (warning on the shadow). A word matching nothing
+reports `unknown command` with a did-you-mean suggestion — familiar words from
+other tools ("init", "sync", "land", …) name the canonical verb — and a pointer
+at `discern help`.
 
 ### Recipe
 

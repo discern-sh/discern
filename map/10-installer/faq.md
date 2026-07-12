@@ -146,9 +146,9 @@ removes the `.gitignore` block. Preview it first with
 
 It keeps your content: `discern.toml` and the whole `discern/` folder stay, as
 plain Markdown at paths you chose — worth keeping with or without the tool.
-Removing the binary itself is a separate step: delete the file
-`which discern` reports. [What discern writes](what-discern-writes.md)
-is the full footprint, with removal covered end to end.
+Removing the binary itself is a separate step: delete the file `which discern`
+reports. [What discern writes](what-discern-writes.md) is the full footprint,
+with removal covered end to end.
 
 ## Where do I report a bug?
 
