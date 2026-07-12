@@ -132,13 +132,15 @@ authoring brief; the agent pulls each subsequent page with
 **2. Fill in the stack.** That brief — a structured page per step, served one at
 a time — is what the coding agent already in the loop works through: it sniffs
 the repo, asks the user a few clarifying questions, and _proposes_ Capability
-fills (formatter, linter, type-checker, tests), seeds a starter guidance source,
-and fills the map and the ledger from the repo and those answers — working
-transparently throughout: recommending each change, saying why it helps and that
-`discern` is what will enforce it, committing each stage on its own so the user
-can review or revert, and pausing only for genuine decisions rather than gating
-every step ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The Engine
-stays generic; only `discern.toml` learns the stack. Setup finishes with
+fills (formatter, linter, type-checker, tests) **before any authoring** — the
+gate goes green first, so a setup session interrupted midway leaves protection
+behind rather than documentation without it — then seeds a starter guidance
+source and fills the map and the ledger from the repo and those answers —
+working transparently throughout: recommending each change, saying why it helps
+and that `discern` is what will enforce it, committing each stage on its own so
+the user can review or revert, and pausing only for genuine decisions rather
+than gating every step ([ADR 0044](../_adr/0044-setup-involve-not-gate.md)). The
+Engine stays generic; only `discern.toml` learns the stack. Setup finishes with
 `discern setup done`, which re-derives from repo state that each step's
 authoring actually landed — so a skipped step can't pass
 ([ADR 0078](../_adr/0078-setup-pages-and-per-step-proof.md)) — requires that

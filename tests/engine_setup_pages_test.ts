@@ -84,13 +84,13 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
 Deno.test("setup step <n> --json carries the structured spine AND the prose guidance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "step", "3", "--json"]);
+    const r = await runAgent(dir, ["setup", "step", "4", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const res = JSON.parse(r.stdout);
     assertEquals(res.verb, "setup step");
     const d = res.data;
-    assertEquals(d.step, 3);
+    assertEquals(d.step, 4);
     assertEquals(typeof d.title, "string");
 
     // The machine lane: all six spine fields are present.
@@ -110,7 +110,7 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose guid
 
     // The prose lane: the warm guidance the agent follows verbatim.
     assert(typeof d.guidance === "string" && d.guidance.length > 0);
-    assertStringIncludes(d.guidance, "single source of truth"); // a Step 3 prose anchor
+    assertStringIncludes(d.guidance, "single source of truth"); // a Step 4 prose anchor
 
     // Faithfulness (ADR 0041): the real serialized output validates against the schema.
     SetupStepOutputSchema.parse(res);
@@ -120,10 +120,10 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose guid
 Deno.test("setup step <n> human output leads with the prose, with light navigation rails", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const r = await runAgent(dir, ["setup", "step", "3"]);
+    const r = await runAgent(dir, ["setup", "step", "4"]);
     assertEquals(r.code, 0, r.output);
 
-    assertStringIncludes(r.stdout, "## Step 3 — Draft the design principles");
+    assertStringIncludes(r.stdout, "## Step 4 — Draft the design principles");
     assertStringIncludes(r.stdout, "single source of truth"); // the warm prose leads
     assertStringIncludes(r.stdout, "Next:"); // the chaining rail
     // The raw spine fence must never leak into the human rendering.
@@ -229,7 +229,7 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
       ["design_principles"],
       blocked.stdout,
     );
-    assertEquals(unmet[0]?.step, 3);
+    assertEquals(unmet[0]?.step, 4);
 
     // Completion was NOT recorded — a skipped step can't pass `done`.
     assert(
@@ -243,7 +243,7 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
     const human = await runAgent(dir, ["setup", "done"]);
     assertEquals(human.code, 1, human.output);
     assertStringIncludes(human.stderr, "not finished");
-    assertStringIncludes(human.stderr, "Step 3");
+    assertStringIncludes(human.stderr, "Step 4");
   });
 });
 

@@ -68,13 +68,26 @@ async function readFileOr(
 
 /**
  * The registry. Only the steps with a machine-checkable predicate appear here —
- * steps 0/1/2/5/6/8 are self-verified prose checks with no derived proof. Each
+ * steps 0/1/3/6/7/8 are self-verified prose checks with no derived proof. Each
  * `describe` mirrors its page's `completion_check` field; the parity test pins
  * them together so neither can drift.
  */
 export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
   {
-    step: 3,
+    step: 2,
+    name: "capabilities",
+    describe: "at least one capability is wired in discern.toml.",
+    evaluate({ config }): Promise<boolean> {
+      const wired = Object.keys(KNOWN_CAPABILITIES).some(
+        (name) =>
+          config.capabilities[name as keyof typeof config.capabilities] !==
+            undefined,
+      );
+      return Promise.resolve(wired);
+    },
+  },
+  {
+    step: 4,
     name: "design_principles",
     describe:
       "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced).",
@@ -95,7 +108,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     },
   },
   {
-    step: 4,
+    step: 5,
     name: "guidance",
     describe:
       "The guidance source has a real one-line pitch and a filled-in Conventions section.",
@@ -115,19 +128,6 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
       const pitchFilled = !/_\(one-line pitch/i.test(text);
       const conventionsFilled = !/_\(replace this section/i.test(text);
       return hasConventions && pitchFilled && conventionsFilled;
-    },
-  },
-  {
-    step: 7,
-    name: "capabilities",
-    describe: "at least one capability is wired in discern.toml.",
-    evaluate({ config }): Promise<boolean> {
-      const wired = Object.keys(KNOWN_CAPABILITIES).some(
-        (name) =>
-          config.capabilities[name as keyof typeof config.capabilities] !==
-            undefined,
-      );
-      return Promise.resolve(wired);
     },
   },
 ];
