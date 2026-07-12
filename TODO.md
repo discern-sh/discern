@@ -132,6 +132,19 @@ outstanding._
 
 ## ⚪ Explorations / ideas (unscheduled)
 
+- [ ] **Generalize input-keyed replay to the whole gate.** 6A's standards replay
+      (measure a standard only when its declared `inputs` changed since the
+      baseline measurement; otherwise replay the recorded value, loudly) is the
+      same logic the whole gate could one day use: a diff whose every path is
+      neutral could replay the trunk's gate receipt instead of re-running the
+      suite, taking a docs-only `done` from minutes to seconds. The stakes are
+      far higher than a metric's — the test suite is the gate's soul, and a
+      wrong skip is a landed regression — so let standards replay prove the
+      input-keying in production first (rename handling, dirty-tree paths, the
+      baseline chain) before extending it. Evidence: the 6A replay deliverable
+      and its ADR once landed; `src/engine/gate/receipt.ts` (the gate receipt
+      that would be replayed); `src/engine/scopes/scopes.ts` (`isNeutralPath`).
+
 - [ ] **Review the coupling advisory's judgment constants across diverse repos,
       then consider on-by-default.** `coupling` is zero-config, but its three
       fixed constants (`LLR_CUTOFF`, `MIN_CONFIDENCE`, and `MIN_COCHANGES`)
