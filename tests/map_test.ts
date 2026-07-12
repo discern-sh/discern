@@ -26,7 +26,7 @@ import {
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 
-/** Write a small but representative docs tree (with an .discern/config.toml anchor).
+/** Write a small but representative map tree (with an .discern/config.toml anchor).
  * The tree lives at a pinned root `docs/` — a pointed, non-default layout — so
  * these behavior tests double as coverage of the pointing escape hatch. */
 async function makeDocsProject(dir: string): Promise<void> {
@@ -80,7 +80,7 @@ Deno.test("discoverDocs lists user-facing docs in reading order, README first", 
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const tree = await discoverDocs({ cwd: dir });
-    assert(tree, "expected a docs tree");
+    assert(tree, "expected a map tree");
     // The _adr subtree is internal — excluded, so it never appears.
     assertEquals(tree.entries.map((e) => e.path), [
       "docs/README.md",
@@ -193,7 +193,7 @@ Deno.test("resolveDoc handles slug, path, ambiguity, and misses", async () => {
   });
 });
 
-Deno.test("docs --json emits the index", async () => {
+Deno.test("map --json emits the index", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "--json"], dir);
@@ -322,7 +322,7 @@ Deno.test("bare map reports unknown freshness without tracked file links", async
   });
 });
 
-Deno.test("docs <slug> --json returns the single doc with its content", async () => {
+Deno.test("map <slug> --json returns the single doc with its content", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "alpha", "--json"], dir);
@@ -334,7 +334,7 @@ Deno.test("docs <slug> --json returns the single doc with its content", async ()
   });
 });
 
-Deno.test("docs <slug> --raw prints the pristine source", async () => {
+Deno.test("map <slug> --raw prints the pristine source", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "alpha", "--raw"], dir);
@@ -343,7 +343,7 @@ Deno.test("docs <slug> --raw prints the pristine source", async () => {
   });
 });
 
-Deno.test("docs --export public concatenates only user-facing docs", async () => {
+Deno.test("map --export public concatenates only user-facing docs", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout, stderr } = await runCli(
@@ -367,7 +367,7 @@ Deno.test("docs --export public concatenates only user-facing docs", async () =>
   });
 });
 
-Deno.test("docs --export all includes internal docs after public docs", async () => {
+Deno.test("map --export all includes internal docs after public docs", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(
@@ -387,7 +387,7 @@ Deno.test("docs --export all includes internal docs after public docs", async ()
   });
 });
 
-Deno.test("docs export can overwrite an explicit output file", async () => {
+Deno.test("map export can overwrite an explicit output file", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await Deno.writeTextFile(join(dir, "bundle.md"), "old\n");
@@ -406,7 +406,7 @@ Deno.test("docs export can overwrite an explicit output file", async () => {
   });
 });
 
-Deno.test("docs export refuses output inside the source docs tree", async () => {
+Deno.test("map export refuses output inside the source map tree", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout, stderr } = await runCli(
@@ -426,7 +426,7 @@ Deno.test("docs export refuses output inside the source docs tree", async () => 
   });
 });
 
-Deno.test("docs export refuses an output symlink targeting a source doc", async () => {
+Deno.test("map export refuses an output symlink targeting a source doc", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await Deno.symlink(
@@ -446,7 +446,7 @@ Deno.test("docs export refuses an output symlink targeting a source doc", async 
   });
 });
 
-Deno.test("docs export validates scope and incompatible flags", async () => {
+Deno.test("map export validates scope and incompatible flags", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
 
@@ -482,7 +482,7 @@ Deno.test("docs export validates scope and incompatible flags", async () => {
   });
 });
 
-Deno.test("docs --output requires export mode", async () => {
+Deno.test("map --output requires export mode", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stderr } = await runCli(
@@ -494,7 +494,7 @@ Deno.test("docs --output requires export mode", async () => {
   });
 });
 
-Deno.test("docs --export select requires output and an interactive terminal", async () => {
+Deno.test("map --export select requires output and an interactive terminal", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
 
@@ -520,7 +520,7 @@ Deno.test("docs --export select requires output and an interactive terminal", as
   });
 });
 
-Deno.test("docs export reads every source before emitting output", async () => {
+Deno.test("map export reads every source before emitting output", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await Deno.writeTextFile(join(dir, "bundle.md"), "keep me\n");
@@ -546,7 +546,7 @@ Deno.test("docs export reads every source before emitting output", async () => {
   });
 });
 
-Deno.test("docs export reports a missing docs tree without partial output", async () => {
+Deno.test("map export reports a missing map tree without partial output", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
       ["map", "--export", "all"],
@@ -559,7 +559,7 @@ Deno.test("docs export reports a missing docs tree without partial output", asyn
   });
 });
 
-Deno.test("docs --list prints a grouped table of contents", async () => {
+Deno.test("map --list prints a grouped table of contents", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "--list"], dir);
@@ -579,7 +579,7 @@ Deno.test("bare docs is non-interactive off a TTY (prints the TOC, no hang)", as
   });
 });
 
-Deno.test("docs renders a target to stdout when piped", async () => {
+Deno.test("map renders a target to stdout when piped", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "alpha"], dir);
@@ -590,7 +590,7 @@ Deno.test("docs renders a target to stdout when piped", async () => {
   });
 });
 
-Deno.test("docs reports an unknown target", async () => {
+Deno.test("map reports an unknown target", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stderr } = await runCli(["map", "nonesuch"], dir);
@@ -599,7 +599,7 @@ Deno.test("docs reports an unknown target", async () => {
   });
 });
 
-Deno.test("docs reports an ambiguous target with candidates", async () => {
+Deno.test("map reports an ambiguous target with candidates", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(
@@ -613,7 +613,7 @@ Deno.test("docs reports an ambiguous target with candidates", async () => {
   });
 });
 
-Deno.test("docs --json reports no_map when there is no docs tree", async () => {
+Deno.test("map --json reports no_map when there is no map tree", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["map", "--json"], dir);
     assertEquals(code, 1);
@@ -623,7 +623,7 @@ Deno.test("docs --json reports no_map when there is no docs tree", async () => {
   });
 });
 
-Deno.test("docs excludes _-prefixed internal directories from every view", async () => {
+Deno.test("map excludes _-prefixed internal directories from every view", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const index = await runCli(["map", "--json"], dir);
@@ -640,7 +640,7 @@ Deno.test("docs excludes _-prefixed internal directories from every view", async
   });
 });
 
-Deno.test("docs --dir can target an internal subtree directly", async () => {
+Deno.test("map --dir can target an internal subtree directly", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // Point --dir straight at it: it becomes the root, no longer underscored.
@@ -657,7 +657,7 @@ Deno.test("docs --dir can target an internal subtree directly", async () => {
   });
 });
 
-Deno.test("docs defaults to the configured [map].dir", async () => {
+Deno.test("map defaults to the configured [map].dir", async () => {
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,
@@ -680,7 +680,7 @@ Deno.test("docs defaults to the configured [map].dir", async () => {
   });
 });
 
-Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
+Deno.test("map <unknown> --json reports not_found, exit 1", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "nonesuch", "--json"], dir);
@@ -692,7 +692,7 @@ Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
   });
 });
 
-Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
+Deno.test("map <near miss> --json suggests valid doc targets", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     const { code, stdout } = await runCli(["map", "alph", "--json"], dir);
@@ -706,7 +706,7 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
   });
 });
 
-Deno.test("docs <ambiguous> without --json lists the candidates on stderr", async () => {
+Deno.test("map <ambiguous> without --json lists the candidates on stderr", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // Every subtree has a README → a bare "README" matches more than one.
@@ -721,7 +721,7 @@ Deno.test("docs <ambiguous> without --json lists the candidates on stderr", asyn
   });
 });
 
-Deno.test("docs --json reports an empty tree as count 0 (only internal docs present)", async () => {
+Deno.test("map --json reports an empty tree as count 0 (only internal docs present)", async () => {
   await withTempDir(async (dir) => {
     // A docs dir holding nothing but an internal _-prefixed subtree: the tree
     // exists, but every entry is filtered out → an empty user-facing index.
@@ -758,7 +758,7 @@ Deno.test("bare docs warns when the tree has no Markdown (no hang, exit 0)", asy
   });
 });
 
-Deno.test("docs --width overrides the wrap width (rendered to stdout)", async () => {
+Deno.test("map --width overrides the wrap width (rendered to stdout)", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // --width is the explicit-width arm of resolveWidth; rendering must still
@@ -773,7 +773,7 @@ Deno.test("docs --width overrides the wrap width (rendered to stdout)", async ()
   });
 });
 
-Deno.test("docs honours $COLUMNS for the wrap width", async () => {
+Deno.test("map honours $COLUMNS for the wrap width", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     // With no --width, resolveWidth reads $COLUMNS as the terminal-width source.
@@ -828,7 +828,7 @@ Deno.test("discoverDocs falls back to a humanised title when a doc cannot be rea
   });
 });
 
-Deno.test("docs without --json errors to stderr when there is no docs tree", async () => {
+Deno.test("map without --json errors to stderr when there is no map tree", async () => {
   await withTempDir(async (dir) => {
     // No docs dir at all: the plain (non-JSON) arm reports it on stderr.
     const { code, stdout, stderr } = await runCli(["map"], dir);
@@ -839,7 +839,7 @@ Deno.test("docs without --json errors to stderr when there is no docs tree", asy
   });
 });
 
-Deno.test("docs --dir to a missing directory errors with that path", async () => {
+Deno.test("map --dir to a missing directory errors with that path", async () => {
   await withTempDir(async (dir) => {
     await seedConfig(
       dir,

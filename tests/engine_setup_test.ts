@@ -236,7 +236,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
   });
 });
 
-Deno.test("setup begin --map persists and scaffolds a separate agent docs tree", async () => {
+Deno.test("setup begin --map persists and scaffolds a separate map tree", async () => {
   await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
@@ -306,7 +306,7 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
   });
 });
 
-Deno.test("discern setup never overwrites an existing configured docs tree (seamless DX)", async () => {
+Deno.test("discern setup never overwrites an existing configured map tree (seamless DX)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await Deno.mkdir(join(dir, "map"), { recursive: true });
@@ -704,7 +704,7 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
-    // An untracked authored doc inside the footprint (the configured docs tree) whose
+    // An untracked authored doc inside the footprint (the configured map tree) whose
     // name carries a non-ASCII byte, so git quotes it in line-oriented porcelain output.
     const quotedName = "décisions.md";
     await Deno.writeTextFile(

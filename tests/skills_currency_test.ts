@@ -158,7 +158,7 @@ Deno.test("repointing a path key makes materialized skills `stale` until re-mate
     await materializeClean(root, config);
     assertEquals(await checkSkillsCurrent(root, config), []);
 
-    // Repoint the docs tree: the rendered prose changes, so the materialized
+    // Repoint the map tree: the rendered prose changes, so the materialized
     // copies must read as stale — the refresh-after-reconfigure contract
     // guidance already has.
     const repointed = cfg('[map]\ndir = "zz-atlas/"\n');

@@ -102,8 +102,8 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     assertEquals(r.code, 0, r.output);
     assertEquals(JSON.parse(r.stdout).ok, true, r.output);
 
-    // Repoint the docs tree AGAIN (a user moving a convention): the rendered
-    // skills go stale, status reports it, and finish refuses until refresh.
+    // Repoint the map tree AGAIN (a user moving a convention): the rendered
+    // skills go stale, status reports it, and `done` refuses until refresh.
     const configPath = join(dir, "discern.toml");
     const editor = new TomlEditor(await Deno.readTextFile(configPath));
     editor.setString("map.dir", "zz-alt2-docs/");

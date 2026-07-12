@@ -413,7 +413,7 @@ Deno.test("materialization renders bundled markdown against the configured paths
     await materializeSkills(root, config, CLAUDE_SKILLS);
     const skillsAbs = claudeSkillsDirOf(root);
 
-    // The ADR skill's prose names the CONFIGURED docs tree, not a default...
+    // The ADR skill's prose names the CONFIGURED map tree, not a default...
     const adr = await Deno.readTextFile(
       join(skillsAbs, "discern-write-adr", "SKILL.md"),
     );

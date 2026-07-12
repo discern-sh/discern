@@ -54,10 +54,12 @@ it is additive and only-if-absent, and is recorded in
 
 Setup's documentation skeleton is also config-pointed. `[map].dir` defaults to
 `map/` — the [map](../00-orientation/glossary.md#map)'s own folder, colliding
-with nothing; `setup verify`'s consent conversation asks whether discern should
-instead manage the project's existing docs, and `setup begin --map <path>`
-persists and scaffolds the chosen root
-([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The docs browser
+with nothing; `setup verify`'s consent conversation reassures that an existing
+`docs/` folder stays untouched and never offers to adopt it
+([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md),
+[ADR 0129](../_adr/0129-setup-never-adopts-existing-docs.md)), and
+`setup begin --map <path>` persists and scaffolds a different root when the
+user configures one. The map browser
 and quality-gate declarations resolve the same field
 ([ADR 0080](../_adr/0080-configured-agent-map-root.md)).
 

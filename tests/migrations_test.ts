@@ -2012,7 +2012,7 @@ Deno.test("migration 14→15 moves a default layout into discern/ and repoints t
     assertStringIncludes(toml, 'dir = "discern/skills"');
     assertStringIncludes(toml, 'dir = "discern/docs/"');
     assertStringIncludes(toml, 'dir = "discern/recipes"');
-    // …the gotchas pointer follows the moved docs tree…
+    // …the gotchas pointer follows the moved map tree…
     assertStringIncludes(
       toml,
       'gotchas_doc = "discern/docs/80-development/done-gate-gotchas.md"',
