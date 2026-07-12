@@ -31,12 +31,9 @@
     "setup-eval:run": "deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/run-agent.ts",
     "check": "deno check",
     "gate": "deno task dev done",
-    "site": "deno serve --allow-read --allow-env --port 4507 site/serve.ts"
+    "site": "deno serve --allow-read --port 4507 site/serve.ts"
   },
   "imports": {
-    "@deno/gfm": "jsr:@deno/gfm@^0.12.0",
-    "prismjs": "npm:prismjs@1.29.0",
-    "prismjs/": "npm:/prismjs@1.29.0/",
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",
     "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/stdio.js",
     "process": "node:process",

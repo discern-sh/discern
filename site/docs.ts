@@ -14,20 +14,11 @@
  * bytes — the same bytes `discern help <leaf> --raw` prints.
  */
 
-import { render as renderGfm } from "@deno/gfm";
-import Prism from "prismjs";
-import "prismjs/components/prism-bash.js";
-import "prismjs/components/prism-json.js";
-import "prismjs/components/prism-toml.js";
-import "prismjs/components/prism-yaml.js";
-import "prismjs/components/prism-markdown.js";
 import { fromFileUrl } from "@std/path";
 import { discoverDocs, type DocEntry } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-
-// The map's shell samples say `sh`; Prism ships the grammar as `bash`.
-Prism.languages["sh"] = Prism.languages["bash"] ?? {};
+import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const MAP_DIR = fromFileUrl(new URL("../map/", import.meta.url));
@@ -220,29 +211,12 @@ export function rewriteLinks(
   }).join("\n");
 }
 
-/** Decode the handful of entities GFM emits inside heading text. */
-function decodeEntities(text: string): string {
-  return text
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'");
-}
-
-function extractToc(html: string): TocItem[] {
-  const toc: TocItem[] = [];
-  const pattern = /<h([23])\b[^>]*\bid="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/g;
-  for (const m of html.matchAll(pattern)) {
-    const depth = m[1] === "2" ? 2 : 3;
-    const id = m[2] ?? "";
-    const text = decodeEntities((m[3] ?? "").replace(/<[^>]*>/g, "")).trim();
-    if (id && text) toc.push({ depth, id, text });
-  }
-  return toc;
-}
-
-/** Render one page (cached): frontmatter stripped, links rewritten, GFM HTML. */
+/**
+ * Render one page (cached): frontmatter stripped, links rewritten, then the
+ * engine's own HTML emitter — the same parse `discern help` renders from, so
+ * the site and the terminal can never disagree about a doc's content. No
+ * rendering dependency exists to bloat the compiled binary.
+ */
 export async function renderDoc(
   page: DocsPage,
   site: DocsSite,
@@ -252,8 +226,13 @@ export async function renderDoc(
 
   const raw = await Deno.readTextFile(page.entry.absPath);
   const { body } = parseFrontmatter(raw);
-  const html = renderGfm(rewriteLinks(body, page, site));
-  const rendered: RenderedDoc = { html, toc: extractToc(html) };
+  const { html, headings } = renderMarkdownHtml(
+    rewriteLinks(body, page, site),
+  );
+  const toc: TocItem[] = headings
+    .filter((h) => h.depth === 2 || h.depth === 3)
+    .map((h) => ({ depth: h.depth === 2 ? 2 : 3, id: h.id, text: h.text }));
+  const rendered: RenderedDoc = { html, toc };
   renderCache.set(page.route, rendered);
   return rendered;
 }

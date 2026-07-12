@@ -323,13 +323,6 @@ main {
   margin: 1.4rem 0 0.5rem;
 }
 
-.doc-body h1 .anchor,
-.doc-body h2 .anchor,
-.doc-body h3 .anchor,
-.doc-body h4 .anchor {
-  display: none;
-}
-
 .doc-body p,
 .doc-body li {
   color: var(--ink);
@@ -422,36 +415,8 @@ main {
   max-width: 100%;
 }
 
-/* Syntax highlighting stays monochrome: shades and weights of ink, because
-   color belongs to verdicts alone. */
-.doc-body .token.comment {
-  color: var(--faint);
-  font-style: italic;
-}
-.doc-body .token.string,
-.doc-body .token.attr-value {
-  color: var(--muted);
-}
-.doc-body .token.keyword,
-.doc-body .token.boolean,
-.doc-body .token.builtin {
-  color: var(--ink);
-  font-weight: 600;
-}
-.doc-body .token.function {
-  color: var(--ink);
-}
-.doc-body .token.number {
-  color: var(--ink);
-}
-.doc-body .token.punctuation,
-.doc-body .token.operator {
-  color: var(--faint);
-}
-.doc-body .token.property,
-.doc-body .token.key {
-  color: var(--ink);
-}
+/* Code renders unhighlighted on purpose: in this design family color belongs
+   to verdicts alone, and ink-on-wash keeps samples readable without it. */
 
 /* Copy button (injected by docs.js). The check is a verdict; it may be green. */
 .code-copy {
