@@ -9,7 +9,7 @@ production serves.
 
 ```sh
 deno task site                    # http://localhost:4507
-deno serve --allow-read --port 9000 site/serve.ts   # any other port
+deno serve --allow-read --allow-env --port 9000 site/serve.ts   # any other port
 ```
 
 The task runs `deno serve`, which consumes the handler's default `{ fetch }`

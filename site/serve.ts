@@ -13,6 +13,8 @@
  * server path.
  */
 
+import { docsLlmsSection, loadDocsSite, serveDocs } from "./docs.ts";
+
 const SITE_ROOT = new URL("./", import.meta.url);
 
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
@@ -71,6 +73,22 @@ async function serveFile(
   return new Response(body, { status: 200, headers });
 }
 
+/**
+ * /llms.txt: the handwritten DISCERN(1) edition, with the docs index appended
+ * from the same tree the /docs section renders — one listing, never hand-kept.
+ */
+async function llmsTxt(): Promise<Response> {
+  const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
+  const docs = docsLlmsSection(await loadDocsSite());
+  return new Response(`${base.trimEnd()}\n\n${docs}`, {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=300",
+    },
+  });
+}
+
 function notFound(asText: boolean): Response {
   if (asText) {
     return new Response(
@@ -121,7 +139,11 @@ export async function handler(req: Request): Promise<Response> {
   const path = normalize(new URL(req.url).pathname);
   if (path === null) return notFound(wantsText(req));
 
-  if (path === "/llms.txt") return await serveFile(TEXT_EDITION);
+  if (path === "/llms.txt") return await llmsTxt();
+
+  if (path === "/docs" || path.startsWith("/docs/")) {
+    return await serveDocs(path, wantsText(req));
+  }
 
   const route = PAGES[path];
   if (route !== undefined) {
