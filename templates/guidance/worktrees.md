@@ -17,13 +17,13 @@ doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree extern
   trunk; only `accept` lands on it.
 - **`discern_accept`** is only for an explicit user handoff/land request. After
   a green `discern done` run on a completed task, relay the receipt to your owner and stop;
-  call it only once they explicitly ask you to land (unless they pre-authorized landing).
+  call it only once they explicitly ask to land (unless pre-authorized).
   It lands on the trunk (`{{main_branch}}`) — fast-forwarded, the worktree
   removed, the merged branch deleted — and refreshes the trunk checkout it
   leaves behind.
 
-While iterating on uncommitted work, use `discern_prepare`, `discern_test`, or a
-targeted project command. When the final tree is ready, commit it first, then run
+While iterating, use `discern_prepare`, `discern_test`, or a targeted project
+command. When the final tree is ready, commit it first, then run
 `discern_done` once on the clean HEAD — that recorded receipt is the one
 acceptance honors; a later commit invalidates it.
 

@@ -244,7 +244,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(
-      bareBody.includes("call it only once they explicitly ask you to land"),
+      bareBody.includes("call it only once they explicitly ask to land"),
       "green finish is not treated as permission to accept",
     );
   } finally {
