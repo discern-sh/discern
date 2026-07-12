@@ -124,8 +124,6 @@ _Nothing outstanding._
       give a pasteable GitHub Actions recipe, but launch still needs the public
       repo/version values re-checked and a later `setup`/binary affordance that
       writes the workflow for users. Evidence: `map/20-quality-gate/ci.md`.
-      (`timed out waiting for MCP response after
-      5000ms`).
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
@@ -152,6 +150,15 @@ outstanding._
       Evidence: `src/engine/coupling/coupling.ts` (the constants), `[coupling]`
       in `discern.toml`
       ([ADR 0084](map/_adr/0084-co-change-coupling-advisory.md)).
+
+- [ ] **Set up thermal receipt printer integration.** The homepage's receipt
+      artifact has a physical counterpart waiting: the maintainer owns a thermal
+      receipt printer. Print the real `discern done` receipt (checks, test
+      counts, commit, exit status — the result envelope) when a run passes or a
+      branch lands. Most thermal printers speak ESC/POS over USB or network, so
+      a small script consuming `discern done --json` covers it; a recipe or hook
+      would be the natural wiring. Evidence: `site/pages/index.html` (#receipt —
+      the design to mirror); `src/shared/result.ts` (the envelope to print).
 
 - [ ] **`discern improvement` candidates + a `// discern-coupled-to:`
       declaration marker — the discovery→enforcement bridge as a deliberate
