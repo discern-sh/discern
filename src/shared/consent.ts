@@ -1,0 +1,52 @@
+/**
+ * The consent-gated verbs and the attestation they share.
+ *
+ * Two acts in discern are destructive enough that structure — not a guidance
+ * sentence — must guard them: scaffolding a fresh install (`setup begin`, ADR
+ * 0086) and landing a branch on the trunk (`accept`, ADR 0134). Each refuses,
+ * read-only, unless its caller passes an explicit `--confirmed` attestation, and
+ * each refusal re-serves the moment the attestation stands in for — the setup
+ * conversation, or the owner's acceptance of a landing. An agent under context
+ * pressure drops prose; a structural refusal forces the moment into the
+ * transcript instead.
+ *
+ * This module is the single source both verbs share: one refusal slug, and the
+ * registry of which verbs are gated. Keeping them here — not duplicated in two
+ * subsystems — is what lets a parity test hold every member to one refusal
+ * contract, and enrol a future gated verb the moment it joins the registry.
+ */
+
+/**
+ * The stable failure slug every consent-gated verb refuses with when its
+ * attestation is absent. One spelling across the class (ADR 0086 minted it for
+ * `setup begin`; ADR 0134 shares it with `accept`) so an agent — and the class
+ * test — recognises the refusal wherever it fires. The envelope's `verb` field
+ * disambiguates which act is awaiting consent.
+ */
+export const AWAITING_CONSENT_SLUG = "awaiting_consent";
+
+/** The attestation flag both gated verbs accept — the fact the caller asserts:
+ * the human has consented to this act, or gave standing pre-authorization. */
+export const CONFIRMED_ATTESTATION = "--confirmed";
+
+/** One consent-gated verb — pure metadata, no behaviour. */
+export interface ConsentGatedVerb {
+  /** Stable identifier for the class (matches the probe key in the class test). */
+  readonly id: string;
+  /** The CLI command a human types, sans the leading `discern`. */
+  readonly command: string;
+  /** The attestation flag that satisfies the gate. */
+  readonly flag: string;
+}
+
+/**
+ * The consent-gated verbs — the single source the consent-gate class test
+ * iterates. Adding a member here enrols it in the shared-refusal contract, which
+ * then fails until the new verb refuses with {@link AWAITING_CONSENT_SLUG} and
+ * names its recovery — so a future gated act can never quietly ship without the
+ * structural refusal the class exists to guarantee.
+ */
+export const CONSENT_GATED_VERBS: readonly ConsentGatedVerb[] = [
+  { id: "setup-begin", command: "setup begin", flag: CONFIRMED_ATTESTATION },
+  { id: "accept", command: "accept", flag: CONFIRMED_ATTESTATION },
+];

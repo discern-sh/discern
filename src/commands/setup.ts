@@ -82,6 +82,7 @@ import {
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
+import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
@@ -2505,7 +2506,7 @@ async function emitAwaitingConsent(
     log.result({
       ok: false,
       verb: "setup",
-      error: "awaiting_consent",
+      error: AWAITING_CONSENT_SLUG,
       message,
       data: { guidance, command },
     });
