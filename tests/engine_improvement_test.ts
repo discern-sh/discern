@@ -14,7 +14,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
+import {
+  runAgent,
+  runAgentPty,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
 /** One deterministic rule result in the `improvement --json` payload. */
@@ -65,6 +70,7 @@ interface ImprovementPayload {
       title: string;
       action: string;
       why: string;
+      against?: { source: string; excerpt: string };
     };
     categories: CategoryJson[];
   };
@@ -212,6 +218,14 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
     assertEquals(payload.data.weak, 0);
     assertEquals(payload.data.next_action.kind, "review");
     assertEquals(payload.data.next_action.id, "gate.fast-feedback");
+    assertEquals(
+      payload.data.next_action.against?.source,
+      "the configured test command",
+    );
+    assert(
+      (payload.data.next_action.against?.excerpt ?? "").length > 0,
+      "the selected review must carry its citation through next_action",
+    );
     assertEquals(rule(cat(payload, "gate"), "gate.test").status, "pass");
     assertEquals(
       rule(cat(payload, "setup"), "setup.bootstrapped").status,
@@ -227,6 +241,54 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
       "pass",
     );
   });
+});
+
+Deno.test({
+  name:
+    "improvement: every render path keeps a selected review with its citation",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, STRONG_CONFIG);
+      await writeStrongFiles(dir);
+      assertEquals((await runAgent(dir, ["refresh"])).code, 0);
+
+      const json = await improvementJson(dir);
+      const selected = json.payload.data?.next_action;
+      assert(selected?.kind === "review", "fixture must select a review");
+      assert(
+        selected.against !== undefined,
+        "JSON review must include against",
+      );
+
+      const piped = await runAgent(dir, ["improvement", "--no-interactive"]);
+      assertEquals(piped.code, 0);
+      const tty = await runAgentPty(dir, [
+        "improvement",
+        "--no-interactive",
+      ]);
+      assertEquals(tty.code, 0);
+
+      // The render-path class guard: a new path enrolls here, and every path
+      // keeps the review prose and citation together. TTY forces static output
+      // only to terminate the PTY; its summary is the block shown before the picker.
+      const paths = [
+        { name: "--json", rendered: JSON.stringify(selected) },
+        { name: "piped", rendered: piped.stdout },
+        { name: "TTY", rendered: tty.stdout },
+      ];
+      for (const path of paths) {
+        assertStringIncludes(path.rendered, selected.title, path.name);
+        assertStringIncludes(path.rendered, selected.against.source, path.name);
+        assertStringIncludes(
+          path.rendered,
+          selected.against.excerpt,
+          path.name,
+        );
+      }
+    });
+  },
 });
 
 Deno.test("improvement --json: a set-but-missing gotchas doc is partial", async () => {

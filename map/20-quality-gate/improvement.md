@@ -51,6 +51,12 @@ Every successful result carries one `next_action`.
 2. Once no objective gap remains, the first applicable qualitative review leads.
    Catalog order is therefore priority order for judgement work.
 
+A qualitative review travels as one unit: its question, the `against` material
+to inspect, and its teaching. JSON carries the citation on `next_action.against`;
+the piped and terminal next-action blocks print the same material on a `look:`
+line. The expanded category view uses the same review-unit renderer, so no
+surface can leave “below” or “the cited material” pointing at evidence it lost.
+
 The human report places that action directly below **Automated practice health**
 and the explicit **N improvement reviews open** line. The full weakest-first
 detail remains available for context, but the user does not have to turn a
@@ -106,7 +112,11 @@ The human report, `--json`, and MCP tool render one `DiscernResult`
       "id": "gate.fast-feedback",
       "title": "The gate stays fast enough to run every time",
       "action": "Given the test command below, ...",
-      "why": "Isolated, order-independent tests are ..."
+      "why": "Isolated, order-independent tests are ...",
+      "against": {
+        "source": "the configured test command",
+        "excerpt": "deno task test"
+      }
     },
     "categories": [
       {

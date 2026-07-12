@@ -231,6 +231,48 @@ export async function runAgent(
 }
 
 /**
+ * Run the real engine with stdin/stdout attached to a pseudo-terminal. `script`
+ * is the system PTY driver on the Unix platforms discern supports; the two
+ * argument forms account for BSD (macOS) and util-linux. This is the black-box
+ * seam for proving terminal-only dispatch without teaching production code a
+ * fake TTY switch.
+ */
+export async function runAgentPty(
+  dir: string,
+  args: string[],
+  opts: { env?: Record<string, string> } = {},
+): Promise<RunResult> {
+  if (Deno.build.os === "windows") {
+    throw new Error("runAgentPty requires the Unix script(1) utility");
+  }
+  const command = [
+    Deno.execPath(),
+    "run",
+    "--no-check",
+    "--config",
+    DENO_JSON,
+    "-A",
+    MAIN_TS,
+    ...args,
+  ];
+  const scriptArgs = Deno.build.os === "darwin"
+    ? ["-q", "/dev/null", ...command]
+    : ["-q", "-e", "-c", command.map(shq).join(" "), "/dev/null"];
+  const child = new Deno.Command("script", {
+    args: scriptArgs,
+    cwd: dir,
+    env: await engineEnv(opts.env),
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { code, stdout, stderr } = await child.output();
+  const out = DECODER.decode(stdout);
+  const err = DECODER.decode(stderr);
+  return { code, stdout: out, stderr: err, output: out + err };
+}
+
+/**
  * Like {@link runAgent}, but with stderr merged into stdout AT THE OS LEVEL (`2>&1`),
  * so the returned `stdout` is the real time-interleaved stream an agent captures with
  * `<verb> 2>&1 | …`. {@link runAgent} pipes the two streams separately and concatenates

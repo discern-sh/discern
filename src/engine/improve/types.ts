@@ -175,6 +175,8 @@ export interface NextAction {
   action: string;
   /** Why this practice matters and what good looks like. */
   why: string;
+  /** The cited material travels with a qualitative review on every surface. */
+  against?: ReviewEvidence;
 }
 
 /** The whole improvement report, ranked weakest-first. */

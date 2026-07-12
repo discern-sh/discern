@@ -685,6 +685,7 @@ const nextActionSchema = z.strictObject({
   title: z.string(),
   action: z.string(),
   why: z.string(),
+  against: reviewEvidenceSchema.optional(),
 });
 
 /** `improvement` — baseline health, open reviews, and the prioritized next action. */
