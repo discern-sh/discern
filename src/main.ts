@@ -24,6 +24,7 @@ import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
+  commandSynonymSuggestion,
   normalizeVerbVariant,
   retiredCommandMessage,
   retiredCommandSuccessor,
@@ -58,6 +59,7 @@ import {
   dispatchRecipeOrSuggest,
   KNOWN_VERBS,
   printProjectRecipes,
+  reportUnknownCommand,
   runConfigRead,
   warnShadowedRecipe,
 } from "./engine/dispatch.ts";
@@ -439,6 +441,10 @@ export function buildCli(
       Deno.exit(code);
     });
 
+  // `preset` dispatches but stays out of the help listing: discern ships no
+  // bundled presets yet, and advertising an empty mechanism hands a newcomer a
+  // dead end. The verb keeps working for projects that lay their own
+  // presets/<name>/ trees; it returns to the listing when something ships.
   root
     .command("preset <name:string>")
     .description(
@@ -454,7 +460,8 @@ export function buildCli(
         yes: options.yes ?? false,
       });
       Deno.exit(code);
-    });
+    })
+    .hidden();
 
   root
     .command("map [target:string]")
@@ -532,8 +539,43 @@ export function buildCli(
       "Write an export to a file instead of stdout.",
     )
     .action(async (options, target?: string) => {
+      const json = options.json ?? false;
+      // `help <command>` mirrors `<command> --help` — git users type the two
+      // interchangeably, and git itself forwards one to the other. Driven off
+      // the verb registry (hidden commands included: they still dispatch), so
+      // every registered verb resolves; a retired spelling or a familiar
+      // synonym gets its usual one-line lesson instead of a doc miss.
+      if (target !== undefined && KNOWN_VERBS.has(target)) {
+        const sub = root.getCommand(target, true);
+        if (sub !== undefined) {
+          sub.showHelp();
+          Deno.exit(0);
+        }
+      }
+      if (target !== undefined) {
+        const successor = retiredCommandSuccessor(target);
+        if (successor !== undefined) {
+          const message = retiredCommandMessage(target, successor);
+          if (json) {
+            emitResult({
+              ok: false,
+              verb: target,
+              error: "renamed_command",
+              message,
+            });
+          } else {
+            console.error(`discern: ${message}`);
+          }
+          Deno.exit(1);
+        }
+        const synonym = commandSynonymSuggestion(target);
+        if (synonym !== undefined) {
+          reportUnknownCommand(target, synonym, { json });
+          Deno.exit(1);
+        }
+      }
       const code = await runHelp({
-        json: options.json ?? false,
+        json,
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
         list: options.list ?? false,
@@ -994,12 +1036,15 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
-    // project-owned executable recipe, or an "unknown recipe" suggestion. The
-    // recipe receives the rest of argv verbatim — a leading global flag included,
-    // exactly as if it had been passed after the recipe name.
+    // project-owned executable recipe, or an unknown-command lesson with a
+    // did-you-mean suggestion. The recipe receives the rest of argv verbatim — a
+    // leading global flag included, exactly as if it had been passed after the
+    // recipe name.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
-        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb),
+        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb, {
+          json: argv.includes("--json"),
+        }),
       );
     }
 

@@ -111,7 +111,7 @@ It **keeps your content**: `discern.toml` and the whole `discern/` namespace
 stay — plain files at paths you chose, valuable without the tool. Everything the
 namespace holds is ordinary Markdown you can read, move, or keep. Removing the
 binary itself is a separate step (uninstall names it): discern is one file on
-your `PATH`, deleted with your installer (`brew uninstall discern`) or by hand.
+your `PATH`, deleted by hand — the file `which discern` reports.
 
 Uninstall is a CLI verb, deliberately not something a coding agent can invoke
 mid-session — pulling out discern is a decision you make, not one an agent

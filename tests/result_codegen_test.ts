@@ -165,8 +165,10 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
 
 function collectCommandPaths(root: Command): string[] {
   const out: string[] = [];
+  // Hidden commands included: a command hidden from help (preset, the worktree
+  // hook entry points) still dispatches, so it still needs a JSON classification.
   const visit = (command: Command, prefix: string[]): void => {
-    for (const child of command.getCommands()) {
+    for (const child of command.getCommands(true)) {
       const path = [...prefix, child.getName()];
       out.push(path.join(" "));
       visit(child as unknown as Command, path);

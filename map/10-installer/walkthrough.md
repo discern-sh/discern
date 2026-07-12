@@ -11,10 +11,8 @@ out.
 
 ## 1. Install (about a minute)
 
-You install the binary once, the way the install page tells you (a
-`brew
-install`, a download, whatever your platform uses). The install message
-ends with one instruction — not "read the docs", but:
+You install the binary once, with the one-line install script the README shows.
+The install message ends with one instruction — not "read the docs", but:
 
 > Tell your coding agent to run `discern`.
 

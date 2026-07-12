@@ -77,6 +77,12 @@ import {
 } from "../lib/worktree_hooks.ts";
 import { gotchasHint } from "./gate/gotchas.ts";
 import { colorEnabled } from "./output.ts";
+import {
+  commandSynonymSuggestion,
+  didYouMeanHint,
+  UNKNOWN_COMMAND_POINTER,
+  unknownCommandMessage,
+} from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
 /** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
@@ -1022,23 +1028,65 @@ async function projectRecipeNames(recipesAbs: string): Promise<string[]> {
   return names;
 }
 
-/** Suggest a near-matching recipe for a typo, or undefined. */
-async function suggestRecipe(
-  recipesAbs: string,
+/**
+ * Suggest the command an unknown word most plausibly meant, or undefined. The
+ * synonym table wins — a familiar word from another tool names its canonical
+ * verb exactly — then the near-match candidates: the engine recipe names, and
+ * (inside a project) the project's own recipes.
+ */
+async function suggestCommand(
   typo: string,
+  recipesAbs: string | undefined,
 ): Promise<string | undefined> {
+  const synonym = commandSynonymSuggestion(typo);
+  if (synonym !== undefined) {
+    return synonym;
+  }
   const folded = typo.replace(/:/g, "-");
   for (const name of ENGINE_RECIPE_NAMES) {
     if (matchCandidate(folded, name)) {
       return displayName(name);
     }
   }
-  for (const name of await projectRecipeNames(recipesAbs)) {
-    if (matchCandidate(folded, name)) {
-      return displayName(name);
+  if (recipesAbs !== undefined) {
+    for (const name of await projectRecipeNames(recipesAbs)) {
+      if (matchCandidate(folded, name)) {
+        return displayName(name);
+      }
     }
   }
   return undefined;
+}
+
+/**
+ * Report an unknown top-level word on both surfaces: plain stderr lines in
+ * human mode, the uniform refusal envelope (with the same advice as `hints`)
+ * under `--json`. Always carries at least one hint — the standing pointer at
+ * the documentation and the command list — so no first guess dead-ends.
+ */
+export function reportUnknownCommand(
+  word: string,
+  suggestion: string | undefined,
+  opts: { json?: boolean } = {},
+): void {
+  const hints = [
+    ...(suggestion !== undefined ? [didYouMeanHint(suggestion)] : []),
+    UNKNOWN_COMMAND_POINTER,
+  ];
+  if (opts.json ?? false) {
+    emitResult({
+      ok: false,
+      verb: word,
+      error: "unknown_command",
+      message: unknownCommandMessage(word),
+      hints,
+    });
+    return;
+  }
+  console.error(`discern: ${unknownCommandMessage(word)}`);
+  for (const hint of hints) {
+    console.error(`       ${hint}`);
+  }
 }
 
 /** Whether a path is an executable regular file. */
@@ -1330,54 +1378,61 @@ export async function warnShadowedRecipe(
  * Handle an unknown top-level verb: exec a matching project recipe under
  * `.discern/recipes/` (the engine always wins, so a recipe colliding with a
  * built-in is unreachable here), report an existing-but-non-executable recipe,
- * else print an "unknown recipe" message with a near-match suggestion. Returns
+ * else report an unknown command with a did-you-mean suggestion — on stderr in
+ * human mode, as the uniform refusal envelope under `--json`. The lesson shows
+ * even outside a project or with an unreadable config (only the project-recipe
+ * candidates need those), so a newcomer's first guess never dead-ends. Returns
  * the process exit code.
  */
 export async function dispatchRecipeOrSuggest(
   verb: string,
   args: string[],
+  opts: { json?: boolean } = {},
 ): Promise<number> {
   const root = await findRoot();
-  if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
-    return 1;
-  }
-  const cfg = await loadConfig(root);
-  const { rel: recipesDir, abs: recipesAbs } = recipesDirOf(root, cfg);
-  const recipeFile = join(recipesAbs, verb.replace(/:/g, "-"));
+  const cfg = root === undefined
+    ? undefined
+    : await loadConfig(root).catch(() => undefined);
+  const recipes = root !== undefined && cfg !== undefined
+    ? recipesDirOf(root, cfg)
+    : undefined;
 
-  if (await isExecutable(recipeFile)) {
-    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-      cfg.project.main_branch;
-    const tomlPath = join(root, (await installedConfigRel(root)) ?? CONFIG_REL);
-    const child = new Deno.Command(recipeFile, {
-      args,
-      env: recipeEnvVars({
+  if (root !== undefined && cfg !== undefined && recipes !== undefined) {
+    const recipeFile = join(recipes.abs, verb.replace(/:/g, "-"));
+
+    if (await isExecutable(recipeFile)) {
+      const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+        cfg.project.main_branch;
+      const tomlPath = join(
         root,
-        tomlPath,
-        recipesDir,
-        recipesAbs,
-        mainBranch,
-      }),
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    return (await child.status).code;
+        (await installedConfigRel(root)) ?? CONFIG_REL,
+      );
+      const child = new Deno.Command(recipeFile, {
+        args,
+        env: recipeEnvVars({
+          root,
+          tomlPath,
+          recipesDir: recipes.rel,
+          recipesAbs: recipes.abs,
+          mainBranch,
+        }),
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      }).spawn();
+      return (await child.status).code;
+    }
+
+    if (await pathExists(recipeFile)) {
+      console.error(
+        `discern: recipe "${verb}" exists but is not executable: ${recipeFile}`,
+      );
+      console.error(`       Run: chmod +x "${recipeFile}"`);
+      return 1;
+    }
   }
 
-  if (await pathExists(recipeFile)) {
-    console.error(
-      `discern: recipe "${verb}" exists but is not executable: ${recipeFile}`,
-    );
-    console.error(`       Run: chmod +x "${recipeFile}"`);
-    return 1;
-  }
-
-  console.error(`discern: unknown recipe "${verb}".`);
-  const guess = await suggestRecipe(recipesAbs, verb);
-  if (guess !== undefined) {
-    console.error(`       Did you mean \`${guess}\`?`);
-  }
+  const suggestion = await suggestCommand(verb, recipes?.abs);
+  reportUnknownCommand(verb, suggestion, opts);
   return 1;
 }

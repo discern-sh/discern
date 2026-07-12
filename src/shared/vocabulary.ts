@@ -1,7 +1,8 @@
 /**
  * The public command vocabulary: retired command spellings refuse with a direct
- * successor, while harmless grammatical variants of the current canon normalize
- * silently before Cliffy dispatches them.
+ * successor, harmless grammatical variants of the current canon normalize
+ * silently before Cliffy dispatches them, and familiar words from other tools
+ * earn a did-you-mean suggestion naming the canonical verb.
  */
 
 /** Retired command paths and the canonical command path each names now. */
@@ -26,6 +27,44 @@ export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
 export function retiredConfigKeySuccessor(key: string): string | undefined {
   return RETIRED_CONFIG_KEY_REDIRECTS[key];
 }
+
+/**
+ * Familiar words from other tools' vocabularies, each mapped to the canonical
+ * verb the unknown-command path should SUGGEST. Suggestions only — none of
+ * these words ever dispatches or forwards (ADR 0120 reserves silent forwarding
+ * for grammatical variants of the canon; a different word gets a one-line
+ * lesson naming the right verb instead). Kept beside the retired-command
+ * redirects above so the whole non-canonical vocabulary — retired spellings
+ * that refuse, variants that normalize, synonyms that suggest — reads as one
+ * table-driven system.
+ */
+export const COMMAND_SYNONYM_SUGGESTIONS: Readonly<Record<string, string>> = {
+  init: "setup",
+  install: "setup",
+  check: "prepare",
+  sync: "update",
+  land: "accept",
+  merge: "accept",
+};
+
+/** The canonical verb to suggest for a familiar-but-unknown word, if any. */
+export function commandSynonymSuggestion(word: string): string | undefined {
+  return COMMAND_SYNONYM_SUGGESTIONS[word];
+}
+
+/** The one-line message opening every unknown-command refusal. */
+export function unknownCommandMessage(word: string): string {
+  return `unknown command "${word}".`;
+}
+
+/** The did-you-mean hint naming a canonical command. */
+export function didYouMeanHint(command: string): string {
+  return `Did you mean \`discern ${command}\`?`;
+}
+
+/** The standing pointer closing every unknown-command refusal. */
+export const UNKNOWN_COMMAND_POINTER =
+  "Run `discern help` for the documentation, or `discern --help` to list the commands.";
 
 /** Irregular grammatical forms that are safe to normalize silently. */
 export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {

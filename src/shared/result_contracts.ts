@@ -263,6 +263,9 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   "mcp",
   "identity",
+  // Provider hook entry points (hidden from help, stdin/stdout hook payloads).
+  "worktree create",
+  "worktree remove",
   // The interactive human surface: `--json` gets only a structured
   // `interactive_only` refusal, never a data contract (ADR 0119).
   "desk",
