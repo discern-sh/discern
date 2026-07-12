@@ -269,8 +269,6 @@ export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   "config",
   "worktree",
   "worktree ensure",
-  "worktree create",
-  "worktree remove",
   "skills",
   "config get",
   "config array",
