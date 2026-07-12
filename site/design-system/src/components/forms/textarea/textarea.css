@@ -1,0 +1,7 @@
+@layer discern.components {
+  .ds-textarea {
+    display: block;
+    min-block-size: 108px;
+    resize: vertical;
+  }
+}

@@ -27,6 +27,10 @@ export const PAGES: Readonly<
   "/agents": { page: "pages/agents.html", negotiable: true },
   "/start": { page: "pages/start.html", negotiable: false },
   "/careers": { page: "pages/careers.html", negotiable: false },
+  "/design-system-demo": {
+    page: "pages/design-system-demo.html",
+    negotiable: false,
+  },
 };
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */

@@ -1,0 +1,70 @@
+@layer discern.utilities {
+  .ds-container {
+    width: min(100% - 2 * var(--ds-space-6), var(--ds-page-max));
+    margin-inline: auto;
+  }
+  .ds-measure {
+    max-width: var(--ds-measure);
+  }
+  .ds-accent {
+    color: var(--ds-color-accent-600);
+    font-style: italic;
+  }
+  .ds-mono {
+    font-family: var(--ds-font-mono);
+  }
+  .ds-visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  .ds-dot-grid {
+    background-color: var(--ds-color-surface-sunken);
+    background-image: radial-gradient(var(--ds-color-border-strong) 0.8px,
+      transparent 0.8px);
+    background-size: 10px 10px;
+  }
+  .ds-hatch {
+    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
+      var(--ds-color-border) 6px 7px);
+  }
+  .ds-grain-wash {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 70% at 50% 0%, var(--ds-color-accent-300),
+      transparent 72%),
+      linear-gradient(to bottom, var(--ds-color-accent-100),
+      var(--ds-color-canvas));
+  }
+  .ds-grain-wash::after {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: url("./textures/grain.png") repeat;
+    content: "";
+    mix-blend-mode: multiply;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+  .ds-reveal {
+    animation: ds-reveal-in var(--ds-duration-reveal) var(--ds-ease-out) both;
+  }
+  @keyframes ds-reveal-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

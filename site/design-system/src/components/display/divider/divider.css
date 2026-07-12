@@ -1,0 +1,24 @@
+@layer discern.components {
+  .ds-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 36px;
+    border-block: 1px solid var(--ds-color-border);
+    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
+      var(--ds-color-border) 6px 7px);
+  }
+  .ds-divider__label {
+    padding: 4px 12px;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-xs);
+    background: var(--ds-color-canvas);
+    color: var(--ds-color-ink-faint);
+    font: 0.625rem var(--ds-font-mono);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .ds-divider--surface .ds-divider__label {
+    background: var(--ds-color-surface);
+  }
+}

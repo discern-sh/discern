@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+dist/*
+!dist/.gitkeep
+styleguide/generated/*
+!styleguide/generated/.gitkeep

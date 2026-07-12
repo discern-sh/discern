@@ -1,0 +1,49 @@
+@layer discern.components {
+  .ds-banner {
+    --ds-banner-bg: var(--ds-color-surface-sunken);
+    --ds-banner-border: var(--ds-color-border);
+    --ds-banner-text: var(--ds-color-ink-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--ds-banner-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-banner-bg);
+    color: var(--ds-banner-text);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .ds-banner--accent {
+    --ds-banner-bg: var(--ds-color-accent-100);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-500) 36%, transparent);
+    --ds-banner-text: var(--ds-color-accent-800);
+  }
+  .ds-banner--success {
+    --ds-banner-bg: var(--ds-color-success-soft);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 36%, transparent);
+    --ds-banner-text: var(--ds-color-success);
+  }
+  .ds-banner--warning {
+    --ds-banner-bg: var(--ds-color-warning-soft);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-warning) 36%, transparent);
+    --ds-banner-text: var(--ds-color-warning);
+  }
+  .ds-banner--danger {
+    --ds-banner-bg: var(--ds-color-danger-soft);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-danger) 36%, transparent);
+    --ds-banner-text: var(--ds-color-danger);
+  }
+  .ds-banner__icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: 18px;
+    block-size: 18px;
+    margin-block-start: 1px;
+  }
+  .ds-banner__icon > :where(svg, img) {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+}

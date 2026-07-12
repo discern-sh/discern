@@ -1,0 +1,19 @@
+@layer discern.components {
+  .ds-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-stack-gap, var(--ds-space-4));
+  }
+  .ds-stack--start {
+    align-items: flex-start;
+  }
+  .ds-stack--center {
+    align-items: center;
+  }
+  .ds-stack--end {
+    align-items: flex-end;
+  }
+  .ds-stack--stretch {
+    align-items: stretch;
+  }
+}

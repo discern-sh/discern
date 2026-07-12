@@ -2,7 +2,9 @@
   "name": "discern",
   "version": "1.0.0",
   "exports": "./src/main.ts",
+  "workspace": ["./site/design-system"],
   "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -12,8 +14,15 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "useUnknownInCatchVariables": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "types": [
+      "npm:@types/react@18.3.12",
+      "npm:@types/react-dom@18.3.1"
+    ]
   },
+  "nodeModulesDir": "auto",
   "tasks": {
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
@@ -31,7 +40,11 @@
     "setup-eval:run": "deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/run-agent.ts",
     "check": "deno check",
     "gate": "deno task dev done",
-    "site": "deno serve --allow-read --port 4507 site/serve.ts"
+    "site:build": "deno run --config site/design-system/deno.json --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
+    "design-system:check": "deno task --config site/design-system/deno.json --cwd site/design-system check",
+    "design-system:build": "deno task --config site/design-system/deno.json --cwd site/design-system build",
+    "design-system:verify": "deno task --config site/design-system/deno.json --cwd site/design-system verify",
+    "site": "deno task site:build && deno serve --allow-read --port 4507 site/serve.ts"
   },
   "imports": {
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",
@@ -47,7 +60,11 @@
     "@std/fs": "jsr:@std/fs@^1.0.13",
     "@std/encoding/hex": "jsr:@std/encoding@^1.0.7/hex",
     "@std/toml": "jsr:@std/toml@^1.0.2",
-    "@std/assert": "jsr:@std/assert@^1.0.10"
+    "@std/assert": "jsr:@std/assert@^1.0.10",
+    "react": "npm:react@18.3.1",
+    "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
+    "react-dom/client": "npm:react-dom@18.3.1/client",
+    "react-dom/server": "npm:react-dom@18.3.1/server"
   },
   "fmt": {
     "exclude": [
@@ -59,6 +76,9 @@
       "CLAUDE.md",
       "discern.toml",
       "dist/",
+      "site/design-system/dist/",
+      "site/design-system/node_modules/",
+      "site/design-system/styleguide/generated/",
       "map/10-installer/config-reference.md",
       "GEMINI.md",
       "PLAN.md",
@@ -94,6 +114,11 @@
       ".claude/",
       ".discern-help-docs/",
       "dist/",
+      "site/build.ts",
+      "site/design-system/",
+      "site/design-system/node_modules/",
+      "site/design-system/styleguide/generated/",
+      "site/page-src/",
       "templates/",
       "tests/fixtures/"
     ]
@@ -103,6 +128,9 @@
       ".claude/",
       ".discern-help-docs/",
       "dist/",
+      "site/design-system/dist/",
+      "site/design-system/node_modules/",
+      "site/design-system/styleguide/generated/",
       "templates/",
       "tests/fixtures/"
     ]

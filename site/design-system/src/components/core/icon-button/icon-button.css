@@ -1,0 +1,59 @@
+@layer discern.components {
+  .ds-icon-button {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 40px;
+    block-size: 40px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--ds-radius-md);
+    background: transparent;
+    color: var(--ds-color-ink-muted);
+    cursor: pointer;
+    transition: background var(--ds-duration-fast), color
+      var(--ds-duration-fast), border-color var(--ds-duration-fast);
+  }
+  .ds-icon-button:hover {
+    background: var(--ds-color-surface-sunken);
+    color: var(--ds-color-ink);
+  }
+  .ds-icon-button:focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--ds-color-accent-500) 35%,
+      transparent);
+    outline-offset: 2px;
+  }
+  .ds-icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .ds-icon-button--outline {
+    border-color: var(--ds-color-border-strong);
+    background: var(--ds-color-surface);
+  }
+  .ds-icon-button--sm {
+    inline-size: 32px;
+    block-size: 32px;
+  }
+  .ds-icon-button--lg {
+    inline-size: 48px;
+    block-size: 48px;
+  }
+  .ds-icon-button > span {
+    display: grid;
+    place-items: center;
+    inline-size: 18px;
+    block-size: 18px;
+  }
+  .ds-icon-button--sm > span {
+    inline-size: 15px;
+    block-size: 15px;
+  }
+  .ds-icon-button--lg > span {
+    inline-size: 21px;
+    block-size: 21px;
+  }
+  .ds-icon-button svg {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+}

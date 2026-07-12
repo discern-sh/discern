@@ -163,15 +163,19 @@ outstanding._
 
 _Product positioning, messaging, and launch/content tasks._
 
-- [ ] **Site launch blocker: self-host fonts and precompile Tailwind.** Every
-      page under `site/pages/` loads Tailwind from a CDN and fonts from Google
-      Fonts while claiming "no analytics on this page" — third-party requests
-      that log visitor IPs undercut the claim, and the runtime Tailwind compile
-      costs a visible style flash. Before pointing discern.sh DNS at the site:
-      download the woff2 files into `site/pages/assets/`, compile each page's
-      `@theme` block to static CSS, and drop both third-party origins. Then say
-      so on the page — "view source: no third-party requests" is on-brand.
-      Evidence: `site/pages/*.html` (fonts.googleapis.com, cdn.jsdelivr.net).
+- [ ] **Site launch blocker: self-host fonts and precompile Tailwind on the four
+      original editions.** `index.html`, `agents.html`, `start.html`, and
+      `careers.html` load Tailwind from a CDN and fonts from Google Fonts while
+      claiming "no analytics on this page" — third-party requests that log
+      visitor IPs undercut the claim, and the runtime Tailwind compile costs a
+      visible style flash. Before switching any of those routes for launch,
+      migrate it to the compiled design-system path proven by
+      `/design-system-demo` (or equivalently self-host its WOFF2 files and
+      precompile its `@theme` block), then drop both third-party origins. Say so
+      on the page — "view source: no third-party requests" is on-brand.
+      Evidence: the four named `site/pages/*.html` files (fonts.googleapis.com,
+      cdn.jsdelivr.net); `site/page-src/` and `site/design-system/` (the
+      local-asset replacement path).
 - [ ] **Site launch blocker: make `brew install discern` real.** All four site
       pages and the plaintext edition lead with it. Stand up the tap (or switch
       the copy to the install path that will exist at launch) before the pages

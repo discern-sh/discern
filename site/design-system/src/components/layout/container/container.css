@@ -1,0 +1,23 @@
+@layer discern.components {
+  .ds-container-box {
+    width: min(100% - 2 * var(--ds-space-6), var(--ds-container-max,
+      var(--ds-page-max)));
+    margin-inline: auto;
+  }
+  .ds-container-box--measure {
+    --ds-container-max: var(--ds-measure);
+  }
+  .ds-container-box--sm {
+    --ds-container-max: 40rem;
+  }
+  .ds-container-box--md {
+    --ds-container-max: 52rem;
+  }
+  .ds-container-box--lg {
+    --ds-container-max: var(--ds-page-max);
+  }
+  .ds-container-box--full {
+    width: 100%;
+    max-width: none;
+  }
+}

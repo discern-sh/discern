@@ -1,0 +1,69 @@
+@layer discern.reset, discern.tokens, discern.foundation, discern.components,
+  discern.utilities;
+
+@layer discern.foundation {
+  :where([data-ds-root], [data-ds-root] *) {
+    box-sizing: border-box;
+  }
+
+  [data-ds-root] {
+    min-width: 0;
+    background: var(--ds-color-canvas);
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-body);
+    font-size: var(--ds-font-size-md);
+    line-height: var(--ds-leading-body);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  [data-ds-root] ::selection {
+    background: var(--ds-color-accent-200);
+    color: var(--ds-color-ink);
+  }
+
+  :where([data-ds-root] h1, [data-ds-root] h2, [data-ds-root] h3, [data-ds-root] h4, [data-ds-root] h5, [data-ds-root] h6) {
+    margin-block: 0 var(--ds-space-4);
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-display);
+    font-weight: var(--ds-font-weight-display);
+    line-height: var(--ds-leading-tight);
+    letter-spacing: -0.014em;
+  }
+
+  [data-ds-root] h1 {
+    font-size: var(--ds-font-size-display-xl);
+  }
+  [data-ds-root] h2 {
+    font-size: var(--ds-font-size-display-lg);
+  }
+  [data-ds-root] h3 {
+    font-size: var(--ds-font-size-display-md);
+  }
+  [data-ds-root] h4 {
+    font-size: var(--ds-font-size-display-sm);
+  }
+  [data-ds-root] p {
+    margin-block: 0 var(--ds-space-4);
+  }
+  [data-ds-root] a {
+    color: var(--ds-color-accent-600);
+  }
+  [data-ds-root] button,
+  [data-ds-root] input,
+  [data-ds-root] select,
+  [data-ds-root] textarea {
+    font: inherit;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ds-root] *,
+  [data-ds-root] *::before,
+  [data-ds-root] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,48 @@
+@layer discern.components {
+  .ds-badge {
+    --ds-badge-bg: var(--ds-color-accent-100);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-500) 40%, transparent);
+    --ds-badge-text: var(--ds-color-accent-800);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: 24px;
+    padding-inline: 9px;
+    border: 1px solid var(--ds-badge-border);
+    border-radius: var(--ds-radius-pill);
+    background: var(--ds-badge-bg);
+    color: var(--ds-badge-text);
+    font-family: var(--ds-font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .ds-badge__dot {
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .ds-badge--neutral {
+    --ds-badge-bg: var(--ds-color-surface-sunken);
+    --ds-badge-border: var(--ds-color-border);
+    --ds-badge-text: var(--ds-color-ink-muted);
+  }
+  .ds-badge--success {
+    --ds-badge-bg: var(--ds-color-success-soft);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 42%, transparent);
+    --ds-badge-text: var(--ds-color-success);
+  }
+  .ds-badge--warning {
+    --ds-badge-bg: var(--ds-color-warning-soft);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-warning) 42%, transparent);
+    --ds-badge-text: var(--ds-color-warning);
+  }
+  .ds-badge--danger {
+    --ds-badge-bg: var(--ds-color-danger-soft);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-danger) 42%, transparent);
+    --ds-badge-text: var(--ds-color-danger);
+  }
+}

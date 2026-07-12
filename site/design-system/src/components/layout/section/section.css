@@ -1,0 +1,24 @@
+@layer discern.components {
+  .ds-section {
+    background: var(--ds-color-canvas);
+    color: var(--ds-color-ink);
+  }
+  .ds-section--surface {
+    background: var(--ds-color-surface);
+  }
+  .ds-section--sunken {
+    background: var(--ds-color-surface-sunken);
+  }
+  .ds-section--space-none {
+    padding-block: 0;
+  }
+  .ds-section--space-sm {
+    padding-block: var(--ds-space-8);
+  }
+  .ds-section--space-md {
+    padding-block: var(--ds-space-16);
+  }
+  .ds-section--space-lg {
+    padding-block: var(--ds-section-space);
+  }
+}

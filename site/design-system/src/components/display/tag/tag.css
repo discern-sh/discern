@@ -1,0 +1,35 @@
+@layer discern.components {
+  .ds-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-block-size: 25px;
+    padding-inline: 8px;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-xs);
+    background: var(--ds-color-surface-sunken);
+    color: var(--ds-color-ink-muted);
+    font: 0.6875rem var(--ds-font-mono);
+  }
+  .ds-tag__remove {
+    display: grid;
+    place-items: center;
+    inline-size: 18px;
+    block-size: 18px;
+    margin-inline-end: -5px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ds-radius-xs);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .ds-tag__remove:hover,
+  .ds-tag__remove:focus-visible {
+    background: var(--ds-color-border);
+    color: var(--ds-color-ink);
+    outline: none;
+  }
+}

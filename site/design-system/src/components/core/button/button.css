@@ -1,0 +1,87 @@
+@layer discern.components {
+  .ds-button {
+    --ds-button-fill: var(--ds-color-accent-200);
+    --ds-button-fill-hover: var(--ds-color-accent-100);
+    --ds-button-border: var(--ds-color-accent-600);
+    --ds-button-text: var(--ds-color-accent-800);
+    --ds-button-shadow: var(--ds-color-accent-600);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-2);
+    min-block-size: 40px;
+    padding: 0 var(--ds-space-5);
+    border: 2px solid var(--ds-button-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-button-fill);
+    box-shadow: 3px 3px 0 var(--ds-button-shadow);
+    color: var(--ds-button-text);
+    cursor: pointer;
+    font-family: var(--ds-font-display);
+    font-size: 0.9375rem;
+    font-weight: var(--ds-font-weight-display);
+    line-height: 1;
+    text-decoration: none;
+    transition: background var(--ds-duration-fast), box-shadow
+      var(--ds-duration-fast), transform var(--ds-duration-fast);
+  }
+  .ds-button:hover {
+    background: var(--ds-button-fill-hover);
+  }
+  .ds-button:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--ds-button-shadow);
+  }
+  .ds-button:focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--ds-color-accent-500) 35%,
+      transparent);
+    outline-offset: 3px;
+  }
+  .ds-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    transform: none;
+    box-shadow: none;
+  }
+  .ds-button--secondary {
+    --ds-button-fill: var(--ds-color-surface);
+    --ds-button-fill-hover: var(--ds-color-surface-sunken);
+    --ds-button-text: var(--ds-color-ink);
+    --ds-button-shadow: var(--ds-color-border-strong);
+  }
+  .ds-button--ghost {
+    --ds-button-fill: transparent;
+    --ds-button-fill-hover: var(--ds-color-accent-100);
+    --ds-button-border: transparent;
+    --ds-button-shadow: transparent;
+    --ds-button-text: var(--ds-color-accent-700);
+  }
+  .ds-button--danger {
+    --ds-button-fill: var(--ds-color-danger-soft);
+    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-danger-soft) 78%, var(--ds-color-danger));
+    --ds-button-border: var(--ds-color-danger);
+    --ds-button-shadow: var(--ds-color-danger);
+    --ds-button-text: var(--ds-color-danger);
+  }
+  .ds-button--sm {
+    min-block-size: 32px;
+    padding-inline: var(--ds-space-3);
+    font-size: 0.8125rem;
+    box-shadow: 2px 2px 0 var(--ds-button-shadow);
+  }
+  .ds-button--lg {
+    min-block-size: 48px;
+    padding-inline: var(--ds-space-6);
+    font-size: 1.0625rem;
+  }
+  .ds-button__icon {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1em;
+    block-size: 1em;
+  }
+  .ds-button__icon > :where(svg, img) {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+}

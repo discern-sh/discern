@@ -1,0 +1,60 @@
+@layer discern.components {
+  .ds-tabs__list {
+    display: flex;
+    gap: var(--ds-space-5);
+    overflow-x: auto;
+    border-block-end: 1px solid var(--ds-color-border);
+  }
+  .ds-tabs__tab {
+    position: relative;
+    flex: none;
+    padding: 10px 1px 11px;
+    border: 0;
+    background: transparent;
+    color: var(--ds-color-ink-muted);
+    cursor: pointer;
+    font-family: var(--ds-font-ui);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .ds-tabs__tab::after {
+    position: absolute;
+    inset: auto 0 -1px;
+    block-size: 2px;
+    background: var(--ds-color-accent-600);
+    content: "";
+    opacity: 0;
+    transform: scaleX(0.5);
+    transition: opacity var(--ds-duration-fast), transform
+      var(--ds-duration-fast);
+  }
+  .ds-tabs__tab:hover {
+    color: var(--ds-color-ink);
+  }
+  .ds-tabs__tab[aria-selected="true"] {
+    color: var(--ds-color-ink);
+  }
+  .ds-tabs__tab[aria-selected="true"]::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  .ds-tabs__tab:focus-visible {
+    border-radius: var(--ds-radius-xs);
+    outline: 2px solid var(--ds-color-accent-500);
+    outline-offset: 3px;
+  }
+  .ds-tabs__tab:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .ds-tabs__panel {
+    padding-block-start: var(--ds-space-5);
+    outline: none;
+  }
+  .ds-tabs__panel:focus-visible {
+    border-radius: var(--ds-radius-sm);
+    outline: 2px solid color-mix(in oklab, var(--ds-color-accent-500) 45%,
+      transparent);
+    outline-offset: 4px;
+  }
+}

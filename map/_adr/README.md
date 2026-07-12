@@ -142,6 +142,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0131 — Setup never offers to adopt existing docs](0131-setup-never-adopts-existing-docs.md)
 - [0133 — Standards join the gate: verified always, measured by default](0133-standards-join-the-gate.md)
 - [0134 — Landing attests consent: `accept` requires a `--confirmed` attestation](0134-accept-attests-consent.md)
+- [0135 — Site pages use build-time React and a static runtime](0135-site-pages-use-build-time-react-and-static-runtime.md)
 
 ## Superseded and consolidated ADRs
 

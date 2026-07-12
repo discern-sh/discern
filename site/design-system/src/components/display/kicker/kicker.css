@@ -1,0 +1,16 @@
+@layer discern.components {
+  .ds-kicker {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--ds-color-ink-faint);
+    font: 0.625rem var(--ds-font-mono);
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+  .ds-kicker__index {
+    color: var(--ds-color-accent-600);
+  }
+}

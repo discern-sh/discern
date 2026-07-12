@@ -1,0 +1,21 @@
+@layer discern.components {
+  .ds-icon {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    inline-size: 1em;
+    block-size: 1em;
+    color: inherit;
+    line-height: 1;
+    vertical-align: -0.125em;
+  }
+  .ds-icon > :where(svg, img) {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .ds-icon > svg {
+    fill: none;
+    stroke: currentColor;
+  }
+}
