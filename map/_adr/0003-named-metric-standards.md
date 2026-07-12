@@ -3,6 +3,15 @@
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
 > pointers use `ratchets` → `standards`, `finish` → `done`; the decision and
 > reasoning are unchanged.
+>
+> **Amended by [ADR 0133](0133-standards-join-the-gate.md):** the "on-demand and
+> slow, NOT part of the gate" split is superseded _as it applies to the gate
+> verb_ — every `done` run now verifies the limits against the trunk and
+> measures each standard in parallel with the tests (with input-keyed replay and
+> a per-standard `measure = "on-demand"` deferral). The split survives where its
+> argument holds: `prepare` (the inner loop) never measures, and the standalone
+> verb remains the always-measure on-demand pass. The mechanism — the two
+> halves, `up`/`down`, the `DISCERN_METRIC` convention — is unchanged.
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below. **Extended by [ADR 0057](0057-rate-standards.md)** — an optional `per`

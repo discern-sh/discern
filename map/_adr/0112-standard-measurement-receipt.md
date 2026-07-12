@@ -3,6 +3,13 @@
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
 > pointers use `ratchets` → `standards`, `graduate` → `accept`, the gate-pass
 > artifact → the receipt; the decision and reasoning are unchanged.
+>
+> **Extended by [ADR 0133](0133-standards-join-the-gate.md):** a green gate run
+> over a clean committed tree now records this receipt too (durations included,
+> merged into a same-HEAD receipt rather than clobbering a fuller one), so
+> `done` → `--pin` → `accept` measures once — and the recorded values double as
+> the baseline the gate's input-keyed replay stands on. Auto-pin stays rejected:
+> recording is a read-side cache; capturing a gain remains the explicit `--pin`.
 
 **Status**: accepted. Extends
 [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md) (`standards --pin`)

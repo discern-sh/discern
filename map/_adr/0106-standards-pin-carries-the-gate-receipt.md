@@ -4,6 +4,15 @@
 > pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` →
 > `accept`, the gate-pass artifact → the receipt; the decision and reasoning are
 > unchanged.
+>
+> **Amended by [ADR 0133](0133-standards-join-the-gate.md):** two premises
+> moved. "`done` never reads `[standards]` limits" no longer holds — the gate
+> now verifies every limit and measures each standard — and the alternatives'
+> rejection of "fold standards into `done`" is reversed for the terminal verb
+> (the inner-loop half of that argument stands: `prepare` never measures). The
+> pin-commit carry-forward remains sound on its updated footing: a pin only ever
+> TIGHTENS limits, and a tightened limit still passes the never-loosen
+> verification, so the commit remains gate-neutral for the vouch it forwards.
 
 **Status**: accepted. Extends
 [ADR 0067](0067-accept-validates-the-landed-tree.md) (the gate receipt),
