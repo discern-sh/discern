@@ -164,6 +164,34 @@ Deno.test("worktree help renders the configured trunk name, never a hard-coded d
   assert(!setupAccept.includes("`main`"));
 });
 
+Deno.test("hidden top-level commands stay registered but never greet the help reader", () => {
+  // The class: a command deliberately kept OUT of the operator help (an empty
+  // mechanism like preset, or setup once the project is bootstrapped) must stay
+  // dispatchable — hidden, never removed. Derived from the live registrations,
+  // so any future hidden command auto-enrols.
+  const root = fullRoot();
+  const visible = new Set(root.getCommands(false).map((c) => c.getName()));
+  const hidden = root.getCommands(true)
+    .map((c) => c.getName())
+    .filter((name) => !visible.has(name));
+  assert(
+    hidden.includes("preset"),
+    "preset must be hidden from the top-level help while nothing ships to fill it",
+  );
+
+  const helpLines = plain(operatorHelp(root)).split("\n");
+  for (const name of hidden) {
+    assert(
+      root.getCommand(name, true) !== undefined,
+      `hidden command ${name} must stay dispatchable`,
+    );
+    assert(
+      !helpLines.some((line) => new RegExp(`^\\s{4}${name}(\\s|$)`).test(line)),
+      `hidden command ${name} leaked a row into the top-level help`,
+    );
+  }
+});
+
 Deno.test("worktree help hides provider-hook payload commands while keeping them callable", () => {
   const worktree = child(fullRoot(), "worktree");
   const visible = worktree.getCommands(false).map((command) =>

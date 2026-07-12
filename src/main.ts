@@ -441,6 +441,10 @@ export function buildCli(
       Deno.exit(code);
     });
 
+  // `preset` dispatches but stays out of the help listing: discern ships no
+  // bundled presets yet, and advertising an empty mechanism hands a newcomer a
+  // dead end. The verb keeps working for projects that lay their own
+  // presets/<name>/ trees; it returns to the listing when something ships.
   root
     .command("preset <name:string>")
     .description(
@@ -456,7 +460,8 @@ export function buildCli(
         yes: options.yes ?? false,
       });
       Deno.exit(code);
-    });
+    })
+    .hidden();
 
   root
     .command("map [target:string]")

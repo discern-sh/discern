@@ -53,11 +53,12 @@ Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → han
 
 Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", () => {
   // The dispatcher consults KNOWN_VERBS before recipe fallthrough. If buildCli grows a
-  // top-level command but KNOWN_VERBS does not, that registered command appears in
-  // --help yet `main` treats it as an unknown recipe. Tie the installer+engine universe
-  // back to the actual Cliffy registrations.
+  // top-level command but KNOWN_VERBS does not, that registered command dispatches in
+  // Cliffy yet `main` treats it as an unknown command. Tie the installer+engine
+  // universe back to the actual Cliffy registrations — hidden ones included, since a
+  // command hidden from help (preset, post-setup setup) still dispatches.
   const root = buildCli(false) as unknown as Command;
-  const registered = root.getCommands().map((c) => c.getName());
+  const registered = root.getCommands(true).map((c) => c.getName());
   assertEquals(
     sorted(registered),
     sorted(KNOWN_VERBS),
