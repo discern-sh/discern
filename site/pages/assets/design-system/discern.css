@@ -64,6 +64,8 @@
     --ds-color-canvas: oklch(96.6% 0.008 var(--ds-canvas-hue));
     --ds-color-surface: #fff;
     --ds-color-surface-sunken: oklch(94.2% 0.01 var(--ds-canvas-hue));
+    --ds-color-accent-wash: var(--ds-color-accent-100);
+    --ds-color-accent-wash-strong: var(--ds-color-accent-300);
     --ds-color-border: oklch(89.5% 0.012 var(--ds-canvas-hue));
     --ds-color-border-strong: oklch(81% 0.016 var(--ds-canvas-hue));
     --ds-color-success: oklch(55% 0.145 152);
@@ -83,6 +85,8 @@
     --ds-color-canvas: oklch(20% 0.018 var(--ds-ink-hue));
     --ds-color-surface: oklch(24.5% 0.02 var(--ds-ink-hue));
     --ds-color-surface-sunken: oklch(17.5% 0.016 var(--ds-ink-hue));
+    --ds-color-accent-wash: color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600));
+    --ds-color-accent-wash-strong: color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500));
     --ds-color-border: oklch(31% 0.022 var(--ds-ink-hue));
     --ds-color-border-strong: oklch(42% 0.026 var(--ds-ink-hue));
     --ds-color-success: oklch(72% 0.15 152);
@@ -207,9 +211,10 @@
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(ellipse 80% 70% at 50% 0%, var(--ds-color-accent-300),
+      radial-gradient(ellipse 80% 70% at 50% 0%,
+      var(--ds-color-accent-wash-strong),
       transparent 72%),
-      linear-gradient(to bottom, var(--ds-color-accent-100),
+      linear-gradient(to bottom, var(--ds-color-accent-wash),
       var(--ds-color-canvas));
   }
   .ds-grain-wash::after {

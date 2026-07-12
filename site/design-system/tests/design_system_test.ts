@@ -30,6 +30,18 @@ async function sha256(path: string): Promise<string> {
   return encodeHex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
+function themeIncoherentBackgrounds(source: string): string[] {
+  return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((match) => {
+      const declarations = match[2] ?? "";
+      const background = declarations.match(/background(?:-color)?\s*:[^;]+;/s)
+        ?.[0] ?? "";
+      return /--ds-color-(?:canvas|surface(?:-sunken)?)/.test(background) &&
+        /--ds-color-accent-\d+/.test(background);
+    })
+    .map((match) => (match[1] ?? "").trim());
+}
+
 Deno.test("design-system sources deterministically reproduce every committed runtime asset", async () => {
   const temp = await Deno.makeTempDir();
   try {
@@ -109,6 +121,33 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
     const source = await Deno.readTextFile(path);
     assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
   }
+});
+
+Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {
+  const futureSibling = `.unrelated-aurora {
+    background: linear-gradient(
+      var(--ds-color-accent-100),
+      var(--ds-color-surface-sunken)
+    );
+  }`;
+  assertEquals(themeIncoherentBackgrounds(futureSibling), [
+    ".unrelated-aurora",
+  ]);
+
+  const violations: string[] = [];
+  for (
+    const path of (await walk(join(ROOT, "site", "design-system", "src")))
+      .filter((file) => file.endsWith(".css"))
+  ) {
+    for (
+      const selector of themeIncoherentBackgrounds(
+        await Deno.readTextFile(path),
+      )
+    ) {
+      violations.push(`${path.slice(ROOT.length)}: ${selector}`);
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("the public demo ships static HTML and local runtime assets only", async () => {

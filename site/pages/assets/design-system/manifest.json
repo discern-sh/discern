@@ -606,6 +606,20 @@
       "description": "Inset surface."
     },
     {
+      "name": "--ds-color-accent-wash",
+      "light": "var(--ds-color-accent-100)",
+      "dark": "color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600))",
+      "category": "Color",
+      "description": "Quiet accent wash over the page canvas."
+    },
+    {
+      "name": "--ds-color-accent-wash-strong",
+      "light": "var(--ds-color-accent-300)",
+      "dark": "color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500))",
+      "category": "Color",
+      "description": "Emphasised accent glow over the page canvas."
+    },
+    {
       "name": "--ds-color-border",
       "light": "oklch(89.5% 0.012 var(--ds-canvas-hue))",
       "dark": "oklch(31% 0.022 var(--ds-ink-hue))",

@@ -274,6 +274,18 @@ export const themeTokens = [
     "Inset surface.",
   ),
   themeToken(
+    "--ds-color-accent-wash",
+    "var(--ds-color-accent-100)",
+    "color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600))",
+    "Quiet accent wash over the page canvas.",
+  ),
+  themeToken(
+    "--ds-color-accent-wash-strong",
+    "var(--ds-color-accent-300)",
+    "color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500))",
+    "Emphasised accent glow over the page canvas.",
+  ),
+  themeToken(
     "--ds-color-border",
     "oklch(89.5% 0.012 var(--ds-canvas-hue))",
     "oklch(31% 0.022 var(--ds-ink-hue))",

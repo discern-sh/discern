@@ -39,9 +39,10 @@
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(ellipse 80% 70% at 50% 0%, var(--ds-color-accent-300),
+      radial-gradient(ellipse 80% 70% at 50% 0%,
+      var(--ds-color-accent-wash-strong),
       transparent 72%),
-      linear-gradient(to bottom, var(--ds-color-accent-100),
+      linear-gradient(to bottom, var(--ds-color-accent-wash),
       var(--ds-color-canvas));
   }
   .ds-grain-wash::after {
