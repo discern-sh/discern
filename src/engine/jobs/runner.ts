@@ -19,7 +19,7 @@
  */
 
 import type { Job, JobResult, StageRunResult } from "./types.ts";
-import { spawnJob } from "./command.ts";
+import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 
 /** How a stage run presents and schedules its jobs. */
@@ -94,6 +94,46 @@ function banner(result: JobResult, color: boolean): Uint8Array {
 }
 
 /**
+ * The spawn options for one job under a run: the run-level settings plus the
+ * job's own overrides. The per-job `timeoutS` REPLACES the run-level budget for
+ * that job alone (`0` disables the bound for it); every sibling keeps the
+ * run-level budget. Shared by runParallel and runSerial so the override
+ * semantics can't diverge between the two schedulers.
+ */
+function spawnOptions(
+  job: Job,
+  opts: RunOptions,
+  signal: AbortSignal,
+  stream: boolean,
+  write: (chunk: Uint8Array) => void,
+): SpawnOptions {
+  const timeoutS = job.timeoutS ?? opts.timeoutS;
+  return {
+    cwd: opts.cwd,
+    signal,
+    stream,
+    write,
+    ...(timeoutS !== undefined ? { timeoutS } : {}),
+    ...(job.keepOutput === true ? { keepOutput: true } : {}),
+  };
+}
+
+/**
+ * Apply a job's {@link Job.evaluate} verdict to its settled result. A cancelled
+ * sibling or a timed-out job keeps its verdict — those failures are the
+ * scheduler's, and re-judging them could hide a hang behind a green metric.
+ */
+async function evaluateResult(job: Job, result: JobResult): Promise<JobResult> {
+  if (
+    job.evaluate === undefined || result.cancelled === true ||
+    result.timedOutAfterS !== undefined
+  ) {
+    return result;
+  }
+  return await job.evaluate(result);
+}
+
+/**
  * Funnel an optional external signal into the run's own controller, so a single
  * abort source reaches `spawnJob`'s tree-kill. Returns the detach to call once
  * the run settles (an already-aborted external cancels the run before any job
@@ -137,20 +177,18 @@ export async function runParallel(
   const detach = chainExternal(controller, opts.signal);
   const release = trackRun(controller);
   try {
-    const settled = await Promise.all(jobs.map((job) =>
-      spawnJob(job, {
-        cwd: opts.cwd,
-        signal: controller.signal,
-        stream,
-        write,
-        ...(opts.timeoutS !== undefined ? { timeoutS: opts.timeoutS } : {}),
-      }).then((s) => {
-        if (opts.failFast && s.result.code !== 0) {
-          controller.abort();
-        }
-        return s;
-      })
-    ));
+    const settled = await Promise.all(
+      jobs.map((job) =>
+        spawnJob(job, spawnOptions(job, opts, controller.signal, stream, write))
+          .then(async (s) => {
+            const result = await evaluateResult(job, s.result);
+            if (opts.failFast && result.code !== 0) {
+              controller.abort();
+            }
+            return { ...s, result };
+          })
+      ),
+    );
     if (!quiet) {
       for (const s of settled) {
         write(banner(s.result, opts.color));
@@ -196,21 +234,19 @@ export async function runSerial(
         ok = false;
         break;
       }
-      const s = await spawnJob(job, {
-        cwd: opts.cwd,
-        signal: controller.signal,
-        stream,
-        write,
-        ...(opts.timeoutS !== undefined ? { timeoutS: opts.timeoutS } : {}),
-      });
+      const s = await spawnJob(
+        job,
+        spawnOptions(job, opts, controller.signal, stream, write),
+      );
+      const result = await evaluateResult(job, s.result);
       if (!quiet) {
-        write(banner(s.result, opts.color));
+        write(banner(result, opts.color));
         if (!stream && s.output.length > 0) {
           write(s.output);
         }
       }
-      results.push(s.result);
-      if (s.result.code !== 0) {
+      results.push(result);
+      if (result.code !== 0) {
         ok = false;
         break;
       }

@@ -25,12 +25,16 @@ export interface SpawnOptions {
   /** Sink for streamed lines (the runner passes the same sink it uses for banners). */
   write: (chunk: Uint8Array) => void;
   /**
-   * Per-command time budget in SECONDS (`[gate].timeout`). A job that has not
-   * exited within it is tree-killed and resolves as a GENUINE failure carrying
-   * `timedOutAfterS` — so a watch-mode runner or a hung dev server can never make
-   * the gate wait forever. Omitted or `<= 0` means no bound (the unit-test default).
+   * Per-command time budget in SECONDS (`[gate].timeout`, or the job's own
+   * `timeout` override). A job that has not exited within it is tree-killed and
+   * resolves as a GENUINE failure carrying `timedOutAfterS` — so a watch-mode
+   * runner or a hung dev server can never make the gate wait forever. Omitted or
+   * `<= 0` means no bound (the unit-test default).
    */
   timeoutS?: number;
+  /** Attach the captured output to the result even on a CLEAN exit — for a job
+   * whose verdict is judged from its output rather than its exit code. */
+  keepOutput?: boolean;
 }
 
 /** A finished job: its result plus captured output (buffered mode only). */
@@ -350,10 +354,12 @@ export async function spawnJob(
   if (timedOutAfterS !== undefined) {
     result.timedOutAfterS = timedOutAfterS;
   }
-  // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling).
-  // Capping is deferred to the diagnostic layer so structured normalization (SARIF)
-  // sees the whole output; only the Tier-0 fallback is capped.
-  if (code !== 0 && !cancelled) {
+  // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling)
+  // — or unconditionally for a keepOutput job, whose verdict is judged from the
+  // output after it settles. Capping is deferred to the diagnostic layer so
+  // structured normalization (SARIF) sees the whole output; only the Tier-0
+  // fallback is capped.
+  if ((code !== 0 && !cancelled) || opts.keepOutput === true) {
     const raw = opts.stream ? streamCapture() : DECODER.decode(concat(chunks));
     if (raw.length > 0) {
       result.output = raw;

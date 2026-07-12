@@ -88,6 +88,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         },
@@ -102,6 +130,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         },
@@ -116,6 +172,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         },
@@ -130,6 +214,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         },
@@ -144,6 +256,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         },
@@ -158,6 +298,34 @@
               "items": {
                 "type": "string"
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "description": "The command(s) to run."
+                },
+                "timeout": {
+                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "run"
+              ],
+              "additionalProperties": false
             }
           ]
         }
@@ -201,6 +369,11 @@
           "provides": {
             "description": "Optional free-text label, for humans / audit.",
             "type": "string"
+          },
+          "timeout": {
+            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
@@ -250,6 +423,11 @@
                 }
               }
             ]
+          },
+          "timeout": {
+            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
@@ -377,6 +555,27 @@
           "margin": {
             "default": 0,
             "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "type": "number",
+            "minimum": 0
+          },
+          "measure": {
+            "default": "gate",
+            "description": "\"gate\" (the default): the measurement runs inside every `discern done`, in parallel with the tests. \"on-demand\": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay for free, or raise this one job's `timeout`.",
+            "type": "string",
+            "enum": [
+              "gate",
+              "on-demand"
+            ]
+          },
+          "inputs": {
+            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to always measure (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeout": {
+            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }

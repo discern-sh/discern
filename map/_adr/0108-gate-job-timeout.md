@@ -2,6 +2,15 @@
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
 > pointers use `finish` → `done`; the decision and reasoning are unchanged.
+>
+> **Amended by [ADR 0133](0133-standards-join-the-gate.md):** the deferred
+> per-job override shipped once standards joined the gate and supplied the real
+> case the original decision waited for. A capability value now takes a table
+> form (`{ run = "…", timeout = N }`), and `[checks.<name>]`, `[scopes.<name>]`,
+> and `[standards.<name>]` accept the same optional `timeout` key — each
+> replacing the global budget for that one job only (`0` disables its bound),
+> with every sibling still under `[gate].timeout`. The global default and the
+> uniform-by-construction watchdog are unchanged.
 
 **Status**: accepted; reuses the tree-kill path from
 [ADR 0105](0105-interruption-reaches-detached-gate-jobs.md) (the detached

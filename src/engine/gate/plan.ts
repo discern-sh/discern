@@ -35,17 +35,24 @@ const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
- * needs. `willRun` is false only for a configured-but-unchanged scope gate (listed
- * and reported as skipped); capabilities and checks are always planned to run —
+ * needs. `willRun` is false for a configured-but-unchanged scope gate and for a
+ * standard whose measurement is replayed or deferred (each listed and reported
+ * with its `note`); capabilities and checks are always planned to run —
  * fail-fast skips can't be predicted at plan time (the dry-run honesty rule).
  */
 export interface PlannedJob {
   label: string;
   command: string;
-  kind: "capability" | "check" | "scope-gate";
+  kind: "capability" | "check" | "scope-gate" | "standard";
   /** The stage reported in `jobs[].stage` (a real STAGE), or "scope_gates". */
   reportStage: Stage | "scope_gates";
   willRun: boolean;
+  /** Per-job `timeout` override, replacing the global `[gate].timeout` for this
+   * job only (`0` disables the bound for it). */
+  timeoutS?: number;
+  /** Overrides the serialized step note (the default is the command when the job
+   * runs) — a standard's measurement note, a replay/deferral explanation. */
+  note?: string;
 }
 
 /**
@@ -100,6 +107,7 @@ export function planStageJobs(cfg: DiscernConfig, stage: Stage): PlannedJob[] {
     kind: j.kind,
     reportStage: stage,
     willRun: true,
+    ...(j.timeoutS !== undefined ? { timeoutS: j.timeoutS } : {}),
   }));
 }
 
@@ -128,6 +136,7 @@ export function planScopeGates(
       kind: "scope-gate",
       reportStage: "scope_gates",
       willRun: changed.includes(scope),
+      ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
     });
   }
   return out;
@@ -373,7 +382,10 @@ function withFixAvailable(
  */
 function jobFailureMessage(label: string, r: JobResult): string {
   if (r.timedOutAfterS !== undefined) {
-    return `${label} timed out after ${r.timedOutAfterS}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or raise [gate].timeout for a legitimately long-running command.`;
+    return `${label} timed out after ${r.timedOutAfterS}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or give a legitimately long-running command a bigger budget — a \`timeout\` on its own config entry, or the global [gate].timeout.`;
+  }
+  if (r.failureMessage !== undefined) {
+    return r.failureMessage;
   }
   if (r.code === 127) {
     return `${label} failed (exit 127) — command not found. If it works in the main checkout, note that a fresh worktree starts without the untracked tool and dependency directories the main checkout has; converge them via [worktree.setup].ensure.`;
@@ -404,13 +416,17 @@ export async function serializeJobSteps(
   for (const group of groups) {
     for (const j of group.jobs) {
       const r = results.get(j.label);
-      const kind: StepKind = j.kind === "scope-gate" ? "scope-gate" : "job";
+      const kind: StepKind = j.kind === "scope-gate"
+        ? "scope-gate"
+        : j.kind === "standard"
+        ? "standard"
+        : "job";
       steps.push({
         step: {
           kind,
           label: j.label,
           disposition: j.willRun ? "run" : "skip",
-          note: j.willRun ? j.command : "scope unchanged",
+          note: j.note ?? (j.willRun ? j.command : "scope unchanged"),
           group: group.display,
         },
         outcome: stepOutcome(r),
@@ -429,10 +445,12 @@ export async function serializeJobSteps(
         const fixAvailable = fixAvailableFor(j, fixStageWired);
         // A timed-out job is a hang, not a tool diagnostic — never SARIF-normalize
         // it; its plain-language message (below) names the likely cause instead.
-        const normalized =
-          r.timedOutAfterS === undefined && r.output !== undefined
-            ? normalizeDiagnostics(r.output, j.label, j.command)
-            : undefined;
+        // An evaluated verdict (`failureMessage`) IS the diagnostic — its output
+        // is evidence, not a machine format to parse.
+        const normalized = r.timedOutAfterS === undefined &&
+            r.failureMessage === undefined && r.output !== undefined
+          ? normalizeDiagnostics(r.output, j.label, j.command)
+          : undefined;
         if (normalized !== undefined) {
           diagnostics.push(...withFixAvailable(normalized, fixAvailable));
         } else {
@@ -536,10 +554,14 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   for (const group of plan.groups) {
     for (const j of group.jobs) {
       steps.push({
-        kind: j.kind === "scope-gate" ? "scope-gate" : "job",
+        kind: j.kind === "scope-gate"
+          ? "scope-gate"
+          : j.kind === "standard"
+          ? "standard"
+          : "job",
         label: j.label,
         disposition: j.willRun ? "run" : "skip",
-        note: j.willRun ? j.command : "scope unchanged",
+        note: j.note ?? (j.willRun ? j.command : "scope unchanged"),
         group: group.display,
       });
     }

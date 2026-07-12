@@ -6,6 +6,24 @@ export interface Job {
   label: string;
   /** The command string, run via `sh -c`. An empty string becomes the `:` no-op. */
   command: string;
+  /**
+   * Per-job time budget override (seconds): replaces the run-level budget for THIS
+   * job only (`0` disables the bound for it). Absent means inherit the run-level
+   * budget — the `[gate].timeout` global.
+   */
+  timeoutS?: number;
+  /** Retain the job's captured output on the result even when it exits clean —
+   * for a job whose verdict is decided from its output, not its exit code. */
+  keepOutput?: boolean;
+  /**
+   * Evaluate the settled result before the runner acts on it: rewrite the
+   * outcome (code/status/output) from evidence the process alone can't decide —
+   * e.g. a metric read from the captured output. Runs after the job settles and
+   * BEFORE the fail-fast check, so a rewritten failure cancels siblings exactly
+   * like an exit-code failure. Never called for a cancelled sibling or a
+   * timed-out job (those verdicts stand).
+   */
+  evaluate?: (result: JobResult) => Promise<JobResult>;
 }
 
 /** The outcome of a job that produced a result (it ran, or was cancelled). */
@@ -48,6 +66,14 @@ export interface JobResult {
    * command that daemonized), so no consumer keying off `code` can report it ok.
    */
   timedOutAfterS?: number;
+  /**
+   * A failure summary from a {@link Job.evaluate} verdict — the words the
+   * diagnostic should lead with when the job's failure is a judgement over its
+   * output (a metric past its limit), not its exit code. Serialization prefers
+   * this over the generic exit-code message and skips structured (SARIF)
+   * normalization for it: the verdict IS the diagnostic.
+   */
+  failureMessage?: string;
 }
 
 /** What a stage run returns: overall success plus the per-job results produced. */

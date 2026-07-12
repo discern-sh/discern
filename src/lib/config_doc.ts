@@ -17,6 +17,7 @@
 import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
 import {
   capabilityCheckNameCollisions,
+  type CommandValue,
   CONFIG_DOC_VERSION,
   type DiscernConfigDoc,
 } from "../shared/config_schema.ts";
@@ -296,8 +297,20 @@ export function applyConfigDoc(
 function setCommand(
   editor: TomlEditor,
   key: string,
-  value: CommandOrList,
+  value: CommandValue,
 ): void {
+  if (typeof value === "object" && !Array.isArray(value)) {
+    // The capability table form: rendered as an inline table. JSON string
+    // escaping is valid TOML basic-string escaping, so the quoting is shared.
+    const run = Array.isArray(value.run)
+      ? `[${value.run.map((s) => JSON.stringify(s)).join(", ")}]`
+      : JSON.stringify(value.run);
+    const timeout = value.timeout !== undefined
+      ? `, timeout = ${value.timeout}`
+      : "";
+    editor.setLiteral(key, `{ run = ${run}${timeout} }`);
+    return;
+  }
   if (Array.isArray(value)) {
     editor.setStringArray(key, value);
   } else {

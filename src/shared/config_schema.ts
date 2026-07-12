@@ -105,6 +105,37 @@ const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
 
+/** The per-job `timeout` override: replaces the global `[gate].timeout` budget for
+ * this job only, in seconds; `0` disables the bound for it. Shared by the capability
+ * table form and the `[checks]`/`[scopes]`/`[standards]` tables, so every job-bearing
+ * config value spells the override identically. */
+const jobTimeout = z.number().min(
+  0,
+  "timeout is a per-job budget in seconds and cannot be negative.",
+).optional().describe(
+  "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+);
+
+/** A capability value: the bare command-or-list, or the table form
+ * `{ run = "…", timeout = N }` when the job needs its own time budget. */
+const capabilityCommand = z.union([
+  z.string(),
+  z.array(z.string()),
+  z.strictObject({
+    run: commandOrList.describe("The command(s) to run."),
+    timeout: jobTimeout,
+  }),
+]).describe(
+  'A single command, a list of commands run in order, or a table { run = "…", timeout = N } giving this job its own time budget.',
+);
+
+/** A command-bearing config value in any of its shapes: a bare command, a list, or
+ * the capability table form carrying per-job options. */
+export type CommandValue = string | string[] | {
+  run: string | string[];
+  timeout?: number | undefined;
+};
+
 /** A git pathspec, or a NON-EMPTY list of them — the extent a built-in `per`
  * measures over. The list form requires at least one pathspec: an empty list would
  * reach `git ls-files -z --` with zero pathspecs, which git reads as "every tracked
@@ -156,6 +187,7 @@ const checkValue = z.strictObject({
   provides: z.string().optional().describe(
     "Optional free-text label, for humans / audit.",
   ),
+  timeout: jobTimeout,
 });
 
 /** A `[scopes.<name>]` table — a named region with optional attributes. */
@@ -172,6 +204,7 @@ const scopeValue = z.strictObject({
   gate: commandOrList.optional().describe(
     "A command discern done runs when this scope changed (a sub-component with its own self-contained gate).",
   ),
+  timeout: jobTimeout,
 });
 
 /** A `[standards.<name>]` table — one never-loosen metric floor/ceiling. */
@@ -206,6 +239,23 @@ const standardValue = z.strictObject({
       "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
       "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
   ),
+  measure: z.enum(["gate", "on-demand"]).default("gate").describe(
+    '"gate" (the default): the measurement runs inside every `discern done`, in ' +
+      'parallel with the tests. "on-demand": the gate skips only the measurement ' +
+      "(for a metric too slow for every gate run — a full coverage run, a release " +
+      "build); the never-loosen limit check still runs on every gate, and " +
+      "`discern standards` measures it when you ask. Before deferring, prefer the " +
+      "smaller reliefs: declare `inputs` so unchanged trees replay for free, or " +
+      "raise this one job's `timeout`.",
+  ),
+  inputs: z.array(z.string()).optional().describe(
+    "The paths this metric reads (scope-paths globs). When a gate run finds " +
+      "every change since the last recorded measurement outside these globs, it " +
+      "replays that recorded value instead of re-measuring — loudly, naming the " +
+      "source commit. Omit to always measure (the conservative default). Risk: a " +
+      "too-narrow inputs list delays detection until the next measured run.",
+  ),
+  timeout: jobTimeout,
 });
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
@@ -286,20 +336,20 @@ const mapSection = z.strictObject({
  * command-or-list. Shared by the live config (prefaulted) AND the document
  * (optional), so both — and the generated JSON Schema — derive from one shape. */
 const capabilitiesObject = z.strictObject({
-  format: commandOrList.optional().describe(
+  format: capabilityCommand.optional().describe(
     "fix stage — a formatter/codemod (mutating; runs first, serially).",
   ),
-  build: commandOrList.optional().describe(
+  build: capabilityCommand.optional().describe(
     "build stage — produce artifacts later stages read (compile, bundle).",
   ),
-  lint: commandOrList.optional().describe(
+  lint: capabilityCommand.optional().describe(
     "check stage — read-only static analysis.",
   ),
-  typecheck: commandOrList.optional().describe(
+  typecheck: capabilityCommand.optional().describe(
     "check stage — read-only type checking.",
   ),
-  test: commandOrList.optional().describe("test stage — the test suite."),
-  smoke: commandOrList.optional().describe(
+  test: capabilityCommand.optional().describe("test stage — the test suite."),
+  smoke: capabilityCommand.optional().describe(
     "test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite.",
   ),
 });
@@ -396,7 +446,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
   ).describe(
-    "[standards.<name>] — quality standards, numbers that can never get worse, enforced on demand by `discern standards` (slow, so NOT part of `discern done`). Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.",
+    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests: a standard whose declared `inputs` the change never touched replays its recorded value for free, and one marked measure = "on-demand" is deferred to `discern standards`. Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.',
   );
 
 const gateSection = z.strictObject({
@@ -967,22 +1017,34 @@ export function configWriteIssues(text: string): ConfigIssue[] {
 }
 
 /**
- * Normalise a command-or-list config value into the engine's job list: a scalar
- * becomes a one-element list, an absent value an empty list, and empty / `:`
- * no-op items are dropped (the long-standing `config_array` semantics).
+ * Normalise a command-bearing config value into the engine's job list: a scalar
+ * becomes a one-element list, an absent value an empty list, the capability table
+ * form contributes its `run`, and empty / `:` no-op items are dropped (the
+ * long-standing `config_array` semantics).
  */
-export function toCommandList(value: string | string[] | undefined): string[] {
-  const items = value === undefined
-    ? []
-    : Array.isArray(value)
-    ? value
-    : [value];
+export function toCommandList(value: CommandValue | undefined): string[] {
+  const run = typeof value === "object" && value !== null &&
+      !Array.isArray(value)
+    ? value.run
+    : value;
+  const items = run === undefined ? [] : Array.isArray(run) ? run : [run];
   return items.filter((s) => s !== "" && s !== ":");
 }
 
-/** A command-or-list rendered as one shell command: list items joined with ` && `,
- * empties/`:` dropped. `""` when nothing real remains. Mirrors how a multi-command
- * value runs as a single job (e.g. a scope gate). */
-export function toCommand(value: string | string[] | undefined): string {
+/** A command-bearing value rendered as one shell command: list items joined with
+ * ` && `, empties/`:` dropped. `""` when nothing real remains. Mirrors how a
+ * multi-command value runs as a single job (e.g. a scope gate). */
+export function toCommand(value: CommandValue | undefined): string {
   return toCommandList(value).join(" && ");
+}
+
+/** The per-job `timeout` override a command-bearing value carries, or undefined
+ * when the value inherits the global `[gate].timeout` (the bare command-or-list
+ * forms carry none; only the capability table form can). */
+export function commandTimeout(
+  value: CommandValue | undefined,
+): number | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value.timeout
+    : undefined;
 }

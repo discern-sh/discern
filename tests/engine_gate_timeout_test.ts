@@ -330,3 +330,194 @@ Deno.test("gate timeout: a changed scope's gate is bounded", async () => {
     changedFile: "widget/x.txt",
   });
 });
+
+// ── per-job `timeout` overrides: one job's own budget, siblings keep the global ──
+
+Deno.test("timeout override: a job's own budget bounds only that job — siblings keep the run-level budget", async () => {
+  const start = performance.now();
+  const r = await runParallel([
+    // Overridden down to 1s: killed. The sibling sleeps past that override but
+    // well inside the run-level budget: untouched.
+    { label: "tight", command: "sleep 9999", timeoutS: 1 },
+    { label: "roomy", command: "sleep 2" },
+  ], {
+    cwd: Deno.cwd(),
+    stream: false,
+    failFast: false,
+    color: false,
+    timeoutS: 30,
+    write: () => {},
+  });
+  const elapsed = performance.now() - start;
+  const tight = r.results.find((x) => x.label === "tight");
+  const roomy = r.results.find((x) => x.label === "roomy");
+  assertEquals(tight?.timedOutAfterS, 1, JSON.stringify(tight));
+  assertEquals(roomy?.timedOutAfterS, undefined, JSON.stringify(roomy));
+  assertEquals(roomy?.code, 0);
+  assert(elapsed < 15_000, `bounded by the override, took ${elapsed}ms`);
+});
+
+Deno.test("timeout override: 0 disables the bound for that job alone", async () => {
+  const r = await runParallel([
+    // The run-level budget is 1s; the override lifts it for this job only.
+    { label: "unbounded", command: "sleep 2", timeoutS: 0 },
+  ], {
+    cwd: Deno.cwd(),
+    stream: false,
+    failFast: true,
+    color: false,
+    timeoutS: 1,
+    write: () => {},
+  });
+  assertEquals(r.results[0]?.timedOutAfterS, undefined);
+  assertEquals(r.results[0]?.code, 0);
+});
+
+/**
+ * Drive a config whose one slow job carries its own `timeout` while a sibling
+ * relies on the (generous) global, through the full `discern done`: the override
+ * must bound ITS job — failing within seconds — while the sibling passes.
+ */
+async function assertOverrideBoundsOwnJob(opts: {
+  wiring: string[];
+  jobLabel: string;
+}): Promise<void> {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        ...opts.wiring,
+        "",
+        "[gate]",
+        "timeout = 600", // generous global: only the override can fire this fast
+        "fail_fast = false",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const start = Date.now();
+    const r = await runAgent(dir, ["done", "--json"]);
+    const elapsed = Date.now() - start;
+
+    assertEquals(r.code, 1, r.output);
+    // deno-lint-ignore no-explicit-any
+    const obj = JSON.parse(r.stdout.trim()) as any;
+    // deno-lint-ignore no-explicit-any
+    const diag = (obj.diagnostics ?? []).find((d: any) =>
+      d.tool === opts.jobLabel
+    );
+    assert(
+      diag !== undefined,
+      `expected a timeout diagnostic for ${opts.jobLabel}: ${r.stdout}`,
+    );
+    assertStringIncludes(diag.message, "timed out after 1s");
+    // The sibling under the global budget is untouched.
+    // deno-lint-ignore no-explicit-any
+    const sibling = (obj.steps ?? []).find((s: any) => s.label === "lint");
+    assertEquals(sibling?.outcome, "ok", JSON.stringify(sibling));
+    assert(
+      elapsed < 30_000,
+      `the override should bound its job, took ${elapsed}ms`,
+    );
+  });
+}
+
+// The override class, per job-bearing config shape — the capability TABLE form,
+// a [checks.<name>].timeout, and a [scopes.<name>].timeout — each proven to
+// bound its own job while a sibling keeps the global budget.
+Deno.test("timeout override: the capability table form { run, timeout } bounds its job", async () => {
+  await assertOverrideBoundsOwnJob({
+    wiring: [
+      "[capabilities]",
+      'lint = "true"',
+      'test = { run = "sleep 9999", timeout = 1 }',
+    ],
+    jobLabel: "test",
+  });
+});
+
+Deno.test("timeout override: [checks.<name>].timeout bounds its job", async () => {
+  await assertOverrideBoundsOwnJob({
+    wiring: [
+      "[capabilities]",
+      'lint = "true"',
+      "",
+      "[checks.slowcheck]",
+      'stage = "check"',
+      'run = "sleep 9999"',
+      "timeout = 1",
+    ],
+    jobLabel: "slowcheck",
+  });
+});
+
+Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'lint = "true"',
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "sleep 9999"',
+        "timeout = 1",
+        "",
+        "[gate]",
+        "timeout = 600",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "widget/x.txt"), "x");
+
+    const start = Date.now();
+    const r = await runAgent(dir, ["done", "--json"]);
+    const elapsed = Date.now() - start;
+
+    assertEquals(r.code, 1, r.output);
+    // deno-lint-ignore no-explicit-any
+    const obj = JSON.parse(r.stdout.trim()) as any;
+    // deno-lint-ignore no-explicit-any
+    const diag = (obj.diagnostics ?? []).find((d: any) =>
+      d.tool === "scope:widget"
+    );
+    assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
+    assertStringIncludes(diag.message, "timed out after 1s");
+    assert(elapsed < 30_000, `bounded by the override, took ${elapsed}ms`);
+  });
+});
+
+Deno.test("timeout override: the bare command-or-list capability form parses and runs unchanged", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'main_branch = "main"',
+        "",
+        "[capabilities]",
+        'lint = "true"',
+        'test = ["true", "true"]',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+  });
+});

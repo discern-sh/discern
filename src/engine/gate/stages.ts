@@ -12,6 +12,7 @@
  */
 
 import {
+  commandTimeout,
   type DiscernConfig,
   toCommand,
   toCommandList,
@@ -25,6 +26,9 @@ export interface StageJob {
   label: string;
   command: string;
   kind: "capability" | "check";
+  /** Per-job `timeout` override from the config value, replacing the global
+   * `[gate].timeout` for this job only (`0` disables the bound for it). */
+  timeoutS?: number;
 }
 
 /** The jobs that run in `stage`, capabilities first then checks, in declared order. */
@@ -37,12 +41,14 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
     if (value === undefined || capStage(cap) !== stage) {
       continue;
     }
+    const timeoutS = commandTimeout(value);
     // A scalar yields one job; a list yields one per element (empties/":" dropped).
     toCommandList(value).forEach((command, i) => {
       jobs.push({
         label: i === 0 ? cap : `${cap}#${i + 1}`,
         command: expandMapDirReference(command, config.map.dir),
         kind: "capability",
+        ...(timeoutS !== undefined ? { timeoutS } : {}),
       });
     });
   }
@@ -59,7 +65,12 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
     if (run === "") {
       continue;
     }
-    jobs.push({ label: chk, command: run, kind: "check" });
+    jobs.push({
+      label: chk,
+      command: run,
+      kind: "check",
+      ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
+    });
   }
 
   return jobs;

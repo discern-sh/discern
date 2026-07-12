@@ -18,22 +18,40 @@ import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
 import type { FailedStage } from "../../shared/result.ts";
 import type { JobGroup } from "./plan.ts";
 
+/** A post-settle verdict for one gate job, keyed by label — how a standard's
+ * measurement rewrites its job result from the captured output (see
+ * {@link import("../jobs/types.ts").Job.evaluate}). */
+export type JobEvaluators = Map<
+  string,
+  (result: JobResult) => Promise<JobResult>
+>;
+
 /**
  * Run one job group — the thin per-group executor. Runs the group's firing jobs
  * (serial for the mutating fix stage, parallel otherwise), records their results
  * into `results`, and returns whether the group passed. A group with no firing job
  * (e.g. a scope-gates group whose scopes are all unchanged) is a clean pass with no
- * heading.
+ * heading. `evaluators` attaches a post-settle verdict to the jobs it names (their
+ * output is retained so the verdict can read it).
  */
 export async function runGroup(
   group: JobGroup,
   results: Map<string, JobResult>,
   runOpts: RunOptions,
   out: Out,
+  evaluators?: JobEvaluators,
 ): Promise<boolean> {
   const jobs: Job[] = group.jobs
     .filter((j) => j.willRun)
-    .map((j) => ({ label: j.label, command: j.command }));
+    .map((j) => {
+      const evaluate = evaluators?.get(j.label);
+      return {
+        label: j.label,
+        command: j.command,
+        ...(j.timeoutS !== undefined ? { timeoutS: j.timeoutS } : {}),
+        ...(evaluate !== undefined ? { evaluate, keepOutput: true } : {}),
+      };
+    });
   if (jobs.length === 0) {
     return true;
   }

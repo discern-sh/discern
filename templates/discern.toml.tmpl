@@ -110,6 +110,9 @@ dir = "discern/skills"
 #   smoke      test   a fast check that the app boots in this checkout (proves it
 #                     runs wherever the gate runs — including inside a worktree)
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
+# A job needing its own time budget takes the table form — the `timeout` (seconds)
+# replaces the global [gate].timeout for that job only, 0 disables its bound:
+#   test = { run = "npm test", timeout = 1200 }
 # OMIT an individual capability you truly do not have yet. A config with zero wired
 # capabilities is only a bootstrap state: the gate can pass without checking anything,
 # so `discern doctor` reports it as a warning until at least one capability or custom
@@ -133,10 +136,11 @@ dir = "discern/skills"
 # ─────────────────────────────────────────────────────────────────────────────
 # [checks.<name>] — custom, non-standard gate work that isn't a known capability.
 # `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
-# list); `provides` an optional free-text label. Use this for anything outside
-# the six capabilities above. A check may not reuse a name wired under
-# [capabilities] — the gate keys each job's result by its label, so the two
-# would collide.
+# list); `provides` an optional free-text label; `timeout` (seconds, optional)
+# replaces the global [gate].timeout for this job only (0 disables its bound).
+# Use this for anything outside the six capabilities above. A check may not
+# reuse a name wired under [capabilities] — the gate keys each job's result by
+# its label, so the two would collide.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # [checks.licenses]
@@ -156,6 +160,8 @@ dir = "discern/skills"
 #   previewable = true   a person could see changes here — worth a preview link
 #   gate        = "..."  a command `discern done` runs when this scope changed
 #                        (a sub-component with its own self-contained gate)
+#   timeout     = N      seconds; replaces the global [gate].timeout for this
+#                        scope's gate job only (0 disables its bound)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Paths that need no gate at all: docs and agent-guidance sources. (Generated
@@ -280,10 +286,12 @@ ensure = []  # converge, e.g. ["<install deps>"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [standards] — quality standards: numbers that can never get worse, enforced on
-# demand by `discern standards`
-# (slow, so NOT part of `discern done`). None configured means none run — defining
-# one is what turns the subsystem on.
+# [standards] — quality standards: numbers that can never get worse. Every
+# `discern done` run verifies no limit loosened versus the trunk (always — that
+# check has no off switch) and measures each standard in parallel with the
+# tests, so a branch can neither quietly loosen a limit nor quietly regress a
+# metric. None configured means none run — defining one is what turns the
+# subsystem on.
 #
 # Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
 # error count, a perf budget. Each [standards.<name>]
@@ -294,7 +302,7 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
-#              (run on demand by `discern standards`, never by the gate)
+#              (run by the gate alongside the tests, and by `discern standards`)
 #   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
@@ -304,6 +312,18 @@ ensure = []  # converge, e.g. ["<install deps>"]
 #              to the measured value (default 0). Give a metric that drifts on
 #              unrelated commits (a size, a coverage %) a margin so a pinned limit
 #              isn't tripped by ordinary fluctuation.
+#   inputs     the paths the metric reads (scope-style globs). When nothing under
+#              them changed since the last recorded measurement, the gate replays
+#              that value instead of re-measuring — a docs-only change pays
+#              seconds, not a coverage run. Honest risk: too-narrow inputs delay
+#              detection until the next measured run. Omit to always measure.
+#   timeout    seconds; replaces the global [gate].timeout for this measurement
+#              job only (0 disables its bound)
+#   measure    "gate" (default) measures in every `discern done`; "on-demand"
+#              defers a metric genuinely too slow for every gate run to
+#              `discern standards` — the never-loosen limit check still runs on
+#              every gate. Reach for the smaller reliefs first: declare `inputs`
+#              so unchanged trees replay for free, or raise this job's `timeout`.
 #
 # A standard's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
@@ -360,11 +380,13 @@ stream = false
 fail_fast = true
 
 # Per-command time budget in SECONDS, applied to every job the gate runs (each
-# capability, check, and scope gate). A command that doesn't exit within it is
-# tree-killed and the stage fails with a plain-language timeout diagnostic — so
-# the gate can never hang. The usual culprit is a watch-mode test runner or a dev
-# server wired without its single-run form. Generous by default (600 = 10 min);
-# set 0 to disable the limit (not recommended — the gate can then hang forever).
+# capability, check, scope gate, and standard measurement). A command that
+# doesn't exit within it is tree-killed and the stage fails with a plain-language
+# timeout diagnostic — so the gate can never hang. The usual culprit is a
+# watch-mode test runner or a dev server wired without its single-run form.
+# Generous by default (600 = 10 min); set 0 to disable the limit (not
+# recommended — the gate can then hang forever). One legitimately slow job takes
+# its own `timeout` on its config entry instead of a slower global.
 timeout = 600
 
 

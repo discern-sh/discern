@@ -64,12 +64,12 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `format` | string \| string[] | — | fix stage — a formatter/codemod (mutating; runs first, serially). |
-| `build` | string \| string[] | — | build stage — produce artifacts later stages read (compile, bundle). |
-| `lint` | string \| string[] | — | check stage — read-only static analysis. |
-| `typecheck` | string \| string[] | — | check stage — read-only type checking. |
-| `test` | string \| string[] | — | test stage — the test suite. |
-| `smoke` | string \| string[] | — | test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite. |
+| `format` | string \| string[] \| object | — | fix stage — a formatter/codemod (mutating; runs first, serially). |
+| `build` | string \| string[] \| object | — | build stage — produce artifacts later stages read (compile, bundle). |
+| `lint` | string \| string[] \| object | — | check stage — read-only static analysis. |
+| `typecheck` | string \| string[] \| object | — | check stage — read-only type checking. |
+| `test` | string \| string[] \| object | — | test stage — the test suite. |
+| `smoke` | string \| string[] \| object | — | test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite. |
 
 ## `[checks.<name>]`
 
@@ -80,6 +80,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `stage` | `fix` \| `build` \| `check` \| `test` | — | When the check runs in the gate (fix\|build\|check\|test). |
 | `run` | string \| string[] | — | The command(s) to run. |
 | `provides` | string | — | Optional free-text label, for humans / audit. |
+| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
 
 ## `[scopes.<name>]`
 
@@ -91,6 +92,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `neutral` | boolean | `false` | true: changes here need no gate (docs, agent guidance). |
 | `previewable` | boolean | `false` | true: a person could see changes here — worth a preview link. |
 | `gate` | string \| string[] | — | A command discern done runs when this scope changed (a sub-component with its own self-contained gate). |
+| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
 
 ## `[worktree]`
 
@@ -128,7 +130,7 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 
 ## `[standards.<name>]`
 
-[standards.<name>] — quality standards, numbers that can never get worse, enforced on demand by `discern standards` (slow, so NOT part of `discern done`). Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.
+[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests: a standard whose declared `inputs` the change never touched replays its recorded value for free, and one marked measure = "on-demand" is deferred to `discern standards`. Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -139,6 +141,9 @@ Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure
 | `per` | string \| object | — | Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${map.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
 | `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
 | `margin` | number | `0` | Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
+| `measure` | `gate` \| `on-demand` | `"gate"` | "gate" (the default): the measurement runs inside every `discern done`, in parallel with the tests. "on-demand": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay for free, or raise this one job's `timeout`. |
+| `inputs` | string[] | — | The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to always measure (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. |
+| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
 
 ## `[gate]`
 
