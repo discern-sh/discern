@@ -29,15 +29,22 @@ Two commands read a documentation tree, and they read **different** ones:
   subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by
   default but can be browsed with `discern help --adr` (CLI only — the MCP tool
   never exposes them).
-- **`discern map`** browses **the host project's map** — the agent-maintained
+- **`discern map`** opens with an overview of **the host project's map** — the agent-maintained
   documentation tree at `[map].dir` (default `map/`, resolved from the project
   root; [ADR 0120](_adr/0120-launch-verb-canon.md)). This repo uses that
-  default. It takes a one-call `--dir` override, and (unlike `help`) is refused
+  default. The overview derives one line per public top-level subtree from its
+  `README.md`. Beside it, Git reports when those pages last changed and how many
+  later commits touched tracked code paths linked by the subtree's pages. A
+  subtree with no such links or usable history says its staleness is unknown.
+  It takes a one-call `--dir` override, and (unlike `help`) is refused
   before setup, since the project's tree is empty until setup seeds and fills it
   ([ADR 0080](_adr/0080-configured-agent-map-root.md)).
 
-Both share one implementation and the same surfaces: an interactive picker on a
-TTY, and `--list` / `--json` / `--raw` / `--export` off one.
+Both share one implementation and the same drill-in surfaces: an interactive
+picker on a TTY, and `--list` / `--json` / `--raw` / `--export` off one. The
+map's no-argument human view is the region overview; on a TTY the picker follows
+it, while a pipe receives the overview alone. Its JSON index includes the same
+`regions` and staleness data.
 
 ---
 

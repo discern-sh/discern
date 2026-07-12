@@ -51,6 +51,11 @@ import {
 } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
+import {
+  ageSince,
+  buildMapOverview,
+  type MapRegion,
+} from "../lib/map_overview.ts";
 
 /** Supported concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -168,11 +173,16 @@ function toRecord(e: DocEntry): DocRecord {
 }
 
 /** Index payload; `help` deliberately omits a local map_dir path. */
-function indexData(desc: DocsVerb, tree: DocsTree, cwd: string): DocsData {
+async function indexData(
+  desc: DocsVerb,
+  tree: DocsTree,
+  cwd: string,
+): Promise<DocsData> {
   return {
     ...(desc.verb === "map" ? { map_dir: display(tree.docsDir, cwd) } : {}),
     count: tree.entries.length,
     docs: tree.entries.map(toRecord),
+    ...(desc.verb === "map" ? { regions: await buildMapOverview(tree) } : {}),
   };
 }
 
@@ -399,6 +409,53 @@ function printToc(
   console.log(lines.join("\n"));
 }
 
+/** Render the map's top-level regions and their Git-only freshness signals. */
+function printMapOverview(
+  tree: DocsTree,
+  cwd: string,
+  regions: readonly MapRegion[],
+  color: boolean,
+): void {
+  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
+  const lines = [
+    `${paint(colors.bold, "discern map")} — ${regions.length} region${
+      regions.length === 1 ? "" : "s"
+    } in ${display(tree.docsDir, cwd)}`,
+  ];
+  for (const region of regions) {
+    lines.push("");
+    lines.push(
+      `${paint(colors.bold.cyan, region.name)}  ${region.description}`,
+    );
+    const freshness = region.staleness;
+    if (
+      freshness.status === "unknown" ||
+      freshness.pages_changed_at === undefined ||
+      freshness.code_changes_since === undefined
+    ) {
+      lines.push(
+        paint(
+          colors.dim,
+          "  staleness unknown — no tracked code links or usable Git history",
+        ),
+      );
+    } else {
+      const changes = freshness.code_changes_since;
+      lines.push(
+        paint(
+          freshness.status === "behind" ? colors.yellow : colors.dim,
+          `  pages last changed ${
+            ageSince(freshness.pages_changed_at)
+          }; linked code changed ${changes} time${
+            changes === 1 ? "" : "s"
+          } since`,
+        ),
+      );
+    }
+  }
+  console.log(lines.join("\n"));
+}
+
 /**
  * Concatenate a selected docs scope and emit it atomically from the command's
  * point of view: every source is read before stdout or the output file changes.
@@ -540,7 +597,7 @@ async function treeResult(
     return {
       ok: true,
       verb: desc.verb,
-      data: indexData(desc, tree, cwd),
+      data: await indexData(desc, tree, cwd),
     };
   }
 
@@ -586,7 +643,7 @@ async function treeResult(
   return {
     ok: true,
     verb: desc.verb,
-    data: indexData(desc, tree, cwd),
+    data: await indexData(desc, tree, cwd),
   };
 }
 
@@ -756,14 +813,27 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     return await viewTarget(desc.verb, tree, options, log, cwd, options.target);
   }
 
-  // 2. A real terminal and no `--list` → the interactive browser.
+  // 2. `map` earns its name with a region overview before any drill-in. A pipe
+  // gets the overview alone; a TTY continues into the existing picker.
   const interactive = !options.list &&
     Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
+  if (desc.verb === "map" && !options.list) {
+    const regions = await buildMapOverview(tree);
+    printMapOverview(
+      tree,
+      cwd,
+      regions,
+      colourEnabled(options.noColor),
+    );
+    if (!interactive) return 0;
+  }
+
+  // 3. A real terminal and no `--list` → the interactive browser.
   if (interactive) {
     return await browse(desc.verb, tree, options, cwd);
   }
 
-  // 3. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
+  // 4. Otherwise (help off a TTY, or explicit `--list`) → a plain TOC.
   printToc(desc.verb, tree, cwd, colourEnabled(options.noColor));
   return 0;
 }
