@@ -1054,6 +1054,18 @@ export type DiscernMapResult = {
       slug: string;
       title: string;
     }>;
+    regions?: Array<{
+      name: string;
+      title: string;
+      description: string;
+      page_count: number;
+      staleness: {
+        status: "current" | "behind" | "unknown";
+        pages_changed_at?: string;
+        code_changes_since?: number;
+        code_paths: Array<string>;
+      };
+    }>;
     doc?: {
       path: string;
       section: string;
@@ -1156,6 +1168,18 @@ export type DiscernHelpResult = {
       section: string;
       slug: string;
       title: string;
+    }>;
+    regions?: Array<{
+      name: string;
+      title: string;
+      description: string;
+      page_count: number;
+      staleness: {
+        status: "current" | "behind" | "unknown";
+        pages_changed_at?: string;
+        code_changes_since?: number;
+        code_paths: Array<string>;
+      };
     }>;
     doc?: {
       path: string;
@@ -1634,6 +1658,10 @@ export type DiscernImprovementResult = {
       title: string;
       action: string;
       why: string;
+      against?: {
+        source: string;
+        excerpt: string;
+      };
     };
     categories: Array<{
       name: string;

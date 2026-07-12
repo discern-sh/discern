@@ -22,7 +22,7 @@
  * dispatch, the interactive loop, and the pager.
  */
 
-import { Checkbox, Select } from "@cliffy/prompt";
+import { Select } from "@cliffy/prompt";
 import { colors } from "@cliffy/ansi/colors";
 import {
   basename,
@@ -51,6 +51,12 @@ import {
 } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
+import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
+import {
+  ageSince,
+  buildMapOverview,
+  type MapRegion,
+} from "../lib/map_overview.ts";
 
 /** Supported concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -168,11 +174,16 @@ function toRecord(e: DocEntry): DocRecord {
 }
 
 /** Index payload; `help` deliberately omits a local map_dir path. */
-function indexData(desc: DocsVerb, tree: DocsTree, cwd: string): DocsData {
+async function indexData(
+  desc: DocsVerb,
+  tree: DocsTree,
+  cwd: string,
+): Promise<DocsData> {
   return {
     ...(desc.verb === "map" ? { map_dir: display(tree.docsDir, cwd) } : {}),
     count: tree.entries.length,
     docs: tree.entries.map(toRecord),
+    ...(desc.verb === "map" ? { regions: await buildMapOverview(tree) } : {}),
   };
 }
 
@@ -296,7 +307,7 @@ async function pageThrough(text: string): Promise<boolean> {
 
 /** Show rendered text: paged on an interactive terminal, else straight to stdout. */
 async function present(text: string, noPager: boolean): Promise<void> {
-  if (!noPager && Deno.stdout.isTerminal()) {
+  if (!noPager && canPrompt(false)) {
     if (await pageThrough(text)) return;
   }
   console.log(text);
@@ -345,7 +356,7 @@ async function browse(
   while (true) {
     let choice: string;
     try {
-      choice = await Select.prompt({
+      choice = await selectPrompt({
         message,
         options: [
           ...choices,
@@ -395,6 +406,53 @@ function printToc(
     }
     const label = labelOf(e).padEnd(colWidth);
     lines.push(`  ${paint(colors.cyan, label)}  ${paint(colors.dim, e.title)}`);
+  }
+  console.log(lines.join("\n"));
+}
+
+/** Render the map's top-level regions and their Git-only freshness signals. */
+function printMapOverview(
+  tree: DocsTree,
+  cwd: string,
+  regions: readonly MapRegion[],
+  color: boolean,
+): void {
+  const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
+  const lines = [
+    `${paint(colors.bold, "discern map")} — ${regions.length} region${
+      regions.length === 1 ? "" : "s"
+    } in ${display(tree.docsDir, cwd)}`,
+  ];
+  for (const region of regions) {
+    lines.push("");
+    lines.push(
+      `${paint(colors.bold.cyan, region.name)}  ${region.description}`,
+    );
+    const freshness = region.staleness;
+    if (
+      freshness.status === "unknown" ||
+      freshness.pages_changed_at === undefined ||
+      freshness.code_changes_since === undefined
+    ) {
+      lines.push(
+        paint(
+          colors.dim,
+          "  staleness unknown — no tracked code links or usable Git history",
+        ),
+      );
+    } else {
+      const changes = freshness.code_changes_since;
+      lines.push(
+        paint(
+          freshness.status === "behind" ? colors.yellow : colors.dim,
+          `  pages last changed ${
+            ageSince(freshness.pages_changed_at)
+          }; linked code changed ${changes} time${
+            changes === 1 ? "" : "s"
+          } since`,
+        ),
+      );
+    }
   }
   console.log(lines.join("\n"));
 }
@@ -452,7 +510,7 @@ async function exportDocs(
 
     let selected: string[];
     try {
-      selected = await Checkbox.prompt<string>({
+      selected = await checkboxPrompt<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
           name: `${group.name} (${group.entries.length})`,
@@ -540,7 +598,7 @@ async function treeResult(
     return {
       ok: true,
       verb: desc.verb,
-      data: indexData(desc, tree, cwd),
+      data: await indexData(desc, tree, cwd),
     };
   }
 
@@ -586,7 +644,7 @@ async function treeResult(
   return {
     ok: true,
     verb: desc.verb,
-    data: indexData(desc, tree, cwd),
+    data: await indexData(desc, tree, cwd),
   };
 }
 
@@ -709,7 +767,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
           "--export select requires --output <path>.",
         );
       }
-      if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) {
+      if (!canPrompt(false)) {
         return invalidOptions(
           log,
           desc.verb,
@@ -756,14 +814,26 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     return await viewTarget(desc.verb, tree, options, log, cwd, options.target);
   }
 
-  // 2. A real terminal and no `--list` → the interactive browser.
-  const interactive = !options.list &&
-    Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
+  // 2. `map` earns its name with a region overview before any drill-in. A pipe
+  // gets the overview alone; a TTY continues into the existing picker.
+  const interactive = !options.list && canPrompt(false);
+  if (desc.verb === "map" && !options.list) {
+    const regions = await buildMapOverview(tree);
+    printMapOverview(
+      tree,
+      cwd,
+      regions,
+      colourEnabled(options.noColor),
+    );
+    if (!interactive) return 0;
+  }
+
+  // 3. A real terminal and no `--list` → the interactive browser.
   if (interactive) {
     return await browse(desc.verb, tree, options, cwd);
   }
 
-  // 3. Otherwise (piped, redirected, or `--list`) → a plain table of contents.
+  // 4. Otherwise (help off a TTY, or explicit `--list`) → a plain TOC.
   printToc(desc.verb, tree, cwd, colourEnabled(options.noColor));
   return 0;
 }

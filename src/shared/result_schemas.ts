@@ -685,6 +685,7 @@ const nextActionSchema = z.strictObject({
   title: z.string(),
   action: z.string(),
   why: z.string(),
+  against: reviewEvidenceSchema.optional(),
 });
 
 /** `improvement` — baseline health, open reviews, and the prioritized next action. */
@@ -708,6 +709,20 @@ const docRecordSchema = z.strictObject({
 });
 export type DocRecord = z.infer<typeof docRecordSchema>;
 
+/** One top-level subtree in the no-argument project-map overview. */
+const mapRegionSchema = z.strictObject({
+  name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  page_count: z.number(),
+  staleness: z.strictObject({
+    status: z.enum(["current", "behind", "unknown"]),
+    pages_changed_at: z.string().optional(),
+    code_changes_since: z.number().optional(),
+    code_paths: z.array(z.string()),
+  }),
+});
+
 /**
  * `map`/`help` — the documentation payload, across every mode: the index
  * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
@@ -719,6 +734,7 @@ export const DocsDataSchema = z.strictObject({
   map_dir: z.string().optional(),
   count: z.number().optional(),
   docs: z.array(docRecordSchema).optional(),
+  regions: z.array(mapRegionSchema).optional(),
   doc: docRecordSchema.extend({ content: z.string() }).optional(),
   candidates: z.array(z.string()).optional(),
   suggestions: z.array(docRecordSchema).optional(),

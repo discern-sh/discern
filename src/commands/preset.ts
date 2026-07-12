@@ -28,7 +28,7 @@ import { resolveConfigPath } from "../lib/paths.ts";
 import { DEFAULTS, type SetupConfig, tokensFromConfig } from "../lib/config.ts";
 import { applyPlan, buildPlan } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../lib/plan_view.ts";
-import { confirmProceed } from "../lib/prompts.ts";
+import { canPrompt, confirmProceed } from "../lib/prompts.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
@@ -275,6 +275,12 @@ export async function runPreset(
       log.line(`  discern.toml  keep ${key} (already set — yours stands)`);
     }
     log.line();
+  }
+  if (!options.yes && !options.json && !canPrompt(false)) {
+    log.error(
+      `Applying preset "${name}" needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.`,
+    );
+    return 1;
   }
   if (
     !(await confirmProceed(

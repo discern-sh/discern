@@ -36,7 +36,7 @@ import {
   runSetupStep,
 } from "./commands/setup.ts";
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
-import { canPrompt } from "./lib/prompts.ts";
+import { canPrompt, setPlainMode } from "./lib/prompts.ts";
 import { runDesk } from "./engine/desk/desk.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runSetupAccept } from "./commands/setup_accept.ts";
@@ -138,7 +138,7 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
  */
 declare function rootShape(): ReturnType<
   ReturnType<
-    Command<void, void, void, []>["globalOption"]
+    ReturnType<Command<void, void, void, []>["globalOption"]>["globalOption"]
   >["globalOption"]
 >;
 type RootCommand = ReturnType<typeof rootShape>;
@@ -180,6 +180,10 @@ export function buildCli(
     .globalOption(
       "--no-color",
       "Disable colour (also honours NO_COLOR and non-TTY output).",
+    )
+    .globalOption(
+      "--plain",
+      "Never prompt or page; use static output. CI and non-terminal input imply this behavior.",
     )
     .action(function (): void {
       // No subcommand: show the grouped, operator-oriented help.
@@ -845,6 +849,9 @@ export async function main(args: string[]): Promise<void> {
   let verb = argv[0];
 
   try {
+    // One global interaction decision feeds every prompt-capable surface. This
+    // is set before helper/Cliffy dispatch so flag-first forms behave identically.
+    setPlainMode(argv.includes("--plain"));
     // Resolve the ONE colour decision up front (flag + NO_COLOR + isatty) and
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —
@@ -888,9 +895,8 @@ export async function main(args: string[]): Promise<void> {
     // It writes nothing, so it shows even in a non-git directory (leading with
     // the git-init step). Once the project is set up, an interactive terminal
     // gets the operator's desk — the bare invocation is the human's surface
-    // (ADR 0119); the gate is TTY-ness alone (via `canPrompt`, deliberately no
-    // agent/vendor sniffing), so pipes, CI, and `--json` fall through to help
-    // byte-identical to before.
+    // (ADR 0119); the shared `canPrompt` policy additionally honors --plain and
+    // CI, so pipes, harnesses, and machine modes fall through to static help.
     if (verb === undefined) {
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(

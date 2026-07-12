@@ -62,14 +62,14 @@ import {
   DISCERN_GITIGNORE_END,
 } from "../lib/agent_gitignore.ts";
 import { listWorktreeFleet } from "../engine/worktree/git.ts";
-import { confirmProceed } from "../lib/prompts.ts";
+import { canPrompt, confirmProceed } from "../lib/prompts.ts";
 
 /** Options accepted by the `uninstall` command. */
 export interface UninstallOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
-  /** Skip the interactive confirmation (also auto-yes when non-interactive). */
+  /** Explicitly authorize removal when an interactive confirmation is unavailable. */
   yes: boolean;
   /** Project root to operate on; defaults to walking up from the cwd. Tests pass
    * it directly so they never chdir the shared process. */
@@ -602,8 +602,15 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   }
 
   // Confirm before removing anything discern created but git can't recover (the
-  // gitignored generated files). Auto-yes when non-interactive or with --yes.
+  // gitignored generated files). Non-interactive callers must say --yes.
   if (!options.json && plan.ops.length > 0) {
+    if (!options.yes && !canPrompt(false)) {
+      renderPlan(log, plan, false);
+      log.error(
+        "Uninstall needs confirmation. Review the plan above, then re-run with --yes in CI, under --plain, or without terminal input.",
+      );
+      return 1;
+    }
     const proceed = await confirmProceed(
       "Remove discern's wiring from this project?",
       options.yes,

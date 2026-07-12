@@ -82,10 +82,11 @@ That metric feeds a standard — `[standards.coverage]` in
 `done` gate, and CI enforces it on every pull request. To raise the floor: add
 tests, then bump `limit` to just below the newly measured value.
 
-Some code is **intentionally** uncovered: the interactive TTY paths — the prompt
-helpers ([src/lib/prompts.ts](../../src/lib/prompts.ts), e.g. `preset`'s
-confirm) and the `docs` browser's `Select` loop and pager
-([src/commands/docs.ts](../../src/commands/docs.ts)) — only run on a real
-terminal, which a black-box subprocess suite can't drive without a pseudo-TTY.
-Cover the flag/error branches around them and leave the prompt bodies; the floor
-is set with that ceiling in mind.
+Prompt dispatch is tested through real pseudo-TTYs. Every Cliffy prompt call is
+structurally confined to [src/lib/prompts.ts](../../src/lib/prompts.ts), whose
+policy checks `--plain`, `CI`, and both streams. The matrix in
+[tests/engine_non_interactive_test.ts](../../tests/engine_non_interactive_test.ts)
+drives every prompt-capable CLI form under CI and `--plain` pseudo-TTYs plus
+closed stdin, with a timeout that turns a hang into a named failure. Scripted
+desk-runtime tests cover the interactive action loop itself; Cliffy's own key
+handling remains outside this project's coverage.

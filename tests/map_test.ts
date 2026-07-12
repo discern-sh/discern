@@ -24,6 +24,7 @@ import {
   resolveDoc,
 } from "../src/lib/docs.ts";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 /** Write a small but representative docs tree (with an .discern/config.toml anchor).
  * The tree lives at a pinned root `docs/` — a pointed, non-default layout — so
@@ -187,7 +188,83 @@ Deno.test("docs --json emits the index", async () => {
     assertEquals(res.ok, true);
     assertEquals(res.verb, "map");
     assertEquals(res.data.count, 4);
+    assertEquals(res.data.regions.length, 1);
+    assertEquals(res.data.regions[0].name, "00-intro");
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "alpha"));
+  });
+});
+
+Deno.test("bare map renders README descriptions and Git staleness per region", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.mkdir(join(dir, "src"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "src", "alpha.ts"),
+      "export const alpha = 1;\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "README.md"),
+      "# Intro\n\n_The short orientation to this project._\n\n" +
+        "Implemented by [`alpha.ts`](../../src/alpha.ts).\n",
+    );
+    await gitInit(dir);
+
+    // Two later commits touch the linked code without touching the region pages.
+    await Deno.writeTextFile(
+      join(dir, "src", "alpha.ts"),
+      "export const alpha = 2;\n",
+    );
+    await git(dir, "add", "src/alpha.ts");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Change alpha once",
+      "--no-gpg-sign",
+    );
+    await Deno.writeTextFile(
+      join(dir, "src", "alpha.ts"),
+      "export const alpha = 3;\n",
+    );
+    await git(dir, "add", "src/alpha.ts");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Change alpha twice",
+      "--no-gpg-sign",
+    );
+
+    const human = await runCli(["map"], dir);
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stdout, "discern map — 1 region in docs");
+    assertStringIncludes(
+      human.stdout,
+      "00-intro  The short orientation to this project.",
+    );
+    assertStringIncludes(human.stdout, "linked code changed 2 times since");
+
+    const json = await runCli(["map", "--json"], dir);
+    const payload = JSON.parse(json.stdout);
+    const region = payload.data.regions[0];
+    assertEquals(region.description, "The short orientation to this project.");
+    assertEquals(region.staleness.status, "behind");
+    assertEquals(region.staleness.code_changes_since, 2);
+    assertEquals(region.staleness.code_paths, ["src/alpha.ts"]);
+  });
+});
+
+Deno.test("bare map says staleness is unknown without tracked code links", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await gitInit(dir);
+
+    const { code, stdout } = await runCli(["map"], dir);
+    assertEquals(code, 0);
+    assertStringIncludes(stdout, "00-intro  Intro");
+    assertStringIncludes(stdout, "staleness unknown");
   });
 });
 
