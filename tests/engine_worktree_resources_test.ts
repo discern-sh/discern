@@ -143,7 +143,7 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
 
       // accept tears resources down at step 4 (while @dir@ still resolves),
       // then removes the worktree — so a landed worktree leaves no orphan.
-      const grad = await runAgent(wt, ["accept"]);
+      const grad = await runAgent(wt, ["accept", "--confirmed"]);
       assertEquals(grad.code, 0, grad.output);
       assert(
         await exists(join(markers, `${handle}.gone`)),

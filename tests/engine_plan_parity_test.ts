@@ -243,7 +243,7 @@ Deno.test("parity: accept apply does nothing the dry-run didn't list", async () 
 
     const dry = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(wt, ["accept", "--json"]);
+    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
     assert(appliedSet(apply.stdout).size > 0, "fixture landed nothing");

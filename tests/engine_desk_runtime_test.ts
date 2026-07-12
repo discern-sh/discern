@@ -365,7 +365,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
 
   const acceptOutput = transcript();
   const acceptChoices = [effort.path, "accept", QUIT];
-  const appliedAccept: Array<{ dryRun?: boolean }> = [];
+  const appliedAccept: Array<{ dryRun?: boolean; confirmed?: boolean }> = [];
   let acceptPauses = 0;
   assertEquals(
     await runDesk(
@@ -383,7 +383,9 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     ),
     0,
   );
-  assertEquals(appliedAccept, [{ dryRun: true }, {}]);
+  // The desk's interactive confirm IS the acceptance, so the apply carries the
+  // attestation (ADR 0134) — never a bare, consent-less landing.
+  assertEquals(appliedAccept, [{ dryRun: true }, { confirmed: true }]);
   assertEquals(acceptPauses, 1);
 
   const dropOutput = transcript();

@@ -1445,11 +1445,12 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
     // discern_accept over the SAME connection now operates on the re-aimed working
     // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
     // guard: it fails against today's main, where accept is hidden (→ "not found").
+    // `confirmed` attests the owner accepted this landing (ADR 0134).
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_accept", arguments: {} },
+      params: { name: "discern_accept", arguments: { confirmed: true } },
     });
     const landed = await mcp.recv();
     assertEquals(
@@ -1520,7 +1521,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
       method: "tools/call",
       params: {
         name: "discern_accept",
-        arguments: { path: wtPath },
+        arguments: { path: wtPath, confirmed: true },
       },
     });
     const landed = await inWt.recv();
@@ -1606,7 +1607,7 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
       method: "tools/call",
       params: {
         name: "discern_accept",
-        arguments: { path: other },
+        arguments: { path: other, confirmed: true },
       },
     });
     const landed = await inHeld.recv();
@@ -1649,13 +1650,15 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
 
     // No discern_start has moved the working root, so it is still the spawn root (the
     // trunk). accept is visible now (ADR 0062 retired the hiding) but its core
-    // refuses — there is no worktree to accept. A clean precondition_failed, not a
-    // silent false green gating the trunk (the very failure §2 of the ADR guards).
+    // refuses — there is no worktree to accept. `confirmed` is passed so the consent
+    // gate (ADR 0134) is satisfied and the precondition refusal is what fires: a clean
+    // precondition_failed, not a silent false green gating the trunk (the very failure
+    // §2 of the ADR guards).
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_accept", arguments: {} },
+      params: { name: "discern_accept", arguments: { confirmed: true } },
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
@@ -1666,6 +1669,80 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
     assertEquals(
       refused.result.structuredContent.error,
       "precondition_failed",
+    );
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: discern_accept without confirmed refuses read-only with awaiting_consent (ADR 0134)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mcp = await spawnMcp(dir);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    // Start a worktree (re-aims the working root to it) and commit landable work.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_start", arguments: {} },
+    });
+    const started = await mcp.recv();
+    const wtPath = started.result.structuredContent.data.path as string;
+    await commitWorktreeForAcceptance(wtPath);
+
+    // accept WITHOUT confirmed refuses — the same awaiting_consent slug setup begin
+    // uses, carrying ≥1 hint, and touching nothing (the worktree survives). This is
+    // the MCP mirror of the CLI refusal: the consent gate fires before any git.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "discern_accept", arguments: {} },
+    });
+    const refused = await mcp.recv();
+    assertEquals(
+      refused.result.isError,
+      true,
+      JSON.stringify(refused.result),
+    );
+    assertEquals(refused.result.structuredContent.verb, "accept");
+    assertEquals(
+      refused.result.structuredContent.error,
+      "awaiting_consent",
+    );
+    assert(
+      (refused.result.structuredContent.hints ?? []).length >= 1,
+      JSON.stringify(refused.result.structuredContent),
+    );
+    assert(await exists(wtPath), "the refusal must not remove the worktree");
+
+    // confirmed: true over the same connection lands it — the byte-identical
+    // success path, gated only by the attestation.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "discern_accept", arguments: { confirmed: true } },
+    });
+    const landed = await mcp.recv();
+    assertEquals(
+      landed.result.isError,
+      false,
+      JSON.stringify(landed.result),
+    );
+    assertEquals(landed.result.structuredContent.ok, true);
+    assertEquals(
+      await exists(wtPath),
+      false,
+      "a confirmed accept lands and removes the worktree",
     );
     assertEquals(await mcp.close(), 0);
   });

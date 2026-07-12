@@ -786,7 +786,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await acceptResult(ctx);
+    const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
     expectValid(AcceptOutputSchema, applied, "accept applied rerun");
@@ -804,7 +804,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await acceptResult(ctx);
+    const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
     expectValid(AcceptOutputSchema, applied, "accept applied receipt");

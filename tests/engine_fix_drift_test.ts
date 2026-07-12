@@ -169,7 +169,7 @@ Deno.test("accept: refuses (non-destructively) when the fix stage would reformat
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "doc.md");
     assertStringIncludes(r.output, "fix stage");
@@ -202,7 +202,7 @@ Deno.test("accept: a fix-stage-clean branch lands normally", async () => {
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),

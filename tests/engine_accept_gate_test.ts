@@ -267,7 +267,7 @@ Deno.test("accept: refuses an update that merges cleanly but breaks the gate (th
     await commitCurrentWorktree(wt);
 
     // Accepting MUST refuse — the merged tree was never validated, and it fails the gate.
-    const grad = await runAgent(wt, ["accept"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
     assertStringIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
@@ -296,7 +296,7 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
     assertEquals((await runAgent(wt, ["update"])).code, 0);
     await commitCurrentWorktree(wt);
 
-    const grad = await runAgent(wt, ["accept"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
     // The receipt was stale (merge commit), so accept validated the merged tree itself…
     assertStringIncludes(
@@ -324,7 +324,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
 
     // …so accept trusts it and does NOT re-run the gate (the no-double-run guarantee).
-    const grad = await runAgent(wt, ["accept", "--json"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "receipt");
@@ -351,7 +351,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     const wt = await addWorktree(dir, "zeta");
     await commitBranchWork(wt); // committed, but the agent never ran `done` → no receipt
 
-    const grad = await runAgent(wt, ["accept", "--json"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
@@ -391,7 +391,7 @@ Deno.test("accept: refuses to land a commit that appeared while its validation g
     // No receipt exists, so accept re-runs the gate (slow path). The gate is
     // green, but HEAD moved beneath it — landing must refuse, because the tree
     // at the branch tip is not the tree the gate read.
-    const grad = await runAgent(wt, ["accept"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 1, grad.output);
     assertStringIncludes(grad.output, "moved while this acceptance");
     // Non-destructive: the worktree survives and nothing reached the trunk.
@@ -425,7 +425,7 @@ Deno.test("accept: a commit made after `done` invalidates the receipt (gate re-r
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "more", "--no-gpg-sign");
 
-    const grad = await runAgent(wt, ["accept"]);
+    const grad = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(grad.code, 0, grad.output);
     assertStringIncludes(
       grad.output,

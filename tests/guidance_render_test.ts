@@ -241,12 +241,16 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "acceptance requires an explicit user ask",
     );
     assert(
-      bareBody.includes("relay the receipt to your owner and stop"),
+      bareBody.includes("relay the receipt to your owner"),
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(
-      bareBody.includes("call it only once they explicitly ask to land"),
+      bareBody.includes("land only once they accept"),
       "green finish is not treated as permission to accept",
+    );
+    assert(
+      bareBody.includes("--confirmed"),
+      "landing guidance names the consent attestation (ADR 0134)",
     );
   } finally {
     await Deno.remove(bare, { recursive: true });

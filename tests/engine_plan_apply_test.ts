@@ -301,7 +301,7 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["accept", "--json"]);
+    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
@@ -339,7 +339,7 @@ Deno.test("accept --json reports a precondition failure as a JSON error", async 
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["accept", "--json"]);
+    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout); // the error is a JSON object, not a human line
     assertEquals(obj.ok, false);

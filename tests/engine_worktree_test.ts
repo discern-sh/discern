@@ -169,7 +169,7 @@ Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the me
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -202,7 +202,7 @@ Deno.test("accept: refreshes the trunk checkout after landing", async () => {
     const marker = "Trunk Acceptance Refresh";
     await commitGuidanceMarker(wt, marker);
 
-    const r = await runAgent(wt, ["accept", "--json"]);
+    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
@@ -244,7 +244,7 @@ Deno.test("accept: a partial post-landing refresh is recorded but does not undo 
       "--no-gpg-sign",
     );
 
-    const r = await runAgent(wt, ["accept", "--json"]);
+    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -290,7 +290,7 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
     await leaveTrackedAndUntrackedWip(wt);
     const headBefore = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "This worktree has uncommitted changes");
     assertStringIncludes(r.output, "never creates a work-in-progress commit");
@@ -335,7 +335,7 @@ Deno.test("accept: refuses a locked worktree at plan time, before anything moves
     await git(dir, "worktree", "lock", wt, "--reason", "portable drive");
     const trunkBefore = await gitOut(dir, "rev-parse", "main");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertStringIncludes(r.output, "git worktree unlock");
@@ -364,7 +364,7 @@ Deno.test("accept: refuses a detached-HEAD main checkout the same way", async ()
     // not crash and not move HEAD.
     await git(dir, "switch", "-q", "--detach", "main");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'(detached)', not 'main'");
     assertStringIncludes(
@@ -389,7 +389,7 @@ Deno.test("accept: refuses when the main checkout is parked off the trunk, namin
     // silently switch it back.
     await git(dir, "switch", "-q", "-c", "parked-elsewhere");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'parked-elsewhere', not 'main'");
     // The way back is named (path canonicalization may differ, so match the tail).
@@ -420,7 +420,7 @@ Deno.test("accept refuses (non-destructively) when the main checkout is dirty", 
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
@@ -443,7 +443,7 @@ Deno.test("accept ignores untracked local scratch in the main checkout clean pre
       "permission = 'local'\n",
     );
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, "feature.txt")),
@@ -466,7 +466,7 @@ Deno.test("accept: refuses a branch behind main before dirty-tree handling or re
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "behind the trunk (main)");
     assertStringIncludes(r.output, "discern update");
@@ -512,7 +512,7 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["accept"]);
+    const r = await runAgent(wt, ["accept", "--confirmed"]);
 
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "behind the trunk (main)");
@@ -558,7 +558,7 @@ Deno.test("accept reports ignored files changed since worktree setup at the top 
       `ignored drift should collapse a changed directory to its top level\n${dry.output}`,
     );
 
-    const applied = await runAgent(wt, ["accept", "--json"]);
+    const applied = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(applied.code, 0, applied.output);
     const obj = JSON.parse(applied.stdout);
     assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);
@@ -619,7 +619,7 @@ Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror
     // The CLI can't pre-hide per location (it runs at the user's cwd), so its
     // equivalent of the MCP hiding accept from a main-rooted server is a clean
     // refusal: run from the main checkout, accept has no current worktree to move.
-    const r = await runAgent(dir, ["accept"]);
+    const r = await runAgent(dir, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "runs inside a worktree");
   });
@@ -632,14 +632,20 @@ Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:prec
   // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
   // (start already asserted the slug; the update/accept CLI paths did not).
   const REFUSALS = [
-    { verb: "accept", side: "main" as const },
-    { verb: "update", side: "main" as const },
-    { verb: "start", side: "worktree" as const },
+    // accept is consent-gated (ADR 0134): pass --confirmed so the WRONG-SIDE
+    // precondition refusal is what fires, not the awaiting_consent gate.
+    { verb: "accept", side: "main" as const, extra: ["--confirmed"] },
+    { verb: "update", side: "main" as const, extra: [] as string[] },
+    { verb: "start", side: "worktree" as const, extra: [] as string[] },
   ];
-  for (const { verb, side } of REFUSALS) {
+  for (const { verb, side, extra } of REFUSALS) {
     await withTempDir(async (dir) => {
       const wt = await mainWithWorktree(dir, `refuse-${verb}`);
-      const r = await runAgent(side === "main" ? dir : wt, [verb, "--json"]);
+      const r = await runAgent(side === "main" ? dir : wt, [
+        verb,
+        ...extra,
+        "--json",
+      ]);
       assertEquals(r.code, 1, `${verb} from ${side}: ${r.output}`);
       const result = JSON.parse(r.stdout);
       assertEquals(result.ok, false, `${verb} from ${side}`);
