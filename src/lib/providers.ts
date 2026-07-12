@@ -265,10 +265,10 @@ export interface GuidanceFile {
   /**
    * Whether this is the CANONICAL agent file: the one holding the full compiled
    * body that every other provider's pointer imports (exactly one — codex /
-   * AGENTS.md). Decoupled from git-tracking (ADR 0034): the compiled files are all
-   * gitignored by default, so "canonical" is about being the single on-disk source,
-   * not about being committed. The `@<path>` import resolves a local file
-   * regardless of its git status, so the pointer mechanism is unaffected.
+   * AGENTS.md). Decoupled from git-tracking (ADR 0034/0128): "canonical" is about
+   * being the single on-disk source the mirrors import, not about git status. The
+   * `@<path>` import resolves a local file either way, so the pointer mechanism
+   * is unaffected by the tracked-by-default posture.
    */
   readonly canonical: boolean;
   /**
@@ -381,6 +381,14 @@ export interface Provider {
    * SKILL.md folder format, differing only in the directory.
    */
   readonly skillsDir?: string;
+  /**
+   * Machine-local state files this agent keeps in the project tree — personal,
+   * per-machine overrides (e.g. a local settings file) that must stay out of
+   * version control. Declared here so the managed `.gitignore` block and the
+   * gate's tracked-artifacts check derive them from the registry rather than a
+   * hand-copied list. Absent → the agent has none.
+   */
+  readonly localState?: readonly string[];
 }
 
 /**
@@ -526,6 +534,10 @@ async function writeTextIfChanged(
  * provider wires second is a clean no-op and the file can only ever carry one entry. */
 const MCP_JSON_FILE = ".mcp.json";
 const CLAUDE_SETTINGS_FILE = ".claude/settings.json";
+
+/** Claude Code's machine-local settings override — personal, per-machine state
+ * the vendor's own docs say not to commit, so discern keeps it ignored. */
+const CLAUDE_LOCAL_SETTINGS_FILE = ".claude/settings.local.json";
 
 /** Claude Code's own project skills directory. Claude Code does NOT read the
  * cross-tool `.agents/skills/` (anthropics/claude-code#31005), so it keeps its own. */
@@ -1001,8 +1013,8 @@ async function registerCopilotMcp(
  * cannot be added to `AGENT_NAMES` without a complete provider here (a compile
  * error) — that is the mechanism that keeps the registry the single source of
  * truth. Rule: `AGENTS.md` (codex) is the one CANONICAL agent file (it holds the
- * full body; the others point at it); all compiled files are gitignored by default
- * (ADR 0034).
+ * full body; the others point at it); all compiled files are TRACKED by default,
+ * so a bare clone carries the same guidance a local session reads (ADR 0128).
  */
 export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
@@ -1034,6 +1046,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
     },
     skillsDir: CLAUDE_SKILLS_DIR,
+    // Claude Code's settings.local.json is the vendor's own per-machine override
+    // file — never meant to be shared, so discern keeps it ignored.
+    localState: [CLAUDE_LOCAL_SETTINGS_FILE],
   },
   codex: {
     name: "codex",
@@ -1303,15 +1318,46 @@ export function neutralAgentScopePaths(): string[] {
   return out;
 }
 
-/** The project-relative paths discern GENERATES for agents that must be gitignored:
- * each compiled guidance file and each materialized skills dir. Registry-derived, so
- * the seed `.gitignore` and the convergence migration cover every agent's artifacts
- * without a hand-maintained literal list. */
-export function agentArtifactPaths(): {
+/** Every machine-local provider state file across all known agents, deduped in
+ * registry order — per-machine overrides that must stay out of version control. */
+export function allLocalStateFiles(): string[] {
+  const out: string[] = [];
+  for (const name of AGENT_NAMES) {
+    for (const file of PROVIDERS[name].localState ?? []) {
+      if (!out.includes(file)) {
+        out.push(file);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The per-kind artifact posture across all known agents — the single source the
+ * managed `.gitignore` block, its registry widening, and the gate's
+ * tracked-artifacts check all derive from. The kinds carry the ownership
+ * distinction the ignore posture needs: `guidanceFiles` are compiled but TRACKED
+ * (committed so a bare clone — a cloud agent's only view — reads the same page);
+ * only `materializedDirs` (republished wholesale by the binary) and
+ * `localStateFiles` (per-machine state) belong out of version control. A new
+ * provider auto-enrols each of its paths with the right posture.
+ */
+export interface AgentArtifactPosture {
+  /** Compiled guidance files — tracked, never in the managed ignore block. */
   guidanceFiles: string[];
-  skillsDirs: string[];
-} {
-  return { guidanceFiles: allGuidanceFilePaths(), skillsDirs: allSkillsDirs() };
+  /** Materialized directories discern republishes — ignored. */
+  materializedDirs: string[];
+  /** Machine-local provider state files — ignored. */
+  localStateFiles: string[];
+}
+
+/** The registry-derived {@link AgentArtifactPosture} for all known agents. */
+export function agentArtifactPosture(): AgentArtifactPosture {
+  return {
+    guidanceFiles: allGuidanceFilePaths(),
+    materializedDirs: allSkillsDirs(),
+    localStateFiles: allLocalStateFiles(),
+  };
 }
 
 /**

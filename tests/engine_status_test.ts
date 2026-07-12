@@ -915,19 +915,26 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
+    // The compiled guidance files are tracked by default — adding them is the
+    // intended state, never flagged. Machine-local state forced in IS flagged.
+    await git(dir, "add", "AGENTS.md", "CLAUDE.md");
+    await Deno.writeTextFile(
+      join(dir, ".claude", "settings.local.json"),
+      "{}\n",
+    );
+    await git(dir, "add", "-f", ".claude/settings.local.json");
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(
       [...(obj.data.tracked_ignored_artifacts ?? [])].sort(),
-      ["AGENTS.md", "CLAUDE.md"],
+      [".claude/settings.local.json"],
     );
     assert(
       (obj.hints ?? []).some((h: string) =>
         h.includes("Discern-managed ignored artifacts are tracked by Git") &&
-        h.includes("git rm -r --cached -- AGENTS.md CLAUDE.md") &&
+        h.includes("git rm -r --cached -- .claude/settings.local.json") &&
         h.includes("discern refresh")
       ),
       `expected a tracked-artifacts repair hint: ${JSON.stringify(obj.hints)}`,

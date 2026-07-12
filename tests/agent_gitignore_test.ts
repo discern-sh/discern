@@ -40,17 +40,22 @@ Deno.test("an ancestor wildcard covers a NESTED guidance file too (no redundant 
   assert(ignoreCovers(lines, ".cursor/rules.md", false));
 });
 
-Deno.test("canonical block auto-includes a hypothetical new agent from the registry set", () => {
-  // Simulate a registry that grew another agent with a brand-new file + skills dir.
+Deno.test("canonical block auto-includes a hypothetical new agent's IGNORED artifacts only", () => {
+  // Simulate a registry that grew another agent: its materialized dir and local
+  // state widen into the block; its compiled guidance file — tracked by
+  // default — never does.
   const fragment =
-    `${DISCERN_GITIGNORE_BEGIN}\n/AGENTS.md\n${DISCERN_GITIGNORE_END}\n`;
+    `${DISCERN_GITIGNORE_BEGIN}\n/.agents/skills/\n${DISCERN_GITIGNORE_END}\n`;
   const artifacts = {
     guidanceFiles: ["AGENTS.md", "CURSOR.md"],
-    skillsDirs: [".cursor/skills"],
+    materializedDirs: [".agents/skills", ".cursor/skills"],
+    localStateFiles: [".cursor/settings.local.json"],
   };
   const block = canonicalDiscernGitignoreBlock(fragment, artifacts);
-  assertStringIncludes(block, "/CURSOR.md");
   assertStringIncludes(block, "/.cursor/skills/");
+  assertStringIncludes(block, "/.cursor/settings.local.json");
+  assert(!block.includes("/CURSOR.md"), block);
+  assert(!block.includes("/AGENTS.md"), block);
 });
 
 Deno.test("an install already carrying the canonical block is an untouched no-op", () => {
@@ -143,6 +148,35 @@ Deno.test("scattered legacy discern rules are absorbed into the canonical block"
   assert(!afterBlock.includes("/.agents/skills/"), result.text);
 });
 
+Deno.test("reconcile narrows a previous install's over-wide block to enumerated ownership", () => {
+  // The block earlier versions shipped ignored the compiled guidance files and
+  // wildcarded /.claude/*. Reconcile must rewrite it to the narrow form so the
+  // previously ignored guidance files become trackable, with user rules intact.
+  const legacyBlock = [
+    DISCERN_GITIGNORE_BEGIN,
+    "# These are discern's generated agent files, materialized skills,",
+    "# and local provider state.",
+    "/AGENTS.md",
+    "/CLAUDE.md",
+    "/GEMINI.md",
+    "/.claude/*",
+    "!/.claude/settings.json",
+    "/.agents/skills/",
+    DISCERN_GITIGNORE_END,
+  ].join("\n");
+  const existing = `dist/\n\n${legacyBlock}\n\ncoverage/\n`;
+
+  const result = reconcileDiscernGitignore(existing, FRAGMENT);
+  assertStringIncludes(result.text, canonicalDiscernGitignoreBlock(FRAGMENT));
+  assert(!result.text.includes("/AGENTS.md"), result.text);
+  assert(!result.text.includes("/CLAUDE.md"), result.text);
+  assert(!result.text.includes("/GEMINI.md"), result.text);
+  assert(!result.text.includes("/.claude/*"), result.text);
+  assertOneDiscernBlock(result.text);
+  assertStringIncludes(result.text, "dist/");
+  assertStringIncludes(result.text, "coverage/");
+});
+
 Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical block", async () => {
   await withTempDir(async (root) => {
     const result = await ensureDiscernGitignoreBlock(root);
@@ -155,36 +189,46 @@ Deno.test("ensureDiscernGitignoreBlock: no .gitignore creates the canonical bloc
   });
 });
 
-Deno.test("trackedDiscernIgnoredArtifacts detects forced tracked artifacts from the canonical ignore block", async () => {
+Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths — never a user's or guidance file", async () => {
   await withTempDir(async (root) => {
     await Deno.writeTextFile(join(root, ".gitignore"), "node_modules/\n");
     await ensureDiscernGitignoreBlock(root);
     await Deno.mkdir(join(root, ".claude"));
-    await Deno.writeTextFile(join(root, "AGENTS.md"), "forced\n");
+    await Deno.mkdir(join(root, ".claude", "skills", "x"), { recursive: true });
+    await Deno.mkdir(join(root, ".claude", "commands"), { recursive: true });
+    // Tracked by design: the compiled guidance files, the co-managed settings,
+    // and a user's own slash command under .claude/ — none may be flagged.
+    await Deno.writeTextFile(join(root, "AGENTS.md"), "compiled\n");
     await Deno.writeTextFile(join(root, "CLAUDE.md"), "@AGENTS.md\n");
+    await Deno.writeTextFile(join(root, ".claude", "settings.json"), "{}\n");
     await Deno.writeTextFile(
-      join(root, ".claude", "settings.json"),
-      "{}\n",
+      join(root, ".claude", "commands", "x.md"),
+      "a user's own slash command\n",
     );
+    // Forced into the index despite the block: machine-local state and a
+    // materialized skills file — both must be flagged.
     await Deno.writeTextFile(
       join(root, ".claude", "settings.local.json"),
       "{}\n",
     );
+    await Deno.writeTextFile(
+      join(root, ".claude", "skills", "x", "SKILL.md"),
+      "materialized\n",
+    );
     await gitInit(root);
-    await git(root, "add", "-f", "AGENTS.md", "CLAUDE.md");
+    await git(root, "add", "AGENTS.md", "CLAUDE.md");
+    await git(root, "add", ".claude/settings.json", ".claude/commands/x.md");
     await git(root, "add", "-f", ".claude/settings.local.json");
-    await git(root, "add", ".claude/settings.json");
+    await git(root, "add", "-f", ".claude/skills/x/SKILL.md");
 
     const tracked = await trackedDiscernIgnoredArtifacts(root);
     assertEquals(tracked.paths.sort(), [
       ".claude/settings.local.json",
-      "AGENTS.md",
-      "CLAUDE.md",
+      ".claude/skills/x/SKILL.md",
     ]);
     assertEquals(tracked.repairTargets.sort(), [
       ".claude/settings.local.json",
-      "AGENTS.md",
-      "CLAUDE.md",
+      ".claude/skills",
     ]);
   });
 });

@@ -512,11 +512,12 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       "hooks still call the deleted ./agent",
     );
     assertStringIncludes(settings, "discern worktree ensure");
-    // The .gitignore was rewritten for the dissolved layout: no .discern, the new
-    // mirrors ignored.
+    // The .gitignore was rewritten for the dissolved layout: no .discern, the
+    // materialized/local paths ignored, the compiled guidance files trackable.
     const gitignore = await readTarget(dir, ".gitignore");
     assert(!/\.discern/.test(gitignore), "no .discern ignore remains");
-    assertStringIncludes(gitignore, "/GEMINI.md");
+    assertStringIncludes(gitignore, "/.claude/skills/");
+    assert(!gitignore.includes("/GEMINI.md"), gitignore);
     // …and the schema is now stamped in the config the user owns.
     assertEquals(await recordedSchema(dir), res.data.schema.current);
     // Papercut 1: this install had NO [meta] (its version lived only in the

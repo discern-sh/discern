@@ -1,13 +1,11 @@
 # --- discern ---
-# These are discern's generated agent files, materialized skills,
-# and local provider state. discern manages these files for you,
-# and refreshes them automatically, so you shouldn't edit this
-# section by hand. For the full list of discern-managed files,
-# run `discern help` or see https://discern.sh
-/AGENTS.md
-/CLAUDE.md
-/GEMINI.md
-/.claude/*
-!/.claude/settings.json
+# discern's managed ignore rules: only the skills directories it
+# materializes and machine-local provider state. discern owns this
+# block alone and never touches your other rules. The compiled agent
+# files (AGENTS.md and its mirrors) are tracked, so every agent —
+# cloud included — reads them from a fresh clone. For the full list
+# of discern-managed files, run `discern help` or see https://discern.sh
+/.claude/skills/
+/.claude/settings.local.json
 /.agents/skills/
 # --- /discern ---
