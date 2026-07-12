@@ -16,6 +16,7 @@ import { join } from "@std/path";
 import {
   agentArtifactPosture,
   type AgentArtifactPosture,
+  allGuidanceFilePaths,
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -237,6 +238,38 @@ export async function trackedDiscernIgnoredArtifacts(
     ),
   ).sort();
   return { paths, repairTargets: repairTargetsFor(paths, artifacts) };
+}
+
+/**
+ * Compiled guidance files present on disk but untracked AND not ignored — the
+ * state an existing install lands in after upgrade narrows the managed ignore
+ * block. Advisory input for a commit recommendation: an out-of-harness agent
+ * reading a bare clone only gets the guidance once these are committed. A
+ * project that deliberately ignores a compiled file in its OWN rules is
+ * respected — git excludes an ignored file from this list, so no hint nags it.
+ */
+export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
+  const run = await runGit(
+    [
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      ...allGuidanceFilePaths(),
+    ],
+    { cwd: root },
+  );
+  if (!run.success) {
+    return [];
+  }
+  return unique(splitNul(run.stdout)).sort();
+}
+
+export function untrackedGuidanceFilesHint(paths: readonly string[]): string {
+  return `The compiled agent files are untracked (${
+    paths.join(", ")
+  }); commit them so cloud and out-of-harness agents read the same guidance from a fresh clone.`;
 }
 
 export function trackedDiscernIgnoredArtifactsHint(

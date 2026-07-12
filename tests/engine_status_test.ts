@@ -942,6 +942,54 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
   });
 });
 
+Deno.test("status: untracked compiled guidance files draw a commit hint that clears once committed or ignored", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+
+    // Freshly compiled, not yet committed: recommend the one-time commit that
+    // makes the guidance readable from a bare clone.
+    let r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      (parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked") &&
+        h.includes("commit them")
+      ),
+      `expected an untracked-guidance commit hint: ${r.stdout}`,
+    );
+
+    // Committed → the hint clears.
+    await git(dir, "add", "AGENTS.md", "CLAUDE.md");
+    r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked")
+      ),
+      `hint must clear once the files are tracked: ${r.stdout}`,
+    );
+
+    // A project that deliberately ignores a compiled file in its OWN rules is
+    // respected: ignored ⇒ excluded from the hint, never nagged.
+    await git(dir, "rm", "--cached", "-q", "AGENTS.md", "CLAUDE.md");
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `${gitignore}\n/AGENTS.md\n/CLAUDE.md\n`,
+    );
+    r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked")
+      ),
+      `a deliberate per-project ignore must silence the hint: ${r.stdout}`,
+    );
+  });
+});
+
 Deno.test("status: missing provider hook integrations are listed and hinted to refresh", async () => {
   await withTempDir(async (dir) => {
     const hookProviders = providersWithHooks();
