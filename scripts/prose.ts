@@ -1,21 +1,21 @@
 /**
  * Measure the documentation's prose-lint alert count and emit it as a discern
- * ratchet metric.
+ * standard metric.
  *
- * This is the measurement command behind `[ratchets.prose]`. The harness runs it
- * on demand via `discern ratchets`, scans the output for the LAST
+ * This is the measurement command behind `[standards.prose]`. Discern runs it
+ * on demand via `discern standards`, scans the output for the LAST
  * `DISCERN_METRIC prose <number>` line, and holds it at or below the configured
  * ceiling — the docs' prose-issue count may only fall.
  *
  * The underlying linter is Vale (`.vale.ini` plus the project vocabulary under
  * `.vale/config/`), but the metric name stays implementation-neutral — "prose",
- * not "vale" — so the ratchet reads as a quality target, mirroring
- * `[ratchets.coverage]`. Only the command names the tool. Error-severity findings
- * additionally block the gate via `[checks.prose]`; this ratchet tracks the whole
+ * not "vale" — so the standard reads as a quality target, mirroring
+ * `[standards.coverage]`. Only the command names the tool. Error-severity findings
+ * additionally block the gate via `[checks.prose]`; this standard tracks the whole
  * advisory backlog (every severity) so the number shrinks over time rather than
  * merely not regressing past zero.
  *
- * Usage: `deno task prose <docs-dir>` (the `[ratchets.prose]` run command).
+ * Usage: `deno task prose <docs-dir>` (the `[standards.prose]` run command).
  * Prints a human
  * breakdown to stderr for context, then the metric line to stdout.
  */
@@ -26,7 +26,7 @@ interface Alert {
 
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
-// the exit code — mirroring how the ratchet runner ignores the run's exit status.
+// the exit code — mirroring how the standards runner ignores the run's exit status.
 const docsDir = Deno.args[0] ?? "map/";
 const run = await new Deno.Command("vale", {
   args: ["--output=JSON", docsDir],

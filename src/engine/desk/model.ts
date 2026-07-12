@@ -33,7 +33,7 @@ export type DeskAction = (typeof DESK_ACTIONS)[number];
 /** One selectable effort on the desk: a non-main fleet entry, classified. */
 export interface DeskRow {
   readonly entry: StatusFleetEntry;
-  /** Whether the row's clean HEAD holds a recorded gate pass. */
+  /** Whether the row's clean HEAD holds a recorded gate receipt. */
   readonly receiptHonored: boolean;
   readonly bucket: DeskBucket;
   /** The actions legal for this row's state, in menu order. */

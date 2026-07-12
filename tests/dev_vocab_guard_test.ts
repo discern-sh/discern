@@ -25,6 +25,10 @@ import { configSectionNames } from "../src/shared/config_codegen.ts";
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
+const MOCKUPS = join(REPO_ROOT, "mockups");
+const SCRIPTS = join(REPO_ROOT, "scripts");
+const SKILLS = join(REPO_ROOT, "skills");
+const GITHUB = join(REPO_ROOT, ".github");
 
 /** The retired Deno-task alias names that should no longer exist anywhere. */
 const RETIRED_TOKENS = ["selfsync", "selfcheck"];
@@ -83,7 +87,9 @@ const RECIPES = join(REPO_ROOT, "recipes");
 
 const ROOT_TEXT_FILES = [
   "README.md",
+  "CONTRIBUTING.md",
   "TODO.md",
+  "deno.json",
   "guidance.md",
   "discern.toml",
 ];
@@ -135,7 +141,19 @@ async function maybeTextFile(
 
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
-  for (const root of [SRC, TESTS, MAP, TEMPLATES, RECIPES]) {
+  for (
+    const root of [
+      SRC,
+      TESTS,
+      MAP,
+      TEMPLATES,
+      RECIPES,
+      MOCKUPS,
+      SCRIPTS,
+      SKILLS,
+      GITHUB,
+    ]
+  ) {
     out.push(...await textFiles(root));
   }
   for (const rel of ROOT_TEXT_FILES) {
@@ -175,14 +193,13 @@ function escapeRegExp(value: string): string {
 function isLaunchVocabularyRecord(rel: string): boolean {
   return rel.startsWith("map/_adr/") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
+    rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
     new Set([
       "src/shared/vocabulary.ts",
       "src/lib/migrations.ts",
       "src/lib/version.ts",
       "tests/migrations_test.ts",
       "tests/dev_vocab_guard_test.ts",
-      "map/_private/planning/launch-hardening-workstreams/3a-vocabulary-and-rename-sweep.md",
-      "TODO.md",
     ]).has(rel);
 }
 
@@ -214,6 +231,14 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
         retired,
         kind: "MCP tool name",
         pattern: new RegExp(`\\bdiscern_${mcp}\\b`, "u"),
+      },
+      {
+        retired,
+        kind: "source dev invocation",
+        pattern: new RegExp(
+          `\\bdeno\\s+task\\s+dev\\s+${cli}(?=[\\s\x60'\".,):]|$)`,
+          "mu",
+        ),
       },
       {
         retired,

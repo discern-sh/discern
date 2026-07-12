@@ -1,6 +1,6 @@
 name: gate
 
-# Run the repo's own quality gate — the same `discern finish` developers run —
+# Run the repo's own quality gate — the same `discern done` developers run —
 # on every push to main and every pull request. The trailing `git diff
 # --exit-code` turns the auto-fixing `fix` stage (deno fmt) into a hard check: CI
 # fixes nothing, it only verifies the committed tree is already clean.
@@ -25,8 +25,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Pin the Vale version CI installs to lint map/. Both the [checks.prose] gate
-# and the [ratchets.prose] metric shell out to `vale`, so it must be on PATH and
-# its styles synced before `discern finish` / `ratchets` run. Bump this alongside
+# and the [standards.prose] metric shell out to `vale`, so it must be on PATH and
+# its styles synced before `discern done` / `standards` run. Bump this alongside
 # the Brewfile when upgrading Vale locally.
 env:
   VALE_VERSION: "3.15.1"
@@ -53,14 +53,14 @@ jobs:
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
 
-      - name: Run the gate (discern finish, via the dev binary)
-        run: deno task dev finish
+      - name: Run the gate (discern done, via the dev binary)
+        run: deno task dev done
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
         run: git diff --exit-code
 
-  ratchets:
-    # Hold the metric ratchets (coverage, …). They run the whole suite under
+  standards:
+    # Hold the metric standards (coverage, …). They run the whole suite under
     # coverage instrumentation, so they are deliberately NOT part of the gate.
     # Enforce them on PULL REQUESTS only: every PR must hold the floor, while
     # direct pushes to main stay fast (whatever landed already passed on its PR).
@@ -74,19 +74,19 @@ jobs:
           deno-version: v2.x
           cache: true
 
-      # The "never loosen vs main" half of each ratchet reads `main:discern.toml`
+      # The "never loosen vs main" half of each standard reads `main:discern.toml`
       # (with a legacy `.discern/config.toml` fallback). A PR checkout does not
       # carry the base branch, so fetch its tip; the check self-skips if it is
-      # still unavailable (e.g. before the ratchet is on main).
+      # still unavailable (e.g. before the standard is on main).
       - name: Fetch main for the never-loosen comparison
         run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
 
-      # The prose ratchet measures with Vale; install + sync it like the gate job.
+      # The prose standard measures with Vale; install + sync it like the gate job.
       - name: Install Vale and sync its styles
         run: |
           curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
 
-      - name: Hold the ratchets
-        run: deno task dev ratchets
+      - name: Hold the standards
+        run: deno task dev standards

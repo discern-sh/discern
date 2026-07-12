@@ -29,10 +29,10 @@ applies here:
 ```
 deno task build      # compile the binary
 deno task test       # the full test suite
-discern finish       # the quality gate (format, lint, type-check, tests)
+discern done         # the quality gate (format, lint, type-check, tests)
 ```
 
-`discern finish` must pass on the final tree. Keep commits atomic — one logical
+`discern done` must pass on the final tree. Keep commits atomic — one logical
 change each — with a clear imperative subject and a body explaining _why_.
 
 ## Decisions and docs

@@ -1,6 +1,6 @@
 /**
  * Count public documentation leaves and words, then emit both as discern
- * ratchet metrics.
+ * standard metrics.
  *
  * Public docs are Markdown files under map/ with no underscore-prefixed path
  * segment, so _private, _internal, and _adr trees are excluded. A leaf is a

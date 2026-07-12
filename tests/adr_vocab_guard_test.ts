@@ -31,6 +31,7 @@ const MAP = join(REPO_ROOT, "map");
 const MOCKUPS = join(REPO_ROOT, "mockups");
 const RECIPES = join(REPO_ROOT, "recipes");
 const SKILLS = join(REPO_ROOT, "skills");
+const TEMPLATE_FIXTURES = join(REPO_ROOT, "tests", "fixtures", "templates");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
@@ -277,9 +278,11 @@ Deno.test("user-facing source strings never use the retired harness category", a
   );
 });
 
-Deno.test("shipped templates, skills, recipes, and public map prose never use the retired harness category", async () => {
+Deno.test("shipped templates, template fixtures, skills, recipes, and public map prose never use the retired harness category", async () => {
   const offenders: string[] = [];
-  for (const root of [TEMPLATES, SKILLS, RECIPES, MAP]) {
+  for (
+    const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, RECIPES, MAP]
+  ) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
       if (

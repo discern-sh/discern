@@ -1,6 +1,6 @@
 /**
  * Build one representative release target and emit its compiled binary size as a
- * discern ratchet metric.
+ * discern standard metric.
  *
  * The default target is Linux x64: it avoids macOS codesigning differences while
  * still exercising the single-file release artifact users download.

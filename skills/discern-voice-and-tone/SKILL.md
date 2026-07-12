@@ -341,16 +341,16 @@ The repo's rules are the hero. The agent is just the one who follows them.
 
 ### Canonical terms
 
-`Harness` and `Gate` are canonical discern nouns in technical docs. Never rename
-or restyle them in docs, reference pages, or glossary-aligned explanations. In
-first-contact marketing copy, prefer the mechanisms instead: checks, worktrees,
-branches, limits, `discern finish`, and `discern.toml`.
+`Gate` is a canonical discern noun in technical docs: the full quality check.
+Use “discern” for the product, “the gate” for the mechanism, or “the bar” for
+the category. In first-contact marketing copy, prefer the mechanisms themselves:
+checks, worktrees, branches, standards, `discern done`, and `discern.toml`.
 
 ### Handle with care
 
-In first-contact marketing copy, avoid "harness," "gate," "judgment," "taste,"
-and "discerning" as an adjective for the reader — unless the user explicitly
-asks or the surrounding copy genuinely earns it.
+In first-contact marketing copy, avoid "gate," "judgment," "taste," and
+"discerning" as an adjective for the reader — unless the user explicitly asks or
+the surrounding copy genuinely earns it.
 
 Don't ban "ship" globally; ban the empty phrases "ship faster," "ship with
 confidence," and "ship at scale." Use "release," "merge," "land," or "publish"

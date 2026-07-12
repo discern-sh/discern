@@ -19,7 +19,7 @@ Which step were you (or your coding agent) on when it failed?
 - [ ] `discern setup verify` (the consent conversation)
 - [ ] `discern setup begin` (the scaffold)
 - [ ] `discern setup done` (proving the gate)
-- [ ] `discern setup land` (landing the setup branch)
+- [ ] `discern setup accept` (landing the setup branch)
 
 ## What you asked your agent to do
 
