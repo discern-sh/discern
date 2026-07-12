@@ -355,7 +355,7 @@ export function attachEngineCommands(
   root
     .command("standards")
     .description(
-      "Check every quality standard — numbers that can never get worse (slow; on demand, outside `discern done`).",
+      "Measure every quality standard on demand — numbers that can never get worse (`discern done` already verifies and measures them on every run).",
     )
     .arguments("[names...:string]")
     .option(

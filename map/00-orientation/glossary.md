@@ -332,10 +332,13 @@ Standards are _numbers that can never get worse_: never-loosen floors or
 ceilings such as line coverage, a size budget, or a lint-error count. A Standard
 is declared under `[standards]` and held against the [Trunk](#trunk). It
 **inlines its own `run`**, the command that prints
-`DISCERN_METRIC <metric> <number>`. Standards are slow, so they run on demand
-via `discern standards`, not as part of `done`
+`DISCERN_METRIC <metric> <number>`. Every `done` run verifies no limit loosened
+versus the Trunk and measures each Standard alongside the tests — replaying the
+recorded value when its declared `inputs` are untouched; `discern standards` is
+the on-demand pass for deferred Standards and pinning
 ([ADR 0003](../_adr/0003-named-metric-standards.md),
-[ADR 0018](../_adr/0018-vocabulary-consolidation.md)).
+[ADR 0018](../_adr/0018-vocabulary-consolidation.md),
+[ADR 0133](../_adr/0133-standards-join-the-gate.md)).
 
 ### Co-change advisory
 

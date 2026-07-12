@@ -435,9 +435,11 @@ export const TOOLS: McpTool[] = orderTools([
       "Check every configured quality standard — numbers that can never get worse. " +
       "Run each measurement command, compare it to its limit, and assert that the " +
       "limits may only improve versus `{{main_branch}}`. Returns the per-standard " +
-      "steps[]. SLOW " +
-      "and ON DEMAND — it runs the metric commands, so it is NOT part of " +
-      "discern_done; run it as needed. Non-dry-run calls require a clean worktree " +
+      "steps[]. This is the ON-DEMAND pass: discern_done already verifies every " +
+      "limit and measures each standard alongside the tests on every run, so " +
+      'reach for this to measure a deferred (measure = "on-demand") standard, ' +
+      "to re-measure explicitly (it always measures — never replays), or to pin. " +
+      "Non-dry-run calls require a clean worktree " +
       "(a separate checkout and branch for one change) " +
       "unless force is set while authoring or debugging standards. Set dry_run to " +
       "preview which standards would run — it measures nothing, with or without " +
@@ -1449,9 +1451,11 @@ export function buildInstructions(): string {
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
-    "- Run quality standards — numbers that can never get worse — with " +
-    "discern_standards as needed. They are slow and " +
-    "on-demand, so NOT part of discern_done. Non-dry-run standards require a " +
+    "- Quality standards — numbers that can never get worse — are enforced by " +
+    "discern_done itself: every run verifies no limit loosened versus the " +
+    "trunk and measures each standard alongside the tests. Use " +
+    "discern_standards for the on-demand pass: deferred standards, and " +
+    "capturing a gain with pin. Non-dry-run standards require a " +
     "clean worktree unless force=true while authoring standards.",
     "- Starting work from the main checkout, which holds the trunk (the shared " +
     "landing branch)? Run discern_start to " +

@@ -74,16 +74,15 @@ start work in one you didn't create.** A clean tree doesn't mean it's free; the 
 ## Quality standards
 
 Standards are **numbers that can never get worse**: metrics held at a `limit`
-that may only improve versus `main` — a floor that may only rise
-(`up`), or a ceiling that may only fall (`down`) — so a branch can never loosen
-one. Standards are **slow and
-on-demand**, NOT part of `discern_done`: run **`discern_standards`** as needed.
-Non-dry-run standards require a clean worktree, with a force override reserved for
-standard authoring or debugging.
+that may only improve versus `main` — a floor may only rise (`up`),
+a ceiling only fall (`down`). Every **`discern_done`** run verifies no limit
+loosened versus `main` and measures each standard alongside the
+tests — untouched `inputs` replay the recorded value for free;
+`measure = "on-demand"` defers a standard to **`discern_standards`**.
 
-**Never loosen one to pass.** A limit loosened versus `main` is the
-regression a standard exists to catch — move the *metric* the right way, never the
-limit.
+**Never loosen one to pass.** A loosened or deleted limit fails the gate —
+that is the standard working. Move the *metric* the right way; lowering a
+limit is an owner decision, taken on the trunk.
 
 ## Skills
 

@@ -277,10 +277,11 @@ steps = []               # one-shot scaffolding (none needed here)
 ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (idempotent)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [standards] — quality standards: numbers that can never get worse, enforced on
-# demand by `discern standards`
-# (slow, so NOT part of `discern done`). None configured means none run — defining
-# one is what turns the subsystem on.
+# [standards] — quality standards: numbers that can never get worse. Every
+# `discern done` run verifies no limit loosened versus the trunk (always — no
+# off switch) and measures each standard in parallel with the tests, so a
+# branch can neither quietly loosen a limit nor quietly regress a metric.
+# None configured means none run — defining one is what turns the subsystem on.
 #
 # Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
 # error count, a perf budget. Each [standards.<name>]
@@ -291,7 +292,7 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
 #   run        the command that measures it — its output emits the metric line
-#              (run on demand by `discern standards`, never by the gate)
+#              (run by the gate alongside the tests, and by `discern standards`)
 #   per        divide the metric to hold a RATE, not a raw count — so the number
 #              doesn't rise just because the project grew. Either a second metric the
 #              run emits, or a built-in extent discern measures itself:
@@ -301,6 +302,15 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 #              to the measured value (default 0). Give a metric that drifts on
 #              unrelated commits (a size, a coverage %) a margin so a pinned limit
 #              isn't tripped by ordinary fluctuation.
+#   inputs     the paths the metric reads (scope-style globs). When nothing under
+#              them changed since the last recorded measurement, the gate replays
+#              that value instead of re-measuring. Omit to always measure.
+#   timeout    seconds; replaces the global [gate].timeout for this measurement
+#              job only (0 disables its bound)
+#   measure    "gate" (default) measures in every `discern done`; "on-demand"
+#              defers a metric genuinely too slow for every gate run to
+#              `discern standards` — the never-loosen limit check still runs on
+#              every gate.
 #
 # A standard's `run` reports its number by printing a line:
 #   DISCERN_METRIC <name> <number>
@@ -315,13 +325,16 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 
 # Coverage standard — hold src/ line coverage at or above a rising floor. The run
 # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
-# for src/ (the installer AND the TS engine — both instrumented). Held by
-# `discern standards`, enforced on every PR in CI. The floor spans the whole src/
-# tree, so it covers a large surface; raise it further as coverage improves.
+# for src/ (the installer AND the TS engine — both instrumented). Deferred from
+# the gate's measurement pass with the honest reason: it re-runs the ENTIRE test
+# suite under instrumentation, doubling the gate's slowest job — the pathological
+# case the opt-out exists for. The never-loosen floor check still runs on every
+# `discern done`; CI measures it on every PR, and `discern standards` on demand.
 [standards.coverage]
 direction = "up"
 limit     = 91.8
 run       = "deno task coverage"
+measure   = "on-demand"
 
 # Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
 # `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
@@ -329,14 +342,17 @@ run       = "deno task coverage"
 # [checks.prose]). `per` divides that count by the words in the map (discern counts
 # them itself), so the standard tracks alerts per 1,000 words — a *rate*: writing
 # more docs never breaches it, only writing nittier-than-average prose does. Held
-# by `discern standards`, enforced on every PR in CI. ~18.7 today; lower the limit
-# as the density improves — the ceiling only falls.
+# by `discern standards`, enforced on every PR in CI. Lower the limit as the
+# density improves — the ceiling only falls. `inputs` names what the metric
+# reads (the map, Vale's config, and the wrapper script), so a code-only change
+# replays the recorded density instead of re-running Vale.
 [standards.prose]
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
 limit     = 14.43
 run       = "deno task prose \"${map.dir}\""
+inputs    = ["${map.dir}**", ".vale.ini", "scripts/prose.ts"]
 
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
@@ -351,16 +367,22 @@ metric    = "guidance_words"
 direction = "down"
 limit     = 831
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
+inputs    = ["templates/guidance/**"]
 
 # Binary-size standard — hold one representative release artifact at or below a
 # falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
 # resulting dist/discern-* binary, avoiding macOS codesigning noise while still
 # protecting the shipped single-file executable from silent growth. Re-baseline
 # only for deliberate release-surface changes or Deno compiler/runtime shifts.
+# Deferred from the gate's measurement pass with the honest reason: it compiles
+# a full release binary — minutes of work no per-commit gate should pay. The
+# never-loosen ceiling check still runs on every `discern done`; CI and
+# `discern standards` measure it.
 [standards.binary_size]
 metric    = "binary_size_bytes"
 direction = "down"
 limit     = 132018824
+measure   = "on-demand"
 # The binary's byte count drifts with every commit, so `discern standards --pin`
 # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
 # win without pinning to an exact value the next commit would breach.
@@ -378,6 +400,7 @@ per       = "public_doc_words"
 scale     = 10000
 limit     = 7.47
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
+inputs    = ["${map.dir}**", "scripts/public_doc_density.ts"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These
@@ -398,11 +421,13 @@ stream = false
 fail_fast = true
 
 # Per-command time budget in SECONDS, applied to every job the gate runs (each
-# capability, check, and scope gate). A command that doesn't exit within it is
-# tree-killed and the stage fails with a plain-language timeout diagnostic — so
-# the gate can never hang. The usual culprit is a watch-mode test runner or a dev
-# server wired without its single-run form. Generous by default (600 = 10 min);
-# set 0 to disable the limit (not recommended — the gate can then hang forever).
+# capability, check, scope gate, and standard measurement). A command that
+# doesn't exit within it is tree-killed and the stage fails with a plain-language
+# timeout diagnostic — so the gate can never hang. The usual culprit is a
+# watch-mode test runner or a dev server wired without its single-run form.
+# Generous by default (600 = 10 min); set 0 to disable the limit (not
+# recommended — the gate can then hang forever). One legitimately slow job takes
+# its own `timeout` on its config entry instead of a slower global.
 timeout = 600
 
 # ─────────────────────────────────────────────────────────────────────────────

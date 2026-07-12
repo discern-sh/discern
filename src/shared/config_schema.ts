@@ -245,7 +245,7 @@ const standardValue = z.strictObject({
       "(for a metric too slow for every gate run — a full coverage run, a release " +
       "build); the never-loosen limit check still runs on every gate, and " +
       "`discern standards` measures it when you ask. Before deferring, prefer the " +
-      "smaller reliefs: declare `inputs` so unchanged trees replay for free, or " +
+      "smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or " +
       "raise this one job's `timeout`.",
   ),
   inputs: z.array(z.string()).optional().describe(
@@ -446,7 +446,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
   ).describe(
-    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests: a standard whose declared `inputs` the change never touched replays its recorded value for free, and one marked measure = "on-demand" is deferred to `discern standards`. Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.',
+    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests: a standard whose declared `inputs` the change never touched replays its recorded value instead of re-measuring, and one marked measure = "on-demand" is deferred to `discern standards`. Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.',
   );
 
 const gateSection = z.strictObject({

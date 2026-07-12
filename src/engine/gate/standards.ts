@@ -3,8 +3,11 @@
  * enforces two
  * halves: NEVER LOOSENED vs main (the limit compared to main's value — a floor
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,
- * read the `DISCERN_METRIC <name> <number>` line — last wins). Slow, so on demand,
- * never part of finish. Every standard runs even if one fails.
+ * read the `DISCERN_METRIC <name> <number>` line — last wins). This is the
+ * ON-DEMAND pass — the gate enforces both halves itself on every `done` run
+ * (`standards_gate.ts`, ADR 0133); this verb ALWAYS measures (never replays),
+ * covering deferred standards, explicit re-measurement, CI, and pinning.
+ * Every standard runs even if one fails.
  *
  * Built on the plan/apply seam (ADR 0027): a pure {@link StandardPlan} (which
  * standards, with what direction/limit/metric/command — `standard_plan.ts`) is
@@ -975,8 +978,10 @@ async function pinStandardsResult(
 /**
  * Compute the `standards` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
- * Slow and ON DEMAND: it runs every standard's measurement command (and a git read
- * of main's baseline), so it is NOT part of `done`. `dryRun` returns the plan
+ * The ON-DEMAND pass: it runs every standard's measurement command fresh (and a
+ * git read of main's baseline) — the gate already enforces both halves on every
+ * `done` run, so this verb exists for deferred standards, explicit
+ * re-measurement, and pinning. `dryRun` returns the plan
  * (no git, no measurement); an empty config is a clean pass. Non-dry-run checks
  * require a clean tree unless forced for standard authoring. Otherwise it applies
  * the plan QUIET — the measurement output flows through a silent Out so a caller
@@ -1202,7 +1207,7 @@ async function standardsCleanTreeMessage(
   if (status.stdout.trim() === "") {
     return undefined;
   }
-  return "Standards require a clean worktree because they are slow final checks. Commit or stash changes, then re-run `discern standards`; use `--force` only while authoring or debugging standards.";
+  return "Standards require a clean worktree: this pass records its measurements against the exact commit (for pin reuse and gate replay), so they must describe committed state. Commit or stash changes, then re-run `discern standards`; use `--force` only while authoring or debugging standards. (The gate itself measures a dirty tree as-is — `discern done` needs no clean tree to check standards.)";
 }
 
 /** The clean-tree guard for `--pin`: pin commits the limit change on its own, so an

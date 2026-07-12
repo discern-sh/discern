@@ -17,7 +17,7 @@ Standards are **numbers that can never get worse**: each is a **floor that may o
 A standard blocks pushes, so the number behind it must be *defendable*:
 
 - **Deterministic** — the same tree always yields the same number. Timing, network, and anything sampling-based will fire false alarms until the standard gets deleted, which is worse than never adding it.
-- **Cheap to measure** — `discern standards` is on-demand and not part of the gate; a number that takes ten minutes to compute won't get checked often enough.
+- **Affordable in the gate** — the gate measures every standard alongside the tests on each `discern done`. For a slower metric, climb the relief ladder smallest-hammer-first: declare `inputs` (the paths the metric reads) so a change touching none of them replays the recorded value for free; give the one job its own `timeout` instead of a slower global; and only for a metric genuinely too slow for every gate run, set `measure = "on-demand"` to defer it to `discern standards` — its never-loosen limit check still runs on every gate.
 - **Meaningful** — it moves when the quality it stands for moves, and is hard to satisfy by gaming. "Count of `TODO` markers" is honest; "count of files containing the word test" is theatre.
 - **Owned** — the user is willing to be *blocked* on this number. Confirm that before wiring; an unwanted standard teaches people to bypass standards.
 
@@ -61,9 +61,9 @@ Then prove the wiring is live, detector-style: run `discern_standards` (or `disc
 
 ## 5. When a standard fires
 
-**Never loosen the limit to pass.** A limit loosened versus `main` is precisely the regression the standard exists to catch — move the *metric* the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the standard is doing its job.
+**Never loosen the limit to pass.** A limit loosened versus `main` — or a standard deleted outright — is precisely the regression the standard exists to catch, and every `discern done` run verifies it: a loosening cannot pass the gate on a branch at all. Move the *metric* the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the standard is doing its job.
 
-The one legitimate exception is a limit that was *set wrong* — mis-measured, or measuring something the project has since deliberately changed. Correcting that is a real decision, not an escape hatch: make the case to the user, record it (an ADR, via `discern-write-adr`, when the correction is surprising), and adjust the limit in its own commit that says why. A quiet loosening buried in a feature branch is indistinguishable from the failure mode. (This hand-edit is only ever for *loosening* a mis-set limit — capturing a genuine improvement is `discern standards --pin`, step 4, which by construction can only tighten.)
+The one legitimate exception is a limit that was *set wrong* — mis-measured, or measuring something the project has since deliberately changed. Correcting that is an **owner decision, taken on the trunk**: relay the finding and make the case; at the owner's explicit instruction, an agent working in the main checkout adjusts the limit in the trunk's config, in its own commit that says why (an ADR, via `discern-write-adr`, when the correction is surprising). A quiet loosening buried in a feature branch is indistinguishable from the failure mode — which is exactly why the gate refuses it there. (This trunk edit is only ever for *loosening* a mis-set limit — capturing a genuine improvement is `discern standards --pin`, step 4, which by construction can only tighten.)
 
 ---
 

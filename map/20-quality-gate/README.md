@@ -91,8 +91,10 @@ gate work with an explicit Stage (ADR 0017); **Scopes** classify which part of
 the repo a change touches and **fail open** (an unknown path runs more gates,
 never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
 (ADR 0018); **Standards** hold never-loosen metric floors and ceilings — a raw
-value or, via `per`, a rate that doesn't rise just because the project grew — on
-demand, outside `done` because they are slow (ADR 0003, ADR 0057).
+value or, via `per`, a rate that doesn't rise just because the project grew —
+verified against the trunk and measured alongside the tests on every `done` run,
+with input-keyed replay so an untouched metric costs nothing (ADR 0003, ADR
+0057, ADR 0133).
 
 Alongside the gate sits the **[continuous-improvement coach](improvement.md)**:
 where `done` asks _did this change pass?_,

@@ -612,7 +612,8 @@ const STANDARDS: Category = {
         "budget, lint-warning count — that is NOT yet protected by a standard?",
       teach: "Find the number you'd be unhappy to see regress, emit it as " +
         "`DISCERN_METRIC <name> <value>` from a command, and add a [standards.<name>] " +
-        "with that floor/ceiling. `discern standards` then enforces it can only tighten.",
+        "with that floor/ceiling. Every `discern done` run then verifies the limit " +
+        "against the trunk and measures the metric alongside the tests.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
         const names = Object.keys(ctx.config.standards);
         return {
