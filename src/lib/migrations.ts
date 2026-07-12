@@ -802,7 +802,7 @@ export const MIGRATIONS: Migration[] = [
     from: 14,
     // ADR 0099/0102
     describe:
-      "consolidate the authored surface under the visible discern/ namespace: each unpointed source (the guidance seed, the docs tree, authored skills, recipes, the deferred-work ledger, the brief) moves from its old root default to its discern/ default; pointed paths are untouched",
+      "consolidate the authored surface under the visible discern/ namespace: each unpointed source (the guidance seed, the map tree, authored skills, recipes, the deferred-work ledger, the brief) moves from its old root default to its discern/ default; pointed paths are untouched",
     apply: async (ctx) => {
       await migrateIntoNamespace(ctx);
     },
@@ -1347,7 +1347,7 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
   }
 
   // Best-effort: the pre-namespace template seeded literal neutral-scope globs for the
-  // docs tree and the authored skills; repoint them at the moved locations so
+  // map tree and the authored skills; repoint them at the moved locations so
   // the neutral scope keeps matching. A customised glob simply won't match the
   // pattern — harmless (same craft as the 2→3 `.ai/` repoint).
   const globSwaps: Array<[string, string]> = [];

@@ -65,7 +65,7 @@ export const UPDATE_CHANNEL =
  * exception so machine-local provider settings remain ignored (ADR 0089);
  * schema-14→15 **consolidates the authored surface under the visible
  * `discern/` namespace** — each source path whose key is not pointed away from
- * its legacy root default (the guidance seed, the docs tree, authored skills,
+ * its legacy root default (the guidance seed, the map tree, authored skills,
  * recipes, the deferred-work ledger, the brief) moves to its `discern/`
  * default from the paths registry, with pointed paths untouched (ADR
  * 0099/0102); schema-15→16 **retires the `[features]` toggles** and the

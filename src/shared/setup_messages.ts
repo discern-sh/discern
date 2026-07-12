@@ -31,10 +31,10 @@ import type { SetupAssurance } from "./setup_assurance.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 
-/** The project-relative docs directory the consent context probes for — and the
- * exact path the consent message serves for the `--map` opt-in, so the agent
- * relays a real path, never a placeholder to substitute (or copy verbatim). */
-export const EXISTING_DOCS_REL = "docs/";
+/** The conventional home of a project's own documentation, probed so the consent
+ * message can reassure that discern never touches it — the map is a separate,
+ * agent-maintained artifact with its own home (ADR 0100, ADR 0129). */
+const HUMAN_DOCS_REL = "docs/";
 
 /** The agent set the consent conversation puts to the human: which coding tools
  * `begin` will wire, each as its display label plus the registry name `--agents`
@@ -50,9 +50,9 @@ export interface ConsentAgentSet {
 }
 
 /** The repo facts a consent message is grounded in — the exact sibling worktree
- * path that will be created (ADR 0052), whether the project has a `docs/` tree of
- * its own (so the message offers the ADR 0100 opt-in: point discern's map discipline
- * at those docs, or keep the map separate at its namespace default), whether
+ * path that will be created (ADR 0052), whether the project has a `docs/` folder of
+ * its own (so the message reassures it stays untouched — the map is discern's own
+ * separate tree, never pointed at human docs; ADR 0100, ADR 0129), whether
  * the directory is a git work tree at all (so no surface promises the isolated
  * `discern-setup` branch, the undo story, or worktrees where git can't deliver
  * them — the non-git plan is `git init` first), and the agent set `begin` will
@@ -77,7 +77,7 @@ export async function deriveConsentContext(
   destDir: string,
   agents: ConsentAgentSet,
 ): Promise<ConsentContext> {
-  const docsExists = await pathExists(join(destDir, EXISTING_DOCS_REL));
+  const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
   const worktreePath = join(dirname(destDir), `${basename(destDir)}.worktrees`);
   const gitRepo =
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: destDir }))
@@ -89,10 +89,9 @@ export async function deriveConsentContext(
  * The exact `begin` command a fresh, non-declarative setup runs AFTER the consent
  * conversation — always carrying `--confirmed` (the attestation). The single source
  * for this string, shared by {@link consentMessage}, `verify`'s `next_action`, and
- * `begin`'s `awaiting_consent` refusal, so the three never drift. The `--map`
- * opt-in (a project that chose to put its existing docs under the map discipline)
- * is an addition the consent framing describes, never part of the default command:
- * the default needs no flag, and a placeholder here would push agents to pass one.
+ * `begin`'s `awaiting_consent` refusal, so the three never drift. It never carries
+ * a `--map` flag: the map's home is a default, and a placeholder here would push
+ * agents to pass one.
  */
 export function confirmedBeginCommand(): string {
   return 'discern setup begin --model "<your-model-id>" --confirmed';
@@ -109,10 +108,11 @@ function fence(label: string): string {
  * The pre-`begin` consent block `verify` serves and a flag-less fresh `begin` re-serves.
  * ONE prose string: (a) a framing line to the agent carrying the adaptive relay licence;
  * (b) the message itself — first-person agent voice, kept short enough to survive a
- * single read — the three-pillar explainer, the roadmap with an honest time-and-tokens
- * expectation and the safety frame, then the numbered confirmations (the model question
- * verbatim, the git-init consent when the directory has no git (`gitRepo` false), the
- * existing-docs opt-in when `docsExists` (ADR 0100), the exact worktree location,
+ * single read — the three-pillar explainer (with a reassurance bullet when the project
+ * has its own `docs/`: it stays untouched, the map lives separately — ADR 0129), the
+ * roadmap with an honest time-and-tokens expectation and the safety frame, then the
+ * numbered confirmations (the model question verbatim, the git-init consent when the
+ * directory has no git (`gitRepo` false), the exact worktree location,
  * ready-to-begin); (c) the exact next command including `--confirmed`. The command
  * rides OUTSIDE the fenced message — it is the agent's to run, not the human's to
  * read. Every promise is conditioned on the git state: without git there is no
@@ -129,12 +129,6 @@ export function consentMessage(ctx: ConsentContext): string {
   if (!gitRepo) {
     confirmations.push(
       `${n}. This folder isn't under version control yet, so my first step will be \`git init\` — everything above (the safety net, the working copies) needs it. OK to initialize git here?`,
-    );
-    n += 1;
-  }
-  if (docsExists) {
-    confirmations.push(
-      `${n}. You already have a docs/ folder — it's yours, and discern won't touch it. Its map of the codebase lives separately, at ${SOURCE_PATHS.map.defaultPath}. Or I can point discern at your existing docs, so it maintains them under that same discipline — keep them separate (the default), or point discern at yours?`,
     );
     n += 1;
   }
@@ -178,7 +172,13 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every coding session how this project works; the compiled agent files are committed, so cloud sessions read them too.",
     "",
-    "  • On disk, what discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder — a map of your codebase (docs your agents keep current for you to audit), a deferred-work ledger, and those shared instructions. It also updates the files your coding tools require, committed openly for review.",
+    `  • On disk, discern itself owns one root file (\`discern.toml\`), one visible \`discern/\` folder — a deferred-work ledger and those shared instructions — and a map of your codebase at \`${SOURCE_PATHS.map.defaultPath}\` (docs your agents keep current for you to audit). It also updates the files your coding tools require, committed openly for review.`,
+    ...(docsExists
+      ? [
+        "",
+        "  • You already have a docs/ folder — it's yours, and discern won't touch it. The map is discern's own separate tree; your documentation stays where it is.",
+      ]
+      : []),
     "",
     plan,
     "",
@@ -195,16 +195,6 @@ export function consentMessage(ctx: ConsentContext): string {
       : "Once they've answered: initialize git (`git init`), re-run `discern setup verify` to confirm the plan against the new repository, then run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):",
     "",
     `    ${command}`,
-    ...(docsExists
-      ? [
-        "",
-        // The REAL detected path, never a placeholder: an agent that copies this
-        // verbatim passes a valid value (a `<placeholder>` copied verbatim is
-        // rejected at the flag boundary, but the served text shouldn't set the
-        // trap in the first place).
-        `If they chose to have discern maintain their existing docs, add \`--map ${EXISTING_DOCS_REL}\` so the choice is recorded as [map].dir.`,
-      ]
-      : []),
     "",
     // The REAL effective set, never a placeholder — copied verbatim it wires
     // exactly what would have been wired anyway, so the example can't mislead.

@@ -83,29 +83,28 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   // The exact worktree path, and the confirmed command with no --map.
   assertStringIncludes(msg, WT);
   assertStringIncludes(msg, "--confirmed");
-  assert(!msg.includes("--map"), "no docs tree → no --map in the command");
+  assert(!msg.includes("--map"), "the consent surface never mentions --map");
 });
 
-Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tree exists (ADR 0100)", () => {
+Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0129)", () => {
   const withDocs = consentMessage({
     worktreePath: WT,
     docsExists: true,
     gitRepo: true,
     agents: AGENTS,
   });
-  // The promise, then the default, then the opt-in — a choice, not a workaround.
+  // The reassurance: the human's docs stay theirs; the map is a separate tree
+  // with its own named home.
+  assertStringIncludes(withDocs, "You already have a docs/ folder");
   assertStringIncludes(withDocs, "discern won't touch it");
   assertStringIncludes(withDocs, SOURCE_PATHS.map.defaultPath);
-  assertStringIncludes(withDocs, "keep them separate (the default)");
-  // The --map flag is the agent's post-conversation instruction, outside the
-  // fence — carrying the REAL detected path, never a placeholder to substitute.
-  assertStringIncludes(withDocs, "--map docs/");
-  assert(!withDocs.includes("<their-docs-path>"));
-  const fenced = withDocs.split("end of message")[0] ?? "";
+  // The retired adoption offer must never return: no question, no --map coda —
+  // pointing the map at human-curated docs is not something setup suggests.
   assert(
-    !fenced.includes("--map"),
-    "the --map mechanics are agent-facing — never inside the relayed message",
+    !withDocs.includes("--map"),
+    "the existing-docs adoption offer must not return",
   );
+  assert(!withDocs.includes("point discern at your existing docs"));
 
   const noDocs = consentMessage({
     worktreePath: WT,
@@ -200,7 +199,7 @@ Deno.test("consentMessage keeps the message body concise (≤ ~290 words of pros
   // command ride outside it. Keep it short enough to survive a single read — the base
   // case at the ~290-word target (the three pillars, the honest footprint story with
   // the provider files acknowledged, the named undo, and the agent-set consent
-  // point), the docs case adding only its one extra confirmation.
+  // point), the docs case adding only its one extra reassurance bullet.
   const wordsOf = (docsExists: boolean): number => {
     const body = consentMessage({
       worktreePath: WT,
@@ -220,8 +219,8 @@ Deno.test("consentMessage keeps the message body concise (≤ ~290 words of pros
 
 Deno.test("confirmedBeginCommand carries --confirmed and never a --map placeholder", () => {
   assertStringIncludes(confirmedBeginCommand(), "--confirmed");
-  // The docs opt-in is an addition the consent framing describes; a placeholder in
-  // the default command would push every agent to pass one (ADR 0100).
+  // The map's home is a default; a placeholder in the default command would
+  // push every agent to pass one (ADR 0129).
   assert(!confirmedBeginCommand().includes("--map"));
 });
 

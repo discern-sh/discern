@@ -4,13 +4,13 @@
  * consent conversation the agent walks its human through before `begin`.
  *
  * Grounded, not generic: it reports THIS repo's git state, whether the project has a
- * `docs/` tree of its own (the map defaults to its own namespace home and never touches
- * it; pointing `[map].dir` at existing docs is a deliberate opt-in the consent message
- * offers — ADR 0100), a pre-existing agent-instructions file `begin` will fold into the
+ * `docs/` folder of its own (the map lives at its own default home and never touches
+ * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
+ * 0129), a pre-existing agent-instructions file `begin` will fold into the
  * guidance source, the agents detected on PATH (ADR 0069), and the exact sibling path
  * the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
  * block (the pre-composed "message to your human": what discern adds, what it will do
- * and cost, the model question, the docs opt-in, the worktree location) it relays and
+ * and cost, the model question, the worktree location) it relays and
  * then runs `begin`. The
  * message is the script, not stage directions (ADR 0086): a terse courier agent that
  * only relays discern's words still delivers a complete first conversation. It is kept
@@ -124,7 +124,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   const detected = agents.detected;
   const effectiveAgents = agents.set.wired.map((a) => a.name);
   // The grounded facts the consent message is built from — the exact sibling
-  // worktree path, whether a docs/ tree already exists, whether git is here at
+  // worktree path, whether a docs/ folder already exists, whether git is here at
   // all, and the agent set `begin` will wire — derived once in the shared module
   // so `begin`'s `awaiting_consent` refusal re-serves the identical message.
   const { worktreePath, docsExists, gitRepo } = await deriveConsentContext(
@@ -272,8 +272,8 @@ function printPreflight(p: {
   guidance: string;
 }): void {
   const docs = p.docsExists
-    ? `you have your own docs/ tree — begin leaves it untouched; discern's map lands at ${SOURCE_PATHS.map.defaultPath} unless you point [map].dir at yours (offered below)`
-    : `none of your own — discern's map (its agent-maintained docs tree) will be scaffolded at ${SOURCE_PATHS.map.defaultPath}`;
+    ? `you have your own docs/ folder — begin leaves it untouched; discern's map lands separately at ${SOURCE_PATHS.map.defaultPath}`
+    : `none of your own — discern's map (its agent-maintained tree) will be scaffolded at ${SOURCE_PATHS.map.defaultPath}`;
   const instructions = p.existingInstructions.length > 0
     ? `found ${
       p.existingInstructions.join(", ")
