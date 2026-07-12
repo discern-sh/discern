@@ -132,7 +132,7 @@ async function generateCss(
   for (const url of sourceStyles) sections.push(await Deno.readTextFile(url));
   await Deno.writeTextFile(
     new URL("discern.css", outputRoot),
-    sections.join("\n\n"),
+    `${sections.map((section) => section.trim()).join("\n\n")}\n`,
   );
 }
 

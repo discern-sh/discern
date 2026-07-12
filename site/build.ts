@@ -7,6 +7,7 @@
 
 import { buildDesignSystemRuntime } from "./design-system/scripts/build.ts";
 import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
+import { formatGeneratedText } from "./page-src/format-generated.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const PAGE_ROOT = new URL("pages/", SITE_ROOT);
@@ -31,7 +32,7 @@ await writeGeneratedCopy("design-system-demo.js", "demo.js");
 await writeGeneratedCopy("design-system-fonts.css", "fonts.css");
 await Deno.writeTextFile(
   new URL("design-system-demo.html", PAGE_ROOT),
-  renderDesignSystemDemo(summary),
+  await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
 );
 
 console.log(

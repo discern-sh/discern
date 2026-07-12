@@ -9,6 +9,7 @@ import { encodeHex } from "@std/encoding/hex";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
+import { formatGeneratedText } from "../../page-src/format-generated.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
@@ -50,7 +51,10 @@ Deno.test("design-system sources deterministically reproduce every committed run
     const generatedPage = await Deno.readTextFile(
       join(ROOT, "site", "pages", "design-system-demo.html"),
     );
-    assertEquals(generatedPage, renderDesignSystemDemo(summary));
+    assertEquals(
+      generatedPage,
+      await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
+    );
   } finally {
     await Deno.remove(temp, { recursive: true });
   }

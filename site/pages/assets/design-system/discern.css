@@ -96,7 +96,6 @@
   }
 }
 
-
 @layer discern.reset, discern.tokens, discern.foundation, discern.components,
   discern.utilities;
 
@@ -166,7 +165,6 @@
     transition-duration: 0.01ms !important;
   }
 }
-
 
 @layer discern.utilities {
   .ds-container {
@@ -238,7 +236,6 @@
     }
   }
 }
-
 
 @layer discern.components {
   .ds-button {
@@ -328,7 +325,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-icon-button {
     display: inline-grid;
@@ -389,7 +385,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-icon {
     display: inline-grid;
@@ -411,7 +406,6 @@
     stroke: currentColor;
   }
 }
-
 
 @layer discern.components {
   .ds-badge {
@@ -462,7 +456,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-card {
     border: 1px solid var(--ds-color-border);
@@ -493,7 +486,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-divider {
     display: flex;
@@ -519,7 +511,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-heading {
     text-wrap: balance;
@@ -529,7 +520,6 @@
     font-style: italic;
   }
 }
-
 
 @layer discern.components {
   .ds-kicker {
@@ -547,7 +537,6 @@
     color: var(--ds-color-accent-600);
   }
 }
-
 
 @layer discern.components {
   .ds-tag {
@@ -584,7 +573,6 @@
     outline: none;
   }
 }
-
 
 @layer discern.components {
   .ds-window {
@@ -627,7 +615,6 @@
     background: var(--ds-color-surface);
   }
 }
-
 
 @layer discern.components {
   .ds-banner {
@@ -678,7 +665,6 @@
     block-size: 100%;
   }
 }
-
 
 @layer discern.components {
   .ds-dialog {
@@ -751,7 +737,6 @@
     margin-block-start: var(--ds-space-6);
   }
 }
-
 
 @layer discern.components {
   .ds-toast-region {
@@ -826,7 +811,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-tooltip {
     position: relative;
@@ -860,7 +844,6 @@
     translate: -50% 0;
   }
 }
-
 
 @layer discern.components {
   .ds-choice {
@@ -926,7 +909,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-field {
     display: grid;
@@ -955,7 +937,6 @@
     border-color: var(--ds-color-danger);
   }
 }
-
 
 @layer discern.components {
   .ds-control {
@@ -996,7 +977,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-choice--radio .ds-choice__control {
     border-radius: 50%;
@@ -1014,7 +994,6 @@
     background: white;
   }
 }
-
 
 @layer discern.components {
   .ds-select {
@@ -1038,7 +1017,6 @@
     translate: 0 -70%;
   }
 }
-
 
 @layer discern.components {
   .ds-switch__label {
@@ -1104,7 +1082,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-textarea {
     display: block;
@@ -1112,7 +1089,6 @@
     resize: vertical;
   }
 }
-
 
 @layer discern.components {
   .ds-cluster {
@@ -1149,7 +1125,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-container-box {
     width: min(100% - 2 * var(--ds-space-6), var(--ds-container-max,
@@ -1174,7 +1149,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-grid {
     display: grid;
@@ -1183,7 +1157,6 @@
     gap: var(--ds-grid-gap, var(--ds-space-5));
   }
 }
-
 
 @layer discern.components {
   .ds-section {
@@ -1210,7 +1183,6 @@
   }
 }
 
-
 @layer discern.components {
   .ds-stack {
     display: flex;
@@ -1230,7 +1202,6 @@
     align-items: stretch;
   }
 }
-
 
 @layer discern.components {
   .ds-tabs__list {
