@@ -35,8 +35,9 @@ What setup gives a project: the `discern` verbs it can run, a `discern.toml`
 config, the bundled [Skills](#skill), and the compiled guidance. The logic — the
 [Engine](#engine) — is in the binary, not installed into the project. On disk
 the default authored footprint is `discern.toml`, the root [Map](#map), and
-[the Namespace](#namespace), alongside gitignored generated files. The write
-boundary is enforced by test
+[the Namespace](#namespace), alongside the generated files (the compiled agent
+files committed, the materialized skills ignored). The write boundary is
+enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))
 and every source can be config-pointed elsewhere (your
 [Guidance source](#guidance-source), [Skills](#skill), [Recipes](#recipe),
@@ -51,8 +52,8 @@ The visible `discern/` directory — the default home for the
 [Recipes](#recipe), the project brief, and the `TODO.md` deferred-work ledger.
 The [Map](#map) defaults separately to root `map/`. Content you author for
 audiences of your own never defaults into discern's paths. The Namespace is 100%
-yours — no generated or gitignored artifact is ever written inside it — and
-every source in it keeps a config key that points it anywhere
+yours — no generated artifact is ever written inside it — and every source in it
+keeps a config key that points it anywhere
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md),
 [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
@@ -167,7 +168,7 @@ Every path an install touches has a **disposition** — how `discern` treats it 
 [yours](#your-files--yours) (committed seeds, write-once),
 [co-managed seed](#co-managed-seed) (`discern.toml`'s fixed scaffold and the
 discern block in `.gitignore`), and [the binary's](#the-binarys-files)
-(gitignored, re-published artifacts). The [Merged](#merged-file) seeds and
+(re-published artifacts). The [Merged](#merged-file) seeds and
 [Generated](#generated-file) artifacts are named refinements within them. The
 full surface is mapped in
 [install-surface.md](../80-development/install-surface.md).
@@ -216,12 +217,12 @@ fragment and absorbs known legacy discern-owned fragments
 
 ### The binary's files
 
-A **gitignored** artifact the binary re-publishes on every `upgrade`, always
-safe to overwrite because the binary owns it — the opposite of
-[yours](#your-files--yours). The materialized [Skills](#skill) under
-`.claude/skills/` and `.agents/skills/` (built-ins rendered, authored ones
-symlinked) and the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are
-all the binary's [Generated](#generated-file) artifacts
+An artifact the binary re-publishes on every `upgrade`, always safe to overwrite
+because the binary owns it — the opposite of [yours](#your-files--yours). The
+materialized [Skills](#skill) under `.claude/skills/` and `.agents/skills/`
+(built-ins rendered, authored ones symlinked) and the compiled agent files
+`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are all the binary's
+[Generated](#generated-file) artifacts
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)). The
 [Engine](#engine), the built-in guidance, and the built-in Skill sources are the
 limit case: the binary's, but **bundled** inside it, not on disk in a project at
@@ -247,9 +248,10 @@ reproduced by re-running that command rather than edited directly.
 `discern
 refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
 `GEMINI.md`) and materializes the configured agents' skills dirs. They are all
-[the binary's](#the-binarys-files) gitignored build artifacts; the reviewable,
-tracked form is your `[guidance].sources`, and `discern done` flags a generated
-file that has drifted from its source (ADR 0034).
+[the binary's](#the-binarys-files) to overwrite; the agent files are committed
+(so out-of-tool agents read them), the skills dirs ignored. The reviewable
+source is your `[guidance].sources`, and `discern done` flags a generated file
+that has drifted from its source (ADR 0034, ADR 0128).
 
 ---
 
@@ -437,9 +439,10 @@ sections plus the Guidance source. They carry no banner — they open with the
 guidance itself, and drift from their source is caught by `discern status` /
 `discern done` ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 Which files are emitted is set by `[guidance].agents` (`claude_code` →
-`CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). All are gitignored
-build artifacts; `AGENTS.md` is the **canonical** one (it holds the full body
-the others import).
+`CLAUDE.md`, `codex` → `AGENTS.md`, `gemini` → `GEMINI.md`). All are committed
+generated files
+([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)); `AGENTS.md`
+is the **canonical** one (it holds the full body the others import).
 
 ### Skill
 

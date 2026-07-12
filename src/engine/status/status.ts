@@ -64,6 +64,8 @@ import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifactsHint,
+  untrackedGuidanceFiles,
+  untrackedGuidanceFilesHint,
 } from "../../lib/agent_gitignore.ts";
 import {
   assertMainMerged,
@@ -276,6 +278,12 @@ export async function statusResult(
     data.tracked_ignored_artifacts = trackedIgnoredArtifacts.paths;
   }
 
+  // Compiled guidance files sitting untracked (and not ignored) — the state an
+  // upgraded install lands in once the managed ignore block narrows. Status is
+  // the surface for this (not doctor): nothing is misconfigured, it is the
+  // every-session orientation nudge until the one-time commit clears it.
+  const untrackedGuidance = await untrackedGuidanceFiles(root);
+
   // One-time setup state (ADR 0036). Until `[meta].bootstrapped` is recorded the
   // project is mid-setup and the agent must finish it — surfaced loudly (a banner,
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
@@ -349,6 +357,7 @@ export async function statusResult(
     skillsDrift,
     providerHookDrift,
     trackedIgnoredArtifacts,
+    untrackedGuidance,
     setupPending,
     gateReceipt,
   });
@@ -600,6 +609,8 @@ interface HintContext {
   providerHookDrift: ProviderHookDriftEntry[];
   /** Discern-owned ignored artifacts currently tracked by Git. */
   trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
+  /** Compiled guidance files untracked and not ignored — commit recommended. */
+  untrackedGuidance: string[];
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
@@ -632,6 +643,15 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
 
   if (ctx.trackedIgnoredArtifacts.paths.length > 0) {
     hints.push(trackedDiscernIgnoredArtifactsHint(ctx.trackedIgnoredArtifacts));
+  }
+
+  // Tracked-by-default posture: recommend the one-time commit that puts the
+  // compiled guidance in reach of agents reading a bare clone. Only fires while
+  // the files are untracked AND not ignored, so a project that deliberately
+  // ignores them in its own rules is never nagged. Skipped mid-setup — the
+  // setup flow's own scaffolding commit captures them.
+  if (ctx.untrackedGuidance.length > 0 && ctx.setupPending === undefined) {
+    hints.push(untrackedGuidanceFilesHint(ctx.untrackedGuidance));
   }
 
   // Generated agent files drifted from their source — actionable anywhere, so lead

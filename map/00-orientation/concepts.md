@@ -204,8 +204,9 @@ the gate that ships, with no second copy to keep in sync.
 Alongside the runtime path, guidance flows author-once → compile-everywhere:
 discern's built-in guidance plus your **Guidance source** (`discern/guidance.md`
 by default) are compiled by `discern refresh` into each **Compiled agent file**
-(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — all gitignored build artifacts, drift
-guarded by the currency check), so several agents share one set of instructions.
+(`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — committed generated files, drift
+guarded by the currency check), so several agents share one set of instructions
+and a bare clone hands cloud agents the same page.
 
 ---
 

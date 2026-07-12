@@ -894,7 +894,7 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    // An untracked artifact can go absent (deleted, or a fresh checkout).
+    // A compiled file can go absent (deleted, or untracked and freshly cloned).
     await Deno.remove(join(dir, "CLAUDE.md"));
 
     const r = await runAgent(dir, ["status", "--json"]);
@@ -915,22 +915,77 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    await git(dir, "add", "-f", "AGENTS.md", "CLAUDE.md");
+    // The compiled guidance files are tracked by default — adding them is the
+    // intended state, never flagged. Machine-local state forced in IS flagged.
+    await git(dir, "add", "AGENTS.md", "CLAUDE.md");
+    await Deno.writeTextFile(
+      join(dir, ".claude", "settings.local.json"),
+      "{}\n",
+    );
+    await git(dir, "add", "-f", ".claude/settings.local.json");
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(
       [...(obj.data.tracked_ignored_artifacts ?? [])].sort(),
-      ["AGENTS.md", "CLAUDE.md"],
+      [".claude/settings.local.json"],
     );
     assert(
       (obj.hints ?? []).some((h: string) =>
         h.includes("Discern-managed ignored artifacts are tracked by Git") &&
-        h.includes("git rm -r --cached -- AGENTS.md CLAUDE.md") &&
+        h.includes("git rm -r --cached -- .claude/settings.local.json") &&
         h.includes("discern refresh")
       ),
       `expected a tracked-artifacts repair hint: ${JSON.stringify(obj.hints)}`,
+    );
+  });
+});
+
+Deno.test("status: untracked compiled guidance files draw a commit hint that clears once committed or ignored", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+
+    // Freshly compiled, not yet committed: recommend the one-time commit that
+    // makes the guidance readable from a bare clone.
+    let r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      (parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked") &&
+        h.includes("commit them")
+      ),
+      `expected an untracked-guidance commit hint: ${r.stdout}`,
+    );
+
+    // Committed → the hint clears.
+    await git(dir, "add", "AGENTS.md", "CLAUDE.md");
+    r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked")
+      ),
+      `hint must clear once the files are tracked: ${r.stdout}`,
+    );
+
+    // A project that deliberately ignores a compiled file in its OWN rules is
+    // respected: ignored ⇒ excluded from the hint, never nagged.
+    await git(dir, "rm", "--cached", "-q", "AGENTS.md", "CLAUDE.md");
+    const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `${gitignore}\n/AGENTS.md\n/CLAUDE.md\n`,
+    );
+    r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assert(
+      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
+        h.includes("compiled agent files are untracked")
+      ),
+      `a deliberate per-project ignore must silence the hint: ${r.stdout}`,
     );
   });
 });

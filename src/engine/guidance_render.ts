@@ -246,9 +246,10 @@ export interface GuidanceDriftEntry {
   /** Project-relative path of the generated file. */
   path: string;
   /**
-   * `missing` — absent on disk (the expected state of an untracked artifact on a
-   * fresh checkout); `stale` — present but its bytes differ from the recompiled
-   * body (a real drift: a hand-edit, or an un-refreshed source/config change).
+   * `missing` — absent on disk (tolerated: a tree that has not built them yet,
+   * or a project that deliberately keeps them untracked); `stale` — present but
+   * its bytes differ from the recompiled body (a real drift: a hand-edit, or an
+   * un-refreshed source/config change).
    */
   reason: "missing" | "stale";
   /** What `refresh` would write. */

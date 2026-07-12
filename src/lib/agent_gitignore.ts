@@ -3,14 +3,21 @@
  *
  * Fresh setup and mutating upgrade both use the same model: the project owns the
  * rest of `.gitignore`, while discern owns exactly one delimited block. The block
- * is authored in `templates/.gitignore.fragment`, widened from the provider
- * registry for generated agent artifacts, and reconciled idempotently into
- * existing installs by absorbing old one-off `# discern:` fragments and scattered
- * legacy rules.
+ * enumerates ONLY what discern materializes or keeps machine-local (the
+ * registry's ignored artifact kinds) — the compiled guidance files stay tracked,
+ * so they never appear in it. It is authored in `templates/.gitignore.fragment`,
+ * widened from the provider registry, and reconciled idempotently into existing
+ * installs by absorbing old one-off `# discern:` fragments and scattered legacy
+ * rules — including the guidance-file ignores earlier versions shipped, so an
+ * upgraded install's compiled files become trackable again.
  */
 
 import { join } from "@std/path";
-import { agentArtifactPaths } from "./providers.ts";
+import {
+  type AgentArtifactPosture,
+  agentArtifactPosture,
+  allGuidanceFilePaths,
+} from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -20,11 +27,6 @@ export const DISCERN_GITIGNORE_END = "# --- /discern ---";
 
 const GITIGNORE_FRAGMENT_NAME = ".gitignore.fragment";
 const TARGET_REL = ".gitignore";
-
-export interface GitignoreArtifactSet {
-  guidanceFiles: string[];
-  skillsDirs: string[];
-}
 
 export interface GitignoreReconcileOperation {
   kind: "create-block" | "replace-block";
@@ -69,11 +71,13 @@ export function ignoreCovers(
 
 /**
  * Return the block setup and upgrade should write, ensuring the static fragment
- * has delimiters and every registry-declared agent artifact is covered.
+ * has delimiters and every registry-declared IGNORED artifact — a materialized
+ * directory or a machine-local state file — is covered. Guidance files are
+ * tracked, so they are never widened in.
  */
 export function canonicalDiscernGitignoreBlock(
   fragment: string,
-  artifacts: GitignoreArtifactSet = agentArtifactPaths(),
+  artifacts: AgentArtifactPosture = agentArtifactPosture(),
 ): string {
   const normalized = normalizeLineEndings(fragment).replace(/\n+$/, "");
   const lines = normalized === "" ? [] : normalized.split("\n");
@@ -86,14 +90,14 @@ export function canonicalDiscernGitignoreBlock(
 
   const coverageLines = withoutEnd.map((line) => line.trim());
   const additions: string[] = [];
-  for (const file of artifacts.guidanceFiles) {
+  for (const file of artifacts.localStateFiles) {
     if (!ignoreCovers(coverageLines, file, false)) {
       const rule = `/${file}`;
       additions.push(rule);
       coverageLines.push(rule);
     }
   }
-  for (const dir of artifacts.skillsDirs) {
+  for (const dir of artifacts.materializedDirs) {
     if (!ignoreCovers(coverageLines, dir, true)) {
       const rule = `/${dir}/`;
       additions.push(rule);
@@ -113,7 +117,7 @@ export function canonicalDiscernGitignoreBlock(
 export function reconcileDiscernGitignore(
   existing: string,
   fragment: string,
-  artifacts: GitignoreArtifactSet = agentArtifactPaths(),
+  artifacts: AgentArtifactPosture = agentArtifactPosture(),
 ): GitignoreReconcileResult {
   const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const normalized = normalizeLineEndings(existing);
@@ -201,12 +205,14 @@ export async function ensureDiscernGitignoreBlock(
   };
 }
 
-/** Git-tracked paths that match discern's own generated/local ignore rules. */
+/** Git-tracked paths that match discern's own materialized/local ignore rules —
+ * scoped to the canonical block, so a user's own files under a provider's
+ * directory (e.g. a tracked `.claude/commands/`) are never flagged. */
 export async function trackedDiscernIgnoredArtifacts(
   root: string,
   env: EnvReader = Deno.env,
 ): Promise<TrackedDiscernIgnoredArtifacts> {
-  const artifacts = agentArtifactPaths();
+  const artifacts = agentArtifactPosture();
   const fragment = await readGitignoreFragment(env);
   const block = canonicalDiscernGitignoreBlock(fragment ?? "", artifacts);
   const rules = managedIgnoreRules(block);
@@ -231,6 +237,38 @@ export async function trackedDiscernIgnoredArtifacts(
     ),
   ).sort();
   return { paths, repairTargets: repairTargetsFor(paths, artifacts) };
+}
+
+/**
+ * Compiled guidance files present on disk but untracked AND not ignored — the
+ * state an existing install lands in after upgrade narrows the managed ignore
+ * block. Advisory input for a commit recommendation: an out-of-harness agent
+ * reading a bare clone only gets the guidance once these are committed. A
+ * project that deliberately ignores a compiled file in its OWN rules is
+ * respected — git excludes an ignored file from this list, so no hint nags it.
+ */
+export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
+  const run = await runGit(
+    [
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      ...allGuidanceFilePaths(),
+    ],
+    { cwd: root },
+  );
+  if (!run.success) {
+    return [];
+  }
+  return unique(splitNul(run.stdout)).sort();
+}
+
+export function untrackedGuidanceFilesHint(paths: readonly string[]): string {
+  return `The compiled agent files are untracked (${
+    paths.join(", ")
+  }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`;
 }
 
 export function trackedDiscernIgnoredArtifactsHint(
@@ -327,12 +365,14 @@ function pathMatchesRule(path: string, rule: ManagedIgnoreRule): boolean {
 
 function repairTargetsFor(
   paths: readonly string[],
-  artifacts: GitignoreArtifactSet,
+  artifacts: AgentArtifactPosture,
 ): string[] {
   const targets: string[] = [];
   const covered = new Set<string>();
   for (
-    const dir of [...artifacts.skillsDirs].sort((a, b) => b.length - a.length)
+    const dir of [...artifacts.materializedDirs].sort((a, b) =>
+      b.length - a.length
+    )
   ) {
     const hasTrackedChild = paths.some((path) =>
       path === dir || path.startsWith(`${dir}/`)
@@ -352,17 +392,9 @@ function repairTargetsFor(
     if (covered.has(path)) {
       continue;
     }
-    pushUnique(targets, collapseWildcardRepairTarget(path));
+    pushUnique(targets, path);
   }
   return targets;
-}
-
-function collapseWildcardRepairTarget(path: string): string {
-  if (!path.startsWith(".claude/")) {
-    return path;
-  }
-  const [, child] = path.split("/");
-  return child === undefined ? path : `.claude/${child}`;
 }
 
 function summarizePaths(paths: readonly string[], limit = 8): string {
@@ -420,7 +452,7 @@ interface StripResult {
 function stripDiscernOwnedLines(
   lines: string[],
   canonical: string,
-  artifacts: GitignoreArtifactSet,
+  artifacts: AgentArtifactPosture,
 ): StripResult {
   const canonicalOwned = new Set(
     canonical.split("\n").map((line) => line.trim()).filter((line) =>
@@ -489,7 +521,7 @@ function findClosingMarker(lines: string[], start: number): number {
 function isLegacyBlockOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
-  artifacts: GitignoreArtifactSet,
+  artifacts: AgentArtifactPosture,
 ): boolean {
   const trimmed = line.trim();
   if (trimmed === "" || trimmed === "...") {
@@ -506,7 +538,7 @@ function isLegacyBlockOwnedLine(
 function isStandaloneDiscernOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
-  artifacts: GitignoreArtifactSet,
+  artifacts: AgentArtifactPosture,
 ): boolean {
   const trimmed = line.trim();
   return trimmed !== "" &&
@@ -533,7 +565,7 @@ function isLegacyDiscernComment(line: string): boolean {
 
 function isDiscernOwnedRule(
   line: string,
-  artifacts: GitignoreArtifactSet,
+  artifacts: AgentArtifactPosture,
 ): boolean {
   if (line === "" || line.startsWith("#")) {
     return false;
@@ -546,9 +578,14 @@ function isDiscernOwnedRule(
     return parsed.path === ".claude/settings.json" ||
       parsed.path === ".claude/settings.local.json";
   }
+  // Everything discern ever wrote as an ignore rule, so reconcile absorbs it:
+  // the current ignored kinds, plus legacy rules earlier versions shipped —
+  // including the guidance-file ignores the tracked-by-default posture retired,
+  // so an upgraded install's compiled files become trackable again.
   const ownedPaths = new Set<string>([
     ...artifacts.guidanceFiles,
-    ...artifacts.skillsDirs,
+    ...artifacts.materializedDirs,
+    ...artifacts.localStateFiles,
     ".claude",
     ".claude/*",
     ".claude/settings.json",

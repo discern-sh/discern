@@ -2,7 +2,7 @@
 
 The public-facing pages for discern, served from this repository so the same
 gate that checks the engine checks the site
-([ADR 0128](../_adr/0128-site-lives-in-repo-behind-one-fetch-handler.md)).
+([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)).
 Contributor-facing: this subtree is not bundled into `discern help`.
 
 ## Shape

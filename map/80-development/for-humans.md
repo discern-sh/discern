@@ -75,7 +75,7 @@ out of search. There is no simple built-in equivalent for the colour-coding.
 ### Any editor
 
 Don't hand-edit the generated agent files: `AGENTS.md`, `CLAUDE.md`, and
-`GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
+`GEMINI.md` (committed generated files — ADR 0034/0128) are compiled from
 discern's built-in guidance plus this repo's own
 [`guidance.md`](../../guidance.md) (a config-pointed, non-default location) by
 `discern refresh`. Edit your guidance source and recompile.

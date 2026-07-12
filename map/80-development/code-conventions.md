@@ -41,16 +41,16 @@ The conventions the tooling cannot fully enforce, but the project still holds:
   ([ADR 0019](../_adr/0019-single-binary-ts-engine.md),
   [ADR 0020](../_adr/0020-dissolve-discern-dir.md)). _Yours_ are the committed
   files (`discern.toml`, `map/**`, your `guidance.md`, authored skills under
-  `./skills/`, `TODO.md`) — edit them in place. _The binary's_ are gitignored,
-  re-published artifacts (`.claude/skills/**`, the compiled agent files
-  `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, all gitignored — ADR 0034); the engine,
-  built-in skills, and built-in guidance are bundled in the binary — never on
-  disk in an install. Change the engine, a built-in skill, or built-in guidance
-  by editing the source here and re-running the producing command; don't expect
-  to find a committed copy to sync. See [install-surface.md](install-surface.md)
-  for the full bucket map.
+  `./skills/`, `TODO.md`) — edit them in place. _The binary's_ are re-published
+  artifacts (the ignored `.claude/skills/**`, and the compiled agent files
+  `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, committed but never hand-edited — ADR
+  0034/0128); the engine, built-in skills, and built-in guidance are bundled in
+  the binary — never on disk in an install. Change the engine, a built-in skill,
+  or built-in guidance by editing the source here and re-running the producing
+  command; don't expect to find a committed copy to sync. See
+  [install-surface.md](install-surface.md) for the full bucket map.
 - **Never hand-edit the generated agent files.** `AGENTS.md`, `CLAUDE.md`, and
-  `GEMINI.md` (all gitignored build artifacts — ADR 0034) are compiled from
+  `GEMINI.md` (committed generated files — ADR 0034/0128) are compiled from
   discern's built-in guidance plus your `[guidance].sources` by
   `discern refresh`; edit the guidance source and recompile. They carry no
   banner — `discern done` fails if one drifts from its source, so a stale or

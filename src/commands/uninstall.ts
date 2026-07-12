@@ -13,7 +13,7 @@
  * until uninstall handles it), never a stale hand list.
  *
  * What it removes: the generated agent files and materialized skills dirs
- * (gitignored, always regenerable); discern-owned provider files (the Codex
+ * (always regenerable); discern-owned provider files (the Codex
  * rules, the Copilot hook file); the discern entries inside co-owned files (each
  * provider's MCP server, the session hooks, the permission defaults) — stripping
  * them and leaving the user's own settings byte-for-byte; and the delimited
@@ -234,7 +234,8 @@ async function computeUninstallPlan(
     plan.emptyDirCandidates.add(dirname(rel));
   };
 
-  // 1. Generated agent guidance files (gitignored, regenerable).
+  // 1. Generated agent guidance files (regenerable; tracked copies land in the
+  //    user's removal commit).
   for (const rel of allGuidanceFilePaths()) {
     if (await pathExists(abs(rel))) {
       noteDelete(rel, false, "generated agent guidance file");
@@ -601,8 +602,8 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     return 0;
   }
 
-  // Confirm before removing anything discern created but git can't recover (the
-  // gitignored generated files). Non-interactive callers must say --yes.
+  // Confirm before removing anything discern created that git may not recover
+  // (an uncommitted generated file). Non-interactive callers must say --yes.
   if (!options.json && plan.ops.length > 0) {
     if (!options.yes && !canPrompt(false)) {
       renderPlan(log, plan, false);

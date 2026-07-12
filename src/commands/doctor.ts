@@ -485,7 +485,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
             listedOutputs.join(", ")
           } — an output can never be a source, so these entries resolve to nothing`,
         fix:
-          "point [guidance].sources at your authored guidance instead (the compiled agent files are gitignored build artifacts)",
+          "point [guidance].sources at your authored guidance instead (the compiled agent files are generated outputs, overwritten on every refresh)",
       });
     } else {
       checks.push({

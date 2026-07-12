@@ -23,8 +23,9 @@ import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
-  agentArtifactPaths,
+  agentArtifactPosture,
   allGuidanceFilePaths,
+  allLocalStateFiles,
   allSkillsDirs,
   emitsGuidanceFile,
   neutralAgentScopePaths,
@@ -95,12 +96,14 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
       );
     }
   }
-  // The aggregator and the registry agree on the artifact set (no third encoding).
-  const artifacts = agentArtifactPaths();
+  // The posture aggregator and the registry agree on the artifact set (no third
+  // encoding) — one entry per kind, straight from the per-kind aggregators.
+  const posture = agentArtifactPosture();
   assert(
-    artifacts.guidanceFiles.length === guidanceFiles.length &&
-      artifacts.skillsDirs.length === skillsDirs.length,
-    "agentArtifactPaths() must be the union of the two aggregators",
+    posture.guidanceFiles.length === guidanceFiles.length &&
+      posture.materializedDirs.length === skillsDirs.length &&
+      posture.localStateFiles.length === allLocalStateFiles().length,
+    "agentArtifactPosture() must be the union of the per-kind aggregators",
   );
 });
 
@@ -195,12 +198,16 @@ Deno.test("every known agent declares trust metadata, naming the action when tru
   }
 });
 
-Deno.test("the seed .gitignore fragment ignores EVERY known agent's compiled guidance file", () => {
+Deno.test("the seed .gitignore fragment TRACKS every known agent's compiled guidance file", () => {
+  // Tracked-by-default: the compiled guidance files are committed so a bare
+  // clone (a cloud agent's only view) carries the same page a local session
+  // reads. An ignore rule for one is the regression this guards against.
   for (const path of allGuidanceFilePaths()) {
     assert(
-      fragmentIgnoresFile(path),
-      `templates/.gitignore.fragment does not ignore ${path}. A new agent's compiled ` +
-        `guidance file is a build artifact — add "/${path}" to the fragment's guidance-file group.`,
+      !fragmentIgnoresFile(path),
+      `templates/.gitignore.fragment ignores the compiled guidance file ${path}. ` +
+        `Guidance files are tracked by default — remove the rule; the managed block ` +
+        `enumerates only materialized dirs and machine-local state.`,
     );
   }
 });
@@ -210,9 +217,43 @@ Deno.test("the seed .gitignore fragment ignores EVERY known agent's materialized
     assert(
       fragmentIgnoresDir(dir),
       `templates/.gitignore.fragment does not ignore the materialized skills dir ${dir}. ` +
-        `Add "/${dir}/" (or an ancestor wildcard like "/${
-          dir.split("/")[0]
-        }/*") to the fragment.`,
+        `Add "/${dir}/" to the fragment.`,
+    );
+  }
+});
+
+Deno.test("the seed .gitignore fragment ignores EVERY known agent's machine-local state file", () => {
+  for (const file of allLocalStateFiles()) {
+    assert(
+      fragmentIgnoresFile(file),
+      `templates/.gitignore.fragment does not ignore the machine-local state file ${file}. ` +
+        `Add "/${file}" to the fragment.`,
+    );
+  }
+});
+
+Deno.test("every rule in the canonical block maps to a registry-declared materialized/local path", () => {
+  // Enumerated ownership: the managed block claims exactly what discern
+  // materializes or keeps machine-local, and nothing more — so a user's own
+  // file (a slash command under .claude/, a committed guidance file) can never
+  // be swept up by an over-broad wildcard. Registry-driven: a new provider's
+  // paths auto-enrol; a hand-added rule with no registry backing fails here.
+  const posture = agentArtifactPosture();
+  const rules = FRAGMENT_LINES.filter(
+    (l) => l !== "" && !l.startsWith("#"),
+  );
+  for (const rule of rules) {
+    assert(
+      !rule.startsWith("!"),
+      `the canonical block carries a negation (${rule}) — enumerated ownership needs none`,
+    );
+    const path = rule.replace(/^\//, "").replace(/\/$/, "");
+    assert(
+      posture.materializedDirs.includes(path) ||
+        posture.localStateFiles.includes(path),
+      `the canonical .gitignore block rule "${rule}" maps to no registry-declared ` +
+        `materialized dir or local-state file — the block may claim only what the ` +
+        `provider registry says discern materializes or keeps machine-local`,
     );
   }
 });
@@ -247,12 +288,13 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
 
-    // 1. Compiled guidance file: gitignored. (A reuse-canonical provider's `path` is
-    // the canonical it reads, which the canonical provider already covers — so this
-    // holds for emitting AND reuse-canonical agents alike.)
+    // 1. Compiled guidance file: TRACKED — never ignored by the seed fragment.
+    // (A reuse-canonical provider's `path` is the canonical it reads, which the
+    // canonical provider already covers — so this holds for emitting AND
+    // reuse-canonical agents alike.)
     assert(
-      fragmentIgnoresFile(p.guidanceFile.path),
-      `${name}: guidance file ${p.guidanceFile.path} not gitignored by the seed fragment`,
+      !fragmentIgnoresFile(p.guidanceFile.path),
+      `${name}: guidance file ${p.guidanceFile.path} is ignored by the seed fragment — compiled guidance is tracked by default`,
     );
 
     // 2. Materialized skills dir (when the agent has one): gitignored + neutral.
@@ -265,6 +307,14 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       assert(
         defaultNeutralScopes().includes(`"${top}"`),
         `${name}: generated region ${top} not in the seed neutral scopes`,
+      );
+    }
+
+    // 2b. Machine-local state (when the agent declares any): gitignored.
+    for (const file of p.localState ?? []) {
+      assert(
+        fragmentIgnoresFile(file),
+        `${name}: machine-local state file ${file} not gitignored by the seed fragment`,
       );
     }
 

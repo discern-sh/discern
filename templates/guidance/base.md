@@ -3,7 +3,10 @@
 This project uses **discern**, a stack-neutral agent-development system.
 Everything discern knows lives in one root file: **`discern.toml`**. Its verbs
 are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** —
-and return structured results.
+returning structured results.
+
+This file is compiled — discern's built-in operating guidance first, then the
+project's own guidance, the more specific authority: it wins on any conflict.
 
 ## Operating discern
 
@@ -16,14 +19,14 @@ and return structured results.
 - **`discern_done` is the bar for "done".** It runs the gate — the project's full
   quality check; call a change finished only when the final tree passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just
-  the tests). On failure, read `diagnostics[]` for the command and captured output,
-  then fix it.
+  the tests). On failure, read `diagnostics[]` for the command and output, then
+  fix it.
 - **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a
   misconfigured install.
 
 If the MCP server is **unreachable**, tell the user and use the **`discern` CLI**
 with `--json` meanwhile — never `tail` its agent-optimised output. Offer to fix
-the connection with `discern help` / `discern doctor` when finished.
+the connection with `discern help` / `discern doctor` afterwards.
 
 ## Generated files — don't hand-edit
 

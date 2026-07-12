@@ -5,7 +5,7 @@ co-manages the files below when Codex is enabled in `[guidance].agents`:
 
 | File                                   | Role                                      | Ownership             |
 | -------------------------------------- | ----------------------------------------- | --------------------- |
-| `AGENTS.md`                            | Canonical compiled guidance file          | Generated, gitignored |
+| `AGENTS.md`                            | Canonical compiled guidance file          | Generated, committed  |
 | `.agents/skills/`                      | Materialized Agent Skills                 | Generated, gitignored |
 | `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
 | `.codex/hooks.json`                    | Session-start hook                        | Co-managed, tracked   |

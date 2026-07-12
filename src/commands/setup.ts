@@ -751,8 +751,8 @@ async function scaffoldHarness(
  *
  * On a FRESH install no discern-generated agent file SHOULD exist (discern writes
  * them only via a compile, which needs a config) — but one can survive an
- * abandoned earlier setup, because the compiled files are gitignored and outlive
- * a branch switch or a deleted `discern-setup` branch. So a candidate is treated
+ * abandoned earlier setup: an uncommitted compiled file outlives a branch switch
+ * or a deleted `discern-setup` branch. So a candidate is treated
  * as the USER's — its body folded into the source under a labelled heading,
  * deduped by content so identical mirrors migrate once — only when it does NOT
  * match a body discern's own render produces ({@link agentFileContents} over the

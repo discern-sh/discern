@@ -106,7 +106,8 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
     assertEquals(stale.expected, original);
     assert(stale.actual?.includes("stray edit"));
 
-    // Restore, then delete CLAUDE.md → missing (the fresh-checkout state).
+    // Restore, then delete CLAUDE.md → missing (a not-yet-built or
+    // deliberately-untracked tree — tolerated, never blocking).
     await Deno.writeTextFile(agentsPath, original);
     await Deno.remove(join(dir, "CLAUDE.md"));
     const afterDelete = await checkGuidanceCurrent(dir);
@@ -244,7 +245,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(
-      bareBody.includes("call it only once they explicitly ask you to land"),
+      bareBody.includes("call it only once they explicitly ask to land"),
       "green finish is not treated as permission to accept",
     );
   } finally {
