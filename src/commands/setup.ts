@@ -81,7 +81,7 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { CONFIG_REL, findRoot } from "../shared/env.ts";
+import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
@@ -227,9 +227,6 @@ const TEXT_ENCODER = new TextEncoder();
 
 /** The config key recording that one-time setup is complete. */
 const BOOTSTRAPPED_KEY = "meta.bootstrapped";
-
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -2549,10 +2546,14 @@ async function rootOrError(
   const root = await findRoot();
   if (root === undefined) {
     if (json) {
-      emitResult({ ok: false, verb, error: "no_project", message: NO_PROJECT });
+      emitResult({
+        ok: false,
+        verb,
+        error: "no_project",
+        message: NO_PROJECT_MESSAGE,
+      });
     } else {
-      console.error(`discern: ${NO_PROJECT}`);
-      console.error("       Run `discern setup` to scaffold one.");
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }
   }
   return root;

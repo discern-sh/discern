@@ -36,7 +36,11 @@ import type {
   StatusWorktree,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { findRoot, installedConfigRel } from "../../shared/env.ts";
+import {
+  findRoot,
+  installedConfigRel,
+  NO_PROJECT_MESSAGE,
+} from "../../shared/env.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -87,10 +91,6 @@ import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
-
-/** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -910,11 +910,10 @@ export async function runStatus(
         ok: false,
         verb: "status",
         error: "not_initialized",
-        message: NO_PROJECT,
+        message: NO_PROJECT_MESSAGE,
       });
     } else {
-      console.error(`discern: ${NO_PROJECT}`);
-      console.error("       Run `discern setup` to scaffold one.");
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }
     return 1;
   }

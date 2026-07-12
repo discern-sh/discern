@@ -14,6 +14,7 @@ import {
 } from "../src/engine/worktree/git.ts";
 import { addWorktree, git, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { NO_PROJECT_MESSAGE } from "../src/shared/env.ts";
 
 async function refusal(run: () => Promise<void | string>): Promise<string> {
   try {
@@ -65,4 +66,13 @@ Deno.test("a missing trunk warning uses one name and gives the repair", () => {
   assertStringIncludes(message, "[project].main_branch");
   assertStringIncludes(message, "then re-run");
   assert(!message.includes("integration branch"));
+});
+
+Deno.test("the no-project refusal explains discovery and gives the next steps", () => {
+  assertStringIncludes(NO_PROJECT_MESSAGE, "no discern.toml");
+  assertStringIncludes(NO_PROJECT_MESSAGE, "discern setup");
+  assertStringIncludes(
+    NO_PROJECT_MESSAGE,
+    "move into an existing discern project",
+  );
 });

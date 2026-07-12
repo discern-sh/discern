@@ -512,6 +512,9 @@ Deno.test("status: outside a discern project, the envelope is not_initialized", 
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
     assertEquals(obj.error, "not_initialized");
+    assertStringIncludes(obj.message, "no discern.toml");
+    assertStringIncludes(obj.message, "discern setup");
+    assertStringIncludes(obj.message, "move into an existing discern project");
   });
 });
 

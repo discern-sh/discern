@@ -18,7 +18,7 @@
 
 import { Confirm, Input, Select } from "@cliffy/prompt";
 import { basename } from "@std/path";
-import { findRoot } from "../../shared/env.ts";
+import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
@@ -44,9 +44,6 @@ import {
   type DeskAction,
   type DeskRow,
 } from "./model.ts";
-
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
 const REFRESH = "\x00refresh";
@@ -392,8 +389,7 @@ export async function runDesk(opts: DeskOptions = {}): Promise<number> {
   }
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern setup` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   const out = makeOut(colorEnabled());

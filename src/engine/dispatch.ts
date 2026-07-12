@@ -20,6 +20,7 @@ import {
   CONFIG_REL,
   findRoot,
   installedConfigRel,
+  NO_PROJECT_MESSAGE,
   recipeEnvVars,
 } from "../shared/env.ts";
 import {
@@ -178,15 +179,11 @@ function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
-
 /** Resolve the project root, or print a not-found error and exit 1. */
 async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern setup` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     Deno.exit(1);
   }
   return root;
@@ -1118,7 +1115,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   const log = makeLogger();
@@ -1171,7 +1168,7 @@ export async function runConfigRead(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   // The recipe-facing passthrough reads ARBITRARY dotted keys verbatim, so it uses
@@ -1342,8 +1339,7 @@ export async function dispatchRecipeOrSuggest(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern setup` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   const cfg = await loadConfig(root);

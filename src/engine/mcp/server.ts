@@ -29,7 +29,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import process from "process";
 import { isAbsolute } from "@std/path";
 import { z } from "@zod/zod";
-import { findRoot } from "../../shared/env.ts";
+import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   type AcceptData,
@@ -1105,8 +1105,7 @@ export async function runTool(
       ok: false,
       verb: verbOf(tool.name),
       error: "not_initialized",
-      message:
-        "not inside a discern project (no discern.toml in this directory or any parent).",
+      message: NO_PROJECT_MESSAGE,
     });
   }
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
@@ -1340,9 +1339,7 @@ function registerResources(
   const currentRoot = (): string => {
     const root = working.get();
     if (root === undefined) {
-      throw new Error(
-        "not inside a discern project (no discern.toml in this directory or any parent).",
-      );
+      throw new Error(NO_PROJECT_MESSAGE);
     }
     return root;
   };

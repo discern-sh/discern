@@ -20,7 +20,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
-import { findRoot } from "../shared/env.ts";
+import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
@@ -142,8 +142,7 @@ export async function runSetupAccept(
     return emitAccept(opts, {
       ok: false,
       error: "no_project",
-      message:
-        "not inside a discern project (no discern.toml in this directory or any parent).",
+      message: NO_PROJECT_MESSAGE,
       code: 1,
     });
   }

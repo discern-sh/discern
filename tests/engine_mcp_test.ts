@@ -258,6 +258,10 @@ Deno.test("mcp: a root-independent tool serves from a server spawned outside any
         JSON.stringify(res.structuredContent.error)
       }`,
     );
+    const message = String(res.structuredContent.message);
+    assertStringIncludes(message, "no discern.toml");
+    assertStringIncludes(message, "discern setup");
+    assertStringIncludes(message, "move into an existing discern project");
   }
 });
 
