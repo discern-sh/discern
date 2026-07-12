@@ -147,7 +147,11 @@ type RootCommand = ReturnType<typeof rootShape>;
  * attached unconditionally — the subsystems are all core (ADR 0101). `setup` is
  * hidden from help once the project records `[meta].bootstrapped` (it stays
  * callable with `--force`). */
-export function buildCli(hideSetup: boolean): RootCommand {
+export function buildCli(
+  hideSetup: boolean,
+  mainBranch?: string,
+): RootCommand {
+  const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
@@ -276,7 +280,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
 
   const setupAccept = new Command()
     .description(
-      "Land the finished setup branch on the trunk — the shared landing branch, usually `main`.",
+      `Land the finished setup branch on the trunk${trunkName} — the shared landing branch.`,
     )
     .option("--dry-run", "Print the plan and change nothing.")
     .action(async (options) => {
@@ -713,7 +717,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
-  attachEngineCommands(root as unknown as Command);
+  attachEngineCommands(root as unknown as Command, mainBranch);
 
   return root;
 }
@@ -726,6 +730,8 @@ interface ProjectState {
    * real ConfigParseError surfaces on its own, unobscured). */
   configOk: boolean;
   bootstrapped: boolean;
+  /** The configured trunk's branch name, available when config parsed. */
+  mainBranch?: string;
 }
 
 /**
@@ -746,6 +752,7 @@ async function resolveProjectState(): Promise<ProjectState> {
       inProject: true,
       configOk: true,
       bootstrapped: cfg.meta.bootstrapped,
+      mainBranch: cfg.project.main_branch,
     };
   } catch {
     return { inProject: true, configOk: false, bootstrapped: false };
@@ -860,9 +867,10 @@ export async function main(args: string[]): Promise<void> {
 
     // Resolve the project's setup state — one config read, so the setup
     // redirect/self-hiding know whether setup is still outstanding.
-    const { inProject, configOk, bootstrapped } = await resolveProjectState();
+    const { inProject, configOk, bootstrapped, mainBranch } =
+      await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
-    const cli = buildCli(hideSetup);
+    const cli = buildCli(hideSetup, mainBranch);
 
     // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
     // verb the way Cliffy will — the first non-global-flag token — and key

@@ -145,6 +145,25 @@ Deno.test("command help defines the core vocabulary and routes the three update 
   }
 });
 
+Deno.test("worktree help renders the configured trunk name, never a hard-coded default", () => {
+  const root = buildCli(false, "master") as unknown as Command;
+  for (const name of ["start", "accept", "update"]) {
+    const description = child(root, name).getShortDescription();
+    assertStringIncludes(description, "trunk");
+    assertStringIncludes(description, "`master`");
+    assertStringIncludes(description, "shared landing branch");
+    assert(!description.includes("`main`"));
+  }
+  assertStringIncludes(
+    child(root, "update").getShortDescription(),
+    "trunk's latest (`master`) into this branch",
+  );
+  const setupAccept = child(child(root, "setup"), "accept")
+    .getShortDescription();
+  assertStringIncludes(setupAccept, "trunk (`master`)");
+  assert(!setupAccept.includes("`main`"));
+});
+
 Deno.test("worktree help hides provider-hook payload commands while keeping them callable", () => {
   const worktree = child(fullRoot(), "worktree");
   const visible = worktree.getCommands(false).map((command) =>

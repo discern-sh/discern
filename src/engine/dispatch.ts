@@ -250,7 +250,11 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
 
 /** Attach the engine task-runner verbs to the `discern` root command — every verb
  * unconditionally (ADR 0101: the subsystems are all core). */
-export function attachEngineCommands(root: Command): void {
+export function attachEngineCommands(
+  root: Command,
+  mainBranch?: string,
+): void {
+  const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   root
     .command("done")
     .description(
@@ -506,7 +510,8 @@ export function attachEngineCommands(root: Command): void {
     .command("start")
     .description(
       "From the main checkout, create a worktree — a separate checkout and branch for " +
-        "one change — from the trunk (usually `main`), then print its path.",
+        `one change — from the trunk${trunkName} — the shared landing branch — then ` +
+        "print its path.",
     )
     .option(
       "--json",
@@ -544,8 +549,8 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("accept")
     .description(
-      "Accept and land this worktree's finished branch on the trunk — the shared " +
-        "landing branch, usually `main` — then remove the worktree and merged branch " +
+      `Accept and land this worktree's finished branch on the trunk${trunkName} — ` +
+        "the shared landing branch — then remove the worktree and merged branch " +
         "and refresh the main checkout.",
     )
     .option(
@@ -570,9 +575,10 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("update")
     .description(
-      "Update this branch: merge the trunk's latest (`main` by default) into it and " +
-        "re-materialize the generated agent files. Use `discern upgrade` for discern " +
-        "itself; use `discern refresh` for generated agent files alone.",
+      `Update this branch: merge the trunk's latest${trunkName} into this branch and ` +
+        "re-materialize the generated agent files. The trunk is the shared landing " +
+        "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
+        "generated agent files alone.",
     )
     .option(
       "--json",
