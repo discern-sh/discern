@@ -994,12 +994,15 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
-    // project-owned executable recipe, or an "unknown recipe" suggestion. The
-    // recipe receives the rest of argv verbatim — a leading global flag included,
-    // exactly as if it had been passed after the recipe name.
+    // project-owned executable recipe, or an unknown-command lesson with a
+    // did-you-mean suggestion. The recipe receives the rest of argv verbatim — a
+    // leading global flag included, exactly as if it had been passed after the
+    // recipe name.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
-        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb),
+        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb, {
+          json: argv.includes("--json"),
+        }),
       );
     }
 
