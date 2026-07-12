@@ -16,13 +16,19 @@
  * refuses with a pointer at `status`.
  */
 
-import { Confirm, Input, Select } from "@cliffy/prompt";
+import { Select } from "@cliffy/prompt";
 import { basename } from "@std/path";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { StatusData } from "../../shared/result_schemas.ts";
-import { canPrompt } from "../../lib/prompts.ts";
+import {
+  canPrompt,
+  confirmationPrompt,
+  inputPrompt,
+  selectPrompt,
+  type SelectPromptOptions,
+} from "../../lib/prompts.ts";
 import { Logger } from "../../lib/log.ts";
 import { statusResult } from "../status/status.ts";
 import { gateReceiptHonored } from "../gate/receipt.ts";
@@ -57,7 +63,7 @@ export interface DeskOptions {
   json?: boolean;
 }
 
-type DeskSelectOptions = Parameters<typeof Select.prompt<string>>[0];
+type DeskSelectOptions = SelectPromptOptions<string>;
 type DeskMaybePromise<T> = T | Promise<T>;
 
 /** The terminal and effect boundary behind the desk's interactive session.
@@ -130,7 +136,7 @@ async function confirmOrNo(
   defaultTo: boolean,
 ): Promise<boolean> {
   try {
-    return await Confirm.prompt({ message, default: defaultTo });
+    return await confirmationPrompt(message, defaultTo);
   } catch {
     return false;
   }
@@ -153,9 +159,9 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   receiptHonored: (path) => gateReceiptHonored(path),
   makeOut: () => makeOut(colorEnabled()),
   error: (message) => console.error(message),
-  select: (options) => Select.prompt<string>(options),
+  select: (options) => selectPrompt<string>(options),
   confirm: (message, defaultTo) => confirmOrNo(message, defaultTo),
-  input: (message) => Input.prompt({ message }),
+  input: (message) => inputPrompt({ message }),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
   accept: (ctx, opts) => accept(ctx, opts),

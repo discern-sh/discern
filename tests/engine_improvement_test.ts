@@ -262,11 +262,11 @@ Deno.test({
         "JSON review must include against",
       );
 
-      const piped = await runAgent(dir, ["improvement", "--no-interactive"]);
+      const piped = await runAgent(dir, ["improvement", "--plain"]);
       assertEquals(piped.code, 0);
       const tty = await runAgentPty(dir, [
         "improvement",
-        "--no-interactive",
+        "--plain",
       ]);
       assertEquals(tty.code, 0);
 
@@ -401,7 +401,7 @@ Deno.test("improvement: the human report leads with coaching context", async () 
     // Non-interactive (the subprocess has no TTY) → the full static report.
     const { code, stdout } = await runAgent(dir, [
       "improvement",
-      "--no-interactive",
+      "--plain",
     ]);
     assertEquals(code, 0);
     assertStringIncludes(stdout, "discern improvement");

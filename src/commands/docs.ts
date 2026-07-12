@@ -22,7 +22,7 @@
  * dispatch, the interactive loop, and the pager.
  */
 
-import { Checkbox, Select } from "@cliffy/prompt";
+import { Select } from "@cliffy/prompt";
 import { colors } from "@cliffy/ansi/colors";
 import {
   basename,
@@ -51,6 +51,7 @@ import {
 } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
+import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
 import {
   ageSince,
   buildMapOverview,
@@ -306,7 +307,7 @@ async function pageThrough(text: string): Promise<boolean> {
 
 /** Show rendered text: paged on an interactive terminal, else straight to stdout. */
 async function present(text: string, noPager: boolean): Promise<void> {
-  if (!noPager && Deno.stdout.isTerminal()) {
+  if (!noPager && canPrompt(false)) {
     if (await pageThrough(text)) return;
   }
   console.log(text);
@@ -355,7 +356,7 @@ async function browse(
   while (true) {
     let choice: string;
     try {
-      choice = await Select.prompt({
+      choice = await selectPrompt({
         message,
         options: [
           ...choices,
@@ -509,7 +510,7 @@ async function exportDocs(
 
     let selected: string[];
     try {
-      selected = await Checkbox.prompt<string>({
+      selected = await checkboxPrompt<string>({
         message: "Include documentation sections",
         options: groups.map((group) => ({
           name: `${group.name} (${group.entries.length})`,
@@ -766,7 +767,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
           "--export select requires --output <path>.",
         );
       }
-      if (!Deno.stdin.isTerminal() || !Deno.stdout.isTerminal()) {
+      if (!canPrompt(false)) {
         return invalidOptions(
           log,
           desc.verb,
@@ -815,8 +816,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 2. `map` earns its name with a region overview before any drill-in. A pipe
   // gets the overview alone; a TTY continues into the existing picker.
-  const interactive = !options.list &&
-    Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
+  const interactive = !options.list && canPrompt(false);
   if (desc.verb === "map" && !options.list) {
     const regions = await buildMapOverview(tree);
     printMapOverview(

@@ -240,7 +240,7 @@ export async function runAgent(
 export async function runAgentPty(
   dir: string,
   args: string[],
-  opts: { env?: Record<string, string> } = {},
+  opts: { env?: Record<string, string>; timeoutMs?: number } = {},
 ): Promise<RunResult> {
   if (Deno.build.os === "windows") {
     throw new Error("runAgentPty requires the Unix script(1) utility");
@@ -266,9 +266,27 @@ export async function runAgentPty(
     stdout: "piped",
     stderr: "piped",
   });
-  const { code, stdout, stderr } = await child.output();
+  const process = child.spawn();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      process.kill("SIGTERM");
+    } catch {
+      // It finished between the timer firing and kill reaching the process.
+    }
+  }, opts.timeoutMs ?? 5_000);
+  const { code, stdout, stderr } = await process.output();
+  clearTimeout(timer);
   const out = DECODER.decode(stdout);
   const err = DECODER.decode(stderr);
+  if (timedOut) {
+    throw new Error(
+      `pseudo-TTY command did not terminate within ${
+        opts.timeoutMs ?? 5_000
+      }ms: discern ${args.join(" ")}\n${out}${err}`,
+    );
+  }
   return { code, stdout: out, stderr: err, output: out + err };
 }
 

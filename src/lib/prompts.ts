@@ -5,7 +5,7 @@
  * ever reached on a TTY with `--yes` absent.
  */
 
-import { Checkbox, Confirm, Input } from "@cliffy/prompt";
+import { Checkbox, Confirm, Input, Select } from "@cliffy/prompt";
 import {
   type AgentName,
   DEFAULTS,
@@ -20,6 +20,15 @@ import {
 import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import type { EnvReader } from "../shared/env.ts";
+
+/** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
+let plainMode = false;
+
+/** Thread the global static-output choice into every prompt choke point. */
+export function setPlainMode(enabled: boolean): void {
+  plainMode = enabled;
+}
 
 /** Raw flag values passed to `setup` (all optional; undefined → ask/default). */
 export interface InitFlags {
@@ -47,9 +56,76 @@ export async function resolveBrief(value: string): Promise<string> {
   }
 }
 
-/** Whether interactive prompts may be shown (TTY in, TTY out, --yes absent). */
-export function canPrompt(yes: boolean): boolean {
-  return !yes && Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
+/**
+ * Whether interactive prompts may be shown. `--yes`, global `--plain`, CI, and
+ * either non-terminal stream independently veto interaction. The environment
+ * and stream probe are injectable so the whole decision is testable without
+ * mutating process-global state or manufacturing a terminal.
+ */
+export function canPrompt(
+  yes: boolean,
+  env: EnvReader = Deno.env,
+  streams: () => { stdin: boolean; stdout: boolean } = () => ({
+    stdin: Deno.stdin.isTerminal(),
+    stdout: Deno.stdout.isTerminal(),
+  }),
+): boolean {
+  return interactionAllowed(yes, plainMode, env, streams);
+}
+
+/** Pure form of the interaction policy for exhaustive unit testing. */
+export function interactionAllowed(
+  yes: boolean,
+  plain: boolean,
+  env: EnvReader,
+  streams: () => { stdin: boolean; stdout: boolean },
+): boolean {
+  const ci = env.get("CI")?.trim().toLowerCase();
+  if (yes || plain || (ci !== undefined && ci !== "" && ci !== "false")) {
+    return false;
+  }
+  const terminal = streams();
+  return terminal.stdin && terminal.stdout;
+}
+
+/** Cliffy option types and guarded calls: every prompt in the product routes here. */
+export type SelectPromptOptions<T> = Parameters<typeof Select.prompt<T>>[0];
+export type CheckboxPromptOptions<T> = Parameters<typeof Checkbox.prompt<T>>[0];
+export type InputPromptOptions = Parameters<typeof Input.prompt>[0];
+
+function requireInteraction(name: string): void {
+  if (!canPrompt(false)) {
+    throw new Error(
+      `${name} needs an interactive terminal; remove --plain, leave CI, and attach terminal stdin and stdout.`,
+    );
+  }
+}
+
+export function selectPrompt<T>(
+  options: SelectPromptOptions<T>,
+): ReturnType<typeof Select.prompt<T>> {
+  requireInteraction("this selection");
+  return Select.prompt<T>(options);
+}
+
+export function checkboxPrompt<T>(
+  options: CheckboxPromptOptions<T>,
+): ReturnType<typeof Checkbox.prompt<T>> {
+  requireInteraction("this selection");
+  return Checkbox.prompt<T>(options);
+}
+
+export function inputPrompt(options: InputPromptOptions): Promise<string> {
+  requireInteraction("this question");
+  return Input.prompt(options);
+}
+
+export function confirmationPrompt(
+  message: string,
+  defaultTo: boolean,
+): Promise<boolean> {
+  requireInteraction("this confirmation");
+  return Confirm.prompt({ message, default: defaultTo });
 }
 
 /**
@@ -67,7 +143,7 @@ export async function resolveSetupConfig(
   // 1. Project name.
   let projectName = flags.name?.trim() ?? "";
   if (!projectName && interactive) {
-    projectName = (await Input.prompt({
+    projectName = (await inputPrompt({
       message: "Project name",
       default: defaultNameFromCwd(),
     })).trim();
@@ -85,7 +161,7 @@ export async function resolveSetupConfig(
       throw new Error(`invalid --slug "${slug}": ${SLUG_RULE}`);
     }
   } else if (interactive) {
-    slug = (await Input.prompt({
+    slug = (await inputPrompt({
       message: "Slug",
       default: defaultSlug,
       validate: (value) =>
@@ -98,7 +174,7 @@ export async function resolveSetupConfig(
   // 3. Branch prefix.
   let branchPrefix = flags.branchPrefix?.trim();
   if (branchPrefix === undefined && interactive) {
-    branchPrefix = (await Input.prompt({
+    branchPrefix = (await inputPrompt({
       message: "Branch prefix for worktrees",
       default: DEFAULTS.branchPrefix,
     })).trim();
@@ -112,7 +188,7 @@ export async function resolveSetupConfig(
   if (flags.sourceGlobs !== undefined) {
     sourceGlobs = parseSourceGlobs(flags.sourceGlobs);
   } else if (interactive) {
-    const answer = await Input.prompt({
+    const answer = await inputPrompt({
       message: "Primary source globs (comma-separated)",
       default: DEFAULTS.sourceGlobs.join(", "),
     });
@@ -129,7 +205,7 @@ export async function resolveSetupConfig(
   if (flags.brief !== undefined) {
     brief = await resolveBrief(flags.brief);
   } else if (interactive) {
-    brief = await Input.prompt({
+    brief = await inputPrompt({
       message: "What are you building? (one or two sentences)",
       default: "",
     });
@@ -151,7 +227,7 @@ export async function resolveSetupConfig(
       ? parsed
       : [...DEFAULTS.agents];
   } else if (interactive) {
-    agents = await Checkbox.prompt({
+    agents = await checkboxPrompt({
       message: "Which agent instruction files should be emitted?",
       options: KNOWN_AGENTS.map((a) => ({
         name: `${PROVIDERS[a].label} (${PROVIDERS[a].guidanceFile.path})`,
@@ -179,9 +255,9 @@ export async function resolveSetupConfig(
 
 /**
  * Whether a confirmation prompt may actually be shown. `--json` forbids it
- * outright — evaluated BEFORE the TTY check, so machine mode is off-limits to
- * the prompt even when a TTY is attached — then the ordinary interactive gate
- * (`--yes` absent and both streams a TTY) applies. The interactive gate is
+ * outright — evaluated BEFORE the interaction check, so machine mode is
+ * off-limits to the prompt even when a TTY is attached — then the shared
+ * `--yes` / `--plain` / CI / stream policy applies. The gate is
  * injectable purely so this decision is testable without a real terminal.
  */
 export function promptAllowed(
@@ -196,8 +272,10 @@ export function promptAllowed(
 }
 
 /**
- * A friendly confirmation prompt; auto-yes when non-interactive OR under
- * `--json`. The `json` guard is load-bearing, not a convenience: Cliffy's
+ * A friendly confirmation prompt. At this low-level seam a suppressed prompt
+ * returns true; effectful callers first require their explicit `--yes` when the
+ * shared policy forbids interaction, while `--json` callers keep their existing
+ * machine-authorized path. The `json` guard is load-bearing: Cliffy's
  * `Confirm` renders to stdout and blocks on input, so reaching it under `--json`
  * would corrupt the single-envelope machine stream and hang a non-interactive
  * caller that happens to hold a TTY. Machine mode therefore takes the same
@@ -211,7 +289,7 @@ export async function confirmProceed(
   if (!promptAllowed(yes, json)) {
     return true;
   }
-  return await Confirm.prompt({ message, default: true });
+  return await confirmationPrompt(message, true);
 }
 
 /** Default project name from the current directory's basename. */

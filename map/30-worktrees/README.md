@@ -201,11 +201,11 @@ inspectable before they act.
 
 ## Leaves
 
-| File                                 | Covers                                                                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [team-workflow.md](team-workflow.md) | The collaborator story: cloning with or without discern, the one-minute path to full function, and working alongside agent worktrees without colliding.                   |
-| [the-resources.md](the-resources.md) | Per-worktree resources: the config seam, the create/reuse/destroy lifecycle, the ledger + orphan GC, identity, ownership/namespacing, and the runtime-discovery contract. |
-| [the-desk.md](the-desk.md)           | The human's interactive surface: bare `discern` opens a decision-ordered picker over the fleet — land, update, inspect, jump in, or drop, gated on TTY-ness alone.        |
+| File                                 | Covers                                                                                                                                                                                                      |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [team-workflow.md](team-workflow.md) | The collaborator story: cloning with or without discern, the one-minute path to full function, and working alongside agent worktrees without colliding.                                                     |
+| [the-resources.md](the-resources.md) | Per-worktree resources: the config seam, the create/reuse/destroy lifecycle, the ledger + orphan GC, identity, ownership/namespacing, and the runtime-discovery contract.                                   |
+| [the-desk.md](the-desk.md)           | The human's interactive surface: bare `discern` opens a decision-ordered picker over the fleet — land, update, inspect, jump in, or drop, unless `--plain`, CI, or non-terminal streams select static help. |
 
 > **Status: partial.** `the-resources.md` is written; the remaining lifecycle /
 > identity / integration leaves are still stubs — fill them with the

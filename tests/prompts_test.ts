@@ -19,6 +19,7 @@ import {
 import { join } from "@std/path";
 import {
   canPrompt,
+  interactionAllowed,
   promptAllowed,
   resolveBrief,
   resolveSetupConfig,
@@ -83,6 +84,41 @@ Deno.test("resolveBrief throws a clear error for a missing @path", async () => {
 Deno.test("canPrompt(true) is false — --yes always suppresses prompts", () => {
   // `--yes` short-circuits before any TTY check, so this holds in CI too.
   assertEquals(canPrompt(true), false);
+});
+
+Deno.test("interaction policy independently honors --plain, CI, and both streams", () => {
+  const env = (CI?: string) => ({
+    get: (key: string) => key === "CI" ? CI : undefined,
+  });
+  const streams = (stdin: boolean, stdout: boolean) => () => ({
+    stdin,
+    stdout,
+  });
+
+  assertEquals(
+    interactionAllowed(false, false, env(), streams(true, true)),
+    true,
+  );
+  assertEquals(
+    interactionAllowed(false, true, env(), streams(true, true)),
+    false,
+  );
+  assertEquals(
+    interactionAllowed(false, false, env("1"), streams(true, true)),
+    false,
+  );
+  assertEquals(
+    interactionAllowed(false, false, env("false"), streams(true, true)),
+    true,
+  );
+  assertEquals(
+    interactionAllowed(false, false, env(), streams(false, true)),
+    false,
+  );
+  assertEquals(
+    interactionAllowed(false, false, env(), streams(true, false)),
+    false,
+  );
 });
 
 // ---- promptAllowed: no interactive prompt is reachable under --json (B53) ---

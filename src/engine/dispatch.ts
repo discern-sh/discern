@@ -325,18 +325,12 @@ export function attachEngineCommands(
       "--min-score <n:number>",
       "Exit non-zero when the overall score is below this floor (a CI/agent gate).",
     )
-    .option(
-      "--no-interactive",
-      "Print the full static report instead of the interactive drill-down (also implied off a TTY).",
-    )
     .action(async (o) => {
       Deno.exit(
         await runImprovement(await requireRoot(), {
           json: o.json ?? false,
           category: o.category,
           minScore: o.minScore,
-          // Cliffy maps `--no-interactive` to a negatable `interactive` boolean.
-          interactive: o.interactive,
         }),
       );
     });

@@ -1,6 +1,6 @@
 /**
  * `discern desk` and the bare-`discern` fall-through (ADR 0119): the desk is
- * gated on TTY-ness alone, so under the test harness — where stdio is always
+ * gated by the shared interaction policy, so under the test harness — where stdio is always
  * piped, never a terminal — every invocation here must land on the
  * non-interactive side: structured refusals for `desk`, byte-boring help for
  * bare `discern`. The interactive branch itself is exercised by the pure model

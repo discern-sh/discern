@@ -52,10 +52,11 @@ Every successful result carries one `next_action`.
    Catalog order is therefore priority order for judgement work.
 
 A qualitative review travels as one unit: its question, the `against` material
-to inspect, and its teaching. JSON carries the citation on `next_action.against`;
-the piped and terminal next-action blocks print the same material on a `look:`
-line. The expanded category view uses the same review-unit renderer, so no
-surface can leave “below” or “the cited material” pointing at evidence it lost.
+to inspect, and its teaching. JSON carries the citation on
+`next_action.against`; the piped and terminal next-action blocks print the same
+material on a `look:` line. The expanded category view uses the same review-unit
+renderer, so no surface can leave “below” or “the cited material” pointing at
+evidence it lost.
 
 The human report places that action directly below **Automated practice health**
 and the explicit **N improvement reviews open** line. The full weakest-first
@@ -81,7 +82,7 @@ Every category applies to every install — every subsystem is core
 
 ```sh
 discern improvement                     # summary + interactive detail on a TTY
-discern improvement --no-interactive    # full static report
+discern improvement --plain             # full static report, never prompts
 discern improvement --category gate     # focus one area
 discern improvement --json              # the DiscernResult envelope
 discern improvement --min-score 70      # fail below a baseline-health floor

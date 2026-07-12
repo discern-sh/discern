@@ -43,20 +43,24 @@ applied.
 
 ## When it does not open
 
-The gate is TTY-ness alone (`canPrompt`: stdin **and** stdout are terminals),
-with deliberately no agent/vendor environment sniffing:
+The shared interaction gate (`canPrompt`) requires terminal stdin and stdout,
+and also declines under global `--plain` or an enabled `CI` environment. It does
+not sniff agent or vendor markers:
 
-- **Piped, CI, or `--json`** — bare `discern` prints the same help as before the
-  desk existed; `discern desk` refuses with a structured `interactive_only`
-  envelope pointing at `status --json`.
+- **Piped, CI, `--plain`, or `--json`** — bare `discern` prints static help;
+  `discern desk` refuses with a structured `interactive_only` envelope pointing
+  at `status --json`.
 - **Pre-setup** — bare `discern` keeps showing the setup welcome; `desk` is
   setup-gated like `accept` and `docs`.
 - **From inside a worktree** — the desk points at the main checkout instead: its
   actions (drop, accept) operate from there.
 
 The non-interactive refusals are pinned by
-[`tests/engine_desk_test.ts`](../../tests/engine_desk_test.ts); the
-classification and legality tables by
+[`tests/engine_desk_test.ts`](../../tests/engine_desk_test.ts), while the
+pseudo-TTY matrix in
+[`tests/engine_non_interactive_test.ts`](../../tests/engine_non_interactive_test.ts)
+proves CI, `--plain`, and closed stdin terminate every prompt-capable verb. The
+classification and legality tables are pinned by
 [`tests/engine_desk_model_test.ts`](../../tests/engine_desk_model_test.ts). Like
 `worktree drop`, the desk has **no MCP tool**: it wields supervisory actions
 over other efforts' worktrees, which the fleet-ownership rule forbids an agent.

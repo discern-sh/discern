@@ -15,7 +15,6 @@
  * ("here is what still needs judgement").
  */
 
-import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ImprovementData } from "../../shared/result_schemas.ts";
@@ -32,6 +31,7 @@ import type {
   RuleResult,
   RuleStatus,
 } from "./types.ts";
+import { canPrompt, selectPrompt } from "../../lib/prompts.ts";
 
 // ── evaluation ──────────────────────────────────────────────────────────────
 
@@ -473,10 +473,6 @@ function renderCategory(out: Out, cat: CategoryResult): void {
 }
 
 /** Whether an interactive drill-down may run (a real TTY both ways). */
-function canInteract(): boolean {
-  return Deno.stdin.isTerminal() && Deno.stdout.isTerminal();
-}
-
 /** Drive the interactive drill-down: pick a category to expand, repeat until done. */
 async function interactiveDrilldown(
   out: Out,
@@ -494,7 +490,7 @@ async function interactiveDrilldown(
       { name: "Show every category in full", value: ALL },
       { name: "Done", value: DONE },
     ];
-    const choice = await Select.prompt({
+    const choice = await selectPrompt({
       message: "Drill into an area",
       options,
       search: false,
@@ -538,8 +534,6 @@ function renderFooter(
 /** Options accepted by the improvement CLI. */
 export interface RunImprovementOptions extends ImprovementOptions {
   json: boolean;
-  /** Force the static report even on a TTY (set by `--no-interactive`). */
-  interactive?: boolean | undefined;
 }
 
 /** Run `discern improvement`. Returns a process exit code (0 = ok / above the floor). */
@@ -572,11 +566,11 @@ export async function runImprovement(
     }
   } else {
     renderSummary(out, report, config.project.slug);
-    const interactive = (opts.interactive ?? true) && canInteract();
+    const interactive = canPrompt(false);
     if (interactive) {
       await interactiveDrilldown(out, report);
     } else {
-      // Non-interactive (piped, --no-interactive, CI): print every detail so
+      // Non-interactive (pipe, --plain, CI): print every detail so
       // nothing is hidden behind a prompt that will never be answered.
       for (const cat of report.categories) {
         renderCategory(out, cat);

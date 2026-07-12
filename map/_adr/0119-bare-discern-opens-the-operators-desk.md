@@ -36,14 +36,12 @@ an effort offers exactly the actions legal for its state.** The same screen has
 a named verb, `discern desk`; the bare invocation is its alias, and the named
 verb is what tests, docs plumbing, and parity guards see.
 
-- **The gate is TTY-ness, nothing else.** The desk shows when `canPrompt`
-  (`src/lib/prompts.ts`) holds — stdin AND stdout are terminals — and never
-  otherwise. Pipes, CI, and `--json` get byte-identical help exactly as before.
-  There is deliberately NO detection of agent environment markers: the repo's
-  convention is no vendor/framework sniffing outside explicit vendor-integration
-  territory, and TTY-ness is the honest signal. `discern desk` invoked without a
-  TTY (or with `--json`) refuses with a structured `interactive_only` result
-  pointing at `status`.
+- **The gate is the shared interaction policy.** The desk shows when `canPrompt`
+  (`src/lib/prompts.ts`) holds — stdin AND stdout are terminals, `--plain` is
+  absent, and the process is not under an enabled `CI` environment — and never
+  otherwise. There is deliberately NO detection of agent or vendor markers.
+  `discern desk` invoked without a TTY (or with `--json`) refuses with a
+  structured `interactive_only` result pointing at `status`.
 - **Pre-setup behaviour is untouched.** The desk sits strictly behind the
   existing welcome/help split: only after `shouldWelcomeBare` declines does the
   TTY branch run.
