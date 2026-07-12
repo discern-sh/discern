@@ -170,11 +170,11 @@ The rules:
 **Agent guidance is yours.** Customise it by editing `guidance.md` (this file) —
 never `templates/`, which only holds the generic built-in guidance _other_
 projects receive. Then run `discern refresh` to recompile the agent files
-(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you
-never hand-edit (ADR 0128); `discern done` fails if one drifts from its source,
-so commit the refreshed copies with the source change.
-Keep the prose provider-agnostic: one source compiles to every agent. Nothing
-overwrites your `guidance.md`.
+(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you never
+hand-edit (ADR 0128); `discern done` fails if one drifts from its source, so
+commit the refreshed copies with the source change. Keep the prose
+provider-agnostic: one source compiles to every agent. Nothing overwrites your
+`guidance.md`.
 
 | To change…                                      | Edit…                                     | Then run                           |
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
