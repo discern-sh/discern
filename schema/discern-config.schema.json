@@ -560,7 +560,7 @@
           },
           "measure": {
             "default": "gate",
-            "description": "\"gate\" (the default): the measurement runs inside every `discern done`, in parallel with the tests. \"on-demand\": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay for free, or raise this one job's `timeout`.",
+            "description": "\"gate\" (the default): the measurement runs inside every `discern done`, in parallel with the tests. \"on-demand\": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`.",
             "type": "string",
             "enum": [
               "gate",

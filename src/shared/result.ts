@@ -48,6 +48,7 @@ export const STEP_KINDS = [
   "job", // run a gate job (a capability or a check)
   "scope-gate", // run a scope's self-contained gate
   "merge-check", // assert the branch contains the integration branch
+  "standards-limits-check", // assert no [standards] limit loosened vs the trunk
   "tracked-artifacts-check", // assert discern-owned ignored artifacts are untracked
   "guidance-check", // assert the generated agent files match their sources
   "skills-check", // assert the materialized skills match the effective set

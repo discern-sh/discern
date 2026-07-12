@@ -74,6 +74,11 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in fail-fast precondition: the branch must already contain the latest trunk — the shared landing branch — before the gate spends time. A no-op in the main checkout.",
   },
+  "standards-limits-check": {
+    actor: "discern",
+    hint:
+      "Built-in fail-fast precondition: no [standards] limit may be loosened or deleted versus the trunk — always on, milliseconds. An unreadable trunk skips loudly; a fetched trunk config that does not parse fails.",
+  },
   "tracked-artifacts-check": {
     actor: "discern",
     hint:
@@ -219,6 +224,9 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
   if (plan.mergeCheck) {
     steps.push(step("merge-check", "merge-check"));
+  }
+  if (plan.standardsLimitsCheck) {
+    steps.push(step("standards-limits-check", "standards-limits-check"));
   }
   if (plan.trackedArtifactsCheck) {
     steps.push(step("tracked-artifacts-check", "tracked-artifacts-check"));

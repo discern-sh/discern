@@ -79,6 +79,11 @@ export interface JobGroup {
  */
 export interface GatePlan {
   groups: JobGroup[];
+  /** The never-loosen verification of [standards] limits against the trunk runs as
+   * a fail-fast precondition directly after the merge check (ADR 0133) — vacuous
+   * when neither the branch nor the trunk configures a standard. Always true (the
+   * field gates its plan-listing, not its run). */
+  standardsLimitsCheck: boolean;
   /** The generated-artifacts currency check runs as a fail-fast precondition, beside
    * the merge check (ADR 0034, front-loaded by ADR 0056). Blocks on a STALE agent
    * file. Always true (the field gates its plan-listing, not its run). */
@@ -296,6 +301,7 @@ export function composeGatePlan(
     groups: scopeGates === undefined
       ? stageGroups
       : [...stageGroups, scopeGates],
+    standardsLimitsCheck: true,
     guidanceCheck: true,
     skillsCheck: true,
     mergeCheck: true,
@@ -539,6 +545,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       disposition: "gate",
       note:
         "verify this branch contains the trunk — the shared landing branch — before running the gate (no-op in the main checkout)",
+    });
+  }
+  if (plan.standardsLimitsCheck) {
+    steps.push({
+      kind: "standards-limits-check",
+      label: "standards-limits-check",
+      disposition: "gate",
+      note:
+        "verify no [standards] limit loosened or vanished versus the trunk (vacuous when none are configured)",
     });
   }
   if (plan.trackedArtifactsCheck) {
