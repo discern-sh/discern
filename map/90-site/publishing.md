@@ -8,9 +8,12 @@ production serves.
 ## Run it locally
 
 ```sh
-deno task site          # http://localhost:4507
-PORT=9000 deno task site
+deno task site                    # http://localhost:4507
+deno serve --allow-read --port 9000 site/serve.ts   # any other port
 ```
+
+The task runs `deno serve`, which consumes the handler's default `{ fetch }`
+export — the same shape Deno Deploy consumes in production.
 
 Check both readers:
 

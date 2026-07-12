@@ -6,8 +6,11 @@
  * unconditionally.
  *
  * The same handler runs everywhere, which is the parity guarantee:
- *   locally      `deno task site`   (Deno.serve on a local port)
+ *   locally      `deno task site`   (`deno serve` on port 4507)
  *   production   Deno Deploy        (this file is the entrypoint)
+ *
+ * Both consume the default `{ fetch }` export — there is no separate local
+ * server path.
  */
 
 const SITE_ROOT = new URL("./", import.meta.url);
@@ -140,8 +143,3 @@ export async function handler(req: Request): Promise<Response> {
 }
 
 export default { fetch: handler };
-
-if (import.meta.main) {
-  const port = Number(Deno.env.get("PORT") ?? "4507");
-  Deno.serve({ port }, handler);
-}
