@@ -1,4 +1,4 @@
-# ADR 0131: The site deploys on the new Deno Deploy through a `Deno.serve` entrypoint
+# ADR 0132: The site deploys on the new Deno Deploy through a `Deno.serve` entrypoint
 
 **Status**: accepted
 
