@@ -37,9 +37,8 @@ handler at the edge, with TLS and custom domains managed for you. The new
 platform runs an app's entrypoint with `deno run` and waits for it to start a
 server, so the entrypoint is [`site/main.ts`](../../site/main.ts) — a one-line
 `Deno.serve` over the handler — not `site/serve.ts`, whose bare `{ fetch }`
-export never binds a port under `deno run`
-([ADR 0132](../_adr/0132-site-deploys-via-a-deno-serve-entrypoint.md)). Exercise
-the exact production path locally first:
+export never binds a port under `deno run`. Exercise the exact production path
+locally first:
 
 ```sh
 deno run --allow-read --allow-net --allow-env site/main.ts   # http://localhost:8000

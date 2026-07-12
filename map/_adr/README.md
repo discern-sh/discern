@@ -140,7 +140,6 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0129 — The public site lives in-repo behind one fetch handler](0129-site-lives-in-repo-behind-one-fetch-handler.md)
 - [0130 — The docs site renders the help tree through the shared discovery module](0130-docs-site-renders-the-help-tree.md)
 - [0131 — Setup never offers to adopt existing docs](0131-setup-never-adopts-existing-docs.md)
-- [0132 — The site deploys on the new Deno Deploy through a `Deno.serve` entrypoint](0132-site-deploys-via-a-deno-serve-entrypoint.md)
 
 ## Superseded and consolidated ADRs
 
