@@ -37,9 +37,9 @@ them.
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |
 | `discern/brief.md`    | The project brief captured at setup.                   |
 
-Each path is configurable — `[map].dir` can name any directory you prefer —
-and the default is the location shown. The map is discern's own tree: setup
-never points it at documentation you curate yourself.
+Each path is configurable — `[map].dir` can name any directory you prefer — and
+the default is the location shown. The map is discern's own tree: setup never
+points it at documentation you curate yourself.
 
 ### Co-managed — the config, the ignore block, and the agent wiring
 

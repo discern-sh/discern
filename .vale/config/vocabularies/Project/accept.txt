@@ -110,6 +110,7 @@ Makefiles?
 metacharacters
 migrator
 misconfigur(ed|ation)s?
+mockups?
 monorepo
 mtime
 mutators?

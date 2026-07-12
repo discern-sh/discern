@@ -1,7 +1,6 @@
 # ADR 0129: Setup never offers to adopt existing docs — and "docs tree" retires with it
 
-**Status**: accepted; amends
-[ADR 0100](0100-project-map-is-the-agents-map.md)
+**Status**: accepted; amends [ADR 0100](0100-project-map-is-the-agents-map.md)
 
 ## Context
 
@@ -19,11 +18,11 @@ The question survived both decisions, and it aged badly:
   hears about the map is an offer to point it at their human-curated
   documentation — the restructure-someone's-website failure mode ADR 0100 made
   impossible by construction, reintroduced as a suggestion at first contact.
-- **It spends a consent slot on the wrong default.** The consent conversation
-  is deliberately short (courier agents prune long messages); a question
-  implies a live choice, and adoption is the right choice for almost nobody. A
-  project that truly wants the map discipline over its real docs can still
-  configure that deliberately.
+- **It spends a consent slot on the wrong default.** The consent conversation is
+  deliberately short (courier agents prune long messages); a question implies a
+  live choice, and adoption is the right choice for almost nobody. A project
+  that truly wants the map discipline over its real docs can still configure
+  that deliberately.
 - **The vocabulary survived in the walls.** "docs tree" persisted across
   comments, test names (29 map-browser tests still opened with the retired
   `docs` verb), the landing mockups (which still staged the retired question),
@@ -33,8 +32,8 @@ The question survived both decisions, and it aged badly:
 ## Decision
 
 - **Setup reassures; it never offers.** When the project has its own `docs/`
-  folder, the consent message states that it stays untouched and that the map
-  is discern's separate tree at its own home — a statement, not a question. The
+  folder, the consent message states that it stays untouched and that the map is
+  discern's separate tree at its own home — a statement, not a question. The
   `--map` coda after the message fence retires with it: the consent surface
   never mentions the flag.
 - **`[map].dir` remains address configuration, not an adoption channel.** The
@@ -49,9 +48,9 @@ The question survived both decisions, and it aged badly:
 
 ## Consequences
 
-- ADR 0100's "offered as a question during setup" consequence is superseded;
-  its map identity, namespace-default, and eager-scaffold decisions stand
-  unchanged (an amendment note marks it there).
+- ADR 0100's "offered as a question during setup" consequence is superseded; its
+  map identity, namespace-default, and eager-scaffold decisions stand unchanged
+  (an amendment note marks it there).
 - The consent message now names the map's real default home (`map/`) in its
   footprint bullet — it previously placed the map inside the `discern/` folder,
   a leftover of the pre-ADR-0120 default.

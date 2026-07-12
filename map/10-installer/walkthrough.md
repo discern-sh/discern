@@ -38,9 +38,9 @@ in its own words) — it tells you, plainly:
 - and, if your project has its own `docs/` folder, reassurance that it stays
   untouched: the map is discern's own separate tree, never your documentation.
 
-You answer in plain language — _"yes, go ahead; set up Claude Code and
-Codex."_ The agent doesn't proceed until you've said yes; a fresh setup
-requires the agent to attest that this conversation happened.
+You answer in plain language — _"yes, go ahead; set up Claude Code and Codex."_
+The agent doesn't proceed until you've said yes; a fresh setup requires the
+agent to attest that this conversation happened.
 
 ## 3. The agent scaffolds
 

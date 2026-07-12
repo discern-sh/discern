@@ -58,10 +58,9 @@ with nothing; `setup verify`'s consent conversation reassures that an existing
 `docs/` folder stays untouched and never offers to adopt it
 ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md),
 [ADR 0129](../_adr/0129-setup-never-adopts-existing-docs.md)), and
-`setup begin --map <path>` persists and scaffolds a different root when the
-user configures one. The map browser
-and quality-gate declarations resolve the same field
-([ADR 0080](../_adr/0080-configured-agent-map-root.md)).
+`setup begin --map <path>` persists and scaffolds a different root when the user
+configures one. The map browser and quality-gate declarations resolve the same
+field ([ADR 0080](../_adr/0080-configured-agent-map-root.md)).
 
 `setup begin` resolves its destination before writing: inside an existing
 install it walks to the nearest ancestor with `discern.toml`; before install, in

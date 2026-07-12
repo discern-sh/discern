@@ -137,6 +137,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0126 — Internal ADR citations never ship](0126-no-adr-citations-in-shipped-strings.md)
 - [0127 — Map freshness ships file-linked facts, not verdicts](0127-map-freshness-ships-file-facts.md)
 - [0128 — The ignore block enumerates ownership; compiled guidance is tracked](0128-enumerated-ownership-tracked-guidance.md)
+- [0129 — Setup never offers to adopt existing docs](0129-setup-never-adopts-existing-docs.md)
 
 ## Superseded and consolidated ADRs
 
