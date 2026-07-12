@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>discern · Vibes build it. Checks keep it.</title>
+    <meta name="description"
+      content="Your agent can build an app from a sentence. discern gives your project real checks that run before the agent says done, so breakage shows up as a red mark in the checks, not as a text from a friend." />
+    <meta name="theme-color" content="#FFF7EE"
+      media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#211712"
+      media="(prefers-color-scheme: dark)" />
+    <link rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%23FF5C39'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%23FFF7EE' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+
+    <!-- Theme bootstrap: runs before paint to avoid a flash. Mockup convenience. -->
+    <script>
+    (function () {
+      let stored = null;
+      try {
+        stored = localStorage.getItem("discern-theme");
+      } catch (_) { /* file:// quirks */ }
+      const preferDark = matchMedia("(prefers-color-scheme: dark)").matches;
+      if (stored === "dark" || (!stored && preferDark)) {
+        document.documentElement.classList.add("dark");
+      }
+    })();
+    function toggleTheme() {
+      const dark = document.documentElement.classList.toggle("dark");
+      try {
+        localStorage.setItem("discern-theme", dark ? "dark" : "light");
+      } catch (_) { /* ignore */ }
+    }
+    function copyText(btn) {
+      const text = btn.getAttribute("data-copy");
+      const done = () => {
+        btn.classList.add("copied");
+        setTimeout(() => btn.classList.remove("copied"), 1600);
+      };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done);
+    }
+    function chatToggle(on) {
+      document.getElementById("chat-without").classList.toggle("hidden", on);
+      document.getElementById("chat-with").classList.toggle("hidden", !on);
+      document.getElementById("btn-add").classList.toggle("hidden", on);
+      document.getElementById("btn-remove").classList.toggle("hidden", !on);
+      document.getElementById("chat-chip").textContent = on
+        ? "your agent · with discern"
+        : "your agent · today";
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet" />
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+      @custom-variant dark (&:where(.dark, .dark *));
+
+      /* Riso-print palette: cream paper, espresso ink, coral as the one loud
+         spot color. Green and red stay reserved for check results. */
+      @theme {
+        --font-display: "Unbounded", ui-sans-serif, system-ui, sans-serif;
+        --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+        --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+
+        --color-paper: #FFF7EE;
+        --color-ink: #2A1E1A;
+        --color-ink-soft: #4C3B33;
+        --color-muted: #6B5B52;
+        --color-faint: #9C8B80;
+        --color-line: #EFE2D2;
+        --color-edge: #D9C6B2;
+        --color-panel: #FFFFFF;
+        --color-wash: #FBEEDD;
+        --color-coral: #FF5C39;      /* the spot color */
+        --color-coral-deep: #E04722;
+        --color-butter: #FFD37A;     /* highlight chips */
+        --color-mint: #9FE6C9;       /* secondary chips */
+        --color-blush: #FFD9D2;
+        --color-pass: #149A5B;       /* check passed */
+        --color-pass-soft: #E3F5EB;
+        --color-fail: #D23B2E;       /* check failed */
+        --color-fail-soft: #FBE9E6;
+      }
+
+      .dark {
+        color-scheme: dark;
+        --color-paper: #211712;
+        --color-ink: #F7EBDD;
+        --color-ink-soft: #E3D2C1;
+        --color-muted: #C2AE9E;
+        --color-faint: #8F7D70;
+        --color-line: #3A2C23;
+        --color-edge: #4E3D31;
+        --color-panel: #2B201A;
+        --color-wash: #32251D;
+        --color-coral: #FF6B47;
+        --color-coral-deep: #FF8465;
+        --color-butter: #B98A2E;
+        --color-mint: #2F7D5F;
+        --color-blush: #7D4438;
+        --color-pass: #3DC98A;
+        --color-pass-soft: rgba(61, 201, 138, 0.14);
+        --color-fail: #F0705B;
+        --color-fail-soft: rgba(240, 112, 91, 0.14);
+      }
+
+      ::selection { background: var(--color-butter); color: #2A1E1A; }
+
+      /* Kickers are sentence case in the source; uppercase is presentation. */
+      .kicker {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--color-coral);
+      }
+
+      /* Hand-cut sticker: wobbly radius, ink border, slight lean. */
+      .blob {
+        border: 2px solid var(--color-ink);
+        border-radius: 1.4rem 1.1rem 1.5rem 1rem / 1.1rem 1.5rem 1rem 1.4rem;
+        background: var(--color-panel);
+      }
+      .blob-sm {
+        border: 2px solid var(--color-ink);
+        border-radius: 0.9rem 0.7rem 1rem 0.65rem / 0.7rem 1rem 0.65rem 0.9rem;
+      }
+
+      .squiggle { position: relative; white-space: nowrap; }
+      .squiggle::after {
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: -7px;
+        height: 9px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='9' viewBox='0 0 120 9'%3E%3Cpath d='M1 6C13 2 18 9 30 5s18 3 30 0 18 3 30 0 18 3 29-1' fill='none' stroke='%23FF5C39' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x center / 120px 9px;
+      }
+
+      .btn-ink {
+        border: 2px solid var(--color-ink);
+        border-radius: 999px;
+        transition: transform 130ms ease;
+      }
+      .btn-ink:hover { transform: translateY(-2px) rotate(-0.5deg); }
+
+      .copy-btn .icon-check { display: none; }
+      .copy-btn.copied .icon-copy { display: none; }
+      .copy-btn.copied .icon-check { display: inline-block; color: var(--color-pass); }
+
+      @keyframes nudge { 0%, 100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(-2deg) translateY(-4px); } }
+      .nudge { animation: nudge 2.6s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .nudge { animation: none; } }
+    </style>
+  </head>
+
+  <body class="bg-paper font-sans text-ink antialiased">
+    <!-- ============ NAV ============ -->
+    <header
+      class="sticky top-0 z-40 border-b-2 border-line bg-paper/90 backdrop-blur-sm">
+      <div
+        class="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+        <a href="/" class="flex items-center gap-2.5">
+          <span
+            class="blob-sm grid size-8 -rotate-3 place-items-center bg-coral font-mono text-sm font-semibold text-white">d</span>
+          <span
+            class="font-display text-[17px] font-semibold tracking-tight">discern</span>
+        </a>
+        <nav
+          class="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
+          <a href="#story" class="transition hover:text-coral">The pattern</a>
+          <a href="#how" class="transition hover:text-coral">How it works</a>
+          <a href="#safe" class="transition hover:text-coral">Is it safe?</a>
+        </nav>
+        <div class="flex items-center gap-4">
+          <button onclick="toggleTheme()"
+            class="text-faint transition hover:text-ink"
+            aria-label="Toggle dark mode" title="Toggle dark mode">
+            <svg viewBox="0 0 24 24" class="size-5 dark:hidden" fill="none"
+              stroke="currentColor"
+              stroke-width="1.8" stroke-linejoin="round">
+              <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z" />
+            </svg>
+            <svg viewBox="0 0 24 24" class="hidden size-5 dark:block"
+              fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" />
+            </svg>
+          </button>
+          <a href="https://github.com/jackwh/discern"
+            class="text-faint transition hover:text-ink" aria-label="GitHub">
+            <svg viewBox="0 0 16 16" class="size-5" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+            </svg>
+          </a>
+          <a href="#install"
+            class="btn-ink bg-coral px-4 py-1.5 text-sm font-semibold text-white">Get set up</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ HERO ============ -->
+      <section class="mx-auto max-w-5xl px-6 pb-16 pt-14 sm:pt-20">
+        <div
+          class="grid items-start gap-12 lg:grid-cols-[1fr_0.95fr] lg:gap-12">
+          <div>
+            <span
+              class="blob-sm inline-block rotate-1 bg-butter px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink">
+              For people who build with prompts
+            </span>
+            <h1
+              class="mt-6 font-display text-[34px] font-semibold leading-[1.12] tracking-tight sm:text-[44px] lg:text-[48px]">
+              Vibes build it.<br />
+              <span class="squiggle">Checks keep it.</span>
+            </h1>
+            <p class="mt-7 max-w-lg text-lg leading-8 text-muted">
+              Your agent can make an app from a sentence. What it can't do
+              alone is be sure the app still works: every part, every time
+              something changes. discern gives your project real checks that
+              run before your agent says "done", so breakage shows up as a red
+              mark in the checks, not as a text from a friend.
+            </p>
+
+            <div id="install" class="blob mt-9 max-w-lg scroll-mt-24 p-5">
+              <p class="kicker">The whole setup</p>
+              <div class="mt-4 flex items-center gap-3">
+                <span class="w-4 shrink-0 font-mono text-xs text-faint">1</span>
+                <div
+                  class="blob-sm flex min-w-0 flex-1 items-center gap-2.5 bg-wash px-3.5 py-2.5 font-mono text-sm">
+                  <span class="select-none text-faint">$</span>
+                  <span class="truncate">brew install discern</span>
+                  <button
+                    class="copy-btn ml-auto shrink-0 rounded-md p-1 text-faint transition hover:text-ink"
+                    data-copy="brew install discern" onclick="copyText(this)"
+                    title="Copy" aria-label="Copy install command">
+                    <svg viewBox="0 0 24 24" class="icon-copy size-4"
+                      fill="none" stroke="currentColor" stroke-width="1.8">
+                      <rect x="9" y="9" width="11" height="11" rx="2" />
+                      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                    </svg>
+                    <svg viewBox="0 0 24 24" class="icon-check size-4"
+                      fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 12.5l5.5 5.5L20 6.5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mt-2.5 flex items-center gap-3">
+                <span class="w-4 shrink-0 font-mono text-xs text-faint">2</span>
+                <div
+                  class="blob-sm flex min-w-0 flex-1 items-center gap-2.5 bg-wash px-3.5 py-2.5 text-sm">
+                  <span class="shrink-0 text-faint">tell your agent:</span>
+                  <span
+                    class="truncate font-semibold">"Set this project up with discern."</span>
+                </div>
+              </div>
+              <p class="mt-4 text-sm leading-6 text-muted">
+                Your agent explains what it wants to add, asks your permission,
+                and wires the checks to fit your project. You never touch a
+                config file.
+              </p>
+            </div>
+
+            <div class="mt-5 flex max-w-lg flex-wrap gap-2">
+              <span
+                class="blob-sm rotate-1 bg-mint px-3 py-1 font-mono text-[11px] text-ink dark:text-paper">no account</span>
+              <span
+                class="blob-sm -rotate-1 bg-blush px-3 py-1 font-mono text-[11px] text-ink dark:text-paper">no cloud, works offline</span>
+              <span
+                class="blob-sm rotate-2 bg-butter px-3 py-1 font-mono text-[11px] text-ink dark:text-paper">no API key</span>
+            </div>
+            <p class="mt-4 font-mono text-[11px] text-faint">
+              macOS and Linux. Windows via WSL2.
+            </p>
+          </div>
+
+          <!-- The chat, before and after -->
+          <div>
+            <div class="blob overflow-hidden !p-0">
+              <div
+                class="flex items-center gap-2 border-b-2 border-line bg-wash px-4 py-3">
+                <span
+                  class="size-2.5 rounded-full border-2 border-ink bg-blush"></span>
+                <span
+                  class="size-2.5 rounded-full border-2 border-ink bg-butter"></span>
+                <span
+                  class="size-2.5 rounded-full border-2 border-ink bg-mint"></span>
+                <span id="chat-chip"
+                  class="ml-2 font-mono text-[11px] text-faint">your agent · today</span>
+              </div>
+
+              <!-- Without discern -->
+              <div id="chat-without">
+                <div class="flex flex-col gap-3 p-4 sm:p-5">
+                  <div
+                    class="blob-sm ml-auto max-w-[85%] bg-coral px-4 py-2.5 text-sm leading-6 text-white">
+                  Add a "share with friends" button to my meal planner
+                </div>
+                  <div
+                    class="blob-sm max-w-[88%] bg-wash px-4 py-2.5 text-sm leading-6 text-muted">
+                  Done! I've added sharing with a link preview. Everything's
+                  working. 🎉
+                </div>
+                  <p
+                    class="py-1 text-center font-mono text-[11px] text-faint">two days later</p>
+                  <div
+                    class="blob-sm ml-auto max-w-[85%] bg-coral px-4 py-2.5 text-sm leading-6 text-white">
+                  why do shared links open a blank page??
+                </div>
+                  <div
+                    class="blob-sm max-w-[88%] border-fail bg-fail-soft px-4 py-2.5 text-sm leading-6 text-muted">
+                  You're right, I can see the issue. Fixing it now.
+                </div>
+                  <p class="mt-1 text-center text-xs leading-5 text-faint">
+                  The gap: nothing ran the app's checks before "done".
+                </p>
+                </div>
+              </div>
+
+              <!-- With discern -->
+              <div id="chat-with" class="hidden">
+                <div class="flex flex-col gap-3 p-4 sm:p-5">
+                  <div
+                    class="blob-sm ml-auto max-w-[85%] bg-coral px-4 py-2.5 text-sm leading-6 text-white">
+                  Add a "share with friends" button to my meal planner
+                </div>
+                  <div
+                    class="blob-sm max-w-[88%] bg-wash px-4 py-2.5 text-sm leading-6 text-muted">
+                  On it. I'm working in a draft copy of your app, so nothing
+                  live changes yet.
+                </div>
+                  <div
+                    class="blob-sm max-w-[88%] bg-wash px-4 py-2.5 text-sm leading-6 text-muted">
+                  The checks caught one thing before I called it done: shared
+                  links opened blank for signed-out friends. Fixed. Now all 4
+                  pass:
+                  <span class="mt-2 flex flex-wrap gap-1.5 font-mono text-[11px]">
+                    <span class="rounded-full bg-pass-soft px-2 py-0.5 text-pass">✓ format</span>
+                    <span class="rounded-full bg-pass-soft px-2 py-0.5 text-pass">✓ lint</span>
+                    <span class="rounded-full bg-pass-soft px-2 py-0.5 text-pass">✓ types</span>
+                    <span class="rounded-full bg-pass-soft px-2 py-0.5 text-pass">✓ tests</span>
+                  </span>
+                </div>
+                  <div
+                    class="blob-sm max-w-[88%] bg-wash px-4 py-2.5 text-sm leading-6 text-muted">
+                  Want to look at the change before we keep it?
+                </div>
+                  <p class="mt-1 text-center text-xs leading-5 text-faint">
+                  Same agent. Same brilliance. Now with receipts.
+                </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-center gap-3">
+              <button id="btn-add" onclick="chatToggle(true)"
+                class="btn-ink nudge bg-coral px-5 py-2.5 text-sm font-bold text-white">
+                Add discern to this chat →
+              </button>
+              <button id="btn-remove" onclick="chatToggle(false)"
+                class="btn-ink hidden bg-panel px-4 py-2 text-xs font-semibold text-muted">
+                take it away again
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ THE PATTERN ============ -->
+      <section id="story" class="scroll-mt-24 border-y-2 border-line bg-wash">
+        <div class="mx-auto max-w-5xl px-6 py-20">
+          <div
+            class="grid items-start gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <div>
+              <p class="kicker">The pattern</p>
+              <h2
+                class="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                You've probably lived this one.
+              </h2>
+              <p class="mt-6 max-w-md leading-7 text-muted">
+                You're not bad at this. You're using an astonishingly powerful
+                new tool without the safety systems software teams normally
+                build up over years. Those teams stopped trusting their own
+                confidence long ago: they run checks on every change,
+                automatically, because software breaks in the exact spot
+                nobody looked at. That habit is what discern hands to your
+                project. Your agent does all the operating.
+              </p>
+              <span
+                class="blob-sm mt-7 inline-block -rotate-2 bg-butter px-3.5 py-1.5 text-sm font-semibold text-ink dark:text-paper">The vibe isn't the problem. ✦</span>
+            </div>
+            <ol class="space-y-3">
+              <li class="blob flex items-center gap-4 p-4">
+                <span
+                  class="blob-sm shrink-0 bg-butter px-2.5 py-1 font-mono text-xs">11:04</span>
+                <p
+                  class="text-sm leading-6 text-muted"><span class="font-semibold text-ink">The prompt.</span> "Make me an app that plans road trips from my saved videos."</p>
+              </li>
+              <li class="blob flex items-center gap-4 p-4 sm:ml-8">
+                <span
+                  class="blob-sm shrink-0 bg-mint px-2.5 py-1 font-mono text-xs">11:18</span>
+                <p
+                  class="text-sm leading-6 text-muted"><span class="font-semibold text-ink">It exists.</span> Maps, cards, a share button. You send the link to the group chat.</p>
+              </li>
+              <li
+                class="blob flex items-center gap-4 border-fail bg-fail-soft p-4">
+                <span
+                  class="blob-sm shrink-0 bg-blush px-2.5 py-1 font-mono text-xs">11:27</span>
+                <p
+                  class="text-sm leading-6 text-muted"><span class="font-semibold text-ink">"Is it broken for anyone else?"</span> Works for you. Blank for them.</p>
+              </li>
+              <li class="blob flex items-center gap-4 p-4 sm:ml-8">
+                <span
+                  class="blob-sm shrink-0 bg-butter px-2.5 py-1 font-mono text-xs">13:02</span>
+                <p
+                  class="text-sm leading-6 text-muted"><span class="font-semibold text-ink">The loop.</span> Fix one thing, another quietly breaks. You're seven "please fix it" prompts deep.</p>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOW IT WORKS ============ -->
+      <section id="how" class="mx-auto max-w-5xl scroll-mt-24 px-6 py-20">
+        <div class="max-w-2xl">
+          <p class="kicker">How it works</p>
+          <h2
+            class="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+            Your agent gets a studio. Your app gets checks.
+          </h2>
+          <p class="mt-5 leading-7 text-muted">
+            discern helps your agent check its own homework. It lives inside
+            your project, your agent operates it, every change happens in a
+            draft, every "done" gets checked first — and you approve what gets
+            kept.
+          </p>
+        </div>
+
+        <div class="mt-12 grid gap-6 sm:grid-cols-3">
+          <div class="blob rotate-[-0.5deg] p-6">
+            <span
+              class="blob-sm inline-block bg-butter px-2.5 py-1 font-mono text-xs">drafts</span>
+            <h3
+              class="mt-4 font-display text-lg font-semibold leading-snug">Changes happen in a copy</h3>
+            <p class="mt-2.5 text-sm leading-6 text-muted">
+              Your agent works on a draft of the app, never the one that's
+              live. If an idea goes sideways, your working version was never
+              in danger.
+            </p>
+            <p
+              class="mt-3 font-mono text-[11px] text-faint">engineers call these worktrees</p>
+          </div>
+          <div class="blob rotate-[0.5deg] p-6">
+            <span
+              class="blob-sm inline-block bg-mint px-2.5 py-1 font-mono text-xs">checks</span>
+            <h3
+              class="mt-4 font-display text-lg font-semibold leading-snug">"Done" has to pass first</h3>
+            <p class="mt-2.5 text-sm leading-6 text-muted">
+              Before your agent calls anything finished, your project's checks
+              run on the final version. A failure tells the agent exactly what
+              broke, so the next fix is aimed, and checked again.
+            </p>
+            <p
+              class="mt-3 font-mono text-[11px] text-faint">no more "everything's working"</p>
+          </div>
+          <div class="blob rotate-[-0.5deg] p-6">
+            <span
+              class="blob-sm inline-block bg-blush px-2.5 py-1 font-mono text-xs">memory</span>
+            <h3
+              class="mt-4 font-display text-lg font-semibold leading-snug">Your project remembers</h3>
+            <p class="mt-2.5 text-sm leading-6 text-muted">
+              The rules of your project are written down where every session
+              reads them. A new chat doesn't mean starting the explanation
+              over.
+            </p>
+            <p
+              class="mt-3 font-mono text-[11px] text-faint">works across different agents too</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ IS IT SAFE ============ -->
+      <section id="safe" class="scroll-mt-24 border-y-2 border-line bg-wash">
+        <div class="mx-auto max-w-5xl px-6 py-20">
+          <div class="max-w-2xl">
+            <p class="kicker">Is it safe?</p>
+            <h2
+              class="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+              Fair questions, straight answers.
+            </h2>
+          </div>
+          <div class="mt-12 grid gap-6 sm:grid-cols-2">
+            <div class="blob p-6">
+              <h3
+                class="font-display text-base font-semibold">Is this another AI watching my AI?</h3>
+              <p class="mt-2.5 text-sm leading-6 text-muted">
+                No. There's no model inside discern and nothing that guesses.
+                It runs your project's checks and reports what they said. It
+                can't hallucinate a result.
+              </p>
+            </div>
+            <div class="blob p-6">
+              <h3
+                class="font-display text-base font-semibold">Does my project get uploaded somewhere?</h3>
+              <p class="mt-2.5 text-sm leading-6 text-muted">
+                No. discern runs on your computer and makes zero network
+                calls. No telemetry, no account, and it keeps working with the
+                wifi off.
+              </p>
+            </div>
+            <div class="blob p-6">
+              <h3
+                class="font-display text-base font-semibold">Do I have to learn developer stuff?</h3>
+              <p class="mt-2.5 text-sm leading-6 text-muted">
+                No. Your agent operates discern for you. If you're curious,
+                ask it what a check just did. It's a patient explainer, and
+                the vocabulary comes free.
+              </p>
+            </div>
+            <div class="blob p-6">
+              <h3
+                class="font-display text-base font-semibold">What if I want it gone?</h3>
+              <p class="mt-2.5 text-sm leading-6 text-muted">
+                Tell your agent to uninstall it. The wiring comes out and your
+                project stays, along with the notes and rules it wrote, which
+                are worth keeping either way.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FOR THE AGENT ============ -->
+      <section class="mx-auto max-w-5xl px-6 pt-14">
+        <div class="blob bg-ink !border-ink px-6 py-6 sm:px-8">
+          <p
+            class="font-mono text-[11px] uppercase tracking-[0.2em] text-butter">For the agent reading along</p>
+          <p class="mt-3 font-mono text-[13px] leading-6 text-paper/80">
+            Every discern verb takes <span class="text-butter">--json</span> and returns one
+            typed result. Setup asks the human's consent before writing
+            anything. The manual written for you is
+            <a href="/agents" class="underline decoration-butter/60 underline-offset-4 hover:decoration-butter">DISCERN(1)</a>
+            — plaintext at <a href="/llms.txt" class="underline decoration-butter/60 underline-offset-4 hover:decoration-butter">/llms.txt</a>.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ CTA ============ -->
+      <section class="mx-auto max-w-5xl px-6 py-24 text-center">
+        <h2
+          class="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+          Keep making things.
+        </h2>
+        <p class="mx-auto mt-5 max-w-md text-lg leading-8 text-muted">
+          You bring the ideas. Your agent brings the speed. discern checks
+          every "done" before you trust it.
+        </p>
+        <div class="mx-auto mt-10 flex max-w-md flex-col gap-2.5">
+          <div
+            class="blob-sm flex items-center gap-2.5 bg-panel px-4 py-3 text-left font-mono text-sm">
+            <span class="select-none text-faint">$</span>
+            <span>brew install discern</span>
+            <button
+              class="copy-btn ml-auto shrink-0 rounded-md p-1 text-faint transition hover:text-ink"
+              data-copy="brew install discern" onclick="copyText(this)"
+              title="Copy" aria-label="Copy install command">
+              <svg viewBox="0 0 24 24" class="icon-copy size-4" fill="none"
+                stroke="currentColor" stroke-width="1.8">
+                <rect x="9" y="9" width="11" height="11" rx="2" />
+                <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+              </svg>
+              <svg viewBox="0 0 24 24" class="icon-check size-4" fill="none"
+                stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12.5l5.5 5.5L20 6.5" />
+              </svg>
+            </button>
+          </div>
+          <div class="blob-sm bg-panel px-4 py-3 text-left text-sm">
+            <span class="text-faint">then:</span>
+            <span
+              class="font-semibold">"Set this project up with discern."</span>
+          </div>
+        </div>
+
+        <div class="mx-auto mt-8 max-w-md">
+          <p
+            class="text-sm text-faint">Not sure yet? Ask the one who'd be using it.</p>
+          <div
+            class="blob-sm mt-2.5 flex items-center gap-2.5 bg-wash px-4 py-3 text-left text-sm">
+            <span class="truncate">"Would discern help this project?"</span>
+            <button
+              class="copy-btn ml-auto shrink-0 rounded-md p-1 text-faint transition hover:text-ink"
+              data-copy="Would discern help this project?"
+              onclick="copyText(this)" title="Copy" aria-label="Copy question">
+              <svg viewBox="0 0 24 24" class="icon-copy size-4" fill="none"
+                stroke="currentColor" stroke-width="1.8">
+                <rect x="9" y="9" width="11" height="11" rx="2" />
+                <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+              </svg>
+              <svg viewBox="0 0 24 24" class="icon-check size-4" fill="none"
+                stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12.5l5.5 5.5L20 6.5" />
+              </svg>
+            </button>
+          </div>
+          <p class="mt-2.5 text-xs leading-5 text-faint">
+            Your agent can read discern's docs and tell you whether it fits.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ FOOTER ============ -->
+      <footer class="border-t-2 border-line">
+        <div class="mx-auto max-w-5xl px-6 py-12">
+          <div class="flex flex-col justify-between gap-8 sm:flex-row">
+            <div>
+              <a href="/" class="flex items-center gap-2.5">
+                <span
+                  class="blob-sm grid size-7 -rotate-3 place-items-center bg-coral font-mono text-xs font-semibold text-white">d</span>
+                <span
+                  class="font-display text-base font-semibold tracking-tight">discern</span>
+              </a>
+              <p class="mt-3 max-w-xs text-sm leading-6 text-faint">
+                Real checks for things built with prompts.
+              </p>
+            </div>
+            <div class="flex gap-14 text-sm">
+              <div class="flex flex-col gap-2.5">
+                <p
+                  class="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">Project</p>
+                <a href="/docs"
+                  class="text-muted transition hover:text-coral">Docs</a>
+                <a href="https://github.com/jackwh/discern"
+                  class="text-muted transition hover:text-coral">GitHub</a>
+                <a href="#"
+                  class="text-muted transition hover:text-coral">Uninstall</a>
+              </div>
+              <div class="flex flex-col gap-2.5">
+                <p
+                  class="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">Other editions</p>
+                <a href="/"
+                  class="text-muted transition hover:text-coral">For engineers</a>
+                <a href="/agents"
+                  class="text-muted transition hover:text-coral">The agent's manual</a>
+                <a href="/careers"
+                  class="text-muted transition hover:text-coral">Careers, for agents</a>
+              </div>
+            </div>
+          </div>
+          <div
+            class="mt-10 border-t-2 border-line pt-5 font-mono text-[11px] text-faint">
+            <p>© 2026 Jack Webb-Heller · No telemetry in the binary. No analytics on this page.</p>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

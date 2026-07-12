@@ -50,6 +50,8 @@ Hand the documenter the brief plus this subtree's scope manifest, and produce ev
 
 **Refreshing rather than writing fresh?** Update only what drifted — re-read the source, fix stale claims and paths, keep wording the manifest says to preserve. Don't rewrite a sound doc for its own sake.
 
+**Listing metadata is derived, not authored.** Every listing surface describes a doc by its first heading (the title) and its lead paragraph (the one-line description), so open each doc with a heading and a paragraph that stand alone in an index. Only when a derivation genuinely reads poorly may a doc open with a frontmatter block (`title`, `description`, `order`, `publish`) to override it — prefer fixing the prose.
+
 ### Doing several subsystems at once (optional)
 
 The tree was designed to be built by a small fleet — one documenter per subtree,

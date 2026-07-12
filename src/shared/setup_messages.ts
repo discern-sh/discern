@@ -33,7 +33,7 @@ import { runGit } from "./subprocess.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
- * agent-maintained artifact with its own home (ADR 0100, ADR 0129). */
+ * agent-maintained artifact with its own home (ADR 0100, ADR 0131). */
 const HUMAN_DOCS_REL = "docs/";
 
 /** The agent set the consent conversation puts to the human: which coding tools
@@ -52,7 +52,7 @@ export interface ConsentAgentSet {
 /** The repo facts a consent message is grounded in — the exact sibling worktree
  * path that will be created (ADR 0052), whether the project has a `docs/` folder of
  * its own (so the message reassures it stays untouched — the map is discern's own
- * separate tree, never pointed at human docs; ADR 0100, ADR 0129), whether
+ * separate tree, never pointed at human docs; ADR 0100, ADR 0131), whether
  * the directory is a git work tree at all (so no surface promises the isolated
  * `discern-setup` branch, the undo story, or worktrees where git can't deliver
  * them — the non-git plan is `git init` first), and the agent set `begin` will
@@ -109,7 +109,7 @@ function fence(label: string): string {
  * ONE prose string: (a) a framing line to the agent carrying the adaptive relay licence;
  * (b) the message itself — first-person agent voice, kept short enough to survive a
  * single read — the three-pillar explainer (with a reassurance bullet when the project
- * has its own `docs/`: it stays untouched, the map lives separately — ADR 0129), the
+ * has its own `docs/`: it stays untouched, the map lives separately — ADR 0131), the
  * roadmap with an honest time-and-tokens expectation and the safety frame, then the
  * numbered confirmations (the model question verbatim, the git-init consent when the
  * directory has no git (`gitRepo` false), the exact worktree location,

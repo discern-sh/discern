@@ -40,6 +40,18 @@ import {
 
 const ENCODER = new TextEncoder();
 
+/**
+ * Failure bound for one MCP response. A healthy server answers in
+ * milliseconds, so the bound only matters when something is wedged — but a
+ * loaded machine running the full parallel suite can stretch honest responses
+ * past a tight bound, and a flaked gate costs more than a slow failure
+ * report. Override via DISCERN_TEST_MCP_TIMEOUT_MS for a stricter budget.
+ */
+const MCP_RECV_TIMEOUT_MS: number = (() => {
+  const raw = Number(Deno.env.get("DISCERN_TEST_MCP_TIMEOUT_MS") ?? "");
+  return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
+})();
+
 /** A live MCP server process with line-framed JSON-RPC send/recv over stdio. */
 class McpClient {
   private writer: WritableStreamDefaultWriter<Uint8Array>;
@@ -64,7 +76,7 @@ class McpClient {
 
   /** Read the next non-empty JSON line from the server. */
   // deno-lint-ignore no-explicit-any
-  async recv(timeoutMs = 5000): Promise<any> {
+  async recv(timeoutMs = MCP_RECV_TIMEOUT_MS): Promise<any> {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([

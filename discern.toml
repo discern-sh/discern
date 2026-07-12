@@ -158,6 +158,12 @@ neutral = true
 # paths       = ["assets/**", "public/**"]
 # previewable = true
 
+# The public site (discern.sh): static editions plus the fetch handler that
+# serves them. Run it locally with `deno task site`.
+[scopes.site]
+paths       = ["site/**"]
+previewable = true
+
 # A sub-component with its own self-contained gate:
 # [scopes.native]
 # paths = ["native/**"]

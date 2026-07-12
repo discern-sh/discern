@@ -30,7 +30,8 @@
     "setup-eval:fixture": "deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/make-fixture.ts",
     "setup-eval:run": "deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/run-agent.ts",
     "check": "deno check",
-    "gate": "deno task dev done"
+    "gate": "deno task dev done",
+    "site": "deno serve --allow-read --port 4507 site/serve.ts"
   },
   "imports": {
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",

@@ -11,7 +11,7 @@
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { runGit } from "../shared/subprocess.ts";
-import { inlineToPlain } from "./markdown.ts";
+import { leadParagraph } from "./markdown.ts";
 import type { DocEntry, DocsTree } from "./docs.ts";
 
 /** Git-only freshness facts for one map region, jointly absent when unknown. */
@@ -33,31 +33,6 @@ function within(root: string, candidate: string): boolean {
   const rel = relative(root, candidate);
   return rel === "" ||
     (rel !== ".." && !rel.startsWith(`..${SEPARATOR}`) && !isAbsolute(rel));
-}
-
-/** First prose paragraph after the README title, flattened to one plain line. */
-export function readmeDescription(markdown: string, fallback: string): string {
-  const lines = markdown.split(/\r?\n/);
-  let sawTitle = false;
-  const paragraph: string[] = [];
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!sawTitle && /^#{1,6}\s+/.test(line)) {
-      sawTitle = true;
-      continue;
-    }
-    if (!sawTitle || line === "") {
-      if (paragraph.length > 0) break;
-      continue;
-    }
-    if (/^(#{1,6}\s+|---+$|```|>)/.test(line)) {
-      if (paragraph.length > 0) break;
-      continue;
-    }
-    paragraph.push(line);
-  }
-  const plain = inlineToPlain(paragraph.join(" ")).trim();
-  return plain || fallback;
 }
 
 /** Local Markdown link destinations, without fragments or external schemes. */
@@ -172,7 +147,7 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
       entries[0];
     if (readme === undefined) continue;
     const title = readme.title;
-    const description = readmeDescription(
+    const description = leadParagraph(
       sources.get(readme.path) ?? "",
       title,
     );

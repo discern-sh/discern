@@ -1,4 +1,4 @@
-# ADR 0129: Setup never offers to adopt existing docs — and "docs tree" retires with it
+# ADR 0131: Setup never offers to adopt existing docs — and "docs tree" retires with it
 
 **Status**: accepted; amends [ADR 0100](0100-project-map-is-the-agents-map.md)
 

@@ -6,7 +6,7 @@
  * Grounded, not generic: it reports THIS repo's git state, whether the project has a
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
- * 0129), a pre-existing agent-instructions file `begin` will fold into the
+ * 0131), a pre-existing agent-instructions file `begin` will fold into the
  * guidance source, the agents detected on PATH (ADR 0069), and the exact sibling path
  * the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
  * block (the pre-composed "message to your human": what discern adds, what it will do

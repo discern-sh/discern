@@ -1,0 +1,749 @@
+/* The docs shell — the DISCERN(1) family: ink on paper, color for verdicts.
+   Plain CSS on purpose: no framework, no runtime compile, no third-party
+   origin beyond the fonts every page still loads (a standing launch task). */
+
+:root {
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --paper: #FBFAF7;
+  --ink: #1A1814;
+  --muted: #57534A;
+  --faint: #8B857A;
+  --line: #E8E4DA;
+  --edge: #D8D3C7;
+  --panel: #FFFFFF;
+  --wash: #F4F2EC;
+  --pass: #117A3D;
+  --pass-soft: #E9F4EC;
+  --fail: #C2402E;
+}
+
+.dark {
+  color-scheme: dark;
+  --paper: #16171A;
+  --ink: #ECEDEF;
+  --muted: #AEB2B8;
+  --faint: #7E838B;
+  --line: #2A2C31;
+  --edge: #3A3D44;
+  --panel: #1D1F23;
+  --wash: #23262B;
+  --pass: #4CC088;
+  --pass-soft: rgba(76, 192, 136, 0.12);
+  --fail: #E06A57;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: 5rem;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--pass-soft);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--panel);
+  padding: 0.5rem 1rem;
+  z-index: 60;
+}
+.skip:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 3.5rem;
+  padding: 0 1rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.3rem;
+  background: var(--ink);
+  color: var(--pass);
+  font-size: 0.8rem;
+}
+.dark .brand-mark {
+  background: #0C0D0F;
+}
+
+.brand-docs {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.top-spacer {
+  flex: 1;
+}
+
+.search-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.45rem;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.search-btn:hover {
+  color: var(--ink);
+  border-color: var(--faint);
+}
+.search-btn kbd {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: var(--wash);
+}
+
+.theme-btn,
+.nav-burger {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1.05rem;
+  cursor: pointer;
+  padding: 0.35rem;
+}
+.theme-btn:hover,
+.nav-burger:hover {
+  color: var(--ink);
+}
+.nav-burger {
+  display: none;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr) 15rem;
+  gap: 0;
+  max-width: 90rem;
+  margin: 0 auto;
+}
+
+/* ── Left nav ───────────────────────────────────────────────────────── */
+
+.sidenav {
+  position: sticky;
+  top: 3.5rem;
+  height: calc(100vh - 3.5rem);
+  overflow-y: auto;
+  padding: 1.75rem 1.25rem 2rem 1.5rem;
+  border-right: 1px solid var(--line);
+  font-family: var(--font-mono);
+}
+
+.nav-section {
+  margin-bottom: 1.6rem;
+}
+
+.nav-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink);
+  margin-bottom: 0.45rem;
+}
+.nav-label:hover {
+  color: var(--muted);
+}
+
+.nav-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.1rem;
+  border-left: 1px solid var(--line);
+}
+.nav-section li a {
+  display: block;
+  padding: 0.22rem 0 0.22rem 0.85rem;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  font-size: 13px;
+  text-decoration: none;
+  color: var(--muted);
+}
+.nav-section li a:hover {
+  color: var(--ink);
+  border-left-color: var(--edge);
+}
+.nav-section a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  border-left-color: var(--ink);
+}
+
+.sidenav-foot {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.sidenav-foot a {
+  font-size: 12px;
+  color: var(--faint);
+  text-decoration: none;
+}
+.sidenav-foot a:hover {
+  color: var(--ink);
+}
+
+/* ── Main column ────────────────────────────────────────────────────── */
+
+main {
+  min-width: 0;
+  padding: 2rem 3rem 4rem;
+}
+
+.crumbs {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-bottom: 1.5rem;
+}
+.crumbs a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.crumbs a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.crumbs [aria-current="page"] {
+  color: var(--ink);
+}
+.crumb-sep {
+  margin: 0 0.5rem;
+  color: var(--edge);
+}
+
+/* ── Rendered prose ─────────────────────────────────────────────────── */
+
+.doc-body {
+  max-width: 46rem;
+}
+
+.doc-body h1,
+.doc-body h2,
+.doc-body h3,
+.doc-body h4 {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  scroll-margin-top: 5rem;
+}
+.doc-body h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0 0 1.2rem;
+}
+.doc-body h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 2.6rem 0 0.9rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--line);
+}
+.doc-body h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.8rem 0 0.6rem;
+}
+.doc-body h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 1.4rem 0 0.5rem;
+}
+
+.doc-body p,
+.doc-body li {
+  color: var(--ink);
+}
+.doc-body li {
+  margin: 0.25rem 0;
+}
+.doc-body ul,
+.doc-body ol {
+  padding-left: 1.4rem;
+}
+
+.doc-body a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--edge);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 160ms ease;
+}
+.doc-body a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.doc-body blockquote {
+  margin: 1.2rem 0;
+  padding: 0.1rem 1.2rem;
+  border-left: 3px solid var(--edge);
+  color: var(--muted);
+  background: var(--wash);
+}
+
+.doc-body hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
+}
+
+.doc-body code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.doc-body pre {
+  position: relative;
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  line-height: 1.6;
+  margin: 1.2rem 0;
+}
+.doc-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+}
+
+.doc-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 1.2rem 0;
+  display: block;
+  overflow-x: auto;
+}
+.doc-body th,
+.doc-body td {
+  text-align: left;
+  padding: 0.5rem 1rem 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.doc-body th {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.doc-body img {
+  max-width: 100%;
+}
+
+/* Code renders unhighlighted on purpose: in this design family color belongs
+   to verdicts alone, and ink-on-wash keeps samples readable without it. */
+
+/* Copy button (injected by docs.js). The check is a verdict; it may be green. */
+.code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.doc-body pre:hover .code-copy,
+.code-copy:focus {
+  opacity: 1;
+}
+.code-copy.copied {
+  color: var(--pass);
+  border-color: var(--pass);
+}
+
+/* ── Pager & page footer ────────────────────────────────────────────── */
+
+.pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  max-width: 46rem;
+  margin-top: 3rem;
+}
+.pager a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  text-decoration: none;
+}
+.pager a:hover {
+  border-color: var(--faint);
+}
+.pager-next {
+  text-align: right;
+}
+.pager-dir {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.pager-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.doc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 46rem;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+}
+.doc-foot a {
+  color: var(--muted);
+}
+.doc-foot a:hover {
+  color: var(--ink);
+}
+.doc-foot code {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.3rem;
+}
+
+/* ── Right rail ─────────────────────────────────────────────────────── */
+
+.toc-rail {
+  padding: 2rem 1.5rem 2rem 0.5rem;
+}
+
+.toc {
+  position: sticky;
+  top: 5.25rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+}
+.toc-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.6rem;
+}
+.toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+.toc li a {
+  display: block;
+  padding: 0.2rem 0 0.2rem 0.8rem;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  color: var(--muted);
+  text-decoration: none;
+}
+.toc li.toc-d3 a {
+  padding-left: 1.6rem;
+}
+.toc li a:hover {
+  color: var(--ink);
+}
+.toc li a.active {
+  color: var(--ink);
+  font-weight: 600;
+  border-left-color: var(--ink);
+}
+
+/* ── /docs index page ───────────────────────────────────────────────── */
+
+.index-head {
+  max-width: 46rem;
+  margin-bottom: 2.5rem;
+}
+.index-head h1 {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  margin: 0 0 0.8rem;
+}
+.index-head p {
+  color: var(--muted);
+}
+.index-head code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.index-section {
+  max-width: 46rem;
+  margin-bottom: 2.25rem;
+}
+.index-section h2 {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 0.4rem;
+}
+.index-section h2 a {
+  text-decoration: none;
+  color: var(--ink);
+}
+.index-section h2 a:hover {
+  text-decoration: underline;
+}
+.index-section > p {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 14px;
+}
+.index-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.index-section li {
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.index-section li a {
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink);
+}
+.index-section li a:hover {
+  text-decoration: underline;
+}
+.leaf-desc {
+  color: var(--faint);
+  margin-left: 0.6rem;
+}
+
+/* ── Search palette ─────────────────────────────────────────────────── */
+
+.search-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--ink) 32%, transparent);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 1rem 0;
+}
+.search-veil[hidden] {
+  display: none;
+}
+
+.search-panel {
+  width: 100%;
+  max-width: 34rem;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+}
+.search-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  padding: 0.9rem 1.1rem;
+  outline: none;
+}
+.search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.search-results li a {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.45rem;
+  text-decoration: none;
+}
+.search-results li a .r-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.search-results li a .r-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-left: 0.55rem;
+}
+.search-results li a .r-desc {
+  display: block;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.search-results li.selected a {
+  background: var(--wash);
+}
+.search-results .search-empty {
+  padding: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--faint);
+}
+.search-hint {
+  border-top: 1px solid var(--line);
+  padding: 0.5rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 16rem minmax(0, 1fr);
+  }
+  .toc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  main {
+    padding: 1.5rem 1.25rem 3rem;
+  }
+  .nav-burger {
+    display: block;
+  }
+  .search-btn span {
+    display: none;
+  }
+  .sidenav {
+    position: fixed;
+    top: 3.5rem;
+    left: 0;
+    bottom: 0;
+    width: 18rem;
+    background: var(--paper);
+    border-right: 1px solid var(--edge);
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    z-index: 45;
+  }
+  .sidenav.open {
+    transform: translateX(0);
+  }
+  .pager {
+    grid-template-columns: 1fr;
+  }
+}

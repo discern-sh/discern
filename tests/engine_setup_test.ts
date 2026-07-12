@@ -252,7 +252,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     ]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Project skeletons laid: docs/discern/");
-    const step = await runAgent(dir, ["setup", "step", "3"]);
+    const step = await runAgent(dir, ["setup", "step", "4"]);
     assertStringIncludes(
       step.stdout,
       "docs/discern/00-orientation/design-principles.md",
@@ -1842,21 +1842,34 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
   assertStringIncludes(brief, "concise recommendation");
 });
 
-Deno.test("the brief sequences a refresh before the first gate run and a format sweep before authoring (ADR 0077)", async () => {
+Deno.test("the brief wires the gate before any authoring, with a refresh before the first gate run (ADR 0077)", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // Editing guidance.md leaves the generated agent files stale, so the brief must
-  // sequence `discern refresh` before the first finish/prepare in the wiring step —
-  // otherwise finish's currency check is a guaranteed first-gate failure.
+  // The gate step precedes every authoring step, so a setup session that dies
+  // mid-authoring still leaves the project protected — and the format capability's
+  // whole-tree sweep lands on the unauthored scaffold, keeping later content
+  // commits clean. Guards against the capability step drifting back behind the
+  // authoring steps.
+  const gateStep = brief.indexOf(
+    "## Step 2 — Sniff the stack and recommend the capabilities",
+  );
+  const firstAuthoringStep = brief.indexOf(
+    "## Step 4 — Draft the design principles",
+  );
+  assert(gateStep !== -1 && firstAuthoringStep !== -1);
+  assert(
+    gateStep < firstAuthoringStep,
+    "the capability step must precede the authoring steps",
+  );
+  assertStringIncludes(brief, "Wire `format` first");
+
+  // Stale generated files fail `done`'s currency check, so the brief must sequence
+  // `discern refresh` before the first gate run in the wiring step — otherwise the
+  // first gate run is a guaranteed failure.
   assertStringIncludes(brief, "run `discern refresh`");
   assertStringIncludes(brief, "currency check");
-
-  // The format capability is recommended first (before authoring), so its whole-tree
-  // reflow lands on the empty scaffold and later content commits stay clean.
-  assertStringIncludes(brief, "ordering tip");
-  assertStringIncludes(brief, "set-capability format");
 });
 
 Deno.test("the brief keeps wired commands honest: exit-on-its-own, install consent, worktree convergence", async () => {

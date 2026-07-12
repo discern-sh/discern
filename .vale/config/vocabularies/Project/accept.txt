@@ -116,6 +116,7 @@ mtime
 mutators?
 mutex
 namespac(e|ed|es|ing)
+Netlify
 noglob
 npm
 Nx
@@ -132,6 +133,7 @@ pasteable
 perf
 PHPStorm
 pinnable
+plaintext
 prefixer
 prepended
 preprints?
@@ -209,6 +211,7 @@ uppercased
 validator
 vhost
 walkthrough(s)?
+wget
 Wilcoxon
 worktrees?
 Xcode('s)?

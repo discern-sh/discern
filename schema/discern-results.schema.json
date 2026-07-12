@@ -3684,13 +3684,17 @@
                       },
                       "title": {
                         "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
                       }
                     },
                     "required": [
                       "path",
                       "section",
                       "slug",
-                      "title"
+                      "title",
+                      "description"
                     ]
                   }
                 },
@@ -3741,6 +3745,9 @@
                     "title": {
                       "type": "string"
                     },
+                    "description": {
+                      "type": "string"
+                    },
                     "content": {
                       "type": "string"
                     }
@@ -3750,6 +3757,7 @@
                     "section",
                     "slug",
                     "title",
+                    "description",
                     "content"
                   ]
                 },
@@ -3775,13 +3783,17 @@
                       },
                       "title": {
                         "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
                       }
                     },
                     "required": [
                       "path",
                       "section",
                       "slug",
-                      "title"
+                      "title",
+                      "description"
                     ]
                   }
                 }
@@ -4066,13 +4078,17 @@
                       },
                       "title": {
                         "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
                       }
                     },
                     "required": [
                       "path",
                       "section",
                       "slug",
-                      "title"
+                      "title",
+                      "description"
                     ]
                   }
                 },
@@ -4123,6 +4139,9 @@
                     "title": {
                       "type": "string"
                     },
+                    "description": {
+                      "type": "string"
+                    },
                     "content": {
                       "type": "string"
                     }
@@ -4132,6 +4151,7 @@
                     "section",
                     "slug",
                     "title",
+                    "description",
                     "content"
                   ]
                 },
@@ -4157,13 +4177,17 @@
                       },
                       "title": {
                         "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
                       }
                     },
                     "required": [
                       "path",
                       "section",
                       "slug",
-                      "title"
+                      "title",
+                      "description"
                     ]
                   }
                 }

@@ -430,6 +430,36 @@ export function inlineToPlain(text: string): string {
   return parseInline(text).map((s) => s.text).join("");
 }
 
+/**
+ * First prose paragraph after the document's title heading, flattened to one
+ * plain line. The shared derivation behind every doc description — map-overview
+ * regions and per-leaf listings alike — so a doc's one-liner always reads the
+ * same wherever it surfaces.
+ */
+export function leadParagraph(markdown: string, fallback: string): string {
+  const lines = markdown.split(/\r?\n/);
+  let sawTitle = false;
+  const paragraph: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!sawTitle && /^#{1,6}\s+/.test(line)) {
+      sawTitle = true;
+      continue;
+    }
+    if (!sawTitle || line === "") {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    if (/^(#{1,6}\s+|---+$|```|>)/.test(line)) {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    paragraph.push(line);
+  }
+  const plain = inlineToPlain(paragraph.join(" ")).trim();
+  return plain || fallback;
+}
+
 // ── block rendering ──────────────────────────────────────────────────────--
 
 /** A delimiter row like `|---|:--:|` that marks the line above as a table head. */
@@ -747,4 +777,259 @@ export function renderMarkdown(
   }
 
   return out.join("\n").replace(/^\n+/, "").replace(/\n+$/, "");
+}
+
+// ── HTML rendering ─────────────────────────────────────────────────────────
+//
+// The second emitter over the same parse: the block scanner and parseInline
+// above, emitting HTML instead of ANSI. One markdown model serves both the
+// terminal (`discern map`/`help`) and any HTML surface, so the two can never
+// disagree about what a doc contains.
+
+/** One rendered heading, with the anchor id the HTML carries. */
+export interface HtmlHeading {
+  depth: number;
+  id: string;
+  text: string;
+}
+
+/** The HTML edition of a doc: markup plus its heading outline. */
+export interface MarkdownHtml {
+  html: string;
+  headings: HtmlHeading[];
+}
+
+/** Escape text content for HTML (attribute-safe). */
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+/** GitHub-style heading slug: lowercase, punctuation dropped, spaces dashed. */
+function slugify(text: string, taken: Set<string>): string {
+  const base = text.toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .trim()
+    .replace(/\s+/g, "-") || "section";
+  let slug = base;
+  for (let n = 1; taken.has(slug); n += 1) slug = `${base}-${n}`;
+  taken.add(slug);
+  return slug;
+}
+
+/** Emit one styled segment as nested inline HTML. */
+function segToHtml(seg: Seg): string {
+  let html = escapeHtml(seg.text);
+  if (seg.code) html = `<code>${html}</code>`;
+  if (seg.italic) html = `<em>${html}</em>`;
+  if (seg.bold) html = `<strong>${html}</strong>`;
+  if (seg.strike) html = `<del>${html}</del>`;
+  if (seg.href !== undefined) {
+    html = `<a href="${escapeHtml(seg.href)}">${html}</a>`;
+  }
+  return html;
+}
+
+/** Parse one logical line of inline Markdown straight to HTML. */
+function inlineToHtml(text: string): string {
+  return parseInline(text).map(segToHtml).join("");
+}
+
+/** Close the innermost `count` open lists. */
+function closeLists(open: string[], out: string[], count: number): void {
+  for (let n = 0; n < count; n += 1) {
+    const tag = open.pop();
+    if (tag !== undefined) out.push(`</${tag}>`);
+  }
+}
+
+function listToHtml(items: ListItem[], out: string[]): void {
+  const open: string[] = [];
+  let depth = -1;
+  for (const item of items) {
+    if (item.depth > depth) {
+      for (let d = depth; d < item.depth; d += 1) {
+        const tag = item.marker === "•" ? "ul" : "ol";
+        out.push(`<${tag}>`);
+        open.push(tag);
+      }
+    } else if (item.depth < depth) {
+      closeLists(open, out, depth - item.depth);
+    }
+    depth = item.depth;
+    out.push(`<li>${inlineToHtml(item.text)}</li>`);
+  }
+  closeLists(open, out, open.length);
+}
+
+function tableToHtml(rows: string[][], out: string[]): void {
+  const [head, ...body] = rows;
+  if (head === undefined) return;
+  out.push("<table>");
+  out.push("<thead><tr>");
+  for (const cell of head) out.push(`<th>${inlineToHtml(cell)}</th>`);
+  out.push("</tr></thead>");
+  if (body.length > 0) {
+    out.push("<tbody>");
+    for (const row of body) {
+      out.push("<tr>");
+      for (const cell of row) out.push(`<td>${inlineToHtml(cell)}</td>`);
+      out.push("</tr>");
+    }
+    out.push("</tbody>");
+  }
+  out.push("</table>");
+}
+
+/**
+ * Render a Markdown string to HTML. The same block scanner and inline parser
+ * as {@link renderMarkdown}; all raw HTML in the source is escaped, so the
+ * output is safe to serve as-is. Headings come back with the anchor ids the
+ * markup carries, ready for a table of contents.
+ */
+export function renderMarkdownHtml(md: string): MarkdownHtml {
+  const src = md
+    .replace(/\r\n?/g, "\n")
+    .replace(/<!--[\s\S]*?-->/g, "");
+  const lines = src.split("\n");
+  const out: string[] = [];
+  const headings: HtmlHeading[] = [];
+  const slugs = new Set<string>();
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line === undefined) break;
+
+    if (line.trim() === "") {
+      i++;
+      continue;
+    }
+
+    // Fenced code block.
+    const fence = line.match(/^(\s*)(```|~~~)\s*([^\s`~]*)/);
+    const fenceMarker = fence?.[2];
+    if (fence && fenceMarker !== undefined) {
+      const lang = fence[3] ?? "";
+      const code: string[] = [];
+      i++;
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || cur.trim().startsWith(fenceMarker)) break;
+        code.push(cur);
+        i++;
+      }
+      i++; // consume the closing fence
+      const cls = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+      out.push(`<pre><code${cls}>${escapeHtml(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+
+    // ATX heading.
+    const heading = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (heading) {
+      const hashes = heading[1];
+      const headingText = heading[2];
+      if (hashes !== undefined && headingText !== undefined) {
+        const depth = hashes.length;
+        const text = inlineToPlain(headingText).trim();
+        const id = slugify(text, slugs);
+        headings.push({ depth, id, text });
+        out.push(
+          `<h${depth} id="${id}">${inlineToHtml(headingText)}</h${depth}>`,
+        );
+        i++;
+        continue;
+      }
+    }
+
+    // Horizontal rule.
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      out.push("<hr />");
+      i++;
+      continue;
+    }
+
+    // Blockquote: collect the run, strip markers, render recursively.
+    if (/^\s*>/.test(line)) {
+      const inner: string[] = [];
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || !/^\s*>/.test(cur)) break;
+        inner.push(cur.replace(/^\s*>\s?/, ""));
+        i++;
+      }
+      const nested = renderMarkdownHtml(inner.join("\n"));
+      out.push(`<blockquote>${nested.html}</blockquote>`);
+      continue;
+    }
+
+    // GFM table: a header row followed by a delimiter row.
+    const delimiter = lines[i + 1];
+    if (
+      /\|/.test(line) && delimiter !== undefined && isTableDelimiter(delimiter)
+    ) {
+      const rows: string[][] = [splitRow(line)];
+      i += 2; // skip header + delimiter
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined || !/\|/.test(cur) || cur.trim() === "") break;
+        rows.push(splitRow(cur));
+        i++;
+      }
+      tableToHtml(rows, out);
+      continue;
+    }
+
+    // List block: collect consecutive item lines and their continuations.
+    if (matchListItem(line)) {
+      const items: ListItem[] = [];
+      let baseIndent = -1;
+      while (i < lines.length) {
+        const cur = lines[i];
+        if (cur === undefined) break;
+        const item = matchListItem(cur);
+        if (item) {
+          if (baseIndent === -1) baseIndent = item.indent;
+          const depth = Math.max(
+            0,
+            Math.round((item.indent - baseIndent) / 2),
+          );
+          const ordinal = cur.trim().match(/^\d+[.)]/)?.[0];
+          items.push({
+            depth,
+            marker: item.ordered && ordinal !== undefined ? ordinal : "•",
+            text: item.content,
+          });
+          i++;
+        } else if (
+          cur.trim() !== "" && /^\s+/.test(cur) && items.length
+        ) {
+          const lastItem = items[items.length - 1];
+          if (lastItem) lastItem.text += " " + cur.trim();
+          i++;
+        } else {
+          break;
+        }
+      }
+      listToHtml(items, out);
+      continue;
+    }
+
+    // Paragraph: gather until the next block construct.
+    const para: string[] = [line];
+    i++;
+    while (i < lines.length) {
+      const cur = lines[i];
+      if (cur === undefined || isBlockStart(cur)) break;
+      para.push(cur);
+      i++;
+    }
+    out.push(`<p>${inlineToHtml(para.join(" "))}</p>`);
+  }
+
+  return { html: out.join("\n"), headings };
 }

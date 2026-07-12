@@ -387,7 +387,7 @@ Deno.test("verify reassures about existing docs, and surfaces agent instructions
     assertEquals(d.findings.docs.exists, true);
     // With a docs/ folder present, the relay message promises it stays untouched
     // and names the map's separate home — and never offers to point discern at
-    // the human's docs (the retired ADR 0100 opt-in; ADR 0129).
+    // the human's docs (the retired ADR 0100 opt-in; ADR 0131).
     assertStringIncludes(d.guidance, "You already have a docs/ folder");
     assertStringIncludes(d.guidance, "discern won't touch it");
     assertStringIncludes(d.guidance, SOURCE_PATHS.map.defaultPath);

@@ -218,7 +218,7 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
 });
 
 /**
- * ADR 0120 renamed the tree discern maintains to THE MAP, and ADR 0129 retired
+ * ADR 0120 renamed the tree discern maintains to THE MAP, and ADR 0131 retired
  * the old concept phrase outright: "docs tree" on an authored surface either
  * misnames the map or conflates it with a project's own documentation (a
  * literal `docs/` directory stays describable — the slash keeps it out of this

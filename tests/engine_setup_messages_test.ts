@@ -86,7 +86,7 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assert(!msg.includes("--map"), "the consent surface never mentions --map");
 });
 
-Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0129)", () => {
+Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0131)", () => {
   const withDocs = consentMessage({
     worktreePath: WT,
     docsExists: true,
@@ -220,7 +220,7 @@ Deno.test("consentMessage keeps the message body concise (≤ ~290 words of pros
 Deno.test("confirmedBeginCommand carries --confirmed and never a --map placeholder", () => {
   assertStringIncludes(confirmedBeginCommand(), "--confirmed");
   // The map's home is a default; a placeholder in the default command would
-  // push every agent to pass one (ADR 0129).
+  // push every agent to pass one (ADR 0131).
   assert(!confirmedBeginCommand().includes("--map"));
 });
 
