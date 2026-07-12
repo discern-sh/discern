@@ -164,6 +164,38 @@ outstanding._
 
 _Product positioning, messaging, and launch/content tasks._
 
+- [ ] **Site launch blocker: self-host fonts and precompile Tailwind.** Every
+      page under `site/pages/` loads Tailwind from a CDN and fonts from Google
+      Fonts while claiming "no analytics on this page" — third-party requests
+      that log visitor IPs undercut the claim, and the runtime Tailwind compile
+      costs a visible style flash. Before pointing discern.sh DNS at the site:
+      download the woff2 files into `site/pages/assets/`, compile each page's
+      `@theme` block to static CSS, and drop both third-party origins. Then say
+      so on the page — "view source: no third-party requests" is on-brand.
+      Evidence: `site/pages/*.html` (fonts.googleapis.com, cdn.jsdelivr.net).
+- [ ] **Site launch blocker: make `brew install discern` real.** All four site
+      pages and the plaintext edition lead with it. Stand up the tap (or switch
+      the copy to the install path that will exist at launch) before the pages
+      go public. Consider a `curl`-pipe installer as the secondary path for the
+      `/start` audience, who often lack Homebrew. Evidence:
+      `site/pages/*.html`, `site/text/discern.txt`.
+- [ ] **Site launch: create the Deno Deploy project and point DNS.** One-time
+      account/DNS work only the maintainer can do; the steps are written up in
+      `map/90-site/publishing.md`.
+- [ ] **Regenerate the homepage receipt at deploy time.** The `/` receipt
+      section bakes numbers from a real `discern done` run recorded at build
+      time. Automate refreshing it (a small script that runs the gate, reads
+      the envelope, and rewrites the receipt values) as part of the deploy
+      flow, so the artifact always cites a current run. Evidence:
+      `site/pages/index.html` (#receipt).
+- [ ] **Re-capture the /agents DIAGNOSTICS transcript for real before launch.**
+      The man page states its example output is "genuine output, captured
+      3 July 2026 … nothing shown is altered" — inherited from the mockup.
+      Reproduce the one-character defect for real, capture the actual
+      `discern test --json` envelope and the passing `discern done`, and swap
+      the numbers in; the page's honesty framing depends on it. Evidence:
+      `site/pages/agents.html` (§DIAGNOSTICS).
+
 - [ ] **Make "author once → compile everywhere" + per-agent wiring a first-class
       message.** discern compiles one `guidance.md` into every vendor's agent
       files and wires each agent's exact guidance file, skills dir, MCP, and
