@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   AGENT_NAMES,
   ConfigParseError,
@@ -16,6 +21,7 @@ import {
   toCommand,
   toCommandList,
 } from "../src/shared/config_schema.ts";
+import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -31,7 +37,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // The path defaults are the registry's (ADR 0102) — asserted against it, so
   // the schema can never drift from the one source of truth.
   assertEquals(c.skills.dir, SOURCE_PATHS.skills.defaultPath);
-  assertEquals(c.docs.dir, SOURCE_PATHS.docs.defaultPath);
+  assertEquals(c.map.dir, SOURCE_PATHS.map.defaultPath);
   assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
   assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
@@ -43,7 +49,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.capabilities, {});
   assertEquals(c.checks, {});
   assertEquals(c.scopes, {});
-  assertEquals(c.ratchets, {});
+  assertEquals(c.standards, {});
   assertEquals(c.worktree.resources, {});
   assertEquals(c.worktree.setup.steps, []);
   assertEquals(c.worktree.inherit_env, []);
@@ -59,6 +65,18 @@ Deno.test("a config still carrying [features] is rejected with the upgrade hint"
   assertEquals(issues.length, 1);
   assert(issues[0]?.message.includes("discern upgrade"), issues[0]?.message);
   assert(issues[0]?.message.includes("[features]"), issues[0]?.message);
+});
+
+Deno.test("a config still carrying the retired standards table gets the successor redirect", () => {
+  const retired = Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)[0];
+  assert(retired !== undefined);
+  const { config, issues } = parseConfig(
+    `[${retired}.coverage]\nlimit = 80\nrun = "measure"\n`,
+  );
+  assertEquals(config, undefined);
+  assertEquals(issues.length, 1);
+  assertStringIncludes(issues[0]?.message ?? "", "[standards]");
+  assertStringIncludes(issues[0]?.message ?? "", "discern upgrade");
 });
 
 Deno.test("a config still carrying [worktree].enabled is rejected with the upgrade hint", () => {
@@ -141,33 +159,35 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
   );
 });
 
-Deno.test("ratchet direction defaults up; metric is optional (falls back to name at read)", () => {
+Deno.test("standard direction defaults up; metric is optional (falls back to name at read)", () => {
   const c = parseConfigOrThrow(
-    `[ratchets.coverage]\nlimit = 80\nrun = "cov"\n`,
+    `[standards.coverage]\nlimit = 80\nrun = "cov"\n`,
   );
-  const r = c.ratchets.coverage;
+  const r = c.standards.coverage;
   assert(r !== undefined);
   assertEquals(r.direction, "up");
   assertEquals(r.metric, undefined);
   assertEquals(r.limit, 80);
 });
 
-Deno.test("a ratchet margin cannot be negative (a negative margin pins a failing limit)", () => {
-  // The class' schema half (B31): a negative margin makes `ratchets --pin` compute
+Deno.test("a standard margin cannot be negative (a negative margin pins a failing limit)", () => {
+  // The class' schema half (B31): a negative margin makes `standards --pin` compute
   // a limit the just-measured value fails (a floor pinned above / a ceiling below
   // the measurement). Refuse it at load — margin is headroom, never a tightening —
   // so the bad state is unrepresentable. Zero and positive margins stay valid.
   const bad = parseConfig(
-    `[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = -5\n`,
+    `[standards.cov]\nlimit = 80\nrun = "x"\nmargin = -5\n`,
   );
   assertEquals(bad.config, undefined);
   assert(
-    bad.issues.some((i) => i.path === "ratchets.cov.margin"),
+    bad.issues.some((i) => i.path === "standards.cov.margin"),
     JSON.stringify(bad.issues),
   );
   for (const margin of ["0", "0.5", "5", "100000"]) {
     assertEquals(
-      parseConfig(`[ratchets.cov]\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`)
+      parseConfig(
+        `[standards.cov]\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`,
+      )
         .issues,
       [],
       `margin ${margin} must validate`,
@@ -175,7 +195,7 @@ Deno.test("a ratchet margin cannot be negative (a negative margin pins a failing
   }
 });
 
-Deno.test("a ratchet `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {
+Deno.test("a standard `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {
   // The class: a config shape that VALIDATES but then selects nothing/everything
   // contrary to intent (B42). An empty pathspec list would reach `git ls-files --`
   // with zero pathspecs — which git reads as "every tracked file" — silently making
@@ -184,26 +204,26 @@ Deno.test("a ratchet `per` extent with an empty pathspec array is refused (never
   // measure set) so a new extent auto-enrols in the guard.
   for (const extent of EXTENTS) {
     const { config, issues } = parseConfig(
-      `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
+      `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
     );
     assertEquals(config, undefined, `empty ${extent} array must be refused`);
     assert(
-      issues.some((i) => i.path === `ratchets.d.per.${extent}`),
-      `empty ${extent} array must fail at ratchets.d.per.${extent}: ${
+      issues.some((i) => i.path === `standards.d.per.${extent}`),
+      `empty ${extent} array must fail at standards.d.per.${extent}: ${
         JSON.stringify(issues)
       }`,
     );
     // A non-empty list (and a bare string) stay valid — the guard refuses only [].
     assertEquals(
       parseConfig(
-        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
+        `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
       ).issues,
       [],
       `one-pathspec ${extent} must validate`,
     );
     assertEquals(
       parseConfig(
-        `[ratchets.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
+        `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
       ).issues,
       [],
       `string ${extent} must validate`,
@@ -292,8 +312,8 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   // Known scalar leaves and record paths are settable.
   assert(isSettableConfigPath("project.slug"));
   assert(isSettableConfigPath("gate.fail_fast"));
-  assert(isSettableConfigPath("docs.dir"));
-  assert(isSettableConfigPath("ratchets.coverage.limit")); // valid-but-incomplete OK
+  assert(isSettableConfigPath("map.dir"));
+  assert(isSettableConfigPath("standards.coverage.limit")); // valid-but-incomplete OK
   assert(isSettableConfigPath("checks.x.stage"));
   assert(isSettableConfigPath("worktree.resources.db.create"));
   // Typos and unknown keys are not.
@@ -302,7 +322,7 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(!isSettableConfigPath("worktree.enabled")); // retired with them
   assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
   assert(!isSettableConfigPath("nope.at.all"));
-  assert(!isSettableConfigPath("ratchets.coverage.bogus"));
+  assert(!isSettableConfigPath("standards.coverage.bogus"));
 });
 
 Deno.test("isSettableConfigPath refuses every record-key <name> the runtime validator refuses", () => {
@@ -362,13 +382,13 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
     kind: "string",
     values: [...STAGES],
   });
-  assertEquals(settableConfigValueKind("ratchets.x.direction"), {
+  assertEquals(settableConfigValueKind("standards.x.direction"), {
     kind: "string",
     values: ["up", "down"],
   });
   // Unions have no single required type.
   assertEquals(settableConfigValueKind("capabilities.test"), { kind: "mixed" });
-  assertEquals(settableConfigValueKind("ratchets.x.per"), { kind: "mixed" });
+  assertEquals(settableConfigValueKind("standards.x.per"), { kind: "mixed" });
   // Section paths are tables, not keys.
   assertEquals(settableConfigValueKind("worktree.setup"), { kind: "table" });
   assertEquals(settableConfigValueKind("worktree.resources.db"), {
@@ -382,8 +402,8 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
   // A clean config writes.
   assertEquals(configWriteIssues(`[project]\nslug = "demo"\n`), []);
   // Incremental record construction writes: required keys still MISSING inside
-  // a [ratchets.<n>] / [scopes.<n>] entry are the documented allowance.
-  assertEquals(configWriteIssues(`[ratchets.cov]\nlimit = 80\n`), []);
+  // a [standards.<n>] / [scopes.<n>] entry are the documented allowance.
+  assertEquals(configWriteIssues(`[standards.cov]\nlimit = 80\n`), []);
   assertEquals(configWriteIssues(`[scopes.docs]\nneutral = true\n`), []);
   // A key PRESENT with the wrong shape blocks.
   const wrongType = configWriteIssues(`[guidance]\nagents = "claude_code"\n`);
@@ -403,40 +423,40 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
   const badRoot = configWriteIssues(`[features]\ndocs = true\n`);
   assert(badRoot.length > 0, "an unknown section must block");
   // Unparseable TOML blocks with the syntax hint.
-  const syntax = configWriteIssues(`[ratchets.cov]\nlimit = .5\n`);
+  const syntax = configWriteIssues(`[standards.cov]\nlimit = .5\n`);
   assert(
     syntax.some((i) => i.message.includes("syntax error")),
     JSON.stringify(syntax),
   );
 });
 
-Deno.test("[docs].dir round-trips and rejects paths outside the project", () => {
+Deno.test("[map].dir round-trips and rejects paths outside the project", () => {
   const custom = parseConfigOrThrow(
-    `[docs]\ndir = "docs/discern/"\n`,
+    `[map]\ndir = "docs/discern/"\n`,
   );
-  assertEquals(custom.docs.dir, "docs/discern/");
+  assertEquals(custom.map.dir, "docs/discern/");
 
-  const absolute = parseConfig(`[docs]\ndir = "/tmp/docs"\n`);
+  const absolute = parseConfig(`[map]\ndir = "/tmp/docs"\n`);
   assert(
-    absolute.issues.some((issue) => issue.path === "docs.dir"),
+    absolute.issues.some((issue) => issue.path === "map.dir"),
     JSON.stringify(absolute.issues),
   );
-  const escaping = parseConfig(`[docs]\ndir = "../docs"\n`);
+  const escaping = parseConfig(`[map]\ndir = "../docs"\n`);
   assert(
-    escaping.issues.some((issue) => issue.path === "docs.dir"),
+    escaping.issues.some((issue) => issue.path === "map.dir"),
     JSON.stringify(escaping.issues),
   );
 });
 
-Deno.test("a bad check stage and a bad ratchet direction are rejected", () => {
+Deno.test("a bad check stage and a bad standard direction are rejected", () => {
   const badStage = parseConfig(
     `[checks.x]\nstage = "lint"\nrun = "y"\n`,
   );
   assert(badStage.issues.some((i) => i.path.startsWith("checks.x.stage")));
   const badDir = parseConfig(
-    `[ratchets.r]\ndirection = "sideways"\nlimit = 1\nrun = "y"\n`,
+    `[standards.r]\ndirection = "sideways"\nlimit = 1\nrun = "y"\n`,
   );
-  assert(badDir.issues.some((i) => i.path.startsWith("ratchets.r.direction")));
+  assert(badDir.issues.some((i) => i.path.startsWith("standards.r.direction")));
 });
 
 Deno.test("the repo's own discern.toml validates with zero issues", async () => {

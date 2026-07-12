@@ -46,7 +46,7 @@ Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => 
     await gitInit(dir);
 
     const start = Date.now();
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     const elapsed = Date.now() - start;
 
     assertEquals(r.code, 1, r.output);
@@ -80,7 +80,7 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
     await gitInit(dir);
 
     const start = Date.now();
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     const elapsed = Date.now() - start;
 
     assertEquals(r.code, 1, r.output);
@@ -98,7 +98,7 @@ Deno.test("gate fail_fast=false: the slow sibling runs to completion", async () 
     await writeConfig(dir, failFastConfig({ failFast: false }));
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     // Without fail_fast every job runs to completion (buffered, grouped).
     assertStringIncludes(r.output, "RAN-TO-END");
@@ -126,7 +126,7 @@ Deno.test("gate stream: output is line-prefixed with the job label", async () =>
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish"]);
+    const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
     // Streamed lines carry the `── <label> │ ` prefix.
     assertStringIncludes(r.output, "│ HELLO-FROM-FIX");

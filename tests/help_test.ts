@@ -23,7 +23,7 @@ const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 async function makeHelpFixture(
   dir: string,
   config =
-    '[meta]\nbootstrapped = true\n[docs]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
 ): Promise<string> {
   await seedConfig(dir, config);
 
@@ -65,7 +65,7 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
     assertEquals(res.verb, "help");
-    assertEquals(res.data.docs_dir, undefined);
+    assertEquals(res.data.map_dir, undefined);
     // Exactly the 4 public docs of the fixture — and NOT the project's decoy.
     assertEquals(res.data.count, 4);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
@@ -75,13 +75,13 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
     );
 
     // Contrast: `docs` (same cwd) DOES serve the project tree — they diverge.
-    const docs = await runCli(["docs", "--json"], dir);
+    const docs = await runCli(["map", "--json"], dir);
     const dres = JSON.parse(docs.stdout);
     assert(
       dres.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
       "docs must serve the project's own docs/",
     );
-    assertEquals(dres.verb, "docs");
+    assertEquals(dres.verb, "map");
   });
 });
 
@@ -348,7 +348,7 @@ Deno.test("help reports a build defect (no bundled tree) cleanly", async () => {
 
 Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async () => {
   // No DISCERN_DOCS_DIR override: the resolver walks up from the module to this
-  // repo's docs/, exactly as a checkout run does. Proves the real wiring, and
+  // repo's map/, exactly as a checkout run does. Proves the real wiring, and
   // that the cwd's project resolution is bypassed.
   const single = await runCli(
     ["help", "config-reference", "--json"],
@@ -363,7 +363,7 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
 
   const index = await runCli(["help", "--json"], REPO_ROOT);
   const ires = JSON.parse(index.stdout);
-  assertEquals(ires.data.docs_dir, undefined);
+  assertEquals(ires.data.map_dir, undefined);
   assert(ires.data.count > 0);
   assert(
     ires.data.docs.every((d: { path: string }) =>

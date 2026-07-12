@@ -1,5 +1,5 @@
 /**
- * `scopes`: classify which scopes the branch + working tree touch, so the
+ * `impact`: classify which scopes the branch + working tree touch, so the
  * gate fires only the scope gates whose scope actually changed (and decides the
  * preview line).
  *
@@ -16,7 +16,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
-import { expandDocsDirReference } from "../../shared/docs_path.ts";
+import { expandMapDirReference } from "../../shared/map_path.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -135,7 +135,7 @@ function resolvedScopePaths(
   scope: string,
 ): string[] {
   return (config.scopes[scope]?.paths ?? []).map((path) =>
-    expandDocsDirReference(path, config.docs.dir)
+    expandMapDirReference(path, config.map.dir)
   );
 }
 
@@ -195,7 +195,7 @@ function scopesTouchedBy(
 /**
  * The fire-scopes an explicit list of changed paths touches, in declaration order —
  * the scope-matching half of {@link scopes}, factored out so any verb that
- * already has a path list in hand (integrate's incoming files) classifies it through
+ * already has a path list in hand (update's incoming files) classifies it through
  * the SAME matcher rather than a parallel copy. It answers only "which gated scopes
  * do these paths fall in?"; neutral scopes and the derived markers are not its
  * concern (a path is normalized — trimmed, leading slash stripped — but not
@@ -242,7 +242,8 @@ export async function classifyScopes(
   const names = Object.keys(scopes);
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || config.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    config.project.main_branch;
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.
@@ -272,49 +273,49 @@ export async function classifyScopes(
   return out;
 }
 
-/** Options for the `scopes` subcommand surface. */
-export interface ScopesOptions {
+/** Options for the `impact` subcommand surface. */
+export interface ImpactOptions {
   json?: boolean;
   /** Exit-status-only membership test for a single scope/marker name. */
   has?: string;
 }
 
-/** The `scopes` envelope for a classified scope list — the one shape both
+/** The `impact` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
-function scopesEnvelope(
+function impactEnvelope(
   scopes: string[],
 ): DiscernResult<ScopesData> {
   return {
     ok: true,
-    verb: "scopes",
+    verb: "impact",
     data: { scopes } satisfies ScopesData,
   };
 }
 
 /**
- * Compute the `scopes` {@link DiscernResult} without printing — the entry
+ * Compute the `impact` {@link DiscernResult} without printing — the entry
  * point the MCP server renders, and the source the CLI's `--json` serializes.
  */
-export async function scopesResult(
+export async function impactResult(
   root: string,
 ): Promise<DiscernResult<ScopesData>> {
-  return scopesEnvelope(await classifyScopes(root));
+  return impactEnvelope(await classifyScopes(root));
 }
 
 /**
- * The `scopes` subcommand: print the scopes (one per line), a JSON array
+ * The `impact` subcommand: print the scopes (one per line), a JSON array
  * (`--json`), or test membership silently (`--has <name>` → exit 0/1).
  */
-export async function runScopes(
+export async function runImpact(
   root: string,
-  opts: ScopesOptions,
+  opts: ImpactOptions,
 ): Promise<number> {
   const scopes = await classifyScopes(root);
   if (opts.has !== undefined) {
     return scopes.includes(opts.has) ? 0 : 1;
   }
   if (opts.json) {
-    emitResult(scopesEnvelope(scopes));
+    emitResult(impactEnvelope(scopes));
     return 0;
   }
   for (const s of scopes) {

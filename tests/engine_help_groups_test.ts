@@ -17,7 +17,7 @@
  * assertion — it is to give the verb a home in `src/cli_help.ts`.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
 import {
@@ -45,6 +45,14 @@ function plain(s: string): string {
  * commands that can ever appear in `discern --help`. */
 function fullRoot(): Command {
   return buildCli(false) as unknown as Command;
+}
+
+function child(parent: Command, name: string): Command {
+  const found = parent.getCommands(true).find((command) =>
+    command.getName() === name
+  );
+  assert(found !== undefined, `missing command ${name}`);
+  return found;
 }
 
 Deno.test("every visible top-level command belongs to exactly one help group", () => {
@@ -97,6 +105,83 @@ Deno.test("operator help renders the groups in order, the human's desk first", (
     help.includes("discern <command> --help"),
     "the per-command --help footer is missing",
   );
+});
+
+Deno.test("command help defines the core vocabulary and routes the three update operations", () => {
+  const root = fullRoot();
+  assertStringIncludes(root.getShortDescription(), "full quality check");
+  assertStringIncludes(
+    root.getShortDescription(),
+    "separate checkout and branch",
+  );
+
+  const done = child(root, "done").getShortDescription();
+  for (
+    const term of ["may change files", "format", "lint", "type-check", "tests"]
+  ) {
+    assertStringIncludes(done, term);
+  }
+  assertStringIncludes(
+    child(root, "standards").getShortDescription(),
+    "numbers that can never get worse",
+  );
+  assertStringIncludes(
+    child(root, "impact").getShortDescription(),
+    "named regions of the repository",
+  );
+  assertStringIncludes(
+    child(root, "identity").getShortDescription(),
+    "branch, development host, port, database, and external resources",
+  );
+
+  const routes: Record<string, readonly string[]> = {
+    update: ["discern upgrade", "discern refresh"],
+    upgrade: ["discern update", "discern refresh"],
+    refresh: ["discern update", "discern upgrade"],
+  };
+  for (const [name, peers] of Object.entries(routes)) {
+    const description = child(root, name).getShortDescription();
+    for (const peer of peers) assertStringIncludes(description, peer);
+  }
+});
+
+Deno.test("worktree help renders the configured trunk name, never a hard-coded default", () => {
+  const root = buildCli(false, "master") as unknown as Command;
+  for (const name of ["start", "accept", "update"]) {
+    const description = child(root, name).getShortDescription();
+    assertStringIncludes(description, "trunk");
+    assertStringIncludes(description, "`master`");
+    assertStringIncludes(description, "shared landing branch");
+    assert(!description.includes("`main`"));
+  }
+  assertStringIncludes(
+    child(root, "update").getShortDescription(),
+    "trunk's latest (`master`) into this branch",
+  );
+  const setupAccept = child(child(root, "setup"), "accept")
+    .getShortDescription();
+  assertStringIncludes(setupAccept, "trunk (`master`)");
+  assert(!setupAccept.includes("`main`"));
+});
+
+Deno.test("worktree help hides provider-hook payload commands while keeping them callable", () => {
+  const worktree = child(fullRoot(), "worktree");
+  const visible = worktree.getCommands(false).map((command) =>
+    command.getName()
+  );
+  const registered = worktree.getCommands(true).map((command) =>
+    command.getName()
+  );
+  for (const hook of ["create", "remove"]) {
+    assert(
+      registered.includes(hook),
+      `${hook} hook entry point must stay callable`,
+    );
+    assert(
+      !visible.includes(hook),
+      `${hook} hook plumbing leaked into user help`,
+    );
+  }
 });
 
 Deno.test("the grouped command list word-wraps to the width with hanging indents", () => {

@@ -2,7 +2,7 @@
  * The gate's concurrency core: run labelled jobs concurrently (runParallel) or
  * one at a time (runSerial), buffered-and-grouped or streamed live, with
  * optional fail-fast cancellation. Results are returned in memory (no temp-file
- * side channel); `finish` builds its
+ * side channel); `done` builds its
  * `--json` report from the returned `JobResult[]`.
  *
  * Every run is cancellable from outside: an external `signal` (an MCP client

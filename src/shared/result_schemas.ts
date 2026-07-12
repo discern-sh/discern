@@ -40,7 +40,7 @@ import { ASSURANCE_VERDICTS, CAPABILITY_STATES } from "./setup_assurance.ts";
 // const tuples — not hand-listed — so the wire enum and the TS union are one source
 // and a new member enrolls in both from a single edit. The object shapes (which Zod
 // can't enumerate from an interface) stay proven faithful by the result-schema test
-// running real finish/graduate results through them.
+// running real finish/accept results through them.
 
 /** The disposition vocabulary, derived from {@link STEP_DISPOSITIONS}. */
 const dispositionEnum = z.enum(STEP_DISPOSITIONS);
@@ -139,12 +139,12 @@ export const EnvelopeSchema = z.strictObject({
 });
 
 /**
- * The envelope for the data-LESS verbs (`prepare`, `test`, `ratchets`): strict and
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `standards`): strict and
  * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
  * invariant — a result that grows a `data` payload fails its faithfulness test (and the
  * SDK's output validation) until the payload is modelled, the SSOT guard the bare
- * {@link EnvelopeSchema} (`data: unknown`) can't give. (`graduate` graduated out of this
- * set — it carries a {@link GraduateDataSchema} landing root on an apply; its dry-run
+ * {@link EnvelopeSchema} (`data: unknown`) can't give. (`accept` moved out of this
+ * set — it carries a {@link AcceptDataSchema} landing root on an apply; its dry-run
  * preview is still data-less.)
  */
 export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
@@ -198,7 +198,7 @@ function datalessResultOutputSchema(
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
 /** One commit on a branch (short `sha` + `subject`) — the identity shape shared by
- * the receipt's commit list and `integrate`'s landed-commit list (ADR 0064), so the
+ * the receipt's commit list and `update`'s landed-commit list (ADR 0064), so the
  * two can never disagree on how a commit is reported. */
 const branchCommitSchema = z.strictObject({
   sha: z.string(),
@@ -208,7 +208,7 @@ const branchCommitSchema = z.strictObject({
 /** One changed file with its line counts. `added`/`removed` are null for a binary
  * file; `status` is git's single-letter code (`A`/`M`/`D`/`T`); renames are
  * decomposed to a delete + add (via `--no-renames`) so every entry is one matchable
- * path. Shared by the receipt's diffstat and `integrate`'s file delta. */
+ * path. Shared by the receipt's diffstat and `update`'s file delta. */
 const changedFileSchema = z.strictObject({
   path: z.string(),
   status: z.string(),
@@ -238,7 +238,7 @@ export const ReceiptSchema = z.strictObject({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-/** `finish` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
+/** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
  * `receipt` is present on a green run over a clean committed tree ahead of the
@@ -307,7 +307,7 @@ export const RefreshDataSchema = z.strictObject({
 });
 export type RefreshData = z.infer<typeof RefreshDataSchema>;
 
-/** `scopes` — the classified scope/marker list. */
+/** `impact` — the classified scope/marker list. */
 export const ScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
 });
@@ -341,7 +341,7 @@ const couplingPartnerSchema = z.strictObject({
 });
 
 /** One commit in the `evidence`-mode shared history: its short `sha`, `date` (YYYY-MM-DD),
- * and `subject` — the same identity `integrate` reports for a landed commit (ADR 0064),
+ * and `subject` — the same identity `update` reports for a landed commit (ADR 0064),
  * enough to judge whether two files moved as one decision or merely rode along. */
 const couplingEvidenceCommitSchema = z.strictObject({
   sha: z.string(),
@@ -388,14 +388,14 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
-/** `graduate` — where the branch landed: `root` is the main checkout the worktree's
- * branch was graduated into. The load-bearing field for the MCP working-root re-aim
- * (ADR 0062): graduate removes the worktree the server operated on, and the server
+/** `accept` — where the branch landed: `root` is the main checkout the worktree's
+ * branch was landed into. The load-bearing field for the MCP working-root re-aim
+ * (ADR 0062): accept removes the worktree the server operated on, and the server
  * re-aims its working root to THIS path — so a server launched inside a worktree (e.g.
  * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
- * the worktree it just graduated, instead of the spawn root (which is the trunk only
+ * the worktree it just landed, instead of the spawn root (which is the trunk only
  * when the server was launched from the trunk). */
-export const GraduateDataSchema = z.strictObject({
+export const AcceptDataSchema = z.strictObject({
   root: z.string(),
   gate_validation: GateValidationSchema.optional(),
   /** The receipt markdown for the tree that landed — the landing record, pasteable
@@ -415,17 +415,17 @@ export const GraduateDataSchema = z.strictObject({
     truncated: z.boolean(),
   }).optional(),
 });
-export type GraduateData = z.infer<typeof GraduateDataSchema>;
+export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
-// integrate ─────────────────────────────────────────────────────────────────────
+// update ─────────────────────────────────────────────────────────────────────
 
 /** One commit an integration brought in — {@link branchCommitSchema}, the shape
  * shared with the receipt's commit list. */
-const integrateCommitSchema = branchCommitSchema;
+const updateCommitSchema = branchCommitSchema;
 
 /** One file an integration changed beneath the branch — {@link changedFileSchema},
  * the shape shared with the receipt's diffstat. */
-const integrateFileSchema = changedFileSchema;
+const updateFileSchema = changedFileSchema;
 
 /** The SHA anchors bounding an integration — an agent diffs/logs against these to
  * pull the FULL set in one call when a list is capped. `main` is the INCOMING
@@ -433,34 +433,34 @@ const integrateFileSchema = changedFileSchema;
  * (the field name stays `main` — the wire contract predates `--from`). `after`
  * (the merged HEAD) is absent in a `--dry-run` preview (no merge happened); the
  * predicted ranges use `before...main` (three-dot) instead of `before..after`. */
-const integrateRangeSchema = z.strictObject({
+const updateRangeSchema = z.strictObject({
   base: z.string(),
   before: z.string(),
   main: z.string(),
   after: z.string().optional(),
 });
 
-/** `integrate` — what the merge brought in BENEATH the branch: the `commits` and
+/** `update` — what the merge brought in BENEATH the branch: the `commits` and
  * `files` it landed (each capped, with the pre-cap `*_total` and a `*_truncated`
  * flag), which of the branch's own files `overlap` them (re-read these for semantic
  * conflicts a clean merge can't catch), the fire-scopes the incoming change touches
  * (`scopes_incoming`), and the `range` anchors for drilling in. Present only when
- * something was — or, in a preview, would be — integrated (omitted on a no-op). */
-export const IntegrateDataSchema = z.strictObject({
+ * something was — or, in a preview, would be — updated (omitted on a no-op). */
+export const UpdateDataSchema = z.strictObject({
   behind: z.number(),
   fast_forward: z.boolean(),
-  commits: z.array(integrateCommitSchema),
+  commits: z.array(updateCommitSchema),
   commits_total: z.number(),
   commits_truncated: z.boolean(),
-  files: z.array(integrateFileSchema),
+  files: z.array(updateFileSchema),
   files_total: z.number(),
   files_truncated: z.boolean(),
   overlap: z.array(z.string()),
   overlap_total: z.number(),
   scopes_incoming: z.array(z.string()),
-  range: integrateRangeSchema,
+  range: updateRangeSchema,
 });
-export type IntegrateData = z.infer<typeof IntegrateDataSchema>;
+export type UpdateData = z.infer<typeof UpdateDataSchema>;
 
 // status ──────────────────────────────────────────────────────────────────────
 
@@ -496,8 +496,8 @@ const statusGitSchema = z.strictObject({
    * count against, and an honest null beats a fabricated 0. */
   ahead_integration: z.number().nullable(),
   /** When behind: the files THIS branch changed that the incoming integration branch
-   * also changed — the hot zone to re-check on integrating (capped; present only in a
-   * worktree that is behind and has overlap). The same intersection `integrate` reports. */
+   * also changed — the hot zone to re-check on updating (capped; present only in a
+   * worktree that is behind and has overlap). The same intersection `update` reports. */
   incoming_overlap: z.array(z.string()).optional(),
 });
 export type StatusGit = z.infer<typeof statusGitSchema>;
@@ -554,7 +554,7 @@ export const StatusDataSchema = z.strictObject({
   git: statusGitSchema.nullable(),
   scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
-  ratchets: z.array(z.string()),
+  standards: z.array(z.string()),
   gate_receipt: GateReceiptCheckSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
@@ -636,7 +636,7 @@ export const DoctorDataSchema = z.strictObject({
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
 
-// improve ───────────────────────────────────────────────────────────────────
+// improvement ───────────────────────────────────────────────────────────────
 
 /** A pointer to the project material a subjective review item is judged against. */
 const reviewEvidenceSchema = z.strictObject({
@@ -644,7 +644,7 @@ const reviewEvidenceSchema = z.strictObject({
   excerpt: z.string(),
 });
 
-/** One deterministic rule's evaluated result. Exported so the improve `RuleStatus`
+/** One deterministic rule's evaluated result. Exported so the improvement `RuleStatus`
  * SSOT (an engine type this shared module can't import) is tied to `status` here by a
  * guard in `improve_catalog_test.ts`. */
 export const ruleResultSchema = z.strictObject({
@@ -667,7 +667,7 @@ const reviewResultSchema = z.strictObject({
 });
 
 /** One reviewed category's evaluated result. */
-const improveCategorySchema = z.strictObject({
+const improvementCategorySchema = z.strictObject({
   name: z.string(),
   title: z.string(),
   score: z.number(),
@@ -687,15 +687,15 @@ const nextActionSchema = z.strictObject({
   why: z.string(),
 });
 
-/** `improve` — baseline health, open reviews, and the prioritized next action. */
-export const ImproveDataSchema = z.strictObject({
+/** `improvement` — baseline health, open reviews, and the prioritized next action. */
+export const ImprovementDataSchema = z.strictObject({
   score: z.number(),
   weak: z.number(),
   open_reviews: z.number(),
   next_action: nextActionSchema,
-  categories: z.array(improveCategorySchema),
+  categories: z.array(improvementCategorySchema),
 });
-export type ImproveData = z.infer<typeof ImproveDataSchema>;
+export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
 // docs / help ──────────────────────────────────────────────────────────────
 
@@ -709,14 +709,14 @@ const docRecordSchema = z.strictObject({
 export type DocRecord = z.infer<typeof docRecordSchema>;
 
 /**
- * `docs`/`help` — the documentation payload, across every mode: the index
- * (`docs_dir`/`count`/`docs`; `help` omits `docs_dir`), an empty tree
+ * `map`/`help` — the documentation payload, across every mode: the index
+ * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
  * (`count:0`), a single doc (`doc` with content), an ambiguous match
  * (`candidates`), or nearest-match guidance for a not-found (`suggestions`).
  * Modeled as one object with mode-specific optionals.
  */
 export const DocsDataSchema = z.strictObject({
-  docs_dir: z.string().optional(),
+  map_dir: z.string().optional(),
   count: z.number().optional(),
   docs: z.array(docRecordSchema).optional(),
   doc: docRecordSchema.extend({ content: z.string() }).optional(),
@@ -865,7 +865,7 @@ export const SetupDoneLandingSchema = z.strictObject({
   target: z.string(),
   on_target: z.boolean(),
   /** True only on the dedicated `discern-setup` branch — the one branch
-   * `setup land` lands; false steers the agent to a manual merge instead. */
+   * `setup accept` lands; false steers the agent to a manual merge instead. */
   on_setup_branch: z.boolean(),
   command: z.string(),
 });
@@ -914,7 +914,7 @@ const setupProgressSchema = z.strictObject({
 /** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
  * phased setup surface because the emitted `verb` is deliberately still `setup` for
  * the welcome and begin paths. Mode-specific fields are optional; command-specific
- * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup land`) have their
+ * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup accept`) have their
  * own narrowed schemas below. */
 export const SetupDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]).optional(),
@@ -958,15 +958,15 @@ export const SetupDataSchema = z.strictObject({
 });
 export type SetupData = z.infer<typeof SetupDataSchema>;
 
-/** `setup land` — setup branch landing preview/result. Refusals carry no data. */
-export const SetupLandDataSchema = z.strictObject({
+/** `setup accept` — setup branch landing preview/result. Refusals carry no data. */
+export const SetupAcceptDataSchema = z.strictObject({
   landed: z.boolean(),
   branch: z.string(),
   target: z.string(),
   fast_forward: z.boolean(),
   branch_deleted: z.boolean(),
 });
-export type SetupLandData = z.infer<typeof SetupLandDataSchema>;
+export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
 
 const configEditSchema = z.strictObject({
   key: z.string(),
@@ -1115,8 +1115,8 @@ export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
 /** `setup` output: envelope + the phased setup/welcome `data`. */
 export const SetupOutputSchema = resultOutputSchema("setup", SetupDataSchema);
 
-/** `finish` output: envelope + the gate's `data`. */
-export const FinishOutputSchema = resultOutputSchema("finish", GateDataSchema);
+/** `done` output: envelope + the gate's `data`. */
+export const FinishOutputSchema = resultOutputSchema("done", GateDataSchema);
 
 /** `prepare` output: envelope only (except top-level config parse errors). */
 export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
@@ -1124,8 +1124,8 @@ export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
 /** `test` output: envelope only (except top-level config parse errors). */
 export const TestOutputSchema = datalessResultOutputSchema("test");
 
-/** `ratchets` output: envelope only (except top-level config parse errors). */
-export const RatchetsOutputSchema = datalessResultOutputSchema("ratchets");
+/** `standards` output: envelope only (except top-level config parse errors). */
+export const StandardsOutputSchema = datalessResultOutputSchema("standards");
 
 /** `refresh` output: envelope + the generated-artifact summary `data`. */
 export const RefreshOutputSchema = resultOutputSchema(
@@ -1145,9 +1145,9 @@ export const DoctorOutputSchema = resultOutputSchema(
   DoctorDataSchema,
 );
 
-/** `scopes` output: envelope + the scope-list `data`. */
-export const ScopesOutputSchema = resultOutputSchema(
-  "scopes",
+/** `impact` output: envelope + the scope-list `data`. */
+export const ImpactOutputSchema = resultOutputSchema(
+  "impact",
   ScopesDataSchema,
 );
 
@@ -1160,27 +1160,27 @@ export const CouplingOutputSchema = resultOutputSchema(
 /** `start` output: envelope + the new-worktree `data`. */
 export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
 
-/** `graduate` output: envelope + the landing-root `data` (present on an apply; a
+/** `accept` output: envelope + the landing-root `data` (present on an apply; a
  * dry-run preview carries none). */
-export const GraduateOutputSchema = resultOutputSchema(
-  "graduate",
-  GraduateDataSchema,
+export const AcceptOutputSchema = resultOutputSchema(
+  "accept",
+  AcceptDataSchema,
 );
 
-/** `integrate` output: envelope + the "what landed beneath the branch" `data`. */
-export const IntegrateOutputSchema = resultOutputSchema(
-  "integrate",
-  IntegrateDataSchema,
+/** `update` output: envelope + the "what landed beneath the branch" `data`. */
+export const UpdateOutputSchema = resultOutputSchema(
+  "update",
+  UpdateDataSchema,
 );
 
-/** `improve` output: envelope + the coaching `data`. */
-export const ImproveOutputSchema = resultOutputSchema(
-  "improve",
-  ImproveDataSchema,
+/** `improvement` output: envelope + the coaching `data`. */
+export const ImprovementOutputSchema = resultOutputSchema(
+  "improvement",
+  ImprovementDataSchema,
 );
 
-/** `docs` output: envelope + the documentation `data`. */
-export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
+/** `map` output: envelope + the project-map `data`. */
+export const MapOutputSchema = resultOutputSchema("map", DocsDataSchema);
 
 /** `help` output: envelope + the bundled documentation `data`. */
 export const HelpOutputSchema = resultOutputSchema("help", DocsDataSchema);
@@ -1209,10 +1209,10 @@ export const SetupDoneOutputSchema = resultOutputSchema(
   SetupDoneDataSchema,
 );
 
-/** `setup land` output: envelope + the landing preview/result `data`. */
-export const SetupLandOutputSchema = resultOutputSchema(
-  "setup land",
-  SetupLandDataSchema,
+/** `setup accept` output: envelope + the landing preview/result `data`. */
+export const SetupAcceptOutputSchema = resultOutputSchema(
+  "setup accept",
+  SetupAcceptDataSchema,
 );
 
 /** `config` output: envelope + applied/planned TOML edits. */

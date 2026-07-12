@@ -499,7 +499,7 @@ Deno.test("the human CLI renders the FULL list (not the truncated gate hints) an
   });
 });
 
-Deno.test("finish appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
+Deno.test("done appends the coupling advisory only when [coupling].in_gate is on, and never changes pass/fail", async () => {
   await withTempDir(async (dir) => {
     await setup(dir, false);
     for (let i = 0; i < 4; i++) {
@@ -550,7 +550,7 @@ Deno.test("finish appends the coupling advisory only when [coupling].in_gate is 
   });
 });
 
-Deno.test("finish suppresses the coupling advisory until the install is bootstrapped", async () => {
+Deno.test("done suppresses the coupling advisory until the install is bootstrapped", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);

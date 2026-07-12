@@ -1,5 +1,5 @@
 /**
- * The shared ref resolver behind `start --from` and `integrate --from`
+ * The shared ref resolver behind `start --from` and `update --from`
  * (`resolveCommitRef`) — the ONE vocabulary both pull verbs accept. The
  * parameterized table drives every ref KIND a user can hand it (branch, tags
  * lightweight and annotated, SHAs, revision expressions), so a new kind
@@ -8,7 +8,7 @@
  * `--quiet`-suppressed warning — the regression that let an ambiguous name
  * silently resolve to the tag) and an unknown name is refused in plain
  * language. The end-to-end case proves the refusal actually reaches an
- * `integrate --from` caller instead of merging the wrong object.
+ * `update --from` caller instead of merging the wrong object.
  */
 
 import {
@@ -148,7 +148,7 @@ Deno.test("resolveCommitRef: unknown and empty names are refused in plain langua
   });
 });
 
-Deno.test("integrate --from an ambiguous name refuses — it must not merge the tag by precedence", async () => {
+Deno.test("update --from an ambiguous name refuses — it must not merge the tag by precedence", async () => {
   await withTempDir(async (dir) => {
     await refZoo(dir);
     const wt = await addWorktree(dir, "ambiguous-pull");
@@ -157,7 +157,7 @@ Deno.test("integrate --from an ambiguous name refuses — it must not merge the 
     await git(dir, "tag", "dual", "main~1");
     await git(dir, "branch", "dual", "feature");
 
-    const r = await runAgent(wt, ["integrate", "--json", "--from", "dual"]);
+    const r = await runAgent(wt, ["update", "--json", "--from", "dual"]);
     assertEquals(r.code, 1, r.output);
     const result = JSON.parse(r.stdout) as { error: string; message: string };
     assertEquals(result.error, "precondition_failed");
@@ -191,7 +191,7 @@ Deno.test("start --from an ambiguous name refuses cleanly — no worktree debris
   });
 });
 
-Deno.test("integrate --from an annotated tag anchors range.main at the peeled commit", async () => {
+Deno.test("update --from an annotated tag anchors range.main at the peeled commit", async () => {
   await withTempDir(async (dir) => {
     await refZoo(dir);
     const wt = await addWorktree(dir, "tag-pull");
@@ -201,7 +201,7 @@ Deno.test("integrate --from an annotated tag anchors range.main at the peeled co
     await git(dir, "commit", "-q", "-m", "phase tip", "--no-gpg-sign");
     await git(dir, "tag", "-a", "phase-1", "-m", "phase one");
 
-    const r = await runAgent(wt, ["integrate", "--json", "--from", "phase-1"]);
+    const r = await runAgent(wt, ["update", "--json", "--from", "phase-1"]);
     assertEquals(r.code, 0, r.output);
     const result = JSON.parse(r.stdout) as {
       data?: { range: { main: string } };

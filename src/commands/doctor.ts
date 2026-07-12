@@ -168,7 +168,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
-        ? "run `discern setup` to scaffold the harness here"
+        ? "run `discern setup` to configure discern here"
         : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.
@@ -268,7 +268,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // "Wired" means the SAME thing the gate, status, and improve mean: the command
   // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
   // wired). Re-deriving that with a looser predicate would let doctor call a no-op
-  // capability healthy while `discern finish` runs nothing for it.
+  // capability healthy while `discern done` runs nothing for it.
   const wiredCaps = Object.entries(config.capabilities)
     .filter(([, v]) => toCommandList(v).length > 0).map(([k]) => k);
   checks.push({
@@ -401,7 +401,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 7b. `git` resolves — discern shells out to git pervasively (the worktree
-  // workflow, ratchets' base comparison, graduation, scope diffing, status), so a
+  // workflow, standards' base comparison, acceptance, scope diffing, status), so a
   // missing git breaks the core of the tool. Required (not advisory): the version
   // string doubles as triage context in a bug report.
   {
@@ -414,7 +414,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           ok: false,
           detail: "`git` is not on PATH (or is not runnable)",
           fix:
-            "install git — discern's worktrees, ratchets, graduation, and status all shell out to it",
+            "install git — discern's worktrees, standards, acceptance, and status all shell out to it",
         },
     );
   }
@@ -636,7 +636,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   }
 
   // 10. worktree-automation layering (advisory). If a hooks provider's settings file
-  // carries a worktree-lifecycle hook whose command does not invoke the harness CLI,
+  // carries a worktree-lifecycle hook whose command does not invoke the discern CLI,
   // a different tool also automates worktrees here and would double setup/teardown.
   // Advisory only (a warn, still healthy): the install is fine, but the operator
   // should reconcile the hooks. "Ours" = the command calls `discern` (an install) or

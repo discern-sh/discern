@@ -20,7 +20,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { isValidDocsDir } from "../src/shared/docs_path.ts";
+import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
@@ -50,12 +50,12 @@ Deno.test("begin on a master repo stamps [project].main_branch = master and land
 
     // The scaffolded config carries the repo's REAL default branch — without it
     // the gate's behind-main merge check self-skips forever ('main' is missing)
-    // and `setup land` dead-ends.
+    // and `setup accept` dead-ends.
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'main_branch = "master"');
 
     // Landing works end to end: setup lives on discern-setup, lands onto master.
-    const land = await runAgent(dir, ["setup", "land"]);
+    const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
 
@@ -122,20 +122,23 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     // `main` is still unborn (every commit landed on discern-setup): land refuses
     // with the exact creation-then-land step, not a dead end — and the same
     // message rides the JSON surface an agent reads.
-    const refused = await runAgent(dir, ["setup", "land", "--json"]);
+    const refused = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     const res = JSON.parse(refused.stdout);
     assertEquals(res.error, "no_target");
-    assertStringIncludes(res.message, "git branch main && discern setup land");
+    assertStringIncludes(
+      res.message,
+      "git branch main && discern setup accept",
+    );
 
     // Following the served step lands the setup and arms the merge check.
     await git(dir, "branch", "main");
-    const land = await runAgent(dir, ["setup", "land"]);
+    const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
     assert(
       await exists(join(dir, "discern.toml")),
-      "the harness landed on main",
+      "discern landed on main",
     );
   });
 });
@@ -248,7 +251,7 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
 
 // ── C10: a copied placeholder can't scaffold ───────────────────────────────────
 
-Deno.test("isValidDocsDir rejects the placeholder class, not one instance", () => {
+Deno.test("isValidMapDir rejects the placeholder class, not one instance", () => {
   // Any angle-bracketed value is an unsubstituted placeholder — the guard is on
   // the shape, so every current and future served example is covered.
   for (
@@ -260,14 +263,14 @@ Deno.test("isValidDocsDir rejects the placeholder class, not one instance", () =
     ]
   ) {
     assert(
-      !isValidDocsDir(placeholder),
+      !isValidMapDir(placeholder),
       `placeholder must be invalid: ${placeholder}`,
     );
   }
-  assert(isValidDocsDir("docs/"));
+  assert(isValidMapDir("docs/"));
 });
 
-Deno.test("begin rejects a verbatim --docs placeholder instead of scaffolding a literal tree", async () => {
+Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a literal tree", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -276,14 +279,14 @@ Deno.test("begin rejects a verbatim --docs placeholder instead of scaffolding a 
       "begin",
       "--confirmed",
       "--json",
-      "--docs",
+      "--map",
       "<their-docs-path>",
     ]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
     assertEquals(res.error, "invalid_option");
     assertStringIncludes(res.message, "placeholder");
-    assertStringIncludes(res.message, "--docs docs/");
+    assertStringIncludes(res.message, "--map docs/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
     assert(!(await exists(join(dir, "<their-docs-path>"))));
     assert(!(await exists(join(dir, "discern.toml"))));
@@ -819,7 +822,7 @@ Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real 
 
     // Convergence: the stamped integration branch is master — exactly what a clean
     // first run on this repo stamps. The pre-fix code stamps `main` here, silently
-    // disarming the gate's behind-main merge check and dead-ending `setup land`.
+    // disarming the gate's behind-main merge check and dead-ending `setup accept`.
     const conv = await readConvergence(dir);
     assertEquals(
       conv.mainBranch,
@@ -830,7 +833,7 @@ Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real 
 
     // End to end: land works onto the recovered branch (it would dead-end on a wrong
     // `main` stamp that does not exist locally).
-    const land = await runAgent(dir, ["setup", "land"]);
+    const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
   });

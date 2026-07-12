@@ -286,7 +286,7 @@ Deno.test("editor adds a real key alongside a commented-out hint", () => {
 Deno.test("editor sets array, number and bool values", () => {
   const out = new TomlEditor(SAMPLE)
     .setStringArray("scopes.native", ["native/**", "native/lib/**"])
-    .setNumber("ratchets.coverage.limit", "80")
+    .setNumber("standards.coverage.limit", "80")
     .setBool("worktree.port", false)
     .toString();
   assertStringIncludes(out, 'native = ["native/**", "native/lib/**"]');
@@ -696,7 +696,7 @@ Deno.test("insertKeyBlock places a documented key in canonical order", () => {
 
 Deno.test("deleteSection removes an entire section and preserves CRLF style", () => {
   const input =
-    `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nratchets = false\r\n\r\n[gate]\r\nstream = false\r\n`;
+    `[project]\r\nslug = "demo"\r\n\r\n[features]\r\nworktrees = true\r\nstandards = false\r\n\r\n[gate]\r\nstream = false\r\n`;
   const editor = new TomlEditor(input);
 
   assert(editor.deleteSection("features"));

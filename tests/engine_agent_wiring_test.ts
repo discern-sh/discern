@@ -320,7 +320,7 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body",
     assertEquals(data.agents_written, ["AGENTS.md"]);
 
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
-    assertStringIncludes(agents, "# Working with the discern harness");
+    assertStringIncludes(agents, "# Working with discern");
     assertStringIncludes(agents, "discern_status");
   });
 });
@@ -335,7 +335,7 @@ Deno.test("Cursor + Claude refresh emits AGENTS.md and points CLAUDE.md at it", 
     assertEquals(data.agents_written, ["AGENTS.md", "CLAUDE.md"]);
 
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
-    assertStringIncludes(agents, "# Working with the discern harness");
+    assertStringIncludes(agents, "# Working with discern");
     assertStringIncludes(agents, "discern_status");
     assertEquals(
       await Deno.readTextFile(join(dir, "CLAUDE.md")),

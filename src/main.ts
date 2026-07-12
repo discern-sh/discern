@@ -24,6 +24,11 @@ import { findRoot } from "./shared/env.ts";
 import { capabilityList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
+  normalizeVerbVariant,
+  retiredCommandMessage,
+  retiredCommandSuccessor,
+} from "./shared/vocabulary.ts";
+import {
   beginOptsFrom,
   hasScaffoldIntent,
   runSetupBegin,
@@ -34,18 +39,18 @@ import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { canPrompt } from "./lib/prompts.ts";
 import { runDesk } from "./engine/desk/desk.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
-import { runSetupLand } from "./commands/setup_land.ts";
+import { runSetupAccept } from "./commands/setup_accept.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runUninstall } from "./commands/uninstall.ts";
 import { runDoctor } from "./commands/doctor.ts";
 import { runPreset } from "./commands/preset.ts";
-import { runDocs, runHelp } from "./commands/docs.ts";
+import { runHelp, runMap } from "./commands/docs.ts";
 import {
   runConfigSet,
   runConfigSetCapability,
   runConfigSetCheck,
-  runConfigSetRatchet,
   runConfigSetScope,
+  runConfigSetStandard,
 } from "./commands/config.ts";
 import {
   attachEngineCommands,
@@ -142,27 +147,31 @@ type RootCommand = ReturnType<typeof rootShape>;
  * attached unconditionally — the subsystems are all core (ADR 0101). `setup` is
  * hidden from help once the project records `[meta].bootstrapped` (it stays
  * callable with `--force`). */
-export function buildCli(hideSetup: boolean): RootCommand {
+export function buildCli(
+  hideSetup: boolean,
+  mainBranch?: string,
+): RootCommand {
+  const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
     .usage("<command> [options]")
     .description(
-      "Operate your project's quality gate and isolated git-worktree workflow " +
-        "— the stack-neutral agentic-development harness (`discern setup` " +
-        "scaffolds it the first time).",
+      "Operate your project's quality gate (its full quality check) and Git " +
+        "worktrees (a separate checkout and branch for each change); `discern setup` " +
+        "scaffolds the stack-neutral system the first time.",
     )
     .example(
       "Orient yourself",
       "discern status",
     )
     .example(
-      "Agent on the trunk?",
-      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern finish  →  report ready for review",
+      "Agent in the main checkout?",
+      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
     )
     .example(
       "Agent in a worktree?",
-      "(write code...)  →  discern finish  →  report ready for review",
+      "(write code...)  →  discern done  →  report ready for review",
     )
     .globalOption(
       "--json",
@@ -177,7 +186,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
       console.log(operatorHelp(this as unknown as Command));
     });
 
-  // `setup` — the staged, zero-config harness setup (ADR 0036, staged by ADR 0075).
+  // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
   // A bare `discern setup` (no scaffold input) prints the read-only WELCOME; the
   // sub-verbs drive the handshake — `begin` (the first mutating step: scaffold +
   // brief) and `done` (prove + record). The declarative `--config`/flag path scaffolds
@@ -187,7 +196,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   // map them through `beginOptsFrom`.
   const setupBegin = new Command()
     .description(
-      "Scaffold the harness, record provenance, and print the setup brief (the first mutating step).",
+      "Scaffold discern, record provenance, and print the setup brief (the first mutating step).",
     )
     .option("--name <name:string>", "Project name (free text).")
     .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
@@ -207,8 +216,8 @@ export function buildCli(hideSetup: boolean): RootCommand {
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
-      "--docs <path:string>",
-      "Project-relative directory for discern's agent documentation tree.",
+      "--map <path:string>",
+      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
     )
     .option(
       "--config <file:string>",
@@ -269,21 +278,25 @@ export function buildCli(hideSetup: boolean): RootCommand {
       );
     });
 
-  const setupLand = new Command()
+  const setupAccept = new Command()
     .description(
-      "Land the finished setup branch onto the integration branch (fast-forward or merge).",
+      `Land the finished setup branch on the trunk${trunkName} — the shared landing branch.`,
     )
     .option("--dry-run", "Print the plan and change nothing.")
     .action(async (options) => {
       const { json, noColor } = globalFlags(options);
       Deno.exit(
-        await runSetupLand({ json, noColor, dryRun: options.dryRun ?? false }),
+        await runSetupAccept({
+          json,
+          noColor,
+          dryRun: options.dryRun ?? false,
+        }),
       );
     });
 
   const setup = new Command()
     .description(
-      "Set up the harness here (run once; your coding agent does it for you).",
+      "Set up discern here (run once; your coding agent does it for you).",
     )
     .option("--name <name:string>", "Project name (free text).")
     .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
@@ -303,8 +316,8 @@ export function buildCli(hideSetup: boolean): RootCommand {
       `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
     )
     .option(
-      "--docs <path:string>",
-      "Project-relative directory for discern's agent documentation tree.",
+      "--map <path:string>",
+      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
     )
     .option(
       "--config <file:string>",
@@ -343,7 +356,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .command("begin", setupBegin)
     .command("step", setupStep)
     .command("done", setupDone)
-    .command("land", setupLand);
+    .command("accept", setupAccept);
   // Hide on the REGISTERED command, not the pre-registration instance: the
   // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
   // `setup` stays reachable (and `--force`-able) when hidden.
@@ -355,7 +368,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
   root
     .command("upgrade")
     .description(
-      "Refresh config schema, skills, and guidance to match the installed binary.",
+      "Upgrade discern itself in this project: migrate its config and refresh bundled " +
+        "skills and guidance. Use `discern update` for this branch; use `discern " +
+        "refresh` for generated agent files alone.",
     )
     .option(
       "--dry-run",
@@ -383,7 +398,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   root
     .command("uninstall")
     .description(
-      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and docs).",
+      "Remove discern's wiring from this project (keeps your discern.toml, guidance, and map).",
     )
     .option(
       "--dry-run",
@@ -438,8 +453,10 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   root
-    .command("docs [target:string]")
-    .description("Browse and read the project's documentation tree.")
+    .command("map [target:string]")
+    .description(
+      "Browse and read the project map — its agent-maintained documentation tree.",
+    )
     .option(
       "--raw",
       "Print a doc's pristine Markdown source instead of rendering it.",
@@ -451,7 +468,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option(
       "--dir <path:string>",
-      "Docs directory to browse (default: the project's [docs].dir).",
+      "Map directory to browse (default: the project's [map].dir).",
     )
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
@@ -463,7 +480,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
       "Write an export to a file instead of stdout.",
     )
     .action(async (options, target?: string) => {
-      const code = await runDocs({
+      const code = await runMap({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
@@ -480,10 +497,10 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
-  // concepts, the gate/worktree/ratchet docs). Distinct from `docs`, which serves
+  // concepts, the gate/worktree/standard docs). Distinct from `map`, which serves
   // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
-  // it. Mirrors `docs`'s read flags (target, --list/--raw/--json/--no-pager/--width)
+  // it. Mirrors `map`'s read flags (target, --list/--raw/--json/--no-pager/--width)
   // plus a public-only `--export`.
   root
     .command("help [target:string]")
@@ -531,7 +548,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setCapability = new Command()
     .description(
-      `Set a [capabilities] entry (${capabilityList()}).`,
+      `Set a capability — a configured project command for one known kind of work (${capabilityList()}).`,
     )
     .arguments("<name:string> <command:string>")
     .option("--dry-run", "Print the edit and write nothing.")
@@ -545,7 +562,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setCheck = new Command()
-    .description("Set or create a [checks.<name>] table (custom gate work).")
+    .description(
+      "Set a custom command in the gate — the project's full quality check.",
+    )
     .arguments("<name:string>")
     .option(
       "--stage <stage:string>",
@@ -568,7 +587,9 @@ export function buildCli(hideSetup: boolean): RootCommand {
     });
 
   const setScope = new Command()
-    .description("Set a [scopes.<name>] table (paths + optional attributes).")
+    .description(
+      "Set a scope — a named region of the repository a change can touch.",
+    )
     .arguments("<name:string> <globs...:string>")
     .option("--neutral", "Changes here need no gate.")
     .option("--previewable", "A person could see changes here.")
@@ -586,8 +607,10 @@ export function buildCli(hideSetup: boolean): RootCommand {
       );
     });
 
-  const setRatchet = new Command()
-    .description("Set or create a [ratchets.<name>] table.")
+  const setStandard = new Command()
+    .description(
+      "Set a quality standard — standards are numbers that can never get worse.",
+    )
     .arguments("<name:string>")
     .option("--limit <n:string>", "The floor (up) or ceiling (down).", {
       required: true,
@@ -605,7 +628,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .option("--dry-run", "Print the edit and write nothing.")
     .action(async (options, name: string) => {
       Deno.exit(
-        await runConfigSetRatchet(name, {
+        await runConfigSetStandard(name, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
           limit: options.limit,
@@ -680,7 +703,7 @@ export function buildCli(hideSetup: boolean): RootCommand {
     .command("set-capability", setCapability)
     .command("set-check", setCheck)
     .command("set-scope", setScope)
-    .command("set-ratchet", setRatchet)
+    .command("set-standard", setStandard)
     .command("set", setScalar)
     .command("get", configGet)
     .command("array", configArray)
@@ -690,11 +713,11 @@ export function buildCli(hideSetup: boolean): RootCommand {
 
   root.command("config", config);
 
-  // The project task-runner verbs (finish, prepare, graduate, worktree command group, …) are
+  // The project task-runner verbs (finish, prepare, accept, worktree command group, …) are
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
-  attachEngineCommands(root as unknown as Command);
+  attachEngineCommands(root as unknown as Command, mainBranch);
 
   return root;
 }
@@ -707,6 +730,8 @@ interface ProjectState {
    * real ConfigParseError surfaces on its own, unobscured). */
   configOk: boolean;
   bootstrapped: boolean;
+  /** The configured trunk's branch name, available when config parsed. */
+  mainBranch?: string;
 }
 
 /**
@@ -727,6 +752,7 @@ async function resolveProjectState(): Promise<ProjectState> {
       inProject: true,
       configOk: true,
       bootstrapped: cfg.meta.bootstrapped,
+      mainBranch: cfg.project.main_branch,
     };
   } catch {
     return { inProject: true, configOk: false, bootstrapped: false };
@@ -762,8 +788,8 @@ export interface CliInvocation {
 /**
  * Resolve the verb a raw argv addresses the way Cliffy will: the FIRST token
  * that is not one of the root command's global flags. Cliffy accepts global
- * flags on either side of the subcommand (`discern --json docs` ≡
- * `discern docs --json`), so every pre-Cliffy routing decision — the setup
+ * flags on either side of the subcommand (`discern --json map` ≡
+ * `discern map --json`), so every pre-Cliffy routing decision — the setup
  * redirect (ADR 0036), the welcome/help split, shadow warnings, recipe
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
@@ -813,7 +839,7 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
 
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
 export async function main(args: string[]): Promise<void> {
-  const argv = args;
+  let argv = args;
   // The raw first token — helper dispatch below is deliberately positional,
   // and it names the attempted verb in a pre-resolution config error.
   let verb = argv[0];
@@ -841,19 +867,18 @@ export async function main(args: string[]): Promise<void> {
 
     // Resolve the project's setup state — one config read, so the setup
     // redirect/self-hiding know whether setup is still outstanding.
-    const { inProject, configOk, bootstrapped } = await resolveProjectState();
+    const { inProject, configOk, bootstrapped, mainBranch } =
+      await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
-    const cli = buildCli(hideSetup);
+    const cli = buildCli(hideSetup, mainBranch);
 
     // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
     // verb the way Cliffy will — the first non-global-flag token — and key
     // every routing decision below on it. Keying on argv[0] would let
-    // `discern --json docs` slip past the setup redirect that catches
-    // `discern docs --json`.
-    const invocation = resolveInvocation(
-      argv,
-      globalFlagTokens(cli as unknown as Command),
-    );
+    // `discern --json map` slip past the setup redirect that catches
+    // `discern map --json`.
+    const globalTokens = globalFlagTokens(cli as unknown as Command);
+    const invocation = resolveInvocation(argv, globalTokens);
     verb = invocation.verb;
 
     // No verb (bare `discern`, or global flags alone): pre-setup, this prints
@@ -884,6 +909,43 @@ export async function main(args: string[]): Promise<void> {
       console.log(operatorHelp(cli as unknown as Command, { color }));
       await printProjectRecipes();
       Deno.exit(0);
+      return;
+    }
+
+    // A retired spelling is not an alias: it refuses before recipe fallthrough or
+    // Cliffy dispatch and names the one canonical successor. JSON mode keeps the
+    // same refusal in the uniform result envelope.
+    const commandTokens = argv.filter((token) => !globalTokens.has(token));
+    const nestedCommand = commandTokens.slice(0, 2).join(" ");
+    const retiredCommand = retiredCommandSuccessor(nestedCommand) !== undefined
+      ? nestedCommand
+      : verb;
+    const successor = retiredCommandSuccessor(retiredCommand);
+    if (successor !== undefined) {
+      const message = retiredCommandMessage(retiredCommand, successor);
+      if (argv.includes("--json")) {
+        emitResult({
+          ok: false,
+          verb: retiredCommand,
+          error: "renamed_command",
+          message,
+        });
+      } else {
+        console.error(`discern: ${message}`);
+      }
+      Deno.exit(1);
+    }
+
+    // Grammatical variants are forgiveness, not aliases: rewrite only the verb
+    // token, then let every normal canonical routing decision run unchanged.
+    const canonicalVerb = normalizeVerbVariant(verb, KNOWN_VERBS);
+    if (canonicalVerb !== verb) {
+      const index = argv.indexOf(verb);
+      if (index !== -1) {
+        argv = [...argv];
+        argv[index] = canonicalVerb;
+      }
+      verb = canonicalVerb;
     }
 
     // Explicit help: Cliffy's help plus the project-recipe listing.
@@ -895,7 +957,7 @@ export async function main(args: string[]): Promise<void> {
 
     // Pre-setup hard redirect (ADR 0036): until the project records
     // `[meta].bootstrapped`, the setup-gated verbs refuse and point at setup —
-    // running an empty gate would report a false "all-green", and `docs` would
+    // running an empty gate would report a false "all-green", and `map` would
     // browse an empty tree. A clean funnel, not a generic block: `help` (discern's
     // own docs), status/doctor/config and the setup/plumbing verbs stay open, and a
     // parse-broken config still surfaces its own TOML error (the configOk guard).

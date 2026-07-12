@@ -31,7 +31,7 @@ const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
 const FRESH_WELCOME_FACTS: readonly string[] = [
   "discern",
-  "stack-neutral quality harness",
+  "quality gates and safe worktrees",
   "coding agents and the humans who run them",
   "This project isn't set up yet.",
   "FOR HUMANS",
@@ -386,18 +386,18 @@ Deno.test("verify offers the existing-docs opt-in as consent, and surfaces agent
     assert(d.findings.existing_instructions.includes("CLAUDE.md"));
     assertEquals(d.findings.docs.exists, true);
     // With a docs/ tree present, the relay message promises it stays untouched,
-    // names the map's default home, and offers pointing [docs].dir as the opt-in.
+    // names the map's default home, and offers pointing [map].dir as the opt-in.
     assertStringIncludes(d.guidance, "You already have a docs/ folder");
     assertStringIncludes(d.guidance, "discern won't touch it");
-    assertStringIncludes(d.guidance, SOURCE_PATHS.docs.defaultPath);
+    assertStringIncludes(d.guidance, SOURCE_PATHS.map.defaultPath);
     assertStringIncludes(d.guidance, "keep them separate (the default)");
     // The opt-in serves the REAL detected path, never a placeholder a verbatim-
     // copying agent would scaffold literally.
-    assertStringIncludes(d.guidance, "--docs docs/");
+    assertStringIncludes(d.guidance, "--map docs/");
     assert(!d.guidance.includes("<their-docs-path>"));
-    // The default command carries no --docs: the opt-in is an addition, never a
+    // The default command carries no --map: the opt-in is an addition, never a
     // placeholder that pushes agents to pass one.
-    assert(!d.next_action.includes("--docs"));
+    assert(!d.next_action.includes("--map"));
     SetupVerifyOutputSchema.parse(res);
   });
 });
@@ -410,10 +410,10 @@ Deno.test("verify asks no docs question when the project has no docs tree", asyn
     ).data;
     assertEquals(d.findings.docs.exists, false);
     assert(!d.guidance.includes("You already have a docs/ folder"));
-    assert(!d.guidance.includes("--docs"));
+    assert(!d.guidance.includes("--map"));
     // The default is still stated: the human render names where the map lands.
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
-    assertStringIncludes(human, SOURCE_PATHS.docs.defaultPath);
+    assertStringIncludes(human, SOURCE_PATHS.map.defaultPath);
   });
 });
 

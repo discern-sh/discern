@@ -18,9 +18,9 @@ import {
 } from "../../shared/config_schema.ts";
 import { capStage, type Stage } from "../../shared/capabilities.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
-import { expandDocsDirReference } from "../../shared/docs_path.ts";
+import { expandMapDirReference } from "../../shared/map_path.ts";
 
-/** One gate job with the metadata `finish --json` reports. */
+/** One gate job with the metadata `done --json` reports. */
 export interface StageJob {
   label: string;
   command: string;
@@ -41,7 +41,7 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
     toCommandList(value).forEach((command, i) => {
       jobs.push({
         label: i === 0 ? cap : `${cap}#${i + 1}`,
-        command: expandDocsDirReference(command, config.docs.dir),
+        command: expandMapDirReference(command, config.map.dir),
         kind: "capability",
       });
     });
@@ -52,9 +52,9 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
     if (spec.stage !== stage) {
       continue;
     }
-    const run = expandDocsDirReference(
+    const run = expandMapDirReference(
       toCommand(spec.run),
-      config.docs.dir,
+      config.map.dir,
     );
     if (run === "") {
       continue;

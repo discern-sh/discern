@@ -6,7 +6,7 @@
  *
  *   - `discern config <get|array|has|subsections|keys> <key>` — the recipe-facing
  *     passthrough, a `jq`-for-the-config that reads arbitrary dotted keys verbatim.
- *   - the ratchet "never-loosen vs main" baseline, which reads an *older* config
+ *   - the standard "never-loosen vs main" baseline, which reads an *older* config
  *     out of `git show main:discern.toml` and only wants one number out of it.
  *
  * It carries no schema knowledge, so there is nothing here to drift. The TOML

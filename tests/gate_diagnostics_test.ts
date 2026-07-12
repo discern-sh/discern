@@ -1,7 +1,7 @@
 /**
  * Tier-1 diagnostic normalization (ADR 0028): the SARIF auto-detector that turns a
  * failed gate command's machine output into structured {file,line,rule} findings.
- * Pure-unit here; the end-to-end wiring through `finish --json` lives in
+ * Pure-unit here; the end-to-end wiring through `done --json` lives in
  * `engine_finish_json_test.ts`.
  */
 

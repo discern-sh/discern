@@ -46,7 +46,7 @@ export interface ConfigReconcileResult {
 export const RECORD_CONFIG_PATHS = [
   "checks",
   "scopes",
-  "ratchets",
+  "standards",
   "worktree.resources",
 ] as const;
 
@@ -133,7 +133,7 @@ export function renderConfigTemplateForConfig(
     project_slug: config.project.slug,
     branch_prefix: config.project.branch_prefix,
     agents_array: renderTomlStringList(resolveConfiguredAgents(config)),
-    docs_dir: config.docs.dir,
+    map_dir: config.map.dir,
     gotchas_doc: config.project.gotchas_doc,
     scopes_neutral: defaultNeutralScopes().join(", "),
     scopes_web: renderTomlStringList([...DEFAULTS.sourceGlobs]),

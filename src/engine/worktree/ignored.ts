@@ -3,7 +3,7 @@
  *
  * Git cannot tell us whether ignored files were edited: ignored files are outside
  * the index by design. The honest signal is therefore a worktree-local baseline
- * recorded after discern finishes preparing the worktree, then a later comparison
+ * recorded after discern donees preparing the worktree, then a later comparison
  * before the worktree is removed. We report changed ignored roots only, collapsed
  * to top-level directories so generated trees do not flood the user.
  */
@@ -82,7 +82,7 @@ export async function recordIgnoredFileBaseline(
     await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, `${JSON.stringify(baseline, null, 2)}\n`);
   } catch {
-    // Best effort: a missing baseline makes graduate skip the drift warning rather
+    // Best effort: a missing baseline makes accept skip the drift warning rather
     // than fail setup or invent a noisy full ignored-file listing.
   }
 }

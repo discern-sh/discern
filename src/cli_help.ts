@@ -66,12 +66,12 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Agentic loop",
     note: "your coding agent runs these as it works",
-    commands: ["status", "prepare", "finish", "test"],
+    commands: ["status", "prepare", "done", "test"],
   },
   {
     name: "Worktree lifecycle",
     note: "isolated workspaces your agent drives",
-    commands: ["start", "integrate", "graduate", "worktree", "identity"],
+    commands: ["start", "update", "accept", "worktree", "identity"],
   },
   {
     name: "Setup & maintenance",
@@ -90,12 +90,12 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
     name: "Inspect & explore",
     note: "read-only views for you or your agent",
     commands: [
-      "improve",
-      "ratchets",
+      "improvement",
+      "standards",
       "skills",
-      "scopes",
+      "impact",
       "coupling",
-      "docs",
+      "map",
       "help",
       "mcp",
     ],

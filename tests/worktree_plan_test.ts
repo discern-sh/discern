@@ -13,7 +13,7 @@ import {
   type ResourceEntry,
 } from "../src/engine/worktree/resources.ts";
 import {
-  graduatePlanToEngine,
+  acceptPlanToEngine,
   prunePlanIsEmpty,
   prunePlanToEngine,
   setupPlanToEngine,
@@ -118,7 +118,7 @@ Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
   assert(plan.steps.every((s) => s.kind === "resource-destroy"));
 });
 
-Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the teardown step", () => {
+Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teardown step", () => {
   const base = {
     worktreeBranch: "agent/x",
     worktreePath: "/repo/.wt/x",
@@ -131,7 +131,7 @@ Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the tea
       truncated: false,
     },
   };
-  const withResources = graduatePlanToEngine({
+  const withResources = acceptPlanToEngine({
     ...base,
     hasResources: true,
   });
@@ -148,7 +148,7 @@ Deno.test("graduatePlanToEngine: fast-forwards the trunk; resources gate the tea
     "run",
   );
 
-  const clean = graduatePlanToEngine({
+  const clean = acceptPlanToEngine({
     ...base,
     hasResources: false,
   });

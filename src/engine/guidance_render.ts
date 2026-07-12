@@ -4,7 +4,7 @@
  *
  * This is the SINGLE source of the compiled-file content. The writer
  * (`compileGuidelines`) renders here and writes; the currency checker
- * (`checkGuidanceCurrent`, consumed by `discern status` and `discern finish`)
+ * (`checkGuidanceCurrent`, consumed by `discern status` and `discern done`)
  * renders here and compares to disk. Because both go through
  * {@link renderAgentFiles}, the check can never disagree with what a refresh would
  * produce — there is no second copy of the compile logic, and no stored hash to
@@ -38,21 +38,21 @@ import {
   type GuidanceContext,
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 
 /**
  * The built-in guidance sections, in compile order. Every section always
  * compiles; a section that applies only to a configured state gates itself with
- * a template conditional (ratchets.md renders only when at least one
- * `[ratchets]` table exists — activation by presence, ADR 0101) and an
+ * a template conditional (standards.md renders only when at least one
+ * `[standards]` table exists — activation by presence, ADR 0101) and an
  * all-conditional section that renders to nothing is dropped.
  */
 const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
   { file: "base.md" },
   { file: "worktrees.md" },
-  { file: "ratchets.md" },
+  { file: "standards.md" },
   { file: "skills.md" },
-  { file: "docs.md" },
+  { file: "map.md" },
 ];
 
 /**
@@ -69,7 +69,8 @@ export const guidanceAgents = resolveConfiguredAgents;
  * commit (no git branch/status, env, clock, randomness, absolute paths, or
  * gitignored/per-worktree files); that purity is what keeps the generated files'
  * currency check deterministic and the gate stable (ADR 0034). In particular
- * `main_branch` is the committed `[project].main_branch`, NEVER the `MAIN_BRANCH`
+ * `main_branch` is the committed `[project].main_branch`, NEVER the
+ * `DISCERN_MAIN_BRANCH`
  * env override — that runtime override lives in the worktree/git layer, not in the
  * loaded config this reads. Keep it minimal: add a variable or predicate only when
  * a template actually uses it.
@@ -91,7 +92,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   return {
     vars: {
       branch_prefix: config.project.branch_prefix,
-      docs_dir: normalizeDocsDir(config.docs.dir),
+      map_dir: normalizeMapDir(config.map.dir),
       // The deferred-work ledger's configured location. No built-in guidance
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
       // is exposed here so both surfaces read one context.
@@ -106,7 +107,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),
     },
     preds: {
-      has_ratchets: Object.keys(config.ratchets).length > 0,
+      has_standards: Object.keys(config.standards).length > 0,
       has_worktree_resources: Object.keys(config.worktree.resources).length > 0,
     },
   };

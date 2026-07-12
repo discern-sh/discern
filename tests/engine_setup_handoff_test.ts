@@ -28,7 +28,7 @@ import {
 } from "./engine_helpers.ts";
 
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
-const INSTRUCTIONS_H1 = "# Set up the harness";
+const INSTRUCTIONS_H1 = "# Set up discern";
 
 Deno.test("setup output can't be mistaken for completion: banner leads, footer survives truncation", async () => {
   await withTempDir(async (dir) => {

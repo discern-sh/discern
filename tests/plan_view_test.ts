@@ -147,7 +147,7 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   const text = out.join("\n");
   // Heading names the destination and goes to stderr.
   assertStringIncludes(err.join("\n"), "/projects/demo");
-  assertStringIncludes(err.join("\n"), "will set up its harness");
+  assertStringIncludes(err.join("\n"), "will set itself up");
   // The total file count line.
   assertStringIncludes(text, "4 files.");
   // Config group names the one root file.
@@ -161,7 +161,7 @@ Deno.test("renderReview groups config, your content, and integration", async () 
   assertStringIncludes(text, "merged into your existing settings");
   assertStringIncludes(
     text,
-    "the harness section reconciled in your .gitignore",
+    "the discern section reconciled in your .gitignore",
   );
   // The closing hint to see every file.
   assertStringIncludes(text, "re-running with --dry-run");

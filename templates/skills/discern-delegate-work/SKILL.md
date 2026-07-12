@@ -37,7 +37,7 @@ Decide how many agents, prompts, and worktrees the work wants. Pick the simplest
 - **A large effort with real seams → one brief per stream, in parallel worktrees.** Split only on real seams: each stream owns a disjoint slice of the tree, with no files in flight shared across streams. Two worktrees editing the same file relocate the collision to integration time. Check the seam honestly (which files each stream will touch, shared registries and generated files included); where two streams would meet, either merge them into one brief or split the shared piece out as its own stage that lands first. Each stream gets its own self-contained prompt (§3), runs in its own worktree, and lands independently.
 - **Dependent milestones → staged briefs, delegated in turn.** If stage B builds on what stage A produces, don't launch them together. Write A's brief now, and B's after A lands and is reviewed, so B's prompt can point at what A built.
 
-**When the handoff yields more than one brief, key each one.** Give every brief a workstream key: the number is the wave, the letter a slot within it. Briefs sharing a number (`1A`, `1B`) touch disjoint territory and run at once, each in its own worktree; a higher number waits for every lower wave to land, and staged briefs are successive waves: `1A`+`1B`+`1C → 2A → 3A`. The key fixes the cross-wave landing order once, and later reads straight off the titles. Within a wave, still name who integrates first; later streams run `discern_integrate` to bring the trunk's progress in beneath their work. Say in each brief that other streams are in flight, so the agent keeps to its own slice.
+**When the handoff yields more than one brief, key each one.** Give every brief a workstream key: the number is the wave, the letter a slot within it. Briefs sharing a number (`1A`, `1B`) touch disjoint territory and run at once, each in its own worktree; a higher number waits for every lower wave to land, and staged briefs are successive waves: `1A`+`1B`+`1C → 2A → 3A`. The key fixes the cross-wave landing order once, and later reads straight off the titles. Within a wave, still name who updates first; later streams run `discern_update` to bring the trunk's progress in beneath their work. Say in each brief that other streams are in flight, so the agent keeps to its own slice.
 
 ---
 
@@ -65,7 +65,7 @@ Anchor the prompt in the real tree, then tell the agent to verify those anchors 
 
 A handful of constraints hold for any task in any discern project. Fold them in so the fresh agent inherits them rather than rediscovering them:
 
-- **The gate is the bar for done.** The agent must run the full quality gate (`discern_finish`) to green before calling the work complete, iterating with the fast loop (`discern_prepare`) and fixing from the reported diagnostics.
+- **The gate is the bar for done.** The agent must run the full quality gate (`discern_done`) to green before calling the work complete, iterating with the fast loop (`discern_prepare`) and fixing from the reported diagnostics.
 - **Commit atomically.** One logical step per commit, clear messages, so the result reviews cleanly step by step.
 - **Never hand-edit generated files.** Change the source and re-run the producing command; the gate flags drift either way.
 - **Cure the class, not the symptom.** A real fix leaves behind a check that fails on the whole class of defect (the `discern-cure-a-bug` skill is the procedure).
@@ -81,7 +81,7 @@ Present each finished prompt as one self-contained block the user can copy verba
 
 When there's more than one, also offer to save them as Markdown files in the user's project, each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a spot you suggest from the project's own layout (an existing planning or prompts folder, say). Write them only if the user says yes. Give each brief you save one final line in its own definition of done: when its task is complete, move the brief file into a `_done/` subfolder beside it (`planning/2c-<slug>.md` → `planning/_done/2c-<slug>.md`), landed as part of that work, so completed briefs don't linger for you to tidy. That line belongs only in a saved brief (a chat-only prompt has no file to move), and lands cleanly only once the briefs are committed to the trunk each stream branches from.
 
-Then explain how the handoff runs: each prompt launches as a new session that starts on its own branch in a fresh worktree, isolated from your current work and from the other streams. If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer; handing the prompts over is the default. For a fan-out, restate the landing order from §2 so the user knows which result to integrate first.
+Then explain how the handoff runs: each prompt launches as a new session that starts on its own branch in a fresh worktree, isolated from your current work and from the other streams. If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer; handing the prompts over is the default. For a fan-out, restate the landing order from §2 so the user knows which result lands first.
 
 ---
 
@@ -93,7 +93,7 @@ When work returns, review it as its adversary: assume it falls short until the e
 
 - **Read the diff, not the summary.** Review the branch's diff against the trunk (`git diff <trunk>...<branch>`) and the changed files (find the branch via `discern_status` if you need to). Review read-only: never start working inside a worktree you didn't create.
 - **Hold it to the prompt.** Walk every deliverable and the definition of done, the semantic bar included. Was each one done, or only reported done? What was skipped, half-finished, or quietly added beyond scope?
-- **Verify the gate passes.** Run it against the branch (from its own worktree, or a checkout of it) rather than trusting the agent's report, and check the ratchets (`discern_ratchets`) if the change touches them.
+- **Verify the gate passes.** Run it against the branch (from its own worktree, or a checkout of it) rather than trusting the agent's report, and check the standards (`discern_standards`) if the change touches them.
 - **Hunt the known failure modes.** The symptom patched but the class left uncured; a test loosened to pass; a generated file hand-edited; a decision made silently that warranted an ADR; scope creep past what you asked for; and, in a fan-out, a stream that strayed into a sibling's slice.
 - **Credit what exceeded the brief.** If the agent caught something you hadn't anticipated, or improved on the spec in a way that helps, name it. Real initiative is a finding too.
 

@@ -218,7 +218,7 @@ Deno.test("status's off-trunk-main hint describes the state and the way back", a
     );
     assert(hint !== undefined, JSON.stringify(result.hints));
     assertStringIncludes(hint, "git switch main");
-    assertStringIncludes(hint, "graduation can't land");
+    assertStringIncludes(hint, "`discern accept` can't land");
   });
 });
 
@@ -278,7 +278,7 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
     assertStringIncludes(hint, "to discern's MCP tools");
 
     // …and finish carries the same warning in its hints.
-    const fin = await runAgent(wt, ["finish", "--json"]);
+    const fin = await runAgent(wt, ["done", "--json"]);
     const gate = JSON.parse(fin.stdout) as { hints?: string[] };
     assert(
       (gate.hints ?? []).some((h) => h.includes("untouched")),

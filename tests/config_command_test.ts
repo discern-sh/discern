@@ -8,6 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
+import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** Scaffold a fresh install in `dir`. */
@@ -133,12 +134,30 @@ Deno.test("config set refuses an unknown key at write time (no bricked config)",
   });
 });
 
+Deno.test("config set redirects the retired standards key to its successor", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const before = await readToml(dir);
+    const retired = Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)[0];
+    assert(retired !== undefined);
+    const result = await runCli(
+      ["config", "set", `${retired}.coverage.limit`, "80", "--json"],
+      dir,
+    );
+    assertEquals(result.code, 1);
+    const envelope = JSON.parse(result.stdout);
+    assertEquals(envelope.error, "renamed_config_key");
+    assertStringIncludes(envelope.message, "standards.coverage.limit");
+    assertEquals(await readToml(dir), before);
+  });
+});
+
 Deno.test("config set allows a valid-but-incomplete path (incremental table build)", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    // Setting one key of a ratchet table before its siblings is legitimate.
+    // Setting one key of a standard table before its siblings is legitimate.
     const r = await runCli(
-      ["config", "set", "ratchets.coverage.limit", "80"],
+      ["config", "set", "standards.coverage.limit", "80"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
@@ -253,13 +272,13 @@ Deno.test("config set-scope folds in --neutral and --gate", async () => {
   });
 });
 
-Deno.test("config set-ratchet writes a named ratchet table", async () => {
+Deno.test("config set-standard writes a named standard table", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-ratchet",
+        "set-standard",
         "bundle",
         "--limit",
         "500000",
@@ -272,20 +291,20 @@ Deno.test("config set-ratchet writes a named ratchet table", async () => {
     );
     assertEquals(r.code, 0, r.stderr);
     const toml = await readToml(dir);
-    assertStringIncludes(toml, "[ratchets.bundle]");
+    assertStringIncludes(toml, "[standards.bundle]");
     assertStringIncludes(toml, "limit = 500000");
     assertStringIncludes(toml, 'direction = "down"');
     assertStringIncludes(toml, 'run = "measure-bundle"');
   });
 });
 
-Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", async () => {
+Deno.test("config set-standard treats 'coverage' as an ordinary standard name", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-ratchet",
+        "set-standard",
         "coverage",
         "--limit",
         "80",
@@ -297,17 +316,17 @@ Deno.test("config set-ratchet treats 'coverage' as an ordinary ratchet name", as
     );
     assertEquals(r.code, 0, r.stderr);
     const toml = await readToml(dir);
-    assertStringIncludes(toml, "[ratchets.coverage]");
+    assertStringIncludes(toml, "[standards.coverage]");
     assertStringIncludes(toml, "limit = 80");
     assertStringIncludes(toml, 'run = "measure-cov"');
   });
 });
 
-Deno.test("config set-ratchet requires a --run", async () => {
+Deno.test("config set-standard requires a --run", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-ratchet", "bundle", "--limit", "100"],
+      ["config", "set-standard", "bundle", "--limit", "100"],
       dir,
     );
     assert(r.code !== 0); // Cliffy rejects the missing required option
@@ -317,7 +336,7 @@ Deno.test("config set-ratchet requires a --run", async () => {
 Deno.test("config set infers types (number / bool / string)", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await runCli(["config", "set", "ratchets.coverage.limit", "80"], dir);
+    await runCli(["config", "set", "standards.coverage.limit", "80"], dir);
     await runCli(["config", "set", "worktree.port", "false"], dir);
     await runCli(["config", "set", "project.main_branch", "trunk"], dir);
     const toml = await readToml(dir);
@@ -396,10 +415,10 @@ Deno.test("config set refuses a value the next read would reject, leaving the fi
         args: ["config", "set", "project.slug", "5", "--number"],
         includes: "holds a string",
       },
-      // The write-boundary backstop: well-typed but schema-invalid (docs.dir
+      // The write-boundary backstop: well-typed but schema-invalid (map.dir
       // must stay inside the repository) is caught before anything is written.
       {
-        args: ["config", "set", "docs.dir", "../escape"],
+        args: ["config", "set", "map.dir", "../escape"],
         includes: "refusing this edit",
         error: "invalid_value",
       },
@@ -497,7 +516,7 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
 Deno.test("config set-<record> rejects a malformed name in every record section", async () => {
   // Every `config set-<record>` subcommand validates its <name> through the same
   // rule. Sections derive from the schema SSOT (recordConfigPaths); the args differ
-  // per subcommand (scope takes globs, check takes --stage/--run, ratchet takes
+  // per subcommand (scope takes globs, check takes --stage/--run, standard takes
   // --limit/--run), so a fixture arg-list is mapped per kind and asserted to cover
   // exactly the sections — a new record section forces an entry here (or an
   // exemption). worktree.resources has no `set-resource` subcommand: a self-checking
@@ -505,7 +524,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
   const SET_RECORD_ARGS: Record<string, string[]> = {
     check: ["--stage", "check", "--run", "x"],
     scope: ["src/**"],
-    ratchet: ["--limit", "80", "--run", "m"],
+    standard: ["--limit", "80", "--run", "m"],
   };
   const EXEMPT = new Set(["worktree.resources"]);
   const all = recordConfigPaths();
@@ -548,13 +567,13 @@ Deno.test("config set-scope: Cliffy rejects zero globs before the handler", asyn
   });
 });
 
-Deno.test("config set-ratchet rejects an invalid --direction", async () => {
+Deno.test("config set-standard rejects an invalid --direction", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-ratchet",
+        "set-standard",
         "bundle",
         "--limit",
         "80",
@@ -573,13 +592,13 @@ Deno.test("config set-ratchet rejects an invalid --direction", async () => {
   });
 });
 
-Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
+Deno.test("config set-standard rejects a non-numeric --limit", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-ratchet",
+        "set-standard",
         "bundle",
         "--limit",
         "lots",
@@ -596,7 +615,7 @@ Deno.test("config set-ratchet rejects a non-numeric --limit", async () => {
   });
 });
 
-Deno.test("config set-ratchet with a JS-only numeric --limit still writes parseable TOML", async () => {
+Deno.test("config set-standard with a JS-only numeric --limit still writes parseable TOML", async () => {
   // `--limit .5` is JS-numeric but not TOML: emitted verbatim it corrupted the
   // whole discern.toml (every later command, doctor included, died on a syntax
   // error). The limit must land in a form the config parser reads back.
@@ -605,7 +624,7 @@ Deno.test("config set-ratchet with a JS-only numeric --limit still writes parsea
     const r = await runCli(
       [
         "config",
-        "set-ratchet",
+        "set-standard",
         "prose",
         "--direction",
         "down",
@@ -626,16 +645,24 @@ Deno.test("config set-ratchet with a JS-only numeric --limit still writes parsea
   });
 });
 
-Deno.test("config set-ratchet defaults metric to the name and direction to up", async () => {
+Deno.test("config set-standard defaults metric to the name and direction to up", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-ratchet", "cov", "--limit", "80", "--run", "measure-cov"],
+      [
+        "config",
+        "set-standard",
+        "cov",
+        "--limit",
+        "80",
+        "--run",
+        "measure-cov",
+      ],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     const toml = await readToml(dir);
-    // No --metric / --direction given: metric falls back to the ratchet name,
+    // No --metric / --direction given: metric falls back to the standard name,
     // direction to "up".
     assertStringIncludes(toml, 'metric = "cov"');
     assertStringIncludes(toml, 'direction = "up"');
@@ -695,7 +722,7 @@ Deno.test("config set --number forces a numeric literal and rejects non-numbers"
     await setup(dir);
     // Valid: preserves the written form.
     const ok = await runCli(
-      ["config", "set", "ratchets.coverage.limit", "0.0", "--number"],
+      ["config", "set", "standards.coverage.limit", "0.0", "--number"],
       dir,
     );
     assertEquals(ok.code, 0, ok.stderr);
@@ -706,7 +733,7 @@ Deno.test("config set --number forces a numeric literal and rejects non-numbers"
       [
         "config",
         "set",
-        "ratchets.coverage.limit",
+        "standards.coverage.limit",
         "lots",
         "--number",
         "--json",

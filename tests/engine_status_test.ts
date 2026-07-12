@@ -512,6 +512,9 @@ Deno.test("status: outside a discern project, the envelope is not_initialized", 
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
     assertEquals(obj.error, "not_initialized");
+    assertStringIncludes(obj.message, "no discern.toml");
+    assertStringIncludes(obj.message, "discern setup");
+    assertStringIncludes(obj.message, "move into an existing discern project");
   });
 });
 
@@ -625,7 +628,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     const hints = obj.hints ?? [];
     assert(
       hints.some((h: string) =>
-        h.includes("no recorded `discern finish` pass") &&
+        h.includes("no honored receipt from `discern done`") &&
         h.includes("before reporting the branch ready for review")
       ),
       `expected a final-finish hint: ${JSON.stringify(hints)}`,
@@ -648,7 +651,7 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     await writeExecutable(join(wt, "web/feature.txt"), "feature");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const finish = await runAgent(wt, ["finish", "--json"]);
+    const finish = await runAgent(wt, ["done", "--json"]);
     assertEquals(finish.code, 0, finish.output);
 
     const r = await runAgent(wt, ["status", "--json"]);
@@ -676,12 +679,12 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
       `expected the relay + inspect affordances: ${JSON.stringify(hints)}`,
     );
     assert(
-      hints.some((h: string) => h.includes("explicitly accepts")),
+      hints.some((h: string) => h.includes("explicitly asks you to land")),
       `expected explicit-user-acceptance boundary: ${JSON.stringify(hints)}`,
     );
     assert(
       !hints.some((h: string) => h.includes("when ready")),
-      `status must not imply graduation follows from readiness: ${
+      `status must not imply acceptance follows from readiness: ${
         JSON.stringify(hints)
       }`,
     );
@@ -721,8 +724,8 @@ Deno.test("status: an ahead worktree with untracked work is not ready for owner 
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
     assert(
-      !(obj.hints ?? []).some((h: string) => h.includes("graduate")),
-      `dirty worktree must not get a graduate hint: ${
+      !(obj.hints ?? []).some((h: string) => h.includes("accept")),
+      `dirty worktree must not get an accept hint: ${
         JSON.stringify(obj.hints)
       }`,
     );
@@ -1037,7 +1040,7 @@ Deno.test("status: incoming_overlap is absent when behind but none of your files
   });
 });
 
-Deno.test("status warns when the configured integration branch is missing locally", async () => {
+Deno.test("status warns when the configured trunk is missing locally", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -1051,7 +1054,7 @@ Deno.test("status warns when the configured integration branch is missing locall
     assertEquals(obj.data.git.behind_integration, null);
     assert(
       (obj.hints ?? []).some((h: string) =>
-        h.includes("local integration branch 'main' is missing") &&
+        h.includes("trunk branch 'main' is not available locally") &&
         h.includes("[project].main_branch")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,
@@ -1061,7 +1064,7 @@ Deno.test("status warns when the configured integration branch is missing locall
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      "local integration branch 'main' is missing",
+      "trunk branch 'main' is not available locally",
     );
     assertStringIncludes(human.output, "[project].main_branch");
   });

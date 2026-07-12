@@ -58,7 +58,7 @@ export const STEP_KINDS = [
   "setup-ensure", // a [worktree.setup].ensure command (convergent, every pass)
   "env", // record port / inherit env / resource handles
   "refresh", // recompile agent guidance + skills
-  "ratchet", // measure a metric and compare it to its limit
+  "standard", // measure a metric and compare it to its limit
 ] as const;
 /** One engine operation kind ({@link STEP_KINDS}). */
 export type StepKind = (typeof STEP_KINDS)[number];
@@ -66,8 +66,8 @@ export type StepKind = (typeof STEP_KINDS)[number];
 /**
  * Who a step's command belongs to — the two-way split `discern doctor`'s execution
  * model marks every step with: `"project"` is a command from the project's own config
- * (a capability/check, a scope or ratchet command, a resource `create`/`destroy`, a
- * `[worktree.setup]` step), `"discern"` is a built-in operation the harness performs
+ * (a capability/check, a scope or standard command, a resource `create`/`destroy`, a
+ * `[worktree.setup]` step), `"discern"` is a built-in operation discern performs
  * itself (a precondition check, a git mutation, an env/refresh step). A const tuple so
  * `result_schemas.ts` derives its Zod enum from it rather than hand-mirroring.
  */
@@ -82,7 +82,7 @@ export type Actor = (typeof ACTORS)[number];
  */
 export interface PlanStep {
   kind: StepKind;
-  /** Stable label (a job/resource/scope/ratchet name, or a git verb). */
+  /** Stable label (a job/resource/scope/standard name, or a git verb). */
   label: string;
   disposition: StepDisposition;
   /** Human one-liner: what the step does, or why it is skipped. */
@@ -96,7 +96,7 @@ export interface PlanStep {
  * common projection every verb's typed plan reduces to for presentation.
  */
 export interface EnginePlan {
-  /** Imperative heading (e.g. "Graduation plan", "Gate plan"). */
+  /** Imperative heading (e.g. "Acceptance plan", "Gate plan"). */
   title: string;
   /** Context lines shown above the steps (e.g. branch / from / into). */
   details: string[];
@@ -113,7 +113,7 @@ export type StepOutcome = (typeof STEP_OUTCOMES)[number];
 export interface StepResult {
   step: PlanStep;
   outcome: StepOutcome;
-  /** Whole-second wall-clock duration when measured (jobs / ratchets). */
+  /** Whole-second wall-clock duration when measured (jobs / standards). */
   durationS?: number | undefined;
   /** Best-effort path to a full output artifact for job steps that ran. */
   outputPath?: string | undefined;
@@ -124,7 +124,7 @@ export interface StepResult {
 }
 
 /**
- * The gate's **failed-stage vocabulary** — every label `finish`/`prepare`/`test`
+ * The gate's **failed-stage vocabulary** — every label `done`/`prepare`/`test`
  * can record as the stage that failed (the value carried in `GateData.failed_stage`
  * and the key the human die message is looked up by). A CLOSED set: typing every hop
  * to it, deriving the Zod `failed_stage` enum (`result_schemas.ts`) from it, and
@@ -135,7 +135,7 @@ export interface StepResult {
  * The members, by origin:
  *  - `fix` / `build` / `check` / `test` — one capability stage's job group failed
  *    (`prepare` runs `check` alone; `discern test` runs `test` alone);
- *  - `check/test` — `finish` fuses the read-only checks and the tests into ONE group,
+ *  - `check/test` — `done` fuses the read-only checks and the tests into ONE group,
  *    so their combined failure reports this label rather than `check` or `test`;
  *  - `scope_gates` — a changed scope's self-contained gate failed;
  *  - `fix_drift` — the fix stage left uncommitted changes (ADR 0047);
@@ -225,8 +225,8 @@ export interface Diagnostic {
 /**
  * The uniform result every `discern` verb returns. An agent can rely on `ok`,
  * `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
- * `plan`/`steps` carry the verbs that have steps (finish, worktree, ratchets,
- * graduate), and `data` carries each verb's own payload (doctor's checks, schema migration data
+ * `plan`/`steps` carry the verbs that have steps (finish, worktree, standards,
+ * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
  * `serializeResult` renders it to `--json`; the human path renders the same fields
@@ -243,7 +243,7 @@ export interface Diagnostic {
 export interface DiscernResult<TData = unknown> {
   /** Did the verb succeed? The one field every consumer can rely on. */
   ok: boolean;
-  /** The verb that produced this result ("finish", "graduate", "doctor", …). */
+  /** The verb that produced this result ("done", "accept", "doctor", …). */
   verb: string;
   /**
    * True when this is a preview (`--dry-run`): nothing was applied. The ONE
@@ -261,7 +261,7 @@ export interface DiscernResult<TData = unknown> {
   data?: TData | undefined;
   /**
    * Agent-facing "what next" advice (ADR 0030): the next-step nudges a human run
-   * prints (check the ratchets, start the dev server, update the docs; on a failed
+   * prints (check the standards, start the dev server, update the docs; on a failed
    * gate, where the gotchas are documented), promoted into the envelope so a quiet
    * `--json` run loses none of it. Purely advisory — NOT errors (those are `error`
    * / `diagnostics`).
@@ -429,7 +429,7 @@ const DISPOSITION_LABEL: Record<StepDisposition, string> = {
 /**
  * Render a plan as a per-step listing under its heading — the `--dry-run` view.
  * Steps carrying a `group` are printed under a dim group line; ungrouped plans
- * (e.g. graduate) list flat.
+ * (e.g. accept) list flat.
  */
 export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
   sink.heading(plan.title);
@@ -459,7 +459,7 @@ export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
 
 /** A complete, renderable apply result: a titled executed-step list. */
 export interface StepResultsView {
-  /** Heading for the apply summary (e.g. "Ratchet results"). */
+  /** Heading for the apply summary (e.g. "Standard results"). */
   title: string;
   /** Context lines shown above the steps. */
   details?: string[] | undefined;

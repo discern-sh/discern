@@ -21,7 +21,7 @@ export type DiscernSetupResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -43,7 +43,7 @@ export type DiscernSetupResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -157,7 +157,7 @@ export type DiscernSetupVerifyResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -179,7 +179,7 @@ export type DiscernSetupVerifyResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -265,7 +265,7 @@ export type DiscernSetupStepResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -287,7 +287,7 @@ export type DiscernSetupStepResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -357,7 +357,7 @@ export type DiscernSetupDoneResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -379,7 +379,7 @@ export type DiscernSetupDoneResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -455,7 +455,7 @@ export type DiscernSetupDoneResult = {
   };
 };
 
-export type DiscernSetupLandResult = {
+export type DiscernSetupAcceptResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -476,7 +476,7 @@ export type DiscernSetupLandResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -498,7 +498,7 @@ export type DiscernSetupLandResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -526,7 +526,7 @@ export type DiscernSetupLandResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "setup land";
+  verb: "setup accept";
   data?: {
     landed: boolean;
     branch: string;
@@ -562,7 +562,7 @@ export type DiscernUpgradeResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -584,7 +584,7 @@ export type DiscernUpgradeResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -695,7 +695,7 @@ export type DiscernUninstallResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -717,7 +717,7 @@ export type DiscernUninstallResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -781,7 +781,7 @@ export type DiscernDoctorResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -803,7 +803,7 @@ export type DiscernDoctorResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -865,7 +865,7 @@ export type DiscernDoctorResult = {
           | "setup-ensure"
           | "env"
           | "refresh"
-          | "ratchet";
+          | "standard";
         label: string;
         actor: "project" | "discern";
         note?: string;
@@ -902,7 +902,7 @@ export type DiscernPresetResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -924,7 +924,7 @@ export type DiscernPresetResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -973,7 +973,7 @@ export type DiscernPresetResult = {
   };
 };
 
-export type DiscernDocsResult = {
+export type DiscernMapResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -994,7 +994,7 @@ export type DiscernDocsResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1016,7 +1016,7 @@ export type DiscernDocsResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1044,9 +1044,9 @@ export type DiscernDocsResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "docs";
+  verb: "map";
   data?: {
-    docs_dir?: string;
+    map_dir?: string;
     count?: number;
     docs?: Array<{
       path: string;
@@ -1097,7 +1097,7 @@ export type DiscernHelpResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1119,7 +1119,7 @@ export type DiscernHelpResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1149,7 +1149,7 @@ export type DiscernHelpResult = {
   message?: string;
   verb: "help";
   data?: {
-    docs_dir?: string;
+    map_dir?: string;
     count?: number;
     docs?: Array<{
       path: string;
@@ -1200,7 +1200,7 @@ export type DiscernConfigResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1222,7 +1222,7 @@ export type DiscernConfigResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1265,7 +1265,7 @@ export type DiscernConfigResult = {
   };
 };
 
-export type DiscernFinishResult = {
+export type DiscernDoneResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1286,7 +1286,7 @@ export type DiscernFinishResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1308,7 +1308,7 @@ export type DiscernFinishResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1336,7 +1336,7 @@ export type DiscernFinishResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "finish";
+  verb: "done";
   data?: {
     failed_stage:
       | "fix"
@@ -1412,7 +1412,7 @@ export type DiscernPrepareResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1434,7 +1434,7 @@ export type DiscernPrepareResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1492,7 +1492,7 @@ export type DiscernTestResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1514,7 +1514,7 @@ export type DiscernTestResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1551,7 +1551,7 @@ export type DiscernTestResult = {
   };
 };
 
-export type DiscernImproveResult = {
+export type DiscernImprovementResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1572,7 +1572,7 @@ export type DiscernImproveResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1594,7 +1594,7 @@ export type DiscernImproveResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1622,7 +1622,7 @@ export type DiscernImproveResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "improve";
+  verb: "improvement";
   data?: {
     score: number;
     weak: number;
@@ -1669,7 +1669,7 @@ export type DiscernImproveResult = {
   };
 };
 
-export type DiscernRatchetsResult = {
+export type DiscernStandardsResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1690,7 +1690,7 @@ export type DiscernRatchetsResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1712,7 +1712,7 @@ export type DiscernRatchetsResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1740,7 +1740,7 @@ export type DiscernRatchetsResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "ratchets";
+  verb: "standards";
   data?: {
     issues: Array<{
       path: string;
@@ -1770,7 +1770,7 @@ export type DiscernRefreshResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1792,7 +1792,7 @@ export type DiscernRefreshResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1841,7 +1841,7 @@ export type DiscernRefreshResult = {
   };
 };
 
-export type DiscernScopesResult = {
+export type DiscernImpactResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1862,7 +1862,7 @@ export type DiscernScopesResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1884,7 +1884,7 @@ export type DiscernScopesResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -1912,7 +1912,7 @@ export type DiscernScopesResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "scopes";
+  verb: "impact";
   data?: {
     scopes: Array<string>;
   } | {
@@ -1944,7 +1944,7 @@ export type DiscernCouplingResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -1966,7 +1966,7 @@ export type DiscernCouplingResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2046,7 +2046,7 @@ export type DiscernStatusResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2068,7 +2068,7 @@ export type DiscernStatusResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2125,7 +2125,7 @@ export type DiscernStatusResult = {
       checks: Array<string>;
       scope_gates: Array<string>;
     };
-    ratchets: Array<string>;
+    standards: Array<string>;
     gate_receipt?: {
       status:
         | "honored"
@@ -2196,7 +2196,7 @@ export type DiscernStartResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2218,7 +2218,7 @@ export type DiscernStartResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2261,7 +2261,7 @@ export type DiscernStartResult = {
   };
 };
 
-export type DiscernGraduateResult = {
+export type DiscernAcceptResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2282,7 +2282,7 @@ export type DiscernGraduateResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2304,7 +2304,7 @@ export type DiscernGraduateResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2332,7 +2332,7 @@ export type DiscernGraduateResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "graduate";
+  verb: "accept";
   data?: {
     root: string;
     gate_validation?: {
@@ -2372,7 +2372,7 @@ export type DiscernGraduateResult = {
   };
 };
 
-export type DiscernIntegrateResult = {
+export type DiscernUpdateResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2393,7 +2393,7 @@ export type DiscernIntegrateResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2415,7 +2415,7 @@ export type DiscernIntegrateResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2443,7 +2443,7 @@ export type DiscernIntegrateResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "integrate";
+  verb: "update";
   data?: {
     behind: number;
     fast_forward: boolean;
@@ -2499,7 +2499,7 @@ export type DiscernWorktreeSetupResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2521,7 +2521,7 @@ export type DiscernWorktreeSetupResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2579,7 +2579,7 @@ export type DiscernWorktreeTeardownResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2601,7 +2601,7 @@ export type DiscernWorktreeTeardownResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2659,7 +2659,7 @@ export type DiscernWorktreeDropResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2681,7 +2681,7 @@ export type DiscernWorktreeDropResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2739,7 +2739,7 @@ export type DiscernWorktreePruneResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2761,7 +2761,7 @@ export type DiscernWorktreePruneResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2819,7 +2819,7 @@ export type DiscernSkillsListResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2841,7 +2841,7 @@ export type DiscernSkillsListResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2907,7 +2907,7 @@ export type DiscernSkillsEjectResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
-        | "ratchet";
+        | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
       note?: string;
@@ -2929,7 +2929,7 @@ export type DiscernSkillsEjectResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
-      | "ratchet";
+      | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
     note?: string;
@@ -2982,26 +2982,26 @@ export type DiscernCliJsonResult =
   | DiscernSetupVerifyResult
   | DiscernSetupStepResult
   | DiscernSetupDoneResult
-  | DiscernSetupLandResult
+  | DiscernSetupAcceptResult
   | DiscernUpgradeResult
   | DiscernUninstallResult
   | DiscernDoctorResult
   | DiscernPresetResult
-  | DiscernDocsResult
+  | DiscernMapResult
   | DiscernHelpResult
   | DiscernConfigResult
-  | DiscernFinishResult
+  | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
-  | DiscernImproveResult
-  | DiscernRatchetsResult
+  | DiscernImprovementResult
+  | DiscernStandardsResult
   | DiscernRefreshResult
-  | DiscernScopesResult
+  | DiscernImpactResult
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
-  | DiscernGraduateResult
-  | DiscernIntegrateResult
+  | DiscernAcceptResult
+  | DiscernUpdateResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
   | DiscernWorktreeDropResult
@@ -3014,26 +3014,26 @@ export interface DiscernResultByVerb {
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
-  "setup land": DiscernSetupLandResult;
+  "setup accept": DiscernSetupAcceptResult;
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
-  docs: DiscernDocsResult;
+  map: DiscernMapResult;
   help: DiscernHelpResult;
   config: DiscernConfigResult;
-  finish: DiscernFinishResult;
+  done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
-  improve: DiscernImproveResult;
-  ratchets: DiscernRatchetsResult;
+  improvement: DiscernImprovementResult;
+  standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
-  scopes: DiscernScopesResult;
+  impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
-  graduate: DiscernGraduateResult;
-  integrate: DiscernIntegrateResult;
+  accept: DiscernAcceptResult;
+  update: DiscernUpdateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
@@ -3048,30 +3048,30 @@ export interface DiscernResultByCommand {
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
-  "setup land": DiscernSetupLandResult;
+  "setup accept": DiscernSetupAcceptResult;
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   preset: DiscernPresetResult;
-  docs: DiscernDocsResult;
+  map: DiscernMapResult;
   help: DiscernHelpResult;
   "config set-capability": DiscernConfigResult;
   "config set-check": DiscernConfigResult;
   "config set-scope": DiscernConfigResult;
-  "config set-ratchet": DiscernConfigResult;
+  "config set-standard": DiscernConfigResult;
   "config set": DiscernConfigResult;
-  finish: DiscernFinishResult;
+  done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
-  improve: DiscernImproveResult;
-  ratchets: DiscernRatchetsResult;
+  improvement: DiscernImprovementResult;
+  standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
-  scopes: DiscernScopesResult;
+  impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
-  graduate: DiscernGraduateResult;
-  integrate: DiscernIntegrateResult;
+  accept: DiscernAcceptResult;
+  update: DiscernUpdateResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
@@ -3093,85 +3093,83 @@ export interface DiscernMcpToolResult<TStructuredContent> {
 
 export interface DiscernMcpStructuredContentByTool {
   discern_doctor: DiscernDoctorResult;
-  discern_docs: DiscernDocsResult;
+  discern_map: DiscernMapResult;
   discern_help: DiscernHelpResult;
-  discern_finish: DiscernFinishResult;
+  discern_done: DiscernDoneResult;
   discern_prepare: DiscernPrepareResult;
   discern_test: DiscernTestResult;
-  discern_improve: DiscernImproveResult;
-  discern_ratchets: DiscernRatchetsResult;
+  discern_improvement: DiscernImprovementResult;
+  discern_standards: DiscernStandardsResult;
   discern_refresh: DiscernRefreshResult;
-  discern_scopes: DiscernScopesResult;
+  discern_impact: DiscernImpactResult;
   discern_coupling: DiscernCouplingResult;
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
-  discern_graduate: DiscernGraduateResult;
-  discern_integrate: DiscernIntegrateResult;
+  discern_accept: DiscernAcceptResult;
+  discern_update: DiscernUpdateResult;
 }
 
 export interface DiscernMcpToolResultByTool {
   discern_doctor: DiscernMcpToolResult<DiscernDoctorResult>;
-  discern_docs: DiscernMcpToolResult<DiscernDocsResult>;
+  discern_map: DiscernMcpToolResult<DiscernMapResult>;
   discern_help: DiscernMcpToolResult<DiscernHelpResult>;
-  discern_finish: DiscernMcpToolResult<DiscernFinishResult>;
+  discern_done: DiscernMcpToolResult<DiscernDoneResult>;
   discern_prepare: DiscernMcpToolResult<DiscernPrepareResult>;
   discern_test: DiscernMcpToolResult<DiscernTestResult>;
-  discern_improve: DiscernMcpToolResult<DiscernImproveResult>;
-  discern_ratchets: DiscernMcpToolResult<DiscernRatchetsResult>;
+  discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
+  discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
-  discern_scopes: DiscernMcpToolResult<DiscernScopesResult>;
+  discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
-  discern_graduate: DiscernMcpToolResult<DiscernGraduateResult>;
-  discern_integrate: DiscernMcpToolResult<DiscernIntegrateResult>;
+  discern_accept: DiscernMcpToolResult<DiscernAcceptResult>;
+  discern_update: DiscernMcpToolResult<DiscernUpdateResult>;
 }
 
 export type DiscernMcpStructuredContent =
   | DiscernDoctorResult
-  | DiscernDocsResult
+  | DiscernMapResult
   | DiscernHelpResult
-  | DiscernFinishResult
+  | DiscernDoneResult
   | DiscernPrepareResult
   | DiscernTestResult
-  | DiscernImproveResult
-  | DiscernRatchetsResult
+  | DiscernImprovementResult
+  | DiscernStandardsResult
   | DiscernRefreshResult
-  | DiscernScopesResult
+  | DiscernImpactResult
   | DiscernCouplingResult
   | DiscernStatusResult
   | DiscernStartResult
-  | DiscernGraduateResult
-  | DiscernIntegrateResult;
+  | DiscernAcceptResult
+  | DiscernUpdateResult;
 
 export type DiscernMcpJsonResult =
   | DiscernDoctorMcpToolResult
-  | DiscernDocsMcpToolResult
+  | DiscernMapMcpToolResult
   | DiscernHelpMcpToolResult
-  | DiscernFinishMcpToolResult
+  | DiscernDoneMcpToolResult
   | DiscernPrepareMcpToolResult
   | DiscernTestMcpToolResult
-  | DiscernImproveMcpToolResult
-  | DiscernRatchetsMcpToolResult
+  | DiscernImprovementMcpToolResult
+  | DiscernStandardsMcpToolResult
   | DiscernRefreshMcpToolResult
-  | DiscernScopesMcpToolResult
+  | DiscernImpactMcpToolResult
   | DiscernCouplingMcpToolResult
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
-  | DiscernGraduateMcpToolResult
-  | DiscernIntegrateMcpToolResult;
+  | DiscernAcceptMcpToolResult
+  | DiscernUpdateMcpToolResult;
 
 export type DiscernDoctorMcpToolResult = DiscernMcpToolResult<
   DiscernDoctorResult
 >;
 
-export type DiscernDocsMcpToolResult = DiscernMcpToolResult<DiscernDocsResult>;
+export type DiscernMapMcpToolResult = DiscernMcpToolResult<DiscernMapResult>;
 
 export type DiscernHelpMcpToolResult = DiscernMcpToolResult<DiscernHelpResult>;
 
-export type DiscernFinishMcpToolResult = DiscernMcpToolResult<
-  DiscernFinishResult
->;
+export type DiscernDoneMcpToolResult = DiscernMcpToolResult<DiscernDoneResult>;
 
 export type DiscernPrepareMcpToolResult = DiscernMcpToolResult<
   DiscernPrepareResult
@@ -3179,20 +3177,20 @@ export type DiscernPrepareMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernTestMcpToolResult = DiscernMcpToolResult<DiscernTestResult>;
 
-export type DiscernImproveMcpToolResult = DiscernMcpToolResult<
-  DiscernImproveResult
+export type DiscernImprovementMcpToolResult = DiscernMcpToolResult<
+  DiscernImprovementResult
 >;
 
-export type DiscernRatchetsMcpToolResult = DiscernMcpToolResult<
-  DiscernRatchetsResult
+export type DiscernStandardsMcpToolResult = DiscernMcpToolResult<
+  DiscernStandardsResult
 >;
 
 export type DiscernRefreshMcpToolResult = DiscernMcpToolResult<
   DiscernRefreshResult
 >;
 
-export type DiscernScopesMcpToolResult = DiscernMcpToolResult<
-  DiscernScopesResult
+export type DiscernImpactMcpToolResult = DiscernMcpToolResult<
+  DiscernImpactResult
 >;
 
 export type DiscernCouplingMcpToolResult = DiscernMcpToolResult<
@@ -3207,10 +3205,10 @@ export type DiscernStartMcpToolResult = DiscernMcpToolResult<
   DiscernStartResult
 >;
 
-export type DiscernGraduateMcpToolResult = DiscernMcpToolResult<
-  DiscernGraduateResult
+export type DiscernAcceptMcpToolResult = DiscernMcpToolResult<
+  DiscernAcceptResult
 >;
 
-export type DiscernIntegrateMcpToolResult = DiscernMcpToolResult<
-  DiscernIntegrateResult
+export type DiscernUpdateMcpToolResult = DiscernMcpToolResult<
+  DiscernUpdateResult
 >;

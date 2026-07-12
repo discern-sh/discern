@@ -34,8 +34,8 @@ import {
 } from "../src/shared/config_schema.ts";
 import {
   resolveBriefPath,
-  resolveDocsDir,
   resolveGuidanceSeedRel,
+  resolveMapDir,
   resolveRecipesDir,
   resolveSkillsDir,
   resolveTodoPath,
@@ -89,8 +89,8 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "skills eject: the discern.toml writer + the configured skills dir",
   ],
   [
-    "src/engine/gate/ratchets.ts",
-    "the discern.toml writer (ratchets --pin re-pins a ratchet limit)",
+    "src/engine/gate/standards.ts",
+    "the discern.toml writer (standards --pin re-pins a standard limit)",
   ],
   [
     "src/lib/migrations.ts",
@@ -138,7 +138,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/engine/gate/receipt.ts",
-    "the gate-pass receipt — .git-internal, outside the project tree",
+    "the gate receipt — .git-internal, outside the project tree",
   ],
   // paths the user typed (explicit consent) or temp files (outside the tree)
   ["src/commands/docs.ts", "the user-typed docs-export --output path"],
@@ -273,7 +273,7 @@ async function contractPredicate(
   const prefixes: string[] = [];
 
   // The paths registry, through the resolvers.
-  prefixes.push(asPrefix(resolveDocsDir(root, config).rel));
+  prefixes.push(asPrefix(resolveMapDir(root, config).rel));
   prefixes.push(asPrefix(resolveSkillsDir(root, config).rel));
   prefixes.push(asPrefix(resolveRecipesDir(root, config).rel));
   exact.add(resolveTodoPath(root, config).rel);

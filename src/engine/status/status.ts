@@ -2,12 +2,12 @@
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
  * overlapping either: `doctor` answers "is it correctly installed?" (health),
- * `improve` answers "what should get better next?" (quality, changes rarely), and `status`
+ * `improvement` answers "what should get better next?" (quality, changes rarely), and `status`
  * answers "what changed and what now?" (situation, changes every commit) — so an
  * agent calls it reflexively at the start of a session.
  *
  * `status` is PURE OBSERVATION. It never runs the gate, runs tests, measures
- * ratchets, probes resource readiness, or creates/destroys anything. It does git
+ * standards, probes resource readiness, or creates/destroys anything. It does git
  * *reads*, file reads (`.env`, config), and identity derivation only — fast enough
  * to call reflexively. It reports what the gate WOULD fire and what CHANGED; it
  * never asserts a pass/fail it didn't verify.
@@ -36,7 +36,11 @@ import type {
   StatusWorktree,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { findRoot, installedConfigRel } from "../../shared/env.ts";
+import {
+  findRoot,
+  installedConfigRel,
+  NO_PROJECT_MESSAGE,
+} from "../../shared/env.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -88,10 +92,6 @@ import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 
-/** The not-inside-a-project message (matches the dispatcher / MCP server slug). */
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
-
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
@@ -136,7 +136,8 @@ export async function statusResult(
   }
 
   const cfg = await loadConfig(root);
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    cfg.project.main_branch;
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
   // the main checkout (or no git repo) does not.
@@ -165,7 +166,7 @@ export async function statusResult(
       mergeWarning = missingIntegrationBranchWarning(merged.branch);
     }
     // Compute the overlap only when behind in a worktree — the agent sees which of its
-    // own work main is about to touch BEFORE integrating. Read-only; never merges.
+    // own work main is about to touch BEFORE updating. Read-only; never merges.
     if (location === "worktree" && behind !== null && behind > 0) {
       const o = await incomingOverlap(root, mainBranch, STATUS_OVERLAP_CAP);
       if (o.total > 0) {
@@ -214,7 +215,7 @@ export async function statusResult(
     root,
     worktree,
     git,
-    ratchets: Object.keys(cfg.ratchets),
+    standards: Object.keys(cfg.standards),
   };
   const gateReceipt = location === "worktree"
     ? await inspectGateReceipt(root)
@@ -327,7 +328,7 @@ export async function statusResult(
 
   // Silent divergence (worktree view): this worktree is pristine while the main
   // checkout accumulates changes — the signature of edits landing on the trunk
-  // while the gate runs here. One wording, shared with `finish`.
+  // while the gate runs here. One wording, shared with `done`.
   const divergence = location === "worktree"
     ? await detectSilentDivergence(root, mainBranch)
     : undefined;
@@ -487,7 +488,7 @@ async function fleetEntryFor(
 
 /** What the gate would fire: the wired capabilities (canonical order), the declared
  * checks, and the scope gates the current change triggers — reusing the gate's own
- * scope-gate selection (`planScopeGates`) so status and `finish` agree. */
+ * scope-gate selection (`planScopeGates`) so status and `done` agree. */
 function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
   const capabilities = (Object.keys(KNOWN_CAPABILITIES) as Capability[])
     .filter((c) => toCommandList(cfg.capabilities[c]).length > 0);
@@ -538,8 +539,8 @@ export const START_HERE_HINT =
 /**
  * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
  * NOT on its configured trunk branch. An honest description of that state and the
- * way back: worktrees and graduation are unaffected on the pull side (new
- * worktrees fork from the trunk regardless), but graduation refuses to land while
+ * way back: worktrees and acceptance are unaffected on the pull side (new
+ * worktrees fork from the trunk regardless), but acceptance refuses to land while
  * the checkout is parked here, so the hint names the return path. A function, not
  * a constant, because the branch name is data the hint must report accurately
  * rather than hard-code; the human renderer reconstructs the exact same string
@@ -550,7 +551,7 @@ export function offTrunkStartHereHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
   return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
     `That's fine while you work with ${label} deliberately — new worktrees ` +
-    `still fork from the trunk — but graduation can't land until the checkout ` +
+    `still fork from the trunk — but \`discern accept\` can't land until the checkout ` +
     `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
     `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
     `worktree — each belongs to another line of work).`;
@@ -567,7 +568,7 @@ export function missingTrunkHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
   return `The configured trunk ('${trunk}', [project].main_branch) doesn't ` +
     `exist in this repository — the main checkout is on ${label}. Worktrees ` +
-    `can't fork from it and graduation can't land on it until they agree: set ` +
+    `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
     `[project].main_branch to the branch this project actually uses, or ` +
     `create the trunk (\`git branch ${trunk}\`).`;
 }
@@ -602,7 +603,7 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
-  /** Whether the current clean HEAD already has a recorded `discern finish` pass. */
+  /** Whether the current clean HEAD has an honored receipt from `discern done`. */
   gateReceipt: GateReceiptCheckData | undefined;
 }
 
@@ -710,8 +711,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         firedScopes.length > 0
           ? `Changes in ${
             firedScopes.join(", ")
-          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern finish\` on the clean HEAD before calling work done.`
-          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern finish` on the clean HEAD before calling work done.",
+          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern done\` on the clean HEAD before calling work done.`
+          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
       );
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
@@ -719,30 +720,30 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       const overlapNote = ov !== undefined && ov.total > 0
         ? ` ${ov.total} of your changed file(s) also changed upstream (${
           ov.overlap.slice(0, 3).join(", ")
-        }${ov.total > 3 ? ", …" : ""}) — re-check those after integrating.`
+        }${ov.total > 3 ? ", …" : ""}) — re-check those after updating.`
         : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; call \`discern integrate\` directly — it is idempotent and performs its own git preconditions — then run \`discern finish\` before handing off or any user-requested graduation.${overlapNote}`,
+        `Branch is ${g.behind_integration} behind ${main}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
       );
     }
     if (
       g.clean && g.behind_integration === 0 &&
       g.ahead_integration !== null && g.ahead_integration > 0
     ) {
-      // graduate would refuse against tracked changes in the main checkout — say so
+      // accept would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
       if (mainDirty) {
         hints.push(
-          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before any user-requested graduation can proceed.`,
+          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
         );
       } else if (ctx.gateReceipt?.status === "honored") {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has a recorded \`discern finish\` pass — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern graduate\` only if the user explicitly accepts.`,
+          `Committed, up to date with ${main}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
         );
       } else {
         hints.push(
-          `Committed and up to date with ${main}, but this clean HEAD has no recorded \`discern finish\` pass; run \`discern finish\` before reporting the branch ready for review or any user-requested graduation.`,
+          `Committed and up to date with ${main}, but this clean HEAD has no honored receipt from \`discern done\`; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
         );
       }
     }
@@ -849,7 +850,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         } unlanded work with no worktree: ${
           ctx.unlandedBranches.join(", ")
         }. Pull one into new work with \`discern start --from <branch>\` (or ` +
-          `\`discern integrate --from <branch>\` from an existing worktree), or ` +
+          `\`discern update --from <branch>\` from an existing worktree), or ` +
           `delete it with \`git branch -D <branch>\`.`,
       );
     }
@@ -879,7 +880,7 @@ export function idleDaysOf(
 }
 
 /** Whether the main checkout has uncommitted tracked changes — the cheap read that
- * lets the graduate-readiness hint warn that graduation would refuse. False when it
+ * lets the accept-readiness hint warn that acceptance would refuse. False when it
  * can't be resolved (no main repo, or we're already in it). */
 async function isMainCheckoutDirty(
   root: string,
@@ -909,11 +910,10 @@ export async function runStatus(
         ok: false,
         verb: "status",
         error: "not_initialized",
-        message: NO_PROJECT,
+        message: NO_PROJECT_MESSAGE,
       });
     } else {
-      console.error(`discern: ${NO_PROJECT}`);
-      console.error("       Run `discern setup` to scaffold one.");
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }
     return 1;
   }
@@ -938,7 +938,7 @@ function gateReceiptSummary(receipt: GateReceiptCheckData): string {
     case "honored":
       return "clean HEAD has a recorded pass";
     case "missing":
-      return "no recorded clean finish pass";
+      return "no recorded receipt for this clean commit";
     case "stale":
       return receipt.recorded !== undefined && receipt.head !== undefined
         ? `stale pass at ${receipt.recorded.slice(0, 12)}; HEAD is ${
@@ -1054,7 +1054,7 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
       }${dot}${state}${dot}${versus}\n`,
     );
     // When behind, the hot zone: the files you changed that the incoming main also
-    // changed — re-check these on integrating (a clean merge can still break them).
+    // changed — re-check these on updating (a clean merge can still break them).
     if (g.incoming_overlap !== undefined && g.incoming_overlap.length > 0) {
       out.raw(
         `  ${label("overlap")}${c.yellow}${
@@ -1103,12 +1103,12 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
 
   if (data.gate_receipt !== undefined) {
     out.raw(
-      `  ${label("finish")}${gateReceiptSummary(data.gate_receipt)}\n`,
+      `  ${label("done")}${gateReceiptSummary(data.gate_receipt)}\n`,
     );
   }
 
-  if (data.ratchets.length > 0) {
-    out.raw(`  ${label("ratchets")}${data.ratchets.join(", ")}\n`);
+  if (data.standards.length > 0) {
+    out.raw(`  ${label("standards")}${data.standards.join(", ")}\n`);
   }
 
   if (data.fleet !== undefined) {

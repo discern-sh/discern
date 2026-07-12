@@ -21,7 +21,7 @@ export const KIT_VERSION: string = denoJson.version;
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **17**. The chain: schema-1→2 backfills
+ * The current shape is schema **19**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -60,11 +60,13 @@ export const KIT_VERSION: string = denoJson.version;
  * duplicate `[worktree].enabled` key — every subsystem is core, discarded
  * non-default preferences are named in the notes, and a `features.skills =
  * false` becomes an authored `[skills].exclude` covering the bundled set (ADR
- * 0101); schema-16→17 **drops `[worktree].graduate_to`** — `discern graduate`
+ * 0101); schema-16→17 **drops `[worktree].graduate_to`** — `discern accept`
  * always lands on the trunk (the landing model's single push target; composing
  * work below the trunk happens on the pull axis, `start --from` /
- * `integrate --from` — ADR 0110). See `MIGRATIONS`. A config with no
+ * `update --from` — ADR 0110); schema-17→18 renames the `[ratchets]` quality-
+ * metric table to `[standards]`; schema-18→19 renames `[docs]` to `[map]` and
+ * pins the installed tree's current directory (ADR 0120). See `MIGRATIONS`. A config with no
  * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
  * version), then migrated forward.
  */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 19;

@@ -17,7 +17,7 @@ import {
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
@@ -78,13 +78,13 @@ export function resolveSkillsDir(
   return resolveDir(root, config.skills.dir);
 }
 
-/** The configured agent-documentation tree: `[docs].dir` (its default lives in
+/** The configured agent-documentation tree: `[map].dir` (its default lives in
  * the paths registry). */
-export function resolveDocsDir(
+export function resolveMapDir(
   root: string,
   config: DiscernConfig,
 ): ResolvedDir {
-  return resolveDir(root, normalizeDocsDir(config.docs.dir));
+  return resolveDir(root, normalizeMapDir(config.map.dir));
 }
 
 /**
@@ -218,12 +218,12 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 }
 
 /**
- * The repo-root staging directory `scripts/build.ts` lays the bundled docs into
+ * The repo-root staging directory `scripts/build.ts` lays the bundled help tree into
  * before `--include`-ing it (so customer binaries embed the public tree plus the
  * ADR allowlist, never `_private`/`_internal`). The single source of truth for the name,
  * shared by the build (which writes it) and {@link resolveBundledDocsDir} (which
- * reads it). It nests an inner `docs/` so the resolved tree's basename is `docs`
- * and indexed paths read `docs/…`, identical to a checkout.
+ * reads it). It nests an inner `docs/` so bundled-help document paths keep the
+ * stable `docs/…` shape used by the public interface.
  */
 export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
 
@@ -244,7 +244,7 @@ export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
  * leaks into every user's binary. `50-engine-internals` and `80-development` are
  * for people working ON discern (the dispatcher's internals, the Deno tasks, the
  * install surface), not people using it, so they are deliberately absent: a user
- * browsing `discern help` should see how to operate the harness, not how it is
+ * browsing `discern help` should see how to operate discern, not how it is
  * built. The one list the embed and the curation guard test read.
  */
 export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
@@ -257,7 +257,7 @@ export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
 ];
 
 /**
- * Whether a top-level `docs/` entry is embedded into the binary for
+ * Whether a top-level project-map entry is embedded into the binary for
  * `discern help`. Allowlisted, default-DENY on every axis: a `_`-prefixed tree
  * ships only when named in {@link BUNDLED_INTERNAL_DOC_DIRS} (the ADRs), a
  * numbered subtree only when it is a user-relevant one in
@@ -332,7 +332,7 @@ export async function resolveTemplatesDir(
 
 /**
  * Resolve the absolute path to discern's OWN bundled documentation — the tree
- * `discern help` serves, distinct from a project's `docs/` (which `discern docs`
+ * `discern help` serves, distinct from a project's map (which `discern map`
  * resolves via the project root). Like {@link resolveTemplatesDir} it is
  * discovered module-relative, so it works both under `deno run` from this
  * checkout and inside a `deno compile` binary built with the staged docs
@@ -342,8 +342,9 @@ export async function resolveTemplatesDir(
  *   1. `DISCERN_DOCS_DIR` env override (tests point this at a fixture).
  *   2. the build-staged PUBLIC docs embedded in a compiled binary, found by
  *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
- *      gives the tree a `docs/…` path shape identical to a checkout).
- *   3. this repo's own `docs/` when running from a checkout. Its internal
+ *      keeps bundled-help document paths stable).
+ *   3. this repo's own tree at `SOURCE_PATHS.map.defaultPath` when running from
+ *      a checkout. Its internal
  *      `_`-prefixed subtrees are filtered out by the VIEW (`includeInternal:
  *      false`), not the embed — only the staged path is curated at build time.
  *
@@ -358,14 +359,14 @@ export async function resolveBundledDocsDir(): Promise<string | undefined> {
   }
 
   // Walk up from this module's directory, preferring the staged public tree (a
-  // compiled binary) and falling back to the repo's `docs/` (a checkout).
+  // compiled binary) and falling back to the repo's registry-defined map (a checkout).
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const staged = join(dir, BUNDLED_DOCS_STAGE_DIR, "docs");
     if (await isDir(staged)) {
       return staged;
     }
-    const checkout = join(dir, "docs");
+    const checkout = join(dir, SOURCE_PATHS.map.defaultPath);
     if (await isDir(checkout)) {
       return checkout;
     }

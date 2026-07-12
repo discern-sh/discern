@@ -29,11 +29,11 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const repointed = await repointSourcePaths(dir);
-    const docsDir = repointed.find((p) => p.name === "docs")?.value;
+    const mapDir = repointed.find((p) => p.name === "map")?.value;
     const guidanceSrc = repointed.find((p) => p.name === "guidance")?.value;
     const skillsDir = repointed.find((p) => p.name === "skills")?.value;
     assert(
-      docsDir !== undefined && guidanceSrc !== undefined &&
+      mapDir !== undefined && guidanceSrc !== undefined &&
         skillsDir !== undefined,
     );
 
@@ -51,7 +51,7 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
 
     // Compiled guidance speaks the repointed layout and carries the user source.
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
-    assertStringIncludes(claude, docsDir);
+    assertStringIncludes(claude, mapDir);
     assertStringIncludes(claude, "ZZ custom rules");
 
     // Bundled skills render to the configured paths — and no registry default
@@ -59,7 +59,7 @@ Deno.test("engine on non-default paths: refresh compiles guidance and renders sk
     const adr = await Deno.readTextFile(
       join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
     );
-    assertStringIncludes(adr, `${docsDir}_adr/`);
+    assertStringIncludes(adr, `${mapDir}_adr/`);
     const defaults = SOURCE_PATH_NAMES.map((n) => SOURCE_PATHS[n].defaultPath);
     for await (
       const e of walk(join(dir, ".claude/skills"), {
@@ -98,7 +98,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     assertEquals(r.code, 0, r.output);
 
     // The full gate passes on the repointed layout exactly as on the default one.
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(JSON.parse(r.stdout).ok, true, r.output);
 
@@ -106,7 +106,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     // skills go stale, status reports it, and finish refuses until refresh.
     const configPath = join(dir, "discern.toml");
     const editor = new TomlEditor(await Deno.readTextFile(configPath));
-    editor.setString("docs.dir", "zz-alt2-docs/");
+    editor.setString("map.dir", "zz-alt2-docs/");
     await Deno.writeTextFile(configPath, editor.toString());
     await git(dir, "commit", "-aqm", "repoint docs", "--no-gpg-sign");
 
@@ -119,14 +119,14 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
       `status must flag rendered skills stale after a repoint\n${r.stdout}`,
     );
 
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, `finish must refuse stale skills\n${r.output}`);
     assertStringIncludes(r.output, "refresh");
 
     // Refresh re-renders; finish is green again and the skills speak the new path.
     r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
-    r = await runAgent(dir, ["finish", "--json"]);
+    r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(
       await Deno.readTextFile(

@@ -68,14 +68,14 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
 
 // ── docs config-reference ────────────────────────────────────────────────────
 
-Deno.test("docs/10-installer/config-reference.md matches the generator (run `deno task codegen`)", async () => {
+Deno.test("map/10-installer/config-reference.md matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    new URL("../docs/10-installer/config-reference.md", import.meta.url),
+    new URL("../map/10-installer/config-reference.md", import.meta.url),
   );
   assertEquals(
     committed,
     renderConfigReferenceDoc(),
-    "docs/10-installer/config-reference.md is stale — run `deno task codegen`",
+    "map/10-installer/config-reference.md is stale — run `deno task codegen`",
   );
 });
 
@@ -88,7 +88,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
     );
   }
   // a couple of describe() strings render verbatim (prose comes from the schema)
-  assert(doc.includes("never-loosen"));
+  assert(doc.includes("numbers that can never get worse"));
   assert(doc.includes("isolated-worktree workflow"));
 });
 
@@ -136,8 +136,8 @@ async function renderedTemplate(): Promise<string> {
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
-    docs_dir: "docs/",
-    scopes_neutral: '"${docs.dir}"',
+    map_dir: "map/",
+    scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
     kit_version: "1.0.0",
     project_name: "Demo",
@@ -185,7 +185,7 @@ Deno.test("every schema section appears in discern.toml.tmpl (no silent section 
 // EXAMPLE of the shipped template — the first config a visitor reads on GitHub. It
 // must therefore carry every FIXED key the template ships (its own values and
 // comments, plus extras like the project's real capabilities). Only the record
-// sections (checks / scopes / ratchets / worktree.resources) may diverge — those
+// sections (checks / scopes / standards / worktree.resources) may diverge — those
 // are the per-project customization zone.
 
 /** The dotted paths of every FIXED scalar/array/table key literally written in a
@@ -243,6 +243,6 @@ Deno.test("the repo's own discern.toml carries every fixed key the template ship
     `discern.toml has drifted from the template — missing key(s): ${
       missing.join(", ")
     }. Keep the root config at parity with templates/discern.toml.tmpl ` +
-      `(own values/comments fine; extra checks/scopes/ratchets/resources allowed).`,
+      `(own values/comments fine; extra checks/scopes/standards/resources allowed).`,
   );
 });

@@ -225,7 +225,7 @@ export function deriveMaxBasket(sizesAsc: number[]): number {
  * record format prefixes each commit with a Record-Separator byte so splitting the
  * output delimits commits without colliding with a path, and the `%h<TAB>%ad<TAB>%s`
  * header carries the identity the evidence view shows
- * (the same `git log` pretty-format `integrate` mines — ADR 0064). A git failure yields an
+ * (the same `git log` pretty-format `update` mines — ADR 0064). A git failure yields an
  * empty mine — the advisory simply stays silent (it never fails open into noise).
  *
  * Log paths are toplevel-relative whatever the cwd, so they are normalized to
@@ -447,7 +447,8 @@ async function diffCoupling(
   config: DiscernConfig,
   env: EnvReader,
 ): Promise<CouplingData> {
-  const mainBranch = env.get("MAIN_BRANCH") || config.project.main_branch;
+  const mainBranch = env.get("DISCERN_MAIN_BRANCH") ||
+    config.project.main_branch;
   const raw = await collectPaths(root, mainBranch);
   const changed = [
     ...new Set(
@@ -592,7 +593,7 @@ function couplingHints(
     hints.push(
       "Co-change advisory (from git history; advisory only, never blocks, and NOT " +
         "exhaustive) — files that usually change with what you've changed on this branch " +
-        "(vs the integration branch) but aren't among those changes:",
+        "(vs the trunk, the shared landing branch) but aren't among those changes:",
     );
     for (const p of shown) {
       hints.push(
@@ -708,7 +709,7 @@ function partnerRow(
 }
 
 /** One evidence commit row: `<sha>  <date>  <subject>` — the same `  sha  subject` shape
- * `integrate` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
+ * `update` narrates (ADR 0064), plus the date, the sha cyan and the date dim. */
 function evidenceRow(
   commit: NonNullable<CouplingData["commits"]>[number],
   c: Out["c"],
@@ -803,7 +804,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     out.heading("Co-change advisory");
     out.raw(
       `  ${c.dim}Files that usually change with ${changedPhrase} (vs ` +
-        `the integration branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
+        `the trunk, the shared landing branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
     );
     // Group partners under the file that drew them, in ranked order (the Map keeps
     // first-seen order, and data.partners is already ranked strongest-first).

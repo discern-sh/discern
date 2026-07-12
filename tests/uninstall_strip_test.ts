@@ -21,8 +21,8 @@ const UNINSTALL_SRC = join(
   "uninstall.ts",
 );
 
-const BEGIN = "# --- discern harness ---";
-const END = "# --- /discern harness ---";
+const BEGIN = "# --- discern ---";
+const END = "# --- /discern ---";
 
 Deno.test("removeGitignoreBlock keeps the user's rules on both sides of the block", () => {
   const text = [
@@ -40,7 +40,7 @@ Deno.test("removeGitignoreBlock keeps the user's rules on both sides of the bloc
   assert(out !== null);
   assert(out.includes("node_modules/"));
   assert(out.includes("*.log"));
-  assert(!out.includes("discern harness"));
+  assert(!out.includes("# --- discern ---"));
   assert(!out.includes("/CLAUDE.md"));
 });
 

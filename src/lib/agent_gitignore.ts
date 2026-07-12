@@ -15,8 +15,8 @@ import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { runGit } from "../shared/subprocess.ts";
 
-export const DISCERN_GITIGNORE_BEGIN = "# --- discern harness ---";
-export const DISCERN_GITIGNORE_END = "# --- /discern harness ---";
+export const DISCERN_GITIGNORE_BEGIN = "# --- discern ---";
+export const DISCERN_GITIGNORE_END = "# --- /discern ---";
 
 const GITIGNORE_FRAGMENT_NAME = ".gitignore.fragment";
 const TARGET_REL = ".gitignore";

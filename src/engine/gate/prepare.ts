@@ -2,7 +2,7 @@
  * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage fixers
  * (serial; order matters), then the read-only check-stage jobs (no build, no
  * tests). It runs through the gate's job runner, so a failure is captured into the
- * SAME `steps[]` + structured `diagnostics[]` `finish` returns — the act→read→fix
+ * SAME `steps[]` + structured `diagnostics[]` `done` returns — the act→read→fix
  * loop, not a bare `ok:false` (ADR 0028).
  *
  * One core ({@link runPrepareGate}) builds the groups and runs them; {@link
@@ -12,7 +12,7 @@
  * 0030), with a failure's output captured into its diagnostic rather than streamed.
  *
  * On a GREEN, bootstrapped run it appends the diff-aware co-change advisory (ADR 0084)
- * at the tail — behind the same `[coupling].in_gate` flag `finish` honours — so the
+ * at the tail — behind the same `[coupling].in_gate` flag `done` honours — so the
  * nudge meets the change while it is hot in the inner loop. Best-effort and advisory:
  * it touches only `hints`, never prepare's pass/fail, and is skipped on a failed run.
  */

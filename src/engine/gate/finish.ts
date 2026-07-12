@@ -1,5 +1,5 @@
 /**
- * `finish` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
+ * `done` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
  * pure {@link GatePlan} (the job groups + scope-gates + merge check) is computed
  * first (`buildGatePlan`, from the typed config and the changed scopes), then a
  * thin executor applies it. `--dry-run` renders the plan and touches nothing;
@@ -73,7 +73,7 @@ import {
  * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
  * with a `default`), so a new failed-stage label is a COMPILE error here until it is
  * given a message — it can never silently fall through to a generic "a stage failed".
- * Only `finish` looks a message up (its `check`/`test` are fused into `check/test`);
+ * Only `done` looks a message up (its `check`/`test` are fused into `check/test`);
  * `prepare`/`test` print their own inline headline, so the `check`/`test` entries
  * exist for vocabulary completeness rather than a current caller.
  */
@@ -93,10 +93,10 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   merge:
-    "Run `discern integrate` to bring the trunk in and re-materialize, then re-run finish.",
+    "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
 };
 
-/** The human die message for a failed stage. Exported so `graduate` names the stage
+/** The human die message for a failed stage. Exported so `accept` names the stage
  * the same way when it refuses to land a branch the gate rejected (ADR 0067). */
 export function failMessage(stage: FailedStage): string {
   return FAIL_MESSAGES[stage];
@@ -230,12 +230,13 @@ async function runGate(
   // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
   //    relationship is invariant across the gate (finish never fetches or commits, so
   //    neither HEAD nor main moves), so checking here gives the SAME answer as checking
-  //    last would — but a branch behind main must integrate and re-run regardless,
+  //    last would — but a branch behind main must update and re-run regardless,
   //    which discards whatever the gate computed against the pre-integration tree.
   //    Front-loading it skips the expensive fix/build/check/test in exactly that case.
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
-  const mainBranch = Deno.env.get("MAIN_BRANCH") || cfg.project.main_branch;
+  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    cfg.project.main_branch;
   let mergeWarning: string | undefined;
   const merged = await assertMainMerged(root, mainBranch);
   if (merged.kind === "behind") {
@@ -259,7 +260,7 @@ async function runGate(
   //     can put generated agent files, materialized skills, or machine-local provider
   //     state into the index despite the canonical .gitignore block. Block before the
   //     currency checks: a tracked generated file can be byte-current, but it is still
-  //     the wrong review unit and would graduate a derivative into history.
+  //     the wrong review unit and would accept a derivative into history.
   let trackedArtifactsDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const tracked = await trackedDiscernIgnoredArtifacts(root);
@@ -391,8 +392,8 @@ async function runGate(
   const receipt = failedStage === null
     ? await buildGateReceipt(root, mainBranch, result.steps ?? [])
     : undefined;
-  // Record the gate-pass receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // HEAD pinned at gate start so `graduate` can prove THIS tree already passed without
+  // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
   // the gate, but the outcome rides in `data` so suppressed logs still expose receipt
   // trouble.
@@ -459,20 +460,20 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate-pass receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern finish` on the clean HEAD before handoff or graduation.";
+        return "Gate passed, but no gate receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
       case "skipped_head_moved":
-        return `Gate passed, but no gate-pass receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern finish\` on the final commit before handoff or graduation.`;
+        return `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
       case "record_failed":
-        return `Gate passed, but discern could not record the gate-pass receipt${reason}; \`discern graduate\` will re-run the gate unless a later finish records one.`;
+        return `Gate passed, but discern could not record the gate receipt${reason}; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`;
       case "unavailable":
-        return `Gate passed, but discern could not prepare the gate-pass receipt${reason}; \`discern graduate\` may need to re-run the gate.`;
+        return `Gate passed, but discern could not prepare the gate receipt${reason}; \`discern accept\` may need to re-run the gate.`;
       case "cleared":
       case "clear_failed":
         return undefined;
     }
   }
   if (receipt.status === "clear_failed") {
-    return `The gate failed, and discern could not clear the previous gate-pass receipt${reason}; re-run \`discern finish\` after fixing the failure.`;
+    return `The gate failed, and discern could not clear the previous gate receipt${reason}; re-run \`discern done\` after fixing the failure.`;
   }
   return undefined;
 }
@@ -482,7 +483,7 @@ function gateReceiptHint(
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
  * human success tail. On a failure: where the project documents its known gate
  * failures (when a `gotchas_doc` is set). On success: update the docs, check the
- * ratchets, view a previewable change.
+ * standards, view a previewable change.
  */
 function buildGateHints(
   cfg: DiscernConfig,
@@ -501,15 +502,15 @@ function buildGateHints(
   }
   const hints = receiptEmitted
     ? [
-      "If this completes the task, relay the receipt to your owner and stop; run `discern graduate` only once they accept.",
+      "If this completes the task, relay the receipt to your owner and stop; run `discern accept` only once they accept.",
     ]
     : [];
   hints.push(
     "If you changed documented behaviour, update the docs to match before you finish.",
   );
-  if (cleanFinishRecorded && Object.keys(cfg.ratchets).length > 0) {
+  if (cleanFinishRecorded && Object.keys(cfg.standards).length > 0) {
     hints.push(
-      "Run ratchets as needed with `discern ratchets` (slow and outside `discern finish`; non-dry-run ratchets require a clean worktree unless forced for ratchet authoring).",
+      "Run standards as needed with `discern standards` (slow and outside `discern done`; non-dry-run standards require a clean worktree unless forced for standard authoring).",
     );
   }
   if (
@@ -578,7 +579,7 @@ async function dryRunGate(
   const engine = gatePlanToEngine(plan);
   if (json) {
     // A preview is a DiscernResult carrying `plan` + `dry_run` (no `steps`).
-    emitResult(previewResult("finish", engine));
+    emitResult(previewResult("done", engine));
     return 0;
   }
   renderPlan(outSink(makeOut(colorEnabled())), engine);
@@ -586,7 +587,7 @@ async function dryRunGate(
 }
 
 /**
- * Compute the `finish` {@link DiscernResult} without printing or exiting — the
+ * Compute the `done` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server (and any in-process caller) renders instead of the
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
  * runs the gate, routing the human narration to stderr (json semantics) so a
@@ -602,14 +603,14 @@ export async function finishResult(
     const cfg = await loadConfig(root);
     const changed = await classifyScopes(root, cfg);
     return previewResult(
-      "finish",
+      "done",
       gatePlanToEngine(buildGatePlan(cfg, changed)),
     );
   }
   return (await runGate(root, true, opts.signal)).result;
 }
 
-/** Run `finish`. Returns a process exit code. */
+/** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
   opts: { json: boolean; dryRun?: boolean },
@@ -626,7 +627,7 @@ export async function runFinish(
     renderFailureTail(out, {
       cfg,
       root,
-      verb: "finish",
+      verb: "done",
       headline: failMessage(failedStage),
       diagnostics: result.diagnostics ?? [],
     });

@@ -39,7 +39,7 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
     assert(
-      agents.startsWith("# Working with the discern harness"),
+      agents.startsWith("# Working with discern"),
       "the canonical file opens with the guidance — no banner",
     );
     assertStringIncludes(
@@ -170,8 +170,8 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
 });
 
 Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolation is real, not cosmetic)", async () => {
-  // Bare = schema defaults (branch_prefix agent/, main_branch main, no ratchets,
-  // no resources). Rich = custom branch/main, a ratchet, and a resource declared.
+  // Bare = schema defaults (branch_prefix agent/, main_branch main, no standards,
+  // no resources). Rich = custom branch/main, a standard, and a resource declared.
   const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
   const rich = await Deno.makeTempDir({ prefix: "discern-tmpl-rich-" });
   try {
@@ -187,7 +187,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         'main_branch = "trunk"',
         "[guidance]",
         'agents = ["codex"]',
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         "limit = 80",
         'run = "echo DISCERN_METRIC coverage 80"',
         "[worktree.resources.db]",
@@ -214,9 +214,15 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "custom main_branch replaces the default",
     );
 
-    // {{#if has_ratchets}} drops the whole section unless a ratchet is declared.
-    assert(!bareBody.includes("## Quality ratchets"), "no inert ratchet prose");
-    assert(richBody.includes("## Quality ratchets"), "ratchet section present");
+    // {{#if has_standards}} drops the whole section unless a standard is declared.
+    assert(
+      !bareBody.includes("## Quality standards"),
+      "no inert standard prose",
+    );
+    assert(
+      richBody.includes("## Quality standards"),
+      "standard section present",
+    );
 
     // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
     assert(
@@ -231,15 +237,15 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
 
     assert(
       bareBody.includes("explicit user handoff/land request"),
-      "graduation requires an explicit user ask",
+      "acceptance requires an explicit user ask",
     );
     assert(
       bareBody.includes("relay the receipt to your owner and stop"),
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(
-      bareBody.includes("graduate only once they accept"),
-      "green finish is not treated as permission to graduate",
+      bareBody.includes("call it only once they explicitly ask you to land"),
+      "green finish is not treated as permission to accept",
     );
   } finally {
     await Deno.remove(bare, { recursive: true });
@@ -302,7 +308,7 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
         'branch_prefix = "wt/"',
         "[guidance]",
         'agents = ["claude_code", "codex"]',
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         "limit = 80",
         'run = "echo hi"',
         "[worktree.resources.db]",
@@ -329,14 +335,14 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
       body.includes("MCP server is **unreachable**"),
       "carries the fallback instruction",
     );
-    assert(body.includes("discern_finish"), "names the gate as a tool");
+    assert(body.includes("discern_done"), "names the gate as a tool");
     // ...and the de-duplicated content is gone (cut, not relocated twice).
     assert(
       !body.includes("Machine-readable output"),
       "the verbose --json/MCP section is removed",
     );
     assert(
-      !body.includes("discern_scopes"),
+      !body.includes("discern_impact"),
       "the enumerated tool roster is cut",
     );
   } finally {
@@ -372,8 +378,8 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
         '[project]\nmain_branch = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
       expect: "zztrunk",
     },
-    docs_dir: {
-      toml: '[docs]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
+    map_dir: {
+      toml: '[map]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
       expect: "zz-docs/",
     },
     todo_path: {

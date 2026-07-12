@@ -1,7 +1,7 @@
 # Clean-Room Setup Eval Protocol
 
-This is a dev-side harness for measuring the human-facing `discern setup`
-experience. It is not shipped, not part of CI, and not part of `discern finish`.
+This is a dev-side runner for measuring the human-facing `discern setup`
+experience. It is not shipped, not part of CI, and not part of `discern done`.
 The operator runs it locally with their own agent subscriptions, then grades the
 captured transcripts against `rubric.md`.
 
@@ -63,7 +63,7 @@ Two known constants to keep in mind while grading:
 - The first turn's "ask me and then stop" line is a deliberate exception, needed
   so headless phase one ends at the consent conversation. Grade the
   Wait-boundary row as necessary-but-not-sufficient because of it.
-- The turn count is the agent's, not the harness's. An agent that honors the
+- The turn count is the agent's, not the runner's. An agent that honors the
   brief's discovery batch ends its continuation turn waiting for answers, so the
   runner sends a generic keep-going nudge ("my earlier answers stand, anything I
   didn't specify is your call") until setup genuinely completes — checked from

@@ -1,4 +1,4 @@
-# --- discern harness ---
+# --- discern ---
 # These are discern's generated agent files, materialized skills,
 # and local provider state. discern manages these files for you,
 # and refreshes them automatically, so you shouldn't edit this
@@ -10,4 +10,4 @@
 /.claude/*
 !/.claude/settings.json
 /.agents/skills/
-# --- /discern harness ---
+# --- /discern ---

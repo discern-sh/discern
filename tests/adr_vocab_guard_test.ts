@@ -27,11 +27,28 @@ import { dirname, fromFileUrl, join, relative } from "@std/path";
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
+const MAP = join(REPO_ROOT, "map");
+const ADRS = join(MAP, "_adr");
+const MOCKUPS = join(REPO_ROOT, "mockups");
+const RECIPES = join(REPO_ROOT, "recipes");
+const SKILLS = join(REPO_ROOT, "skills");
+const TEMPLATE_FIXTURES = join(REPO_ROOT, "tests", "fixtures", "templates");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 /** A numbered ADR file path; the shipped skeleton's 0000-template is the one legal number. */
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
+/** Retired product-category wording; one README category phrase remains searchable. */
+const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
+/** Retired human-facing name for the shared branch; user copy calls it the trunk. */
+const INTEGRATION_BRANCH = /\bintegration branch\b/gi;
+/** Callable/config/artifact pointers that are legal only in reviewed history. */
+const RETIRED_ADR_POINTER =
+  /\b(?:discern|agent)[ _](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality [Rr]atchet\b|\b[Rr]atchet feature\b|\b[Tt]he harness\b|\b[Hh]arness's\b/g;
+const RETIRED_ACTIVE_ADR_PATH =
+  /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
+const ADR_0120_AMENDMENT =
+  "Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md))";
 
 type Literal = { text: string; line: number };
 
@@ -174,6 +191,34 @@ function citationsIn(text: string): string[] {
   ];
 }
 
+/** Visible Markdown text: link destinations are addresses, not rendered prose. */
+function visibleMarkdown(text: string): string {
+  return text.replace(/\]\([^)]*\)/g, "]");
+}
+
+/** Human-readable line findings for a retired word in a text artifact. */
+function harnessLines(rel: string, text: string): string[] {
+  const findings: string[] = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    const hits = line.match(HARNESS_WORD) ?? [];
+    for (const hit of hits) {
+      findings.push(`${rel}:${index + 1} contains "${hit}"`);
+    }
+  }
+  return findings;
+}
+
+/** Human-readable line findings for the retired shared-branch label. */
+function integrationBranchLines(rel: string, text: string): string[] {
+  const findings: string[] = [];
+  for (const [index, line] of text.split("\n").entries()) {
+    for (const hit of line.match(INTEGRATION_BRANCH) ?? []) {
+      findings.push(`${rel}:${index + 1} contains "${hit}"`);
+    }
+  }
+  return findings;
+}
+
 Deno.test("src/ string literals never cite ADR numbers", async () => {
   const offenders: string[] = [];
   for await (
@@ -216,6 +261,182 @@ Deno.test("shipped templates/ never cite ADR numbers", async () => {
     [],
     "internal ADR citations leaked into the shipped surface — the copy must " +
       `stand alone for other projects:\n  ${offenders.join("\n  ")}`,
+  );
+});
+
+Deno.test("user-facing source strings never use the retired harness category", async () => {
+  const offenders: string[] = [];
+  for await (
+    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  ) {
+    const source = await Deno.readTextFile(entry.path);
+    const rel = relative(REPO_ROOT, entry.path);
+    for (const { text, line } of stringLiterals(source)) {
+      for (const hit of text.match(HARNESS_WORD) ?? []) {
+        offenders.push(`${rel}:${line} string contains "${hit}"`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked into a user-facing source string:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+Deno.test("shipped templates, template fixtures, skills, recipes, and public map prose never use the retired harness category", async () => {
+  const offenders: string[] = [];
+  for (
+    const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, RECIPES, MAP]
+  ) {
+    for await (const entry of walk(root, { includeDirs: false })) {
+      const rel = relative(REPO_ROOT, entry.path);
+      if (
+        rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")
+      ) continue;
+      let contents: string;
+      try {
+        contents = await Deno.readTextFile(entry.path);
+      } catch {
+        continue;
+      }
+      offenders.push(...harnessLines(rel, visibleMarkdown(contents)));
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked into shipped or public map prose:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+Deno.test("root guidance, config, and landing mockups retire harness; README keeps one category phrase", async () => {
+  const offenders: string[] = [];
+  for (const rel of ["CONTRIBUTING.md", "guidance.md", "discern.toml"]) {
+    offenders.push(
+      ...harnessLines(
+        rel,
+        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+      ),
+    );
+  }
+  for await (const entry of walk(MOCKUPS, { includeDirs: false })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    offenders.push(...harnessLines(rel, await Deno.readTextFile(entry.path)));
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired harness wording leaked outside the README category exception:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+
+  const readme = visibleMarkdown(
+    await Deno.readTextFile(join(REPO_ROOT, "README.md")),
+  );
+  assertEquals(
+    readme.match(HARNESS_WORD) ?? [],
+    ["harness"],
+    "README.md keeps exactly one searchable category use",
+  );
+  assert(
+    /\bquality harness\b/i.test(readme),
+    'README.md\'s sole category use must read "quality harness"',
+  );
+});
+
+Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", async () => {
+  const offenders: string[] = [];
+  for await (const entry of walk(ADRS, { includeDirs: false, maxDepth: 1 })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (
+      !rel.endsWith(".md") ||
+      rel.endsWith("/0000-template.md") ||
+      rel.endsWith("/README.md") ||
+      rel.endsWith("/0120-launch-verb-canon.md")
+    ) continue;
+    const contents = await Deno.readTextFile(entry.path);
+    const retired = contents.match(RETIRED_ADR_POINTER) ?? [];
+    if (retired.length > 0 && !contents.includes(ADR_0120_AMENDMENT)) {
+      offenders.push(
+        `${rel} retains ${
+          JSON.stringify(retired[0])
+        } without an ADR 0120 amendment`,
+      );
+    }
+    const name = rel.slice(rel.lastIndexOf("/") + 1);
+    if (RETIRED_ACTIVE_ADR_PATH.test(name)) {
+      offenders.push(`${rel} retains retired vocabulary in its active path`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `untriaged launch vocabulary remains in the active ADR set:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+Deno.test("user-facing output consistently calls the shared branch the trunk", async () => {
+  const offenders: string[] = [];
+  for await (
+    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  ) {
+    const source = await Deno.readTextFile(entry.path);
+    const rel = relative(REPO_ROOT, entry.path);
+    for (const { text, line } of stringLiterals(source)) {
+      for (const hit of text.match(INTEGRATION_BRANCH) ?? []) {
+        offenders.push(`${rel}:${line} string contains "${hit}"`);
+      }
+    }
+  }
+
+  for (const root of [TEMPLATES, RECIPES, MAP, MOCKUPS]) {
+    for await (const entry of walk(root, { includeDirs: false })) {
+      const rel = relative(REPO_ROOT, entry.path);
+      if (rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")) {
+        continue;
+      }
+      let contents: string;
+      try {
+        contents = await Deno.readTextFile(entry.path);
+      } catch {
+        continue;
+      }
+      offenders.push(
+        ...integrationBranchLines(rel, visibleMarkdown(contents)),
+      );
+    }
+  }
+
+  for (
+    const rel of [
+      "README.md",
+      "CONTRIBUTING.md",
+      "guidance.md",
+      "discern.toml",
+    ]
+  ) {
+    offenders.push(
+      ...integrationBranchLines(
+        rel,
+        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+      ),
+    );
+  }
+
+  assertEquals(
+    offenders,
+    [],
+    `retired shared-branch wording leaked into user-facing output:\n  ${
+      offenders.join("\n  ")
+    }`,
   );
 });
 

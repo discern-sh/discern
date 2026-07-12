@@ -40,8 +40,8 @@ function ctx(
     guidancePlaceholder: false,
     gotchasDocSet: false,
     gotchasDocExists: false,
-    docsTree: false,
-    docsDir: "docs/",
+    mapTree: false,
+    mapDir: "docs/",
     adrCount: 0,
     agentFilePresent: false,
     authoredSkills: 0,
@@ -62,7 +62,7 @@ format = "true"
 lint = "true"
 test = "true"
 [worktree]
-[ratchets.coverage]
+[standards.coverage]
 limit = 1
 run = "echo"
 `,
@@ -72,7 +72,7 @@ run = "echo"
       guidanceChars: 1000,
       gotchasDocSet: true,
       gotchasDocExists: true,
-      docsTree: true,
+      mapTree: true,
       adrCount: 3,
       agentFilePresent: true,
       authoredSkills: 1,
@@ -237,7 +237,7 @@ Deno.test("improve scoring: partial credit moves the score between fail and pass
 Deno.test("improve scoring: every catalog category is always reviewed (ADR 0101)", () => {
   const report = evaluateReport(ctx(""));
   const names = report.categories.map((c) => c.name);
-  assert(names.includes("ratchets"), "ratchets category is always reviewed");
+  assert(names.includes("standards"), "standards category is always reviewed");
   assert(names.includes("skills"), "skills category is always reviewed");
   assert(names.includes("gate") && names.includes("setup"));
 });

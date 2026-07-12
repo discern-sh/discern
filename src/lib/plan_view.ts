@@ -58,7 +58,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     o.targetRel !== "discern.toml" && !integrationSet.has(o)
   );
 
-  log.heading(`discern will set up its harness in ${destDir}`);
+  log.heading(`discern will set itself up in ${destDir}`);
   log.line(
     log.dim(
       `  ${ops.length} files. It never overwrites anything you already have.`,
@@ -93,7 +93,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       const what = op.disposition === "merge"
         ? "merged into your existing settings"
         : op.disposition === "append"
-        ? "the harness section reconciled in your .gitignore"
+        ? "the discern section reconciled in your .gitignore"
         : "created";
       log.line(row(log, op.targetRel, what));
     }

@@ -1,5 +1,5 @@
 /**
- * Engine coverage for the gate's merge precondition (ADR 0050): `finish` checks
+ * Engine coverage for the gate's merge precondition (ADR 0050): `done` checks
  * that the branch contains the latest `main` FIRST and fail-fast, so a branch
  * behind `main` is rejected *before* the expensive fix/build/check/test run — the
  * work the forced re-integration would discard anyway. The regression guard for
@@ -41,7 +41,7 @@ const CONFIG = [
 /**
  * A scaffolded main repo carrying {@link CONFIG}, with one linked worktree, where
  * `main` has since moved one commit ahead of the worktree's branch. Returns the
- * worktree path — ready to drive a behind-`main` `finish`.
+ * worktree path — ready to drive a behind-`main` `done`.
  */
 async function worktreeBehindMain(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
@@ -56,11 +56,11 @@ async function worktreeBehindMain(dir: string, name: string): Promise<string> {
   return wt;
 }
 
-Deno.test("finish fails fast on the merge precondition when behind main — the capability never runs", async () => {
+Deno.test("done fails fast on the merge precondition when behind main — the capability never runs", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behind");
 
-    const r = await runAgent(wt, ["finish"]);
+    const r = await runAgent(wt, ["done"]);
 
     assertEquals(r.code, 1, r.output);
     // The fail-fast precondition skipped the stages: the capability's marker is
@@ -69,17 +69,17 @@ Deno.test("finish fails fast on the merge precondition when behind main — the 
       !r.output.includes(MARKER),
       `the capability must not run when behind main\n${r.output}`,
     );
-    // ...and the human tail names the remedy: the deterministic `discern integrate`
+    // ...and the human tail names the remedy: the deterministic `discern update`
     // verb (which brings main in and re-materializes), not a bare `git merge`.
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "discern update");
   });
 });
 
-Deno.test("finish --json behind main: failed_stage is merge and every step is skipped", async () => {
+Deno.test("done --json behind main: failed_stage is merge and every step is skipped", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behindjson");
 
-    const r = await runAgent(wt, ["finish", "--json"]);
+    const r = await runAgent(wt, ["done", "--json"]);
 
     assertEquals(r.code, 1, r.output);
     const obj = JSON.parse(r.stdout);
@@ -94,7 +94,7 @@ Deno.test("finish --json behind main: failed_stage is merge and every step is sk
   });
 });
 
-Deno.test("finish up to date: the merge precondition passes and the capability runs", async () => {
+Deno.test("done up to date: the merge precondition passes and the capability runs", async () => {
   await withTempDir(async (dir) => {
     // The positive control: same config + worktree, but `main` has NOT moved, so
     // the precondition is a no-op and the gate proceeds to run the capability.
@@ -103,14 +103,14 @@ Deno.test("finish up to date: the merge precondition passes and the capability r
     await gitInit(dir);
     const wt = await addWorktree(dir, "current");
 
-    const r = await runAgent(wt, ["finish"]);
+    const r = await runAgent(wt, ["done"]);
 
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, MARKER);
   });
 });
 
-Deno.test("finish warns when the configured integration branch is missing locally", async () => {
+Deno.test("done warns when the configured trunk is missing locally", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -118,21 +118,21 @@ Deno.test("finish warns when the configured integration branch is missing locall
     await git(dir, "branch", "-m", "trunk");
     const wt = await addWorktree(dir, "missing-main");
 
-    const human = await runAgent(wt, ["finish"]);
+    const human = await runAgent(wt, ["done"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(
       human.output,
-      "local integration branch 'main' is missing",
+      "trunk branch 'main' is not available locally",
     );
     assertStringIncludes(human.output, "[project].main_branch");
     assertStringIncludes(human.output, MARKER);
 
-    const json = await runAgent(wt, ["finish", "--json"]);
+    const json = await runAgent(wt, ["done", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = JSON.parse(json.stdout);
     assert(
       (obj.hints ?? []).some((h: string) =>
-        h.includes("local integration branch 'main' is missing") &&
+        h.includes("trunk branch 'main' is not available locally") &&
         h.includes("[project].main_branch")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,

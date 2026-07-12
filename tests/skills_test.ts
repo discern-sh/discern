@@ -408,7 +408,7 @@ Deno.test("ejectSkill rejects an unknown skill, listing the available ones", asy
 Deno.test("materialization renders bundled markdown against the configured paths", async () => {
   await withTempDir(async (root) => {
     const config = parseConfigOrThrow(
-      '[docs]\ndir = "zz-atlas/"\n\n[project]\ntodo = "zz-ledger.md"\n',
+      '[map]\ndir = "zz-atlas/"\n\n[project]\ntodo = "zz-ledger.md"\n',
     );
     await materializeSkills(root, config, CLAUDE_SKILLS);
     const skillsAbs = claudeSkillsDirOf(root);
@@ -440,7 +440,7 @@ Deno.test("materialization renders bundled markdown against the configured paths
 Deno.test("ejectSkill renders markdown — an authored copy speaks the project's paths, not tokens", async () => {
   await withTempDir(async (root) => {
     const config = parseConfigOrThrow(
-      '[skills]\ndir = "skills"\n\n[docs]\ndir = "zz-atlas/"\n',
+      '[skills]\ndir = "skills"\n\n[map]\ndir = "zz-atlas/"\n',
     );
     const r = await ejectSkill(root, config, "discern-write-adr");
     const text = await Deno.readTextFile(join(r.destAbs, "SKILL.md"));

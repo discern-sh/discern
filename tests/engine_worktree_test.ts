@@ -83,7 +83,7 @@ async function assertLandingGuidanceRefreshed(
   assertStringIncludes(
     await Deno.readTextFile(join(dir, "CLAUDE.md")),
     marker,
-    "graduation should refresh generated guidance in the checkout it leaves behind",
+    "acceptance should refresh generated guidance in the checkout it leaves behind",
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
@@ -93,7 +93,7 @@ async function assertLandingGuidanceRefreshed(
   assertEquals(
     result.data.stale_generated ?? [],
     [],
-    `generated guidance should be current after graduation\n${status.stdout}`,
+    `generated guidance should be current after acceptance\n${status.stdout}`,
   );
 }
 
@@ -162,14 +162,14 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
   });
 });
 
-Deno.test("graduate: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
+Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gamma");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -192,17 +192,17 @@ Deno.test("graduate: fast-forwards the trunk, removes the worktree, deletes the 
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
-    assertStringIncludes(r.output, "Graduation complete");
+    assertStringIncludes(r.output, "Acceptance complete");
   });
 });
 
-Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
+Deno.test("accept: refreshes the trunk checkout after landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-refresh");
-    const marker = "Trunk Graduation Refresh";
+    const marker = "Trunk Acceptance Refresh";
     await commitGuidanceMarker(wt, marker);
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
@@ -213,7 +213,7 @@ Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
       result.steps.some((s) =>
         s.label === "refresh agent files" && s.outcome === "ok"
       ),
-      `graduate should report the post-landing refresh\n${r.stdout}`,
+      `accept should report the post-landing refresh\n${r.stdout}`,
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -229,7 +229,7 @@ Deno.test("graduate: refreshes the trunk checkout after landing", async () => {
   });
 });
 
-Deno.test("graduate: a partial post-landing refresh is recorded but does not undo landing", async () => {
+Deno.test("accept: a partial post-landing refresh is recorded but does not undo landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "grad-refresh-fail");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
@@ -244,7 +244,7 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
       "--no-gpg-sign",
     );
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
@@ -283,17 +283,17 @@ Deno.test("graduate: a partial post-landing refresh is recorded but does not und
   });
 });
 
-Deno.test("graduate: refuses a dirty worktree without moving anything", async () => {
+Deno.test("accept: refuses a dirty worktree without moving anything", async () => {
   await withTempDir(async (dir) => {
     const name = "dirty-tree";
     const wt = await mainWithWorktree(dir, name);
     await leaveTrackedAndUntrackedWip(wt);
     const headBefore = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Worktree has uncommitted changes");
-    assertStringIncludes(r.output, "will not create WIP commits");
+    assertStringIncludes(r.output, "This worktree has uncommitted changes");
+    assertStringIncludes(r.output, "never creates a work-in-progress commit");
     assertEquals(
       await exists(wt),
       true,
@@ -321,9 +321,9 @@ Deno.test("graduate: refuses a dirty worktree without moving anything", async ()
   });
 });
 
-Deno.test("graduate: refuses a locked worktree at plan time, before anything moves", async () => {
+Deno.test("accept: refuses a locked worktree at plan time, before anything moves", async () => {
   await withTempDir(async (dir) => {
-    // Graduation ends by removing the worktree, and a `git worktree lock`ed
+    // Acceptance ends by removing the worktree, and a `git worktree lock`ed
     // one cannot be removed. The refusal must come at plan time — before the
     // gate runs and before the trunk fast-forwards — never after landing has
     // half-happened (destroyed checkout, stranded registration, failed branch
@@ -335,7 +335,7 @@ Deno.test("graduate: refuses a locked worktree at plan time, before anything mov
     await git(dir, "worktree", "lock", wt, "--reason", "portable drive");
     const trunkBefore = await gitOut(dir, "rev-parse", "main");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertStringIncludes(r.output, "git worktree unlock");
@@ -353,7 +353,7 @@ Deno.test("graduate: refuses a locked worktree at plan time, before anything mov
   });
 });
 
-Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async () => {
+Deno.test("accept: refuses a detached-HEAD main checkout the same way", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "detached-main");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -364,12 +364,12 @@ Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async 
     // not crash and not move HEAD.
     await git(dir, "switch", "-q", "--detach", "main");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'(detached)', not 'main'");
     assertStringIncludes(
       r.output,
-      "switch main` — then re-run `discern graduate`",
+      "switch main` — then re-run `discern accept`",
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -379,23 +379,23 @@ Deno.test("graduate: refuses a detached-HEAD main checkout the same way", async 
   });
 });
 
-Deno.test("graduate: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
+Deno.test("accept: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parked-main");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    // Park the main checkout on another branch: graduation must refuse, not
+    // Park the main checkout on another branch: acceptance must refuse, not
     // silently switch it back.
     await git(dir, "switch", "-q", "-c", "parked-elsewhere");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "'parked-elsewhere', not 'main'");
     // The way back is named (path canonicalization may differ, so match the tail).
     assertStringIncludes(
       r.output,
-      "switch main` — then re-run `discern graduate`",
+      "switch main` — then re-run `discern accept`",
     );
     assertEquals(
       await exists(wt),
@@ -410,7 +410,7 @@ Deno.test("graduate: refuses when the main checkout is parked off the trunk, nam
   });
 });
 
-Deno.test("graduate refuses (non-destructively) when the main checkout is dirty", async () => {
+Deno.test("accept refuses (non-destructively) when the main checkout is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta");
     // Dirty a tracked file in main: exit must refuse rather than clobber it.
@@ -420,7 +420,7 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
@@ -431,7 +431,7 @@ Deno.test("graduate refuses (non-destructively) when the main checkout is dirty"
   });
 });
 
-Deno.test("graduate ignores untracked local scratch in the main checkout clean precondition", async () => {
+Deno.test("accept ignores untracked local scratch in the main checkout clean precondition", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "delta-scratch");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -443,11 +443,11 @@ Deno.test("graduate ignores untracked local scratch in the main checkout clean p
       "permission = 'local'\n",
     );
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 0, r.output);
     assert(
       await exists(join(dir, "feature.txt")),
-      `branch not graduated into main\n${r.output}`,
+      `branch not landed into main\n${r.output}`,
     );
     assert(
       await exists(join(dir, ".codex/session.local.toml")),
@@ -456,7 +456,7 @@ Deno.test("graduate ignores untracked local scratch in the main checkout clean p
   });
 });
 
-Deno.test("graduate: refuses a branch behind main before dirty-tree handling or removal", async () => {
+Deno.test("accept: refuses a branch behind main before dirty-tree handling or removal", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "behind");
     await leaveTrackedAndUntrackedWip(wt);
@@ -466,10 +466,10 @@ Deno.test("graduate: refuses a branch behind main before dirty-tree handling or 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "advance main", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Branch is behind main");
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "behind the trunk (main)");
+    assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `behind-main refusal must leave the worktree intact\n${r.output}`,
@@ -490,7 +490,7 @@ Deno.test("graduate: refuses a branch behind main before dirty-tree handling or 
   });
 });
 
-Deno.test("graduate: refuses when main moves during the gate before teardown or removal", async () => {
+Deno.test("accept: refuses when main moves during the gate before teardown or removal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -512,11 +512,11 @@ Deno.test("graduate: refuses when main moves during the gate before teardown or 
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
     const branchHead = await gitOut(wt, "rev-parse", "HEAD");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
 
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Branch is behind main");
-    assertStringIncludes(r.output, "discern integrate");
+    assertStringIncludes(r.output, "behind the trunk (main)");
+    assertStringIncludes(r.output, "discern update");
     assert(
       await exists(wt),
       `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
@@ -525,7 +525,7 @@ Deno.test("graduate: refuses when main moves during the gate before teardown or 
   });
 });
 
-Deno.test("graduate reports ignored files changed since worktree setup at the top level", async () => {
+Deno.test("accept reports ignored files changed since worktree setup at the top level", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await Deno.writeTextFile(
@@ -549,7 +549,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
     assertEquals(reentry.code, 0, reentry.output);
     await commitCurrentWorktree(wt);
 
-    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+    const dry = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.output, "Ignored files changed since setup");
     assertStringIncludes(dry.output, "local-cache/");
@@ -558,7 +558,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
       `ignored drift should collapse a changed directory to its top level\n${dry.output}`,
     );
 
-    const applied = await runAgent(wt, ["graduate", "--json"]);
+    const applied = await runAgent(wt, ["accept", "--json"]);
     assertEquals(applied.code, 0, applied.output);
     const obj = JSON.parse(applied.stdout);
     assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);
@@ -566,7 +566,7 @@ Deno.test("graduate reports ignored files changed since worktree setup at the to
   });
 });
 
-Deno.test("graduate suppresses ignored-file drift detection when configured off", async () => {
+Deno.test("accept suppresses ignored-file drift detection when configured off", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -593,7 +593,7 @@ Deno.test("graduate suppresses ignored-file drift detection when configured off"
     await Deno.writeTextFile(join(wt, "local-cache", "changed.txt"), "x\n");
     await commitCurrentWorktree(wt);
 
-    const dry = await runAgent(wt, ["graduate", "--dry-run"]);
+    const dry = await runAgent(wt, ["accept", "--dry-run"]);
 
     assertEquals(dry.code, 0, dry.output);
     assert(
@@ -603,37 +603,37 @@ Deno.test("graduate suppresses ignored-file drift detection when configured off"
   });
 });
 
-Deno.test("integrate: refuses from the main checkout", async () => {
+Deno.test("update: refuses from the main checkout", async () => {
   await withTempDir(async (dir) => {
     await mainWithWorktree(dir, "iota");
-    // Run from the main checkout, not the worktree — integrate is worktree-only.
-    const r = await runAgent(dir, ["integrate"]);
+    // Run from the main checkout, not the worktree — update is worktree-only.
+    const r = await runAgent(dir, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "main checkout");
   });
 });
 
-Deno.test("graduate: refuses from the main checkout (worktree-only, the CLI mirror of hiding)", async () => {
+Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror of hiding)", async () => {
   await withTempDir(async (dir) => {
     await mainWithWorktree(dir, "iota2");
     // The CLI can't pre-hide per location (it runs at the user's cwd), so its
-    // equivalent of the MCP hiding graduate from a main-rooted server is a clean
-    // refusal: run from the main checkout, graduate has no current worktree to move.
-    const r = await runAgent(dir, ["graduate"]);
+    // equivalent of the MCP hiding accept from a main-rooted server is a clean
+    // refusal: run from the main checkout, accept has no current worktree to move.
+    const r = await runAgent(dir, ["accept"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "not a worktree");
+    assertStringIncludes(r.output, "runs inside a worktree");
   });
 });
 
 Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:precondition_failed", async () => {
-  // graduate/integrate are worktree-only; start is main-only. A wrong-side run is a
+  // accept/update are worktree-only; start is main-only. A wrong-side run is a
   // refused precondition, and the --json envelope must carry the machine slug an
   // agent branches on — not just human text any message could satisfy. Pinned as one
   // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
-  // (start already asserted the slug; the integrate/graduate CLI paths did not).
+  // (start already asserted the slug; the update/accept CLI paths did not).
   const REFUSALS = [
-    { verb: "graduate", side: "main" as const },
-    { verb: "integrate", side: "main" as const },
+    { verb: "accept", side: "main" as const },
+    { verb: "update", side: "main" as const },
     { verb: "start", side: "worktree" as const },
   ];
   for (const { verb, side } of REFUSALS) {
@@ -653,17 +653,17 @@ Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:prec
   }
 });
 
-Deno.test("integrate: no-op when the branch already contains main", async () => {
+Deno.test("update: no-op when the branch already contains main", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "kappa");
-    // main has not moved, so the branch is up to date — integrate touches nothing.
-    const r = await runAgent(wt, ["integrate"]);
+    // main has not moved, so the branch is up to date — update touches nothing.
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "up to date");
   });
 });
 
-Deno.test("integrate: behind main fast-forwards and re-materializes the agent files", async () => {
+Deno.test("update: behind main fast-forwards and re-materializes the agent files", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "lambda");
     // Advance main after the worktree branched off it → the branch is behind by one.
@@ -673,20 +673,20 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
     // Stale a generated agent file (gitignored, so the tree stays clean to merge into).
     await Deno.writeTextFile(
       join(wt, "CLAUDE.md"),
-      "STALE — integrate must regenerate this\n",
+      "STALE — update must regenerate this\n",
     );
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "Fast-forwarded to main");
-    assertStringIncludes(r.output, "Integration complete");
+    assertStringIncludes(r.output, "Update complete");
     // The merge brought main's commit in…
     assert(
       await exists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
     );
     // …and the stale generated file was re-materialized — the core value of bundling
-    // the refresh into integrate (a bare `git merge` would leave it stale).
+    // the refresh into update (a bare `git merge` would leave it stale).
     const claude = await Deno.readTextFile(join(wt, "CLAUDE.md"));
     assertEquals(
       claude.includes("STALE"),
@@ -696,15 +696,15 @@ Deno.test("integrate: behind main fast-forwards and re-materializes the agent fi
     // Skills are (re)materialized into the worktree by the same refresh.
     assert(
       await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
-      `skills not materialized by integrate\n${r.output}`,
+      `skills not materialized by update\n${r.output}`,
     );
   });
 });
 
-Deno.test("integrate: ignores untracked local scratch when checking whether the worktree is dirty", async () => {
+Deno.test("update: ignores untracked local scratch when checking whether the worktree is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "lambda-scratch");
-    // Advance main after the worktree branched off it, so integrate has work to do.
+    // Advance main after the worktree branched off it, so update has work to do.
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream work", "--no-gpg-sign");
@@ -716,7 +716,7 @@ Deno.test("integrate: ignores untracked local scratch when checking whether the 
       "permission = 'local'\n",
     );
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "Fast-forwarded to main");
     assert(
@@ -730,10 +730,10 @@ Deno.test("integrate: ignores untracked local scratch when checking whether the 
   });
 });
 
-Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", async () => {
+Deno.test("update: refuses (non-destructively) when the worktree is dirty", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "mu");
-    // Advance main so integrate would otherwise merge.
+    // Advance main so update would otherwise merge.
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
@@ -741,7 +741,7 @@ Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", a
     await Deno.writeTextFile(join(wt, "wip.txt"), "uncommitted\n");
     await git(wt, "add", "wip.txt");
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.
@@ -757,7 +757,7 @@ Deno.test("integrate: refuses (non-destructively) when the worktree is dirty", a
   });
 });
 
-Deno.test("integrate: a conflicting change is reported, and the merge is left aborted (clean tree)", async () => {
+Deno.test("update: a conflicting change is reported, and the merge is left aborted (clean tree)", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "nu");
     // The worktree branch and main both add the same file with different content,
@@ -769,7 +769,7 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "main edit", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate"]);
+    const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "conflicts");
     assertStringIncludes(r.output, "shared.txt");
@@ -777,7 +777,7 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
     assertEquals(
       await gitOut(wt, "status", "--porcelain"),
       "",
-      `integrate must abort the conflicting merge, leaving a clean tree\n${r.output}`,
+      `update must abort the conflicting merge, leaving a clean tree\n${r.output}`,
     );
     // The worktree keeps its own commit (its side of shared.txt).
     assertEquals(
@@ -787,16 +787,16 @@ Deno.test("integrate: a conflicting change is reported, and the merge is left ab
   });
 });
 
-Deno.test("integrate --dry-run: previews the merge + refresh and touches nothing", async () => {
+Deno.test("update --dry-run: previews the merge + refresh and touches nothing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "xi");
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--dry-run"]);
+    const r = await runAgent(wt, ["update", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.output, "Integration plan");
+    assertStringIncludes(r.output, "Update plan");
     assertStringIncludes(r.output, "Behind by: 1");
     // The preview merged nothing — main's commit is still absent in the worktree.
     assertEquals(
@@ -807,7 +807,7 @@ Deno.test("integrate --dry-run: previews the merge + refresh and touches nothing
   });
 });
 
-Deno.test("integrate end-to-end: a behind finish points at integrate, which then unblocks a passing finish", async () => {
+Deno.test("update end-to-end: a behind finish points at update, which then unblocks a passing finish", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "omicron");
     // Advance main → the worktree branch is behind by one.
@@ -817,21 +817,21 @@ Deno.test("integrate end-to-end: a behind finish points at integrate, which then
 
     // 1. finish fails fast on the merge check and names the remedy — the verb, not a
     //    bare `git merge` (the rest of the gate never runs).
-    const behind = await runAgent(wt, ["finish"]);
+    const behind = await runAgent(wt, ["done"]);
     assertEquals(behind.code, 1, behind.output);
-    assertStringIncludes(behind.output, "discern integrate");
+    assertStringIncludes(behind.output, "discern update");
 
-    // 2. integrate brings main in AND re-materializes in one step.
-    const integ = await runAgent(wt, ["integrate"]);
+    // 2. update brings main in AND re-materializes in one step.
+    const integ = await runAgent(wt, ["update"]);
     assertEquals(integ.code, 0, integ.output);
     assert(
       await exists(join(wt, "upstream.txt")),
-      `integrate did not merge main\n${integ.output}`,
+      `update did not merge main\n${integ.output}`,
     );
 
     // 3. finish now passes against the merged, re-materialized tree — with no
     //    intervening `discern refresh` (the bundled refresh already made it current).
-    const after = await runAgent(wt, ["finish"]);
+    const after = await runAgent(wt, ["done"]);
     assertEquals(after.code, 0, after.output);
   });
 });
@@ -1077,7 +1077,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.verb, "start");
-    // Mapped to the same precondition slug graduate/integrate use from the main checkout.
+    // Mapped to the same precondition slug accept/update use from the main checkout.
     assertEquals(result.error, "precondition_failed");
     // It must NOT have created a nested worktree of its own.
     assertEquals(
@@ -1152,7 +1152,7 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
 // ── [worktree.setup]: one-shot `steps` vs convergent `ensure` (ADR 0059) ───────
 
 /** Scaffold a main repo whose `[worktree.setup]` carries `steps`/`ensure`, commit
- * it, and add a linked worktree that inherits it on a CLEAN tree (so integrate,
+ * it, and add a linked worktree that inherits it on a CLEAN tree (so update,
  * which refuses a dirty tree, still applies). The commands are baked into the
  * committed config — the worktree carries them like a real checkout. */
 async function mainWithSetup(
@@ -1301,7 +1301,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
     const wt = await mainWithSetup(dir, "fatal-ensure", { ensure: ["exit 7"] });
     const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "Ensure step failed");
+    assertStringIncludes(r.output, "worktree ensure step failed");
     // Aborted before the agent-file refresh + sentinel — setup never completed.
     assertEquals(
       r.output.includes("Worktree setup complete"),
@@ -1316,7 +1316,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
   });
 });
 
-Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async () => {
+Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
       const ensure = join(markers, "ensure");
@@ -1325,14 +1325,14 @@ Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async ()
       });
       // Advance main so the branch is behind by one. (No prior `worktree` setup —
       // that would record the port into an untracked .env and dirty the tree, which
-      // integrate refuses; the ensure here runs purely as part of integrate.)
+      // update refuses; the ensure here runs purely as part of update.)
       await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
       await git(dir, "add", "-A");
       await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-      const r = await runAgent(wt, ["integrate"]);
+      const r = await runAgent(wt, ["update"]);
       assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.output, "Integration complete");
+      assertStringIncludes(r.output, "Update complete");
       assert(
         await exists(join(wt, "upstream.txt")),
         `merge landed\n${r.output}`,
@@ -1340,17 +1340,17 @@ Deno.test("integrate: re-runs [worktree.setup].ensure after the merge", async ()
       assertEquals(
         await markerCount(ensure),
         1,
-        `integrate must run ensure after the merge\n${r.output}`,
+        `update must run ensure after the merge\n${r.output}`,
       );
     });
   });
 });
 
-Deno.test("integrate: a failing ensure is recorded but never undoes the merge", async () => {
+Deno.test("update: a failing ensure is recorded but never undoes the merge", async () => {
   await withTempDir(async (dir) => {
     // The ensure fails once the merge brings upstream.txt in. (No prior `worktree`
-    // setup — it would dirty the tree via .env and integrate would refuse; the
-    // ensure here runs only as integrate's post-merge convergence step.)
+    // setup — it would dirty the tree via .env and update would refuse; the
+    // ensure here runs only as update's post-merge convergence step.)
     const wt = await mainWithSetup(dir, "integ-fail", {
       ensure: ["test ! -f upstream.txt"],
     });
@@ -1358,7 +1358,7 @@ Deno.test("integrate: a failing ensure is recorded but never undoes the merge", 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     // Non-fatal: the failed ensure does not abort or undo the landed merge.
     assertEquals(r.code, 0, r.output);
     assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
@@ -1385,7 +1385,7 @@ Deno.test("integrate: a failing ensure is recorded but never undoes the merge", 
   });
 });
 
-Deno.test("integrate: a partial refresh is recorded but never undoes the merge", async () => {
+Deno.test("update: a partial refresh is recorded but never undoes the merge", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "integ-refresh-fail");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
@@ -1404,7 +1404,7 @@ Deno.test("integrate: a partial refresh is recorded but never undoes the merge",
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["integrate", "--json"]);
+    const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
     const result = JSON.parse(r.stdout) as {

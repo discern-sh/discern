@@ -6,7 +6,7 @@ import {
 } from "../src/shared/config_read.ts";
 
 // `RawConfig` is the narrow, UNTYPED reader behind `discern config get` (the
-// recipe passthrough) and the ratchet cross-branch baseline. It applies no schema
+// recipe passthrough) and the standard cross-branch baseline. It applies no schema
 // and no defaults — it returns exactly what is on disk. The typed engine reader is
 // exercised by config_schema_test.ts.
 
@@ -50,7 +50,7 @@ neutral = true
 [worktree.db]
 clone = "createdb -T t_template @db@ # hash-inside-a-quoted-string"
 
-[ratchets.coverage]
+[standards.coverage]
 direction = "up"
 limit = 80
 `;
@@ -64,7 +64,7 @@ Deno.test("get reads scalars and stringifies non-strings", () => {
     c.get("worktree.db.clone"),
     "createdb -T t_template @db@ # hash-inside-a-quoted-string",
   );
-  assertEquals(c.get("ratchets.coverage.limit"), "80");
+  assertEquals(c.get("standards.coverage.limit"), "80");
   assertEquals(c.get("missing.key", "fallback"), "fallback");
   assertEquals(c.get("missing.key"), "");
 });
@@ -81,7 +81,7 @@ Deno.test("subsections returns child table names only", () => {
   const c = new RawConfig(SAMPLE);
   assertEquals(c.subsections("checks"), ["selfcheck"]);
   assertEquals(c.subsections("scopes"), ["docs"]);
-  assertEquals(c.subsections("ratchets"), ["coverage"]);
+  assertEquals(c.subsections("standards"), ["coverage"]);
   assertEquals(c.subsections("missing"), []);
 });
 
@@ -101,6 +101,6 @@ Deno.test("has covers scalars, arrays, and table headers", () => {
 
 Deno.test("getNumber coerces numeric scalars", () => {
   const c = new RawConfig(SAMPLE);
-  assertEquals(c.getNumber("ratchets.coverage.limit"), 80);
+  assertEquals(c.getNumber("standards.coverage.limit"), 80);
   assertEquals(c.getNumber("project.slug"), undefined);
 });

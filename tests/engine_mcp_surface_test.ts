@@ -14,7 +14,7 @@
  * differs from production.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import {
@@ -81,7 +81,7 @@ Deno.test("mcp surface: every config value it names flows from config — no har
       patch: { project: { main_branch: "zzbranch" } },
       sentinel: "zzbranch",
       def: "main",
-      // `range.main` is the integrate payload's wire FIELD name (the incoming-tip
+      // `range.main` is the update payload's wire FIELD name (the incoming-tip
       // anchor) — a fixed schema key, not a branch literal.
       allow: ["main checkout", "main repo", '"main"', "range.main"],
     },
@@ -135,7 +135,7 @@ Deno.test("mcp surface: every config value it names flows from config — no har
  * `z.strictObject`), so an argument the prose invents is not ignored — the call
  * is refused with an "Unrecognized key" validation error, and an agent following
  * the server's own instructions verbatim fails (or worse, retries stripped of the
- * argument and gets semantics the prose never promised). The graduate `to:"…"`
+ * argument and gets semantics the prose never promised). The accept `to:"…"`
  * text that outlived ADR 0110 was one member; this holds the whole surface.
  *
  * The detector extracts every ARGUMENT-SHAPED token — `key:"value"` (colon
@@ -229,6 +229,43 @@ Deno.test("mcp surface: every argument-shaped token names a declared tool input"
     offenders.length === 0,
     `MCP prose invents arguments the strict input schemas reject:\n` +
       offenders.join("\n"),
+  );
+});
+
+Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
+  const anchors: Record<string, readonly string[]> = {
+    discern_done: [
+      "format",
+      "lint",
+      "type-check",
+      "tests",
+      "may rewrite files",
+    ],
+    discern_update: ["trunk's latest", "discern_accept", "discern_refresh"],
+    discern_impact: ["scopes", "named regions of the repository"],
+    discern_standards: [
+      "numbers that can never get worse",
+      "limits may only improve",
+    ],
+    discern_improvement: [
+      "ranked next action",
+      "health audit",
+      "open qualitative reviews",
+    ],
+  };
+  for (const [name, expected] of Object.entries(anchors)) {
+    const tool = TOOLS.find((candidate) => candidate.name === name);
+    assert(tool !== undefined, `${name} is not registered`);
+    for (const phrase of expected) {
+      assertStringIncludes(tool.description, phrase);
+    }
+  }
+
+  const standards = TOOLS.find((tool) => tool.name === "discern_standards");
+  assert(standards !== undefined);
+  assert(
+    !/ratchet/i.test(standards.description),
+    "standards description must route without the retired noun",
   );
 });
 

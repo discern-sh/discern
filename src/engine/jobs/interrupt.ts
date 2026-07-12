@@ -15,7 +15,7 @@
  * has settled and reaped its children, re-raises the signal with the default
  * disposition restored, so the process dies with the conventional
  * killed-by-signal status. Living in the runner, it covers every caller — the
- * CLI gate verbs, setup's gate probes, graduate's re-run, the MCP server —
+ * CLI gate verbs, setup's gate probes, accept's re-run, the MCP server —
  * with no per-entry-point wiring to forget.
  */
 

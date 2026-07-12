@@ -77,10 +77,10 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assertStringIncludes(msg, "20–40 minutes");
   assertStringIncludes(msg, "discern-setup");
   assertStringIncludes(msg, "no API key");
-  // The exact worktree path, and the confirmed command with no --docs.
+  // The exact worktree path, and the confirmed command with no --map.
   assertStringIncludes(msg, WT);
   assertStringIncludes(msg, "--confirmed");
-  assert(!msg.includes("--docs"), "no docs tree → no --docs in the command");
+  assert(!msg.includes("--map"), "no docs tree → no --map in the command");
 });
 
 Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tree exists (ADR 0100)", () => {
@@ -92,16 +92,16 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
   });
   // The promise, then the default, then the opt-in — a choice, not a workaround.
   assertStringIncludes(withDocs, "discern won't touch it");
-  assertStringIncludes(withDocs, SOURCE_PATHS.docs.defaultPath);
+  assertStringIncludes(withDocs, SOURCE_PATHS.map.defaultPath);
   assertStringIncludes(withDocs, "keep them separate (the default)");
-  // The --docs flag is the agent's post-conversation instruction, outside the
+  // The --map flag is the agent's post-conversation instruction, outside the
   // fence — carrying the REAL detected path, never a placeholder to substitute.
-  assertStringIncludes(withDocs, "--docs docs/");
+  assertStringIncludes(withDocs, "--map docs/");
   assert(!withDocs.includes("<their-docs-path>"));
   const fenced = withDocs.split("end of message")[0] ?? "";
   assert(
-    !fenced.includes("--docs"),
-    "the --docs mechanics are agent-facing — never inside the relayed message",
+    !fenced.includes("--map"),
+    "the --map mechanics are agent-facing — never inside the relayed message",
   );
 
   const noDocs = consentMessage({
@@ -111,7 +111,7 @@ Deno.test("consentMessage offers the existing-docs opt-in exactly when a docs tr
     agents: AGENTS,
   });
   assert(!noDocs.includes("You already have a docs/ folder"));
-  assert(!noDocs.includes("--docs"));
+  assert(!noDocs.includes("--map"));
 });
 
 Deno.test("consentMessage makes the agent set a consent point, with --agents as the mechanism", () => {
@@ -215,11 +215,11 @@ Deno.test("consentMessage keeps the message body concise (≤ ~290 words of pros
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
 
-Deno.test("confirmedBeginCommand carries --confirmed and never a --docs placeholder", () => {
+Deno.test("confirmedBeginCommand carries --confirmed and never a --map placeholder", () => {
   assertStringIncludes(confirmedBeginCommand(), "--confirmed");
   // The docs opt-in is an addition the consent framing describes; a placeholder in
   // the default command would push every agent to pass one (ADR 0100).
-  assert(!confirmedBeginCommand().includes("--docs"));
+  assert(!confirmedBeginCommand().includes("--map"));
 });
 
 // ── completionMessage ────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   assertStringIncludes(full, "all run on every change");
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
-  // retires once the setup lands.
+  // retires once the setup accepts.
   assertStringIncludes(full, "Everything discern added is contained");
   assertStringIncludes(full, "`discern/` folder");
   assertStringIncludes(full, "discern uninstall");
@@ -335,9 +335,9 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
       onTarget: false,
       onSetupBranch: true,
     }),
-    "discern setup land",
+    "discern setup accept",
   );
-  // The user's OWN branch (an --allow-dirty in-place setup): `setup land` would
+  // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
   // sweep that branch's own commits onto the trunk, so the recommendation is a
   // manual merge, never the land command.
   const ownBranch = ctx({
@@ -349,8 +349,8 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
   });
   assertStringIncludes(ownBranch, "usual way");
   assert(
-    !ownBranch.includes("discern setup land"),
-    `a non-setup branch must never be steered to setup land:\n${ownBranch}`,
+    !ownBranch.includes("discern setup accept"),
+    `a non-setup branch must never be steered to setup accept:\n${ownBranch}`,
   );
   // Detached HEAD (no current branch) still names how to land it.
   assertStringIncludes(

@@ -7,7 +7,7 @@
  * (the seed-scaffolding rules apply — create-or-skip, never overwrite a present
  * file), and an optional `preset.json` at its root —
  * metadata, never scaffolded — is a discern config document (the same shape
- * `setup --config` reads) whose capabilities / checks / scopes / ratchets are
+ * `setup --config` reads) whose capabilities / checks / scopes / standards are
  * written into the project's `discern.toml` via the comment-preserving
  * editor. So a preset overlays both files (recipes, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
@@ -43,7 +43,7 @@ const PRESET_MANIFEST = "preset.json";
 
 /**
  * Load a preset's `preset.json`, or undefined if absent. It is a discern config
- * document (its capabilities/checks/scopes/ratchets are the fills); a
+ * document (its capabilities/checks/scopes/standards are the fills); a
  * `description` field, if present, is metadata only. Its `version`, if present,
  * is validated the same way `setup --config` validates one.
  */

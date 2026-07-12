@@ -32,7 +32,7 @@ import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 
 /** The project-relative docs directory the consent context probes for — and the
- * exact path the consent message serves for the `--docs` opt-in, so the agent
+ * exact path the consent message serves for the `--map` opt-in, so the agent
  * relays a real path, never a placeholder to substitute (or copy verbatim). */
 export const EXISTING_DOCS_REL = "docs/";
 
@@ -89,7 +89,7 @@ export async function deriveConsentContext(
  * The exact `begin` command a fresh, non-declarative setup runs AFTER the consent
  * conversation — always carrying `--confirmed` (the attestation). The single source
  * for this string, shared by {@link consentMessage}, `verify`'s `next_action`, and
- * `begin`'s `awaiting_consent` refusal, so the three never drift. The `--docs`
+ * `begin`'s `awaiting_consent` refusal, so the three never drift. The `--map`
  * opt-in (a project that chose to put its existing docs under the map discipline)
  * is an addition the consent framing describes, never part of the default command:
  * the default needs no flag, and a placeholder here would push agents to pass one.
@@ -134,7 +134,7 @@ export function consentMessage(ctx: ConsentContext): string {
   }
   if (docsExists) {
     confirmations.push(
-      `${n}. You already have a docs/ folder — it's yours, and discern won't touch it. Its map of the codebase lives separately, at ${SOURCE_PATHS.docs.defaultPath}. Or I can point discern at your existing docs, so it maintains them under that same discipline — keep them separate (the default), or point discern at yours?`,
+      `${n}. You already have a docs/ folder — it's yours, and discern won't touch it. Its map of the codebase lives separately, at ${SOURCE_PATHS.map.defaultPath}. Or I can point discern at your existing docs, so it maintains them under that same discipline — keep them separate (the default), or point discern at yours?`,
     );
     n += 1;
   }
@@ -202,7 +202,7 @@ export function consentMessage(ctx: ConsentContext): string {
         // verbatim passes a valid value (a `<placeholder>` copied verbatim is
         // rejected at the flag boundary, but the served text shouldn't set the
         // trap in the first place).
-        `If they chose to have discern maintain their existing docs, add \`--docs ${EXISTING_DOCS_REL}\` so the choice is recorded as [docs].dir.`,
+        `If they chose to have discern maintain their existing docs, add \`--map ${EXISTING_DOCS_REL}\` so the choice is recorded as [map].dir.`,
       ]
       : []),
     "",
@@ -215,7 +215,7 @@ export function consentMessage(ctx: ConsentContext): string {
 }
 
 /** The minimal landing shape {@link completionMessage} reads — structurally satisfied
- * by `setup_land.ts`'s `LandingSummary`, declared here so this bottom-layer module never
+ * by `setup_accept.ts`'s `LandingSummary`, declared here so this bottom-layer module never
  * imports up into `commands`. */
 export interface CompletionLanding {
   inRepo: boolean;
@@ -223,7 +223,7 @@ export interface CompletionLanding {
   target: string;
   onTarget: boolean;
   /** True only on the dedicated `discern-setup` branch — the ONE branch
-   * `discern setup land` lands; any other branch is steered to a manual merge. */
+   * `discern setup accept` lands; any other branch is steered to a manual merge. */
   onSetupBranch: boolean;
 }
 
@@ -263,7 +263,7 @@ function coverageLine(a: SetupAssurance): string {
 }
 
 /** Plain-word landing recommendation for the completion message, adapted to where the
- * finished work actually lives (mirrors the cases `setup_land.ts` distinguishes). */
+ * finished work actually lives (mirrors the cases `setup_accept.ts` distinguishes). */
 function landingLine(l: CompletionLanding): string {
   if (!l.inRepo) {
     return "This project isn't a git repository, so there's nothing to land — your setup is in place as it is.";
@@ -272,14 +272,14 @@ function landingLine(l: CompletionLanding): string {
     return `Your setup already lives on \`${l.target}\`, so there's nothing to land.`;
   }
   if (l.branch === "") {
-    return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup land\`.`;
+    return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup accept\`.`;
   }
   if (!l.onSetupBranch) {
-    // `setup land` lands only the dedicated setup branch — recommending it for
+    // `setup accept` lands only the dedicated setup branch — recommending it for
     // the user's own branch would sweep that branch's commits onto the trunk.
     return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. Merge it in your usual way when you're ready — nothing is lost meanwhile.`;
   }
-  return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup land\` — or leave the branch as it is to review first; nothing is lost either way.`;
+  return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup accept\` — or leave the branch as it is to review first; nothing is lost either way.`;
 }
 
 /**

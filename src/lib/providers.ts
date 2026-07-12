@@ -399,7 +399,7 @@ export interface Provider {
  * No banner: Claude Code strips HTML comments before the model sees them, so a
  * do-not-edit banner here would be invisible to the only agent that reads this
  * file. The generated-ness is conveyed in-band by `base.md`, and drift is guarded
- * by the `finish`/`status` currency check (ADR 0034).
+ * by the `done`/`status` currency check (ADR 0034).
  */
 export function atImportPointer(canonicalPath: string): string {
   return `@${canonicalPath}\n`;

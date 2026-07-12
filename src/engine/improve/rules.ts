@@ -17,7 +17,7 @@ import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
-import { normalizeDocsDir } from "../../shared/docs_path.ts";
+import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
 import type {
   Category,
@@ -55,13 +55,13 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Count real ADRs under the configured docs root's `_adr`, recursing into
+/** Count real ADRs under the configured map root's `_adr`, recursing into
  * subdirectories so retired
  * ADRs relocated under `_superseded/` still count: files named `NNNN-*.md`,
  * excluding the `0000-template` seed. Zero when the directory is absent. */
 export async function countAdrs(
   root: string,
-  docsDir = SOURCE_PATHS.docs.defaultPath,
+  mapDir = SOURCE_PATHS.map.defaultPath,
 ): Promise<number> {
   let count = 0;
   async function scan(dir: string): Promise<void> {
@@ -80,7 +80,7 @@ export async function countAdrs(
       // directory absent — contributes zero
     }
   }
-  await scan(join(root, normalizeDocsDir(docsDir), "_adr"));
+  await scan(join(root, normalizeMapDir(mapDir), "_adr"));
   return count;
 }
 
@@ -144,7 +144,7 @@ export async function buildContext(
     ? gotchasDoc
     : join(root, gotchasDoc);
 
-  const docsDir = normalizeDocsDir(config.docs.dir);
+  const mapDir = normalizeMapDir(config.map.dir);
   return {
     root,
     config,
@@ -154,10 +154,10 @@ export async function buildContext(
     guidancePlaceholder: guidanceText.includes(GUIDANCE_PLACEHOLDER_MARK),
     gotchasDocSet: gotchasDoc !== "",
     gotchasDocExists: gotchasAbs !== "" && (await fileExists(gotchasAbs)),
-    docsDir,
-    docsTree: (await pathExists(join(root, docsDir))) &&
-      (await fileExists(join(root, docsDir, "README.md"))),
-    adrCount: await countAdrs(root, docsDir),
+    mapDir,
+    mapTree: (await pathExists(join(root, mapDir))) &&
+      (await fileExists(join(root, mapDir, "README.md"))),
+    adrCount: await countAdrs(root, mapDir),
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
   };
@@ -188,7 +188,7 @@ function excerpt(text: string, max = 240): string {
 
 // ── the categories ──────────────────────────────────────────────────────────
 
-/** Quality gate — is `discern finish` actually checking anything? Core. */
+/** Quality gate — is `discern done` actually checking anything? Core. */
 const GATE: Category = {
   name: "gate",
   title: "Quality gate",
@@ -203,7 +203,7 @@ const GATE: Category = {
       teach:
         "A gate that runs no tests can't catch regressions — the single highest-" +
         "leverage capability to wire. Add your suite as [capabilities].test (or a " +
-        "test-stage [checks.<name>]) so `discern finish` runs it before work is called done.",
+        "test-stage [checks.<name>]) so `discern done` runs it before work is called done.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         capWired(ctx, "test") || checkInStage(ctx, "test")
           ? { status: "pass", detail: "a test-stage command is wired" }
@@ -252,8 +252,8 @@ const GATE: Category = {
       id: "gate.fast-feedback",
       title: "The gate stays fast enough to run every time",
       ask:
-        "Given the test command below, and that `discern finish` runs it on every " +
-        "graduation and whenever a change is called done — does the gate stay fast " +
+        "Given the test command below, and that `discern done` runs it on every " +
+        "acceptance and whenever a change is called done — does the gate stay fast " +
         "as the suite grows, and is the runner using the parallelism it offers? " +
         "Parallel execution depends on isolated tests: each owning its own temp dir, " +
         "environment, ports, and fixtures, mutating no process-global state another " +
@@ -297,7 +297,7 @@ const GATE: Category = {
   ],
 };
 
-/** Project setup — the one-time foundations the rest of the harness leans on. Core. */
+/** Project setup — the one-time foundations the rest of discern leans on. Core. */
 const SETUP: Category = {
   name: "setup",
   title: "Project setup",
@@ -311,7 +311,7 @@ const SETUP: Category = {
       teach:
         "Setup seeds the docs skeleton and prompts the agent to author your guidance " +
         "and design principles from the repo and your answers. Until it runs, the " +
-        "harness is a bare gate. Run `discern setup`, then `discern setup done`.",
+        "project has only a bare gate. Run `discern setup`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.config.meta.bootstrapped
           ? { status: "pass", detail: "[meta].bootstrapped is set" }
@@ -326,7 +326,7 @@ const SETUP: Category = {
       title: "Failure-pointer (gotchas) doc set",
       weight: 1,
       fix:
-        'discern config set project.gotchas_doc "docs/.../finish-gate-gotchas.md" (and write it)',
+        'discern config set project.gotchas_doc "docs/.../done-gate-gotchas.md" (and write it)',
       teach:
         "When a gate stage fails in a non-obvious way, discern points the agent at " +
         "[project].gotchas_doc. Keeping a living list of your stack's traps there turns " +
@@ -388,7 +388,7 @@ const GUIDANCE: Category = {
       fix:
         "write project-specific prose into guidance.md, then `discern refresh`",
       teach:
-        "Built-in guidance teaches the harness; YOUR guidance teaches your project — " +
+        "Built-in guidance teaches discern; YOUR guidance teaches your project — " +
         "the conventions, boundaries, and gotchas an agent can't infer from the code. " +
         "A thin or missing guidance.md is a thin agent. Aim for real, specific prose.",
       evaluate: (
@@ -456,56 +456,55 @@ const GUIDANCE: Category = {
   ],
 };
 
-/** Documentation — the docs/ tree and the ADR discipline. */
-const DOCS: Category = {
-  name: "docs",
-  title: "Documentation",
+/** The project map — the agent-maintained documentation tree and ADR discipline. */
+const MAP: Category = {
+  name: "map",
+  title: "Project map",
   rules: [
     {
       kind: "deterministic",
-      id: "docs.tree",
-      title: "Documentation tree present",
+      id: "map.tree",
+      title: "Project map present",
       weight: 2,
-      fix:
-        "discern setup (seeds the configured docs skeleton), then fill it in",
+      fix: "discern setup (seeds the configured map skeleton), then fill it in",
       teach:
-        "A browsable documentation tree (with a README at its root) is where the project's " +
-        "shape lives for future-you and the agents grounding work in it. `discern docs` " +
+        "The project map is its agent-maintained documentation tree (with a README at its root), where the project's " +
+        "shape lives for future-you and the agents grounding work in it. `discern map` " +
         "browses it; `discern setup` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
             status: "pass",
-            detail: `${ctx.docsDir} with a README.md exists`,
+            detail: `${ctx.mapDir} with a README.md exists`,
           }
           : {
             status: "fail",
-            detail: `no ${ctx.docsDir} tree with a README.md`,
+            detail: `no ${ctx.mapDir} tree with a README.md`,
           },
     },
     {
       kind: "deterministic",
-      id: "docs.adrs",
+      id: "map.adrs",
       title: "Architecture decisions recorded",
       weight: 1,
       fix:
-        "record significant decisions under the configured docs root's _adr/ directory (the discern-write-adr skill helps)",
+        "record significant decisions under the configured map root's _adr/ directory (the discern-write-adr skill helps)",
       teach:
         "ADRs capture WHY a hard-to-reverse or surprising decision was made, so it " +
         "isn't silently re-litigated later. A project with none is losing that memory. " +
-        "Record the next notable decision under the configured docs root's _adr/ directory.",
+        "Record the next notable decision under the configured map root's _adr/ directory.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.adrCount > 0
           ? { status: "pass", detail: `${ctx.adrCount} ADR(s) recorded` }
           : {
             status: "fail",
-            detail: `no ADRs under ${ctx.docsDir}_adr/`,
+            detail: `no ADRs under ${ctx.mapDir}_adr/`,
           },
     },
     {
       kind: "subjective",
-      id: "docs.current",
-      title: "Docs still match the code",
+      id: "map.current",
+      title: "The map still matches the code",
       ask:
         "Pick a subsystem that changed recently. Does its documentation page still " +
         "describe how the code actually behaves now — present tense, no drift — or does " +
@@ -513,21 +512,21 @@ const DOCS: Category = {
       teach:
         "Docs are only worth trusting if they track the code. When a change alters " +
         "documented behaviour, update the page in the same change. The discern-document-subsystem " +
-        "skill refreshes a subtree; `discern docs --list` shows the tree.",
+        "skill refreshes a subtree; `discern map --list` shows the tree.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
-            source: ctx.docsDir,
-            excerpt: "browse with `discern docs --list`",
+            source: ctx.mapDir,
+            excerpt: "browse with `discern map --list`",
           }
           : undefined,
     },
     {
       kind: "subjective",
-      id: "docs.navigation",
-      title: "The docs tree is navigable from overview to detail",
+      id: "map.navigation",
+      title: "The map is navigable from overview to detail",
       ask:
-        "Starting at the configured docs root's README.md, can a new contributor find the system overview, " +
+        "Starting at the configured map root's README.md, can a new contributor find the system overview, " +
         "the relevant subsystem, and its detailed pages without already knowing their " +
         "filenames? Do subtree READMEs explain scope and link their leaves, or is the " +
         "tree merely a collection of documents?",
@@ -537,9 +536,9 @@ const DOCS: Category = {
         "and link detail from the nearest useful context so discoverability does not " +
         "depend on repository archaeology.",
       against: (ctx): { source: string; excerpt: string } | undefined =>
-        ctx.docsTree
+        ctx.mapTree
           ? {
-            source: `${ctx.docsDir}README.md and subtree README files`,
+            source: `${ctx.mapDir}README.md and subtree README files`,
             excerpt: "follow the links as a first-time reader",
           }
           : undefined,
@@ -561,7 +560,7 @@ const WORKTREES: Category = {
         "— a database, an emulator, a container, a queue, a dev-server vhost? If so, are " +
         "they all declared under [worktree.resources.<name>] so each worktree gets its own?",
       teach: "Anything two concurrent worktrees would fight over belongs in " +
-        "[worktree.resources.<name>] with a create/destroy pair, so the harness " +
+        "[worktree.resources.<name>] with a create/destroy pair, so discern " +
         "provisions and reclaims it per worktree. If the project needs none, this is a " +
         "clean pass — but verify nothing shared was missed.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
@@ -577,73 +576,73 @@ const WORKTREES: Category = {
   ],
 };
 
-/** Quality ratchets — never-loosen metric floors. */
-const RATCHETS: Category = {
-  name: "ratchets",
-  title: "Quality ratchets",
+/** Quality standards — never-loosen metric floors. */
+const STANDARDS: Category = {
+  name: "standards",
+  title: "Quality standards",
   rules: [
     {
       kind: "deterministic",
-      id: "ratchets.any",
-      title: "At least one quality ratchet",
+      id: "standards.any",
+      title: "At least one quality standard",
       weight: 2,
       fix:
-        'discern config set-ratchet coverage --limit <n> --run "<command emitting the metric>"',
+        'discern config set-standard coverage --limit <n> --run "<command emitting the metric>"',
       teach:
-        "A ratchet locks in a metric you only ever want to improve (coverage, bundle " +
+        "A standard locks in a metric you only ever want to improve (coverage, bundle " +
         "size, an error count) so a branch can never loosen it. Even one — line coverage " +
         "is the usual first — turns a good number into a floor.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        Object.keys(ctx.config.ratchets).length > 0
+        Object.keys(ctx.config.standards).length > 0
           ? {
             status: "pass",
             detail: `${
-              Object.keys(ctx.config.ratchets).length
-            } ratchet(s) defined`,
+              Object.keys(ctx.config.standards).length
+            } standard(s) defined`,
           }
-          : { status: "fail", detail: "no [ratchets.<name>] defined" },
+          : { status: "fail", detail: "no [standards.<name>] defined" },
     },
     {
       kind: "subjective",
-      id: "ratchets.opportunity",
-      title: "No un-ratcheted metric worth holding",
+      id: "standards.opportunity",
+      title: "No unprotected metric worth holding",
       ask:
         "Is there a measurable quality signal in this project you only ever want to " +
         "improve — test coverage, bundle/binary size, type-error count, a performance " +
-        "budget, lint-warning count — that is NOT yet protected by a ratchet?",
+        "budget, lint-warning count — that is NOT yet protected by a standard?",
       teach: "Find the number you'd be unhappy to see regress, emit it as " +
-        "`DISCERN_METRIC <name> <value>` from a command, and add a [ratchets.<name>] " +
-        "with that floor/ceiling. `discern ratchets` then enforces it can only tighten.",
+        "`DISCERN_METRIC <name> <value>` from a command, and add a [standards.<name>] " +
+        "with that floor/ceiling. `discern standards` then enforces it can only tighten.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const names = Object.keys(ctx.config.ratchets);
+        const names = Object.keys(ctx.config.standards);
         return {
-          source: "[ratchets]",
+          source: "[standards]",
           excerpt: names.length === 0
-            ? "no ratchets defined yet"
-            : `already ratcheted: ${names.join(", ")}`,
+            ? "no standards defined yet"
+            : `protected by standards: ${names.join(", ")}`,
         };
       },
     },
     {
       kind: "subjective",
-      id: "ratchets.normalize",
-      title: "No raw count ratcheted over a growing tree",
+      id: "standards.normalize",
+      title: "No raw count held over a growing tree",
       ask:
-        "Do any ceiling ratchets count items over a tree that grows over time — lint " +
+        "Do any ceiling standards count items over a tree that grows over time — lint " +
         "alerts, TODOs, type errors, doc nits? A raw count rises with the project, so it " +
-        "fails on growth, not regressions, and the only way to pass is to loosen it. Ratchet " +
+        "fails on growth, not regressions, and the only way to pass is to loosen it. Hold " +
         "a rate instead: add `per` to divide by a built-in extent (files|lines|words|bytes).",
       teach:
-        "A count is safe to ratchet only when it doesn't scale with project size (a true " +
+        "A count is safe to hold only when it doesn't scale with project size (a true " +
         "budget, like shipped bytes). If it grows as you add code or docs, normalize it: " +
-        '`per = { words = "${docs.dir}**" }` ratchets docs alerts-per-word, so growth alone never ' +
+        '`per = { words = "${map.dir}**" }` holds docs alerts-per-word, so growth alone never ' +
         "breaches the ceiling — only a real quality regression does.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const raw = Object.entries(ctx.config.ratchets)
+        const raw = Object.entries(ctx.config.standards)
           .filter(([, r]) => r.direction === "down" && r.per === undefined)
           .map(([name]) => name);
         return {
-          source: "[ratchets]",
+          source: "[standards]",
           excerpt: raw.length === 0
             ? "no un-normalized ceiling counts"
             : `raw ceiling counts (candidates for \`per\`): ${raw.join(", ")}`,
@@ -706,9 +705,9 @@ export const CATEGORIES: readonly Category[] = [
   GATE,
   SETUP,
   GUIDANCE,
-  DOCS,
+  MAP,
   WORKTREES,
-  RATCHETS,
+  STANDARDS,
   SKILLS,
 ];
 

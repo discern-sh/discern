@@ -67,6 +67,18 @@ const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
     5,
     "migration 5→6 dissolves .discern/: moves config/guidance/recipes/authored-skills out, prunes bundled, adds sections",
   ],
+  // Covered across table, dotted-key, quoted-key, inline-table, and collision
+  // forms by the focused migration test named below.
+  [
+    17,
+    "migration 17→18 renames [ratchets] to [standards] in every supported TOML form",
+  ],
+  // Covered across table, dotted-key, quoted-key, inline-table, absent-table,
+  // and collision forms by the focused migration tests named below.
+  [
+    18,
+    "migration 18→19 renames [docs] to [map] and pins every installed directory form",
+  ],
 ]);
 
 function historicalFixtureName(from: number): string {
@@ -171,8 +183,10 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // [worktree].graduate_to "main" → "trunk"), 12→13 (add [worktree].root),
   // 13→14 (keep machine-local provider settings ignored), 14→15 (move the
   // authored surface into the discern/ namespace), 15→16 (retire the
-  // [features] toggles and [worktree].enabled), and 16→17 (drop
-  // [worktree].graduate_to — graduate always lands on the trunk).
+  // [features] toggles and [worktree].enabled), 16→17 (drop
+  // [worktree].graduate_to — accept always lands on the trunk), 17→18
+  // ([ratchets] → [standards]), and 18→19 ([docs] → [map], with the installed
+  // directory pinned so the migration never moves a project's tree).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -190,6 +204,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     14,
     15,
     16,
+    17,
+    18,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -381,7 +397,7 @@ Deno.test("migration 8→9 ignores AGENTS.md and notes the one-time git rm --cac
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/CLAUDE.md",
         "/GEMINI.md",
         "",
@@ -472,7 +488,7 @@ Deno.test("migration 9→10 ignores .agents/skills/ after the .claude block, ide
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/AGENTS.md",
         "/CLAUDE.md",
         "/GEMINI.md",
@@ -615,7 +631,7 @@ Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", 
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "[worktree]\nport = true\n\n" +
-        "# Where `discern graduate` lands by default (override per-run with `--to`):\n" +
+        "# Where `discern accept` lands by default (override per-run with `--to`):\n" +
         '#   "branch"  leave the work on its own branch for review.\n' +
         'graduate_to = "branch"\n\n' +
         "# Track ignored files at worktree setup.\n" +
@@ -625,7 +641,7 @@ Deno.test("migration 16→17 drops [worktree].graduate_to and its doc comment", 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(!/graduate_to/.test(toml), `key must be dropped:\n${toml}`);
     assert(
-      !/Where `discern graduate` lands/.test(toml),
+      !/Where `discern accept` lands/.test(toml),
       `the key's own doc comment goes with it:\n${toml}`,
     );
     assertStringIncludes(toml, "port = true"); // siblings untouched
@@ -756,6 +772,208 @@ Deno.test("migration 16→17 never eats a user's unrelated comment above the key
   });
 });
 
+Deno.test("migration 17→18 renames [ratchets] to [standards] in every supported TOML form", async () => {
+  const cases = [
+    {
+      name: "table family",
+      text: "# ratchets remains ordinary English in a comment\n" +
+        "[ratchets.coverage]\n" +
+        'direction = "up"\nlimit = 80\nrun = "printf ratchets"\n',
+    },
+    {
+      name: "dotted root keys",
+      text: 'ratchets.coverage.direction = "up"\n' +
+        "ratchets.coverage.limit = 80\n" +
+        'ratchets.coverage.run = "measure"\n',
+    },
+    {
+      name: "quoted dotted root keys",
+      text: `'ratchets'."coverage".direction = "up"\n` +
+        `'ratchets'."coverage".limit = 80\n` +
+        `'ratchets'."coverage".run = "measure"\n`,
+    },
+    {
+      name: "inline root table",
+      text:
+        'ratchets = { coverage = { direction = "up", limit = 80, run = "measure" } }\n',
+    },
+    {
+      name: "quoted table family",
+      text: `["ratchets".'coverage']\n` +
+        'direction = "up"\nlimit = 80\nrun = "measure"\n',
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "discern.toml"), testCase.text);
+      const notes: string[] = [];
+      await applyMigrations({
+        destDir: dir,
+        from: 17,
+        to: 18,
+        onNote: (note) => notes.push(note),
+      });
+      const after = await Deno.readTextFile(join(dir, "discern.toml"));
+      const raw = parseDiscernToml(after).raw;
+      assertEquals(
+        raw.ratchets,
+        undefined,
+        `${testCase.name}: old key remains`,
+      );
+      assertExists(raw.standards, `${testCase.name}: successor key is absent`);
+      assert(
+        notes.some((note) =>
+          note.includes("renamed [ratchets] to [standards]")
+        ),
+        `${testCase.name}: ${notes.join("\n")}`,
+      );
+
+      if (testCase.name === "table family") {
+        assertStringIncludes(after, "# ratchets remains ordinary English");
+        assertStringIncludes(after, 'run = "printf ratchets"');
+      }
+
+      // The migration is idempotent even if its step is re-run directly.
+      await applyMigrations({
+        destDir: dir,
+        from: 17,
+        to: 18,
+        onNote: () => {},
+      });
+      assertEquals(
+        await Deno.readTextFile(join(dir, "discern.toml")),
+        after,
+        testCase.name,
+      );
+    });
+  }
+});
+
+Deno.test("migration 17→18 refuses colliding old and new standard tables with a next step", async () => {
+  await withTempDir(async (dir) => {
+    const text =
+      '[ratchets.old]\ndirection = "up"\nlimit = 1\nrun = "old"\n\n' +
+      '[standards.new]\ndirection = "up"\nlimit = 1\nrun = "new"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 17,
+          to: 18,
+          onNote: () => {},
+        }),
+      Error,
+      "Move the entries under [standards], remove [ratchets], then run `discern upgrade` again",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
+Deno.test("migration 18→19 renames [docs] to [map] and pins every installed directory form", async () => {
+  const cases = [
+    {
+      name: "table",
+      text: '[docs]\ndir = "docs/"\n',
+      installedDir: "docs/",
+    },
+    {
+      name: "dotted root key",
+      text: 'docs.dir = "knowledge/"\n',
+      installedDir: "knowledge/",
+    },
+    {
+      name: "quoted dotted root key",
+      text: `'docs'.dir = "project-notes/"\n`,
+      installedDir: "project-notes/",
+    },
+    {
+      name: "inline root table",
+      text: 'docs = { dir = "reference/" }\n',
+      installedDir: "reference/",
+    },
+    {
+      name: "quoted table",
+      text: '["docs"]\ndir = "handbook/"\n',
+      installedDir: "handbook/",
+    },
+    {
+      name: "implicit old default",
+      text: "[meta]\nschema_version = 18\n",
+      installedDir: "discern/docs/",
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const configPath = join(dir, "discern.toml");
+      await Deno.writeTextFile(configPath, testCase.text);
+      const treePath = join(dir, testCase.installedDir);
+      await Deno.mkdir(treePath, { recursive: true });
+      await Deno.writeTextFile(join(treePath, "README.md"), "# Existing map\n");
+      const notes: string[] = [];
+
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 18,
+        to: 19,
+        onNote: (note) => notes.push(note),
+      });
+
+      const after = await Deno.readTextFile(configPath);
+      const raw = parseDiscernToml(after).raw;
+      assertEquals(raw.docs, undefined, `${testCase.name}: old key remains`);
+      assertExists(raw.map, `${testCase.name}: successor key is absent`);
+      assertEquals(
+        (raw.map as Record<string, unknown>).dir,
+        testCase.installedDir,
+        `${testCase.name}: the installed directory moved`,
+      );
+      assertEquals(
+        await Deno.readTextFile(join(treePath, "README.md")),
+        "# Existing map\n",
+        `${testCase.name}: the migration must not move or rewrite the tree`,
+      );
+      assert(
+        notes.some((note) =>
+          note.includes("renamed [docs] to [map]") &&
+          note.includes(testCase.installedDir)
+        ),
+        `${testCase.name}: ${notes.join("\n")}`,
+      );
+
+      // The migration is byte-idempotent even if its step is re-run directly.
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 18,
+        to: 19,
+        onNote: () => {},
+      });
+      assertEquals(await Deno.readTextFile(configPath), after, testCase.name);
+    });
+  }
+});
+
+Deno.test("migration 18→19 refuses colliding old and new map tables with a next step", async () => {
+  await withTempDir(async (dir) => {
+    const text = '[docs]\ndir = "docs/"\n\n[map]\ndir = "map/"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 18,
+          to: 19,
+          onNote: () => {},
+        }),
+      Error,
+      "Keep the intended directory under [map], remove [docs], then run `discern upgrade` again",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
 Deno.test("migration 12→13 adds a documented [worktree].root key as the first [worktree] key", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
@@ -817,7 +1035,7 @@ Deno.test("migration 13→14 removes the .claude/settings.local.json un-ignore",
       [
         "/node_modules",
         "",
-        "# --- discern harness ---",
+        "# --- discern ---",
         "/AGENTS.md",
         "/CLAUDE.md",
         "/GEMINI.md",
@@ -1723,7 +1941,7 @@ async function layDefaultLayoutInstall(dir: string): Promise<void> {
       "",
       "[project]",
       'slug = "demo"',
-      'gotchas_doc = "docs/80-development/finish-gate-gotchas.md"',
+      'gotchas_doc = "docs/80-development/done-gate-gotchas.md"',
       "",
       "[guidance]",
       'sources = ["guidance.md"]',
@@ -1750,7 +1968,7 @@ async function layDefaultLayoutInstall(dir: string): Promise<void> {
   await Deno.mkdir(join(dir, "docs/80-development"), { recursive: true });
   await Deno.writeTextFile(join(dir, "docs/README.md"), "# Docs\n");
   await Deno.writeTextFile(
-    join(dir, "docs/80-development/finish-gate-gotchas.md"),
+    join(dir, "docs/80-development/done-gate-gotchas.md"),
     "# Gotchas\n",
   );
   await Deno.mkdir(join(dir, "skills/my-skill"), { recursive: true });
@@ -1797,7 +2015,7 @@ Deno.test("migration 14→15 moves a default layout into discern/ and repoints t
     // …the gotchas pointer follows the moved docs tree…
     assertStringIncludes(
       toml,
-      'gotchas_doc = "discern/docs/80-development/finish-gate-gotchas.md"',
+      'gotchas_doc = "discern/docs/80-development/done-gate-gotchas.md"',
     );
     // …and the seeded neutral-scope skills glob is repointed (${docs.dir} needs
     // no repoint — it follows the key).

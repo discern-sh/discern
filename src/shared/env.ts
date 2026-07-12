@@ -33,6 +33,11 @@ export interface EnvReader {
  * single-file footprint). */
 export const CONFIG_REL = "discern.toml";
 
+/** The canonical refusal when root discovery cannot find a discern project. */
+export const NO_PROJECT_MESSAGE =
+  "Discern could not find a project: this directory and its parents have no discern.toml. " +
+  "Run `discern setup` to create one here, or move into an existing discern project.";
+
 /** The pre-6 consolidated location, still recognised as a legacy/migration-source
  * marker so a not-yet-upgraded install is found and carried forward. */
 export const LEGACY_CONFIG_REL = ".discern/config.toml";
@@ -118,6 +123,6 @@ export function recipeEnvVars(e: RecipeEnv): Record<string, string> {
     DISCERN_TOML: e.tomlPath,
     DISCERN_RECIPES: e.recipesAbs,
     DISCERN_RECIPES_DIR: e.recipesDir,
-    MAIN_BRANCH: e.mainBranch,
+    DISCERN_MAIN_BRANCH: e.mainBranch,
   };
 }

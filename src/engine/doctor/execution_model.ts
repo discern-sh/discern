@@ -4,10 +4,10 @@
  * must be idempotent or fast" (ADR 0063).
  *
  * The golden rule is DERIVE-FROM-SSOT, never hand-write the sequence:
- *  - the gate verbs (`finish` / `prepare` / `test` / `ratchets`) are pure functions
+ *  - the gate verbs (`done` / `prepare` / `test` / `standards`) are pure functions
  *    of config, so their step lists are built by walking the REAL plan builders
  *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
- *    {@link buildRatchetPlan}) — a test asserts they are byte-derived, so they can
+ *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
  *  - the worktree verbs' plans need live runtime state (a resolved worktree identity,
  *    the ledger), so they can't render statically here. For those we author a small
@@ -37,7 +37,7 @@ import {
   preparePlanGroups,
   stageGroup,
 } from "../gate/plan.ts";
-import { buildRatchetPlan, perNote } from "../gate/ratchet_plan.ts";
+import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
@@ -52,7 +52,7 @@ interface StepKindAnnotation {
  * The hint registry — TOTAL over {@link StepKind}, so a newly-added engine step kind
  * is a COMPILE error here until it is given an actor + hint (the fix-the-class guard,
  * mirroring `finish.ts`'s total `FAIL_MESSAGES`). The hint *text* is sourced from the
- * canonical prose (the `discern.toml` template comments, `docs/30-worktrees/`, the
+ * canonical prose (the `discern.toml` template comments, the worktree map pages, the
  * ADRs) and kept domain-neutral — this ships to every project, in every field. The
  * `job` kind's hint is the generic fallback; a real gate job is annotated with its
  * STAGE's hint ({@link STAGE_HINTS}) instead, which is the more specific truth.
@@ -71,7 +71,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "merge-check": {
     actor: "discern",
     hint:
-      "Built-in fail-fast precondition: the branch must already contain the latest integration branch before the gate spends time. A no-op in the main checkout.",
+      "Built-in fail-fast precondition: the branch must already contain the latest trunk — the shared landing branch — before the gate spends time. A no-op in the main checkout.",
   },
   "tracked-artifacts-check": {
     actor: "discern",
@@ -96,7 +96,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "resource-destroy": {
     actor: "project",
     hint:
-      "Your `destroy` command for a per-worktree external resource. Runs at graduate/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
+      "Your `destroy` command for a per-worktree external resource. Runs at accept/teardown AND at orphan GC (`worktree prune`); author it idempotent and cwd-independent, and set `gc = false` for a data-loss-sensitive resource you only want torn down explicitly.",
   },
   git: {
     actor: "discern",
@@ -111,7 +111,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "setup-ensure": {
     actor: "project",
     hint:
-      "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, integrate) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
+      "A convergent `[worktree.setup].ensure` command. Re-runs on EVERY pass (create, session start, update) — MUST be idempotent; prefer fast-when-current. Fatal at creation, non-fatal on re-entry.",
   },
   env: {
     actor: "discern",
@@ -123,10 +123,10 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in: recompile the generated agent files and re-materialize the skills.",
   },
-  ratchet: {
+  standard: {
     actor: "project",
     hint:
-      "Your measurement command for a never-loosen metric. On demand only (`discern ratchets`), never part of the gate; the result is compared to its limit versus the integration branch.",
+      "Your measurement command for a never-loosen metric. On demand only (`discern standards`), never part of the gate; the result is compared to its limit versus the trunk.",
   },
 };
 
@@ -177,7 +177,7 @@ function step(
 }
 
 /** Annotate one planned gate job (capability/check/scope-gate) — the shared
- * projection the `finish`/`prepare`/`test` derivations all funnel through, so a job's
+ * projection the `done`/`prepare`/`test` derivations all funnel through, so a job's
  * label, command (the note), and stage-specific hint come from the real plan. */
 function annotateJob(job: PlannedJob): ExecutionStep {
   if (job.kind === "scope-gate") {
@@ -196,7 +196,7 @@ function annotateJob(job: PlannedJob): ExecutionStep {
 
 // ── gate verbs (byte-derived from the real plan builders) ───────────────────
 
-/** `finish` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
+/** `done` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
  * preconditions, then the fix → build → check∥test → scope-gate jobs. All scopes are
  * passed as "changed" so every scope gate renders (as conditional, not skipped). */
 function finishVerb(cfg: DiscernConfig): VerbPlan {
@@ -220,7 +220,7 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
     }
   }
   return {
-    verb: "finish",
+    verb: "done",
     when: "Before you call a change done — the full gate.",
     steps,
   };
@@ -248,18 +248,18 @@ function testVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `ratchets` — each configured ratchet, from the real {@link buildRatchetPlan}. */
-function ratchetsVerb(cfg: DiscernConfig): VerbPlan {
-  const steps = buildRatchetPlan(cfg).ratchets.map((r) =>
-    step("ratchet", r.name, {
+/** `standards` — each configured standard, from the real {@link buildStandardPlan}. */
+function standardsVerb(cfg: DiscernConfig): VerbPlan {
+  const steps = buildStandardPlan(cfg).standards.map((r) =>
+    step("standard", r.name, {
       note: r.command !== "" ? r.command : "(no command configured)",
       condition: `${r.direction}, limit ${r.limit}${perNote(r.per, r.scale)}`,
     })
   );
   return {
-    verb: "ratchets",
+    verb: "standards",
     when:
-      "On demand — slow and clean-tree-only by default, so never part of `discern finish`.",
+      "On demand — slow and clean-tree-only by default, so never part of `discern done`.",
     steps,
   };
 }
@@ -335,12 +335,12 @@ function ensureVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `integrate` — bring the integration branch in and re-materialize (lifecycle.ts
- * `executeIntegratePlan`), then converge the worktree on the merged tree. */
-function integrateVerb(cfg: DiscernConfig): VerbPlan {
+/** `update` — bring the integration branch in and re-materialize (lifecycle.ts
+ * `executeUpdatePlan`), then converge the worktree on the merged tree. */
+function updateVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [
     step("git", "merge", {
-      note: "merge the integration branch into this branch",
+      note: "merge the trunk into this branch",
     }),
     step("refresh", "refresh agent files", {
       note: "re-materialize agent files + skills",
@@ -352,18 +352,18 @@ function integrateVerb(cfg: DiscernConfig): VerbPlan {
     );
   }
   return {
-    verb: "integrate",
+    verb: "update",
     when:
-      "When the branch is behind the integration branch (the gate's merge check points here). A no-op when already up to date.",
+      "When the branch is behind the trunk (the gate's merge check points here). A no-op when already up to date.",
     steps,
   };
 }
 
-/** `graduate` — land the branch on the trunk (lifecycle.ts
- * `executeGraduatePlan`), with the resource teardown expanded per declared
+/** `accept` — land the branch on the trunk (lifecycle.ts
+ * `executeAcceptPlan`), with the resource teardown expanded per declared
  * `destroy` (reverse order) so the `destroy` command a user wired is shown, not
  * hidden behind a generic step. */
-function graduateVerb(cfg: DiscernConfig): VerbPlan {
+function acceptVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
   for (const [name, r] of destroyable.reverse()) {
@@ -382,9 +382,9 @@ function graduateVerb(cfg: DiscernConfig): VerbPlan {
     note: "delete the now-merged branch",
   }));
   return {
-    verb: "graduate",
+    verb: "accept",
     when:
-      "When the work is done and integrated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate-pass receipt proves the current HEAD already passed.",
+      "When the work is done and updated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate receipt proves the current HEAD already passed.",
     steps,
   };
 }
@@ -409,7 +409,7 @@ function pruneVerb(cfg: DiscernConfig): VerbPlan {
       steps.push(step("resource-destroy", name, {
         note: r.destroy,
         condition: r.gc === false
-          ? "never — gc = false (teardown-only; reclaimed only by an explicit graduate/teardown)"
+          ? "never — gc = false (teardown-only; reclaimed only by an explicit accept/teardown)"
           : "if orphaned (its worktree vanished without a clean teardown)",
       }));
     }
@@ -436,11 +436,11 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     finishVerb(cfg),
     prepareVerb(cfg),
     testVerb(cfg),
-    ratchetsVerb(cfg),
+    standardsVerb(cfg),
     startVerb(cfg),
     ensureVerb(cfg),
-    integrateVerb(cfg),
-    graduateVerb(cfg),
+    updateVerb(cfg),
+    acceptVerb(cfg),
     pruneVerb(cfg),
   ];
 }

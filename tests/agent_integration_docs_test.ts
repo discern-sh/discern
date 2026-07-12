@@ -37,7 +37,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
   // Read every integration doc once; each agent's doc is the one that configures it
   // explicitly (`agents = ["<name>"]`), tying the doc to the registry name — no
   // hand-maintained agent→filename map to drift.
-  const dir = new URL("../docs/60-agent-integrations/", import.meta.url);
+  const dir = new URL("../map/60-agent-integrations/", import.meta.url);
   const docs: Array<{ file: string; text: string }> = [];
   for await (const entry of Deno.readDir(dir)) {
     if (
@@ -55,7 +55,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
     assert(
       doc !== undefined,
       `no integration doc signposts IDE-only "${name}" users — a reuse-canonical agent ` +
-        `whose CLI isn't on PATH is invisible to setup without a docs/60-agent-integrations/ ` +
+        `whose CLI isn't on PATH is invisible to setup without a map/60-agent-integrations/ ` +
         `page carrying agents = ["${name}"]. Add one (mirror cursor.md / github-copilot.md).`,
     );
     for (

@@ -1,31 +1,29 @@
-# Working with the discern harness
+# Working with discern
 
-This project uses **discern**, a stack-neutral agentic-development harness.
-Everything discern knows about this project lives in one root file,
-**`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_finish`,
-…) — the **primary surface**, each returning a structured result you read directly.
+This project uses **discern**, a stack-neutral agent-development system.
+Everything discern knows lives in one root file: **`discern.toml`**. Its verbs
+are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** —
+and return structured results.
 
 ## Operating discern
 
-- **Orient first.** Call **`discern_status`** at the start of a session — read-only
-  and cheap — for what's true now and what to do next.
-- **Starting a task? Get your own worktree first.** If you're on the main checkout,
-  run **`discern_start`** first: it creates an isolated worktree for your work and
-  returns its path. Nothing relocates you, so re-root into that path and work from
-  inside it, never on the trunk,or in a worktree you didn't create. (See *Isolated
-  worktree workflow* below.)
-- **`discern_finish` is the bar for "done".** It runs the project's whole quality
-  gate; don't call a change finished until the final tree passes. Iterate with
+- **Orient first.** Call **`discern_status`** at session start for a cheap,
+  read-only account of what's true and next.
+- **Starting a task? Get your own worktree — a separate checkout and branch for
+  one change — first.** From the main checkout, run **`discern_start`**; it creates
+  one and returns its path. Move into it and work only there, never on the trunk —
+  the shared landing branch — or in another effort's worktree.
+- **`discern_done` is the bar for "done".** It runs the gate — the project's full
+  quality check; call a change finished only when the final tree passes. Iterate with
   **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just
-  the tests); on a failure read the result's `diagnostics[]` — the failing command
-  and its captured output — and fix from there.
+  the tests). On failure, read `diagnostics[]` for the command and captured output,
+  then fix it.
 - **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a
   misconfigured install.
 
-If the MCP server is **unreachable**: tell the user (MCP is discern's intended
-surface), use the **`discern` CLI** with `--json` meanwhile — don't `tail` its
-agent-optimised output — and offer to fix the connection (`discern help`,
-`discern doctor`) when you finish.
+If the MCP server is **unreachable**, tell the user and use the **`discern` CLI**
+with `--json` meanwhile — never `tail` its agent-optimised output. Offer to fix
+the connection with `discern help` / `discern doctor` when finished.
 
 ## Generated files — don't hand-edit
 

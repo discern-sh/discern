@@ -65,7 +65,7 @@ function assertEnvelopeOnly(
   assertEquals(obj.verb, verb, `${verb}: envelope carries the wrong verb`);
 }
 
-/** A config whose every gate command and ratchet prints loudly to stdout AND
+/** A config whose every gate command and standard prints loudly to stdout AND
  * stderr (and still succeeds), so a silence regression surfaces as leaked text. */
 const NOISY_CONFIG = [
   "[project]",
@@ -77,8 +77,8 @@ const NOISY_CONFIG = [
   `typecheck = "printf 'TC-OUT\\n'"`,
   `test = "printf 'TEST-OUT\\n'; printf 'TEST-ERR\\n' >&2"`,
   "",
-  "[ratchets.cov]",
-  `run = "printf 'RATCHET-NOISE\\n'; printf 'DISCERN_METRIC cov 90\\n'"`,
+  "[standards.cov]",
+  `run = "printf 'STANDARD-NOISE\\n'; printf 'DISCERN_METRIC cov 90\\n'"`,
   'direction = "up"',
   "limit = 80",
   "",
@@ -100,12 +100,12 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
       await gitInit(dir);
 
       const cases: Array<{ args: string[]; verb: string }> = [
-        { args: ["finish", "--json"], verb: "finish" },
+        { args: ["done", "--json"], verb: "done" },
         { args: ["prepare", "--json"], verb: "prepare" },
         { args: ["test", "--json"], verb: "test" },
-        { args: ["ratchets", "--json"], verb: "ratchets" },
-        { args: ["improve", "--json"], verb: "improve" },
-        { args: ["scopes", "--json"], verb: "scopes" },
+        { args: ["standards", "--json"], verb: "standards" },
+        { args: ["improvement", "--json"], verb: "improvement" },
+        { args: ["impact", "--json"], verb: "impact" },
         { args: ["status", "--json"], verb: "status" },
         { args: ["refresh", "--json"], verb: "refresh" },
         { args: ["skills", "list", "--json"], verb: "skills list" },
@@ -114,7 +114,7 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
           verb: "skills eject",
         },
         // A dry-run preview is an envelope too (plan, no steps).
-        { args: ["finish", "--dry-run", "--json"], verb: "finish" },
+        { args: ["done", "--dry-run", "--json"], verb: "done" },
       ];
       for (const c of cases) {
         assertEnvelopeOnly(
@@ -127,7 +127,7 @@ Deno.test("every --json verb emits ONLY the envelope (no human or subprocess lea
   }
 });
 
-Deno.test("finish --json: a FAILING gate captures output INTO the envelope, never leaks it", async () => {
+Deno.test("done --json: a FAILING gate captures output INTO the envelope, never leaks it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -142,10 +142,10 @@ Deno.test("finish --json: a FAILING gate captures output INTO the envelope, neve
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     // Single envelope line, despite the failing command's multi-line output…
-    assertEnvelopeOnly(r, "finish");
+    assertEnvelopeOnly(r, "done");
     const obj = JSON.parse(r.output.trim());
     assertEquals(obj.ok, false);
     // …and that output rode INTO the envelope as a diagnostic (newlines escaped),
@@ -224,9 +224,9 @@ Deno.test("a pre-verb config error is still the uniform envelope (verb + single 
       join(dir, "discern.toml"),
       "this is = not valid toml [[[\n",
     );
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEnvelopeOnly(r, "finish"); // carries the attempted verb, single line
+    assertEnvelopeOnly(r, "done"); // carries the attempted verb, single line
     assertEquals(JSON.parse(r.output.trim()).error, "invalid_toml");
   });
 });

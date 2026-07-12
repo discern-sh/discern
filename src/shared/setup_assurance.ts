@@ -20,7 +20,7 @@ import { type DiscernConfig, toCommandList } from "./config_schema.ts";
 
 /**
  * How a capability stands relative to the gate:
- *  - `enforced` — a real command is wired; `discern finish` runs it.
+ *  - `enforced` — a real command is wired; `discern done` runs it.
  *  - `deferred` — the capability is PRESENT in `[capabilities]` but set to a no-op
  *    (`:` or an empty string), the deliberate "I know about this, but it isn't
  *    running yet" signal. Distinct from a silent omission, and the place a reason

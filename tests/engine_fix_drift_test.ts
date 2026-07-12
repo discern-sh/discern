@@ -2,7 +2,7 @@
  * Fix-stage strand detection (ADR 0047). The fix stage may mutate the tree, but a
  * GREEN finish must not hide uncommitted fixer output: a fixer that reformats a file
  * the agent already COMMITTED leaves a change a clean gate would otherwise conceal
- * until `discern graduate` scoops it up staged-but-uncommitted in the main checkout.
+ * until `discern accept` scoops it up staged-but-uncommitted in the main checkout.
  *
  * Two layers: the pure `D1 \ D0` decision (and the shared porcelain parser it rests
  * on), then the wired gate behaviour — the positive strand AND the inner-loop case
@@ -102,7 +102,7 @@ Deno.test("the strand snapshot reads both sides of -z rename records verbatim", 
 
 // ── wired: the gate behaviour ───────────────────────────────────────────────────
 
-Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_drift", async () => {
+Deno.test("done: a fixer that reformats a COMMITTED-clean file fails with fix_drift", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -111,7 +111,7 @@ Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_
     await Deno.writeTextFile(join(dir, "doc.md"), "hello   \n");
     await gitInit(dir); // commits everything → tree clean at finish-start
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
@@ -128,7 +128,7 @@ Deno.test("finish: a fixer that reformats a COMMITTED-clean file fails with fix_
   });
 });
 
-Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
+Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -138,7 +138,7 @@ Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT t
     // The agent edits doc.md but has NOT committed it — its own work-in-progress.
     await Deno.writeTextFile(join(dir, "doc.md"), "world   \n");
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = parseJson(r.stdout);
@@ -150,13 +150,13 @@ Deno.test("finish: a fixer reworking the agent's OWN uncommitted edit does NOT t
   });
 });
 
-// ── wired: the graduate boundary (ADR 0061) ─────────────────────────────────────
-// The same fixed-point property `finish` enforces, brought to `graduate` — so a branch an
-// agent committed WITHOUT a clean `finish` (e.g. running only a scope gate on a docs edit,
+// ── wired: the accept boundary (ADR 0061) ─────────────────────────────────────
+// The same fixed-point property `done` enforces, brought to `accept` — so a branch an
+// agent committed WITHOUT a clean `done` (e.g. running only a scope gate on a docs edit,
 // never the formatter) cannot fast-forward unformatted Markdown onto the trunk LOCALLY,
 // where CI's trailing `git diff --exit-code` never runs.
 
-Deno.test("graduate: refuses (non-destructively) when the fix stage would reformat a committed file", async () => {
+Deno.test("accept: refuses (non-destructively) when the fix stage would reformat a committed file", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -164,12 +164,12 @@ Deno.test("graduate: refuses (non-destructively) when the fix stage would reform
     await gitInit(dir); // main: config + fixer committed, fix-stage clean
     const wt = await addWorktree(dir, "gamma");
 
-    // The agent skips `finish` and commits an unformatted doc straight onto the branch.
+    // The agent skips `done` and commits an unformatted doc straight onto the branch.
     await Deno.writeTextFile(join(wt, "doc.md"), "hello   \n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "doc.md");
     assertStringIncludes(r.output, "fix stage");
@@ -189,7 +189,7 @@ Deno.test("graduate: refuses (non-destructively) when the fix stage would reform
   });
 });
 
-Deno.test("graduate: a fix-stage-clean branch lands normally", async () => {
+Deno.test("accept: a fix-stage-clean branch lands normally", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -202,12 +202,12 @@ Deno.test("graduate: a fix-stage-clean branch lands normally", async () => {
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate"]);
+    const r = await runAgent(wt, ["accept"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
       await exists(wt),
       false,
-      `a clean branch should graduate\n${r.output}`,
+      `a clean branch should accept\n${r.output}`,
     );
     // The work landed on the trunk in the main checkout, formatted.
     assertEquals(await Deno.readTextFile(join(dir, "doc.md")), "hello\n");

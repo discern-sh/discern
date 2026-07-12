@@ -87,7 +87,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   // non-engine verbs (core/installer verbs an agent reaches for) and OMITS four
   // engine verbs that have no tool (command groups / plumbing). Both differences
   // are pinned here, so a new verb forces a choice rather than drifting.
-  const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "docs", "help"]);
+  const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "map", "help"]);
   const ENGINE_VERBS_WITHOUT_TOOL = new Set([
     "worktree", // a command group (worktree command group), not a single tool
     "identity", // identity-resolution plumbing

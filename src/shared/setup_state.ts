@@ -14,7 +14,7 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { KNOWN_CAPABILITIES } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
-import { normalizeDocsDir } from "./docs_path.ts";
+import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 
@@ -50,21 +50,21 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  * hooks and `setup` itself drive (`refresh`, `worktree`, `scopes`,
  * `config`, …):
  *
- *   - the GATE PROOF verbs `finish` / `prepare` / `test` / `ratchets`. The agent
- *     needs them to iterate while wiring capabilities — and to test a ratchet it
+ *   - the GATE PROOF verbs `done` / `prepare` / `test` / `standards`. The agent
+ *     needs them to iterate while wiring capabilities — and to test a standard it
  *     wires — during setup, so ADR 0065 un-gates them. Pre-setup they carry
  *     {@link SETUP_IN_PROGRESS_HINT}, so their output can't be mistaken for a
  *     finished project — the "false all-green" ADR 0036 feared is now covered by
  *     ADR 0037's incompleteness signaling, and `discern setup done` runs the gate
  *     itself as the structural completion proof.
  *
- * `docs` IS gated: it browses the project's own tree, which has nothing in it
+ * `map` IS gated: it browses the project's own tree, which has nothing in it
  * until setup seeds and fills it (`help` is the pre-setup documentation surface).
  */
 export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
-  "graduate",
-  "integrate",
-  "docs",
+  "accept",
+  "update",
+  "map",
   // The desk supervises the worktree fleet, which doesn't exist until setup
   // completes; pre-setup, bare `discern` shows the welcome instead (ADR 0119).
   "desk",
@@ -79,7 +79,7 @@ export function verbNeedsSetup(verb: string): boolean {
  * The staged-setup sub-verbs (ADR 0075), in lifecycle order — the single source the
  * CLI router registers under `setup` and the welcome's `next_action` walks. `verify`
  * and `begin` are the handshake; `done` is the terminal proof; `step` is the
- * read-only re-serve of one brief step (off to the side, tracks nothing); `land`
+ * read-only re-serve of one brief step (off to the side, tracks nothing); `accept`
  * hands the finished setup branch onto the integration branch (off to the side of the
  * handshake, run after `done`). The `engine_setup_phase_parity` test ties the
  * registered command tree back to this set (ADR 0051), so a sub-verb can't be added to
@@ -90,7 +90,7 @@ export const SETUP_SUBVERBS = [
   "begin",
   "step",
   "done",
-  "land",
+  "accept",
 ] as const;
 /** One staged-setup sub-verb ({@link SETUP_SUBVERBS}). */
 export type SetupSubverb = (typeof SETUP_SUBVERBS)[number];
@@ -137,7 +137,7 @@ export const NOT_SET_UP_MESSAGE =
   "up — your coding agent does it for you.";
 
 /**
- * The advisory a `finish` / `prepare` / `test` / `ratchets` result carries while
+ * The advisory a `done` / `prepare` / `test` / `standards` result carries while
  * setup is still outstanding (ADR 0065). Those verbs run pre-setup so the agent can
  * iterate while wiring capabilities — but their output must not read as a finished
  * project, so each prepends this line until `[meta].bootstrapped` is recorded by
@@ -193,7 +193,7 @@ export async function findSkeletonMarkers(
 ): Promise<string[]> {
   const leftover: string[] = [];
 
-  let docsRel = SOURCE_PATHS.docs.defaultPath;
+  let docsRel = SOURCE_PATHS.map.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   let resolved = config;
   if (resolved === undefined) {
@@ -204,7 +204,7 @@ export async function findSkeletonMarkers(
     }
   }
   if (resolved !== undefined) {
-    docsRel = normalizeDocsDir(resolved.docs.dir);
+    docsRel = normalizeMapDir(resolved.map.dir);
     guidanceRel = guidanceSeedRel(resolved.guidance.sources);
   }
   const docsDir = join(root, docsRel);

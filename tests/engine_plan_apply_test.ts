@@ -1,7 +1,7 @@
 /**
  * Engine coverage for the plan/apply surface (ADR 0027): `--dry-run` and the
  * serialized `--json` on every effectful verb. The pure planners are unit-tested
- * fast in `gate_plan_test.ts` / `worktree_plan_test.ts` / `ratchet_plan_test.ts`;
+ * fast in `gate_plan_test.ts` / `worktree_plan_test.ts` / `standard_plan_test.ts`;
  * this drives the verbs end-to-end through the CLI so the dry-run renders, the
  * apply path narrates, and the JSON is a real serialization — the regression
  * guard for the new flags.
@@ -33,7 +33,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
 
 // ── finish ──────────────────────────────────────────────────────────────────
 
-Deno.test("finish --dry-run lists the gate plan and runs nothing", async () => {
+Deno.test("done --dry-run lists the gate plan and runs nothing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -50,14 +50,14 @@ Deno.test("finish --dry-run lists the gate plan and runs nothing", async () => {
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--dry-run"]);
+    const r = await runAgent(dir, ["done", "--dry-run"]);
     assertEquals(r.code, 0, r.output); // dry-run never fails on a job
     assertStringIncludes(r.stdout, "Gate plan");
     assertStringIncludes(r.stdout, "lint");
   });
 });
 
-Deno.test("finish --dry-run --json emits the plan, not a run report", async () => {
+Deno.test("done --dry-run --json emits the plan, not a run report", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -74,11 +74,11 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--dry-run", "--json"]);
+    const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     // A preview is a DiscernResult carrying only `plan` (no executed `steps`).
-    assertEquals(obj.verb, "finish");
+    assertEquals(obj.verb, "done");
     assertEquals(obj.steps, undefined);
     assertEquals(obj.plan.title, "Gate plan");
     assert(
@@ -88,7 +88,7 @@ Deno.test("finish --dry-run --json emits the plan, not a run report", async () =
   });
 });
 
-Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
+Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
   // Regression guard for the scope-classification TIMING (ADR 0027): scopes are
   // classified from the working tree AFTER the fix stage runs, so a fix-stage
   // codemod that creates a file inside a scope makes that scope's gate fire. If
@@ -114,7 +114,7 @@ Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fire
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["finish", "--json"]);
+    const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assert(
@@ -132,9 +132,9 @@ Deno.test("finish classifies scopes AFTER the fix stage (a fixer's new file fire
   });
 });
 
-// ── ratchets ──────────────────────────────────────────────────────────────────
+// ── standards ──────────────────────────────────────────────────────────────────
 
-Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () => {
+Deno.test("standards --dry-run lists the standard without measuring it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -143,7 +143,7 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         // Would emit a FAILING metric if it ran — dry-run must not run it.
@@ -153,16 +153,16 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--dry-run"]);
+    const r = await runAgent(dir, ["standards", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Ratchets plan");
+    assertStringIncludes(r.stdout, "Standards plan");
     assertStringIncludes(r.stdout, "coverage");
 
-    const j = await runAgent(dir, ["ratchets", "--dry-run", "--json"]);
+    const j = await runAgent(dir, ["standards", "--dry-run", "--json"]);
     assertEquals(j.code, 0, j.output);
     const obj = parseJson(j.stdout);
     // A preview envelope: verb + plan, no executed steps.
-    assertEquals(obj.verb, "ratchets");
+    assertEquals(obj.verb, "standards");
     assertEquals(obj.steps, undefined);
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "coverage"),
@@ -170,7 +170,7 @@ Deno.test("ratchets --dry-run lists the ratchet without measuring it", async () 
   });
 });
 
-Deno.test("ratchets --json serializes the held/failed results", async () => {
+Deno.test("standards --json serializes the held/failed results", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -179,7 +179,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'direction = "up"',
         "limit = 80",
         'run = "echo DISCERN_METRIC coverage 90"',
@@ -188,7 +188,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["ratchets", "--json"]);
+    const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
@@ -196,7 +196,7 @@ Deno.test("ratchets --json serializes the held/failed results", async () => {
       s.label === "coverage"
     );
     assertEquals(cov.outcome, "ok");
-    assertEquals(cov.kind, "ratchet");
+    assertEquals(cov.kind, "standard");
   });
 });
 
@@ -272,18 +272,18 @@ Deno.test("worktree prune --json on a clean pool reports ok with no steps", asyn
   });
 });
 
-// ── graduate ──────────────────────────────────────────────────────────────────
+// ── accept ──────────────────────────────────────────────────────────────────
 
-Deno.test("graduate --dry-run shows the plan after the preconditions pass", async () => {
+Deno.test("accept --dry-run shows the plan after the preconditions pass", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gradry");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--dry-run"]);
+    const r = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Graduation plan");
+    assertStringIncludes(r.stdout, "Acceptance plan");
     assertStringIncludes(r.stdout, "remove-worktree");
     // The worktree must still exist — dry-run mutates nothing.
     assertEquals(
@@ -294,14 +294,14 @@ Deno.test("graduate --dry-run shows the plan after the preconditions pass", asyn
   });
 });
 
-Deno.test("graduate --json performs the graduation and serializes the steps", async () => {
+Deno.test("accept --json performs the acceptance and serializes the steps", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gradj");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
@@ -311,9 +311,9 @@ Deno.test("graduate --json performs the graduation and serializes the steps", as
       ),
       r.stdout,
     );
-    // The landing precedes resource teardown, so a graduation that loses a
+    // The landing precedes resource teardown, so an acceptance that loses a
     // concurrent-landing race at the fast-forward leaves its worktree fully
-    // intact — resources included — for the integrate → finish → graduate
+    // intact — resources included — for the update → finish → accept
     // recovery the refusal prescribes.
     const labels = obj.steps.map((s: { label: string }) => s.label);
     assert(
@@ -329,21 +329,21 @@ Deno.test("graduate --json performs the graduation and serializes the steps", as
   });
 });
 
-Deno.test("graduate --json reports a precondition failure as a JSON error", async () => {
+Deno.test("accept --json reports a precondition failure as a JSON error", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "graderr");
-    // Dirty a tracked file in main so graduation refuses.
+    // Dirty a tracked file in main so acceptance refuses.
     const toml = join(dir, "discern.toml");
     await Deno.writeTextFile(
       toml,
       `${await Deno.readTextFile(toml)}\n# dirty\n`,
     );
 
-    const r = await runAgent(wt, ["graduate", "--json"]);
+    const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseJson(r.stdout); // the error is a JSON object, not a human line
     assertEquals(obj.ok, false);
-    assertEquals(obj.verb, "graduate");
+    assertEquals(obj.verb, "accept");
     // error is a machine-stable slug; the human sentence rides in `message`.
     assertEquals(obj.error, "precondition_failed");
     assertStringIncludes(obj.message, "uncommitted tracked changes");

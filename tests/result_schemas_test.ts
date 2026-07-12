@@ -32,27 +32,27 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
+  AcceptOutputSchema,
   type CouplingData,
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
-  DocsOutputSchema,
   DoctorOutputSchema,
   EnvelopeSchema,
   FinishOutputSchema,
   GateDataSchema,
-  GraduateOutputSchema,
   HelpOutputSchema,
-  ImproveOutputSchema,
-  IntegrateOutputSchema,
+  ImpactOutputSchema,
+  ImprovementOutputSchema,
+  MapOutputSchema,
   PrepareOutputSchema,
-  RatchetsOutputSchema,
   RefreshOutputSchema,
-  ScopesOutputSchema,
   SkillsListOutputSchema,
+  StandardsOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   StepResultJsonSchema,
   TestOutputSchema,
+  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { skillsListResult } from "../src/lib/skills.ts";
@@ -63,19 +63,19 @@ import {
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
-import { ratchetsResult } from "../src/engine/gate/ratchets.ts";
+import { standardsResult } from "../src/engine/gate/standards.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
-import { scopesResult } from "../src/engine/scopes/scopes.ts";
+import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
-import { improveResult } from "../src/engine/improve/improve.ts";
-import { docsResult, helpResult } from "../src/commands/docs.ts";
+import { improvementResult } from "../src/engine/improve/improve.ts";
+import { helpResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
 import {
-  graduateResult,
-  integrateResult,
+  acceptResult,
   lifecycleContext,
   startResult,
+  updateResult,
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -170,17 +170,17 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
  * id here together with its faithfulness test. */
 const FAITHFULNESS_COVERED = new Set<string>([
   "coupling",
-  "docs",
+  "map",
   "doctor",
-  "finish",
-  "graduate",
+  "done",
+  "accept",
   "help",
-  "improve",
-  "integrate",
+  "improvement",
+  "update",
   "prepare",
-  "ratchets",
+  "standards",
   "refresh",
-  "scopes",
+  "impact",
   "skillsList",
   "start",
   "status",
@@ -196,7 +196,7 @@ const FAITHFULNESS_DEBT = new Set<string>([
   "preset",
   "setup",
   "setupDone",
-  "setupLand",
+  "setupAccept",
   "setupStep",
   "setupVerify",
   "skillsEject",
@@ -327,7 +327,7 @@ Deno.test("the step vocabularies (kind/disposition/outcome) are closed enums der
   );
 });
 
-Deno.test("finish result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
+Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -452,12 +452,12 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
   });
 });
 
-Deno.test("doctor execution_model is faithful across a rich config (resources, ratchets, scopes)", async () => {
+Deno.test("doctor execution_model is faithful across a rich config (resources, standards, scopes)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     // A config exercising every corner of the execution-model schema: jobs, a scope
-    // gate, a ratchet, and a per-worktree resource (its teardown).
+    // gate, a standard, and a per-worktree resource (its teardown).
     await writeConfig(
       dir,
       [
@@ -473,7 +473,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
         'paths = ["web/**"]',
         'gate = "web-gate"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "measure-coverage"',
         'direction = "up"',
         "limit = 80",
@@ -496,20 +496,20 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, r
       (result.data as { execution_model?: { verb: string }[] }).execution_model;
     assert(
       model !== undefined &&
-        model.some((v) => v.verb === "graduate"),
+        model.some((v) => v.verb === "accept"),
       "the rich model should cover the worktree verbs",
     );
   });
 });
 
-Deno.test("scopes result is faithful", async () => {
+Deno.test("impact result is faithful", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     expectValid(
-      ScopesOutputSchema,
-      await scopesResult(dir),
-      "scopes",
+      ImpactOutputSchema,
+      await impactResult(dir),
+      "impact",
     );
   });
 });
@@ -611,56 +611,64 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
   });
 });
 
-Deno.test("improve result is faithful (full, category, below-min, unknown)", async () => {
+Deno.test("improvement result is faithful (full, category, below-min, unknown)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(ImproveOutputSchema, await improveResult(dir), "improve full");
     expectValid(
-      ImproveOutputSchema,
-      await improveResult(dir, { category: "gate" }),
-      "improve one category",
+      ImprovementOutputSchema,
+      await improvementResult(dir),
+      "improvement full",
     );
-    const belowMin = await improveResult(dir, { minScore: 200 });
+    expectValid(
+      ImprovementOutputSchema,
+      await improvementResult(dir, { category: "gate" }),
+      "improvement one category",
+    );
+    const belowMin = await improvementResult(dir, { minScore: 200 });
     assertEquals(belowMin.ok, false);
-    expectValid(ImproveOutputSchema, belowMin, "improve below-min");
-    const unknown = await improveResult(dir, {
+    expectValid(ImprovementOutputSchema, belowMin, "improvement below-min");
+    const unknown = await improvementResult(dir, {
       category: "no-such-category",
     });
     assertEquals(unknown.ok, false);
-    expectValid(ImproveOutputSchema, unknown, "improve unknown category");
+    expectValid(
+      ImprovementOutputSchema,
+      unknown,
+      "improvement unknown category",
+    );
   });
 });
 
-Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree)", async () => {
+Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // No docs/ tree yet → a no_docs error envelope (no data).
-    expectValid(DocsOutputSchema, await docsResult(dir), "docs no-tree");
+    // No map/ tree yet → a no_map error envelope (no data).
+    expectValid(MapOutputSchema, await mapResult(dir), "map no-tree");
 
     // Seed a tiny tree → index + single doc + not-found.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas.\n",
     );
-    const index = await docsResult(dir);
-    expectValid(DocsOutputSchema, index, "docs index");
+    const index = await mapResult(dir);
+    expectValid(MapOutputSchema, index, "map index");
     const slug = (index.data as { docs: { slug: string }[] }).docs[0]?.slug;
     assert(slug !== undefined);
     expectValid(
-      DocsOutputSchema,
-      await docsResult(dir, { target: slug }),
-      "docs single",
+      MapOutputSchema,
+      await mapResult(dir, { target: slug }),
+      "map single",
     );
     expectValid(
-      DocsOutputSchema,
-      await docsResult(dir, { target: "no-such-doc" }),
-      "docs not-found",
+      MapOutputSchema,
+      await mapResult(dir, { target: "no-such-doc" }),
+      "map not-found",
     );
 
     // help reads discern's OWN bundled docs (always present in this repo's build).
@@ -678,7 +686,7 @@ Deno.test("docs/help results are faithful (index, single doc, not-found, no-tree
   });
 });
 
-Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async () => {
+Deno.test("standards result is faithful (dry-run plan and applied steps)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -688,7 +696,7 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "echo DISCERN_METRIC coverage 90"',
         'direction = "up"',
         "limit = 80",
@@ -696,20 +704,20 @@ Deno.test("ratchets result is faithful (dry-run plan and applied steps)", async 
       ].join("\n"),
     );
     await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "add ratchet", "--no-gpg-sign");
+    await git(dir, "commit", "-q", "-m", "add standard", "--no-gpg-sign");
     expectValid(
       DatalessEnvelopeSchema,
-      await ratchetsResult(dir, { dryRun: true }),
-      "ratchets dry-run",
+      await standardsResult(dir, { dryRun: true }),
+      "standards dry-run",
     );
     expectValid(
-      RatchetsOutputSchema,
-      await ratchetsResult(dir, { dryRun: true }),
-      "ratchets dry-run public schema",
+      StandardsOutputSchema,
+      await standardsResult(dir, { dryRun: true }),
+      "standards dry-run public schema",
     );
-    const applied = await ratchetsResult(dir);
+    const applied = await standardsResult(dir);
     assertEquals(applied.ok, true);
-    expectValid(RatchetsOutputSchema, applied, "ratchets applied");
+    expectValid(StandardsOutputSchema, applied, "standards applied");
   });
 });
 
@@ -725,7 +733,7 @@ async function commitFiles(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-Deno.test("integrate result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
+Deno.test("update result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -736,25 +744,25 @@ Deno.test("integrate result is faithful (dry-run prediction and applied data-bea
       new Logger({ json: true, noColor: true }),
     );
 
-    const preview = await integrateResult(ctx, { dryRun: true });
+    const preview = await updateResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    assert(preview.data !== undefined, "integrate dry-run predicts data");
+    assert(preview.data !== undefined, "update dry-run predicts data");
     assertEquals(preview.data.range.after, undefined);
     expectValid(
-      IntegrateOutputSchema,
+      UpdateOutputSchema,
       preview,
-      "integrate dry-run prediction",
+      "update dry-run prediction",
     );
 
-    const applied = await integrateResult(ctx);
+    const applied = await updateResult(ctx);
     assertEquals(applied.ok, true);
-    assert(applied.data !== undefined, "integrate apply carries data");
+    assert(applied.data !== undefined, "update apply carries data");
     assert(typeof applied.data.range.after === "string");
-    expectValid(IntegrateOutputSchema, applied, "integrate applied");
+    expectValid(UpdateOutputSchema, applied, "update applied");
   });
 });
 
-Deno.test("graduate result is faithful (dry-run plan and applied gate-validation data)", async () => {
+Deno.test("accept result is faithful (dry-run plan and applied gate-validation data)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -763,9 +771,9 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const preview = await graduateResult(ctx, { dryRun: true });
+    const preview = await acceptResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    expectValid(GraduateOutputSchema, preview, "graduate dry-run");
+    expectValid(AcceptOutputSchema, preview, "accept dry-run");
   });
 
   await withTempDir(async (dir) => {
@@ -778,10 +786,10 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await graduateResult(ctx);
+    const applied = await acceptResult(ctx);
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
-    expectValid(GraduateOutputSchema, applied, "graduate applied rerun");
+    expectValid(AcceptOutputSchema, applied, "accept applied rerun");
   });
 
   await withTempDir(async (dir) => {
@@ -796,10 +804,10 @@ Deno.test("graduate result is faithful (dry-run plan and applied gate-validation
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await graduateResult(ctx);
+    const applied = await acceptResult(ctx);
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
-    expectValid(GraduateOutputSchema, applied, "graduate applied receipt");
+    expectValid(AcceptOutputSchema, applied, "accept applied receipt");
   });
 });
 

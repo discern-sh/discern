@@ -10,13 +10,15 @@
  * `Deno.exit`. The lifecycle layer drives them; the dispatcher decides the
  * process exit code.
  *
- * The integration branch is read from `MAIN_BRANCH` (env) / `[project].main_branch`
+ * The integration branch is read from `DISCERN_MAIN_BRANCH` (env) /
+ * `[project].main_branch`
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import type { EnvReader } from "../../shared/env.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   parsePorcelainZ,
@@ -39,13 +41,16 @@ export class WorktreeGitError extends Error {
 }
 
 /**
- * The integration branch: `MAIN_BRANCH` env wins (the dispatcher exports it from
+ * The integration branch: `DISCERN_MAIN_BRANCH` env wins (the dispatcher exports it from
  * `[project].main_branch`); otherwise `fallback` (a config-derived value the
  * lifecycle layer passes when calling outside a dispatched env); otherwise
  * `main`.
  */
-export function integrationBranch(fallback?: string): string {
-  const env = Deno.env.get("MAIN_BRANCH");
+export function integrationBranch(
+  fallback?: string,
+  envReader: EnvReader = Deno.env,
+): string {
+  const env = envReader.get("DISCERN_MAIN_BRANCH");
   if (env !== undefined && env !== "") {
     return env;
   }
@@ -57,8 +62,9 @@ export function integrationBranch(fallback?: string): string {
 
 /** One-line warning when the configured integration branch cannot be checked. */
 export function missingIntegrationBranchWarning(branch: string): string {
-  return `Merge check skipped: local integration branch '${branch}' is missing. ` +
-    `Create it locally, or set [project].main_branch to the branch this project uses.`;
+  return `The merge check could not run because the trunk branch '${branch}' is ` +
+    `not available locally. Create that local branch, or set ` +
+    `[project].main_branch to the branch this project uses, then re-run.`;
 }
 
 /**
@@ -189,17 +195,21 @@ export async function assertInWorktree(
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   if (absoluteGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused — current directory is not inside a git repository.`,
+      `${label} needs a Git repository, but this directory is outside one. Move ` +
+        `into the project checkout, or run \`git init\` here first, then re-run.`,
     );
   }
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused — could not resolve the shared git directory.`,
+      `${label} could not identify this repository's shared Git directory. Run ` +
+        `\`git worktree repair\`, then re-run.`,
     );
   }
   if (absoluteGitDir === commonGitDir) {
     throw new WorktreeGitError(
-      `${label}: refused — must be run from inside a linked git worktree, not the main checkout.`,
+      `${label} runs only inside a worktree — a separate checkout and branch for ` +
+        `one change — not the main checkout. Run \`discern start\` from the main ` +
+        `checkout, move into the path it prints, then re-run.`,
     );
   }
 }
@@ -216,17 +226,20 @@ export async function assertNotInWorktree(
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   if (absoluteGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused - current directory is not inside a git repository.`,
+      `${label} needs a Git repository, but this directory is outside one. Move ` +
+        `into the project checkout, or run \`git init\` here first, then re-run.`,
     );
   }
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      `${label}: refused - could not resolve the shared git directory.`,
+      `${label} could not identify this repository's shared Git directory. Run ` +
+        `\`git worktree repair\`, then re-run.`,
     );
   }
   if (absoluteGitDir !== commonGitDir) {
     throw new WorktreeGitError(
-      `${label}: refused - must be run from the main checkout, not a linked git worktree.`,
+      `${label} runs only from the main checkout, not a worktree. Move to the ` +
+        `first path shown by \`git worktree list\`, then re-run.`,
     );
   }
 }
@@ -255,7 +268,7 @@ export async function assertMainMerged(
 ): Promise<MainMergedResult> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → clean no-op (this sits at the end
-  // of `discern finish`, which also runs in the main checkout).
+  // of `discern done`, which also runs in the main checkout).
   if (absoluteGitDir === undefined || commonGitDir === undefined) {
     return { kind: "skipped" };
   }
@@ -291,7 +304,7 @@ export async function assertMainMerged(
 
 /**
  * The read-only merged-state of an ARBITRARY source ref against HEAD — the
- * `integrate --from` counterpart of {@link assertMainMerged} (which is
+ * `update --from` counterpart of {@link assertMainMerged} (which is
  * trunk-specific: local-branch existence, the missing-branch warning). The
  * caller has already resolved `ref` through {@link resolveCommitRef}, so this
  * only reads: whether HEAD already contains it, and how many commits it is
@@ -314,13 +327,13 @@ export async function refMergedState(
   };
 }
 
-/** The outcome of integrating the integration branch into the current worktree. */
-export type IntegrateOutcome =
+/** The outcome of updating the integration branch into the current worktree. */
+export type UpdateOutcome =
   /** Not applicable here (main checkout, no repo, or no local main): nothing to do. */
   | { kind: "skipped" }
   /** The branch already contains the latest main — no merge, no refresh. */
   | { kind: "already" }
-  /** The worktree has uncommitted tracked changes: integrate merges into a clean tree only. */
+  /** The worktree has uncommitted tracked changes: update merges into a clean tree only. */
   | { kind: "dirty" }
   /**
    * Main was merged in: `behind` commit(s) brought in, `fastForward` when no merge
@@ -331,7 +344,7 @@ export type IntegrateOutcome =
    * degrades, never the merge.
    */
   | {
-    kind: "integrated";
+    kind: "updated";
     behind: number;
     fastForward: boolean;
     base: string;
@@ -358,8 +371,8 @@ export interface IntegrationAnchors {
 }
 
 /**
- * Resolve the pre-merge anchors of integrating `mainBranch` into HEAD — read-only,
- * so the apply ({@link integrateMain}, before it merges) and a `--dry-run` preview
+ * Resolve the pre-merge anchors of updating `mainBranch` into HEAD — read-only,
+ * so the apply ({@link updateMain}, before it merges) and a `--dry-run` preview
  * compute them identically. `main` is the integration branch's current tip,
  * `before` is HEAD (the branch's own work), `base` their merge-base. A failed read
  * yields `""` for that field; the summary layer degrades rather than the merge.
@@ -383,7 +396,7 @@ export async function resolveIntegrationAnchors(
  * Merge an integration source into the current worktree's branch — the mutating
  * counterpart to {@link assertMainMerged}'s read-only check. The source is the
  * integration branch by default, or ANY ref via `opts.from` (the landing model's
- * pull axis — `integrate --from`; the caller resolves the ref first, so an
+ * pull axis — `update --from`; the caller resolves the ref first, so an
  * unknown name never reaches the merge). Refuses (`dirty`) when the tree has
  * uncommitted tracked changes; no-ops (`already`) when the branch already
  * contains the source; and outside a linked worktree — or, on the default pull,
@@ -395,13 +408,13 @@ export async function resolveIntegrationAnchors(
  * mechanics — re-materializing the agent files after a successful merge is the
  * lifecycle layer's job, not this.
  */
-export async function integrateMain(
+export async function updateMain(
   cwd: string = Deno.cwd(),
   mainBranchFallback?: string,
   opts: { from?: string } = {},
-): Promise<IntegrateOutcome> {
+): Promise<UpdateOutcome> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
-  // Outside a repo, or in the main checkout → nothing to integrate into.
+  // Outside a repo, or in the main checkout → nothing to update into.
   if (
     absoluteGitDir === undefined || commonGitDir === undefined ||
     absoluteGitDir === commonGitDir
@@ -418,7 +431,7 @@ export async function integrateMain(
       cwd,
     );
     if (!hasMain.success) {
-      return { kind: "skipped" }; // no local main branch to integrate
+      return { kind: "skipped" }; // no local main branch to update
     }
   }
   // Already contains the source? Then there is nothing to merge.
@@ -430,7 +443,7 @@ export async function integrateMain(
   }
   // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
   // first. Untracked local/session scratch files do not participate in a merge and
-  // should not block integrating.
+  // should not block updating.
   if (await hasUncommittedTrackedChanges(cwd)) {
     return { kind: "dirty" };
   }
@@ -455,7 +468,7 @@ export async function integrateMain(
   const merge = await git(["merge", "--no-edit", source], cwd);
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
-    return { kind: "integrated", behind, fastForward, ...anchors, after };
+    return { kind: "updated", behind, fastForward, ...anchors, after };
   }
   // The merge stopped. A REAL conflict leaves evidence — unmerged paths, or a
   // MERGE_HEAD parked mid-merge; anything else is git refusing outright before
@@ -616,7 +629,7 @@ async function diffNames(
 /**
  * The overlap of two changed-path sets — the paths in BOTH, in `incoming` order,
  * deduped and capped to `cap`, with the pre-cap `total`. The single definition of
- * the "hot zone" intersection, shared by integrate's summary and status's behind
+ * the "hot zone" intersection, shared by update's summary and status's behind
  * report so the two can never compute it differently.
  */
 export function overlapPaths(
@@ -640,8 +653,8 @@ export function overlapPaths(
  * The files the current branch changed that the integration branch ALSO changed
  * since their fork — the "hot zone" status surfaces when the branch is behind, so an
  * agent sees which of its own work `mainBranch` is about to touch BEFORE it
- * integrates. Read-only and predictive (never merges): own = `base..HEAD`, incoming
- * = `base..main`, intersected by {@link overlapPaths}. Matches what `integrate
+ * updates. Read-only and predictive (never merges): own = `base..HEAD`, incoming
+ * = `base..main`, intersected by {@link overlapPaths}. Matches what `update
  * --dry-run` reports. Fails open to empty (a git hiccup, or no fork point).
  */
 export async function incomingOverlap(
@@ -742,7 +755,8 @@ export async function ensureWorktreeBranch(
   const headRun = await git(["rev-parse", "--short=8", "HEAD"], cwd);
   if (!headRun.success) {
     throw new WorktreeGitError(
-      "ensure-worktree-branch: could not resolve HEAD to create a branch.",
+      "This worktree is not on a named branch, and Git could not resolve its current " +
+        "commit. Run `git status` to repair or restore the checkout, then re-run.",
     );
   }
   const headSha = headRun.stdout.trim();
@@ -764,14 +778,17 @@ export async function ensureWorktreeBranch(
   const valid = await git(["check-ref-format", "--branch", candidate], cwd);
   if (!valid.success) {
     throw new WorktreeGitError(
-      `ensure-worktree-branch: generated invalid branch name: ${candidate}`,
+      `Discern generated the invalid branch name '${candidate}'. Set ` +
+        `[project].branch_prefix to a Git-safe prefix, then re-run.`,
     );
   }
 
   const switched = await git(["switch", "-c", candidate], cwd);
   if (!switched.success) {
     throw new WorktreeGitError(
-      `ensure-worktree-branch: failed to create branch ${candidate}: ${switched.stderr.trim()}`,
+      `This worktree is detached, and Git could not create branch '${candidate}'. ` +
+        `Fix the Git error below, then run \`git switch -c ${candidate}\` and re-run ` +
+        `the discern command.\nGit said: ${switched.stderr.trim()}`,
     );
   }
   return candidate;
@@ -805,7 +822,8 @@ export async function addWorktree(
   const run = await git(args, mainRepo);
   if (!run.success) {
     throw new WorktreeGitError(
-      `git worktree add failed for '${dir}' on branch '${branch}': ${run.stderr.trim()}`,
+      `Git could not create the worktree at '${dir}' on branch '${branch}'. Fix the ` +
+        `Git error below, then re-run the command.\nGit said: ${run.stderr.trim()}`,
     );
   }
 }
@@ -873,7 +891,7 @@ async function matchingRefs(cwd: string, name: string): Promise<string[]> {
 /**
  * Resolve `ref` to a commit in the repo at `cwd`, refusing an unknown or
  * ambiguous name in plain language. The ONE resolver behind every ref a user
- * hands the worktree lifecycle (`start --from`, `integrate --from`), so the two
+ * hands the worktree lifecycle (`start --from`, `update --from`), so the two
  * verbs can never accept different vocabularies. Returns the resolved commit
  * SHA (an annotated tag is peeled to the commit it tags); the caller usually
  * keeps using the NAME (better reflogs), this is the existence/ambiguity check.
@@ -889,7 +907,7 @@ export async function resolveCommitRef(
 ): Promise<string> {
   if (ref.trim() === "") {
     throw new WorktreeGitError(
-      "A ref name is required — pass a branch, tag, or commit.",
+      "A ref name is required. Pass a branch, tag, or commit, then re-run.",
     );
   }
   const candidates = await matchingRefs(cwd, ref);
@@ -897,7 +915,7 @@ export async function resolveCommitRef(
     throw new WorktreeGitError(
       `The ref '${ref}' is ambiguous — it names ${
         candidates.join(" and ")
-      }. Pass the full name (e.g. ${candidates[0]}) so the right one is used.`,
+      }. Pass the full name (e.g. ${candidates[0]}), then re-run.`,
     );
   }
   // Exactly one ref matches → resolve that full name (no precedence in play);
@@ -910,7 +928,7 @@ export async function resolveCommitRef(
     const evidence = run.stderr.trim();
     throw new WorktreeGitError(
       `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
-        `List local branches with \`git branch\`.` +
+        `List local branches with \`git branch\`, choose one, then re-run.` +
         (evidence === "" ? "" : `\n(git: ${evidence})`),
     );
   }
@@ -1013,7 +1031,7 @@ export async function worktreeGitKey(
  * commits ahead of the integration branch) while the main checkout accumulates
  * uncommitted changes — the signature of an agent that could not re-root and is
  * editing the trunk while discern's tools run here. Returns the explicit warning
- * (one wording, shared by `status` and `finish`), or undefined when the shape
+ * (one wording, shared by `status` and `done`), or undefined when the shape
  * doesn't match. Read-only; fails open to undefined.
  */
 export async function detectSilentDivergence(
@@ -1086,7 +1104,7 @@ export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
 /**
  * Local `<prefix>*` branches holding UNLANDED work with no worktree — commits not
  * on the trunk, and not checked out in any registered worktree. The abandoned-work
- * signal `status` surfaces from the main checkout: a graduated branch is deleted,
+ * signal `status` surfaces from the main checkout: a landed branch is deleted,
  * a live one has its worktree, and a fully-merged dangling one is prune's food —
  * what remains is work that would otherwise be invisible. Empty when the trunk is
  * missing (nothing to compare against) or outside a repo.
@@ -1248,8 +1266,8 @@ export async function registeredWorktreeRecord(
  * way through is git's own `git worktree unlock`. */
 function lockedWorktreeRefusal(path: string): WorktreeGitError {
   return new WorktreeGitError(
-    `refused — the worktree at '${path}' is locked (git worktree lock), and ` +
-      `discern never removes a locked worktree. Unlock it first ` +
+    `The worktree at '${path}' is locked with \`git worktree lock\`, so discern ` +
+      `left it untouched. Unlock it first ` +
       `(git worktree unlock ${path}), then re-run.`,
   );
 }
@@ -1275,7 +1293,8 @@ export async function removeWorktreeSafely(
   const mainFirst = await firstWorktreePath(cwd);
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
-      "remove-worktree-safely: not inside a git repository.",
+      "Worktree removal needs a Git repository, but this directory is outside one. " +
+        "Move into the project's main checkout, then re-run.",
     );
   }
   const mainRepo = await realPathOr(mainFirst);
@@ -1284,7 +1303,8 @@ export async function removeWorktreeSafely(
 
   if (canonical === mainRepo) {
     throw new WorktreeGitError(
-      `remove-worktree-safely: refused — '${canonical}' is the main checkout.`,
+      `'${canonical}' is the main checkout, which worktree removal never deletes. ` +
+        `Pass a worktree path instead; use \`git worktree list\` to find one.`,
     );
   }
 
@@ -1310,7 +1330,8 @@ export async function removeWorktreeSafely(
   // computed before removal so the rm -rf fallback stays authorised mid-race.
   if (!registered && !gitlinked) {
     throw new WorktreeGitError(
-      `remove-worktree-safely: refused — '${canonical}' is not a git worktree of this repository.`,
+      `'${canonical}' is not a worktree of this repository, so discern left it ` +
+        `untouched. Pass a path from \`git worktree list\`, then re-run.`,
     );
   }
 
@@ -1459,7 +1480,8 @@ async function aheadBehind(
 
 /**
  * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
- * integration branch (`MAIN_BRANCH` / `mainBranchFallback` / `main`). The `clean`
+ * integration branch (`DISCERN_MAIN_BRANCH` / `mainBranchFallback` / `main`). The
+ * `clean`
  * predicate is the user-facing / removal-safety one: no tracked changes and no
  * untracked non-ignored files. Pure reads — `rev-parse`, `branch`,
  * `status --porcelain --untracked-files=normal`, `rev-list` — so it never mutates
@@ -1645,7 +1667,7 @@ export async function listWorktreeFleet(
 export interface PruneScanOptions {
   /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
-  /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
 }
 
@@ -1818,7 +1840,8 @@ async function staleMetadataForRecord(
     }
   }
   throw new WorktreeGitError(
-    `worktree prune: could not resolve stale metadata for '${rec.path}'.`,
+    `Worktree pruning could not resolve stale Git metadata for '${rec.path}'. Run ` +
+      `\`git worktree repair\`, then re-run \`discern worktree prune\`.`,
   );
 }
 
@@ -1837,7 +1860,8 @@ export async function scanGitWorktreesForPrune(
   const repoRoot = rootRun.success ? rootRun.stdout.trim() : "";
   if (repoRoot === "") {
     throw new WorktreeGitError(
-      "This command must be run from inside a Git repository.",
+      "Worktree pruning needs a Git repository, but this directory is outside one. " +
+        "Move into the project's main checkout, then re-run.",
     );
   }
   if (
@@ -1848,7 +1872,9 @@ export async function scanGitWorktreesForPrune(
       .success
   ) {
     throw new WorktreeGitError(
-      `Expected local '${mainBranch}' branch to exist; aborting.`,
+      `The trunk branch '${mainBranch}' is not available locally, so worktree ` +
+        `pruning cannot prove which work is landed. Create that local branch, or set ` +
+        `[project].main_branch correctly, then re-run.`,
     );
   }
 
@@ -1858,7 +1884,8 @@ export async function scanGitWorktreesForPrune(
   const commonGitDir = await commonGitDirFrom(repoRoot);
   if (commonGitDir === undefined) {
     throw new WorktreeGitError(
-      "worktree prune: could not resolve the shared git directory.",
+      "Worktree pruning could not identify the repository's shared Git directory. " +
+        "Run `git worktree repair`, then re-run `discern worktree prune`.",
     );
   }
 
@@ -2178,7 +2205,7 @@ export async function pruneStaleWorktreeMetadata(
 export interface SweepScanOptions {
   /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
-  /** Integration-branch fallback when `MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
   mainBranch?: string;
 }
 
@@ -2271,7 +2298,8 @@ export async function scanOrphanWorktreesForSweep(
   const mainFirst = await firstWorktreePath();
   if (mainFirst === undefined || mainFirst === "") {
     throw new WorktreeGitError(
-      "sweep-orphan-worktrees: not inside a git repository.",
+      "Orphan worktree cleanup needs a Git repository, but this directory is outside " +
+        "one. Move into the project's main checkout, then re-run.",
     );
   }
   const mainRepo = await realPathOr(mainFirst);
@@ -2499,7 +2527,8 @@ export async function inheritMainEnvVars(
   const mainRepo = await mainRepoPath();
   if (mainRepo === undefined) {
     throw new WorktreeGitError(
-      "inherit-main-env-vars: could not resolve the main checkout.",
+      "Discern could not find the main checkout while copying environment values. " +
+        "Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
   let mainHasAny = false;

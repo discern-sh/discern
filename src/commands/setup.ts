@@ -1,5 +1,5 @@
 /**
- * `discern setup` — the one-time, zero-config harness setup.
+ * `discern setup` — the one-time, zero-config discern setup.
  *
  * Combines mechanical scaffolding and agent-driven authoring in a single command
  * (ADR 0036). The user installs the binary and
@@ -7,7 +7,7 @@
  * explicit `discern setup` both land here. There are no wizard prompts and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
- *   1. Scaffold the harness machinery (a fresh install, or a `--force` refresh):
+ *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
  *      `discern.toml` with capabilities unset, the compiled agent files, the
  *      merged settings, the MCP wiring.
  *   2. Lay the doc skeletons — only when the project has none, so an existing
@@ -81,7 +81,7 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { CONFIG_REL, findRoot } from "../shared/env.ts";
+import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
@@ -110,12 +110,12 @@ import {
 } from "../shared/setup_messages.ts";
 import type { SetupDoneData } from "../shared/result_schemas.ts";
 import {
-  LAND_COMMAND,
+  ACCEPT_COMMAND,
   type LandingSummary,
   landingSummary,
-} from "./setup_land.ts";
+} from "./setup_accept.ts";
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
@@ -157,7 +157,7 @@ export interface RawScaffoldCliOptions {
   sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
-  docs?: string | undefined;
+  map?: string | undefined;
   config?: string | undefined;
   model?: string | undefined;
   dryRun?: boolean | undefined;
@@ -189,7 +189,7 @@ export function beginOptsFrom(
     sourceGlobs: o.sourceGlobs,
     brief: o.brief,
     agents: o.agents,
-    docs: o.docs,
+    map: o.map,
     config: o.config,
     model: o.model,
   };
@@ -217,7 +217,7 @@ export function hasScaffoldIntent(options: unknown): boolean {
     o.sourceGlobs !== undefined ||
     o.brief !== undefined ||
     o.agents !== undefined ||
-    o.docs !== undefined ||
+    o.map !== undefined ||
     o.model !== undefined
   );
 }
@@ -227,9 +227,6 @@ const TEXT_ENCODER = new TextEncoder();
 
 /** The config key recording that one-time setup is complete. */
 const BOOTSTRAPPED_KEY = "meta.bootstrapped";
-
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -242,7 +239,7 @@ export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
   config: SetupConfig;
-  /** Declarative slots/scopes/side_gates/ratchets fills from `setup --config`. */
+  /** Declarative slots/scopes/side_gates/standards fills from `setup --config`. */
   fills?: DiscernConfigDoc | undefined;
   /** The repo's detected integration branch, stamped into the fresh config's
    * `[project].main_branch` (before the fills, so an explicit fill still wins). */
@@ -313,7 +310,7 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
  * in place (comment-preserving). Without this, a repo whose default branch is not
  * `main` scaffolds a config pointing the gate's merge check at a branch that does
  * not exist locally — a check that then silently self-skips forever, and a
- * `setup land` that dead-ends.
+ * `setup accept` that dead-ends.
  */
 function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
   const op = freshConfigOp(plan);
@@ -434,7 +431,7 @@ async function forkParentBranch(destDir: string): Promise<string | undefined> {
 }
 
 /**
- * Apply the answers file's slots/scopes/side_gates/ratchets to the generated
+ * Apply the answers file's slots/scopes/side_gates/standards to the generated
  * `discern.toml` op via the comment-preserving editor. A no-op when the
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
@@ -497,7 +494,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 }
 
 /**
- * Phase 1 — scaffold the harness machinery into `destDir`. Resolves the config
+ * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
  * non-interactively (flags + `--config` + defaults; never prompts), assembles and
  * applies the seed plan, then compiles guidance / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
@@ -915,17 +912,17 @@ async function recordProvenance(
 async function laySkeletons(
   root: string,
   name: string,
-  docsDir: string,
+  mapDir: string,
   todoRel: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
   const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
   const skipped: string[] = [];
-  const docsRel = normalizeDocsDir(docsDir);
+  const docsRel = normalizeMapDir(mapDir);
   const docsAbs = join(root, docsRel);
   const tokens: SkeletonTokens = {
     "{{project_name}}": name,
-    "{{docs_dir}}": docsRel,
+    "{{map_dir}}": docsRel,
     "{{todo_path}}": todoRel,
   };
 
@@ -953,7 +950,7 @@ async function laySkeletons(
 
 /** The path context setup's agent-facing brief renders against. */
 interface SetupPathContext {
-  docsDir: string;
+  mapDir: string;
   todoRel: string;
   guidanceRel: string;
 }
@@ -966,7 +963,7 @@ function renderSetupPaths(
   paths: SetupPathContext,
 ): string {
   return instructions
-    .replaceAll("{{docs_dir}}", normalizeDocsDir(paths.docsDir))
+    .replaceAll("{{map_dir}}", normalizeMapDir(paths.mapDir))
     .replaceAll("{{todo_path}}", paths.todoRel)
     .replaceAll("{{guidance_path}}", paths.guidanceRel)
     .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath);
@@ -1004,17 +1001,17 @@ export async function resolveSetupRoot(start: string): Promise<string> {
 export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const log = new Logger(opts);
 
-  // The verbatim-copy guard for `--docs`, mirroring the `--model` placeholder
+  // The verbatim-copy guard for `--map`, mirroring the `--model` placeholder
   // guard in recordProvenance: an angle-bracket value is the consent framing's
   // own example copied unsubstituted, and accepting it would scaffold a literal
   // `<placeholder>/` tree. --model degrades silently (provenance is advisory);
-  // --docs REFUSES, because it decides where real files land.
-  if (opts.docs !== undefined && /[<>]/.test(opts.docs)) {
+  // --map REFUSES, because it decides where real files land.
+  if (opts.map !== undefined && /[<>]/.test(opts.map)) {
     emitSetupError(
       log,
       opts,
       "invalid_option",
-      `--docs received a literal placeholder (${opts.docs}) — substitute the real project-relative path to the docs folder (e.g. --docs docs/), or omit the flag to keep discern's map at its default home.`,
+      `--map received a literal placeholder (${opts.map}) — substitute the real project-relative path to the docs folder (e.g. --map docs/), or omit the flag to keep discern's map at its default home.`,
     );
     return 1;
   }
@@ -1071,7 +1068,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // below (the last detection probe reads the currently checked-out branch), so the
   // scaffold stamps `[project].main_branch` with the truth rather than assuming
   // `main` — on a `master` repo that assumption silently disarms the gate's merge
-  // check and dead-ends `setup land`.
+  // check and dead-ends `setup accept`.
   const detectedMainBranch = freshInstall
     ? await detectIntegrationBranch(destDir)
     : undefined;
@@ -1133,7 +1130,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   // --- Commit the scaffolded machinery (discern owns its own wiring) ---
-  // When `begin` is on the isolated `discern-setup` branch, commit the harness machinery
+  // When `begin` is on the isolated `discern-setup` branch, commit discern's machinery
   // — the config, the `.gitignore` fragment, and the per-agent MCP + hooks files — as one
   // commit, so a coding agent never has to commit discern's own permission-widening wiring
   // (a pre-approved MCP server), which its safety classifier is rightly trained to refuse.
@@ -1172,10 +1169,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // a resume where the fresh SetupConfig isn't in hand (ADR 0065).
   const name = scaffold?.config.projectName ??
     (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
-  const docsDir = cfg?.docs.dir ?? scaffold?.config.docsDir ??
-    SOURCE_PATHS.docs.defaultPath;
+  const mapDir = cfg?.map.dir ?? scaffold?.config.mapDir ??
+    SOURCE_PATHS.map.defaultPath;
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
-  const { laid, skipped } = await laySkeletons(destDir, name, docsDir, todoRel);
+  const { laid, skipped } = await laySkeletons(destDir, name, mapDir, todoRel);
 
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
   // `begin` emits the principles and page 0 only (A10); the agent pulls each
@@ -1186,7 +1183,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     join(await resolveSetupDir(), "instructions.md"),
   );
   let instructions = renderSetupPaths(rawInstructions, {
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel: scaffold?.guidanceRel ??
       (cfg !== undefined
@@ -1293,11 +1290,11 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (machineryCommitted) {
     console.log(
-      "Committed discern's harness wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
+      "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
     console.log(
-      `Could not auto-commit discern's harness wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
+      `Could not auto-commit discern's wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
     );
   }
   if (laid.length > 0) {
@@ -1355,7 +1352,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
  * code when the tree is dirty (the error is already emitted). The caller gates this
  * on `freshInstall && !dryRun && !allowDirty`.
  *
- * A fresh setup branch forks from the CURRENT HEAD, and `setup land` later
+ * A fresh setup branch forks from the CURRENT HEAD, and `setup accept` later
  * fast-forwards (or merges) the integration branch to it — so a setup begun on an
  * unmerged feature branch would carry that branch's own commits onto the trunk.
  * When `integrationBranchName` (the pre-checkout detection) names an EXISTING
@@ -1412,7 +1409,7 @@ async function ensureSetupBranch(
     })).success;
   // Fresh creation only (a resume checks out the existing branch as-is): refuse
   // to fork the setup branch off anything but the integration branch, so the
-  // later `setup land` can never sweep a feature branch's own commits onto it.
+  // later `setup accept` can never sweep a feature branch's own commits onto it.
   if (!exists && integrationBranchName !== undefined) {
     const targetExists = (await runGit(
       [
@@ -1425,7 +1422,7 @@ async function ensureSetupBranch(
     )).success;
     if (targetExists && current !== integrationBranchName) {
       const message =
-        `setup starts from your integration branch (\`${integrationBranchName}\`) so the finished ` +
+        `setup starts from your trunk (\`${integrationBranchName}\`), the shared landing branch, so the finished ` +
         `work can land back onto it cleanly — you are on \`${current}\`, and a setup branch forked ` +
         `from it would carry this branch's own commits onto \`${integrationBranchName}\` when landed. ` +
         `Check out \`${integrationBranchName}\` (\`git checkout ${integrationBranchName}\`), then re-run ` +
@@ -1470,13 +1467,13 @@ function authoredContentSeeds(guidanceRel: string): ReadonlySet<string> {
 }
 
 /**
- * Commit the harness machinery `setup begin` just scaffolded — discern's OWN wiring: the
+ * Commit discern's machinery `setup begin` just scaffolded — discern's OWN wiring: the
  * config, the `.gitignore` fragment, the per-agent MCP + hooks files, any app-managed
  * worktree-lifecycle config, and any provider-owned project rules an agent declares
  * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.hooksWired`
  * ∪ `.worktreeAppWired` ∪ `.projectRulesWired`, minus the
  * {@link authoredContentSeeds} the agent fills) —
- * as one `discern: scaffold harness` commit on the `discern-setup` branch. discern
+ * as one `discern: scaffold wiring` commit on the `discern-setup` branch. discern
  * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
  * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
  * discern's essential wiring on a dirty tree. Extends the {@link commitCompletionMarker}
@@ -1517,7 +1514,7 @@ async function commitScaffoldedMachinery(
  * derived from the provider registry ({@link providerFor} over `[guidance].agents`),
  * never a hand-copied list, so a new provider or wiring category auto-enrols (the same
  * single-source derivation `tests/engine_setup_test.ts`'s B10 guard asserts against). The
- * always-present harness files (`discern.toml`, the `.gitignore` fragment) are included
+ * always-present discern files (`discern.toml`, the `.gitignore` fragment) are included
  * unconditionally. This is the machinery set a RESUMED `begin` re-derives when this run
  * produced no {@link ScaffoldOutcome} to read the written paths from.
  */
@@ -1545,7 +1542,7 @@ function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
 }
 
 /**
- * Commit discern's harness wiring on a RESUME of `begin` — the path that reaches the
+ * Commit discern's wiring on a RESUME of `begin` — the path that reaches the
  * `discern-setup` branch without re-scaffolding (an abandoned earlier run recomputes
  * `freshInstall=false`). The earlier run wrote the machinery but may have failed to commit
  * it (a missing git identity, a rejecting pre-commit hook, an interrupted process), leaving
@@ -1584,7 +1581,7 @@ async function commitPendingMachinery(
 }
 
 /**
- * Stage exactly `paths` and commit them as the single `discern: scaffold harness` commit —
+ * Stage exactly `paths` and commit them as the single `discern: scaffold wiring` commit —
  * the shared executor behind both the fresh-scaffold and the resume machinery commits.
  * Scoped to the given pathspecs on both `add` and `commit` (never `git add -A`, never a
  * bare `git commit`), so nothing the agent authored can be swept in. Best-effort and
@@ -1603,7 +1600,7 @@ async function commitMachineryPaths(
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
   const commit = await runGit(
-    ["commit", "-m", "discern: scaffold harness", "--", ...paths],
+    ["commit", "-m", "discern: scaffold wiring", "--", ...paths],
     { cwd: root },
   );
   return commit.success
@@ -1660,14 +1657,14 @@ export async function runSetupStep(
   const rawInstructions = await Deno.readTextFile(
     join(await resolveSetupDir(), "instructions.md"),
   );
-  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   const root = await findRoot();
   if (root !== undefined) {
     try {
       const cfg = await loadConfig(root);
-      docsDir = cfg.docs.dir;
+      mapDir = cfg.map.dir;
       todoRel = cfg.project.todo;
       guidanceRel = guidanceSeedRel(cfg.guidance.sources);
     } catch {
@@ -1675,7 +1672,7 @@ export async function runSetupStep(
     }
   }
   const instructions = renderSetupPaths(rawInstructions, {
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel,
   });
@@ -1832,7 +1829,7 @@ function emitSetupIncomplete(
  * The uncommitted changes that block `setup done` (the clean-tree precondition):
  * every uncommitted change to a TRACKED file, plus untracked files inside the
  * authored-setup footprint (the configured docs tree, the guidance source, the
- * deferred-work ledger, the brief). The completion proof and `setup land` operate
+ * deferred-work ledger, the brief). The completion proof and `setup accept` operate
  * on committed history only — the worktree probe branches from HEAD, so anything
  * uncommitted is invisible to it, and a completion recorded over it would claim a
  * proof it never ran. Untracked files OUTSIDE the footprint never block: an env
@@ -1846,19 +1843,19 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
   }
   // The authored-setup locations, from config when it loads (registry defaults
   // otherwise — a broken config is the proof's problem, not this check's).
-  let docsDir = SOURCE_PATHS.docs.defaultPath;
+  let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
   let guidanceRel = SOURCE_PATHS.guidance.defaultPath;
   try {
     const cfg = await loadConfig(root);
-    docsDir = normalizeDocsDir(cfg.docs.dir);
+    mapDir = normalizeMapDir(cfg.map.dir);
     todoRel = cfg.project.todo;
     guidanceRel = guidanceSeedRel(cfg.guidance.sources);
   } catch {
     // Keep the defaults.
   }
   const footprint = [
-    docsDir,
+    mapDir,
     todoRel,
     guidanceRel,
     SOURCE_PATHS.brief.defaultPath,
@@ -1901,7 +1898,7 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     console.error(`         • ${u}`);
   }
   console.error(
-    "       The completion proof and `discern setup land` operate on commits — uncommitted work is invisible to them.",
+    "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
   );
   console.error(
     "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
@@ -1940,13 +1937,13 @@ function doneHints(
 ): string[] {
   const hints: string[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
-    // `setup land` lands ONLY the dedicated setup branch — an in-place setup on
+    // `setup accept` lands ONLY the dedicated setup branch — an in-place setup on
     // the user's own branch is steered to a manual merge, because the land
     // command would sweep that branch's own commits onto the trunk.
     hints.push(
       landing.onSetupBranch
-        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${LAND_COMMAND}\` (or leave it for review).`
-        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${LAND_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
+        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${ACCEPT_COMMAND}\` (or leave it for review).`
+        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${ACCEPT_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
     );
   }
   hints.push(reactivation.summary);
@@ -1961,9 +1958,9 @@ function doneHints(
 function verdictSentence(a: SetupAssurance): string {
   switch (a.verdict) {
     case "full":
-      return "Quality coverage: full — every standard check is enforced, so `discern finish` runs the complete recommended gate.";
+      return "Quality coverage: full — every standard check is enforced, so `discern done` runs the complete recommended gate.";
     case "minimal":
-      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern finish` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
+      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern done` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
     case "partial":
       return `Quality coverage: partial — ${a.enforced} of ${a.total} standard checks enforced. Setup is complete, but not every recommended protection is active yet.`;
   }
@@ -1981,7 +1978,7 @@ function assuranceLines(a: SetupAssurance): string[] {
       ? "•"
       : "·";
     const label = c.state === "enforced"
-      ? "enforced — runs on every `discern finish`"
+      ? "enforced — runs on every `discern done`"
       : c.state === "deferred"
       ? (c.reason !== undefined
         ? `deferred — ${c.reason}`
@@ -2006,22 +2003,22 @@ function landStep(landing: LandingSummary, n: number): string[] {
   }
   if (landing.branch === "") {
     return [
-      `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${LAND_COMMAND}\`.`,
+      `  ${n}. Land your setup onto \`${landing.target}\` — you're on a detached HEAD; check out your setup branch, then run \`${ACCEPT_COMMAND}\`.`,
     ];
   }
   if (!landing.onSetupBranch) {
-    // An in-place setup on the user's own branch: `setup land` only lands the
+    // An in-place setup on the user's own branch: `setup accept` only lands the
     // dedicated setup branch, so steer to a manual merge instead.
     return [
       `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\` —`,
-      `     merge it into \`${landing.target}\` your usual way when ready (\`${LAND_COMMAND}\` only`,
+      `     merge it into \`${landing.target}\` your usual way when ready (\`${ACCEPT_COMMAND}\` only`,
       `     lands the \`${SETUP_BRANCH}\` branch, never a branch of your own).`,
     ];
   }
   return [
     `  ${n}. Land your setup onto \`${landing.target}\`. Your work is on branch \`${landing.branch}\`,`,
     `     not yet on \`${landing.target}\` — switching to \`${landing.target}\` now would look like`,
-    `     discern vanished. Land it:  ${LAND_COMMAND}`,
+    `     discern vanished. Land it:  ${ACCEPT_COMMAND}`,
     `     Prefer to review first? Leave \`${landing.branch}\` as-is and land it when ready —`,
     "     doing nothing is safe; the branch keeps every commit.",
   ];
@@ -2124,7 +2121,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
  * marker may remain, AND every derived per-step completion check must pass (ADR
  * 0078) — the latter catches a skeleton whose marker was deleted without the file
  * being meaningfully filled (the shallow-compliance failure). The proof — `refresh`
- * → `doctor` → `finish` — then makes the gate's definition-of-done structural:
+ * → `doctor` → `done` — then makes the gate's definition-of-done structural:
  * completion can't be recorded unless the install is healthy and the gate actually
  * passes. `--force` is the manual-setup escape hatch: it skips the completeness
  * checks AND the proof.
@@ -2149,7 +2146,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
 
   // The clean-tree precondition: the completion proof runs on committed history
   // (the worktree probe branches from HEAD), and the completion story — "the
-  // branch keeps every commit", `setup land` — is only true of commits. Refuse
+  // branch keeps every commit", `setup accept` — is only true of commits. Refuse
   // while authored setup sits uncommitted, naming exactly what to commit, AFTER
   // the completeness checks (fill first, then commit, then prove). `--force`
   // skips it along with the rest of the proof.
@@ -2218,9 +2215,11 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
   const reactivation = reactivationHandoff(cfg);
-  // Resolve the coach verb from the live engine-verb SSOT (improve, or audit before the
-  // rename) rather than hardcoding, so the steer survives the audit→improve rename.
-  const coachVerb = KNOWN_ENGINE_VERBS.has("improve") ? "improve" : "audit";
+  // Resolve the coach verb from the live engine-verb SSOT (improvement, or audit before
+  // the earlier rename) rather than hardcoding, so the steer survives vocabulary changes.
+  const coachVerb = KNOWN_ENGINE_VERBS.has("improvement")
+    ? "improvement"
+    : "audit";
   // The closing relay block — the ready-to-relay "message to your human" a courier agent
   // hands over, composed from the same pieces the structured surface carries (ADR 0086),
   // and rendered identically on both surfaces.
@@ -2244,7 +2243,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         target: landing.target,
         on_target: landing.onTarget,
         on_setup_branch: landing.onSetupBranch,
-        command: LAND_COMMAND,
+        command: ACCEPT_COMMAND,
       },
       reactivation,
       coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
@@ -2285,7 +2284,7 @@ type GateProof =
 /**
  * Run the completion proof `discern setup done` requires before recording
  * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the generated agent files are
- * current), then `doctor` (the install is healthy), then `finish` (the gate is green
+ * current), then `doctor` (the install is healthy), then `done` (the gate is green
  * with whatever capabilities were just wired) — all in the main checkout — then a
  * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy
  * every future task runs in (the main checkout being the one place agents are told
@@ -2346,8 +2345,8 @@ async function proveGateGreen(
       ok: false,
       exitCode: emitDoneGateFailure(
         json,
-        "finish",
-        "the quality gate is not green; run `discern finish`, fix the failures, then re-run",
+        "done",
+        "the quality gate is not green; run `discern done`, fix the failures, then re-run",
       ),
     };
   }
@@ -2418,10 +2417,10 @@ async function proveWorktreeViable(
       };
     case "uncreatable":
       // Couldn't create a probe (e.g. an unborn branch) — not the app's fault. Report it
-      // un-proven rather than blocking; the first real `discern finish` in a worktree
+      // un-proven rather than blocking; the first real `discern done` in a worktree
       // will prove it.
       log.info(
-        `Skipped the worktree probe (${outcome.reason}); your first \`discern finish\` in a worktree will prove it.`,
+        `Skipped the worktree probe (${outcome.reason}); your first \`discern done\` in a worktree will prove it.`,
       );
       return { ok: true, worktreeProven: false };
   }
@@ -2458,7 +2457,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
  */
 function emitDoneGateFailure(
   json: boolean,
-  stage: "refresh" | "doctor" | "finish" | "worktree_probe",
+  stage: "refresh" | "doctor" | "done" | "worktree_probe",
   detail: string,
 ): number {
   const message = `setup is not finished — ${detail}.`;
@@ -2473,7 +2472,7 @@ function emitDoneGateFailure(
   } else {
     console.error(`discern: ${message}`);
     console.error(
-      `       (\`discern setup done\`'s completion proof is refresh → doctor → finish, then a worktree probe; the ${stage} step failed.)`,
+      `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
     );
     console.error(
       "       Fix it and re-run, or pass --force to record completion without the proof.",
@@ -2547,10 +2546,14 @@ async function rootOrError(
   const root = await findRoot();
   if (root === undefined) {
     if (json) {
-      emitResult({ ok: false, verb, error: "no_project", message: NO_PROJECT });
+      emitResult({
+        ok: false,
+        verb,
+        error: "no_project",
+        message: NO_PROJECT_MESSAGE,
+      });
     } else {
-      console.error(`discern: ${NO_PROJECT}`);
-      console.error("       Run `discern setup` to scaffold one.");
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }
   }
   return root;

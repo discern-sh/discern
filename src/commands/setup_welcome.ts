@@ -304,7 +304,7 @@ function actionBox(): string[] {
  * compact — the full agent preflight is `verify`'s job, not the welcome's.
  */
 const PLAIN_FRESH_WELCOME: readonly string[] = [
-  "discern — a stack-neutral quality harness for coding agents and the humans who run them.",
+  "discern — quality gates and safe worktrees for coding agents and the humans who run them.",
   "",
   "This project isn't set up yet.",
   "",
@@ -371,7 +371,7 @@ export function renderFreshWelcome(
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
   return [
     boxTop(),
-    boxLine(`${bold(cyan("discern"))} — a stack-neutral quality harness`),
+    boxLine(`${bold(cyan("discern"))} — quality gates and safe worktrees`),
     boxLine(dim("for coding agents and the humans who run them.")),
     boxRule("This project isn't set up yet."),
     ...(ctx.gitRepo ? [] : [

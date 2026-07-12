@@ -1,17 +1,17 @@
 # Working in the discern repo
 
-discern is a portable, stack-neutral **agentic-development harness**: one
-command scaffolds a quality gate, an isolated git-worktree workflow, an
-author-once→compile-everywhere agent-instruction pipeline, and a docs/ADR
+discern is a portable, stack-neutral **agentic-development system**: one command
+scaffolds a quality gate, an isolated git-worktree workflow, an
+author-once→compile-everywhere agent-instruction pipeline, and a map/ADR
 discipline into any project.
 
-**This repo is both the tool, and a user of it — it runs its own harness!**
+**This repo is both the tool and a user of it — it runs on its own gate.**
 
 All the instructions you've already seen (the ones _above_ "Working in the
 discern repo") are _the same instructions_ discern bundles and ships to other
 coding agents, working in _their_ user's projects, to help them navigate their
-own way around the discern harness. All the instructions from _here onwards_ are
-for **you**: an agent working on discern _itself_.
+own way around discern. All the instructions from _here onwards_ are for
+**you**: an agent working on discern _itself_.
 
 ## What's in the repo
 
@@ -21,7 +21,7 @@ in sync.
 
 - **`src/`** — the whole binary. Installer verbs (`setup`, `doctor`, `upgrade`,
   `config`, `preset`) **and** the TypeScript engine: `src/engine/**` (the gate,
-  the parallel/serial job runner, scope classification, ratchets, the worktree
+  the parallel/serial job runner, scope classification, standards, the worktree
   lifecycle + identity, the guideline compiler, the dispatcher), sharing
   `src/shared/**` (config reader, capability constants, feature toggles, POSIX
   `cksum`, root discovery). Compiled to a single binary via `deno task build`.
@@ -47,7 +47,7 @@ The rules:
 
 - **The engine and installer are TypeScript under `src/**` — edit them in
   place.** There is no second copy, no hash tracking, no drift to detect. The
-  gate (`discern finish`) type-checks and tests them.
+  gate (`discern done`) type-checks and tests them.
 - **`templates/**` is the distribution surface** — edit the seed/skill/guidance
   _source_ here (keep it generic; see below). To reflect a bundled-skill or
   built-in-guidance edit in this repo's own skills and guidelines, run
@@ -63,16 +63,16 @@ The rules:
 never `templates/`, which only holds the generic built-in guidance _other_
 projects receive. Then run `discern refresh` to recompile the agent files
 (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — gitignored build artifacts you
-never hand-edit (ADR 0034); `discern finish` fails if one drifts from its
-source. Keep the prose provider-agnostic: one source compiles to every agent.
-Nothing overwrites your `guidance.md`.
+never hand-edit (ADR 0034); `discern done` fails if one drifts from its source.
+Keep the prose provider-agnostic: one source compiles to every agent. Nothing
+overwrites your `guidance.md`.
 
 | To change…                                      | Edit…                                     | Then run                           |
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
-| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern finish`                   |
-| an installer command                            | `src/commands/**` (in place)              | `discern finish`                   |
+| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern done`                     |
+| an installer command                            | `src/commands/**` (in place)              | `discern done`                     |
 | a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
-| the built-in harness guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
+| the built-in discern guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
 | a seed file users receive                       | `templates/…`                             | —                                  |
 | this guidance (yours)                           | `guidance.md`                             | `discern refresh`                  |
 | project config (yours)                          | `discern.toml`, `deno.json`               | —                                  |
@@ -96,15 +96,15 @@ applied while editing, is the safeguard.
 One vocabulary **is** gated, because it's structural rather than open-ended:
 **internal ADR citations never ship**. An "(ADR 0034)" in an error message,
 upgrade note, or template is repo-internal shorthand no other project's users or
-agents can follow. Cite ADRs in code comments, `docs/`, and commit messages;
-keep shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces
-this — string literals under `src/`, all text under `templates/`). The concept
-word "ADR" stays legal everywhere: discern ships an ADR discipline.
+agents can follow. Cite ADRs in code comments, `map/`, and commit messages; keep
+shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces this —
+string literals under `src/`, all text under `templates/`). The concept word
+"ADR" stays legal everywhere: discern ships an ADR discipline.
 
 ## The gate
 
 - `discern prepare` — fast inner loop: fix + check, no tests.
-- `discern finish` — full gate (run from the repo root): `deno fmt` (fix) →
+- `discern done` — full gate (run from the repo root): `deno fmt` (fix) →
   `deno lint` + `deno check` (check) ∥ `deno task test` (test). This is the repo
   running its **own** TS engine, so a regression in the engine surfaces here.
 
@@ -128,7 +128,7 @@ The MCP `discern_*` tools are a separately-spawned, long-lived server running
 the **main** checkout's engine, not your worktree's — so for branch-only changes
 (a bundled skill, guidance, or engine edit not yet on `main`) they can report
 stale results against main, not your branch. Trust the engine run from source —
-`discern finish` — over the MCP `discern_*` tools whenever they disagree.
+`discern done` — over the MCP `discern_*` tools whenever they disagree.
 
 Everything supports discern's own **`--json`** flag; always pass it for
 optimised machine-readable output. It reaches the underlying `discern <cmd>`
@@ -140,11 +140,11 @@ exactly as an end user would, so discern's full range is open to you too.
 `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the
 TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and
 hooks resolve the binary like a real install). It is the behavioral parity
-oracle for the engine. If a bad engine change ever breaks `discern finish`
-itself, run `deno task test` directly. Add engine coverage to
-`tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
-Iterate on one suite with `deno task test tests/<name>_test.ts` (or
-`--filter <name>`) instead of running the whole suite each loop.
+oracle for the engine. If a bad engine change ever breaks `discern done` itself,
+run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`;
+installer coverage to the other `tests/*_test.ts`. Iterate on one suite with
+`deno task test tests/<name>_test.ts` (or `--filter <name>`) instead of running
+the whole suite each loop.
 
 ## Conventions & gotchas
 
@@ -154,16 +154,16 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   module-boundary types, no non-null assertions (`!`), no `process`/node globals
   (import from `node:process`), no thrown literals, `eqeqeq`. Match the
   surrounding code and write to these the first time — the gate enforces every
-  rule, so fighting the linter just costs a `finish` loop.
+  rule, so fighting the linter just costs a `done` loop.
 - **Several artifacts and schemas are generated.** The `deno task codegen`
-  command rewrites `docs/10-installer/config-reference.md`, `schema/*.json`, and
+  command rewrites `map/10-installer/config-reference.md`, `schema/*.json`, and
   `types/*.d.ts` automatically. The codegen command is wired in to discern's own
   `[capabilities.build]` step (the `discern.toml` template stays hand-authored —
   ADR 0005/0026).
-- **Keep `docs/` current with the change.** The `docs/` tree is the source of
+- **Keep `map/` current with the change.** The `map/` tree is the source of
   truth and must not drift from code — update the affected docs in the same
-  commit. `docs/` and root `*.md` fire no gate (a neutral scope); `docs/` alone
-  is held to the Vale `prose` check and the `[ratchets.prose]` density ceiling.
+  commit. `map/` and root `*.md` fire no gate (a neutral scope); `map/` alone is
+  held to the Vale `prose` check and the `[standards.prose]` density ceiling.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line
   summarizing the change (e.g. "Add retry to upload path"), no trailing period;
@@ -205,8 +205,8 @@ Maintain this practice with new development going forward.
 
 ## Decisions
 
-Architecture decisions live in `docs/_adr/` (0001+, several dozen and counting)
-— browse them with `discern help --adr --json`. Add one for any notable or
+Architecture decisions live in `map/_adr/` (0001+, several dozen and counting) —
+browse them with `discern help --adr --json`. Add one for any notable or
 hard-to-reverse change. ADRs move fast, so skim the most recent few before a
 significant change — a current ADR usually explains why something is the way it
 is.

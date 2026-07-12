@@ -1,8 +1,8 @@
 /**
- * Measure `src/` line coverage and emit it as a discern ratchet metric.
+ * Measure `src/` line coverage and emit it as a discern standard metric.
  *
- * This is the measurement command behind `[ratchets.coverage]` (see ADR 0003 and
- * `discern.toml`). The harness runs it on demand via `discern ratchets`,
+ * This is the measurement command behind `[standards.coverage]` (see ADR 0003 and
+ * `discern.toml`). Discern runs it on demand via `discern standards`,
  * scans the output for the LAST `DISCERN_METRIC coverage <number>` line, and holds
  * it at or above the configured floor.
  *
@@ -11,7 +11,7 @@
  * one tree, instrumented by the same number. (`runCli` subprocesses count too: Deno
  * propagates the coverage dir to child `deno` processes via the environment.)
  *
- * Usage: `deno task coverage` (the `[ratchets.coverage]` run command). Prints the
+ * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints the
  * human `deno coverage` table to stderr for context, then the metric line to stdout.
  */
 
@@ -77,7 +77,7 @@ try {
   // 2. Human-readable per-file table to stderr (context for the operator).
   await deno(["coverage", profile, "--include=src/"]);
 
-  // 3. The machine metric to stdout — the line the ratchet reads.
+  // 3. The machine metric to stdout — the line the standard reads.
   const lcov = await deno(["coverage", profile, "--lcov"], { capture: true });
   const { pct, hit, found } = srcLineCoverage(lcov);
   console.error(`src/ line coverage: ${hit}/${found} lines`);

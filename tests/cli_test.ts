@@ -70,7 +70,7 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
     assert(result.data.compiled.includes("CLAUDE.md"));
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
-    assert(result.data.skeletons.includes("discern/docs/"));
+    assert(result.data.skeletons.includes("map/"));
     assert(typeof result.data.instructions === "string");
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));
@@ -259,7 +259,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
       `must not dump a stack trace:\n${human.stderr}`,
     );
     // JSON mode: a structured error on stdout (a CI/agent consumer parses it).
-    const json = await runCli(["finish", "--json"], dir);
+    const json = await runCli(["done", "--json"], dir);
     assertEquals(json.code, 1);
     const result = JSON.parse(json.stdout);
     assertEquals(result.ok, false);
@@ -280,14 +280,14 @@ const BAD_PROJECT_STATES: ReadonlyArray<{ name: string; toml: string | null }> =
       toml: 'this is = not valid toml [[[\n"unterminated\n',
     },
     {
-      // Parses as TOML but violates the schema (an unknown ratchet direction),
+      // Parses as TOML but violates the schema (an unknown standard direction),
       // so the TYPED loadConfig throws where the raw reader would not.
       name: "schema-invalid discern.toml",
       toml: [
         "[project]",
         'slug = "x"',
         "",
-        "[ratchets.bad]",
+        "[standards.bad]",
         'run = "true"',
         "limit = 5",
         'direction = "sideways"',

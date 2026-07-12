@@ -1,6 +1,6 @@
 ---
 name: discern-prune-the-overgrowth
-description: Prune the overgrowth agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding, convention drift — proving every cut safe, landing small behaviour-preserving commits, and capping the entropy with a ratchet so the mess can only shrink. Use when asked to clean up, tidy, simplify, or de-slop a codebase, to remove dead code or duplication, when a project "is getting messy" after many agent sessions, or as periodic maintenance between features. Bundled with discern.
+description: Prune the overgrowth agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding, convention drift — proving every cut safe, landing small behaviour-preserving commits, and capping the entropy with a standard so the mess can only shrink. Use when asked to clean up, tidy, simplify, or de-slop a codebase, to remove dead code or duplication, when a project "is getting messy" after many agent sessions, or as periodic maintenance between features. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -10,7 +10,7 @@ metadata:
 
 Codebases built through agent sessions overgrow in a recognizable way. Each session adds a little: a helper written because the existing one wasn't found, scaffolding left by an abandoned approach, a wrapper that seemed prudent and gained exactly one caller, a debug print that outlived the debugging. No single session made a mess; the mess is the *sum*. And it compounds, because agents write code by pattern-matching the code around it — every duplicated helper teaches the next session that duplication is house style. Overgrowth is not a cosmetic problem: it is the substrate every future session builds on, quietly degrading.
 
-This skill is the systematic sweep: know the signatures, enumerate them with structure rather than eyes, prove every cut safe before making it, land the pruning in small behaviour-preserving commits, and — the actual point — cap the entropy with a ratchet so the number can never quietly climb back.
+This skill is the systematic sweep: know the signatures, enumerate them with structure rather than eyes, prove every cut safe before making it, land the pruning in small behaviour-preserving commits, and — the actual point — cap the entropy with a standard so the number can never quietly climb back.
 
 ---
 
@@ -39,15 +39,15 @@ For duplicates, apply the essential/incidental test before merging: **essential*
 
 Prune in atomic, behaviour-preserving commits — one candidate or one tight cluster per commit — running the fast loop between cuts and the full gate on the final tree. The tree must do exactly what it did before, minus the weight; the suite passing after every cut is the evidence. Cutting small is what makes mistakes cheap: a wrong cut reverts alone instead of unwinding an afternoon.
 
-## 5. Cap the entropy with a ratchet
+## 5. Cap the entropy with a standard
 
-The sweep is relief; the ceiling is the cure. Pick the metric your pruning actually moved and that the project can count mechanically — dead exports, duplicated blocks, total lines, suppression or TODO count — and set it as a ceiling at the new, lower value (`discern-ratchet-a-metric` is the procedure). From then on the overgrowth can only shrink: a change that regrows it fails the ratchet and must justify itself, and the next sweep starts from here instead of rediscovering this one.
+The sweep is relief; the ceiling is the cure. Pick the metric your pruning actually moved and that the project can count mechanically — dead exports, duplicated blocks, total lines, suppression or TODO count — and set it as a ceiling at the new, lower value (`discern-standard-a-metric` is the procedure). From then on the overgrowth can only shrink: a change that regrows it fails the standard and must justify itself, and the next sweep starts from here instead of rediscovering this one.
 
 ## 6. Report the standing candidates
 
 Close with what you did **not** cut, and why: couldn't prove it dead, genuinely load-bearing, risk outweighs the weight. A pruning that reports only its kills looks thorough while claiming nothing checkable — the residual list is what makes "the codebase is clean" a falsifiable claim, and it seeds the next sweep's worklist.
 
-One escalation to watch for: if the sweep keeps surfacing the same *living* pattern — not dead, but everywhere and wrong — that is not pruning, it is a migration. Hand it to `discern-outlaw-a-pattern`, which makes a pattern illegal and ratchets it to zero.
+One escalation to watch for: if the sweep keeps surfacing the same *living* pattern — not dead, but everywhere and wrong — that is not pruning, it is a migration. Hand it to `discern-outlaw-a-pattern`, which makes a pattern illegal and standards it to zero.
 
 ---
 
@@ -56,5 +56,5 @@ One escalation to watch for: if the sweep keeps surfacing the same *living* patt
 - the tree was swept **signature by signature, with structural tools and a recorded worklist** — resumable and reported, never "I looked around";
 - every deletion was **proven dead against dynamic reachability**, and every merge passed the essential/incidental test — no cut on a reference count's word alone;
 - the pruning landed as **small behaviour-preserving commits**, with the gate green on the final tree;
-- at least one entropy metric is **ratcheted at its new value**, so the overgrowth can only shrink from here;
+- at least one entropy metric is **protected at its new value by a standard**, so the overgrowth can only shrink from here;
 - the report lists the **standing candidates and the reasons they stand** — a falsifiable claim of cleanliness, and the seed of the next sweep.

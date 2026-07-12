@@ -1,7 +1,7 @@
 /**
  * Discover and resolve the project's documentation tree.
  *
- * `discern docs` browses the install's own `docs/` directory — the tree
+ * `discern map` browses the install's configured map directory — the tree
  * `discern setup` seeds and the agent fills, not anything under `templates/`. This
  * module finds that tree, indexes every Markdown file (path, section, slug, and
  * the title pulled from its first heading), orders it the way a reader expects
@@ -26,7 +26,7 @@ import {
 } from "@std/path";
 import { inlineToPlain } from "./markdown.ts";
 import { RawConfig } from "../shared/config_read.ts";
-import { normalizeDocsDir } from "../shared/docs_path.ts";
+import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveConfigPath } from "./paths.ts";
 
@@ -164,7 +164,7 @@ async function resolveDocsDir(
   }
   const root = await findProjectRoot(cwd);
   if (root === undefined) {
-    const candidate = join(cwd, "docs");
+    const candidate = join(cwd, SOURCE_PATHS.map.defaultPath);
     return (await isDir(candidate))
       ? { docsDir: candidate, root: dirname(candidate) }
       : undefined;
@@ -172,7 +172,7 @@ async function resolveDocsDir(
   const raw = await RawConfig.load(root);
   const candidate = join(
     root,
-    normalizeDocsDir(raw.get("docs.dir", SOURCE_PATHS.docs.defaultPath)),
+    normalizeMapDir(raw.get("map.dir", SOURCE_PATHS.map.defaultPath)),
   );
   return (await isDir(candidate)) ? { docsDir: candidate, root } : undefined;
 }
@@ -193,7 +193,7 @@ function internalAdmits(
 /**
  * Index the project's docs tree. Returns undefined when no docs directory
  * exists (the caller turns that into a friendly "nothing to browse" message).
- * `dir` overrides the default `[docs].dir` location.
+ * `dir` overrides the default `[map].dir` location.
  *
  * Internal/reference subtrees in `_`-prefixed directories (`_adr`, `_internal`)
  * are excluded by default — the browser shows only the user-facing tree.

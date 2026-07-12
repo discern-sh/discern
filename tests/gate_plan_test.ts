@@ -184,7 +184,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
   const steps = result.steps ?? [];
 
   assertEquals(result.ok, true);
-  assertEquals(result.verb, "finish");
+  assertEquals(result.verb, "done");
   assertEquals((result.data as GateData).failed_stage, null);
   // The job-kind steps are the non-scope jobs in fix→build→check→test order.
   assertEquals(
@@ -486,7 +486,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     },
     {
       step: {
-        kind: "ratchet",
+        kind: "standard",
         label: "coverage",
         disposition: "run",
       },

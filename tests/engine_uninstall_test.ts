@@ -156,7 +156,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     const gitignore = await Deno.readTextFile(join(dir, ".gitignore"));
     assert(gitignore.includes("node_modules/"), "user gitignore rule was lost");
     assert(
-      !gitignore.includes("discern harness"),
+      !gitignore.includes("# --- discern ---"),
       "discern block was not removed",
     );
 

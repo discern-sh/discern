@@ -1,7 +1,7 @@
 /**
  * Colour-aware human output for the gate: `info` (cyan →), `ok` (green ✓), `warn`
  * (yellow !), and a
- * bold `heading`. All output goes to **stderr**, so `finish --json` keeps stdout
+ * bold `heading`. All output goes to **stderr**, so `done --json` keeps stdout
  * clean for the single JSON object (ADR 0004).
  */
 

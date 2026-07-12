@@ -1,12 +1,12 @@
 /**
- * `discern improve` — the continuous-improvement coach. It scores a project's
+ * `discern improvement` — the continuous-improvement coach. It scores a project's
  * objective baseline against the {@link CATEGORIES} catalog, keeps qualitative
  * reviews visibly open, and identifies the single highest-value next action.
  *
  * Like every verb it computes one {@link DiscernResult} (ADR 0028); its human
  * report, its `--json`, and the MCP tool are three renderings of the same evaluated
- * {@link ImprovementReport}. {@link improveResult} is the unrendered core the MCP
- * server calls; {@link runImprove} is the CLI, which adds a human report and — on a
+ * {@link ImprovementReport}. {@link improvementResult} is the unrendered core the MCP
+ * server calls; {@link runImprovement} is the CLI, which adds a human report and — on a
  * TTY — an interactive drill-down into each weak area.
  *
  * Deterministic rules are scored now; subjective rules are surfaced as review items
@@ -18,7 +18,7 @@
 import { Select } from "@cliffy/prompt";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type { ImproveData } from "../../shared/result_schemas.ts";
+import type { ImprovementData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
@@ -185,12 +185,12 @@ function selectNextAction(categories: readonly CategoryResult[]): NextAction {
   return {
     kind: "review",
     category: "all",
-    id: "improve.qualitative-review",
+    id: "improvement.qualitative-review",
     title: "Review the practices qualitatively",
     action:
       "Review whether the configured practices are effective, not merely present.",
     why:
-      "Baseline health covers only facts discern can prove mechanically; a clear baseline is not the same as being done.",
+      "Automated practice health covers only facts discern can prove mechanically; a clear score is not the same as being done.",
   };
 }
 
@@ -201,8 +201,8 @@ function isKnownCategory(name: string): boolean {
   return CATEGORIES.some((c) => c.name === name);
 }
 
-/** Options accepted by the improve core and CLI. */
-export interface ImproveOptions {
+/** Options accepted by the improvement core and CLI. */
+export interface ImprovementOptions {
   /** Restrict to one category slug. */
   category?: string | undefined;
   /** Fail (exit 1 / `ok:false`) when the overall score is below this floor. */
@@ -216,7 +216,7 @@ export interface ImproveOptions {
  */
 async function buildReport(
   root: string,
-  opts: ImproveOptions,
+  opts: ImprovementOptions,
 ): Promise<{ report: ImprovementReport } | { error: DiscernResult<never> }> {
   const config = await loadConfig(root);
   if (opts.category !== undefined && !isKnownCategory(opts.category)) {
@@ -224,7 +224,7 @@ async function buildReport(
     return {
       error: {
         ok: false,
-        verb: "improve",
+        verb: "improvement",
         error: "unknown_category",
         message:
           `unknown category "${opts.category}" — known categories: ${known}.`,
@@ -236,9 +236,9 @@ async function buildReport(
 }
 
 /** Reduce an {@link ImprovementReport} to the verb's `data` payload. Typed as the
- * schema-inferred {@link ImproveData} (the SSOT in `result_schemas.ts`), so a drift
+ * schema-inferred {@link ImprovementData} (the SSOT in `result_schemas.ts`), so a drift
  * between this mapping and the advertised MCP `outputSchema` is a compile error. */
-function reportData(report: ImprovementReport): ImproveData {
+function reportData(report: ImprovementReport): ImprovementData {
   return {
     score: report.score,
     weak: report.weak,
@@ -264,16 +264,16 @@ function reportData(report: ImprovementReport): ImproveData {
 }
 
 /**
- * Compute the `improve` {@link DiscernResult} without printing or exiting — the
+ * Compute the `improvement` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders. `ok` is true for a completed review; when
  * `minScore`
  * is set and the overall score is below it, `ok` flips to false with a
  * `below_min_score` error (the CI/agent enforcement signal).
  */
-export async function improveResult(
+export async function improvementResult(
   root: string,
-  opts: ImproveOptions = {},
-): Promise<DiscernResult<ImproveData>> {
+  opts: ImprovementOptions = {},
+): Promise<DiscernResult<ImprovementData>> {
   const built = await buildReport(root, opts);
   if ("error" in built) {
     return built.error;
@@ -282,13 +282,13 @@ export async function improveResult(
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   return {
     ok: !belowMin,
-    verb: "improve",
+    verb: "improvement",
     data: reportData(report),
     ...(belowMin
       ? {
         error: "below_min_score",
         message:
-          `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
+          `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
       }
       : {}),
   };
@@ -355,9 +355,9 @@ function renderSummary(
   slug: string,
 ): void {
   const c = out.c;
-  out.heading(`discern improve${slug ? ` · ${slug}` : ""}`);
+  out.heading(`discern improvement${slug ? ` · ${slug}` : ""}`);
   out.raw(
-    `  Baseline health  ${
+    `  Automated practice health  ${
       bar(report.score, c, out.color)
     }  ${c.bold}${report.score}/100${c.reset}\n`,
   );
@@ -477,31 +477,31 @@ function renderFooter(
   out.raw("\n");
   if (report.reviews > 0) {
     out.raw(
-      `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern improve --json${c.dim}.${c.reset}\n`,
+      `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern improvement --json${c.dim}.${c.reset}\n`,
     );
   }
   if (!filtered) {
     out.raw(
-      `  ${c.dim}Focus one area:${c.reset} discern improve --category <name>${c.dim} · gate a build:${c.reset} discern improve --min-score <n>\n`,
+      `  ${c.dim}Focus one area:${c.reset} discern improvement --category <name>${c.dim} · gate a build:${c.reset} discern improvement --min-score <n>\n`,
     );
   }
 }
 
-/** Options accepted by the improve CLI. */
-export interface RunImproveOptions extends ImproveOptions {
+/** Options accepted by the improvement CLI. */
+export interface RunImprovementOptions extends ImprovementOptions {
   json: boolean;
   /** Force the static report even on a TTY (set by `--no-interactive`). */
   interactive?: boolean | undefined;
 }
 
-/** Run `discern improve`. Returns a process exit code (0 = ok / above the floor). */
-export async function runImprove(
+/** Run `discern improvement`. Returns a process exit code (0 = ok / above the floor). */
+export async function runImprovement(
   root: string,
-  opts: RunImproveOptions,
+  opts: RunImprovementOptions,
 ): Promise<number> {
   // --json: the single envelope, computed by the shared core.
   if (opts.json) {
-    const result = await improveResult(root, opts);
+    const result = await improvementResult(root, opts);
     emitResult(result);
     return result.ok ? 0 : 1;
   }
@@ -510,7 +510,7 @@ export async function runImprove(
   const color = colorEnabled();
   const out = makeOut(color);
   if ("error" in built) {
-    out.error(built.error.message ?? "improve failed.");
+    out.error(built.error.message ?? "improvement failed.");
     return 1;
   }
   const { report } = built;
@@ -540,7 +540,7 @@ export async function runImprove(
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   if (belowMin) {
     out.error(
-      `baseline health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
+      `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
     );
     return 1;
   }

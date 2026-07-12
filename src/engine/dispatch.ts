@@ -20,6 +20,7 @@ import {
   CONFIG_REL,
   findRoot,
   installedConfigRel,
+  NO_PROJECT_MESSAGE,
   recipeEnvVars,
 } from "../shared/env.ts";
 import {
@@ -38,28 +39,28 @@ import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
-import { runImprove } from "./improve/improve.ts";
+import { runImprovement } from "./improve/improve.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
 import { runTestCapability } from "./gate/test.ts";
-import { runRatchets } from "./gate/ratchets.ts";
-import { runScopes } from "./scopes/scopes.ts";
+import { runStandards } from "./gate/standards.ts";
+import { runImpact } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
 import { runStatus } from "./status/status.ts";
 import { runDesk } from "./desk/desk.ts";
 import { refreshResult } from "./guidelines.ts";
 import { guidanceAgents } from "./guidance_render.ts";
 import {
-  graduate,
+  accept,
   IdentityError,
   identityField,
   identityResourceHandle,
   identityResourcesList,
-  integrate,
   type LifecycleContext,
   lifecycleContext,
   start,
+  update,
   worktreeDrop,
   worktreeEnsure,
   worktreeErrorResult,
@@ -81,18 +82,18 @@ import type { DiscernResult } from "../shared/result.ts";
 /** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
  * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
-  "finish",
+  "done",
   "prepare",
   "test",
-  "improve",
-  "ratchets",
+  "improvement",
+  "standards",
   "refresh",
-  "scopes",
+  "impact",
   "coupling",
   "status",
   "desk",
-  "graduate",
-  "integrate",
+  "accept",
+  "update",
   "start",
   "worktree",
   "identity",
@@ -110,7 +111,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "uninstall",
   "doctor",
   "preset",
-  "docs",
+  "map",
   "help",
   "config",
 ]);
@@ -136,17 +137,17 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
  * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
  * forces a conscious choice here rather than silently drifting. */
 export const ENGINE_RECIPE_NAMES: readonly string[] = [
-  "finish",
+  "done",
   "prepare",
   "test",
-  "improve",
-  "ratchets",
+  "improvement",
+  "standards",
   "refresh",
-  "scopes",
+  "impact",
   "coupling",
   "status",
-  "graduate",
-  "integrate",
+  "accept",
+  "update",
   "start",
   "identity",
   "worktree-setup",
@@ -166,8 +167,8 @@ function displayName(name: string): string {
   if (name.startsWith("worktree-")) {
     return "worktree " + name.slice("worktree-".length);
   }
-  if (name.startsWith("finish-")) {
-    return `finish:${name.slice("finish-".length)}`;
+  if (name.startsWith("done-")) {
+    return `done:${name.slice("done-".length)}`;
   }
   return name;
 }
@@ -178,15 +179,11 @@ function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
-const NO_PROJECT =
-  "not inside a discern project (no discern.toml in this directory or any parent).";
-
 /** Resolve the project root, or print a not-found error and exit 1. */
 async function requireRoot(): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern setup` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     Deno.exit(1);
   }
   return root;
@@ -253,10 +250,17 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
 
 /** Attach the engine task-runner verbs to the `discern` root command — every verb
  * unconditionally (ADR 0101: the subsystems are all core). */
-export function attachEngineCommands(root: Command): void {
+export function attachEngineCommands(
+  root: Command,
+  mainBranch?: string,
+): void {
+  const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   root
-    .command("finish")
-    .description("The full quality gate — run before calling work done.")
+    .command("done")
+    .description(
+      "Run finishing steps that may change files, then verify the gate — the project's " +
+        "full quality check: format, lint, type-check, and tests.",
+    )
     .option(
       "--json",
       "Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).",
@@ -292,7 +296,7 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("test")
     .description(
-      "Run the project's tests (the test stage) on their own, outside the full gate.",
+      "Run the project's configured tests on their own, outside the full gate.",
     )
     .option(
       "--json",
@@ -305,13 +309,13 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("improve")
+    .command("improvement")
     .description(
-      "Find the highest-value next improvement from baseline health and qualitative reviews.",
+      "Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.",
     )
     .option(
       "--json",
-      "Emit the coaching result as JSON (baseline score, open reviews, and data.next_action).",
+      "Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action).",
     )
     .option(
       "--category <name:string>",
@@ -327,7 +331,7 @@ export function attachEngineCommands(root: Command): void {
     )
     .action(async (o) => {
       Deno.exit(
-        await runImprove(await requireRoot(), {
+        await runImprovement(await requireRoot(), {
           json: o.json ?? false,
           category: o.category,
           minScore: o.minScore,
@@ -349,9 +353,9 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("ratchets")
+    .command("standards")
     .description(
-      "Check every metric ratchet (slow; on demand, not part of finish).",
+      "Check every quality standard — numbers that can never get worse (slow; on demand, outside `discern done`).",
     )
     .arguments("[names...:string]")
     .option(
@@ -360,19 +364,19 @@ export function attachEngineCommands(root: Command): void {
     )
     .option(
       "--dry-run",
-      "Show the ratchets that would be measured; touch nothing.",
+      "Show the standards that would be measured; touch nothing.",
     )
     .option(
       "--force",
-      "Run ratchets on a dirty worktree; intended only while authoring ratchets.",
+      "Run standards on a dirty worktree; intended only while authoring standards.",
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the value just measured (the named ratchets, or every one with slack), commit that change on its own, and carry the gate-pass receipt forward. Requires a clean worktree.",
+      "Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
     )
     .action(async (o, ...names: string[]) => {
       Deno.exit(
-        await runRatchets(await requireRoot(), {
+        await runStandards(await requireRoot(), {
           json: o.json ?? false,
           dryRun: o.dryRun ?? false,
           force: o.force ?? false,
@@ -385,7 +389,8 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("refresh")
     .description(
-      "Refresh the generated agent files, skills, and integration artifacts.",
+      "Refresh the generated agent files, skills, and provider integrations. Use " +
+        "`discern update` for this branch; use `discern upgrade` for discern itself.",
     )
     .option(
       "--json",
@@ -409,8 +414,12 @@ export function attachEngineCommands(root: Command): void {
   attachSkillsCommand(root);
 
   root
-    .command("scopes")
-    .description("Classify which scopes the branch + working tree changed.")
+    .command("impact")
+    .description(
+      "Show this change's impact: which scopes — named regions of the repository with " +
+        "their own checks — the branch and working tree wake in the quality gate, " +
+        "the project's full quality check.",
+    )
     .option(
       "--json",
       "Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers).",
@@ -421,7 +430,7 @@ export function attachEngineCommands(root: Command): void {
     )
     .action(async (o) => {
       Deno.exit(
-        await runScopes(await requireRoot(), {
+        await runImpact(await requireRoot(), {
           json: o.json ?? false,
           ...(o.has !== undefined ? { has: o.has } : {}),
         }),
@@ -458,15 +467,16 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("status")
     .description(
-      "Show what's true right now and what to do next (read-only; never runs the gate).",
+      "Show what's true right now and what to do next (read-only; never runs the " +
+        "gate, the project's full quality check).",
     )
     .option(
       "--all",
-      "Include the fleet survey even from a worktree (local view PLUS the fleet).",
+      "Include every worktree even when called from one (local view plus all worktrees).",
     )
     .option(
       "--local",
-      "Local view only — suppress the fleet survey even in the main checkout.",
+      "Show only this checkout, even in the main checkout.",
     )
     .option(
       "--json",
@@ -485,11 +495,12 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("desk")
     .description(
-      "Your interactive desk over the worktree fleet: pick an effort, land, integrate, drop, or jump in. Bare `discern` opens it.",
+      "Open an interactive list of every worktree: pick an effort to enter, update, " +
+        "land, or drop. Bare `discern` opens it.",
     )
     .option(
       "--json",
-      "Refused — the desk is interactive-only; use `status --json` for the fleet survey.",
+      "The desk is interactive only; use `status --json` to list every worktree.",
     )
     .action(async (o) => {
       Deno.exit(await runDesk({ json: o.json ?? false }));
@@ -498,7 +509,9 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("start")
     .description(
-      "Create a fresh isolated worktree from the main checkout and print where to move into it. Optionally --name it after the task you're starting.",
+      "From the main checkout, create a worktree — a separate checkout and branch for " +
+        `one change — from the trunk${trunkName} — the shared landing branch — then ` +
+        "print its path.",
     )
     .option(
       "--json",
@@ -534,39 +547,44 @@ export function attachEngineCommands(root: Command): void {
     });
 
   root
-    .command("graduate")
+    .command("accept")
     .description(
-      "Land this worktree's finished branch on the trunk: fast-forward it, remove the worktree, delete the merged branch, refresh the trunk checkout.",
+      `Accept and land this worktree's finished branch on the trunk${trunkName} — ` +
+        "the shared landing branch — then remove the worktree and merged branch " +
+        "and refresh the main checkout.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
     )
-    .option("--dry-run", "Show the graduation plan; touch nothing.")
+    .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
         await runWorktreeOp(
           (ctx) =>
-            graduate(ctx, {
+            accept(ctx, {
               json,
               dryRun: o.dryRun ?? false,
             }),
-          { json, verb: "graduate" },
+          { json, verb: "accept" },
         ),
       );
     });
 
   root
-    .command("integrate")
+    .command("update")
     .description(
-      "Bring the latest trunk into this branch and re-materialize the agent files + skills.",
+      `Update this branch: merge the trunk's latest${trunkName} into this branch and ` +
+        "re-materialize the generated agent files. The trunk is the shared landing " +
+        "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
+        "generated agent files alone.",
     )
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
     )
-    .option("--dry-run", "Show the integration plan; touch nothing.")
+    .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
       "--from <ref:string>",
       "Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
@@ -576,12 +594,12 @@ export function attachEngineCommands(root: Command): void {
       Deno.exit(
         await runWorktreeOp(
           (ctx) =>
-            integrate(ctx, {
+            update(ctx, {
               json,
               dryRun: o.dryRun ?? false,
               ...(o.from !== undefined ? { from: o.from } : {}),
             }),
-          { json, verb: "integrate" },
+          { json, verb: "update" },
         ),
       );
     });
@@ -589,24 +607,25 @@ export function attachEngineCommands(root: Command): void {
   root
     .command("identity")
     .description(
-      "Resolve a worktree's stable identity (id/site/branch/port/db/worktree/resource).",
+      "Print stable values that keep each worktree's branch, development host, port, " +
+        "database, and external resources separate.",
     )
-    .option("--id", "Print the safe worktree id (default).")
-    .option("--site", "Print the dev-server site/host name.")
-    .option("--branch", "Print the default branch name.")
-    .option("--port", "Print the deterministic dev-server port.")
-    .option("--db", "Print the database-name-safe identity.")
+    .option("--id", "Print the safe base name for this worktree (default).")
+    .option("--site", "Print its development server's host name.")
+    .option("--branch", "Print its branch name.")
+    .option("--port", "Print its stable development-server port.")
+    .option("--db", "Print its database-safe name.")
     .option(
       "--worktree",
-      "Print the worktree's base resource handle (slug-id).",
+      "Print its base resource handle — a stable project-prefixed external name.",
     )
     .option(
       "--resource <name:string>",
-      "Print a named resource's handle (slug-id-name).",
+      "Print the stable external name for one declared resource.",
     )
     .option(
       "--resources",
-      "Print every declared resource as name=handle lines.",
+      "Print every declared resource as name=stable-external-name lines.",
     )
     .arguments("[path:string]")
     .action(async (o, path) => {
@@ -640,7 +659,7 @@ export function attachEngineCommands(root: Command): void {
     });
 
   const worktreeSetupCommand = new Command()
-    .description("Set up or re-converge the current linked worktree.")
+    .description("Set up or re-sync the current worktree.")
     .option(
       "--json",
       "Emit a machine-readable (plan, results) object on stdout.",
@@ -657,7 +676,9 @@ export function attachEngineCommands(root: Command): void {
     });
 
   const worktree = new Command()
-    .description("Manage this checkout's linked worktree lifecycle.")
+    .description(
+      "Manage worktrees — separate checkouts and branches for individual changes.",
+    )
     .action(function (): void {
       this.showHelp();
     })
@@ -679,7 +700,7 @@ export function attachEngineCommands(root: Command): void {
       "teardown",
       new Command()
         .description(
-          "Discard this worktree's resources (destroy without graduating).",
+          "Discard this worktree's resources (destroy without accepting).",
         )
         .option(
           "--json",
@@ -698,30 +719,12 @@ export function attachEngineCommands(root: Command): void {
         }),
     )
     .command(
-      "create",
-      new Command()
-        .description(
-          "WorktreeCreate hook entry: read {name, cwd} JSON on stdin, create the worktree, set it up, and print its path.",
-        )
-        .action(async () => {
-          Deno.exit(await worktreeCreateHook());
-        }),
-    )
-    .command(
-      "remove",
-      new Command()
-        .description(
-          "WorktreeRemove hook entry: read {worktree_path} JSON on stdin and tear the worktree down (never fails the event).",
-        )
-        .action(async () => {
-          Deno.exit(await worktreeRemoveHook());
-        }),
-    )
-    .command(
       "drop",
       new Command()
         .description(
-          "Discard a worktree from the main checkout: tear down its resources, remove it, delete its branch. Refuses unmerged or uncommitted work without --force.",
+          "Discard a worktree from the main checkout: tear down its resources, remove " +
+            "it, and delete its branch. Protects uncommitted work and commits not on " +
+            "the trunk — the shared landing branch — unless --force is set.",
         )
         .option(
           "--force",
@@ -782,6 +785,23 @@ export function attachEngineCommands(root: Command): void {
           );
         }),
     );
+  // These two commands are provider hook entry points, not operator commands.
+  // Keep them callable for the generated integration files but hide their payload
+  // plumbing from human help.
+  const worktreeCreate = worktree.command(
+    "create",
+    new Command().action(async () => {
+      Deno.exit(await worktreeCreateHook());
+    }),
+  );
+  worktreeCreate.hidden();
+  const worktreeRemove = worktree.command(
+    "remove",
+    new Command().action(async () => {
+      Deno.exit(await worktreeRemoveHook());
+    }),
+  );
+  worktreeRemove.hidden();
   root.command("worktree", worktree);
 }
 
@@ -1101,7 +1121,7 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
 async function helperInheritEnv(): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   const log = makeLogger();
@@ -1154,7 +1174,7 @@ export async function runConfigRead(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   // The recipe-facing passthrough reads ARBITRARY dotted keys verbatim, so it uses
@@ -1325,8 +1345,7 @@ export async function dispatchRecipeOrSuggest(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT}`);
-    console.error("       Run `discern setup` to scaffold one.");
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
   const cfg = await loadConfig(root);
@@ -1334,7 +1353,7 @@ export async function dispatchRecipeOrSuggest(
   const recipeFile = join(recipesAbs, verb.replace(/:/g, "-"));
 
   if (await isExecutable(recipeFile)) {
-    const mainBranch = Deno.env.get("MAIN_BRANCH") ||
+    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
       cfg.project.main_branch;
     const tomlPath = join(root, (await installedConfigRel(root)) ?? CONFIG_REL);
     const child = new Deno.Command(recipeFile, {

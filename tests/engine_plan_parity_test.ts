@@ -234,20 +234,20 @@ Deno.test("parity: worktree teardown apply destroys nothing the dry-run didn't l
   });
 });
 
-Deno.test("parity: graduate apply does nothing the dry-run didn't list", async () => {
+Deno.test("parity: accept apply does nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "paritygrad");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
-    const dry = await runAgent(wt, ["graduate", "--dry-run", "--json"]);
+    const dry = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(wt, ["graduate", "--json"]);
+    const apply = await runAgent(wt, ["accept", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
-    assert(appliedSet(apply.stdout).size > 0, "fixture graduated nothing");
-    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "graduate");
+    assert(appliedSet(apply.stdout).size > 0, "fixture landed nothing");
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "accept");
   });
 });
 
@@ -270,22 +270,22 @@ Deno.test("parity: worktree setup apply runs nothing the dry-run didn't list", a
   });
 });
 
-Deno.test("parity: integrate apply merges nothing the dry-run didn't list", async () => {
+Deno.test("parity: update apply merges nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "parityintegrate");
-    // Advance main after the branch forked → the worktree is behind, so integrate
+    const wt = await mainWithWorktree(dir, "parityupdate");
+    // Advance main after the branch forked → the worktree is behind, so update
     // has real work (a fast-forward/merge) and a non-empty applied set.
     await Deno.writeTextFile(join(dir, "up.txt"), "up\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const dry = await runAgent(wt, ["integrate", "--dry-run", "--json"]);
+    const dry = await runAgent(wt, ["update", "--dry-run", "--json"]);
     assertEquals(dry.code, 0, dry.output);
-    const apply = await runAgent(wt, ["integrate", "--json"]);
+    const apply = await runAgent(wt, ["update", "--json"]);
     assertEquals(apply.code, 0, apply.output);
 
-    assert(appliedSet(apply.stdout).size > 0, "fixture integrated nothing");
-    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "integrate");
+    assert(appliedSet(apply.stdout).size > 0, "fixture updated nothing");
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "update");
   });
 });
 

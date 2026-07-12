@@ -316,7 +316,7 @@ Deno.test("hook WorktreeCreate: a FAILING setup step surfaces its output for deb
     assertEquals(r.stdout, "");
     // The step's own OUTPUT is surfaced on stderr, beside the failure narration.
     assertStringIncludes(r.stderr, "FAIL_42_Z");
-    assertStringIncludes(r.stderr, "Setup step failed");
+    assertStringIncludes(r.stderr, "worktree setup step failed");
   });
 });
 

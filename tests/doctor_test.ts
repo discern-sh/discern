@@ -292,7 +292,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     // The environment header gives at-a-glance triage context.
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, "schema 17 (current)");
+    assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
     assertStringIncludes(stderr, "capabilities: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -420,7 +420,7 @@ Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "v1");
-    assertStringIncludes(schema.detail, "v17");
+    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION}`);
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
@@ -990,20 +990,20 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
     // Every configurable verb the issue-template goal needs is covered.
     for (
       const v of [
-        "finish",
+        "done",
         "prepare",
         "test",
-        "ratchets",
+        "standards",
         "start",
         "worktree ensure",
-        "integrate",
-        "graduate",
+        "update",
+        "accept",
         "worktree prune",
       ]
     ) {
       modelVerb(payload, v);
     }
-    const finish = modelVerb(payload, "finish");
+    const finish = modelVerb(payload, "done");
     // A built-in precondition is discern's, and every step carries a hint.
     const merge = finish.steps.find((s) => s.label === "merge-check");
     assert(merge !== undefined, "finish should run the merge-check");
@@ -1027,10 +1027,10 @@ Deno.test("doctor --json: a per-worktree resource shows its teardown step with t
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     // The user's destroy command is surfaced verbatim as a [project] teardown step — the
-    // motivating "why did graduate tear down my database?" answered up front.
-    const grad = modelVerb(payload, "graduate");
+    // motivating "why did accept tear down my database?" answered up front.
+    const grad = modelVerb(payload, "accept");
     const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
-    assert(destroy !== undefined, "graduate should tear the resource down");
+    assert(destroy !== undefined, "accept should tear the resource down");
     assertEquals(destroy.actor, "project");
     assertEquals(destroy.note, "dropdb x");
   });
@@ -1044,7 +1044,7 @@ Deno.test("doctor: human output prints the execution-model section on stderr", a
     assertEquals(code, 0);
     assertStringIncludes(stderr, "Execution model");
     assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, "\ngraduate\n");
+    assertStringIncludes(stderr, "\naccept\n");
   });
 });
 
@@ -1078,9 +1078,9 @@ Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops 
     const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
     assertEquals(code, 0);
     // Hints are shown and never deduplicated: the git hint recurs on every git step
-    // within a single verb (graduate runs several), so it appears more than
+    // within a single verb (accept runs several), so it appears more than
     // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf("\ngraduate\n");
+    const start = stderr.indexOf("\naccept\n");
     const section = stderr.slice(
       start,
       stderr.indexOf("worktree prune", start),

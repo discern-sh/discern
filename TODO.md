@@ -2,8 +2,8 @@
 
 The single source of truth for **outstanding work**: verified defects, deferred
 fixes, known dead code, and at-risk or unmerged work. The
-[`docs/`](docs/README.md) tree describes what _currently exists_; this file
-tracks what's _still owed_.
+[`map/`](map/README.md) tree describes what _currently exists_; this file tracks
+what's _still owed_.
 
 ## For agents (any agent — and the maintainer)
 
@@ -20,7 +20,7 @@ tracks what's _still owed_.
   tracking the steps of the task you're doing right now, use your own in-session
   task tooling, not this file.
 - This is a backlog, not documentation — modal verbs ("should", "could") are
-  fine here, unlike in `docs/`. Don't write that something was "finished this
+  fine here, unlike in `map/`. Don't write that something was "finished this
   round" — that's meaningless to a future reader ("which round?"). Every item
   must be pickup-able at any later time with no session-specific context
   required.
@@ -55,16 +55,16 @@ _Nothing outstanding._
       breaking schema changes or the discern release line, then document that in
       the result-envelope docs. Evidence: `src/shared/result_codegen.ts`
       (`RESULT_SCHEMA_ID`); `schema/discern-results.schema.json`;
-      `docs/20-quality-gate/the-result-envelope.md`.
+      `map/20-quality-gate/the-result-envelope.md`.
 
-- [ ] **Revisit when agents should run ratchets in the lifecycle.** The current
-      guidance intentionally says to run ratchets "as needed" and keeps them
+- [ ] **Revisit when agents should run standards in the lifecycle.** The current
+      guidance intentionally says to run standards "as needed" and keeps them
       slow/on-demand, with non-dry-run checks requiring a clean tree. Revisit
       after observing real agent sessions: we may want sharper timing language
       than "as needed" without reintroducing remote-push assumptions or causing
       repeated slow runs during iteration. Evidence:
-      `templates/guidance/ratchets.md`; `src/engine/mcp/server.ts`;
-      `src/engine/gate/ratchets.ts`.
+      `templates/guidance/standards.md`; `src/engine/mcp/server.ts`;
+      `src/engine/gate/standards.ts`.
 
 - [ ] **Revisit generated-artifact user-content preservation only with a
       non-inference design.** A previous attempt rescued edits from ignored
@@ -75,7 +75,7 @@ _Nothing outstanding._
       were user-authored content. Revisit only if the design avoids inferring
       meaningful user edits from ignored generated artifacts, or if real user
       incidents make the trade-off worth re-opening. Evidence:
-      `docs/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
+      `map/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`;
       `src/engine/guidelines.ts`; `src/lib/skills.ts`.
 
 - [ ] **`setup`/`upgrade` `--json` report `ok:true` when agent-guidance
@@ -88,10 +88,10 @@ _Nothing outstanding._
       it consistently across all verbs, not just the installer.
 
 - [ ] **Tier-1 diagnostics: declared text formats (the `[diagnostics.<name>]`
-      regex slice).** `finish` normalizes a failed tool's output into structured
+      regex slice).** `done` normalizes a failed tool's output into structured
       `{file,line,rule}` diagnostics only when the tool emits **SARIF**
       (auto-detected —
-      [ADR 0028](docs/_adr/0028-result-envelope-and-diagnostics.md)). Tools that
+      [ADR 0028](map/_adr/0028-result-envelope-and-diagnostics.md)). Tools that
       emit only human text (the common case for many linters/compilers without a
       SARIF flag) still carry their raw output (Tier 0). The planned next slice:
       a `[diagnostics.<name>]` config table letting a Capability/Check declare a
@@ -106,7 +106,7 @@ _Nothing outstanding._
 
 - [ ] **Per-capability `[gate].timeout` overrides.** `[gate].timeout` is one
       GLOBAL budget applied to every job the gate runs
-      ([ADR 0108](docs/_adr/0108-gate-job-timeout.md)). A slow suite raises the
+      ([ADR 0108](map/_adr/0108-gate-job-timeout.md)). A slow suite raises the
       single number; there is no per-capability / per-check / per-scope
       override. Deferred as the same config-value-shape decision the Tier-1
       diagnostics entry above defers: a capability value is a bare
@@ -123,7 +123,7 @@ _Nothing outstanding._
 - [ ] **Scaffold the CI gate workflow once releases are public.** The docs now
       give a pasteable GitHub Actions recipe, but launch still needs the public
       repo/version values re-checked and a later `setup`/binary affordance that
-      writes the workflow for users. Evidence: `docs/20-quality-gate/ci.md`.
+      writes the workflow for users. Evidence: `map/20-quality-gate/ci.md`.
 
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
@@ -144,20 +144,21 @@ outstanding._
       size/age/commit-style; confirm the genuine-vs-incidental boundary holds
       (or learn where it doesn't). Once they are trusted, consider flipping
       `[coupling].in_gate` to default **on** so the diff-aware nudge rides with
-      `finish` out of the box. Also worth weighing then: localising the mined
+      `done` out of the box. Also worth weighing then: localising the mined
       window to the change-set files for huge monorepos, and a formal
       multiple-testing correction (today bounded only by the top-k output cap).
       Evidence: `src/engine/coupling/coupling.ts` (the constants), `[coupling]`
       in `discern.toml`
-      ([ADR 0084](docs/_adr/0084-co-change-coupling-advisory.md)).
+      ([ADR 0084](map/_adr/0084-co-change-coupling-advisory.md)).
 
-- [ ] **`discern improve` candidates + a `// discern-coupled-to:` declaration
-      marker — the discovery→enforcement bridge as a deliberate review, with
-      state.** `coupling` (ADR 0084) _discovers_ co-change pairs and nudges
-      per-change; ADR 0051's forcing functions _enforce_ the ones that are
-      essential invariants. Nothing today bridges the two as a periodic,
-      considered review — and nothing remembers which couplings a human has
-      already judged, so any standing surface re-serves the same advice forever.
+- [ ] **`discern improvement` candidates + a `// discern-coupled-to:`
+      declaration marker — the discovery→enforcement bridge as a deliberate
+      review, with state.** `coupling` (ADR 0084) _discovers_ co-change pairs
+      and nudges per-change; ADR 0051's forcing functions _enforce_ the ones
+      that are essential invariants. Nothing today bridges the two as a
+      periodic, considered review — and nothing remembers which couplings a
+      human has already judged, so any standing surface re-serves the same
+      advice forever.
 
 ## 📣 Marketing & positioning
 
@@ -175,7 +176,7 @@ _Product positioning, messaging, and launch/content tasks._
       material.
 - [ ] **Coin: "the project gets smarter over time".** A candidate tagline for
       the website/copy, capturing how the `discern-teach-the-project` skill
-      routes each session's lessons back into the harness (guidance, skills,
+      routes each session's lessons back into discern (guidance, skills,
       recipes, docs, ADRs) so every future agent — of any vendor — inherits
       them. Drop it in when the messaging is ready.
 - [ ] **Explore: "grows your discernment" as a marketing angle.** Some bundled
@@ -189,108 +190,23 @@ _Product positioning, messaging, and launch/content tasks._
       (that one is the _project_ learning; this one is the _user_ learning).
       Candidate for landing copy. Evidence:
       `templates/skills/discern-shape-the-work/SKILL.md` (§4).
-- [ ] **Rename `ratchets` → `standards` throughout (decided; 11 July revision of
-      the 3 July "baselines" call — ADR 0120).** The move away from "ratchet"
-      stands unchanged ("ratchet" carries bad associations — Nurse Ratched, the
-      US slang for "trashy" — and needs a gloss at every first use); only the
-      destination moved. "Baseline" names a reference point, but the feature
-      declares a requirement: a config entry _is_ a standard — a level the
-      codebase must meet, with a direction — so the never-loosen rule becomes
-      self-teaching ("never lower a standard") and the tagline is free: "never
-      lower your standards". Failure surfaces read exactly right ("coverage
-      standard not met"). Rename the `[ratchets]` config table, the
-      `discern ratchets` verb + `discern_ratchets` MCP tool, feature strings,
-      docs, guidance, and tests; ship a schema migration; the retired spelling
-      redirects (no alias — ADR 0120). Keep the one-way-mechanism explanation as
-      the universal gloss ("numbers that can never get worse"). Evidence:
-      `templates/discern.toml.tmpl` (`[ratchets]`), `src/engine/mcp/server.ts`
-      (`discern_ratchets`), `docs/_adr/0120-launch-verb-canon.md` (the canon).
-- [ ] **Standardize the gate artifact on `receipt` (decided — reverses the 3
-      July "pass" call).** "Pass" proved fatally overloaded at the exact relay
-      moment (the gate passes, checks pass/fail — then "here's the pass"?),
-      while "receipts" is the audience's own proof idiom ("show me the
-      receipts"), the artifact is itemized line-items issued after the run, and
-      receipt/accept is the natural commerce pairing with the `accept` landing
-      verb. The envelope field `gate_receipt` stays; rename the
-      `discern-gate-pass` marker file to `discern-gate-receipt` so field and
-      marker share one spelling (2B lands it; 3A reconciles prose). Evidence:
-      the `finish` result envelope (`gate_receipt`), the `discern-gate-pass`
-      marker file, `docs/_private/maintainer/discern-product-strategy.md`
-      (vocabulary canon).
-- [ ] **Rename `finish` → `done` (decided).** `discern done` makes the verb the
-      positioning ("done isn't something you say — it's something you run"), the
-      lifecycle reads `start → prepare → done → accept`, and
-      `discern setup done` already established done-as-completion-verb in the
-      product. No alias: `finish` hard-errors with a redirect naming `done` (ADR
-      0120). One honest caveat, handled in the verb's help: `done` sounds
-      read-only, while the gate's fix stage mutates (formats) — document "done
-      runs your finishing steps, then verifies the rest". Rename the verb,
-      `discern_finish` MCP tool, docs, guidance, and templates, with the same
-      redirect + migration care as the standards rename. Trade-off accepted
-      knowingly: the "'done' isn't done without a proper finish" flourish was
-      licensed by the verb name and retires with it. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
-- [ ] **Rename `graduate` → `accept` (decided).** The landing verb names the
-      owner's act: the review moment's design makes landing the _consequence_ of
-      the owner's acceptance, not a mechanical move. "Accept" carries
-      moves-the-code muscle memory (editors' "accept incoming changes" / "accept
-      suggestion" apply code), where "approve" was ruined by PR reviews
-      (approval ≠ merge) and "graduate" needs a gloss a plain verb doesn't. No
-      alias: `graduate` hard-errors with a redirect, and `discern_graduate`
-      renames to `discern_accept` (ADR 0120); keep "land"/"landed on the trunk"
-      as the plain-prose description of the effect; align the setup flow's
-      landing step (`setup land` → `setup accept`). The natural follow-up
-      "where's `reject`?" has a standing answer: rejection is feedback to the
-      agent in conversation, not a verb. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
-- [ ] **Complete the verb canon (decided 11 July 2026 — ADR 0120).** The rule:
-      questions are nouns, actions are imperatives, `done` is the sole exception
-      (a claim). Renames: `scopes` → `impact` (the user's question, not the
-      machinery's name); `integrate` → `update` (the CI prior for "integrate"
-      points at landing — the wrong direction — while "Update branch" is the
-      exact prior for this operation); `docs` → `map` (ADR 0100's own word
-      promoted to the verb; `[docs]` → `[map]`, and the tree moves to `map/` on
-      disk — fresh-setup default, existing configs pin their directory on
-      migration, this repo's tree migrates wholesale); `improve` → `improvement`
-      (the noun form per the rule; `improve` forwards silently as a grammatical
-      variant). `coupling` and `doctor` were reviewed and deliberately kept. No
-      legacy aliases anywhere: retired spellings hard-error with a redirect
-      naming the successor (retired _spellings_ are verb positions —
-      invocations, tool names, config keys — never prose words); grammatical
-      variants of the current canon forward silently. The renamed MCP tools'
-      descriptions anchor to agents' trained vocabulary ("scopes", "merge main",
-      the gate's stages) so tool selection survives the rename. Historical ADRs
-      get a reviewed vocabulary refresh — amend-with-note where the decision
-      still governs a living feature, supersede where it no longer applies;
-      decisions and reasoning are never rewritten. Swept in bulk by the wave-3
-      vocabulary brief. Evidence: `docs/_adr/0120-launch-verb-canon.md` (the
-      canon, rule, and rationale).
-- [ ] **Retire "harness" from user-facing surfaces (decided).** No single
-      replacement word — reword per context: "discern" for the product, "the
-      gate" for the mechanism, "the bar" where a category noun is needed.
-      "Quality harness" / "harness engineering" survive only in deliberate SEO
-      placements (GitHub topics, the README's single category line, awesome-list
-      blurbs) — category words explain, they don't sell. Internal code
-      identifiers that never render to a user keep their names. Swept in bulk by
-      the wave-3 vocabulary brief. Evidence:
-      `docs/_private/maintainer/discern-product-strategy.md` (vocabulary canon).
 
 ## 👨‍💻 Jack's Odds and Ends
 
 _Small things Jack finds whilst reviewing code and documentation; cleaned up
 periodically in maintenance batches._
 
-- [ ] Discern should make clear to end-users that the `docs` feature, and the
+- [ ] Discern should make clear to end-users that the `map` feature, and the
       documentation subtree procedures, are _conceptually distinct_ from any
       existing documentation the user has already set up in their project. The
-      reason for this is that the doctree represents _what can be inferred from
-      the user's codebase_ - which is what matters to their coding agents - and
+      reason for this is that the map represents _what can be inferred from the
+      user's codebase_ - which is what matters to their coding agents - and
       likely diverges from what they would consciously choose to document
       already. This is a teaching opportunity as it can be hard to understand
-      for new users, so should be folded in to `discern improve` and throughout
-      our own docs, guidance, and reference materials.
+      for new users, so should be folded in to `discern improvement` and
+      throughout our own docs, guidance, and reference materials.
 - [ ] Fan-out agentic review/rewrite for public-facing audiences of all
-      documentation (Vale prose lint is now wired — see `[ratchets.prose]`);
+      documentation (Vale prose lint is now wired — see `[standards.prose]`);
       plus all ADRs. Once complete, ensure agents know future documentation
       changes will be publicly visible to end-users, including future ADRs.
 - [ ] Conduct a general-purpose thorough "consistency review" - establish all

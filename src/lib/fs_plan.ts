@@ -147,7 +147,7 @@ async function readBytesIfExists(
  * Every file is a write-once SEED (create-or-skip). The binary's own artifacts
  * (`templates/skills/`, `templates/guidance/`) are skipped — they are
  * materialized/read from the binary, never seeded. `.claude/settings.json`
- * deep-merges; `.gitignore` reconciles the harness block idempotently.
+ * deep-merges; `.gitignore` reconciles the discern block idempotently.
  *
  * @param templatesDir   absolute path to the `templates/` tree to scaffold from
  * @param destDir        absolute destination root (the project being scaffolded)
@@ -372,8 +372,8 @@ async function planGitignoreAppend(
     note: changed
       ? existingRaw === undefined
         ? "create .gitignore"
-        : "reconcile harness block"
-      : "harness block current",
+        : "reconcile discern block"
+      : "discern block current",
   };
 }
 

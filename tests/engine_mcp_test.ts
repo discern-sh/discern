@@ -12,9 +12,9 @@ import {
   CouplingOutputSchema,
   DatalessEnvelopeSchema,
   DoctorOutputSchema,
-  IntegrateOutputSchema,
   RefreshOutputSchema,
   StatusOutputSchema,
+  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import {
   buildInstructions,
@@ -140,9 +140,9 @@ async function spawnMcp(dir: string): Promise<McpClient> {
   return new McpClient(child);
 }
 
-async function commitWorktreeForGraduation(
+async function commitWorktreeForAcceptance(
   dir: string,
-  message = "prepare graduation",
+  message = "prepare acceptance",
 ): Promise<void> {
   await git(dir, "add", "-A");
   await git(
@@ -258,6 +258,10 @@ Deno.test("mcp: a root-independent tool serves from a server spawned outside any
         JSON.stringify(res.structuredContent.error)
       }`,
     );
+    const message = String(res.structuredContent.message);
+    assertStringIncludes(message, "no discern.toml");
+    assertStringIncludes(message, "discern setup");
+    assertStringIncludes(message, "move into an existing discern project");
   }
 });
 
@@ -389,53 +393,53 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const list = await mcp.recv();
     assertEquals(list.id, 2);
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    assert(names.includes("discern_finish"), JSON.stringify(names));
+    assert(names.includes("discern_done"), JSON.stringify(names));
     assert(names.includes("discern_refresh"), JSON.stringify(names));
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
-    assert(names.includes("discern_scopes"), JSON.stringify(names));
+    assert(names.includes("discern_impact"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
-    assert(names.includes("discern_improve"), JSON.stringify(names));
+    assert(names.includes("discern_improvement"), JSON.stringify(names));
     // `discern_help` (discern's own docs) is always listed — not a project feature.
     assert(names.includes("discern_help"), JSON.stringify(names));
     // The feature-gated tools are listed too (the default scaffold has every
     // feature on).
-    assert(names.includes("discern_docs"), JSON.stringify(names));
+    assert(names.includes("discern_map"), JSON.stringify(names));
     // The worktree lifecycle tools are always listed now (ADR 0062 retired the
-    // location-based hiding): start, graduate, and integrate all appear from a
+    // location-based hiding): start, accept, and update all appear from a
     // main-rooted server (covered in depth by the listing test below).
     assert(names.includes("discern_start"), JSON.stringify(names));
-    assert(names.includes("discern_graduate"), JSON.stringify(names));
-    assert(names.includes("discern_integrate"), JSON.stringify(names));
+    assert(names.includes("discern_accept"), JSON.stringify(names));
+    assert(names.includes("discern_update"), JSON.stringify(names));
 
-    // tools/call discern_finish {dry_run:true} → the preview DiscernResult.
+    // tools/call discern_done {dry_run:true} → the preview DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: { dry_run: true } },
+      params: { name: "discern_done", arguments: { dry_run: true } },
     });
     const call = await mcp.recv();
     assertEquals(call.id, 3);
     assertEquals(call.result.isError, false);
     const finish = call.result.structuredContent;
     assertEquals(finish.ok, true);
-    assertEquals(finish.verb, "finish");
+    assertEquals(finish.verb, "done");
     assertEquals(finish.dry_run, true); // the uniform preview signal, over MCP too
     assertEquals(finish.plan.title, "Gate plan"); // a preview carries the plan
     // The text content mirrors the structured content (same serialized object).
-    assert(call.result.content[0].text.includes('"verb": "finish"'));
+    assert(call.result.content[0].text.includes('"verb": "done"'));
 
-    // tools/call discern_scopes → its DiscernResult.
+    // tools/call discern_impact → its DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_scopes", arguments: {} },
+      params: { name: "discern_impact", arguments: {} },
     });
     const cs = await mcp.recv();
-    assertEquals(cs.result.structuredContent.verb, "scopes");
+    assertEquals(cs.result.structuredContent.verb, "impact");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
 
     // tools/call discern_status → the situation/orientation DiscernResult. The
@@ -452,20 +456,20 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(status.result.structuredContent.verb, "status");
     assertEquals(status.result.structuredContent.data.location, "main");
     assert(
-      Array.isArray(status.result.structuredContent.data.ratchets),
-      "status data carries the configured ratchets",
+      Array.isArray(status.result.structuredContent.data.standards),
+      "status data carries the configured standards",
     );
 
-    // tools/call discern_improve → the continuous-improvement DiscernResult.
+    // tools/call discern_improvement → the continuous-improvement DiscernResult.
     await mcp.send({
       jsonrpc: "2.0",
       id: 6,
       method: "tools/call",
-      params: { name: "discern_improve", arguments: {} },
+      params: { name: "discern_improvement", arguments: {} },
     });
     const improve = await mcp.recv();
     assertEquals(improve.id, 6);
-    assertEquals(improve.result.structuredContent.verb, "improve");
+    assertEquals(improve.result.structuredContent.verb, "improvement");
     assertEquals(typeof improve.result.structuredContent.data.score, "number");
     assert(
       Array.isArray(improve.result.structuredContent.data.categories),
@@ -667,7 +671,7 @@ Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validati
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: { dry_run: "yes" } },
+      params: { name: "discern_done", arguments: { dry_run: "yes" } },
     });
     const rejected = await mcp.recv();
     const text = JSON.stringify(rejected);
@@ -735,16 +739,16 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   });
 });
 
-Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_found error", async () => {
+Deno.test("discern mcp: discern_map returns the index, a single doc, and a not_found error", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // The scaffold ships no docs/ tree until bootstrap — seed a tiny one.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    // The scaffold ships no map/ tree until bootstrap — seed a tiny one.
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -761,11 +765,11 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
+      params: { name: "discern_map", arguments: {} },
     });
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
-    assertEquals(index.result.structuredContent.verb, "docs");
+    assertEquals(index.result.structuredContent.verb, "map");
     assert(index.result.structuredContent.data.count >= 1);
     const entry = index.result.structuredContent.data.docs[0];
     assertEquals(typeof entry.slug, "string");
@@ -776,7 +780,7 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: { target: entry.slug } },
+      params: { name: "discern_map", arguments: { target: entry.slug } },
     });
     const doc = await mcp.recv();
     assertEquals(doc.result.isError, false);
@@ -792,7 +796,7 @@ Deno.test("discern mcp: discern_docs returns the index, a single doc, and a not_
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: { target: "no-such-doc" } },
+      params: { name: "discern_map", arguments: { target: "no-such-doc" } },
     });
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
@@ -808,9 +812,9 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     await gitInit(dir);
     // The host project has its own docs/ — discern_help must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
-    await Deno.mkdir(join(dir, "discern/docs"), { recursive: true });
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "project-only.md"),
+      join(dir, "map", "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -832,7 +836,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     const index = await mcp.recv();
     assertEquals(index.result.isError, false);
     assertEquals(index.result.structuredContent.verb, "help");
-    assertEquals(index.result.structuredContent.data.docs_dir, undefined);
+    assertEquals(index.result.structuredContent.data.map_dir, undefined);
     const docs = index.result.structuredContent.data.docs;
     assert(
       docs.some((d: { slug: string }) => d.slug === "config-reference"),
@@ -904,29 +908,29 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
     });
     await mcp.recv();
 
-    // `discern_docs` still refuses with the structured not_set_up envelope — its
+    // `discern_map` still refuses with the structured not_set_up envelope — its
     // tree is empty until setup fills it.
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
+      params: { name: "discern_map", arguments: {} },
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
     assertEquals(refused.result.structuredContent.error, "not_set_up");
 
-    // `discern_finish` is a gate PROOF verb — un-gated during setup (ADR 0065) so
+    // `discern_done` is a gate PROOF verb — un-gated during setup (ADR 0065) so
     // the agent can iterate while wiring capabilities — but it carries the
     // setup-in-progress hint so a green run can't be mistaken for "done".
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_finish", arguments: {} },
+      params: { name: "discern_done", arguments: {} },
     });
     const finish = await mcp.recv();
-    assertEquals(finish.result.structuredContent.verb, "finish");
+    assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
     assert(
       (finish.result.structuredContent.hints ?? []).some((h: string) =>
@@ -951,13 +955,13 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
   });
 });
 
-Deno.test("discern mcp: discern_graduate previews a graduation from inside a worktree", async () => {
+Deno.test("discern mcp: discern_accept previews an acceptance from inside a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // From inside a WORKTREE (its branch already contains main): a dry-run returns
-    // the graduation plan and touches nothing. (graduate is always listed now; it
+    // the acceptance plan and touches nothing. (accept is always listed now; it
     // still requires a worktree to act on — the listing test covers visibility.)
     const wt = await addWorktree(dir, "grad");
     const wtMcp = await spawnMcp(wt);
@@ -972,21 +976,21 @@ Deno.test("discern mcp: discern_graduate previews a graduation from inside a wor
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
+      params: { name: "discern_accept", arguments: { dry_run: true } },
     });
     const preview = await wtMcp.recv();
     assertEquals(preview.result.isError, false);
-    assertEquals(preview.result.structuredContent.verb, "graduate");
+    assertEquals(preview.result.structuredContent.verb, "accept");
     assertEquals(preview.result.structuredContent.dry_run, true);
     assert(
       preview.result.structuredContent.plan,
-      "a graduate preview carries the plan",
+      "an accept preview carries the plan",
     );
     assertEquals(await wtMcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-date worktree", async () => {
+Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -994,7 +998,7 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
     // call is an idempotent success — nothing merged (the merge step is skipped),
     // while the refresh + ensure convergence still runs (what makes a plain re-run
-    // the recovery after a manually resolved conflict). (integrate is always listed
+    // the recovery after a manually resolved conflict). (update is always listed
     // now; it still requires a worktree to act on, per the listing test.)
     const wt = await addWorktree(dir, "intg");
     const wtMcp = await spawnMcp(wt);
@@ -1009,18 +1013,18 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_integrate", arguments: {} },
+      params: { name: "discern_update", arguments: {} },
     });
     const noop = await wtMcp.recv();
     assertEquals(noop.result.isError, false);
-    assertEquals(noop.result.structuredContent.verb, "integrate");
+    assertEquals(noop.result.structuredContent.verb, "update");
     const steps = noop.result.structuredContent.steps as Array<
       { label: string; outcome: string }
     >;
     assertEquals(
       steps.find((s) => s.label === "merge")?.outcome,
       "skipped",
-      `an up-to-date integrate merges nothing: ${
+      `an up-to-date update merges nothing: ${
         JSON.stringify(noop.result.structuredContent)
       }`,
     );
@@ -1035,7 +1039,7 @@ Deno.test("discern mcp: discern_integrate is an idempotent no-op from an up-to-d
   });
 });
 
-Deno.test("discern mcp: discern_integrate returns schema-valid data for a real merge", async () => {
+Deno.test("discern mcp: discern_update returns schema-valid data for a real merge", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1058,19 +1062,19 @@ Deno.test("discern mcp: discern_integrate returns schema-valid data for a real m
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_integrate", arguments: {} },
+      params: { name: "discern_update", arguments: {} },
     });
     const merged = await mcp.recv();
     assertEquals(merged.result.isError, false, JSON.stringify(merged.result));
     const payload = merged.result.structuredContent;
-    const parsed = IntegrateOutputSchema.safeParse(payload);
+    const parsed = UpdateOutputSchema.safeParse(payload);
     assert(
       parsed.success,
-      `integrate MCP payload drifted from schema:\n${
+      `update MCP payload drifted from schema:\n${
         JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
       }\n${JSON.stringify(payload, null, 2)}`,
     );
-    assertEquals(payload.verb, "integrate");
+    assertEquals(payload.verb, "update");
     assertEquals(payload.data.behind, 1);
     assertEquals(payload.data.files.map((f: { path: string }) => f.path), [
       "upstream.txt",
@@ -1202,7 +1206,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
 });
 
 Deno.test("discern mcp: the lifecycle tools list + instructions from both roots (visibility is location-independent; refusals kept)", async () => {
-  const LIFECYCLE = ["discern_start", "discern_integrate", "discern_graduate"];
+  const LIFECYCLE = ["discern_start", "discern_update", "discern_accept"];
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1233,14 +1237,14 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       assert(names.includes(verb), JSON.stringify(names));
     }
 
-    // The defensive refusals are KEPT (ADR 0062): graduate is now callable from the
-    // trunk, but its core still refuses — there is no worktree to graduate. Visible,
+    // The defensive refusals are KEPT (ADR 0062): accept is now callable from the
+    // trunk, but its core still refuses — there is no worktree to accept. Visible,
     // not silent — a clean precondition_failed, the safety boundary the cores own.
     await main.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: { dry_run: true } },
+      params: { name: "discern_accept", arguments: { dry_run: true } },
     });
     const gradFromMain = await main.recv();
     assertEquals(gradFromMain.result.isError, true);
@@ -1295,12 +1299,12 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
 
 Deno.test("WorkingRoot: seeds from the spawn root and re-points on set", () => {
   // The one mutable value the server holds (ADR 0062): seeded from the spawn root,
-  // moved by discern_start (→ the new worktree) and discern_graduate (→ back to spawn).
+  // moved by discern_start (→ the new worktree) and discern_accept (→ back to spawn).
   const w = new WorkingRoot("/repo");
   assertEquals(w.get(), "/repo");
   w.set("/repo.worktrees/alpha"); // start re-aims at the new worktree
   assertEquals(w.get(), "/repo.worktrees/alpha");
-  w.set("/repo"); // graduate resets to the spawn root
+  w.set("/repo"); // accept resets to the spawn root
   assertEquals(w.get(), "/repo");
 });
 
@@ -1348,7 +1352,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_finish",
+        name: "discern_done",
         arguments: { path: worktree },
       },
     });
@@ -1378,16 +1382,16 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
   });
 });
 
-Deno.test("discern mcp: start then graduate over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
+Deno.test("discern mcp: start then accept over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // The motivating flow this whole record exists to fix: an agent on the trunk opens
-    // ONE MCP connection, starts a worktree, and graduates it — without ever re-rooting
-    // the connection. Before ADR 0062 this was impossible (graduate was hidden from a
+    // ONE MCP connection, starts a worktree, and accepts it — without ever re-rooting
+    // the connection. Before ADR 0062 this was impossible (accept was hidden from a
     // main-rooted server, and even revealed it gated the trunk); now discern_start
-    // re-aims the server's working root at the new worktree, so graduate lands it.
+    // re-aims the server's working root at the new worktree, so accept lands it.
     const mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
@@ -1415,38 +1419,38 @@ Deno.test("discern mcp: start then graduate over ONE main-rooted session — the
       await exists(join(wtPath, "CLAUDE.md")),
       "the created worktree is set up",
     );
-    await commitWorktreeForGraduation(wtPath);
+    await commitWorktreeForAcceptance(wtPath);
 
-    // discern_graduate over the SAME connection now operates on the re-aimed working
+    // discern_accept over the SAME connection now operates on the re-aimed working
     // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
-    // guard: it fails against today's main, where graduate is hidden (→ "not found").
+    // guard: it fails against today's main, where accept is hidden (→ "not found").
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: {} },
+      params: { name: "discern_accept", arguments: {} },
     });
-    const graduated = await mcp.recv();
+    const landed = await mcp.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
-    assertEquals(graduated.result.structuredContent.verb, "graduate");
-    assertEquals(graduated.result.structuredContent.ok, true);
-    // graduate removed the worktree it landed — proof it acted on the worktree, not the
+    assertEquals(landed.result.structuredContent.verb, "accept");
+    assertEquals(landed.result.structuredContent.ok, true);
+    // accept removed the worktree it landed — proof it acted on the worktree, not the
     // (still-present) trunk.
     assertEquals(
       await exists(wtPath),
       false,
-      "graduate removed the worktree directory",
+      "accept removed the worktree directory",
     );
 
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate even with an explicit `path`, since graduate removed its held root (ADR 0062)", async () => {
+Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even with an explicit `path`, since accept removed its held root (ADR 0062)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1472,10 +1476,10 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     const started = await maker.recv();
     const wtPath = started.result.structuredContent.data.path as string;
     assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
-    await commitWorktreeForGraduation(wtPath);
+    await commitWorktreeForAcceptance(wtPath);
     assertEquals(await maker.close(), 0);
 
-    // The graduating server is rooted IN the worktree (spawn root = the worktree).
+    // The accepting server is rooted IN the worktree (spawn root = the worktree).
     const inWt = await spawnMcp(wtPath);
     await inWt.send({
       jsonrpc: "2.0",
@@ -1485,35 +1489,35 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     });
     await inWt.recv();
 
-    // graduate with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
+    // accept with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
     // the spawn-root worktree. A `path` override normally leaves the held root alone
-    // (§2), but graduate just deleted the directory that root points at, so it must
+    // (§2), but accept just deleted the directory that root points at, so it must
     // re-root anyway. The result reports the main checkout it landed in.
     await inWt.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_graduate",
+        name: "discern_accept",
         arguments: { path: wtPath },
       },
     });
-    const graduated = await inWt.recv();
+    const landed = await inWt.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
-    const landedRoot = graduated.result.structuredContent.data.root as string;
+    const landedRoot = landed.result.structuredContent.data.root as string;
     assert(
       typeof landedRoot === "string" && landedRoot.length > 0,
-      JSON.stringify(graduated.result.structuredContent),
+      JSON.stringify(landed.result.structuredContent),
     );
-    assertEquals(await exists(wtPath), false, "graduate removed the worktree");
+    assertEquals(await exists(wtPath), false, "accept removed the worktree");
 
     // The headline: a subsequent call with NO `path` must follow the re-aimed working
     // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
-    // re-aim, the explicit `path` on graduate would skip re-aiming, leaving this `status`
+    // re-aim, the explicit `path` on accept would skip re-aiming, leaving this `status`
     // to resolve the deleted worktree's discern.toml and error.
     await inWt.send({
       jsonrpc: "2.0",
@@ -1524,22 +1528,22 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on graduate ev
     const status = await inWt.recv();
     assertEquals(status.result.isError, false, JSON.stringify(status.result));
     assertEquals(status.result.structuredContent.data.location, "main");
-    // The status root is exactly the root graduate re-aimed to (the main checkout).
+    // The status root is exactly the root accept re-aimed to (the main checkout).
     assertEquals(status.result.structuredContent.data.root, landedRoot);
 
     assertEquals(await inWt.close(), 0);
   });
 });
 
-Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
+Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // The other side of the held-root-removed rule: re-aiming on a `path` override must
-    // fire ONLY when graduate removed the root you're HOLDING — never when you graduate
+    // fire ONLY when accept removed the root you're HOLDING — never when you accept
     // some OTHER worktree by path while still working in your own. Make two worktrees,
-    // hold one, graduate the other. (Each `start` runs from a fresh main-rooted server,
+    // hold one, accept the other. (Each `start` runs from a fresh main-rooted server,
     // because a server re-aims into the worktree it just started and `start` then refuses
     // from inside one.)
     const startFromMain = async (): Promise<string> => {
@@ -1563,10 +1567,10 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
       return path;
     };
     const held = await startFromMain(); // the worktree we keep working in
-    const other = await startFromMain(); // the worktree we graduate by path
-    await commitWorktreeForGraduation(other);
+    const other = await startFromMain(); // the worktree we accept by path
+    await commitWorktreeForAcceptance(other);
 
-    // A server rooted in `held`, graduating `other` by explicit path.
+    // A server rooted in `held`, accepting `other` by explicit path.
     const inHeld = await spawnMcp(held);
     await inHeld.send({
       jsonrpc: "2.0",
@@ -1580,15 +1584,15 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
       id: 2,
       method: "tools/call",
       params: {
-        name: "discern_graduate",
+        name: "discern_accept",
         arguments: { path: other },
       },
     });
-    const graduated = await inHeld.recv();
+    const landed = await inHeld.recv();
     assertEquals(
-      graduated.result.isError,
+      landed.result.isError,
       false,
-      JSON.stringify(graduated.result),
+      JSON.stringify(landed.result),
     );
     assertEquals(await exists(other), false, "the OTHER worktree was removed");
     assert(await exists(held), "the held worktree is untouched");
@@ -1609,7 +1613,7 @@ Deno.test("discern mcp: graduating a DIFFERENT worktree by `path` leaves the hel
   });
 });
 
-Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cleanly (working root = trunk)", async () => {
+Deno.test("discern mcp: discern_accept with no prior discern_start refuses cleanly (working root = trunk)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1623,20 +1627,20 @@ Deno.test("discern mcp: discern_graduate with no prior discern_start refuses cle
     await mcp.recv();
 
     // No discern_start has moved the working root, so it is still the spawn root (the
-    // trunk). graduate is visible now (ADR 0062 retired the hiding) but its core
-    // refuses — there is no worktree to graduate. A clean precondition_failed, not a
+    // trunk). accept is visible now (ADR 0062 retired the hiding) but its core
+    // refuses — there is no worktree to accept. A clean precondition_failed, not a
     // silent false green gating the trunk (the very failure §2 of the ADR guards).
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_graduate", arguments: {} },
+      params: { name: "discern_accept", arguments: {} },
     });
     const refused = await mcp.recv();
     assertEquals(refused.result.isError, true);
     assertEquals(
       refused.result.structuredContent.verb,
-      "graduate",
+      "accept",
     );
     assertEquals(
       refused.result.structuredContent.error,
@@ -2017,26 +2021,26 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
 
     const READ_ONLY_TOOLS = new Set([
       "discern_doctor",
-      "discern_scopes",
+      "discern_impact",
       "discern_coupling",
       "discern_status",
-      "discern_improve",
-      "discern_docs",
+      "discern_improvement",
+      "discern_map",
       "discern_help",
     ]);
     const MUTATING_TOOLS = new Set([
       "discern_refresh",
-      "discern_finish",
+      "discern_done",
       "discern_prepare",
       "discern_test",
-      "discern_ratchets",
+      "discern_standards",
       "discern_start",
-      "discern_integrate",
+      "discern_update",
     ]);
-    const DESTRUCTIVE_TOOLS = new Set(["discern_graduate"]);
+    const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
     const IDEMPOTENT_MUTATING_TOOLS = new Set([
       "discern_refresh",
-      "discern_integrate",
+      "discern_update",
     ]);
     assertEquals(
       sorted([
@@ -2049,8 +2053,8 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     );
 
     // Honest annotations: the pure-observation verbs are read-only; the gate/lifecycle
-    // verbs mutate; graduate is destructive; integrate is the only mutating idempotent
-    // operation (a no-op once already integrated).
+    // verbs mutate; accept is destructive; update is the lifecycle's mutating
+    // idempotent operation (a no-op once already current).
     for (const tool of TOOLS) {
       const annotations = byName.get(tool.name)?.annotations;
       assert(annotations !== undefined, `${tool.name} has no annotations`);
@@ -2079,7 +2083,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     }
     assertEquals(
       sorted(IDEMPOTENT_MUTATING_TOOLS),
-      ["discern_integrate", "discern_refresh"],
+      ["discern_refresh", "discern_update"],
       "record any additional mutating idempotent tool explicitly",
     );
 
@@ -2091,7 +2095,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       false,
     );
     assertEquals(
-      byName.get("discern_finish")?.annotations?.openWorldHint,
+      byName.get("discern_done")?.annotations?.openWorldHint,
       undefined,
     );
     assertEquals(
@@ -2099,17 +2103,17 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       false,
     );
     assertEquals(
-      byName.get("discern_ratchets")?.annotations?.openWorldHint,
+      byName.get("discern_standards")?.annotations?.openWorldHint,
       undefined,
     );
     assertEquals(
-      byName.get("discern_graduate")?.annotations?.openWorldHint,
+      byName.get("discern_accept")?.annotations?.openWorldHint,
       undefined,
     );
 
     // The advertised outputSchema names the envelope fields it validates, and
     // finish's narrows `data` to the gate payload.
-    const finishProps = byName.get("discern_finish")?.outputSchema?.properties;
+    const finishProps = byName.get("discern_done")?.outputSchema?.properties;
     assert(finishProps?.ok !== undefined, "finish outputSchema has ok");
     assert(finishProps?.verb !== undefined, "finish outputSchema has verb");
     assert(finishProps?.data !== undefined, "finish outputSchema narrows data");
@@ -2139,19 +2143,19 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
       [
         "discern_status",
         "discern_start",
-        "discern_finish",
+        "discern_done",
         "discern_prepare",
         "discern_test",
-        "discern_integrate",
-        "discern_ratchets",
-        "discern_graduate",
-        "discern_scopes",
+        "discern_update",
+        "discern_standards",
+        "discern_accept",
+        "discern_impact",
         "discern_coupling",
         "discern_refresh",
-        "discern_docs",
+        "discern_map",
         "discern_help",
         "discern_doctor",
-        "discern_improve",
+        "discern_improvement",
       ],
       "MCP tools should be listed in deliberate workflow priority order for clients that truncate tools/list",
     );
@@ -2356,7 +2360,7 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
   });
 });
 
-Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-only, and previews a dry-run", async () => {
+Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-only, and previews a dry-run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -2369,23 +2373,23 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
     });
     await mcp.recv();
 
-    // Listed with the ratchets feature on (the default scaffold).
+    // Listed with the standards feature on (the default scaffold).
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
     const tools = list.result.tools as ListedTool[];
-    const rt = tools.find((t) => t.name === "discern_ratchets");
-    assert(rt !== undefined, "discern_ratchets should be listed");
+    const rt = tools.find((t) => t.name === "discern_standards");
+    assert(rt !== undefined, "discern_standards should be listed");
     // It runs the metric commands, so it is NOT read-only.
     assertEquals(rt.annotations?.readOnlyHint, false);
     assertStringIncludes(rt.description, "clean worktree");
     assertStringIncludes(rt.description, "force");
     assert(
       !rt.description.includes("before pushing"),
-      `ratchets description should not mention pushing:\n${rt.description}`,
+      `standards description should not mention pushing:\n${rt.description}`,
     );
     assert(
       Object.hasOwn(rt.inputSchema?.properties ?? {}, "force"),
-      "discern_ratchets input schema should expose force",
+      "discern_standards input schema should expose force",
     );
 
     // A dry-run preview returns the plan and measures nothing.
@@ -2393,18 +2397,18 @@ Deno.test("discern mcp: discern_ratchets is listed (slow/on-demand), not read-on
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_ratchets", arguments: { dry_run: true } },
+      params: { name: "discern_standards", arguments: { dry_run: true } },
     });
     const preview = await mcp.recv();
     assertEquals(preview.result.isError, false);
-    assertEquals(preview.result.structuredContent.verb, "ratchets");
+    assertEquals(preview.result.structuredContent.verb, "standards");
     assertEquals(preview.result.structuredContent.dry_run, true);
 
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false envelope", async () => {
+Deno.test("discern mcp: a failing discern_standards apply returns an ok:false envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -2413,7 +2417,7 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
         "[project]",
         'slug = "engine-test"',
         "",
-        "[ratchets.coverage]",
+        "[standards.coverage]",
         'run = "echo DISCERN_METRIC coverage 10"',
         'direction = "up"',
         "limit = 80",
@@ -2434,14 +2438,14 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_ratchets", arguments: {} },
+      params: { name: "discern_standards", arguments: {} },
     });
     const failed = await mcp.recv();
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     const payload = failed.result.structuredContent;
     assert(DatalessEnvelopeSchema.safeParse(payload).success);
     assertEquals(payload.ok, false);
-    assertEquals(payload.verb, "ratchets");
+    assertEquals(payload.verb, "standards");
     assert(
       payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
       JSON.stringify(payload),
@@ -2449,7 +2453,7 @@ Deno.test("discern mcp: a failing discern_ratchets apply returns an ok:false env
     // …and the envelope says WHY, not just that it failed. The reason travels in
     // diagnostics[]: an MCP caller cannot hear the live logger, so a bare failed
     // step would force a fall-back to the CLI to learn what the CLI narrates. The
-    // reproduce is the ratchet's own measurement command, and the applied step's
+    // reproduce is the standard's own measurement command, and the applied step's
     // note carries the measured value.
     const diag = (payload.diagnostics ?? [])[0];
     assertEquals(diag?.tool, "coverage", JSON.stringify(payload));
@@ -2484,28 +2488,28 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     // It names the operating model's core tools (orient, gate) — the "when to use
     // which tool" block.
     assert(instructions.includes("discern_status"), instructions);
-    assert(instructions.includes("discern_finish"), instructions);
+    assert(instructions.includes("discern_done"), instructions);
     // Worktrees are on → the whole lifecycle is named linearly, from any root (ADR
-    // 0062 retired the location-branched instructions): start, integrate, graduate.
+    // 0062 retired the location-branched instructions): start, update, accept.
     assert(instructions.includes("discern_start"), instructions);
-    assert(instructions.includes("discern_integrate"), instructions);
-    assert(instructions.includes("discern_graduate"), instructions);
+    assert(instructions.includes("discern_update"), instructions);
+    assert(instructions.includes("discern_accept"), instructions);
     assert(
       instructions.includes("user explicitly asks"),
       instructions,
     );
     assert(
-      instructions.includes("Do not treat a green finish or status hint"),
+      instructions.includes("Do not treat a green gate run or status hint"),
       instructions,
     );
-    // Diagnostics and ratchets are always present (every subsystem is core).
+    // Diagnostics and standards are always present (every subsystem is core).
     assert(instructions.includes("discern_doctor"), instructions);
-    assert(instructions.includes("discern_ratchets"), instructions);
+    assert(instructions.includes("discern_standards"), instructions);
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: the rendered surface names the project's configured integration branch", async () => {
+Deno.test("discern mcp: the rendered surface names the project's configured trunk", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -2537,25 +2541,25 @@ Deno.test("discern mcp: the rendered surface names the project's configured inte
 
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
-    // discern_ratchets names the branch ("loosened versus `<main_branch>`") and is
+    // discern_standards names the branch ("loosened versus `<main_branch>`") and is
     // visible from the main checkout, so it is the end-to-end witness here.
-    const ratchets =
+    const standards =
       (list.result.tools as { name: string; description: string }[])
-        .find((t) => t.name === "discern_ratchets");
-    assert(ratchets !== undefined, "discern_ratchets should be listed");
+        .find((t) => t.name === "discern_standards");
+    assert(standards !== undefined, "discern_standards should be listed");
     assert(
-      ratchets.description.includes("trunkline"),
-      `the description must name the configured branch; got:\n${ratchets.description}`,
+      standards.description.includes("trunkline"),
+      `the description must name the configured branch; got:\n${standards.description}`,
     );
     assert(
-      !ratchets.description.includes("versus main"),
-      `the hardcoded default must be gone; got:\n${ratchets.description}`,
+      !standards.description.includes("versus main"),
+      `the hardcoded default must be gone; got:\n${standards.description}`,
     );
     assert(
-      !ratchets.description.includes("before pushing"),
-      `ratchets should not assume a remote-push workflow; got:\n${ratchets.description}`,
+      !standards.description.includes("before pushing"),
+      `standards should not assume a remote-push workflow; got:\n${standards.description}`,
     );
-    assert(!ratchets.description.includes("{{"), ratchets.description);
+    assert(!standards.description.includes("{{"), standards.description);
 
     assertEquals(await mcp.close(), 0);
   });
@@ -2565,12 +2569,12 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Seed a project docs tree so discern://docs has content.
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    // Seed a project map so discern://map has content.
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -2593,10 +2597,10 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     for (
       const u of [
         "discern://status",
-        "discern://scopes",
+        "discern://impact",
         "discern://config",
         "discern://help",
-        "discern://docs",
+        "discern://map",
       ]
     ) {
       assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
@@ -2614,7 +2618,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const tpl = (templates.result.resourceTemplates as {
       uriTemplate: string;
     }[]).map((t) => t.uriTemplate);
-    assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+    assert(tpl.includes("discern://map/{+target}"), JSON.stringify(tpl));
     assert(tpl.includes("discern://help/{+target}"), JSON.stringify(tpl));
 
     // read discern://status → a fresh JSON snapshot (the data payload, not the
@@ -2632,16 +2636,16 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const statusData = JSON.parse(statusPart.text);
     assertEquals(statusData.location, "main");
     assert(
-      Array.isArray(statusData.ratchets),
-      "the status resource carries the configured ratchets",
+      Array.isArray(statusData.standards),
+      "the status resource carries the configured standards",
     );
 
-    // read discern://scopes
+    // read discern://impact
     await mcp.send({
       jsonrpc: "2.0",
       id: 5,
       method: "resources/read",
-      params: { uri: "discern://scopes" },
+      params: { uri: "discern://impact" },
     });
     const cs = await mcp.recv();
     assert(Array.isArray(JSON.parse(cs.result.contents[0].text).scopes));
@@ -2683,12 +2687,12 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     assertEquals(helpDoc.result.contents[0].mimeType, "text/markdown");
     assert(helpDoc.result.contents[0].text.includes("config reference"));
 
-    // read discern://docs (index) + the seeded project doc (Markdown).
+    // read discern://map (index) + the seeded project doc (Markdown).
     await mcp.send({
       jsonrpc: "2.0",
       id: 9,
       method: "resources/read",
-      params: { uri: "discern://docs" },
+      params: { uri: "discern://map" },
     });
     const docs = await mcp.recv();
     const slug = JSON.parse(docs.result.contents[0].text).docs[0].slug;
@@ -2696,7 +2700,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       jsonrpc: "2.0",
       id: 10,
       method: "resources/read",
-      params: { uri: `discern://docs/${slug}` },
+      params: { uri: `discern://map/${slug}` },
     });
     const doc = await mcp.recv();
     assertEquals(doc.result.contents[0].mimeType, "text/markdown");
@@ -2711,7 +2715,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
 
 // ---------------------------------------------------------------------------
 // B37 class guard: a doc resource template must resolve EVERY target form its
-// description (and the mirroring discern_docs/discern_help tools) advertise —
+// description (and the mirroring discern_map/discern_help tools) advertise —
 // by slug, by `section/slug`, AND by path. The SDK compiles a bare `{target}`
 // to a capture that stops at `/`, so before the `{+target}` fix only the
 // slug form resolved and the two slash-bearing forms fell through to a
@@ -2729,11 +2733,11 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     // Seed a project doc UNDER A SECTION, so its `section/slug` and path forms are
     // genuinely slash-bearing (the forms the bare template could never match).
     const marker = "Sectioned doc body for the B37 addressing guard.";
-    await Deno.mkdir(join(dir, "discern/docs", "00-orientation"), {
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "discern/docs", "00-orientation", "concepts.md"),
+      join(dir, "map", "00-orientation", "concepts.md"),
       `# Concepts\n\n${marker}\n`,
     );
     const mcp = await spawnMcp(dir);
@@ -2762,7 +2766,7 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     // Every registered doc-tree scheme. Both are registered through the ONE
     // registerDocTree call, so this list IS the class; a new scheme added there
     // must be added here (or its slash-bearing forms would silently regress).
-    for (const scheme of ["docs", "help"] as const) {
+    for (const scheme of ["map", "help"] as const) {
       // Read the index to discover a real doc with a non-empty section, so the
       // three target forms are computed from live data, not guessed.
       const index = await readResource(`discern://${scheme}`);
@@ -2823,13 +2827,13 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
 
       // For the project docs scheme we also seeded a known body — assert every
       // form resolves to the SAME doc, not merely to some doc.
-      if (scheme === "docs") {
+      if (scheme === "map") {
         for (const [label, target] of Object.entries(forms)) {
           const res = await readResource(`discern://${scheme}/${target}`);
           assertStringIncludes(
             res.result?.contents?.[0]?.text ?? "",
             marker,
-            `docs by ${label} ("${target}"): served a different doc's body`,
+            `map by ${label} ("${target}"): served a different doc's body`,
           );
         }
       }
@@ -2899,7 +2903,7 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
 //
 // The class this guards: gate jobs run in their own detached process groups, so
 // the ONLY thing that can stop them is the runner's abort controller. Before
-// this wiring, a client cancelling a discern_finish call (or killing the server)
+// this wiring, a client cancelling a discern_done call (or killing the server)
 // left the gate running invisibly to completion — orphaned processes racing the
 // user's next run over shared build state.
 // ---------------------------------------------------------------------------
@@ -2944,7 +2948,7 @@ function pidAlive(pid: number): boolean {
   }
 }
 
-/** Initialize handshake + the in-flight sleeper gate: start a discern_finish
+/** Initialize handshake + the in-flight sleeper gate: start a discern_done
  * call (request id 2), wait until its check job is running, return the job's
  * PID. Shared by the cancel and shutdown tests so both interrupt the same
  * genuinely-running gate. */
@@ -2964,7 +2968,7 @@ async function startInFlightFinish(
     jsonrpc: "2.0",
     id: 2,
     method: "tools/call",
-    params: { name: "discern_finish", arguments: {} },
+    params: { name: "discern_done", arguments: {} },
   });
   const pidFile = join(dir, "gate.pid");
   await pollUntil(
@@ -2976,7 +2980,7 @@ async function startInFlightFinish(
   return jobPid;
 }
 
-Deno.test("mcp: cancelling an in-flight discern_finish tree-kills its gate jobs", async () => {
+Deno.test("mcp: cancelling an in-flight discern_done tree-kills its gate jobs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());

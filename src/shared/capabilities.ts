@@ -24,7 +24,7 @@ export type Stage = (typeof STAGES)[number];
  * checkout" — a FAST, side-effect-light command (a framework's inspire/about, a
  * CLI `--version`, a script that loads config and exits), NOT an e2e suite
  * (anything heavier belongs in `[checks.<name>]`). It rides the `test` stage so
- * every `discern finish` re-proves the app boots wherever the gate runs —
+ * every `discern done` re-proves the app boots wherever the gate runs —
  * including inside a worktree, where every future task lives (ADR 0090). Anything
  * env-anchored (an untracked `.env`, an uninstalled dependency dir) that doesn't
  * survive into a fresh worktree makes it fail there, which is the point.

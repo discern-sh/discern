@@ -4,7 +4,7 @@
  * With detection on, `git diff --name-only`/`--name-status` collapses a rename
  * pair to a single record naming only the NEW path — the vacated (old) path
  * silently vanishes. Any consumer that decides work from "which paths changed"
- * (the scope classifier, integrate's delta/overlap reads) then sees LESS change
+ * (the scope classifier, update's delta/overlap reads) then sees LESS change
  * than a plain deletion of the same file and runs fewer gates, which the
  * classifier's fail-open doctrine forbids. So every name-listing `git diff`
  * under src/ must pass `--no-renames` in the same argument list.

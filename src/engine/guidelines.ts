@@ -4,7 +4,7 @@
  * materializes skills, and wires provider integration artifacts (MCP, worktree app
  * config, project rules). The pure content — what each file should contain — is
  * computed by `renderAgentFiles` in `./guidance_render.ts`, the single source this
- * writer and the `status`/`finish` currency check both use, so a generated file can
+ * writer and the `status`/`done` currency check both use, so a generated file can
  * never silently disagree with what a refresh produces (ADR 0034). It writes each
  * provider file named in `[guidance].agents` (falling back to the pre-migration
  * `[project].agents`).
@@ -268,7 +268,7 @@ export async function compileGuidelines(
   const agentsWritten: string[] = [];
 
   // Render the expected content for every configured provider — the SINGLE source
-  // of the compiled-file content, shared with the `status`/`finish` currency check
+  // of the compiled-file content, shared with the `status`/`done` currency check
   // (ADR 0034) — then write each. A provider that declares an import (Claude Code)
   // already gets a pointer to the canonical file here, not a duplicate body.
   let rendered: Map<string, string>;

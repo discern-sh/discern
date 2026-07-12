@@ -140,8 +140,8 @@ Deno.test("operatorHelp honours the resolved 'no colour' decision, stripping Cli
 const NOT_SWEPT: ReadonlySet<string> = new Set([
   "mcp", // starts a long-lived stdio server — would hang the test
   "desk", // interactive TUI (refuses --json; the human path needs a terminal)
-  "graduate", // worktree-lifecycle: needs a linked worktree to act on
-  "integrate", // worktree-lifecycle: needs a linked worktree to act on
+  "accept", // worktree-lifecycle: needs a linked worktree to act on
+  "update", // worktree-lifecycle: needs a linked worktree to act on
   "start", // must run from the main checkout and creates a worktree
   "identity", // resolves a worktree's identity — needs a worktree context
   "worktree", // a command group (prints help; its sub-verbs need a worktree)
@@ -174,7 +174,7 @@ Deno.test("the NOT_SWEPT exception set stays honest against the engine-verb regi
 Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI, combined streams)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    // A working gate config so finish/prepare/test/ratchets actually run to output
+    // A working gate config so finish/prepare/test/standards actually run to output
     // rather than erroring out before the colour path is reached.
     await writeConfig(
       dir,
@@ -188,7 +188,7 @@ Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI
         `typecheck = "true"`,
         `test = "true"`,
         "",
-        "[ratchets.cov]",
+        "[standards.cov]",
         `run = "printf 'DISCERN_METRIC cov 90\\n'"`,
         'direction = "up"',
         "limit = 80",

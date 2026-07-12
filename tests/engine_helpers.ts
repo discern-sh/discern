@@ -11,11 +11,11 @@
  * drives the verbs through the dispatcher. The suite is the engine's black-box
  * behavioral parity oracle.
  *
- * Tests that exercise scope/scope-gate/ratchet behaviour need a git repo so
+ * Tests that exercise scope/scope-gate/standard behaviour need a git repo so
  * `scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
  * in. `writeConfig` overwrites the scaffolded `.discern/config.toml` (a seed file) with
- * test-specific capabilities/checks/scopes/ratchets.
+ * test-specific capabilities/checks/scopes/standards.
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -108,7 +108,7 @@ export async function engineEnv(
  * Scaffold the real harness (engine, dispatcher, default `.discern/config.toml`) into
  * `dir` via the installer's own plan/apply path, so the bytes under test are the
  * bytes a real install ships. Tests usually follow with `writeConfig` to set
- * the capabilities/checks/scopes/ratchets they need.
+ * the capabilities/checks/scopes/standards they need.
  */
 export async function scaffoldEngine(
   dir: string,
@@ -141,7 +141,7 @@ export async function scaffoldEngine(
 /** One keyed registry path repointed at a non-default location. */
 export interface RepointedPath {
   name: SourcePathName;
-  /** The dotted config key (e.g. `docs.dir`). */
+  /** The dotted config key (e.g. `map.dir`). */
   key: string;
   /** The non-default value the key is pointed at. */
   value: string;
@@ -162,8 +162,11 @@ export function nonDefaultPaths(): RepointedPath[] {
       continue;
     }
     const dot = defaultPath.lastIndexOf(".");
+    const directoryCandidate = `zz-alt-${name}/`;
     const value = defaultPath.endsWith("/")
-      ? `zz-alt-${name}/`
+      ? directoryCandidate.includes(defaultPath)
+        ? "zz-alt-location/"
+        : directoryCandidate
       : dot === -1
       ? `zz-alt-${name}`
       : `zz-alt-${name}${defaultPath.slice(dot)}`;
@@ -371,7 +374,7 @@ export function worktreePath(mainDir: string, name: string): string {
  * ({@link worktreePath} — a SIBLING of `mainDir`, `<mainDir>.worktrees/<name>`)
  * on a new branch `agent/<name>`. Placing it outside the repo keeps the main
  * checkout clean (a nested checkout shows as untracked and would block
- * graduation) with no reliance on any agent-specific gitignored path. `mainDir`
+ * acceptance) with no reliance on any agent-specific gitignored path. `mainDir`
  * must already be a git repo (call `gitInit` first). Returns the worktree's
  * absolute path, ready to drive with `runAgent(path, …)`.
  */

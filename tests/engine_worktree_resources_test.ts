@@ -118,10 +118,10 @@ Deno.test("a required create failure aborts setup; required = false does not", a
   });
 });
 
-Deno.test("graduate destroys the worktree's resources before removing it", async () => {
+Deno.test("accept destroys the worktree's resources before removing it", async () => {
   await withTempDir(async (dir) => {
     // Markers go in a SEPARATE temp dir OUTSIDE the repo, so they survive the
-    // worktree's removal and never dirty the main checkout (graduate refuses a
+    // worktree's removal and never dirty the main checkout (accept refuses a
     // dirty main). discern is agent-agnostic, so a test must NEVER reach for an
     // agent-specific path (e.g. `.claude/`) to find "somewhere ignored" — use a
     // real external temp dir.
@@ -141,13 +141,13 @@ Deno.test("graduate destroys the worktree's resources before removing it", async
         .stdout
         .trim();
 
-      // graduate tears resources down at step 4 (while @dir@ still resolves),
-      // then removes the worktree — so a graduated worktree leaves no orphan.
-      const grad = await runAgent(wt, ["graduate"]);
+      // accept tears resources down at step 4 (while @dir@ still resolves),
+      // then removes the worktree — so a landed worktree leaves no orphan.
+      const grad = await runAgent(wt, ["accept"]);
       assertEquals(grad.code, 0, grad.output);
       assert(
         await exists(join(markers, `${handle}.gone`)),
-        `graduate did not destroy the resource\n${grad.output}`,
+        `accept did not destroy the resource\n${grad.output}`,
       );
     });
   });

@@ -49,22 +49,22 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     assertEquals(first.skillsPruned, 0);
 
     // AGENTS.md is the canonical agent file: NO banner — it opens with discern's
-    // built-in harness guidance (the base section's first heading), then names the
+    // built-in guidance (the base section's first heading), then names the
     // gate command, then the user's own guidance.md appended after it. The prime
     // attention spot is real guidance, not a deterrent (ADR 0034).
     const agentsMd = await Deno.readTextFile(join(tmp, "AGENTS.md"));
     assert(
-      agentsMd.startsWith("# Working with the discern harness"),
+      agentsMd.startsWith("# Working with discern"),
       "expected the guidance itself at the top — no banner",
     );
     assert(
       !agentsMd.includes("<!-- GENERATED"),
       "the generated file carries no HTML-comment banner",
     );
-    assertStringIncludes(agentsMd, "discern_finish");
+    assertStringIncludes(agentsMd, "discern_done");
     assertStringIncludes(agentsMd, "My own rule.");
     assert(
-      agentsMd.indexOf("discern_finish") < agentsMd.indexOf("My own rule."),
+      agentsMd.indexOf("discern_done") < agentsMd.indexOf("My own rule."),
       "built-in guidance should come before the user's sources",
     );
     // CLAUDE.md is NOT a byte-for-byte duplicate: it is exactly the `@AGENTS.md`
@@ -149,7 +149,7 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
     // With no tracked AGENTS.md emitted, CLAUDE.md falls back to the FULL guidance
     // (there is nothing to point at) rather than a dangling `@AGENTS.md` import.
     const claudeOnly = await Deno.readTextFile(join(dir, "CLAUDE.md"));
-    assertStringIncludes(claudeOnly, "discern_finish");
+    assertStringIncludes(claudeOnly, "discern_done");
     assert(
       !claudeOnly.includes("@AGENTS.md"),
       "no import line when there is no canonical file to point at",

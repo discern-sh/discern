@@ -77,7 +77,7 @@ Options:
   --result-dir <path>            Reuse a result directory; required for --phase continue/resume
   --agent-model <model>          Pass a model flag to the agent CLI
   --model-id <id>                Human answer for setup's --model question
-  --docs-answer <path>           Human answer for the docs-home question (default: docs/discern/)
+  --map-answer <path>           Human answer for the docs-home question (default: docs/discern/)
   --session-id <id>              Resume a specific agent session when supported
   --extra-agent-arg <arg>        Append one raw argument to the agent CLI; repeat as needed
   --json                         Print the run record as JSON
@@ -165,7 +165,7 @@ function parseArgs(args: readonly string[]): Options {
       const parsed = valueAfter(args, index, arg);
       modelId = parsed.value;
       index = parsed.next;
-    } else if (arg === "--docs-answer") {
+    } else if (arg === "--map-answer") {
       const parsed = valueAfter(args, index, arg);
       docsAnswer = parsed.value;
       index = parsed.next;

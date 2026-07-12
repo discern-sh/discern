@@ -1,0 +1,126 @@
+# ADR 0104: `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only
+
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> pointers use the retired product-category wording → `discern`, the gate, or
+> the bar; the decision and reasoning are unchanged.
+
+**Status**: accepted; implements
+[design principle 12](../00-orientation/design-principles.md) (exit honesty) and
+[13](../00-orientation/design-principles.md) (a provable footprint); inverts
+[ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md) (the
+write-surface contract) and its guard
+[ADR 0102](0102-paths-registry-and-rendered-artifacts.md); follows
+[ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply),
+[ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and
+[ADR 0051](0051-canonical-set-parity.md) (forcing functions).
+
+## Context
+
+The setup welcome promises "no lock-in, no surprises", and the recent namespace
+work made that promise structural: placement is consent (principle 8), the
+write-surface contract test enforces the footprint (principle 13), and principle
+12 writes the exit posture down — "uninstalling discern leaves a healthy
+repository". But the promise had no implementation a user could act on. The
+launch-readiness review (finding B6) named the gap precisely: no uninstall verb
+and no backups, so the undo story was "git, if you committed" — and the
+artifacts most at risk (the compiled agent files, the materialized skills) are
+gitignored, so git could not recover them at all.
+
+Removing discern cleanly is not a `rm -rf`: discern writes into two kinds of
+place. Files it creates outright (the compiled
+`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, the materialized
+`.claude/skills`/`.agents/skills` trees, the Codex rules, the Copilot hook file)
+can be deleted. But the MCP server, the session hooks, and the permission
+defaults are **merged into files the user co-owns** — `.mcp.json`,
+`.claude/settings.json`, `.gemini/settings.json`, `.codex/config.toml`, and the
+rest. Taking discern back out of those means stripping exactly its own entries
+and leaving the user's byte-for-byte, then deleting the file only if it turns
+out discern created the whole thing.
+
+The danger in writing that by hand is drift: an inventory of "what to remove"
+copied from "what setup writes" rots the moment a provider is added, and a stale
+uninstall that misses a new file silently breaks the promise it exists to keep.
+
+## Decision
+
+- **Uninstall is the inverse of the write-surface contract, derived from the
+  same single sources.** The set of things to remove is read from the provider
+  registry (the compiled agent files via `allGuidanceFilePaths()`, the skills
+  dirs via `allSkillsDirs()`, and every declared MCP / hooks / worktree-app /
+  project-rules file) and the set of things to keep is the paths registry (all
+  user content: guidance, the map, authored skills, recipes, the ledger, the
+  brief) plus `discern.toml`. Nothing is a hand-copied path list — the exact
+  discipline ADR 0102 uses for the forward direction, applied in reverse.
+- **The forcing function is a round-trip test, not a compile error.** The strip
+  logic a co-owned file needs is inherently per-file (a JSON settings merge and
+  a TOML config merge reverse differently), so the tie is a runtime guard
+  (`engine_uninstall_test.ts`): wire the full discern setup for every known
+  agent, uninstall, and assert every registry-declared created path is gone and
+  the co-owned files are byte-restored. A new provider file auto-enrols — the
+  test fails until uninstall handles it (ADR 0051's runtime-forcing-function
+  form).
+- **Co-owned strips are exact and conservative.** A hook group is removed only
+  when every command in it invokes the `discern` binary; a permission or a
+  set-if-absent scalar is removed only when it still equals what discern seeded;
+  the Codex writable-root is recomputed from the same resolver `register` used,
+  so it is removed exactly. A user's own hook, permission, or MCP server is
+  never matched — a strip can only ever shrink discern's footprint, never the
+  user's. A co-owned file that empties to nothing was discern's outright and is
+  deleted; one that keeps user content is rewritten.
+- **It keeps user content and says so.** `discern.toml` and the entire
+  `discern/` namespace stay — plain markdown at paths the user chose or
+  accepted, valuable without the tool (principle 12). The verb ends by listing
+  what stayed and the one install-method-agnostic line to remove the binary
+  itself.
+- **CLI-only, deliberately not an MCP tool.** Uninstalling discern is a human's
+  decision; exposing it as a `discern_*` tool would invite an agent to reach for
+  it mid-session. It is the one read/run verb intentionally absent from the MCP
+  surface for that reason (recorded so the verb-parity guard's MCP
+  reconciliation reads as intent, not omission).
+- **It refuses while linked worktrees are active**, and refuses to run from a
+  worktree rather than the main checkout — never pull the wiring out from under
+  work in flight. Plan/apply (ADR 0027) yields `--dry-run` and `--json` with no
+  extra code; one `DiscernResult` (ADR 0028) carries the removed / stripped /
+  kept lists.
+
+## Consequences
+
+- "No lock-in" becomes a checkable claim: `discern uninstall --dry-run` prints a
+  faithful plan, and the round-trip test proves a wire→uninstall cycle leaves
+  the co-owned files as the user had them. Principle 12 now has an
+  implementation the public copy can point at, kept honest by a test.
+- Byte-identical restoration holds when the user's pre-existing co-owned file
+  was already in discern's canonical 2-space JSON — the common case, since
+  discern rewrites the file to that form on first merge. A file the user
+  hand-formats differently round-trips to semantically-equal, not byte-equal;
+  the verb documents "where possible" rather than claiming more than it
+  delivers.
+- Adding a provider is now a three-way obligation (wire it, add it to the
+  write-surface contract, remove it on uninstall), all enforced from the
+  registries — a new integration file that uninstall forgets fails the gate.
+- `TomlEditor` gained a `deleteRootKey` (the root-region analogue of
+  `deleteKey`) to strip a foreign co-managed file's discern-seeded root keys —
+  the one editor primitive the reversal needed that the forward direction did
+  not.
+
+## Alternatives considered
+
+- **A symmetric `unregister` method on each integration interface** (the
+  compile-time forcing function). Rejected as the primary tie: it would spread
+  bespoke reversal logic across the provider registry and enlarge its hot
+  interfaces, while the round-trip test already fails for an unhandled file. The
+  strip helpers still live next to the `register` functions they invert (the
+  Codex config/env strips in `providers.ts`), so co-location is kept without the
+  interface surface.
+- **Delete-if-it-looks-discern-ish** (strip any file mentioning `discern`).
+  Rejected: it would risk a user's own `discern`-named hook or comment. Removal
+  is gated on exact reversal of what a writer added, so it is provably
+  conservative.
+- **Back up co-owned files before stripping.** Rejected as redundant: co-owned
+  files are git-tracked, so `git diff` already shows the strip and
+  `git checkout` restores it; the gitignored files a backup would protect are
+  rebuilt by `discern refresh`. A backup tree would be new litter the
+  exit-honesty verb exists to avoid.
+- **Exposing uninstall as an MCP tool for symmetry with the other read/run
+  verbs.** Rejected: the asymmetry is the point (see Decision) — an agent should
+  not be one tool call away from removing discern it is working inside.

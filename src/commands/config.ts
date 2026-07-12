@@ -1,7 +1,7 @@
 /**
  * `discern config <subcommand>` — programmatic, comment-preserving edits to an
  * existing `discern.toml` (ADR 0005). Lets a scaffolder or CI set capabilities,
- * checks, scopes, ratchets, and arbitrary scalars without re-implementing TOML
+ * checks, scopes, standards, and arbitrary scalars without re-implementing TOML
  * editing. Every subcommand honours `--json` and `--dry-run`.
  */
 
@@ -17,6 +17,7 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
+import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
 import {
   tomlBool,
   TomlEditor,
@@ -41,7 +42,7 @@ interface Edit {
   literal: string;
 }
 
-/** TOML bare-key shape, enforced for check/scope/ratchet names. */
+/** TOML bare-key shape, enforced for check/scope/standard names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Emit a failure on the right surface and return exit code 1. */
@@ -273,13 +274,13 @@ export async function runConfigSetScope(
 }
 
 /**
- * `config set-ratchet <name> --limit <n> --run <cmd> [--metric] [--direction]`
+ * `config set-standard <name> --limit <n> --run <cmd> [--metric] [--direction]`
  *
- * Every ratchet is a `[ratchets.<name>]` table — `coverage` is just a
+ * Every standard is a `[standards.<name>]` table — `coverage` is just a
  * conventional name, with no special handling. The `run` command emits the
  * metric line: `DISCERN_METRIC <metric> <number>`.
  */
-export async function runConfigSetRatchet(
+export async function runConfigSetStandard(
   name: string,
   opts: ConfigOptions & {
     limit: string;
@@ -291,7 +292,7 @@ export async function runConfigSetRatchet(
   if (!NAME_RE.test(name)) {
     return fail(
       opts,
-      `ratchet name must be letters, digits, '_' or '-' (got "${name}").`,
+      `standard name must be letters, digits, '_' or '-' (got "${name}").`,
     );
   }
   const direction = opts.direction ?? "up";
@@ -310,14 +311,14 @@ export async function runConfigSetRatchet(
 
   const edits: Edit[] = [
     {
-      key: `ratchets.${name}.metric`,
+      key: `standards.${name}.metric`,
       literal: tomlString(opts.metric ?? name),
     },
-    { key: `ratchets.${name}.direction`, literal: tomlString(direction) },
-    { key: `ratchets.${name}.limit`, literal: limitLiteral },
-    { key: `ratchets.${name}.run`, literal: tomlString(opts.run) },
+    { key: `standards.${name}.direction`, literal: tomlString(direction) },
+    { key: `standards.${name}.limit`, literal: limitLiteral },
+    { key: `standards.${name}.run`, literal: tomlString(opts.run) },
   ];
-  return await applyEdits(edits, opts, `Set ratchet "${name}".`);
+  return await applyEdits(edits, opts, `Set standard "${name}".`);
 }
 
 /** `config set <dotted.key> <value> [--number|--bool|--string]` */
@@ -331,13 +332,25 @@ export async function runConfigSet(
   }
   // Refuse a key the schema doesn't know AT WRITE TIME, so `config set` can't
   // report success and leave a config the next read rejects (a typo'd section or
-  // key). A valid-but-incomplete path (e.g. ratchets.coverage.limit before its
+  // key). A valid-but-incomplete path (e.g. standards.coverage.limit before its
   // run) is allowed — only an unknown key/section is rejected.
   const expected = settableConfigValueKind(key);
   if (expected === undefined) {
+    const [section, ...tail] = key.split(".");
+    const successor = section === undefined
+      ? undefined
+      : retiredConfigKeySuccessor(section);
+    if (section !== undefined && successor !== undefined) {
+      const replacement = [successor, ...tail].join(".");
+      return fail(
+        opts,
+        `config key "${key}" was renamed; use "${replacement}". Run \`discern upgrade\` if the old key is already in discern.toml.`,
+        "renamed_config_key",
+      );
+    }
     return fail(
       opts,
-      `unknown config key "${key}" — it is not part of the discern.toml schema (see docs/10-installer/config-reference.md). For custom gate work use \`config set-check\`.`,
+      `unknown config key "${key}" — it is not part of the discern.toml schema (see \`discern help config-reference\`). For custom gate work use \`config set-check\`.`,
       "unknown_key",
     );
   }
@@ -347,7 +360,7 @@ export async function runConfigSet(
   if (expected.kind === "table") {
     return fail(
       opts,
-      `"${key}" is a section, not a single key — set one of its keys instead (see docs/10-installer/config-reference.md).`,
+      `"${key}" is a section, not a single key — set one of its keys instead (see \`discern help config-reference\`).`,
     );
   }
 
@@ -434,7 +447,7 @@ function renderTypedValue(
     }
     return renderStringArrayValue(key, value);
   }
-  // A union-typed key (command-or-list, a ratchet `per`): no single required
+  // A union-typed key (command-or-list, a standard `per`): no single required
   // type, so honour an explicit flag or infer from the value's spelling. The
   // write-time validation in applyEdits still backstops a wrong guess.
   return renderInferredValue(value, opts);

@@ -55,7 +55,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -111,7 +111,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -579,7 +579,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -635,7 +635,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -951,7 +951,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1007,7 +1007,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1265,7 +1265,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1321,7 +1321,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1653,8 +1653,8 @@
         "verb"
       ]
     },
-    "DiscernSetupLandResult": {
-      "title": "DiscernSetupLandResult",
+    "DiscernSetupAcceptResult": {
+      "title": "DiscernSetupAcceptResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -1696,7 +1696,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -1752,7 +1752,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -1869,7 +1869,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "setup land"
+          "const": "setup accept"
         },
         "data": {
           "anyOf": [
@@ -1977,7 +1977,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2033,7 +2033,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -2488,7 +2488,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2544,7 +2544,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -2774,7 +2774,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -2830,7 +2830,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3044,7 +3044,7 @@
                                 "setup-ensure",
                                 "env",
                                 "refresh",
-                                "ratchet"
+                                "standard"
                               ]
                             },
                             "label": {
@@ -3166,7 +3166,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3222,7 +3222,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3439,8 +3439,8 @@
         "verb"
       ]
     },
-    "DiscernDocsResult": {
-      "title": "DiscernDocsResult",
+    "DiscernMapResult": {
+      "title": "DiscernMapResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -3482,7 +3482,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3538,7 +3538,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -3655,14 +3655,14 @@
         },
         "verb": {
           "type": "string",
-          "const": "docs"
+          "const": "map"
         },
         "data": {
           "anyOf": [
             {
               "type": "object",
               "properties": {
-                "docs_dir": {
+                "map_dir": {
                   "type": "string"
                 },
                 "count": {
@@ -3832,7 +3832,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -3888,7 +3888,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4012,7 +4012,7 @@
             {
               "type": "object",
               "properties": {
-                "docs_dir": {
+                "map_dir": {
                   "type": "string"
                 },
                 "count": {
@@ -4182,7 +4182,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4238,7 +4238,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4423,8 +4423,8 @@
         "verb"
       ]
     },
-    "DiscernFinishResult": {
-      "title": "DiscernFinishResult",
+    "DiscernDoneResult": {
+      "title": "DiscernDoneResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -4466,7 +4466,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4522,7 +4522,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -4639,7 +4639,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "finish"
+          "const": "done"
         },
         "data": {
           "anyOf": [
@@ -4879,7 +4879,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -4935,7 +4935,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5129,7 +5129,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5185,7 +5185,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5336,8 +5336,8 @@
         "verb"
       ]
     },
-    "DiscernImproveResult": {
-      "title": "DiscernImproveResult",
+    "DiscernImprovementResult": {
+      "title": "DiscernImprovementResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -5379,7 +5379,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5435,7 +5435,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5552,7 +5552,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "improve"
+          "const": "improvement"
         },
         "data": {
           "anyOf": [
@@ -5761,8 +5761,8 @@
         "verb"
       ]
     },
-    "DiscernRatchetsResult": {
-      "title": "DiscernRatchetsResult",
+    "DiscernStandardsResult": {
+      "title": "DiscernStandardsResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -5804,7 +5804,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -5860,7 +5860,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -5977,7 +5977,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "ratchets"
+          "const": "standards"
         },
         "data": {
           "type": "object",
@@ -6054,7 +6054,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6110,7 +6110,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -6334,8 +6334,8 @@
         "verb"
       ]
     },
-    "DiscernScopesResult": {
-      "title": "DiscernScopesResult",
+    "DiscernImpactResult": {
+      "title": "DiscernImpactResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -6377,7 +6377,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6433,7 +6433,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -6550,7 +6550,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "scopes"
+          "const": "impact"
         },
         "data": {
           "anyOf": [
@@ -6645,7 +6645,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -6701,7 +6701,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7006,7 +7006,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7062,7 +7062,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7332,7 +7332,7 @@
                     "scope_gates"
                   ]
                 },
-                "ratchets": {
+                "standards": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -7494,7 +7494,7 @@
                 "root",
                 "worktree",
                 "git",
-                "ratchets"
+                "standards"
               ]
             },
             {
@@ -7574,7 +7574,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7630,7 +7630,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -7811,8 +7811,8 @@
         "verb"
       ]
     },
-    "DiscernGraduateResult": {
-      "title": "DiscernGraduateResult",
+    "DiscernAcceptResult": {
+      "title": "DiscernAcceptResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -7854,7 +7854,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -7910,7 +7910,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8027,7 +8027,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "graduate"
+          "const": "accept"
         },
         "data": {
           "anyOf": [
@@ -8162,8 +8162,8 @@
         "verb"
       ]
     },
-    "DiscernIntegrateResult": {
-      "title": "DiscernIntegrateResult",
+    "DiscernUpdateResult": {
+      "title": "DiscernUpdateResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -8205,7 +8205,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8261,7 +8261,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8378,7 +8378,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "integrate"
+          "const": "update"
         },
         "data": {
           "anyOf": [
@@ -8591,7 +8591,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8647,7 +8647,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -8841,7 +8841,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -8897,7 +8897,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9091,7 +9091,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9147,7 +9147,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9341,7 +9341,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9397,7 +9397,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9591,7 +9591,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9647,7 +9647,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -9887,7 +9887,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
-                      "ratchet"
+                      "standard"
                     ]
                   },
                   "label": {
@@ -9943,7 +9943,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
-                  "ratchet"
+                  "standard"
                 ]
               },
               "label": {
@@ -10183,8 +10183,8 @@
         "isError"
       ]
     },
-    "DiscernDocsMcpToolResult": {
-      "title": "DiscernDocsMcpToolResult",
+    "DiscernMapMcpToolResult": {
+      "title": "DiscernMapMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10206,7 +10206,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernDocsResult"
+          "$ref": "#/$defs/DiscernMapResult"
         },
         "isError": {
           "type": "boolean"
@@ -10253,8 +10253,8 @@
         "isError"
       ]
     },
-    "DiscernFinishMcpToolResult": {
-      "title": "DiscernFinishMcpToolResult",
+    "DiscernDoneMcpToolResult": {
+      "title": "DiscernDoneMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10276,7 +10276,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernFinishResult"
+          "$ref": "#/$defs/DiscernDoneResult"
         },
         "isError": {
           "type": "boolean"
@@ -10358,8 +10358,8 @@
         "isError"
       ]
     },
-    "DiscernImproveMcpToolResult": {
-      "title": "DiscernImproveMcpToolResult",
+    "DiscernImprovementMcpToolResult": {
+      "title": "DiscernImprovementMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10381,7 +10381,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernImproveResult"
+          "$ref": "#/$defs/DiscernImprovementResult"
         },
         "isError": {
           "type": "boolean"
@@ -10393,8 +10393,8 @@
         "isError"
       ]
     },
-    "DiscernRatchetsMcpToolResult": {
-      "title": "DiscernRatchetsMcpToolResult",
+    "DiscernStandardsMcpToolResult": {
+      "title": "DiscernStandardsMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10416,7 +10416,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernRatchetsResult"
+          "$ref": "#/$defs/DiscernStandardsResult"
         },
         "isError": {
           "type": "boolean"
@@ -10463,8 +10463,8 @@
         "isError"
       ]
     },
-    "DiscernScopesMcpToolResult": {
-      "title": "DiscernScopesMcpToolResult",
+    "DiscernImpactMcpToolResult": {
+      "title": "DiscernImpactMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10486,7 +10486,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernScopesResult"
+          "$ref": "#/$defs/DiscernImpactResult"
         },
         "isError": {
           "type": "boolean"
@@ -10603,8 +10603,8 @@
         "isError"
       ]
     },
-    "DiscernGraduateMcpToolResult": {
-      "title": "DiscernGraduateMcpToolResult",
+    "DiscernAcceptMcpToolResult": {
+      "title": "DiscernAcceptMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10626,7 +10626,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernGraduateResult"
+          "$ref": "#/$defs/DiscernAcceptResult"
         },
         "isError": {
           "type": "boolean"
@@ -10638,8 +10638,8 @@
         "isError"
       ]
     },
-    "DiscernIntegrateMcpToolResult": {
-      "title": "DiscernIntegrateMcpToolResult",
+    "DiscernUpdateMcpToolResult": {
+      "title": "DiscernUpdateMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -10661,7 +10661,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernIntegrateResult"
+          "$ref": "#/$defs/DiscernUpdateResult"
         },
         "isError": {
           "type": "boolean"
@@ -10690,7 +10690,7 @@
           "$ref": "#/$defs/DiscernSetupDoneResult"
         },
         {
-          "$ref": "#/$defs/DiscernSetupLandResult"
+          "$ref": "#/$defs/DiscernSetupAcceptResult"
         },
         {
           "$ref": "#/$defs/DiscernUpgradeResult"
@@ -10705,7 +10705,7 @@
           "$ref": "#/$defs/DiscernPresetResult"
         },
         {
-          "$ref": "#/$defs/DiscernDocsResult"
+          "$ref": "#/$defs/DiscernMapResult"
         },
         {
           "$ref": "#/$defs/DiscernHelpResult"
@@ -10714,7 +10714,7 @@
           "$ref": "#/$defs/DiscernConfigResult"
         },
         {
-          "$ref": "#/$defs/DiscernFinishResult"
+          "$ref": "#/$defs/DiscernDoneResult"
         },
         {
           "$ref": "#/$defs/DiscernPrepareResult"
@@ -10723,16 +10723,16 @@
           "$ref": "#/$defs/DiscernTestResult"
         },
         {
-          "$ref": "#/$defs/DiscernImproveResult"
+          "$ref": "#/$defs/DiscernImprovementResult"
         },
         {
-          "$ref": "#/$defs/DiscernRatchetsResult"
+          "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshResult"
         },
         {
-          "$ref": "#/$defs/DiscernScopesResult"
+          "$ref": "#/$defs/DiscernImpactResult"
         },
         {
           "$ref": "#/$defs/DiscernCouplingResult"
@@ -10744,10 +10744,10 @@
           "$ref": "#/$defs/DiscernStartResult"
         },
         {
-          "$ref": "#/$defs/DiscernGraduateResult"
+          "$ref": "#/$defs/DiscernAcceptResult"
         },
         {
-          "$ref": "#/$defs/DiscernIntegrateResult"
+          "$ref": "#/$defs/DiscernUpdateResult"
         },
         {
           "$ref": "#/$defs/DiscernWorktreeSetupResult"
@@ -10775,26 +10775,26 @@
           "setup verify": "#/$defs/DiscernSetupVerifyResult",
           "setup step": "#/$defs/DiscernSetupStepResult",
           "setup done": "#/$defs/DiscernSetupDoneResult",
-          "setup land": "#/$defs/DiscernSetupLandResult",
+          "setup accept": "#/$defs/DiscernSetupAcceptResult",
           "upgrade": "#/$defs/DiscernUpgradeResult",
           "uninstall": "#/$defs/DiscernUninstallResult",
           "doctor": "#/$defs/DiscernDoctorResult",
           "preset": "#/$defs/DiscernPresetResult",
-          "docs": "#/$defs/DiscernDocsResult",
+          "map": "#/$defs/DiscernMapResult",
           "help": "#/$defs/DiscernHelpResult",
           "config": "#/$defs/DiscernConfigResult",
-          "finish": "#/$defs/DiscernFinishResult",
+          "done": "#/$defs/DiscernDoneResult",
           "prepare": "#/$defs/DiscernPrepareResult",
           "test": "#/$defs/DiscernTestResult",
-          "improve": "#/$defs/DiscernImproveResult",
-          "ratchets": "#/$defs/DiscernRatchetsResult",
+          "improvement": "#/$defs/DiscernImprovementResult",
+          "standards": "#/$defs/DiscernStandardsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
-          "scopes": "#/$defs/DiscernScopesResult",
+          "impact": "#/$defs/DiscernImpactResult",
           "coupling": "#/$defs/DiscernCouplingResult",
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
-          "graduate": "#/$defs/DiscernGraduateResult",
-          "integrate": "#/$defs/DiscernIntegrateResult",
+          "accept": "#/$defs/DiscernAcceptResult",
+          "update": "#/$defs/DiscernUpdateResult",
           "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
           "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
           "worktree drop": "#/$defs/DiscernWorktreeDropResult",
@@ -10812,13 +10812,13 @@
           "$ref": "#/$defs/DiscernDoctorMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernDocsMcpToolResult"
+          "$ref": "#/$defs/DiscernMapMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernHelpMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernFinishMcpToolResult"
+          "$ref": "#/$defs/DiscernDoneMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernPrepareMcpToolResult"
@@ -10827,16 +10827,16 @@
           "$ref": "#/$defs/DiscernTestMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernImproveMcpToolResult"
+          "$ref": "#/$defs/DiscernImprovementMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernRatchetsMcpToolResult"
+          "$ref": "#/$defs/DiscernStandardsMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernScopesMcpToolResult"
+          "$ref": "#/$defs/DiscernImpactMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernCouplingMcpToolResult"
@@ -10848,10 +10848,10 @@
           "$ref": "#/$defs/DiscernStartMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernGraduateMcpToolResult"
+          "$ref": "#/$defs/DiscernAcceptMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernIntegrateMcpToolResult"
+          "$ref": "#/$defs/DiscernUpdateMcpToolResult"
         }
       ]
     }
@@ -10891,12 +10891,12 @@
       "schema": "#/$defs/DiscernSetupDoneResult"
     },
     {
-      "id": "setupLand",
-      "verb": "setup land",
+      "id": "setupAccept",
+      "verb": "setup accept",
       "commands": [
-        "setup land"
+        "setup accept"
       ],
-      "schema": "#/$defs/DiscernSetupLandResult"
+      "schema": "#/$defs/DiscernSetupAcceptResult"
     },
     {
       "id": "upgrade",
@@ -10933,14 +10933,14 @@
       "schema": "#/$defs/DiscernPresetResult"
     },
     {
-      "id": "docs",
-      "verb": "docs",
+      "id": "map",
+      "verb": "map",
       "commands": [
-        "docs"
+        "map"
       ],
-      "mcpTool": "discern_docs",
-      "schema": "#/$defs/DiscernDocsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernDocsMcpToolResult"
+      "mcpTool": "discern_map",
+      "schema": "#/$defs/DiscernMapResult",
+      "mcpToolResultSchema": "#/$defs/DiscernMapMcpToolResult"
     },
     {
       "id": "help",
@@ -10959,20 +10959,20 @@
         "config set-capability",
         "config set-check",
         "config set-scope",
-        "config set-ratchet",
+        "config set-standard",
         "config set"
       ],
       "schema": "#/$defs/DiscernConfigResult"
     },
     {
-      "id": "finish",
-      "verb": "finish",
+      "id": "done",
+      "verb": "done",
       "commands": [
-        "finish"
+        "done"
       ],
-      "mcpTool": "discern_finish",
-      "schema": "#/$defs/DiscernFinishResult",
-      "mcpToolResultSchema": "#/$defs/DiscernFinishMcpToolResult"
+      "mcpTool": "discern_done",
+      "schema": "#/$defs/DiscernDoneResult",
+      "mcpToolResultSchema": "#/$defs/DiscernDoneMcpToolResult"
     },
     {
       "id": "prepare",
@@ -10995,24 +10995,24 @@
       "mcpToolResultSchema": "#/$defs/DiscernTestMcpToolResult"
     },
     {
-      "id": "improve",
-      "verb": "improve",
+      "id": "improvement",
+      "verb": "improvement",
       "commands": [
-        "improve"
+        "improvement"
       ],
-      "mcpTool": "discern_improve",
-      "schema": "#/$defs/DiscernImproveResult",
-      "mcpToolResultSchema": "#/$defs/DiscernImproveMcpToolResult"
+      "mcpTool": "discern_improvement",
+      "schema": "#/$defs/DiscernImprovementResult",
+      "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
     },
     {
-      "id": "ratchets",
-      "verb": "ratchets",
+      "id": "standards",
+      "verb": "standards",
       "commands": [
-        "ratchets"
+        "standards"
       ],
-      "mcpTool": "discern_ratchets",
-      "schema": "#/$defs/DiscernRatchetsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernRatchetsMcpToolResult"
+      "mcpTool": "discern_standards",
+      "schema": "#/$defs/DiscernStandardsResult",
+      "mcpToolResultSchema": "#/$defs/DiscernStandardsMcpToolResult"
     },
     {
       "id": "refresh",
@@ -11025,14 +11025,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernRefreshMcpToolResult"
     },
     {
-      "id": "scopes",
-      "verb": "scopes",
+      "id": "impact",
+      "verb": "impact",
       "commands": [
-        "scopes"
+        "impact"
       ],
-      "mcpTool": "discern_scopes",
-      "schema": "#/$defs/DiscernScopesResult",
-      "mcpToolResultSchema": "#/$defs/DiscernScopesMcpToolResult"
+      "mcpTool": "discern_impact",
+      "schema": "#/$defs/DiscernImpactResult",
+      "mcpToolResultSchema": "#/$defs/DiscernImpactMcpToolResult"
     },
     {
       "id": "coupling",
@@ -11065,24 +11065,24 @@
       "mcpToolResultSchema": "#/$defs/DiscernStartMcpToolResult"
     },
     {
-      "id": "graduate",
-      "verb": "graduate",
+      "id": "accept",
+      "verb": "accept",
       "commands": [
-        "graduate"
+        "accept"
       ],
-      "mcpTool": "discern_graduate",
-      "schema": "#/$defs/DiscernGraduateResult",
-      "mcpToolResultSchema": "#/$defs/DiscernGraduateMcpToolResult"
+      "mcpTool": "discern_accept",
+      "schema": "#/$defs/DiscernAcceptResult",
+      "mcpToolResultSchema": "#/$defs/DiscernAcceptMcpToolResult"
     },
     {
-      "id": "integrate",
-      "verb": "integrate",
+      "id": "update",
+      "verb": "update",
       "commands": [
-        "integrate"
+        "update"
       ],
-      "mcpTool": "discern_integrate",
-      "schema": "#/$defs/DiscernIntegrateResult",
-      "mcpToolResultSchema": "#/$defs/DiscernIntegrateMcpToolResult"
+      "mcpTool": "discern_update",
+      "schema": "#/$defs/DiscernUpdateResult",
+      "mcpToolResultSchema": "#/$defs/DiscernUpdateMcpToolResult"
     },
     {
       "id": "worktreeSetup",

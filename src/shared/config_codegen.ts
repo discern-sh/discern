@@ -180,9 +180,9 @@ export function renderConfigReferenceDoc(): string {
       ? root.description
       : "The one file that configures a discern install.",
     "",
-    "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and ratchets all read this shape through one typed loader, so what is documented here is exactly what the engine enforces.",
+    "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so what is documented here is exactly what the engine enforces.",
     "",
-    "The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[ratchets.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.",
+    "The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.",
   ];
   for (const [section, schema] of Object.entries(props)) {
     if (isObject(schema)) {
@@ -204,12 +204,12 @@ export function configSectionNames(): string[] {
 
 /**
  * The dotted paths of the schema's open `<name>` tables — the `z.record` sections
- * (`checks`, `scopes`, `ratchets`, `worktree.resources`) whose entries are
+ * (`checks`, `scopes`, `standards`, `worktree.resources`) whose entries are
  * user-population, not fixed keys. A node is one when it has a value shape under
  * `additionalProperties` but no fixed `properties`. Derived from the live schema so
  * a new record section auto-enrolls; the template↔config parity guard uses this to
  * treat those sub-trees as the customizable "extras" zone (a project's own checks /
- * scopes / ratchets / resources are never required to match the template's).
+ * scopes / standards / resources are never required to match the template's).
  */
 export function recordConfigPaths(): string[] {
   const root = z.toJSONSchema(configSchema, { io: "input" }) as Record<
