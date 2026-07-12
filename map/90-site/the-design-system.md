@@ -55,6 +55,21 @@ owned texture assets. The consuming page supplies font faces. The demo fonts are
 locally hosted WOFF2 files under `site/pages/assets/design-system/fonts/`, with
 their SIL Open Font Licence texts beside them.
 
+## Theme fidelity
+
+The numbered accent ramp names roles, not fixed lightness. In light mode,
+`accent-100` is the palest tint and `accent-800` is the deepest text; dark mode
+remaps the same roles so `accent-100` remains the quietest background and
+`accent-800` remains the strongest text. Components never compensate for a
+light-only palette locally. The subsystem test discovers every numbered colour
+ramp and rejects fixed members or a dark ramp whose roles do not invert.
+
+The grain wash is the one textured colour flourish. Its shared utility owns the
+gradient geometry, overlay blend, grain scale, and opacity, and pages use it at
+most once, normally for the hero. Alternating content bands use the semantic
+canvas, raised surface, and sunken surface roles rather than inventing
+page-local greys.
+
 ## The experiment route
 
 `/design-system-demo` is a non-negotiated HTML route and the first consumer. It

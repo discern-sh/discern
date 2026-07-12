@@ -16,13 +16,13 @@
   }
   .ds-banner--accent {
     --ds-banner-bg: var(--ds-color-accent-100);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-500) 36%, transparent);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
     --ds-banner-text: var(--ds-color-accent-800);
   }
   .ds-banner--success {
     --ds-banner-bg: var(--ds-color-success-soft);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 36%, transparent);
-    --ds-banner-text: var(--ds-color-success);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
+    --ds-banner-text: var(--ds-color-success-deep);
   }
   .ds-banner--warning {
     --ds-banner-bg: var(--ds-color-warning-soft);

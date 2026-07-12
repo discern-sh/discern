@@ -1,17 +1,10 @@
 /* Generated from src/tokens/tokens.ts. Do not edit. */
 @layer discern.tokens {
   :root {
+    color-scheme: light;
     --ds-accent-hue: 259;
     --ds-ink-hue: 225;
     --ds-canvas-hue: 288;
-    --ds-color-accent-100: oklch(96.2% 0.019 var(--ds-accent-hue));
-    --ds-color-accent-200: oklch(92% 0.045 var(--ds-accent-hue));
-    --ds-color-accent-300: oklch(85% 0.082 var(--ds-accent-hue));
-    --ds-color-accent-400: oklch(73% 0.128 var(--ds-accent-hue));
-    --ds-color-accent-500: oklch(61% 0.185 var(--ds-accent-hue));
-    --ds-color-accent-600: oklch(52% 0.208 var(--ds-accent-hue));
-    --ds-color-accent-700: oklch(44% 0.185 var(--ds-accent-hue));
-    --ds-color-accent-800: oklch(34% 0.13 var(--ds-accent-hue));
     --ds-font-display: "EB Garamond", "Iowan Old Style", Georgia, serif;
     --ds-font-body: "Inter", "Helvetica Neue", system-ui, sans-serif;
     --ds-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -47,9 +40,6 @@
     --ds-radius-md: 8px;
     --ds-radius-lg: 12px;
     --ds-radius-pill: 999px;
-    --ds-shadow-card: 4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 10%, transparent);
-    --ds-shadow-window: 8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent);
-    --ds-shadow-pop: 6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 18%, transparent);
     --ds-duration-fast: 150ms;
     --ds-duration-medium: 300ms;
     --ds-duration-reveal: 650ms;
@@ -64,38 +54,61 @@
     --ds-color-canvas: oklch(96.6% 0.008 var(--ds-canvas-hue));
     --ds-color-surface: #fff;
     --ds-color-surface-sunken: oklch(94.2% 0.01 var(--ds-canvas-hue));
-    --ds-color-accent-wash: var(--ds-color-accent-100);
-    --ds-color-accent-wash-strong: var(--ds-color-accent-300);
+    --ds-color-accent-100: oklch(96.2% 0.019 var(--ds-accent-hue));
+    --ds-color-accent-200: oklch(92% 0.045 var(--ds-accent-hue));
+    --ds-color-accent-300: oklch(85% 0.082 var(--ds-accent-hue));
+    --ds-color-accent-400: oklch(73% 0.128 var(--ds-accent-hue));
+    --ds-color-accent-500: oklch(61% 0.185 var(--ds-accent-hue));
+    --ds-color-accent-600: oklch(52% 0.208 var(--ds-accent-hue));
+    --ds-color-accent-700: oklch(44% 0.185 var(--ds-accent-hue));
+    --ds-color-accent-800: oklch(34% 0.13 var(--ds-accent-hue));
     --ds-color-border: oklch(89.5% 0.012 var(--ds-canvas-hue));
     --ds-color-border-strong: oklch(81% 0.016 var(--ds-canvas-hue));
-    --ds-color-success: oklch(55% 0.145 152);
+    --ds-color-stripe: oklch(85% 0.014 var(--ds-canvas-hue));
+    --ds-color-success: oklch(64% 0.165 152);
     --ds-color-success-soft: oklch(95% 0.05 152);
+    --ds-color-success-deep: oklch(37% 0.09 152);
     --ds-color-warning: oklch(61% 0.14 74);
     --ds-color-warning-soft: oklch(96% 0.045 82);
     --ds-color-danger: oklch(54% 0.19 28);
     --ds-color-danger-soft: oklch(96% 0.035 28);
-    --ds-shadow-color: oklch(20% 0.025 var(--ds-ink-hue));
+    --ds-shadow-color: var(--ds-color-ink);
+    --ds-shadow-card: 4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent);
+    --ds-shadow-window: 8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent);
+    --ds-shadow-pop: 6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent);
     --ds-color-overlay: color-mix(in oklab, var(--ds-color-ink) 34%, transparent);
   }
 
   [data-ds-theme="dark"] {
+    color-scheme: dark;
     --ds-color-ink: oklch(93% 0.012 var(--ds-ink-hue));
     --ds-color-ink-muted: oklch(76% 0.016 var(--ds-ink-hue));
     --ds-color-ink-faint: oklch(60% 0.018 var(--ds-ink-hue));
     --ds-color-canvas: oklch(20% 0.018 var(--ds-ink-hue));
     --ds-color-surface: oklch(24.5% 0.02 var(--ds-ink-hue));
     --ds-color-surface-sunken: oklch(17.5% 0.016 var(--ds-ink-hue));
-    --ds-color-accent-wash: color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600));
-    --ds-color-accent-wash-strong: color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500));
+    --ds-color-accent-100: oklch(29% 0.055 var(--ds-accent-hue));
+    --ds-color-accent-200: oklch(35% 0.08 var(--ds-accent-hue));
+    --ds-color-accent-300: oklch(46% 0.115 var(--ds-accent-hue));
+    --ds-color-accent-400: oklch(58% 0.15 var(--ds-accent-hue));
+    --ds-color-accent-500: oklch(67% 0.165 var(--ds-accent-hue));
+    --ds-color-accent-600: oklch(74% 0.14 var(--ds-accent-hue));
+    --ds-color-accent-700: oklch(82% 0.105 var(--ds-accent-hue));
+    --ds-color-accent-800: oklch(90% 0.06 var(--ds-accent-hue));
     --ds-color-border: oklch(31% 0.022 var(--ds-ink-hue));
     --ds-color-border-strong: oklch(42% 0.026 var(--ds-ink-hue));
-    --ds-color-success: oklch(72% 0.15 152);
+    --ds-color-stripe: oklch(33% 0.022 var(--ds-ink-hue));
+    --ds-color-success: oklch(70% 0.155 152);
     --ds-color-success-soft: oklch(29% 0.06 152);
+    --ds-color-success-deep: oklch(88% 0.1 152);
     --ds-color-warning: oklch(76% 0.13 82);
     --ds-color-warning-soft: oklch(30% 0.055 82);
     --ds-color-danger: oklch(70% 0.17 28);
     --ds-color-danger-soft: oklch(29% 0.055 28);
-    --ds-shadow-color: oklch(4% 0.01 var(--ds-ink-hue));
+    --ds-shadow-color: oklch(6% 0.01 var(--ds-ink-hue));
+    --ds-shadow-card: 4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent);
+    --ds-shadow-window: 8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent);
+    --ds-shadow-pop: 6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 55%, transparent);
     --ds-color-overlay: color-mix(in oklab, #000 58%, transparent);
   }
 }
@@ -182,6 +195,9 @@
     color: var(--ds-color-accent-600);
     font-style: italic;
   }
+  [data-ds-theme="dark"] .ds-accent {
+    color: var(--ds-color-accent-500);
+  }
   .ds-mono {
     font-family: var(--ds-font-mono);
   }
@@ -197,35 +213,38 @@
     border: 0 !important;
   }
   .ds-dot-grid {
-    background-color: var(--ds-color-surface-sunken);
-    background-image: radial-gradient(var(--ds-color-border-strong) 0.8px,
-      transparent 0.8px);
-    background-size: 10px 10px;
+    background-image: radial-gradient(color-mix(in oklab, var(--ds-color-ink)
+      16%, transparent) 1px,
+      transparent 1.4px);
+    background-size: 16px 16px;
   }
   .ds-hatch {
-    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
-      var(--ds-color-border) 6px 7px);
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px,
+      var(--ds-color-stripe) 5px 6px);
   }
   .ds-grain-wash {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(ellipse 80% 70% at 50% 0%,
-      var(--ds-color-accent-wash-strong),
-      transparent 72%),
-      linear-gradient(to bottom, var(--ds-color-accent-wash),
-      var(--ds-color-canvas));
+      radial-gradient(110% 72% at 50% -8%, color-mix(in oklab,
+      var(--ds-color-accent-300) 85%, transparent) 0%, transparent 62%),
+      linear-gradient(to bottom, color-mix(in oklab,
+      var(--ds-color-accent-200) 90%, var(--ds-color-canvas)) 0%,
+      var(--ds-color-canvas) 82%);
   }
   .ds-grain-wash::after {
     position: absolute;
-    z-index: -1;
     inset: 0;
     background: url("./textures/grain.png") repeat;
+    background-size: 200px 200px;
     content: "";
-    mix-blend-mode: multiply;
-    opacity: 0.18;
+    mix-blend-mode: overlay;
+    opacity: 0.38;
     pointer-events: none;
+  }
+  .ds-grain-wash > * {
+    position: relative;
   }
   .ds-reveal {
     animation: ds-reveal-in var(--ds-duration-reveal) var(--ds-ease-out) both;
@@ -289,16 +308,17 @@
   }
   .ds-button--secondary {
     --ds-button-fill: var(--ds-color-surface);
-    --ds-button-fill-hover: var(--ds-color-surface-sunken);
+    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 55%, var(--ds-color-surface));
+    --ds-button-border: var(--ds-color-ink);
     --ds-button-text: var(--ds-color-ink);
-    --ds-button-shadow: var(--ds-color-border-strong);
+    --ds-button-shadow: var(--ds-color-ink);
   }
   .ds-button--ghost {
     --ds-button-fill: transparent;
-    --ds-button-fill-hover: var(--ds-color-accent-100);
+    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 70%, transparent);
     --ds-button-border: transparent;
     --ds-button-shadow: transparent;
-    --ds-button-text: var(--ds-color-accent-700);
+    --ds-button-text: var(--ds-color-accent-600);
   }
   .ds-button--danger {
     --ds-button-fill: var(--ds-color-danger-soft);
@@ -317,6 +337,24 @@
     min-block-size: 48px;
     padding-inline: var(--ds-space-6);
     font-size: 1.0625rem;
+  }
+  [data-ds-theme="dark"] .ds-button:not(.ds-button--secondary):not(.ds-button--ghost):not(.ds-button--danger) {
+    --ds-button-fill: var(--ds-color-accent-100);
+    --ds-button-fill-hover: var(--ds-color-accent-200);
+    --ds-button-border: var(--ds-color-accent-500);
+    --ds-button-shadow: var(--ds-shadow-color);
+  }
+  [data-ds-theme="dark"] .ds-button--secondary {
+    --ds-button-fill: var(--ds-color-surface);
+    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 55%, var(--ds-color-surface));
+    --ds-button-border: var(--ds-color-border-strong);
+    --ds-button-shadow: var(--ds-shadow-color);
+  }
+  [data-ds-theme="dark"] .ds-button--ghost {
+    --ds-button-fill: transparent;
+    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 70%, transparent);
+    --ds-button-border: transparent;
+    --ds-button-shadow: transparent;
   }
   .ds-button__icon {
     display: inline-grid;
@@ -415,7 +453,7 @@
 @layer discern.components {
   .ds-badge {
     --ds-badge-bg: var(--ds-color-accent-100);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-500) 40%, transparent);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
     --ds-badge-text: var(--ds-color-accent-800);
     display: inline-flex;
     align-items: center;
@@ -446,8 +484,8 @@
   }
   .ds-badge--success {
     --ds-badge-bg: var(--ds-color-success-soft);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 42%, transparent);
-    --ds-badge-text: var(--ds-color-success);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
+    --ds-badge-text: var(--ds-color-success-deep);
   }
   .ds-badge--warning {
     --ds-badge-bg: var(--ds-color-warning-soft);
@@ -498,13 +536,13 @@
     justify-content: center;
     min-block-size: 36px;
     border-block: 1px solid var(--ds-color-border);
-    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
-      var(--ds-color-border) 6px 7px);
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px,
+      var(--ds-color-stripe) 5px 6px);
   }
   .ds-divider__label {
     padding: 4px 12px;
     border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-xs);
+    border-radius: var(--ds-radius-pill);
     background: var(--ds-color-canvas);
     color: var(--ds-color-ink-faint);
     font: 0.625rem var(--ds-font-mono);
@@ -524,6 +562,9 @@
     color: var(--ds-color-accent-600);
     font-style: italic;
   }
+  [data-ds-theme="dark"] .ds-heading__accent {
+    color: var(--ds-color-accent-500);
+  }
 }
 
 @layer discern.components {
@@ -540,6 +581,9 @@
   }
   .ds-kicker__index {
     color: var(--ds-color-accent-600);
+  }
+  [data-ds-theme="dark"] .ds-kicker__index {
+    color: var(--ds-color-accent-500);
   }
 }
 
@@ -596,13 +640,14 @@
     min-block-size: 38px;
     padding-inline: 13px;
     border-block-end: 1px solid var(--ds-color-border);
-    background: var(--ds-color-surface-sunken);
+    background: color-mix(in oklab, var(--ds-color-canvas) 55%,
+      var(--ds-color-surface));
   }
   .ds-window__dot {
     inline-size: 8px;
     block-size: 8px;
     border-radius: 50%;
-    background: var(--ds-color-border-strong);
+    background: var(--ds-color-stripe);
   }
   .ds-window__title {
     position: absolute;
@@ -639,13 +684,13 @@
   }
   .ds-banner--accent {
     --ds-banner-bg: var(--ds-color-accent-100);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-500) 36%, transparent);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
     --ds-banner-text: var(--ds-color-accent-800);
   }
   .ds-banner--success {
     --ds-banner-bg: var(--ds-color-success-soft);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 36%, transparent);
-    --ds-banner-text: var(--ds-color-success);
+    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
+    --ds-banner-text: var(--ds-color-success-deep);
   }
   .ds-banner--warning {
     --ds-banner-bg: var(--ds-color-warning-soft);

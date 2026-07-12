@@ -17,7 +17,7 @@ export interface ThemeToken {
   readonly name: `--ds-${string}`;
   readonly light: string;
   readonly dark: string;
-  readonly category: "Color";
+  readonly category: TokenCategory;
   readonly description: string;
 }
 
@@ -33,7 +33,8 @@ const themeToken = (
   light: string,
   dark: string,
   description: string,
-): ThemeToken => ({ name, light, dark, category: "Color", description });
+  category: TokenCategory = "Color",
+): ThemeToken => ({ name, light, dark, category, description });
 
 export const designTokens = [
   token(
@@ -44,54 +45,6 @@ export const designTokens = [
   ),
   token("--ds-ink-hue", "225", "Color", "Master hue for cool ink neutrals."),
   token("--ds-canvas-hue", "288", "Color", "Master hue for canvas neutrals."),
-  token(
-    "--ds-color-accent-100",
-    "oklch(96.2% 0.019 var(--ds-accent-hue))",
-    "Color",
-    "Subtlest accent surface.",
-  ),
-  token(
-    "--ds-color-accent-200",
-    "oklch(92% 0.045 var(--ds-accent-hue))",
-    "Color",
-    "Quiet accent surface.",
-  ),
-  token(
-    "--ds-color-accent-300",
-    "oklch(85% 0.082 var(--ds-accent-hue))",
-    "Color",
-    "Soft accent fill.",
-  ),
-  token(
-    "--ds-color-accent-400",
-    "oklch(73% 0.128 var(--ds-accent-hue))",
-    "Color",
-    "Mid accent fill.",
-  ),
-  token(
-    "--ds-color-accent-500",
-    "oklch(61% 0.185 var(--ds-accent-hue))",
-    "Color",
-    "Strong accent fill.",
-  ),
-  token(
-    "--ds-color-accent-600",
-    "oklch(52% 0.208 var(--ds-accent-hue))",
-    "Color",
-    "Default accent action.",
-  ),
-  token(
-    "--ds-color-accent-700",
-    "oklch(44% 0.185 var(--ds-accent-hue))",
-    "Color",
-    "Strong accent text.",
-  ),
-  token(
-    "--ds-color-accent-800",
-    "oklch(34% 0.13 var(--ds-accent-hue))",
-    "Color",
-    "Deepest accent text.",
-  ),
   token(
     "--ds-font-display",
     '"EB Garamond", "Iowan Old Style", Georgia, serif',
@@ -188,24 +141,6 @@ export const designTokens = [
   token("--ds-radius-md", "8px", "Shape", "Button and card radius."),
   token("--ds-radius-lg", "12px", "Shape", "Window and dialog radius."),
   token("--ds-radius-pill", "999px", "Shape", "Badge and tag pill radius."),
-  token(
-    "--ds-shadow-card",
-    "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 10%, transparent)",
-    "Shape",
-    "Quiet hard-offset card shadow.",
-  ),
-  token(
-    "--ds-shadow-window",
-    "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent)",
-    "Shape",
-    "Hard-offset presentation window shadow.",
-  ),
-  token(
-    "--ds-shadow-pop",
-    "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 18%, transparent)",
-    "Shape",
-    "Raised overlay shadow.",
-  ),
   token("--ds-duration-fast", "150ms", "Motion", "Hover and press response."),
   token(
     "--ds-duration-medium",
@@ -274,16 +209,52 @@ export const themeTokens = [
     "Inset surface.",
   ),
   themeToken(
-    "--ds-color-accent-wash",
-    "var(--ds-color-accent-100)",
-    "color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600))",
-    "Quiet accent wash over the page canvas.",
+    "--ds-color-accent-100",
+    "oklch(96.2% 0.019 var(--ds-accent-hue))",
+    "oklch(29% 0.055 var(--ds-accent-hue))",
+    "Subtlest accent surface.",
   ),
   themeToken(
-    "--ds-color-accent-wash-strong",
-    "var(--ds-color-accent-300)",
-    "color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500))",
-    "Emphasised accent glow over the page canvas.",
+    "--ds-color-accent-200",
+    "oklch(92% 0.045 var(--ds-accent-hue))",
+    "oklch(35% 0.08 var(--ds-accent-hue))",
+    "Quiet accent surface.",
+  ),
+  themeToken(
+    "--ds-color-accent-300",
+    "oklch(85% 0.082 var(--ds-accent-hue))",
+    "oklch(46% 0.115 var(--ds-accent-hue))",
+    "Soft accent fill.",
+  ),
+  themeToken(
+    "--ds-color-accent-400",
+    "oklch(73% 0.128 var(--ds-accent-hue))",
+    "oklch(58% 0.15 var(--ds-accent-hue))",
+    "Mid accent fill.",
+  ),
+  themeToken(
+    "--ds-color-accent-500",
+    "oklch(61% 0.185 var(--ds-accent-hue))",
+    "oklch(67% 0.165 var(--ds-accent-hue))",
+    "Strong accent fill.",
+  ),
+  themeToken(
+    "--ds-color-accent-600",
+    "oklch(52% 0.208 var(--ds-accent-hue))",
+    "oklch(74% 0.14 var(--ds-accent-hue))",
+    "Default accent action.",
+  ),
+  themeToken(
+    "--ds-color-accent-700",
+    "oklch(44% 0.185 var(--ds-accent-hue))",
+    "oklch(82% 0.105 var(--ds-accent-hue))",
+    "Strong accent text.",
+  ),
+  themeToken(
+    "--ds-color-accent-800",
+    "oklch(34% 0.13 var(--ds-accent-hue))",
+    "oklch(90% 0.06 var(--ds-accent-hue))",
+    "Deepest accent text.",
   ),
   themeToken(
     "--ds-color-border",
@@ -298,9 +269,15 @@ export const themeTokens = [
     "Emphasised border.",
   ),
   themeToken(
+    "--ds-color-stripe",
+    "oklch(85% 0.014 var(--ds-canvas-hue))",
+    "oklch(33% 0.022 var(--ds-ink-hue))",
+    "Blueprint hatch and window-chrome pigment.",
+  ),
+  themeToken(
     "--ds-color-success",
-    "oklch(55% 0.145 152)",
-    "oklch(72% 0.15 152)",
+    "oklch(64% 0.165 152)",
+    "oklch(70% 0.155 152)",
     "Successful outcome.",
   ),
   themeToken(
@@ -308,6 +285,12 @@ export const themeTokens = [
     "oklch(95% 0.05 152)",
     "oklch(29% 0.06 152)",
     "Successful outcome surface.",
+  ),
+  themeToken(
+    "--ds-color-success-deep",
+    "oklch(37% 0.09 152)",
+    "oklch(88% 0.1 152)",
+    "Successful outcome text on a tinted surface.",
   ),
   themeToken(
     "--ds-color-warning",
@@ -335,9 +318,30 @@ export const themeTokens = [
   ),
   themeToken(
     "--ds-shadow-color",
-    "oklch(20% 0.025 var(--ds-ink-hue))",
-    "oklch(4% 0.01 var(--ds-ink-hue))",
+    "var(--ds-color-ink)",
+    "oklch(6% 0.01 var(--ds-ink-hue))",
     "Shadow pigment.",
+  ),
+  themeToken(
+    "--ds-shadow-card",
+    "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+    "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+    "Quiet hard-offset card shadow.",
+    "Shape",
+  ),
+  themeToken(
+    "--ds-shadow-window",
+    "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+    "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+    "Hard-offset presentation window shadow.",
+    "Shape",
+  ),
+  themeToken(
+    "--ds-shadow-pop",
+    "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent)",
+    "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 55%, transparent)",
+    "Raised overlay shadow.",
+    "Shape",
   ),
   themeToken(
     "--ds-color-overlay",

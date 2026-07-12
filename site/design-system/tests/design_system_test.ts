@@ -4,12 +4,18 @@
  * and the browser-facing page remains local-asset-only with no React runtime.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { encodeHex } from "@std/encoding/hex";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
+import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
@@ -30,16 +36,73 @@ async function sha256(path: string): Promise<string> {
   return encodeHex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
-function themeIncoherentBackgrounds(source: string): string[] {
+function themeIncoherentBackgrounds(
+  source: string,
+  fixedColorNames: ReadonlySet<string>,
+): string[] {
   return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .filter((match) => {
       const declarations = match[2] ?? "";
       const background = declarations.match(/background(?:-color)?\s*:[^;]+;/s)
         ?.[0] ?? "";
+      const references = [...background.matchAll(/var\((--ds-color-[^)]+)\)/g)]
+        .map((reference) => reference[1] ?? "");
       return /--ds-color-(?:canvas|surface(?:-sunken)?)/.test(background) &&
-        /--ds-color-accent-\d+/.test(background);
+        references.some((reference) => fixedColorNames.has(reference));
     })
     .map((match) => (match[1] ?? "").trim());
+}
+
+interface RampToken {
+  readonly name: string;
+  readonly value?: string;
+  readonly light?: string;
+  readonly dark?: string;
+}
+
+function roleRampViolations(
+  fixed: readonly RampToken[],
+  themed: readonly RampToken[],
+): string[] {
+  const pattern = /^--ds-color-(.+)-(\d+)$/;
+  const groups = new Map<string, RampToken[]>();
+  for (const token of [...fixed, ...themed]) {
+    const match = token.name.match(pattern);
+    if (match === null) continue;
+    const group = match[1] ?? "";
+    groups.set(group, [...(groups.get(group) ?? []), token]);
+  }
+
+  const violations: string[] = [];
+  const fixedNames = new Set(fixed.map((token) => token.name));
+  for (const [group, tokens] of groups) {
+    if (tokens.length < 2) continue;
+    if (tokens.some((token) => fixedNames.has(token.name))) {
+      violations.push(`${group}: ramp members must be theme tokens`);
+      continue;
+    }
+
+    const ordered = tokens.toSorted((a, b) => {
+      const aStep = Number(a.name.match(pattern)?.[2] ?? 0);
+      const bStep = Number(b.name.match(pattern)?.[2] ?? 0);
+      return aStep - bStep;
+    });
+    const lightness = (value: string | undefined): number =>
+      Number(value?.match(/oklch\(([\d.]+)%/)?.[1] ?? Number.NaN);
+    for (let index = 1; index < ordered.length; index++) {
+      const previous = ordered[index - 1];
+      const current = ordered[index];
+      if (previous === undefined || current === undefined) continue;
+      if (
+        lightness(previous.light) <= lightness(current.light) ||
+        lightness(previous.dark) >= lightness(current.dark)
+      ) {
+        violations.push(`${group}: light and dark roles must invert`);
+        break;
+      }
+    }
+  }
+  return violations;
 }
 
 Deno.test("design-system sources deterministically reproduce every committed runtime asset", async () => {
@@ -126,15 +189,23 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
 Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {
   const futureSibling = `.unrelated-aurora {
     background: linear-gradient(
-      var(--ds-color-accent-100),
+      var(--ds-color-static-glow),
       var(--ds-color-surface-sunken)
     );
   }`;
-  assertEquals(themeIncoherentBackgrounds(futureSibling), [
-    ".unrelated-aurora",
-  ]);
+  assertEquals(
+    themeIncoherentBackgrounds(
+      futureSibling,
+      new Set(["--ds-color-static-glow"]),
+    ),
+    [".unrelated-aurora"],
+  );
 
   const violations: string[] = [];
+  const fixedColorNames = new Set(
+    designTokens.filter((token) => token.category === "Color")
+      .map((token) => token.name),
+  );
   for (
     const path of (await walk(join(ROOT, "site", "design-system", "src")))
       .filter((file) => file.endsWith(".css"))
@@ -142,12 +213,40 @@ Deno.test("theme-aware design-system surfaces never mix semantic and fixed palet
     for (
       const selector of themeIncoherentBackgrounds(
         await Deno.readTextFile(path),
+        fixedColorNames,
       )
     ) {
       violations.push(`${path.slice(ROOT.length)}: ${selector}`);
     }
   }
   assertEquals(violations, []);
+});
+
+Deno.test("numbered colour ramps preserve their roles across themes", () => {
+  assertEquals(
+    roleRampViolations(
+      [
+        { name: "--ds-color-orbit-100", value: "oklch(90% 0.1 250)" },
+        { name: "--ds-color-orbit-200", value: "oklch(70% 0.1 250)" },
+      ],
+      [],
+    ),
+    ["orbit: ramp members must be theme tokens"],
+  );
+  assertEquals(roleRampViolations(designTokens, themeTokens), []);
+});
+
+Deno.test("the one grain wash retains the reference motif", async () => {
+  const css = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),
+  );
+  assertStringIncludes(css, "radial-gradient(110% 72% at 50% -8%");
+  assertStringIncludes(css, "var(--ds-color-accent-300) 85%, transparent");
+  assertStringIncludes(css, "var(--ds-color-accent-200) 90%");
+  assertStringIncludes(css, "var(--ds-color-canvas) 82%");
+  assertMatch(css, /background-size:\s*200px 200px/);
+  assertMatch(css, /mix-blend-mode:\s*overlay/);
+  assertMatch(css, /opacity:\s*0\.38/);
 });
 
 Deno.test("the public demo ships static HTML and local runtime assets only", async () => {

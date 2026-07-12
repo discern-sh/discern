@@ -240,54 +240,6 @@
       "description": "Master hue for canvas neutrals."
     },
     {
-      "name": "--ds-color-accent-100",
-      "value": "oklch(96.2% 0.019 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Subtlest accent surface."
-    },
-    {
-      "name": "--ds-color-accent-200",
-      "value": "oklch(92% 0.045 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Quiet accent surface."
-    },
-    {
-      "name": "--ds-color-accent-300",
-      "value": "oklch(85% 0.082 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Soft accent fill."
-    },
-    {
-      "name": "--ds-color-accent-400",
-      "value": "oklch(73% 0.128 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Mid accent fill."
-    },
-    {
-      "name": "--ds-color-accent-500",
-      "value": "oklch(61% 0.185 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Strong accent fill."
-    },
-    {
-      "name": "--ds-color-accent-600",
-      "value": "oklch(52% 0.208 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Default accent action."
-    },
-    {
-      "name": "--ds-color-accent-700",
-      "value": "oklch(44% 0.185 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Strong accent text."
-    },
-    {
-      "name": "--ds-color-accent-800",
-      "value": "oklch(34% 0.13 var(--ds-accent-hue))",
-      "category": "Color",
-      "description": "Deepest accent text."
-    },
-    {
       "name": "--ds-font-display",
       "value": "\"EB Garamond\", \"Iowan Old Style\", Georgia, serif",
       "category": "Typography",
@@ -498,24 +450,6 @@
       "description": "Badge and tag pill radius."
     },
     {
-      "name": "--ds-shadow-card",
-      "value": "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 10%, transparent)",
-      "category": "Shape",
-      "description": "Quiet hard-offset card shadow."
-    },
-    {
-      "name": "--ds-shadow-window",
-      "value": "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent)",
-      "category": "Shape",
-      "description": "Hard-offset presentation window shadow."
-    },
-    {
-      "name": "--ds-shadow-pop",
-      "value": "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 18%, transparent)",
-      "category": "Shape",
-      "description": "Raised overlay shadow."
-    },
-    {
       "name": "--ds-duration-fast",
       "value": "150ms",
       "category": "Motion",
@@ -606,18 +540,60 @@
       "description": "Inset surface."
     },
     {
-      "name": "--ds-color-accent-wash",
-      "light": "var(--ds-color-accent-100)",
-      "dark": "color-mix(in oklab, var(--ds-color-canvas) 84%, var(--ds-color-accent-600))",
+      "name": "--ds-color-accent-100",
+      "light": "oklch(96.2% 0.019 var(--ds-accent-hue))",
+      "dark": "oklch(29% 0.055 var(--ds-accent-hue))",
       "category": "Color",
-      "description": "Quiet accent wash over the page canvas."
+      "description": "Subtlest accent surface."
     },
     {
-      "name": "--ds-color-accent-wash-strong",
-      "light": "var(--ds-color-accent-300)",
-      "dark": "color-mix(in oklab, var(--ds-color-canvas) 62%, var(--ds-color-accent-500))",
+      "name": "--ds-color-accent-200",
+      "light": "oklch(92% 0.045 var(--ds-accent-hue))",
+      "dark": "oklch(35% 0.08 var(--ds-accent-hue))",
       "category": "Color",
-      "description": "Emphasised accent glow over the page canvas."
+      "description": "Quiet accent surface."
+    },
+    {
+      "name": "--ds-color-accent-300",
+      "light": "oklch(85% 0.082 var(--ds-accent-hue))",
+      "dark": "oklch(46% 0.115 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Soft accent fill."
+    },
+    {
+      "name": "--ds-color-accent-400",
+      "light": "oklch(73% 0.128 var(--ds-accent-hue))",
+      "dark": "oklch(58% 0.15 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Mid accent fill."
+    },
+    {
+      "name": "--ds-color-accent-500",
+      "light": "oklch(61% 0.185 var(--ds-accent-hue))",
+      "dark": "oklch(67% 0.165 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Strong accent fill."
+    },
+    {
+      "name": "--ds-color-accent-600",
+      "light": "oklch(52% 0.208 var(--ds-accent-hue))",
+      "dark": "oklch(74% 0.14 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Default accent action."
+    },
+    {
+      "name": "--ds-color-accent-700",
+      "light": "oklch(44% 0.185 var(--ds-accent-hue))",
+      "dark": "oklch(82% 0.105 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Strong accent text."
+    },
+    {
+      "name": "--ds-color-accent-800",
+      "light": "oklch(34% 0.13 var(--ds-accent-hue))",
+      "dark": "oklch(90% 0.06 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Deepest accent text."
     },
     {
       "name": "--ds-color-border",
@@ -634,9 +610,16 @@
       "description": "Emphasised border."
     },
     {
+      "name": "--ds-color-stripe",
+      "light": "oklch(85% 0.014 var(--ds-canvas-hue))",
+      "dark": "oklch(33% 0.022 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Blueprint hatch and window-chrome pigment."
+    },
+    {
       "name": "--ds-color-success",
-      "light": "oklch(55% 0.145 152)",
-      "dark": "oklch(72% 0.15 152)",
+      "light": "oklch(64% 0.165 152)",
+      "dark": "oklch(70% 0.155 152)",
       "category": "Color",
       "description": "Successful outcome."
     },
@@ -646,6 +629,13 @@
       "dark": "oklch(29% 0.06 152)",
       "category": "Color",
       "description": "Successful outcome surface."
+    },
+    {
+      "name": "--ds-color-success-deep",
+      "light": "oklch(37% 0.09 152)",
+      "dark": "oklch(88% 0.1 152)",
+      "category": "Color",
+      "description": "Successful outcome text on a tinted surface."
     },
     {
       "name": "--ds-color-warning",
@@ -677,10 +667,31 @@
     },
     {
       "name": "--ds-shadow-color",
-      "light": "oklch(20% 0.025 var(--ds-ink-hue))",
-      "dark": "oklch(4% 0.01 var(--ds-ink-hue))",
+      "light": "var(--ds-color-ink)",
+      "dark": "oklch(6% 0.01 var(--ds-ink-hue))",
       "category": "Color",
       "description": "Shadow pigment."
+    },
+    {
+      "name": "--ds-shadow-card",
+      "light": "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+      "dark": "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+      "category": "Shape",
+      "description": "Quiet hard-offset card shadow."
+    },
+    {
+      "name": "--ds-shadow-window",
+      "light": "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+      "dark": "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+      "category": "Shape",
+      "description": "Hard-offset presentation window shadow."
+    },
+    {
+      "name": "--ds-shadow-pop",
+      "light": "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent)",
+      "dark": "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 55%, transparent)",
+      "category": "Shape",
+      "description": "Raised overlay shadow."
     },
     {
       "name": "--ds-color-overlay",

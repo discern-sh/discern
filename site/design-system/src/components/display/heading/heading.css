@@ -6,4 +6,7 @@
     color: var(--ds-color-accent-600);
     font-style: italic;
   }
+  [data-ds-theme="dark"] .ds-heading__accent {
+    color: var(--ds-color-accent-500);
+  }
 }

@@ -5,13 +5,13 @@
     justify-content: center;
     min-block-size: 36px;
     border-block: 1px solid var(--ds-color-border);
-    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
-      var(--ds-color-border) 6px 7px);
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px,
+      var(--ds-color-stripe) 5px 6px);
   }
   .ds-divider__label {
     padding: 4px 12px;
     border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-xs);
+    border-radius: var(--ds-radius-pill);
     background: var(--ds-color-canvas);
     color: var(--ds-color-ink-faint);
     font: 0.625rem var(--ds-font-mono);

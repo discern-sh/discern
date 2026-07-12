@@ -10,6 +10,9 @@
     color: var(--ds-color-accent-600);
     font-style: italic;
   }
+  [data-ds-theme="dark"] .ds-accent {
+    color: var(--ds-color-accent-500);
+  }
   .ds-mono {
     font-family: var(--ds-font-mono);
   }
@@ -25,35 +28,38 @@
     border: 0 !important;
   }
   .ds-dot-grid {
-    background-color: var(--ds-color-surface-sunken);
-    background-image: radial-gradient(var(--ds-color-border-strong) 0.8px,
-      transparent 0.8px);
-    background-size: 10px 10px;
+    background-image: radial-gradient(color-mix(in oklab, var(--ds-color-ink)
+      16%, transparent) 1px,
+      transparent 1.4px);
+    background-size: 16px 16px;
   }
   .ds-hatch {
-    background-image: repeating-linear-gradient(-45deg, transparent 0 6px,
-      var(--ds-color-border) 6px 7px);
+    background-image: repeating-linear-gradient(45deg, transparent 0 5px,
+      var(--ds-color-stripe) 5px 6px);
   }
   .ds-grain-wash {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background:
-      radial-gradient(ellipse 80% 70% at 50% 0%,
-      var(--ds-color-accent-wash-strong),
-      transparent 72%),
-      linear-gradient(to bottom, var(--ds-color-accent-wash),
-      var(--ds-color-canvas));
+      radial-gradient(110% 72% at 50% -8%, color-mix(in oklab,
+      var(--ds-color-accent-300) 85%, transparent) 0%, transparent 62%),
+      linear-gradient(to bottom, color-mix(in oklab,
+      var(--ds-color-accent-200) 90%, var(--ds-color-canvas)) 0%,
+      var(--ds-color-canvas) 82%);
   }
   .ds-grain-wash::after {
     position: absolute;
-    z-index: -1;
     inset: 0;
     background: url("./textures/grain.png") repeat;
+    background-size: 200px 200px;
     content: "";
-    mix-blend-mode: multiply;
-    opacity: 0.18;
+    mix-blend-mode: overlay;
+    opacity: 0.38;
     pointer-events: none;
+  }
+  .ds-grain-wash > * {
+    position: relative;
   }
   .ds-reveal {
     animation: ds-reveal-in var(--ds-duration-reveal) var(--ds-ease-out) both;

@@ -15,13 +15,14 @@
     min-block-size: 38px;
     padding-inline: 13px;
     border-block-end: 1px solid var(--ds-color-border);
-    background: var(--ds-color-surface-sunken);
+    background: color-mix(in oklab, var(--ds-color-canvas) 55%,
+      var(--ds-color-surface));
   }
   .ds-window__dot {
     inline-size: 8px;
     block-size: 8px;
     border-radius: 50%;
-    background: var(--ds-color-border-strong);
+    background: var(--ds-color-stripe);
   }
   .ds-window__title {
     position: absolute;

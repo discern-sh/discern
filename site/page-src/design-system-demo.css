@@ -98,7 +98,7 @@ body[data-ds-root] {
 }
 
 .demo-nav a:hover {
-  color: var(--ds-color-accent-700);
+  color: var(--ds-color-ink);
 }
 
 .demo-theme {
@@ -212,7 +212,7 @@ body[data-ds-root] {
   border: 0;
   border-block-end: 1px dashed var(--ds-color-border-strong);
   background: transparent;
-  color: var(--ds-color-accent-700);
+  color: var(--ds-color-accent-600);
   cursor: pointer;
   font: inherit;
 }
@@ -256,7 +256,7 @@ body[data-ds-root] {
 }
 
 .demo-flow__step > span {
-  color: var(--ds-color-accent-700);
+  color: var(--ds-color-accent-600);
   font: 0.65rem var(--ds-font-mono);
 }
 
@@ -277,11 +277,15 @@ body[data-ds-root] {
 }
 
 .demo-stat {
-  color: var(--ds-color-accent-700);
+  color: var(--ds-color-accent-600);
   font-family: var(--ds-font-display);
   font-size: 2.6rem;
   font-weight: var(--ds-font-weight-display);
   line-height: 1;
+}
+
+[data-ds-theme="dark"] :is(.demo-flow__step > span, .demo-stat) {
+  color: var(--ds-color-accent-500);
 }
 
 .demo-stat__label {

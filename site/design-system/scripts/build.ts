@@ -77,7 +77,7 @@ function generateTokenCss(): string {
   ).join("\n");
   const darkLines = themeTokens.map(({ name, dark }) => `    ${name}: ${dark};`)
     .join("\n");
-  return `/* Generated from src/tokens/tokens.ts. Do not edit. */\n@layer discern.tokens {\n  :root {\n${primitiveLines}\n${lightLines}\n  }\n\n  [data-ds-theme="dark"] {\n${darkLines}\n  }\n}\n`;
+  return `/* Generated from src/tokens/tokens.ts. Do not edit. */\n@layer discern.tokens {\n  :root {\n    color-scheme: light;\n${primitiveLines}\n${lightLines}\n  }\n\n  [data-ds-theme="dark"] {\n    color-scheme: dark;\n${darkLines}\n  }\n}\n`;
 }
 
 async function componentMetadata(

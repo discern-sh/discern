@@ -207,7 +207,7 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
           </Container>
         </Section>
 
-        <Section id="workflow" surface="sunken" spacing="lg">
+        <Section id="workflow" surface="surface" spacing="lg">
           <Container size="lg">
             <Stack gap={10}>
               <div className="demo-section-head">

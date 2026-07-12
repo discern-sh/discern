@@ -1,7 +1,7 @@
 @layer discern.components {
   .ds-badge {
     --ds-badge-bg: var(--ds-color-accent-100);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-500) 40%, transparent);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
     --ds-badge-text: var(--ds-color-accent-800);
     display: inline-flex;
     align-items: center;
@@ -32,8 +32,8 @@
   }
   .ds-badge--success {
     --ds-badge-bg: var(--ds-color-success-soft);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 42%, transparent);
-    --ds-badge-text: var(--ds-color-success);
+    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
+    --ds-badge-text: var(--ds-color-success-deep);
   }
   .ds-badge--warning {
     --ds-badge-bg: var(--ds-color-warning-soft);

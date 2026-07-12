@@ -13,4 +13,7 @@
   .ds-kicker__index {
     color: var(--ds-color-accent-600);
   }
+  [data-ds-theme="dark"] .ds-kicker__index {
+    color: var(--ds-color-accent-500);
+  }
 }
