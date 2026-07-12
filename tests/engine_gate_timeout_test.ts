@@ -20,6 +20,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runParallel } from "../src/engine/jobs/runner.ts";
+import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
   type Capability,
   KNOWN_CAPABILITIES,
@@ -498,6 +499,26 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     assertStringIncludes(diag.message, "timed out after 1s");
     assert(elapsed < 30_000, `bounded by the override, took ${elapsed}ms`);
   });
+});
+
+// The forcing function for the override class: every record family whose
+// entries run a gate job (a `run` or `gate` command) must accept the shared
+// per-job `timeout` key — driven off RECORD_ENTRY_SCHEMAS, so a future
+// job-bearing record family auto-enrols and fails here until it takes it.
+Deno.test("timeout override: every job-bearing record family accepts the per-job timeout key", () => {
+  let jobBearing = 0;
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    const keys = Object.keys(schema.shape);
+    if (!keys.includes("run") && !keys.includes("gate")) {
+      continue; // not a gate-job table (e.g. worktree resources)
+    }
+    jobBearing++;
+    assert(
+      keys.includes("timeout"),
+      `[${family}] entries run gate jobs but take no per-job \`timeout\` override — wire the shared jobTimeout key so one slow job never needs a slower global`,
+    );
+  }
+  assert(jobBearing >= 3, "expected checks, scopes, and standards to enrol");
 });
 
 Deno.test("timeout override: the bare command-or-list capability form parses and runs unchanged", async () => {
