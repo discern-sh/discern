@@ -410,7 +410,7 @@ function printToc(
   console.log(lines.join("\n"));
 }
 
-/** Render the map's top-level regions and their Git-only freshness signals. */
+/** Render the map's top-level regions and their Git-only freshness facts. */
 function printMapOverview(
   tree: DocsTree,
   cwd: string,
@@ -428,25 +428,23 @@ function printMapOverview(
     lines.push(
       `${paint(colors.bold.cyan, region.name)}  ${region.description}`,
     );
-    const freshness = region.staleness;
     if (
-      freshness.status === "unknown" ||
-      freshness.pages_changed_at === undefined ||
-      freshness.code_changes_since === undefined
+      region.pages_changed_at === undefined ||
+      region.code_changes_since === undefined
     ) {
       lines.push(
         paint(
           colors.dim,
-          "  staleness unknown — no tracked code links or usable Git history",
+          "  freshness unknown — no specific file links or usable Git history",
         ),
       );
     } else {
-      const changes = freshness.code_changes_since;
+      const changes = region.code_changes_since;
       lines.push(
         paint(
-          freshness.status === "behind" ? colors.yellow : colors.dim,
+          colors.dim,
           `  pages last changed ${
-            ageSince(freshness.pages_changed_at)
+            ageSince(region.pages_changed_at)
           }; linked code changed ${changes} time${
             changes === 1 ? "" : "s"
           } since`,

@@ -771,6 +771,15 @@ Deno.test("discern mcp: discern_map returns the index, a single doc, and a not_f
     assertEquals(index.result.isError, false);
     assertEquals(index.result.structuredContent.verb, "map");
     assert(index.result.structuredContent.data.count >= 1);
+    const regions = index.result.structuredContent.data.regions;
+    assert(regions.length >= 1);
+    for (const region of regions) {
+      assert(!("staleness" in region), JSON.stringify(region));
+      assert(!("status" in region), JSON.stringify(region));
+      assert(!("code_paths" in region), JSON.stringify(region));
+      assertEquals("pages_changed_at" in region, false);
+      assertEquals("code_changes_since" in region, false);
+    }
     const entry = index.result.structuredContent.data.docs[0];
     assertEquals(typeof entry.slug, "string");
     assert(entry.slug.length > 0, JSON.stringify(entry));

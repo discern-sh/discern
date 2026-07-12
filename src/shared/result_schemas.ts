@@ -715,12 +715,8 @@ const mapRegionSchema = z.strictObject({
   title: z.string(),
   description: z.string(),
   page_count: z.number(),
-  staleness: z.strictObject({
-    status: z.enum(["current", "behind", "unknown"]),
-    pages_changed_at: z.string().optional(),
-    code_changes_since: z.number().optional(),
-    code_paths: z.array(z.string()),
-  }),
+  pages_changed_at: z.string().optional(),
+  code_changes_since: z.number().optional(),
 });
 
 /**

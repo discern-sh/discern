@@ -3711,42 +3711,18 @@
                       "page_count": {
                         "type": "number"
                       },
-                      "staleness": {
-                        "type": "object",
-                        "properties": {
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "current",
-                              "behind",
-                              "unknown"
-                            ]
-                          },
-                          "pages_changed_at": {
-                            "type": "string"
-                          },
-                          "code_changes_since": {
-                            "type": "number"
-                          },
-                          "code_paths": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "status",
-                          "code_paths"
-                        ]
+                      "pages_changed_at": {
+                        "type": "string"
+                      },
+                      "code_changes_since": {
+                        "type": "number"
                       }
                     },
                     "required": [
                       "name",
                       "title",
                       "description",
-                      "page_count",
-                      "staleness"
+                      "page_count"
                     ]
                   }
                 },
@@ -4117,42 +4093,18 @@
                       "page_count": {
                         "type": "number"
                       },
-                      "staleness": {
-                        "type": "object",
-                        "properties": {
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "current",
-                              "behind",
-                              "unknown"
-                            ]
-                          },
-                          "pages_changed_at": {
-                            "type": "string"
-                          },
-                          "code_changes_since": {
-                            "type": "number"
-                          },
-                          "code_paths": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "status",
-                          "code_paths"
-                        ]
+                      "pages_changed_at": {
+                        "type": "string"
+                      },
+                      "code_changes_since": {
+                        "type": "number"
                       }
                     },
                     "required": [
                       "name",
                       "title",
                       "description",
-                      "page_count",
-                      "staleness"
+                      "page_count"
                     ]
                   }
                 },

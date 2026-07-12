@@ -586,7 +586,8 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Read the project map — its agent-maintained documentation tree and the " +
       "grounded source for documented project behaviour. With no argument, return the index — " +
-      "every doc's path, section, slug, and title. Pass `target` (a slug, " +
+      "every doc's path, section, slug, and title — plus a regions digest with " +
+      "file-linked freshness facts. Pass `target` (a slug, " +
       "`section/slug`, or path) to return that one doc's full Markdown content. The " +
       "source to consult before reasoning about this project.",
     inputSchema: {

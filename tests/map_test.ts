@@ -62,6 +62,20 @@ function entry(path: string): DocEntry {
   };
 }
 
+/** Pin the compact region wire contract: facts travel together; guesses and
+ * coverage internals never do. Iterating every returned region means a newly
+ * named subtree auto-enrols in the guard. */
+function assertFactOnlyRegion(region: Record<string, unknown>): void {
+  assert(!("staleness" in region), JSON.stringify(region));
+  assert(!("status" in region), JSON.stringify(region));
+  assert(!("code_paths" in region), JSON.stringify(region));
+  assertEquals(
+    "pages_changed_at" in region,
+    "code_changes_since" in region,
+    JSON.stringify(region),
+  );
+}
+
 Deno.test("discoverDocs lists user-facing docs in reading order, README first", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
@@ -190,11 +204,12 @@ Deno.test("docs --json emits the index", async () => {
     assertEquals(res.data.count, 4);
     assertEquals(res.data.regions.length, 1);
     assertEquals(res.data.regions[0].name, "00-intro");
+    for (const region of res.data.regions) assertFactOnlyRegion(region);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "alpha"));
   });
 });
 
-Deno.test("bare map renders README descriptions and Git staleness per region", async () => {
+Deno.test("bare map renders README descriptions and Git freshness facts per region", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await Deno.mkdir(join(dir, "src"), { recursive: true });
@@ -250,21 +265,60 @@ Deno.test("bare map renders README descriptions and Git staleness per region", a
     const payload = JSON.parse(json.stdout);
     const region = payload.data.regions[0];
     assertEquals(region.description, "The short orientation to this project.");
-    assertEquals(region.staleness.status, "behind");
-    assertEquals(region.staleness.code_changes_since, 2);
-    assertEquals(region.staleness.code_paths, ["src/alpha.ts"]);
+    assertEquals(region.code_changes_since, 2);
+    assertEquals(typeof region.pages_changed_at, "string");
+    assertFactOnlyRegion(region);
   });
 });
 
-Deno.test("bare map says staleness is unknown without tracked code links", async () => {
+Deno.test("bare map reports unknown freshness when pages link only a directory", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.mkdir(join(dir, "src"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "src", "alpha.ts"),
+      "export const alpha = 1;\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "README.md"),
+      "# Intro\n\nThe orientation.\n\nSee [the source](../../src/).\n",
+    );
+    await gitInit(dir);
+
+    await Deno.writeTextFile(
+      join(dir, "src", "alpha.ts"),
+      "export const alpha = 2;\n",
+    );
+    await git(dir, "add", "src/alpha.ts");
+    await git(dir, "commit", "-q", "-m", "Change alpha", "--no-gpg-sign");
+
+    const human = await runCli(["map"], dir);
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stdout, "freshness unknown");
+
+    const json = await runCli(["map", "--json"], dir);
+    const region = JSON.parse(json.stdout).data.regions[0];
+    assertFactOnlyRegion(region);
+    assertEquals("pages_changed_at" in region, false);
+    assertEquals("code_changes_since" in region, false);
+  });
+});
+
+Deno.test("bare map reports unknown freshness without tracked file links", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
     await gitInit(dir);
 
-    const { code, stdout } = await runCli(["map"], dir);
-    assertEquals(code, 0);
-    assertStringIncludes(stdout, "00-intro  Intro");
-    assertStringIncludes(stdout, "staleness unknown");
+    const human = await runCli(["map"], dir);
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stdout, "00-intro  Intro");
+    assertStringIncludes(human.stdout, "freshness unknown");
+
+    const json = await runCli(["map", "--json"], dir);
+    const region = JSON.parse(json.stdout).data.regions[0];
+    assertFactOnlyRegion(region);
+    assertEquals("pages_changed_at" in region, false);
+    assertEquals("code_changes_since" in region, false);
   });
 });
 

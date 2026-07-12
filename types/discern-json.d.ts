@@ -1059,12 +1059,8 @@ export type DiscernMapResult = {
       title: string;
       description: string;
       page_count: number;
-      staleness: {
-        status: "current" | "behind" | "unknown";
-        pages_changed_at?: string;
-        code_changes_since?: number;
-        code_paths: Array<string>;
-      };
+      pages_changed_at?: string;
+      code_changes_since?: number;
     }>;
     doc?: {
       path: string;
@@ -1174,12 +1170,8 @@ export type DiscernHelpResult = {
       title: string;
       description: string;
       page_count: number;
-      staleness: {
-        status: "current" | "behind" | "unknown";
-        pages_changed_at?: string;
-        code_changes_since?: number;
-        code_paths: Array<string>;
-      };
+      pages_changed_at?: string;
+      code_changes_since?: number;
     }>;
     doc?: {
       path: string;

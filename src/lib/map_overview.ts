@@ -2,11 +2,11 @@
  * Build the no-argument `discern map` overview from the map itself.
  *
  * Regions are the public top-level subtrees already discovered by `docs.ts`.
- * Their descriptions come from each subtree's README; their staleness signal is
- * deliberately coarse and explainable: Markdown links from that region to
- * tracked paths outside the map define the code it covers, and Git counts code
- * commits after the region's most recent page commit. No links or no usable Git
- * history produces `unknown` rather than an invented relationship.
+ * Their descriptions come from each subtree's README. Markdown links from that
+ * region to specific tracked files outside the map define its freshness
+ * coverage, and Git counts commits to those files after the region's most
+ * recent page commit. Directory gestures never expand into coverage. No file
+ * links or no usable Git history leaves the freshness facts absent.
  */
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
@@ -14,21 +14,18 @@ import { runGit } from "../shared/subprocess.ts";
 import { inlineToPlain } from "./markdown.ts";
 import type { DocEntry, DocsTree } from "./docs.ts";
 
-/** The Git-only freshness signal for one map region. */
-export interface MapRegionStaleness {
-  status: "current" | "behind" | "unknown";
+/** Git-only freshness facts for one map region, jointly absent when unknown. */
+export interface MapRegionFreshness {
   pages_changed_at?: string;
   code_changes_since?: number;
-  code_paths: string[];
 }
 
 /** One public top-level subtree in the map overview. */
-export interface MapRegion {
+export interface MapRegion extends MapRegionFreshness {
   name: string;
   title: string;
   description: string;
   page_count: number;
-  staleness: MapRegionStaleness;
 }
 
 /** True when `candidate` is `root` itself or nested below it. */
@@ -105,21 +102,19 @@ async function linkedCodePaths(
   );
   if (!listed.success) return [];
   const tracked = listed.stdout.split("\0").filter(Boolean);
-  return [...candidates].filter((candidate) =>
-    tracked.some((path) =>
-      path === candidate || path.startsWith(`${candidate}/`)
-    )
-  ).sort();
+  const trackedFiles = new Set(tracked);
+  return [...candidates].filter((candidate) => trackedFiles.has(candidate))
+    .sort();
 }
 
-/** Compute the Git signal for a region; every failure is honestly `unknown`. */
-async function regionStaleness(
+/** Compute the Git facts for a region; every failure is honestly absent. */
+async function regionFreshness(
   tree: DocsTree,
   entries: readonly DocEntry[],
   codePaths: string[],
-): Promise<MapRegionStaleness> {
+): Promise<MapRegionFreshness> {
   if (codePaths.length === 0) {
-    return { status: "unknown", code_paths: [] };
+    return {};
   }
   const regionPath = relative(
     tree.root,
@@ -131,11 +126,11 @@ async function regionStaleness(
     { cwd: tree.root },
   );
   if (!pageCommit.success || pageCommit.stdout.trim() === "") {
-    return { status: "unknown", code_paths: codePaths };
+    return {};
   }
   const [commit, changedAt] = pageCommit.stdout.trim().split("\0");
   if (!commit || !changedAt) {
-    return { status: "unknown", code_paths: codePaths };
+    return {};
   }
   const changes = await runGit(
     ["rev-list", "--count", `${commit}..HEAD`, "--", ...codePaths],
@@ -143,13 +138,11 @@ async function regionStaleness(
   );
   const count = Number.parseInt(changes.stdout.trim(), 10);
   if (!changes.success || !Number.isFinite(count)) {
-    return { status: "unknown", code_paths: codePaths };
+    return {};
   }
   return {
-    status: count > 0 ? "behind" : "current",
     pages_changed_at: changedAt,
     code_changes_since: count,
-    code_paths: codePaths,
   };
 }
 
@@ -184,12 +177,13 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
       title,
     );
     const codePaths = await linkedCodePaths(tree, entries, sources);
+    const freshness = await regionFreshness(tree, entries, codePaths);
     regions.push({
       name,
       title,
       description,
       page_count: entries.length,
-      staleness: await regionStaleness(tree, entries, codePaths),
+      ...freshness,
     });
   }
   return regions;
