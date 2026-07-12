@@ -448,7 +448,7 @@ Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never th
     // command upgrade would refuse.
     const fix = schema.fix ?? "";
     assert(
-      /re-run the installer|update discern/i.test(fix),
+      /re-run the install script|get a newer discern/i.test(fix),
       `newer-schema fix must point at updating discern: ${fix}`,
     );
     assert(

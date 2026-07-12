@@ -19,7 +19,7 @@ import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
-import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
 import {
   AGENT_NAMES,
   type DiscernConfig,
@@ -195,7 +195,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       detail:
         `install schema v${recorded} is newer than this build's v${SCHEMA_VERSION} — the project was upgraded by a newer discern`,
       fix:
-        "update discern itself (re-run the installer, e.g. `brew upgrade discern`) — `discern upgrade` refuses a newer-than-binary config",
+        `get a newer discern (${UPDATE_CHANNEL}) — \`discern upgrade\` refuses a newer-than-binary config`,
     });
   } else {
     checks.push({

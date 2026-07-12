@@ -13,6 +13,18 @@ import denoJson from "../../deno.json" with { type: "json" };
 export const KIT_VERSION: string = denoJson.version;
 
 /**
+ * The one honest way to get a newer discern binary, cited verbatim by every
+ * surface that mentions updating it. discern makes no network requests — no
+ * update polling, no telemetry, no auto-updater — so a newer binary is always a
+ * step the user takes themselves: re-run the install script from the project
+ * README (each build is published on the repository's releases page). Guarded
+ * by test: no shipped string may invent a channel (a package manager, an
+ * auto-updater) this constant doesn't name.
+ */
+export const UPDATE_CHANNEL =
+  "re-run the install script from the README at https://github.com/jackwh/discern";
+
+/**
  * The install **schema version** — the anchor the migration system steps from
  * (ADR 0014). Distinct from `KIT_VERSION` on purpose: `KIT_VERSION` is the
  * package's semver for display, while this is a plain monotonic integer that

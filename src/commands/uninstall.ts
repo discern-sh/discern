@@ -118,7 +118,7 @@ interface UninstallPlan {
 
 /** The one line that removes the binary itself (install-method agnostic). */
 const BINARY_HINT =
-  "discern itself is a single binary outside your repo — remove it with your installer (e.g. `brew uninstall discern`) or by deleting the file `which discern` reports.";
+  "discern itself is a single binary outside your repo — remove it by deleting the file `which discern` reports.";
 
 async function pathExists(abs: string): Promise<boolean> {
   try {

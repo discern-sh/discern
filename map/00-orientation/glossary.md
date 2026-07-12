@@ -113,7 +113,7 @@ depth under [`../10-installer/`](../10-installer/).
 The `discern` binary's semantic version (e.g. `1.0.0`), declared once in
 `deno.json` and read everywhere through
 [`version.ts`](../../src/lib/version.ts). Shown by `--version`. Getting a newer
-binary (via `install.sh`/`brew`/a future `self-update`) is a separate axis from
+binary (by re-running the install script) is a separate axis from
 `discern upgrade`, which brings a _project_ into line with the binary it is run
 from.
 

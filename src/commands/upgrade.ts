@@ -23,7 +23,7 @@ import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
 import {
   isRecordedSchemaNewer,
   newerSchemaRefusalMessage,
@@ -100,6 +100,14 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
  */
 const RESTART_AGENTS_HINT =
   "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.";
+
+/**
+ * The honest "newer discern" sentence, closing both the `--check` currency
+ * report and the apply summary. discern deliberately performs no network update
+ * check, so the sentence says so and names the one real channel.
+ */
+const NEWER_DISCERN_HINT =
+  `discern never checks the network for updates; to get a newer discern, ${UPDATE_CHANNEL}.`;
 
 /** Run `discern upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
@@ -190,8 +198,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.result({
         ok,
         verb: "upgrade",
+        ...(ok ? { hints: [NEWER_DISCERN_HINT] } : {}),
         data: {
           check: true,
+          kit_version: KIT_VERSION,
           schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
@@ -202,7 +212,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         },
       });
     } else if (ok) {
-      log.ok(`Install is up to date (schema ${SCHEMA_VERSION}).`);
+      log.ok(
+        `Install is up to date (discern ${KIT_VERSION}, schema ${SCHEMA_VERSION}).`,
+      );
+      log.info(NEWER_DISCERN_HINT);
     } else {
       if (pending.length > 0) {
         log.error(
@@ -474,7 +487,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         message:
           `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
       }),
-      hints: [...(guidelines?.hints ?? []), RESTART_AGENTS_HINT],
+      hints: [
+        ...(guidelines?.hints ?? []),
+        NEWER_DISCERN_HINT,
+        RESTART_AGENTS_HINT,
+      ],
       data: {
         kit_version: KIT_VERSION,
         // `from` is the pre-upgrade schema; the install now records `current`
@@ -614,7 +631,7 @@ function renderUpgradeSummary(
   // project to match the installed binary; getting a NEWER binary is separate.
   log.line();
   log.info(
-    "This refreshed your project to match the installed discern. To get a newer discern itself, re-run the installer (e.g. `brew upgrade discern`).",
+    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${NEWER_DISCERN_HINT}`,
   );
   log.info(RESTART_AGENTS_HINT);
 }

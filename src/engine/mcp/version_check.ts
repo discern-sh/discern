@@ -2,8 +2,8 @@
  * Version handshake for the long-lived MCP server.
  *
  * A client spawns the discern MCP server ONCE and keeps it for the whole
- * session. If the discern binary on disk is replaced later — a `brew upgrade
- * discern` (or equivalent), then a `discern upgrade` that rewrites this project
+ * session. If the discern binary on disk is replaced later — the install script
+ * re-run, then a `discern upgrade` that rewrites this project
  * to the new templates — the running server keeps executing the engine and
  * embedded templates it was compiled with. A stale `discern_refresh` from this
  * server and a fresh CLI `discern done` then rewrite the generated files back
