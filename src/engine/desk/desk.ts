@@ -90,7 +90,7 @@ export interface DeskRuntime {
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
   accept(
     ctx: LifecycleContext,
-    opts: { dryRun?: boolean },
+    opts: { dryRun?: boolean; confirmed?: boolean },
   ): DeskMaybePromise<void>;
   update(
     ctx: LifecycleContext,
@@ -313,7 +313,10 @@ async function dispatchAction(
       ) {
         return false;
       }
-      await runtime.accept(ctx, {});
+      // The human just accepted the landing at this interactive prompt, so pass
+      // the consent attestation in — the desk's confirm IS the acceptance, and
+      // accept must not double-refuse for a consent it already collected (ADR 0134).
+      await runtime.accept(ctx, { confirmed: true });
       await runtime.pause(out);
       return true;
     }

@@ -558,6 +558,12 @@ export function attachEngineCommands(
       "Emit a machine-readable (plan, results) object on stdout.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
+    .option(
+      "--confirmed",
+      "Attest that your owner has accepted this landing (or gave standing " +
+        "pre-authorization). Without it, acceptance refuses read-only and re-serves " +
+        "the review moment; a dry-run never needs it.",
+    )
     .action(async (o) => {
       const json = o.json ?? false;
       Deno.exit(
@@ -566,6 +572,7 @@ export function attachEngineCommands(
             accept(ctx, {
               json,
               dryRun: o.dryRun ?? false,
+              confirmed: o.confirmed ?? false,
             }),
           { json, verb: "accept" },
         ),

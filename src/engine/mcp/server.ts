@@ -653,12 +653,19 @@ export const TOOLS: McpTool[] = orderTools([
       "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
-      "step (e.g. call discern_update first). Set dry_run to preview " +
+      "step (e.g. call discern_update first). Also requires `confirmed`: absent, it " +
+      "refuses read-only and re-serves the review moment (relay the receipt, wait " +
+      "for the owner) instead of landing. Set dry_run to preview " +
       "the plan without touching anything. " +
       "Operates only on the worktree the server runs in; it cannot reach another.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the acceptance plan and touch nothing (default false).",
+      ),
+      confirmed: z.boolean().optional().describe(
+        "Attestation that the owner has accepted this landing in this " +
+          "conversation, or gave standing pre-authorization. Set it only then; a " +
+          "pre-authorized landing still takes one call.",
       ),
       ...PATH_PARAM,
     },
@@ -675,6 +682,7 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root, args) =>
       acceptToolResult(root, {
         dryRun: args.dry_run === true,
+        confirmed: args.confirmed === true,
       }),
   }),
   defineTool({
@@ -818,7 +826,7 @@ export const TOOLS: McpTool[] = orderTools([
  */
 async function acceptToolResult(
   root: string,
-  opts: { dryRun?: boolean },
+  opts: { dryRun?: boolean; confirmed?: boolean },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,

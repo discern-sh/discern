@@ -39,6 +39,7 @@ import {
 import { runShellRouted } from "./shell.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
+import { AWAITING_CONSENT_SLUG } from "../../shared/consent.ts";
 import {
   classifyOrphans,
   createResources,
@@ -167,6 +168,15 @@ export interface WorktreeOpOptions {
   json?: boolean;
   /** Render the human apply summary (internal protocol callers may reserve stdout). */
   humanApplySummary?: boolean;
+}
+
+/** `accept`'s flags: the worktree-verb set plus the landing consent attestation
+ * (ADR 0134). `confirmed` asserts the owner has accepted this landing, or gave
+ * standing pre-authorization; absent (and not a dry-run), acceptance refuses
+ * read-only. It lives on accept alone — the other worktree verbs are not
+ * consent-gated. */
+export interface AcceptOpOptions extends WorktreeOpOptions {
+  confirmed?: boolean;
 }
 
 /**
@@ -1242,6 +1252,45 @@ function offTrunkAcceptRefusal(
     `then re-run \`discern accept\`. Your branch keeps all its commits.`;
 }
 
+/** The relay-and-recovery sentence the consent refusal serves on every surface
+ * — the Error's message (the human render) and the envelope's `message`. It
+ * re-serves the review moment (relay the receipt, wait for the owner) and names
+ * the recovery (re-run with the attestation). Mutation-free: it fires before any
+ * git runs, so the worktree, its branch, and the trunk are genuinely untouched. */
+const ACCEPT_AWAITING_CONSENT_MESSAGE =
+  "Landing is the owner's decision, so `discern accept` needs their explicit " +
+  "acceptance before it lands. Relay the receipt to your owner and wait for " +
+  "their go-ahead, then re-run `discern accept --confirmed` (standing " +
+  "pre-authorization counts as their acceptance). Nothing has been landed — " +
+  "the worktree, its branch, and the trunk are untouched.";
+
+/**
+ * The read-only refusal `accept` serves when its `--confirmed` attestation is
+ * absent (ADR 0134, extending ADR 0086's pattern to the landing verb). Landing is
+ * the highest-stakes act, so structure — not a guidance sentence — forces the
+ * relay moment into the transcript: an agent under context pressure that runs
+ * `accept` without the attestation is handed the review moment, not silently
+ * landed. Shares the {@link AWAITING_CONSENT_SLUG} slug with `setup begin` so the
+ * consent-gated class is one contract. Carries ≥1 actionable hint; the honored
+ * receipt and the raw-diff command it points at live once, on `discern status`.
+ */
+function acceptAwaitingConsentResult(): DiscernResult<AcceptData> {
+  return {
+    ok: false,
+    verb: "accept",
+    error: AWAITING_CONSENT_SLUG,
+    message: ACCEPT_AWAITING_CONSENT_MESSAGE,
+    hints: [
+      "Re-run `discern accept --confirmed` once your owner has accepted this " +
+      "landing — the flag attests that acceptance, so a pre-authorized landing " +
+      "still takes one call.",
+      "`discern status` carries the honored receipt to relay " +
+      "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
+      "change.",
+    ],
+  };
+}
+
 // How many of the gate's diagnostics ride inline in an accept refusal before the agent
 // is pointed at `discern done` for the rest — a cap so a gate that failed with many
 // findings can't flood accept's refusal message.
@@ -1574,17 +1623,19 @@ async function executeAcceptPlan(
  * is present beneath this branch, tears down the worktree's external resources, fast-forwards the
  * trunk to the branch tip, removes the clean worktree directory, and deletes the
  * now-merged branch. The trunk checkout left behind is refreshed after landing.
- * Refuses dirty worktrees, dirty main checkouts, and a main checkout parked on a
- * branch other than the trunk. `--dry-run` shows the plan (after the read-only
- * preconditions pass) and touches nothing. Throws `WorktreeGitError` on any
- * unrecoverable error (the branch keeps its commits).
+ * Refuses without the `--confirmed` attestation (ADR 0134), then dirty worktrees,
+ * dirty main checkouts, and a main checkout parked on a branch other than the
+ * trunk. `--dry-run` shows the plan (after the read-only preconditions pass) and
+ * touches nothing — and needs no attestation, since it never lands. Throws
+ * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
  */
 export async function accept(
   ctx: LifecycleContext,
-  opts: WorktreeOpOptions = {},
+  opts: AcceptOpOptions = {},
 ): Promise<void> {
   const result = await acceptResult(ctx, {
     dryRun: opts.dryRun ?? false,
+    confirmed: opts.confirmed ?? false,
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
@@ -1601,11 +1652,25 @@ export async function accept(
  */
 export async function acceptResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; confirmed?: boolean } = {},
 ): Promise<DiscernResult<AcceptData>> {
+  const dryRun = opts.dryRun ?? false;
+  // The consent attestation gates the landing act itself (ADR 0134). Without it,
+  // refuse read-only — before any git runs, so nothing mutates — and re-serve the
+  // review moment, so no work lands on a consent that lives only in the agent's
+  // own summary. A dry-run previews and never lands, so it needs no attestation.
+  // The setup-flow landing (`setup accept`) and the desk's interactive "land"
+  // both collect their consent upstream and pass the attestation in, so neither
+  // double-refuses here.
+  if (!dryRun && !(opts.confirmed ?? false)) {
+    throw new WorktreeResultError(
+      ACCEPT_AWAITING_CONSENT_MESSAGE,
+      acceptAwaitingConsentResult(),
+    );
+  }
   const run = makeGitRunner(ctx);
   const plan = await buildAcceptPlan(ctx, run);
-  if (opts.dryRun ?? false) {
+  if (dryRun) {
     return previewResult("accept", acceptPlanToEngine(plan));
   }
   const executed = await executeAcceptPlan(ctx, run, plan);
