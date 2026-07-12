@@ -57,15 +57,6 @@ _Nothing outstanding._
       (`RESULT_SCHEMA_ID`); `schema/discern-results.schema.json`;
       `map/20-quality-gate/the-result-envelope.md`.
 
-- [ ] **Revisit when agents should run standards in the lifecycle.** The current
-      guidance intentionally says to run standards "as needed" and keeps them
-      slow/on-demand, with non-dry-run checks requiring a clean tree. Revisit
-      after observing real agent sessions: we may want sharper timing language
-      than "as needed" without reintroducing remote-push assumptions or causing
-      repeated slow runs during iteration. Evidence:
-      `templates/guidance/standards.md`; `src/engine/mcp/server.ts`;
-      `src/engine/gate/standards.ts`.
-
 - [ ] **Revisit generated-artifact user-content preservation only with a
       non-inference design.** A previous attempt rescued edits from ignored
       generated agent files and materialized skill dirs by diffing on-disk
@@ -103,20 +94,6 @@ _Nothing outstanding._
       `normalizeDiagnostics`. Evidence: `src/engine/gate/diagnostics.ts`
       (`normalizeDiagnostics` — SARIF only); `src/engine/gate/plan.ts`
       (`buildGateResult` calls it).
-
-- [ ] **Per-capability `[gate].timeout` overrides.** `[gate].timeout` is one
-      GLOBAL budget applied to every job the gate runs
-      ([ADR 0108](map/_adr/0108-gate-job-timeout.md)). A slow suite raises the
-      single number; there is no per-capability / per-check / per-scope
-      override. Deferred as the same config-value-shape decision the Tier-1
-      diagnostics entry above defers: a capability value is a bare
-      command-or-list today, and per-job budgets would need a table form
-      (`{ run = "…", timeout = N }`) plus schema/codegen/template work — heavier
-      than the global bound, which already closes the hang. Add only if real
-      projects hit a case one generous budget can't serve. Evidence:
-      `src/shared/config_schema.ts` (`gateSection.timeout`);
-      `src/engine/gate/execute.ts` (`gateRunContext` sets one `timeoutS` for the
-      whole run).
 
 ## 🟢 Test & tooling hygiene
 
