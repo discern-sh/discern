@@ -106,7 +106,8 @@ Deno.test("checkGuidanceCurrent: clean after a compile; flags a hand-edit stale 
     assertEquals(stale.expected, original);
     assert(stale.actual?.includes("stray edit"));
 
-    // Restore, then delete CLAUDE.md → missing (the fresh-checkout state).
+    // Restore, then delete CLAUDE.md → missing (a not-yet-built or
+    // deliberately-untracked tree — tolerated, never blocking).
     await Deno.writeTextFile(agentsPath, original);
     await Deno.remove(join(dir, "CLAUDE.md"));
     const afterDelete = await checkGuidanceCurrent(dir);

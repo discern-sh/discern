@@ -811,16 +811,17 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
   });
 });
 
-Deno.test("done --json: a MISSING generated agent file does NOT block (untracked artifact absent)", async () => {
+Deno.test("done --json: a MISSING generated agent file does NOT block (absent copy tolerated)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    await Deno.remove(join(dir, "CLAUDE.md")); // model a fresh checkout / deletion
+    await Deno.remove(join(dir, "CLAUDE.md")); // model a deletion, or a project keeping them untracked
 
     const r = await runAgent(dir, ["done", "--json"]);
-    // Missing is advisory (surfaced by `status`), never a gate failure — else a
-    // fresh checkout with no generated file would red-light first-run CI.
+    // Missing is advisory (surfaced by `status`), never a gate failure — a
+    // project that keeps the compiled files untracked would otherwise
+    // red-light first-run CI on every fresh checkout.
     assertEquals(r.code, 0, r.output);
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);

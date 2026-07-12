@@ -894,7 +894,7 @@ Deno.test("status: a missing generated agent file hints it isn't built yet", asy
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    // An untracked artifact can go absent (deleted, or a fresh checkout).
+    // A compiled file can go absent (deleted, or untracked and freshly cloned).
     await Deno.remove(join(dir, "CLAUDE.md"));
 
     const r = await runAgent(dir, ["status", "--json"]);
