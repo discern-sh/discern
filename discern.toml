@@ -344,15 +344,30 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 
 # Coverage standard — hold src/ line coverage at or above a rising floor. The run
 # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
-# for src/ (the installer AND the TS engine — both instrumented). Deferred from
-# the gate's measurement pass with the honest reason: it re-runs the ENTIRE test
-# suite under instrumentation, doubling the gate's slowest job — the pathological
+# for the repo's own src/ tree (the installer AND the TS engine — both
+# instrumented; scripts/coverage_lib.ts anchors the filter so dependency and
+# workspace src/ segments never count). Deferred from the gate's measurement
+# pass with the honest reason: it re-runs the ENTIRE test suite under
+# instrumentation, roughly doubling the gate's slowest job — the pathological
 # case the opt-out exists for. The never-loosen floor check still runs on every
 # `discern done`; CI measures it on every PR, and `discern standards` on demand.
+# `inputs` names everything the measurement reads, so a tree that touches none
+# of it (docs, map, site) replays the recorded value for free; `margin` keeps a
+# pin from setting the floor razor-tight against ordinary coverage drift.
 [standards.coverage]
 direction = "up"
 limit     = 91.8
+margin    = 0.5
 run       = "deno task coverage"
+inputs    = [
+  "src/**",
+  "tests/**",
+  "templates/**",
+  "scripts/coverage.ts",
+  "scripts/coverage_lib.ts",
+  "deno.json",
+  "deno.lock",
+]
 measure   = "on-demand"
 
 # Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
