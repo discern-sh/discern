@@ -59,7 +59,16 @@ function TokenPreview(
       />
     );
   }
-  return <span className="sg-token__motion" />;
+  const isDuration = name.includes("duration");
+  return (
+    <span className="sg-token__motion">
+      <span
+        style={isDuration
+          ? { animationDuration: `var(${name})` }
+          : { animationTimingFunction: `var(${name})` }}
+      />
+    </span>
+  );
 }
 
 function App() {

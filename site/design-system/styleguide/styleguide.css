@@ -289,12 +289,22 @@
     margin: auto;
     background: var(--ds-color-accent-100);
   }
-  .sg-token__motion::after {
+  .sg-token__motion {
+    place-items: center start;
+    overflow: hidden;
+    padding-inline: 9px;
+  }
+  .sg-token__motion > span {
     width: 12px;
     height: 12px;
     border-radius: 50%;
     background: var(--ds-color-accent-600);
-    content: "";
+    animation: sg-motion-preview 1s var(--ds-ease-in-out) infinite alternate;
+  }
+  @keyframes sg-motion-preview {
+    to {
+      translate: 40px 0;
+    }
   }
   .sg-token code {
     color: var(--ds-color-accent-700);
