@@ -80,21 +80,8 @@ Pro remains the display face and JetBrains Mono the code face. A guard scans
 every tracked site stylesheet so any rule selecting `--ds-font-ui` must also
 select the interface feature set.
 
-The `Kicker` component is the deliberate mixed-role exception: its optional
-index uses the mono face, while its trailing label uses the UI family and
-feature set. Both parts inherit the component's compact size, colour, weight,
-tracking, and uppercase treatment.
-
-Display chrome follows the same role boundary. `Window` titles use UI type,
-while `Divider` uses a restrained editorial rule and accent datum instead of a
-large decorative band. The sunken surface remains a low-chroma paper neutral in
-light mode so inset regions read through depth rather than a brown tint.
-
-`Terminal` is the code-output counterpart to `Window`. It retains the same
-framed figure, title bar, and body-style override, while its semantic
-`pre`/`code` body preserves whitespace, scrolls long lines, and owns an
-always-dark console palette. The generated design-system demo consumes the
-component directly rather than recreating terminal chrome in page CSS.
+Component-specific typography, framing, depth, and separation roles live in
+[component-catalogue.md](component-catalogue.md).
 
 ## Theme fidelity
 

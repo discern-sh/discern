@@ -81,3 +81,5 @@ to production.
   Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the source, build,
   catalogue, and page-migration boundaries.
+- [component-catalogue.md](component-catalogue.md) records reusable component
+  roles that consuming pages preserve.
