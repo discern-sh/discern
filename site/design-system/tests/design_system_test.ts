@@ -315,6 +315,14 @@ Deno.test("component labels and compact UI use the UI font", async () => {
   }
 });
 
+Deno.test("long styleguide token values stay inside their cards", async () => {
+  const css = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
+  );
+  assertMatch(css, /\.sg-token > div\s*\{[^}]*min-width:\s*0;/s);
+  assertMatch(css, /\.sg-token small\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
+});
+
 Deno.test("the one grain wash retains the reference motif", async () => {
   const css = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),

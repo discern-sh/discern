@@ -259,6 +259,9 @@
     border-radius: var(--ds-radius-md);
     background: var(--ds-color-surface);
   }
+  .sg-token > div {
+    min-width: 0;
+  }
   .sg-token__swatch,
   .sg-token__type,
   .sg-token__space,
@@ -319,11 +322,9 @@
   }
   .sg-token small {
     display: block;
-    overflow: hidden;
     color: var(--ds-color-ink-faint);
     font: 0.5625rem var(--ds-font-mono);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   .sg-component {
     overflow: hidden;
