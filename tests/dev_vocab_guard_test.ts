@@ -296,6 +296,7 @@ function isLaunchVocabularyRecord(rel: string): boolean {
       "src/lib/migrations.ts",
       "src/lib/version.ts",
       "tests/migrations_test.ts",
+      "tests/upgrade_migrations_test.ts",
       "tests/dev_vocab_guard_test.ts",
     ]).has(rel);
 }

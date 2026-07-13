@@ -397,7 +397,7 @@ const resourceValue = z.strictObject({
  * The Zod entry schema for each record-table family — the single source of truth
  * for the knobs a `[standards.<name>]` / `[checks.<name>]` / `[scopes.<name>]` /
  * `[worktree.resources.<name>]` table accepts. Keyed by record family so the
- * managed-banner guard (ADR 0107) can assert every knob is documented in that
+ * managed-banner guard (ADR 0138) can assert every knob is documented in that
  * family's banner — the only channel by which a newly-added knob reaches an
  * existing install. A field added here auto-enrols in that check.
  */

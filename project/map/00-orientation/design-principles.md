@@ -88,15 +88,16 @@ every default, and a path literal anywhere else in `src/**` fails the gate
 
 `discern` scaffolds into a repository you care about, so every command must be
 safe to run again. The ownership split makes this structural: _your_ files (the
-committed `discern.toml`, the merged `settings.json`/`.gitignore`, and the
 `discern/` namespace content — the guidance source, authored skills, Project
 Scripts, the map, the ledger, the brief, each config-pointable elsewhere) are
-written once by `setup` (or by you) and never touched again, so `upgrade` cannot
-clobber an edit. _The binary's_ files (the re-published artifacts — the
-materialized skills, the compiled agent files
-`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always safe to overwrite precisely
-because they are not yours to edit; they are rewritten on every recompile
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md),
+written once by `setup` (or by you) and never touched again. `discern.toml` and
+merged settings are _co-managed_: values and project comments remain yours,
+while missing fixed structure and clean ruled banners converge from the template
+([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)). _The
+binary's_ files (the re-published artifacts — the materialized skills, the
+compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always safe to
+overwrite precisely because they are not yours to edit; they are rewritten on
+every recompile ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md),
 [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Migrations
 are idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade
 stays revertible with `git checkout`.
@@ -105,15 +106,13 @@ stays revertible with `git checkout`.
 stop running — and an un-runnable `upgrade` means installs rot. Safety is what
 makes discern _upgradable_ rather than a one-shot scaffold.
 
-**How it shows up.** [upgrade.ts](../../../src/commands/upgrade.ts) never
-rewrites a committed seed: it runs pending config-schema migrations,
-re-materializes the bundled skills, recompiles guidance, and re-stamps
+**How it shows up.** [upgrade.ts](../../../src/commands/upgrade.ts) runs pending
+config-schema migrations, reconciles the config's fixed scaffold and ruled
+banners, re-materializes bundled skills, recompiles guidance, and re-stamps
 `[meta].schema_version` only after the migrated config validates
-([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)) —
-nothing else. There are no content hashes, no `.new` files, and no orphan
-reconciliation, because nothing the binary publishes is committed
-([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The clean-tree guard
-refuses a dirty tree without `--allow-dirty`
+([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). It
+does not rewrite project values or prose outside explicit managed regions. The
+clean-tree guard refuses a dirty tree without `--allow-dirty`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md)); every
 [migration](../../../src/lib/migrations.ts) step is written to no-op on a second
 run.

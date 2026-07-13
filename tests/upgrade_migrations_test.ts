@@ -106,6 +106,101 @@ async function upgradeCheckJsonIn(dir: string): Promise<{
   }
 }
 
+Deno.test("upgrade converges discern-owned banners through every top-level section rename", async () => {
+  const cases = [
+    {
+      name: "schema 17 ratchets to standards",
+      schema: 17,
+      oldBanner: "# [ratchets] —",
+      currentBanner: "# [standards] —",
+      makeOld: (current: string): string =>
+        current.replace("# [standards] —", "# [ratchets] —") +
+        '\n[ratchets.sample]\ndirection = "up"\nlimit = 1\nrun = "measure"\n',
+    },
+    {
+      name: "schema 18 docs to map",
+      schema: 18,
+      oldBanner: "# [docs] —",
+      currentBanner: "# [map] —",
+      makeOld: (current: string): string =>
+        current
+          .replace("# [map] —", "# [docs] —")
+          .replace("\n[map]\n", "\n[docs]\n"),
+    },
+    {
+      name: "schema 19 recipes to scripts",
+      schema: 19,
+      oldBanner: "# [recipes] —",
+      currentBanner: "# [scripts] —",
+      makeOld: (current: string): string =>
+        current
+          .replace("# [scripts] —", "# [recipes] —")
+          .replace("\n[scripts]\n", "\n[recipes]\n")
+          .replace('dir = "discern/scripts"', 'dir = "discern/recipes"'),
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      await setup(dir);
+      await setSchema(dir, testCase.schema);
+      const configPath = join(dir, "discern.toml");
+      const current = await Deno.readTextFile(configPath);
+      await Deno.writeTextFile(configPath, testCase.makeOld(current));
+
+      assertEquals(await upgradeIn(dir), 0, testCase.name);
+      const upgraded = await Deno.readTextFile(configPath);
+      assert(
+        !upgraded.includes(testCase.oldBanner),
+        `${testCase.name}: stale banner remains`,
+      );
+      assertStringIncludes(upgraded, testCase.currentBanner, testCase.name);
+
+      assertEquals(await upgradeIn(dir), 0, `${testCase.name}: second upgrade`);
+      assertEquals(
+        await Deno.readTextFile(configPath),
+        upgraded,
+        `${testCase.name}: second upgrade must be byte-stable`,
+      );
+    });
+  }
+});
+
+Deno.test("upgrade check detects and upgrade restores a missing fixed banner without touching key comments", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const configPath = join(dir, "discern.toml");
+    const current = await Deno.readTextFile(configPath);
+    const identity = current.indexOf("# [scripts] —");
+    const start = current.lastIndexOf("# ─", identity);
+    const close = current.indexOf("# ─", identity + 1);
+    const end = current.indexOf("\n", close);
+    assert(start >= 0 && close >= 0, "scripts banner should be present");
+    const afterBanner = end === -1 ? current.length : end + 1;
+    const projectComment = "# Project annotation attached to scripts.dir.";
+    const drifted = (current.slice(0, start) + current.slice(afterBanner))
+      .replace(
+        "[scripts]\n",
+        `[scripts]\n${projectComment}\n`,
+      );
+    await Deno.writeTextFile(configPath, drifted);
+
+    const check = await upgradeCheckJsonIn(dir);
+    assertEquals(check.code, 1);
+    assertEquals(JSON.parse(check.stdout).data.pending_reconciliation, [
+      { kind: "banner", path: "scripts" },
+    ]);
+
+    assertEquals(await upgradeIn(dir), 0);
+    const upgraded = await Deno.readTextFile(configPath);
+    assertStringIncludes(upgraded, "# [scripts] —");
+    assertStringIncludes(upgraded, projectComment);
+
+    assertEquals(await upgradeIn(dir), 0);
+    assertEquals(await Deno.readTextFile(configPath), upgraded);
+  });
+});
+
 Deno.test("upgrade refuses a config from a newer schema and does not stamp down", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);

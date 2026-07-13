@@ -1,6 +1,10 @@
 # ADR 0107: `upgrade` reconciles the record-table doc banners
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> **Superseded by [ADR 0138](../0138-all-ruled-config-banners-are-managed.md).**
+> Record-family banners remain managed; the successor makes every ruled fixed-
+> section banner part of the same ownership model.
+
+> **Vocabulary amendment ([ADR 0120](../0120-launch-verb-canon.md)):** Current
 > pointers use `ratchets` → `standards`; the decision and reasoning are
 > unchanged.
 

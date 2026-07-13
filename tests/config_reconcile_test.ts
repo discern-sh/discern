@@ -95,6 +95,113 @@ Deno.test("config reconciliation treats named record tables as project-owned", a
 
 const RULE = `# ${"─".repeat(77)}`;
 
+Deno.test("fixed-section banner reconciliation owns the ruled region and preserves project comments outside it", () => {
+  // An unrelated future fixed section: enrollment comes from the template's
+  // section/banner structure, never a production-name allowlist.
+  const template = [
+    RULE,
+    "# [telemetry_hub] — canonical section documentation.",
+    "# Canonical detail.",
+    RULE,
+    "",
+    "[telemetry_hub]",
+    "# Canonical key comment.",
+    'mode = "default"',
+  ].join("\n");
+  const config = [
+    "# Project note outside the ruled region.",
+    RULE,
+    "# [retired_name] — stale section documentation.",
+    "# Project prose inside the ruled region is replaceable.",
+    RULE,
+    "",
+    "[telemetry_hub]",
+    "# Project annotation attached to this key.",
+    'mode = "custom"',
+  ].join("\n");
+
+  const result = reconcileConfigTextWithTemplate(config, template);
+
+  assertEquals(result.operations, [{ kind: "banner", path: "telemetry_hub" }]);
+  assertStringIncludes(result.text, "# [telemetry_hub] — canonical");
+  assert(!result.text.includes("# [retired_name]"));
+  assert(!result.text.includes("inside the ruled region is replaceable"));
+  assertStringIncludes(result.text, "# Project note outside the ruled region.");
+  assertStringIncludes(
+    result.text,
+    "# Project annotation attached to this key.",
+  );
+  assertStringIncludes(result.text, 'mode = "custom"');
+
+  const again = reconcileConfigTextWithTemplate(result.text, template);
+  assertEquals(again.operations, []);
+  assertEquals(again.text, result.text);
+});
+
+Deno.test("fixed-section banner reconciliation restores an absent ruled region without moving key comments", () => {
+  const template = [
+    RULE,
+    "# [telemetry_hub] — canonical section documentation.",
+    RULE,
+    "",
+    "[telemetry_hub]",
+    'mode = "default"',
+  ].join("\n");
+  const config = [
+    "# Project section note outside any ruled region.",
+    "[telemetry_hub]",
+    "# Project annotation attached to this key.",
+    'mode = "custom"',
+  ].join("\n");
+
+  const result = reconcileConfigTextWithTemplate(config, template);
+
+  assertEquals(result.operations, [{ kind: "banner", path: "telemetry_hub" }]);
+  assertStringIncludes(result.text, "# [telemetry_hub] — canonical");
+  assertStringIncludes(
+    result.text,
+    "# Project section note outside any ruled region.",
+  );
+  assertStringIncludes(
+    result.text,
+    "# Project annotation attached to this key.",
+  );
+  assertStringIncludes(result.text, 'mode = "custom"');
+});
+
+Deno.test("a missing fixed banner never consumes the managed record banner before it", () => {
+  const standardsBanner = [
+    RULE,
+    "# [standards] — managed record documentation.",
+    RULE,
+  ].join("\n");
+  const gateBanner = [
+    RULE,
+    "# [gate] — canonical fixed documentation.",
+    RULE,
+  ].join("\n");
+  const template = [
+    standardsBanner,
+    "",
+    gateBanner,
+    "",
+    "[gate]",
+    "stream = false",
+  ].join("\n");
+  const config = [
+    standardsBanner,
+    "",
+    "[gate]",
+    "stream = false",
+  ].join("\n");
+
+  const result = reconcileConfigTextWithTemplate(config, template);
+
+  assertStringIncludes(result.text, standardsBanner);
+  assertStringIncludes(result.text, gateBanner);
+  assertEquals(result.operations, [{ kind: "banner", path: "gate" }]);
+});
+
 /** A minimal template + config pair sharing a [standards] managed banner, so the
  * banner pass can be exercised in isolation from the real template's churn. */
 function standardsFixture(templateBanner: string, configBanner: string): {

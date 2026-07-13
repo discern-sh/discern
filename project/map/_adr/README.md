@@ -118,7 +118,6 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0104 — `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only](0104-uninstall-is-the-exit-honesty-verb.md)
 - [0105 — Interruption reaches the gate's detached job groups](0105-interruption-reaches-detached-gate-jobs.md)
 - [0106 — `standards --pin` captures a measured gain and carries the gate receipt across it](0106-standards-pin-carries-the-gate-receipt.md)
-- [0107 — `upgrade` reconciles the record-table doc banners](0107-config-banners-are-managed-regions.md)
 - [0108 — One global timeout bounds every gate job](0108-gate-job-timeout.md)
 - [0109 — `discern start` accepts an optional name, normalised to a branch-safe slug](0109-worktree-start-optional-name.md)
 - [0110 — The landing model — pull from any ref, land only on the trunk](0110-the-landing-model.md)
@@ -144,6 +143,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0135 — Site pages use build-time React and a static runtime](0135-site-pages-use-build-time-react-and-static-runtime.md)
 - [0136 — Third-party notices derive from the compile graph](0136-third-party-notices-derive-from-the-compile-graph.md)
 - [0137 — Project scripts live under the `script` command](0137-project-scripts-live-under-the-script-command.md)
+- [0138 — All ruled config banners are managed regions](0138-all-ruled-config-banners-are-managed.md)
 
 ## Superseded and consolidated ADRs
 
@@ -187,3 +187,5 @@ without cluttering the active index above.
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
   — reverted because detecting user authorship inside ignored generated files
   produced false rescues for old generated output
+- [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
+  — absorbed by the all-ruled-banner ownership model (0138)

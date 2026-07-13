@@ -212,13 +212,16 @@ so a write anywhere else fails the gate.
 ### Co-managed seed
 
 `discern.toml`, the single root config file, and the discern-owned block inside
-`.gitignore`. The project owns config values and named record tables
-(`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`,
-`[worktree.resources.<name>]`), but `discern upgrade` owns the fixed scaffold:
-it runs versioned migrations and restores missing non-record sections/keys from
-the current template, with comments and canonical placement. Existing values are
-never rewritten by scaffold reconciliation
-([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
+`.gitignore`. The project owns config values, named record tables, and comments
+outside ruled banners (`[checks.<name>]`, `[scopes.<name>]`,
+`[standards.<name>]`, `[worktree.resources.<name>]`), but `discern upgrade` owns
+the fixed scaffold: it runs versioned migrations and restores missing non-record
+sections/keys from the current template, with comments and canonical placement.
+Every clean ruled banner is a managed region replaced from that template;
+comments attached to keys remain project-owned. Existing values are never
+rewritten by scaffold reconciliation
+([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md),
+[ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)).
 
 For `.gitignore`, the project owns everything outside the `# --- discern ---` /
 `# --- /discern ---` block. `upgrade` reconciles only that block to the current

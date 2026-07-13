@@ -1,5 +1,10 @@
 # ADR 0092: `upgrade` reconciles the fixed `discern.toml` scaffold
 
+> **Banner ownership amendment
+> ([ADR 0138](0138-all-ruled-config-banners-are-managed.md)):** ruled
+> fixed-section banners now refresh wholesale; comments attached to keys and
+> comments outside those regions remain project-owned.
+
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
 > pointers use `ratchets` → `standards`, the retired product-category wording →
 > `discern`, the gate, or the bar; the decision and reasoning are unchanged.

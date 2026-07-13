@@ -185,9 +185,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     .operations.map(gitignoreOperationToJson);
 
   // --check: report whether config migrations are pending. There is no managed
-  // scaffold drift once the schema is current — an install is current iff both
-  // its schema, its fixed config scaffold, and its discern-owned .gitignore block
-  // match this build.
+  // scaffold drift once the schema is current — an install is current iff its
+  // schema, fixed config scaffold, managed banners, and discern-owned .gitignore
+  // block match this build.
   if (options.check) {
     const ok = pending.length === 0 &&
       currentReconciliation.operations.length === 0 &&
@@ -227,7 +227,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       }
       if (currentReconciliation.operations.length > 0) {
         log.error(
-          "Install config scaffold is missing current template defaults.",
+          "Install config scaffold or managed banners differ from the current template.",
         );
         for (const op of currentReconciliation.operations) {
           log.detail(operationLabel(op));

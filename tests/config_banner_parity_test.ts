@@ -1,5 +1,5 @@
 /**
- * Forcing-function guard (ADR 0107): every knob a record-table entry accepts must
+ * Forcing-function guard (ADR 0138): every knob a record-table entry accepts must
  * be documented in that family's MANAGED BANNER — the only channel by which a
  * newly-added knob reaches an existing install, since scaffold reconciliation
  * never key-backfills a project-owned record table. Driven off the single sources

@@ -17,6 +17,7 @@ import {
   keyBlockFromTemplate,
   managedBannersFromTemplate,
   readConfigTemplate,
+  renameRuledBannerIdentity,
   scanManagedBanners,
   sectionBlockFromTemplate,
   sectionKeyNamesFromTemplate,
@@ -236,6 +237,29 @@ Deno.test("readConfigTemplate resolves the bundled template", async () => {
 });
 
 const RULE = `# ${"─".repeat(77)}`;
+
+Deno.test("renameRuledBannerIdentity updates an unrelated future identity but preserves ordinary comments", () => {
+  const text = [
+    RULE,
+    "# [legacy_console.jobs] — managed documentation",
+    RULE,
+    "",
+    "# legacy_console stays ordinary project prose here",
+    "[legacy_console.jobs.build]",
+  ].join("\n");
+
+  const renamed = renameRuledBannerIdentity(
+    text,
+    "legacy_console",
+    "operator_desk",
+  );
+
+  assertStringIncludes(renamed, "# [operator_desk.jobs] —");
+  assertStringIncludes(
+    renamed,
+    "# legacy_console stays ordinary project prose here",
+  );
+});
 
 Deno.test("managedBannersFromTemplate finds a ruled banner for every record family", async () => {
   const banners = managedBannersFromTemplate(

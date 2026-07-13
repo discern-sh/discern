@@ -26,6 +26,7 @@ import { mergeSettings } from "./settings_merge.ts";
 import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import {
   readConfigTemplate,
+  renameRuledBannerIdentity,
   sectionBlockFromTemplate,
 } from "./config_template.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -86,13 +87,15 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Rename one top-level TOML key without touching comments, strings, or a same-named
- * key nested under another table. Covers the legal spellings discern configs use:
+ * Rename one top-level TOML key without touching ordinary comments, strings, or a
+ * same-named key nested under another table. Covers the legal spellings discern configs use:
  * a table family (`[old]`, `[old.name]`), a root dotted key, and a root inline
  * table. Single- and double-quoted key tokens retain their quote style.
  *
  * Kept generic because launch vocabulary changes more than one config table; one
- * comment-preserving implementation should carry all of them.
+ * comment-preserving implementation should carry all of them. A clean ruled
+ * banner whose identity names the pre-rename path is discern-owned, so its identity is
+ * renamed too; the later reconciliation pass replaces the whole managed region.
  */
 function renameTopLevelTomlKey(
   text: string,
@@ -120,13 +123,14 @@ function renameTopLevelTomlKey(
 
   // Table headers may occur anywhere after root assignments. The lookahead keeps
   // the match on the first path segment only, including a bare `[old]` header.
-  return (root + rest).replace(
+  const renamed = (root + rest).replace(
     new RegExp(
       `^(\\s*\\[{1,2}\\s*)(${spelling})(?=\\s*(?:\\.|\\]{1,2}))`,
       "gmu",
     ),
     (_match, prefix: string, key: string) => `${prefix}${rewriteSpelling(key)}`,
   );
+  return renameRuledBannerIdentity(renamed, from, to);
 }
 
 /**

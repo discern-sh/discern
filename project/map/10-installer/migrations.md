@@ -20,9 +20,11 @@ refuses a config stamped by a newer binary rather than silently downgrading it.
 - **Clean-tree gated.** The migration runner refuses a dirty tree without
   `--allow-dirty` ([ADR 0014](../_adr/0014-versioned-migration-system.md)), so
   every upgrade is revertible with `git checkout`.
-- **Comment-preserving.** Config edits go through the
-  [`TomlEditor`](../../../src/lib/toml_edit.ts), so a user's comments and layout
-  survive.
+- **Ownership-preserving.** Config edits keep project comments and layout. A
+  top-level rename also updates the identity inside a clean ruled banner because
+  that region belongs to discern; the later reconciliation pass replaces it from
+  the current template. Comments outside those delimiters survive
+  ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)).
 - **Write-surface bound.** Steps mutate files through the `MigrationContext`
   helpers (write / remove / rename / rewrite / config-edit / settings-merge),
   whose targets are the registry's legacy and default paths plus the config and

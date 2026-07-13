@@ -40,6 +40,7 @@ const HISTORICAL_FIXTURES = join(
   "historical-installs",
 );
 const HISTORICAL_FIXTURE_RE = /^schema-(\d+)$/;
+const CONFIG_RULE = `# ${"─".repeat(77)}`;
 
 const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
   // Covered by "migration 1→2 backfills [project].main_branch when the config predates it".
@@ -781,7 +782,11 @@ Deno.test("migration 17→18 renames [ratchets] to [standards] in every supporte
   const cases = [
     {
       name: "table family",
-      text: "# ratchets remains ordinary English in a comment\n" +
+      text: `${CONFIG_RULE}\n` +
+        "# [ratchets] — managed quality-metric documentation\n" +
+        "# stale managed detail\n" +
+        `${CONFIG_RULE}\n\n` +
+        "# ratchets remains ordinary English in a comment\n" +
         "[ratchets.coverage]\n" +
         'direction = "up"\nlimit = 80\nrun = "printf ratchets"\n',
     },
@@ -835,6 +840,8 @@ Deno.test("migration 17→18 renames [ratchets] to [standards] in every supporte
       );
 
       if (testCase.name === "table family") {
+        assertStringIncludes(after, "# [standards] —");
+        assert(!after.includes("# [ratchets] —"));
         assertStringIncludes(after, "# ratchets remains ordinary English");
         assertStringIncludes(after, 'run = "printf ratchets"');
       }

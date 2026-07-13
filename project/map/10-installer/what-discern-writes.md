@@ -46,9 +46,10 @@ points it at documentation you curate yourself.
 These are tracked files discern shares with you. It owns a delimited region and
 leaves the rest alone.
 
-- **`discern.toml`** — the one root file, your configuration. discern owns a
-  fixed scaffold of documented sections and keys (restored if missing on
-  `upgrade`) and never touches the values you set.
+- **`discern.toml`** — the one root file, your configuration. discern restores
+  missing fixed sections and keys and replaces every clean ruled banner from the
+  current template. It never touches the values you set or comments outside
+  those delimiters, including comments attached to individual keys.
 - **The `.gitignore` block** — one delimited `# --- discern ---` block listing
   discern's generated artifacts. Your own ignore rules outside the block are
   untouched.

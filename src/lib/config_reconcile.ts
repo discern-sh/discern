@@ -4,17 +4,20 @@
  *
  * Versioned migrations transform behaviour. This pass handles the quieter class
  * of drift: a current-schema config can still be missing a documented section or
- * fixed key that a fresh setup would show. The template remains the source of
- * the comments and placement; existing values are never rewritten.
+ * fixed key, or carry a stale ruled banner. The template remains the source of
+ * managed banner prose and scaffold placement; existing values and comments
+ * outside ruled regions are never rewritten.
  */
 
 import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import { TomlEditor } from "./toml_edit.ts";
 import {
+  fixedSectionBannersFromTemplate,
   keyBlockFromTemplate,
   managedBannersFromTemplate,
   readConfigTemplate,
   scanManagedBanners,
+  scanRuledBanners,
   sectionBlockFromTemplate,
   sectionKeyNamesFromTemplate,
   sectionNamesFromTemplate,
@@ -42,7 +45,7 @@ export interface ConfigReconcileResult {
 
 /** The user-populated record tables whose named entries are project-owned
  * population — never key-backfilled by scaffold reconciliation, and the families
- * whose shape-doc banners it manages instead (ADR 0107). */
+ * whose shape-doc banners it manages instead (ADR 0138). */
 export const RECORD_CONFIG_PATHS = [
   "checks",
   "scopes",
@@ -89,6 +92,23 @@ function sectionHeaders(text: string): Set<string> {
     }
   }
   return out;
+}
+
+/** Active section headers and their first line index. */
+function sectionHeaderLines(text: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [index, line] of text.split("\n").entries()) {
+    const section = line.match(/^\s*\[([^\]]+)\]/)?.[1]?.trim();
+    if (section !== undefined && !out.has(section)) {
+      out.set(section, index);
+    }
+  }
+  return out;
+}
+
+/** True for a blank (whitespace-only) line. */
+function isBlank(line: string): boolean {
+  return line.trim() === "";
 }
 
 /** Active scalar/array key paths from the rendered template, skipping records. */
@@ -148,7 +168,7 @@ export function renderConfigTemplateForConfig(
  * shape-doc banner to the current template. The named tables a banner documents —
  * and their own comments — live OUTSIDE the banner rules, so they are never
  * touched; only discern's documentation prose between the `# ───` rules is
- * refreshed (ADR 0107). Splices bottom-up so earlier spans' line indices stay
+ * refreshed (ADR 0138). Splices bottom-up so earlier spans' line indices stay
  * valid; reports the resulting operations top-down for readable output.
  */
 function reconcileManagedBanners(
@@ -186,6 +206,100 @@ function reconcileManagedBanners(
   return { text: lines.join("\n"), operations };
 }
 
+/**
+ * Reconcile every ruled banner that belongs to a fixed section. Existing regions
+ * are associated by the live section immediately following their closing rule,
+ * not by their possibly-stale identity, so a renamed banner still converges. A
+ * missing region is inserted directly before the section. Comments outside the
+ * rules — including comments attached to keys inside the section — are untouched.
+ */
+function reconcileFixedSectionBanners(
+  configText: string,
+  banners: Map<string, string>,
+): { text: string; operations: ConfigReconcileOperation[] } {
+  if (banners.size === 0) {
+    return { text: configText, operations: [] };
+  }
+  const lines = configText.split("\n");
+  const headerLines = sectionHeaderLines(configText);
+  const bannerSections = new Set(banners.keys());
+  const attached = new Map<string, { start: number; end: number }>();
+  for (const span of scanRuledBanners(configText)) {
+    if (isUnderRecordPath(span.identity)) {
+      continue; // a missing fixed banner must not consume an adjacent record banner
+    }
+    if (bannerSections.has(span.identity)) {
+      if (!attached.has(span.identity)) {
+        attached.set(span.identity, { start: span.start, end: span.end });
+      }
+      continue; // a current identity owns its region even if section order drifted
+    }
+    let next = span.end + 1;
+    while (next < lines.length && isBlank(lines[next] ?? "")) {
+      next++;
+    }
+    const section = (lines[next] ?? "").match(/^\s*\[([^\]]+)\]/)?.[1]
+      ?.trim();
+    if (
+      section !== undefined && bannerSections.has(section) &&
+      !attached.has(section)
+    ) {
+      attached.set(section, { start: span.start, end: span.end });
+    }
+  }
+
+  const changes: Array<{
+    section: string;
+    position: number;
+    header: number;
+    span?: { start: number; end: number };
+    canonical: string;
+  }> = [];
+  for (const [section, canonical] of banners) {
+    const header = headerLines.get(section);
+    if (header === undefined) {
+      continue; // the structural pass owns a wholly missing section
+    }
+    const span = attached.get(section);
+    if (
+      span !== undefined &&
+      lines.slice(span.start, span.end + 1).join("\n") === canonical
+    ) {
+      continue;
+    }
+    changes.push({
+      section,
+      position: span?.start ?? header,
+      header,
+      ...(span === undefined ? {} : { span }),
+      canonical,
+    });
+  }
+
+  for (const change of [...changes].sort((a, b) => b.position - a.position)) {
+    const canonical = change.canonical.split("\n");
+    if (change.span !== undefined) {
+      lines.splice(
+        change.span.start,
+        change.span.end - change.span.start + 1,
+        ...canonical,
+      );
+      continue;
+    }
+    const prefix = change.header > 0 && !isBlank(lines[change.header - 1] ?? "")
+      ? [""]
+      : [];
+    lines.splice(change.header, 0, ...prefix, ...canonical, "");
+  }
+
+  return {
+    text: lines.join("\n"),
+    operations: changes
+      .sort((a, b) => a.position - b.position)
+      .map((change) => ({ kind: "banner", path: change.section })),
+  };
+}
+
 /** Reconcile `configText` using an already-rendered current template. */
 export function reconcileConfigTextWithTemplate(
   configText: string,
@@ -198,7 +312,11 @@ export function reconcileConfigTextWithTemplate(
     RECORD_CONFIG_PATHS,
   );
   const bannerPass = reconcileManagedBanners(configText, banners);
-  const baseText = bannerPass.text;
+  const fixedBannerPass = reconcileFixedSectionBanners(
+    bannerPass.text,
+    fixedSectionBannersFromTemplate(renderedTemplate),
+  );
+  const baseText = fixedBannerPass.text;
 
   const currentRaw = parseDiscernToml(baseText).raw;
   const templateRaw = parseDiscernToml(renderedTemplate).raw;
@@ -222,6 +340,7 @@ export function reconcileConfigTextWithTemplate(
 
   const operations: ConfigReconcileOperation[] = [
     ...bannerPass.operations,
+    ...fixedBannerPass.operations,
     ...missingSections.map((path) => ({ kind: "section" as const, path })),
     ...missingKeys.map((path) => ({ kind: "key" as const, path })),
   ];
