@@ -45,3 +45,28 @@ design-system or page inputs change.
 - `assets/fonts.css` — optional local font faces matching the typography roles.
 - Components can also be reproduced as semantic HTML using the documented
   `.ds-*` classes; React is an adapter rather than a CSS dependency.
+
+## Authoring a page from this directory
+
+This directory is the complete visual handoff. A page author should not need an
+existing page or mock-up to recover component decisions:
+
+1. Run `deno task build`. Load `assets/fonts.css` when using the bundled faces,
+   followed by `dist/discern.css`.
+2. Put `data-ds-root` on the page boundary and set `data-ds-theme="light"` or
+   `"dark"` there.
+3. Import React adapters and public types only from `src/mod.ts`. Start page
+   structure with `Section`, `Container`, `Stack`, `Cluster`, and `Grid`.
+4. Use `Heading` for document and section headlines. Card descendants use the UI
+   title role automatically; its size is `--ds-font-size-card-title` in
+   `src/tokens/tokens.ts`.
+5. For each component, read its `*.meta.ts` for intent and accessibility, its
+   `*.tsx` for the exhaustive prop contract, and its `*.examples.tsx` for a
+   representative composition. The same examples are generated into the local
+   catalogue.
+6. Add consumer classes for page-specific composition. Do not restyle a
+   component-owned `.ds-*` selector; visual variants belong in the component.
+
+Stateful catalogue components still need an explicit browser-runtime strategy
+when a consumer is rendered to static HTML. That is a page architecture choice,
+not an implicit dependency of the visual system.
