@@ -147,7 +147,7 @@ export async function handler(req: Request): Promise<Response> {
 
   if (path === "/llms.txt") return await llmsTxt();
 
-  if (path === "/docs" || path.startsWith("/docs/")) {
+  if (path === "/docs" || path === "/docs.md" || path.startsWith("/docs/")) {
     return await serveDocs(path, wantsText(req));
   }
 

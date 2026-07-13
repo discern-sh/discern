@@ -101,6 +101,11 @@ Deno.test("the /docs index lists every section for both readers", async () => {
     assertStringIncludes(html, `href="${section.index.route}"`, section.dir);
     assertStringIncludes(md, section.title, section.dir);
   }
+
+  // The index honours the .md suffix like every leaf does.
+  const asSuffix = await get("/docs.md", BROWSER);
+  assertEquals(asSuffix.status, 200);
+  assertEquals(await asSuffix.text(), md);
 });
 
 Deno.test("unpublished tiers never surface under /docs", async () => {
