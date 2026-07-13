@@ -44,6 +44,7 @@ body {
   background: var(--ds-color-surface);
   color: var(--ds-color-accent-700);
   font: 600 0.8125rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
   translate: 0 calc(-100% - 20px);
   transition: translate var(--ds-duration-fast) var(--ds-ease-out);
@@ -128,6 +129,7 @@ body {
   color: var(--ds-color-ink-faint);
   cursor: pointer;
   font: 500 0.8125rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   transition:
     border-color var(--ds-duration-fast),
     color var(--ds-duration-fast);
@@ -212,6 +214,7 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
   border-left: 2px solid transparent;
   color: var(--ds-color-ink-muted);
   font: 400 0.8125rem/1.5 var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
   transition:
     color var(--ds-duration-fast),
@@ -281,6 +284,7 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
   border-left: 2px solid transparent;
   color: var(--ds-color-ink-faint);
   font: 400 0.75rem/1.55 var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
   transition:
     color var(--ds-duration-fast),
@@ -394,6 +398,7 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
 .doc-body h4 {
   margin: var(--ds-space-6) 0 var(--ds-space-2);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: var(--ds-font-size-md);
   font-weight: 600;
   letter-spacing: normal;
@@ -583,6 +588,7 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
   background: var(--ds-color-surface-sunken);
   color: var(--ds-color-ink-muted);
   font: 600 0.75rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   letter-spacing: 0.03em;
   text-align: left;
 }
@@ -696,6 +702,7 @@ a.docs-pager-cell:hover {
   border-top: 1px solid var(--ds-color-border);
   color: var(--ds-color-ink-faint);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: var(--ds-font-size-xs);
 }
 
@@ -815,6 +822,7 @@ a.docs-pager-cell:hover {
 .docs-chapter-leaves a {
   color: var(--ds-color-accent-700);
   font: 600 0.875rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
 }
 
@@ -897,6 +905,7 @@ a.docs-pager-cell:hover {
   display: block;
   color: var(--ds-color-ink);
   font: 500 0.875rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
 }
 
 .docs-search-path {
@@ -910,6 +919,7 @@ a.docs-pager-cell:hover {
   padding: 18px 16px;
   color: var(--ds-color-ink-faint);
   font: 400 0.8125rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
 }
 
 .docs-search-hint {

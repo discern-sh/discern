@@ -46,6 +46,12 @@ design-system or page inputs change.
 - Components can also be reproduced as semantic HTML using the documented
   `.ds-*` classes; React is an adapter rather than a CSS dependency.
 
+The body and UI family roles remain separate tokens even though both currently
+resolve to Inter. UI rules pair `--ds-font-ui` with `--ds-font-features-ui`;
+body copy does not inherit that interface-specific OpenType set. The bundled
+provider therefore ships one Inter face for both roles, alongside Crimson Pro
+for display type and JetBrains Mono for code.
+
 ## Authoring a page from this directory
 
 This directory is the complete visual handoff. A page author should not need an

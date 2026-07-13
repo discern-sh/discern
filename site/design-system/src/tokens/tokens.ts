@@ -65,9 +65,15 @@ export const designTokens = [
   ),
   token(
     "--ds-font-ui",
-    '"IBM Plex Sans", system-ui, "Helvetica Neue", sans-serif',
+    '"Inter", "Helvetica Neue", system-ui, sans-serif',
     "Typography",
     "Dense interface chrome face.",
+  ),
+  token(
+    "--ds-font-features-ui",
+    "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
+    "Typography",
+    "OpenType features for interface chrome.",
   ),
   token(
     "--ds-font-size-xs",

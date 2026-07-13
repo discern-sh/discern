@@ -79,6 +79,7 @@
     border-radius: var(--ds-radius-sm);
     color: var(--ds-color-ink-muted);
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.8125rem;
     text-decoration: none;
   }
@@ -144,6 +145,7 @@
     background: transparent;
     color: var(--ds-color-ink);
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.8125rem;
   }
   .sg-theme {
@@ -156,6 +158,7 @@
     color: var(--ds-color-ink-muted);
     cursor: pointer;
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.75rem;
   }
   .sg-main {
@@ -348,6 +351,7 @@
   .sg-component > header h4 {
     margin: 0 0 3px;
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.9375rem;
   }
   .sg-component header p {
@@ -359,6 +363,7 @@
     flex: none;
     color: var(--ds-color-ink-muted);
     font: 0.6875rem var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     text-decoration: none;
   }
   .sg-component__canvas {

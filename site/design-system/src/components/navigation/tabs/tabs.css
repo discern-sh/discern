@@ -14,6 +14,7 @@
     color: var(--ds-color-ink-muted);
     cursor: pointer;
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.8125rem;
     font-weight: 500;
   }

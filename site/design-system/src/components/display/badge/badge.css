@@ -13,6 +13,7 @@
     background: var(--ds-badge-bg);
     color: var(--ds-badge-text);
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: var(--ds-font-size-xs);
     font-weight: 600;
     line-height: 1.2;

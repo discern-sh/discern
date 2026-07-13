@@ -18,6 +18,7 @@
     color: var(--ds-button-text);
     cursor: pointer;
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: 0.9375rem;
     font-weight: 600;
     line-height: 1;

@@ -10,6 +10,7 @@
     background: var(--ds-color-surface-sunken);
     color: var(--ds-color-ink-muted);
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: var(--ds-font-size-xs);
     line-height: 1.3;
   }

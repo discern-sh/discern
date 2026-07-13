@@ -94,6 +94,7 @@ body[data-ds-root] {
 .demo-nav a {
   color: var(--ds-color-ink-muted);
   font: 0.78rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
 }
 
@@ -113,6 +114,7 @@ body[data-ds-root] {
   color: var(--ds-color-ink-muted);
   cursor: pointer;
   font: 0.7rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
 }
 
 .demo-theme:hover,
@@ -262,6 +264,7 @@ body[data-ds-root] {
 .demo-flow__step h3 {
   margin: var(--ds-space-6) 0 var(--ds-space-3);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: var(--ds-font-size-display-sm);
   font-weight: 600;
 }
@@ -280,6 +283,7 @@ body[data-ds-root] {
 .demo-stat {
   color: var(--ds-color-accent-600);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: 2.6rem;
   font-weight: 600;
   line-height: 1;

@@ -157,6 +157,21 @@ function componentOwnedSelectors(
   return [...selectors].sort();
 }
 
+function leafDeclarationBlocks(source: string): string[] {
+  const starts: number[] = [];
+  const blocks: string[] = [];
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index];
+    if (character === "{") starts.push(index + 1);
+    if (character !== "}") continue;
+    const start = starts.pop();
+    if (start === undefined) continue;
+    const declarations = source.slice(start, index);
+    if (!declarations.includes("{")) blocks.push(declarations);
+  }
+  return blocks;
+}
+
 Deno.test("generated public site outputs are ignored and absent from Git", async () => {
   const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
     join("site", output)
@@ -411,9 +426,16 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   const tokens = new Map(
     designTokens.map((token) => [token.name, token.value]),
   );
+  const interStack = '"Inter", "Helvetica Neue", system-ui, sans-serif';
   assertEquals(
     tokens.get("--ds-font-display"),
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
+  );
+  assertEquals(tokens.get("--ds-font-body"), interStack);
+  assertEquals(tokens.get("--ds-font-ui"), interStack);
+  assertEquals(
+    tokens.get("--ds-font-features-ui"),
+    "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
   );
   assertEquals(
     tokens.get("--ds-font-mono"),
@@ -441,6 +463,28 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     join(COMPONENT_ROOT, "display", "heading", "heading.css"),
   );
   assert(!headingCss.includes("text-wrap"));
+});
+
+Deno.test("every authored UI font rule enables the shared Inter features", async () => {
+  const tracked = await git(["ls-files", "--", "site"]);
+  assertEquals(tracked.code, 0);
+  const cssFiles = new TextDecoder().decode(tracked.stdout).trim().split("\n")
+    .filter((path) => path.endsWith(".css"));
+  const violations: string[] = [];
+  for (const path of cssFiles) {
+    const source = await Deno.readTextFile(join(ROOT, path));
+    for (const declarations of leafDeclarationBlocks(source)) {
+      if (
+        declarations.includes("var(--ds-font-ui)") &&
+        !declarations.includes(
+          "font-feature-settings: var(--ds-font-features-ui);",
+        )
+      ) {
+        violations.push(path);
+      }
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("component labels and compact UI use the UI font", async () => {
@@ -558,15 +602,32 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
     );
   }
 
-  const fonts = await walk(join(PUBLIC_ROOT, "fonts"));
-  assertEquals(fonts.length, 5);
+  const fontRoot = join(PUBLIC_ROOT, "fonts");
+  const fonts = await walk(fontRoot);
+  assertEquals(
+    fonts.map((font) => relative(fontRoot, font)).toSorted(),
+    [
+      "crimson-pro-italic.woff2",
+      "crimson-pro-roman.woff2",
+      "inter.woff2",
+      "jetbrains-mono.woff2",
+    ],
+  );
   for (const font of fonts) {
     const bytes = await Deno.readFile(font);
     assertEquals(new TextDecoder().decode(bytes.slice(0, 4)), "wOF2", font);
   }
 
-  const licences = await walk(join(PUBLIC_ROOT, "licenses"));
-  assertEquals(licences.length, 4);
+  const licenceRoot = join(PUBLIC_ROOT, "licenses");
+  const licences = await walk(licenceRoot);
+  assertEquals(
+    licences.map((licence) => relative(licenceRoot, licence)).toSorted(),
+    [
+      "Crimson-Pro-OFL.txt",
+      "Inter-OFL.txt",
+      "JetBrains-Mono-OFL.txt",
+    ],
+  );
   for (const licence of licences) {
     assertStringIncludes(
       await Deno.readTextFile(licence),
@@ -578,6 +639,7 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
     join(AUTHORED_ASSET_ROOT, "fonts.css"),
   );
   assert(!/https?:\/\//.test(provider));
+  assert(!provider.includes("IBM Plex Sans"));
   const styleguide = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "styleguide", "index.html"),
   );
