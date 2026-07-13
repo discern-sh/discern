@@ -13,7 +13,9 @@ Everything lives under [`site/`](../../site/):
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [`site/serve.ts`](../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
 | [`site/main.ts`](../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
+| [`site/dev.ts`](../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
 | [`site/build.ts`](../../site/build.ts)                 | Deterministically builds the design-system runtime and static demo page.  |
+| [`site/build_inputs.ts`](../../site/build_inputs.ts)   | The authored input boundary that automatically triggers a watched build.  |
 | [`site/docs.ts`](../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/pages/`](../../site/pages/)                     | Hand-authored editions and ignored build output served by the handler.    |
 | [`site/design-system/`](../../site/design-system/)     | Typed tokens, components, CSS, metadata, examples, and local catalogue.   |
@@ -56,6 +58,9 @@ auto-enrol a new map leaf.
 guards the ignored/untracked output boundary, rebuilds the design-system
 runtime, and checks local-only assets, component enrolment, fonts, and the
 static demo.
+[`tests/site_development_test.ts`](../../tests/site_development_test.ts) guards
+loopback-only development servers, the browser-facing localhost URL, and the
+source boundary used by watch mode.
 
 ## Operating it
 

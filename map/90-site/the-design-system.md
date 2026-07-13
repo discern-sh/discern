@@ -40,6 +40,7 @@ deno task site:build             # static public demo + runtime CSS
 deno task design-system:build    # local component catalogue bundle
 deno task design-system:verify   # subsystem check, build, and tests
 deno task site                   # build, then serve on localhost:4507
+deno task watch                  # serve and rebuild when authored inputs change
 ```
 
 The library build discovers every `*.meta.ts` file. Its component folder must

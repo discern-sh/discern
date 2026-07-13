@@ -9,17 +9,22 @@ production serves.
 
 ```sh
 deno task site                    # http://localhost:4507
+deno task watch                   # same URL; rebuild when authored inputs change
 deno task site:build
-deno serve --allow-read --port 9000 site/serve.ts   # any other port, after build
+deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after build
 ```
 
 The `site` task first runs `site:build`, which deterministically creates the
-ignored design-system demo HTML and assets, then runs `deno serve`, which
-consumes the handler's default `{ fetch }` export. Deno Deploy runs the same
-build task before it starts the handler through a `Deno.serve` entrypoint,
-[`site/main.ts`](../../site/main.ts) — because the new Deno Deploy runs an
-entrypoint with `deno run` (see below). A build failure stops the deployment
-before the revision receives traffic.
+ignored design-system demo HTML and assets, then serves the same handler on the
+loopback-only `http://localhost:4507/`. The `watch` task does the same initial
+build, then rebuilds in a fresh Deno process when page sources, design-system
+sources or assets, or build configuration changes. A failed watched rebuild is
+reported and the watcher remains ready for the correcting edit.
+
+Deno Deploy runs the same build task before it starts the handler through a
+`Deno.serve` entrypoint, [`site/main.ts`](../../site/main.ts) — because the new
+Deno Deploy runs an entrypoint with `deno run` (see below). A build failure
+stops the deployment before the revision receives traffic.
 
 Check both readers:
 

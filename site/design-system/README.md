@@ -15,7 +15,8 @@ live in `site/page-src/`.
 
 From the repository root, `deno task site:build` uses these adapters only at
 build time to generate static public HTML and CSS. No React runtime ships with
-the landing-page demo.
+the landing-page demo. `deno task watch` serves that demo on localhost and
+rebuilds it when authored design-system or page inputs change.
 
 ## Source rules
 

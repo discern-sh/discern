@@ -28,7 +28,7 @@
     "check": "deno fmt --config deno.json --check . ../build.ts ../page-src && deno lint --no-config src styleguide scripts tests ../build.ts ../page-src && deno check --config deno.json src/mod.ts scripts/build.ts ../build.ts ../page-src/design-system-demo.tsx",
     "check:catalogue": "deno check --config deno.json styleguide/app.tsx",
     "fix": "deno fmt --config deno.json . ../build.ts ../page-src && deno lint --no-config --fix src styleguide scripts tests ../build.ts ../page-src",
-    "serve": "deno task build && deno serve --allow-read --port 8010 scripts/serve.ts",
+    "serve": "deno task build && deno serve --host 127.0.0.1 --allow-read --port 8010 scripts/serve.ts",
     "test": "deno task --cwd ../.. site:build && deno test --config deno.json --allow-read --allow-write --allow-env --allow-run tests/design_system_test.ts",
     "verify": "deno task check && deno task build && deno task check:catalogue && deno task test"
   },
