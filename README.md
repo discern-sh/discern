@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 
 One self-contained binary — no runtime to manage, no account, no API key. Your
 project needs nothing but `git`. macOS and Linux (Windows via WSL).
-[Build from source →](map/80-development/)
+[Build from source →](project/map/80-development/)
 
 **2 — Hand it to your agent.** Open your coding agent in the project and tell
 it:
@@ -73,7 +73,7 @@ it safely into a shared codebase — never sped up. `discern` closes that gap:
 - **Stop babysitting.** What your agents hand back has already cleared the same
   bar you'd hold a person to — every check green, coverage held, regressions
   guarded. To make that the rule for `main` itself,
-  [run the gate in CI](map/20-quality-gate/ci.md).
+  [run the gate in CI](project/map/20-quality-gate/ci.md).
 
 More time _building_, less time _babysitting_.
 
@@ -103,14 +103,14 @@ either way.
 - **A gate that _is_ your definition of done.** Declare what your project can do
   — format, lint, typecheck, test — once; `discern` runs them as a single `done`
   command, in parallel, before anything is called done.
-  [The quality gate →](map/20-quality-gate/)
+  [The quality gate →](project/map/20-quality-gate/)
 - **Isolated worktrees.** A throwaway `git worktree` per change — its own
   branch, port, and database — so parallel agents never collide in your main
-  checkout. [Worktrees →](map/30-worktrees/)
+  checkout. [Worktrees →](project/map/30-worktrees/)
 - **Author-once agent instructions.** Write your guidance once; `discern`
   compiles it into each agent's own file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
   — so every agent, and any other tool that reads `AGENTS.md`, works from one
-  source of truth. [Agent guidance →](map/40-agent-guidance/)
+  source of truth. [Agent guidance →](project/map/40-agent-guidance/)
 - **Standards.** Numbers that can never get worse — coverage, bundle size, lint
   counts — so quality climbs and never slips back.
 - **A docs & decision discipline.** A living, agent-maintained map of your
@@ -122,7 +122,7 @@ coding tools require — your own tools' integration files, updated in the open.
 Everything else is bundled in the binary or generated, an architectural test
 fails the moment `discern` writes anywhere else, and `discern uninstall` removes
 the wiring whenever you want out.
-[Config reference →](map/10-installer/config-reference.md)
+[Config reference →](project/map/10-installer/config-reference.md)
 
 ---
 
@@ -133,8 +133,8 @@ test" is — it runs _the test capability_, a command you name once in
 `discern.toml`. That one idea is what lets a single quality harness drop into
 any repo and any language — and answer to whichever agent is driving it.
 
-Read the [concepts and system map](map/00-orientation/) for the full model, or
-browse the docs right in your terminal with `discern help`.
+Read the [concepts and system map](project/map/00-orientation/) for the full
+model, or browse the docs right in your terminal with `discern help`.
 
 ---
 
@@ -145,8 +145,8 @@ ships, so the gate we run is the gate you get. The practices were extracted from
 a production agentic-development workflow and generalised until nothing
 stack-specific remained.
 
-**[discern.sh](https://discern.sh)** · [Documentation](map/) ·
-[Decisions](map/_adr/) · [License](LICENSE)
+**[discern.sh](https://discern.sh)** · [Documentation](project/map/) ·
+[Decisions](project/map/_adr/) · [License](LICENSE)
 
 ---
 

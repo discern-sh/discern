@@ -14,15 +14,17 @@
  * bytes — the same bytes `discern help <leaf> --raw` prints.
  */
 
-import { fromFileUrl } from "@std/path";
+import { fromFileUrl, relative } from "@std/path";
 import { discoverDocs, type DocEntry } from "../src/lib/docs.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
-const MAP_DIR = fromFileUrl(new URL("../map/", import.meta.url));
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
+const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 
 /** One published docs page. */
 export interface DocsPage {
@@ -185,7 +187,7 @@ function rewriteDest(dest: string, page: DocsPage, site: DocsSite): string {
 
   // Anything else living in the repo — an unpublished tier, an ADR, a source
   // file — points at GitHub.
-  const repoRel = normalizeRel(`map/${fromDir}/${pathPart}`);
+  const repoRel = normalizeRel(`${MAP_REPO_REL}/${fromDir}/${pathPart}`);
   if (repoRel === null) return dest;
   const isDir = !/\.[A-Za-z0-9]+$/.test(repoRel);
   return `${GITHUB}/${isDir ? "tree" : "blob"}/main/${repoRel}${frag}`;

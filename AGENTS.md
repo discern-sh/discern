@@ -30,7 +30,7 @@ the connection with `discern help` / `discern doctor` afterwards.
 
 ## Generated files — don't hand-edit
 
-discern compiles your guidance sources (`guidance.md`) into the agent files
+discern compiles your guidance sources (`project/guidance.md`) into the agent files
 (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) and materializes skills into their directories
 (`.claude/skills`, `.agents/skills`). To change what you read, edit the source and run
 **`discern refresh`** — edits to a generated file are overwritten on the next
@@ -96,12 +96,12 @@ inherit it.
 
 ## The map & decisions
 
-The tree at `map/` is the **map** — the agent-maintained account of this
+The tree at `project/map/` is the **map** — the agent-maintained account of this
 codebase, browsable with **`discern_map`**. Agents write it and keep it current;
 humans read it to audit what their agents understand; a stale map is a defect.
 Never touch documentation the user didn't point discern at — the map is the only
 tree discern maintains. Record significant or hard-to-reverse decisions as
-**Architecture Decision Records** under `map/_adr/`.
+**Architecture Decision Records** under `project/map/_adr/`.
 
 ---
 
@@ -148,6 +148,12 @@ compiled, committed outputs; vendor-specific files and paths are materialized).
 Every subsystem is core (ADR 0101) — `[capabilities]` is the gate's command
 table, and the one per-skill knob is `[skills].exclude`.
 
+This repository points every ongoing authored source at `project/` to dogfood
+the independent path overrides: `project/guidance.md`, `project/map/`,
+`project/scripts/`, `project/skills/`, and `project/TODO.md`. Those are this
+checkout's live sources; the shipped defaults above remain the contract for
+fresh installations.
+
 ## ⚠️ Edit in place — there is no managed copy to sync
 
 The rules:
@@ -160,20 +166,20 @@ The rules:
   built-in-guidance edit in this repo's own skills and guidelines, run
   `discern refresh` (or `upgrade`).
 - **`CLAUDE.md` / `AGENTS.md` are generated** from discern's built-in guidance
-  (`templates/guidance/*`) plus this repo's `guidance.md` — never hand-edit
-  them. Edit `guidance.md` and recompile.
+  (`templates/guidance/*`) plus this repo's `project/guidance.md` — never
+  hand-edit them. Edit `project/guidance.md` and recompile.
 - **`.claude/skills/` is a materialized artifact (gitignored)** — the binary
   republishes it from `templates/skills/**`. Don't hand-edit; edit the source
   under `templates/skills/`.
 
-**Agent guidance is yours.** Customise it by editing `guidance.md` (this file) —
-never `templates/`, which only holds the generic built-in guidance _other_
-projects receive. Then run `discern refresh` to recompile the agent files
-(`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you never
-hand-edit (ADR 0128); `discern done` fails if one drifts from its source, so
-commit the refreshed copies with the source change. Keep the prose
-provider-agnostic: one source compiles to every agent. Nothing overwrites your
-`guidance.md`.
+**Agent guidance is yours.** Customise it by editing `project/guidance.md` (this
+file) — never `templates/`, which only holds the generic built-in guidance
+_other_ projects receive. Then run `discern refresh` to recompile the agent
+files (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you
+never hand-edit (ADR 0128); `discern done` fails if one drifts from its source,
+so commit the refreshed copies with the source change. Keep the prose
+provider-agnostic: one source compiles to every agent. Nothing overwrites
+`project/guidance.md`.
 
 | To change…                                      | Edit…                                     | Then run                           |
 | ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
@@ -182,7 +188,8 @@ provider-agnostic: one source compiles to every agent. Nothing overwrites your
 | a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
 | the built-in discern guidance                   | `templates/guidance/*.md`                 | `discern refresh`                  |
 | a seed file users receive                       | `templates/…`                             | —                                  |
-| this guidance (yours)                           | `guidance.md`                             | `discern refresh`                  |
+| this guidance (yours)                           | `project/guidance.md`                     | `discern refresh`                  |
+| an authored project skill                       | `project/skills/…`                        | `discern refresh`                  |
 | project config (yours)                          | `discern.toml`, `deno.json`               | —                                  |
 
 ## Keep the shipped surface generic
@@ -204,10 +211,10 @@ applied while editing, is the safeguard.
 One vocabulary **is** gated, because it's structural rather than open-ended:
 **internal ADR citations never ship**. An "(ADR 0034)" in an error message,
 upgrade note, or template is repo-internal shorthand no other project's users or
-agents can follow. Cite ADRs in code comments, `map/`, and commit messages; keep
-shipped strings self-contained (`tests/adr_vocab_guard_test.ts` enforces this —
-string literals under `src/`, all text under `templates/`). The concept word
-"ADR" stays legal everywhere: discern ships an ADR discipline.
+agents can follow. Cite ADRs in code comments, `project/map/`, and commit
+messages; keep shipped strings self-contained (`tests/adr_vocab_guard_test.ts`
+enforces this — string literals under `src/`, all text under `templates/`). The
+concept word "ADR" stays legal everywhere: discern ships an ADR discipline.
 
 ## The gate
 
@@ -264,14 +271,15 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   surrounding code and write to these the first time — the gate enforces every
   rule, so fighting the linter just costs a `done` loop.
 - **Several artifacts and schemas are generated.** The `deno task codegen`
-  command rewrites `map/10-installer/config-reference.md`, `schema/*.json`, and
-  `types/*.d.ts` automatically. The codegen command is wired in to discern's own
-  `[capabilities.build]` step (the `discern.toml` template stays hand-authored —
-  ADR 0005/0026).
-- **Keep `map/` current with the change.** The `map/` tree is the source of
-  truth and must not drift from code — update the affected docs in the same
-  commit. `map/` and root `*.md` fire no gate (a neutral scope); `map/` alone is
-  held to the Vale `prose` check and the `[standards.prose]` density ceiling.
+  command rewrites `project/map/10-installer/config-reference.md`,
+  `schema/*.json`, and `types/*.d.ts` automatically. The codegen command is
+  wired in to discern's own `[capabilities.build]` step (the `discern.toml`
+  template stays hand-authored — ADR 0005/0026).
+- **Keep `project/map/` current with the change.** The `project/map/` tree is
+  the source of truth and must not drift from code — update the affected docs in
+  the same commit. The configured map, guidance, skills, and ledger form a
+  neutral scope; the map alone is held to the Vale `prose` check and the
+  `[standards.prose]` density ceiling.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line
   summarizing the change (e.g. "Add retry to upload path"), no trailing period;
@@ -285,11 +293,11 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   thin executor applies it (ADR 0027) — that split is what gives `--dry-run`
   (render the plan, change nothing) and `--json` for free.
 - **One result envelope.** A verb returns a single `DiscernResult`
-  ([`src/shared/result.ts`](src/shared/result.ts)); `--json` serializes it and
-  the human output renders from it (ADR 0028). Don't `console.log` ad-hoc output
-  from a verb.
+  ([`src/shared/result.ts`](../src/shared/result.ts)); `--json` serializes it
+  and the human output renders from it (ADR 0028). Don't `console.log` ad-hoc
+  output from a verb.
 - **MCP is a first-class surface.** Each tool in
-  [`src/engine/mcp/server.ts`](src/engine/mcp/server.ts) is backed by a
+  [`src/engine/mcp/server.ts`](../src/engine/mcp/server.ts) is backed by a
   `*Result(root, …)` core the CLI shares; the verb-parity guard
   (`tests/engine_verb_parity_test.ts`) ties the `TOOLS` table back to the CLI
   verb list. Exposing a read/run verb means extracting that core first (ADR
@@ -313,9 +321,9 @@ Maintain this practice with new development going forward.
 
 ## Decisions
 
-Architecture decisions live in `map/_adr/` (0001+, several dozen and counting) —
-browse them with `discern help --adr --json`. Add one for any notable or
-hard-to-reverse change. ADRs move fast, so skim the most recent few before a
-significant change — a current ADR usually explains why something is the way it
-is.
+Architecture decisions live in `project/map/_adr/` (0001+, several dozen and
+counting) — browse them with `discern help --adr --json`. Add one for any
+notable or hard-to-reverse change. ADRs move fast, so skim the most recent few
+before a significant change — a current ADR usually explains why something is
+the way it is.
 

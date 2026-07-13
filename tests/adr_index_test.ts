@@ -1,5 +1,5 @@
 /**
- * Architectural guard for the ADR index. The `map/_adr/README.md` index is the
+ * Architectural guard for the ADR index. The configured map's ADR README is the
  * only view of the record set most readers ever open, so an ADR missing from it
  * is invisible — exactly how 0106–0109 sat unlisted for four records. The
  * canonical set is the DIRECTORY (every `NNNN-*.md` on disk), never the index
@@ -9,14 +9,10 @@
 
 import { assert } from "@std/assert";
 import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { dirname, join, relative } from "@std/path";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
-const ADR_DIR = join(
-  dirname(fromFileUrl(import.meta.url)),
-  "..",
-  "map",
-  "_adr",
-);
+const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
 
 /** The `NNNN-slug.md` entries directly under `dir` (no template, no README). */
 async function adrFiles(dir: string): Promise<string[]> {
@@ -36,7 +32,7 @@ Deno.test("ADR index: every active ADR on disk is linked from the README index",
     .filter((name) => !readme.includes(`](${name})`));
   assert(
     missing.length === 0,
-    `map/_adr/README.md must index every active ADR — add: ${
+    `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md must index every active ADR — add: ${
       missing.join(", ")
     }`,
   );
@@ -58,7 +54,9 @@ Deno.test("ADR index: every relative link in the README resolves to a file", asy
   }
   assert(
     dangling.length === 0,
-    `map/_adr/README.md links files that do not exist: ${dangling.join(", ")}`,
+    `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md links files that do not exist: ${
+      dangling.join(", ")
+    }`,
   );
 });
 

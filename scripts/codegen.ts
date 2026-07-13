@@ -12,7 +12,7 @@
  * its generator output, so forgetting to regenerate fails the gate.
  */
 
-import { dirname, fromFileUrl, join } from "@std/path";
+import { dirname, fromFileUrl, join, relative } from "@std/path";
 import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
@@ -25,8 +25,15 @@ import {
   generateThirdPartyArtifacts,
   THIRD_PARTY_ARTIFACT_PATHS,
 } from "../src/shared/third_party_codegen.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { resolveMapDir } from "../src/lib/paths.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+const configReference = relative(
+  repoRoot,
+  join(mapDir, "10-installer", "config-reference.md"),
+);
 
 /** Write `text` to a repo-relative path, reporting whether it changed. */
 async function write(rel: string, text: string): Promise<void> {
@@ -48,10 +55,7 @@ async function write(rel: string, text: string): Promise<void> {
 
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
 await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
-await write(
-  "map/10-installer/config-reference.md",
-  renderConfigReferenceDoc(),
-);
+await write(configReference, renderConfigReferenceDoc());
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );

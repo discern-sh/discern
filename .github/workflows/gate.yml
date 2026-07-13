@@ -24,7 +24,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Pin the Vale version CI installs to lint map/. Both the [checks.prose] gate
+# Pin the Vale version CI installs to lint the configured map. Both [checks.prose]
 # and the [standards.prose] metric shell out to `vale`, so it must be on PATH and
 # its styles synced before `discern done` / `standards` run. Bump this alongside
 # the Brewfile when upgrading Vale locally.

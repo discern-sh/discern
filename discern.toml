@@ -21,6 +21,9 @@ schema_version = 20
 bootstrapped   = true
 
 [project]
+# discern intentionally self-hosts every configurable authored source under
+# project/ to exercise path overrides; fresh installations keep shipped defaults.
+
 # Short, lowercase, dash-separated identity. Used for worktree/site/branch names.
 slug = "discern"
 
@@ -34,13 +37,10 @@ main_branch = "main"
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
-gotchas_doc = "map/80-development/done-gate-gotchas.md"
+gotchas_doc = "project/map/80-development/done-gate-gotchas.md"
 
-# Where the deferred-work ledger lives. This repo deliberately pins its
-# pre-namespace root layout (ADR 0099/0102 dogfooding): a permanent, self-hosted
-# exercise of the pointing escape hatch that makes any hard-coded default leak
-# loud instead of invisible. The shipped default is discern/TODO.md.
-todo = "TODO.md"
+# Where the deferred-work ledger lives.
+todo = "project/TODO.md"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [map] — the project map: discern's agent-maintained documentation tree. This is
@@ -49,8 +49,8 @@ todo = "TODO.md"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [map]
-# This repo adopts the shipped root default and keeps the whole map together.
-dir = "map/"
+# The directory that holds this project's map.
+dir = "project/map/"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [guidance] — the author-once → compile-everywhere agent-instruction pipeline.
@@ -64,10 +64,8 @@ dir = "map/"
 
 [guidance]
 # Your guideline source file(s), relative to the project root. Globs are allowed.
-# Read only if present; discern's built-in guidance is always prepended, so
-# these are additive. Pinned to the repo's root layout — a deliberate
-# non-default (ADR 0099); the shipped default is discern/guidance.md.
-sources = ["guidance.md"]
+# Read only if present; discern's built-in guidance is always prepended.
+sources = ["project/guidance.md"]
 
 # Which agent integrations to enable. Guidance targets:
 #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
@@ -84,10 +82,8 @@ agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 # ─────────────────────────────────────────────────────────────────────────────
 
 [skills]
-# Where your authored skills live, relative to the project root. Pinned to the
-# repo's root layout — a deliberate non-default (ADR 0099); the shipped default
-# is discern/skills.
-dir = "skills"
+# Where your authored skills live, relative to the project root.
+dir = "project/skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [capabilities] — the core commands the gate runs, one per known capability.
@@ -153,7 +149,13 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # guidance outputs are refreshed by the gate itself; editing the source changes
 # no behaviour.) Root-level *.md is always treated as neutral.
 [scopes.docs]
-paths   = ["${map.dir}", ".claude/", "skills/"]
+paths   = [
+  "${map.dir}",
+  "project/guidance.md",
+  "project/skills/",
+  "project/TODO.md",
+  ".claude/",
+]
 neutral = true
 
 # The subset of changes a person could see — worth a preview link.
@@ -393,7 +395,7 @@ inputs    = ["${map.dir}**", ".vale.ini", "scripts/prose.ts"]
 # word count is a context-window budget we spend on their behalf. ~814 words today.
 # This ceiling exists to stop verbiage piling in without a thought for that budget:
 # the guidance is for steering discern, NOT for explaining discern's
-# internals (those belong in this repo's guidance.md), nor mechanics an agent can
+# internals (those belong in project/guidance.md), nor mechanics an agent can
 # discover by running a verb. Raise the limit only to make deliberate room for
 # genuinely-needed operating guidance — trim elsewhere otherwise.
 [standards.guidance]
@@ -496,6 +498,4 @@ in_gate = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [scripts]
-# This repository exercises a custom path; fresh installs default to
-# discern/scripts.
-dir = "scripts/commands"
+dir = "project/scripts"

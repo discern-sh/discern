@@ -11,9 +11,10 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { dirname, join } from "@std/path";
+import { join } from "@std/path";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { bundledSkillNames, parseSkillFrontmatter } from "../src/lib/skills.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 Deno.test("bundled skills: every one is well-formed (frontmatter name === directory)", async () => {
   const dir = await resolveBundledSkillsDir();
@@ -58,21 +59,19 @@ Deno.test("bundled skills: every one is well-formed (frontmatter name === direct
 });
 
 Deno.test("bundled skills: the install-surface doc's table lists every one", async () => {
-  // The bundled-skills table in map/80-development/install-surface.md is
+  // The bundled-skills table in the configured map is
   // hand-authored prose with no compiler behind it, so a newly added skill can
   // silently ship undocumented (it happened: the table once lacked a skill the
   // binary bundled). Iterate the SAME canonical set the materializer drives off,
   // so a new skill auto-enrols here and the doc must name it or the gate fails.
-  const dir = await resolveBundledSkillsDir();
-  const repoRoot = dirname(dirname(dir)); // …/templates/skills → repo root
   const doc = await Deno.readTextFile(
-    join(repoRoot, "map", "80-development", "install-surface.md"),
+    join(REPO_AUTHORED_PATHS.map, "80-development", "install-surface.md"),
   );
   const names = await bundledSkillNames();
   const missing = names.filter((name) => !doc.includes(`\`${name}\``));
   assertEquals(
     missing,
     [],
-    "map/80-development/install-surface.md's bundled-skills table must name every bundled skill",
+    `${REPO_AUTHORED_PATHS.mapRel}/80-development/install-surface.md's bundled-skills table must name every bundled skill`,
   );
 });

@@ -15,10 +15,14 @@
  * advisory backlog (every severity) so the number shrinks over time rather than
  * merely not regressing past zero.
  *
- * Usage: `deno task prose <docs-dir>` (the `[standards.prose]` run command).
+ * Usage: `deno task prose <map-dir>` (the `[standards.prose]` run command).
  * Prints a human
  * breakdown to stderr for context, then the metric line to stdout.
  */
+
+import { dirname, fromFileUrl } from "@std/path";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { resolveMapDir } from "../src/lib/paths.ts";
 
 interface Alert {
   Severity: string;
@@ -27,7 +31,9 @@ interface Alert {
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
 // the exit code — mirroring how the standards runner ignores the run's exit status.
-const docsDir = Deno.args[0] ?? "map/";
+const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+const docsDir = Deno.args[0] ??
+  resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 const run = await new Deno.Command("vale", {
   args: ["--output=JSON", docsDir],
   stdout: "piped",

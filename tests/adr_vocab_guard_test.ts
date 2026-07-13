@@ -320,13 +320,20 @@ Deno.test("shipped templates, template fixtures, skills, project scripts, and pu
   );
 });
 
-Deno.test("root guidance, config, and landing mockups retire harness; README keeps one category phrase", async () => {
+Deno.test("configured guidance, config, and landing mockups retire harness; README keeps one category phrase", async () => {
   const offenders: string[] = [];
-  for (const rel of ["CONTRIBUTING.md", "guidance.md", "discern.toml"]) {
+  for (
+    const path of [
+      join(REPO_ROOT, "CONTRIBUTING.md"),
+      join(REPO_ROOT, "discern.toml"),
+      ...REPO_AUTHORED_PATHS.guidance,
+    ]
+  ) {
+    const rel = relative(REPO_ROOT, path);
     offenders.push(
       ...harnessLines(
         rel,
-        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+        visibleMarkdown(await Deno.readTextFile(path)),
       ),
     );
   }
@@ -450,17 +457,18 @@ Deno.test("user-facing output consistently calls the shared branch the trunk", a
   }
 
   for (
-    const rel of [
-      "README.md",
-      "CONTRIBUTING.md",
-      "guidance.md",
-      "discern.toml",
+    const path of [
+      join(REPO_ROOT, "README.md"),
+      join(REPO_ROOT, "CONTRIBUTING.md"),
+      join(REPO_ROOT, "discern.toml"),
+      ...REPO_AUTHORED_PATHS.guidance,
     ]
   ) {
+    const rel = relative(REPO_ROOT, path);
     offenders.push(
       ...integrationBranchLines(
         rel,
-        visibleMarkdown(await Deno.readTextFile(join(REPO_ROOT, rel))),
+        visibleMarkdown(await Deno.readTextFile(path)),
       ),
     );
   }

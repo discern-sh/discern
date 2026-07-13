@@ -2,13 +2,22 @@
  * Count public documentation leaves and words, then emit both as discern
  * standard metrics.
  *
- * Public docs are Markdown files under map/ with no underscore-prefixed path
- * segment, so _private, _internal, and _adr trees are excluded. A leaf is a
- * public Markdown page whose basename is not README.md; README files are
- * directory indexes, not leaves.
+ * Public docs are Markdown files under the configured map with no
+ * underscore-prefixed path segment, so _private, _internal, and _adr trees are
+ * excluded. A leaf is a public Markdown page whose basename is not README.md;
+ * README files are directory indexes, not leaves.
  */
 
-import { basename, join, relative, SEPARATOR } from "@std/path";
+import {
+  basename,
+  dirname,
+  fromFileUrl,
+  join,
+  relative,
+  SEPARATOR,
+} from "@std/path";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { resolveMapDir } from "../src/lib/paths.ts";
 
 interface PublicDocMetrics {
   leaves: number;
@@ -55,7 +64,9 @@ async function measurePublicDocs(docsDir: string): Promise<PublicDocMetrics> {
   return { leaves, words };
 }
 
-const docsDir = Deno.args[0] ?? "map";
+const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+const docsDir = Deno.args[0] ??
+  resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 const metrics = await measurePublicDocs(docsDir);
 
 console.error(

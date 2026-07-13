@@ -90,7 +90,7 @@
       "site/design-system/dist/",
       "site/design-system/node_modules/",
       "site/design-system/styleguide/generated/",
-      "map/10-installer/config-reference.md",
+      "project/map/10-installer/config-reference.md",
       "GEMINI.md",
       "PLAN.md",
       "schema/discern-config.schema.json",

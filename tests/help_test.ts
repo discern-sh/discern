@@ -353,7 +353,7 @@ Deno.test("help reports a build defect (no bundled tree) cleanly", async () => {
 
 Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async () => {
   // No DISCERN_DOCS_DIR override: the resolver walks up from the module to this
-  // repo's map/, exactly as a checkout run does. Proves the real wiring, and
+  // repo's configured map, exactly as a checkout run does. Proves the real wiring, and
   // that the cwd's project resolution is bypassed.
   const single = await runCli(
     ["help", "config-reference", "--json"],

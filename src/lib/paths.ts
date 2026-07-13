@@ -16,7 +16,7 @@ import {
   installedConfigRel,
   LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
-import type { DiscernConfig } from "../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
@@ -343,9 +343,8 @@ export async function resolveTemplatesDir(
  *   2. the build-staged PUBLIC docs embedded in a compiled binary, found by
  *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
  *      keeps bundled-help document paths stable).
- *   3. this repo's own tree at `SOURCE_PATHS.map.defaultPath` when running from
- *      a checkout. Its internal
- *      `_`-prefixed subtrees are filtered out by the VIEW (`includeInternal:
+ *   3. this repo's own configured map when running from a checkout. Its
+ *      internal `_`-prefixed subtrees are filtered out by the VIEW (`includeInternal:
  *      false`), not the embed — only the staged path is curated at build time.
  *
  * Returns `undefined` only when no tree can be located (a build defect in a
@@ -359,16 +358,20 @@ export async function resolveBundledDocsDir(): Promise<string | undefined> {
   }
 
   // Walk up from this module's directory, preferring the staged public tree (a
-  // compiled binary) and falling back to the repo's registry-defined map (a checkout).
+  // compiled binary) and falling back to the checkout's configured map.
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const staged = join(dir, BUNDLED_DOCS_STAGE_DIR, "docs");
     if (await isDir(staged)) {
       return staged;
     }
-    const checkout = join(dir, SOURCE_PATHS.map.defaultPath);
-    if (await isDir(checkout)) {
-      return checkout;
+    try {
+      const checkout = resolveMapDir(dir, await loadConfig(dir)).abs;
+      if (await isDir(checkout)) {
+        return checkout;
+      }
+    } catch {
+      // A non-project ancestor is not a checkout candidate; keep walking.
     }
     const parent = dirname(dir);
     if (parent === dir) {

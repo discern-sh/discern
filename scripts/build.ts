@@ -17,8 +17,15 @@
  */
 
 import { copy, ensureDir } from "@std/fs";
-import { join } from "@std/path";
-import { BUNDLED_DOCS_STAGE_DIR, isBundledDocEntry } from "../src/lib/paths.ts";
+import { dirname, fromFileUrl, join } from "@std/path";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import {
+  BUNDLED_DOCS_STAGE_DIR,
+  isBundledDocEntry,
+  resolveMapDir,
+} from "../src/lib/paths.ts";
+
+const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
 /** A compile target: Deno's triple and the binary file name we ship. */
 interface Target {
@@ -63,15 +70,19 @@ const PERMISSIONS = [
  * of defence (ADR 0039).
  */
 async function stageBundledDocs(): Promise<string> {
-  await Deno.remove(BUNDLED_DOCS_STAGE_DIR, { recursive: true }).catch(
+  const stageDir = join(REPO_ROOT, BUNDLED_DOCS_STAGE_DIR);
+  await Deno.remove(stageDir, { recursive: true }).catch(
     () => {},
   );
-  const stagedDocs = join(BUNDLED_DOCS_STAGE_DIR, "docs");
+  const stagedDocs = join(stageDir, "docs");
+  const mapDir = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
   await ensureDir(stagedDocs);
-  for await (const entry of Deno.readDir("map")) {
+  for await (const entry of Deno.readDir(mapDir)) {
     if (!isBundledDocEntry(entry.name)) continue;
-    await copy(join("map", entry.name), join(stagedDocs, entry.name));
+    await copy(join(mapDir, entry.name), join(stagedDocs, entry.name));
   }
+  // Keep the include path repo-relative, exactly as the compiled resource
+  // resolver expects; the filesystem work above stays rooted explicitly.
   return BUNDLED_DOCS_STAGE_DIR;
 }
 
@@ -159,7 +170,7 @@ async function main(): Promise<void> {
     }
   } finally {
     // The staged docs are a transient embed input — never leave them behind to
-    // dirty the tree or shadow the live map/ in a later `deno task dev help`.
+    // dirty the tree or shadow the live map in a later `deno task dev help`.
     await Deno.remove(docsStageDir, { recursive: true }).catch(() => {});
   }
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);

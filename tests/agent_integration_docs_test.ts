@@ -12,8 +12,10 @@
  */
 
 import { assert, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { providerFor } from "../src/lib/providers.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 /** The IDE-first agents (read the canonical file, emit no vendor file), derived
  * from the registry — the exact set that needs an explicit-config signpost. */
@@ -37,7 +39,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
   // Read every integration doc once; each agent's doc is the one that configures it
   // explicitly (`agents = ["<name>"]`), tying the doc to the registry name — no
   // hand-maintained agent→filename map to drift.
-  const dir = new URL("../map/60-agent-integrations/", import.meta.url);
+  const dir = join(REPO_AUTHORED_PATHS.map, "60-agent-integrations");
   const docs: Array<{ file: string; text: string }> = [];
   for await (const entry of Deno.readDir(dir)) {
     if (
@@ -45,7 +47,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
     ) {
       docs.push({
         file: entry.name,
-        text: await Deno.readTextFile(new URL(entry.name, dir)),
+        text: await Deno.readTextFile(join(dir, entry.name)),
       });
     }
   }
@@ -55,7 +57,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
     assert(
       doc !== undefined,
       `no integration doc signposts IDE-only "${name}" users — a reuse-canonical agent ` +
-        `whose CLI isn't on PATH is invisible to setup without a map/60-agent-integrations/ ` +
+        `whose CLI isn't on PATH is invisible to setup without a ${REPO_AUTHORED_PATHS.mapRel}/60-agent-integrations/ ` +
         `page carrying agents = ["${name}"]. Add one (mirror cursor.md / github-copilot.md).`,
     );
     for (

@@ -15,6 +15,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
@@ -68,14 +69,14 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
 
 // ── docs config-reference ────────────────────────────────────────────────────
 
-Deno.test("map/10-installer/config-reference.md matches the generator (run `deno task codegen`)", async () => {
+Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    new URL("../map/10-installer/config-reference.md", import.meta.url),
+    `${REPO_AUTHORED_PATHS.map}/10-installer/config-reference.md`,
   );
   assertEquals(
     committed,
     renderConfigReferenceDoc(),
-    "map/10-installer/config-reference.md is stale — run `deno task codegen`",
+    `${REPO_AUTHORED_PATHS.mapRel}/10-installer/config-reference.md is stale — run \`deno task codegen\``,
   );
 });
 

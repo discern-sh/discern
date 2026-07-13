@@ -19,6 +19,7 @@ import {
 } from "../site/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -127,8 +128,7 @@ Deno.test("the /docs index lists every section for both readers", async () => {
 
 Deno.test("unpublished tiers never surface under /docs", async () => {
   // The complement of the allowlist, read from disk so a new tier auto-enrols.
-  const mapDir = new URL("../map/", import.meta.url);
-  for await (const entry of Deno.readDir(mapDir)) {
+  for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.map)) {
     if (!entry.isDirectory) continue;
     if (BUNDLED_PUBLIC_DOC_DIRS.includes(entry.name)) continue;
     const res = await get(`/docs/${sectionSlugOf(entry.name)}`, BROWSER);

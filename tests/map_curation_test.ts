@@ -4,25 +4,25 @@
  * other `_`-prefixed tree (`_internal`, `_private`, …) stays out of the binary
  * AND the default view" — is the property that lets a new private doc tree be
  * safe the moment it is created, with no list to remember. These tests pin it
- * against THIS repo's real `map/` tree and the one predicate the build filters
+ * against THIS repo's configured map and the one predicate the build filters
  * on ({@link isBundledDocEntry}), so a regression (a private tree leaking into
  * the embed, or the build and the view disagreeing) fails the gate rather than a
  * customer binary.
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import {
   BUNDLED_INTERNAL_DOC_DIRS,
   BUNDLED_PUBLIC_DOC_DIRS,
   isBundledDocEntry,
 } from "../src/lib/paths.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const MAP_DIR = join(REPO_ROOT, "map");
+const MAP_DIR = REPO_AUTHORED_PATHS.map;
 
-/** This repo's top-level `map/` entry names. */
+/** This repo's top-level configured-map entry names. */
 async function topLevelDocEntries(): Promise<string[]> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(MAP_DIR)) names.push(entry.name);
@@ -52,7 +52,7 @@ Deno.test("isBundledDocEntry ships public + the ADR allowlist, and nothing else 
   }
 });
 
-Deno.test("the real map/ tree embeds only public docs + the allowlist", async () => {
+Deno.test("the real configured map embeds only public docs + the allowlist", async () => {
   const names = await topLevelDocEntries();
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
@@ -84,7 +84,7 @@ Deno.test("the real map/ tree embeds only public docs + the allowlist", async ()
     if (!isDir) continue;
     assert(
       name.startsWith("_") || /^\d\d-/.test(name),
-      `map/${name}/ is neither numbered (public) nor _-prefixed (private) — ` +
+      `${REPO_AUTHORED_PATHS.mapRel}/${name}/ is neither numbered (public) nor _-prefixed (private) — ` +
         `number it to ship it, or prefix it with _ to keep it private`,
     );
   }
