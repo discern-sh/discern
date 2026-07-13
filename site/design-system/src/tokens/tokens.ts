@@ -44,7 +44,7 @@ export const designTokens = [
     "Master hue for the azure accent family.",
   ),
   token("--ds-ink-hue", "225", "Color", "Master hue for cool ink neutrals."),
-  token("--ds-canvas-hue", "85", "Color", "Master hue for canvas neutrals."),
+  token("--ds-canvas-hue", "80.72", "Color", "Master hue for canvas neutrals."),
   token(
     "--ds-font-display",
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
@@ -198,7 +198,7 @@ export const themeTokens = [
   ),
   themeToken(
     "--ds-color-canvas",
-    "oklch(96.6% 0.008 var(--ds-canvas-hue))",
+    "oklch(98.97% 0.0028 var(--ds-canvas-hue))",
     "oklch(20% 0.018 var(--ds-ink-hue))",
     "Page canvas.",
   ),
