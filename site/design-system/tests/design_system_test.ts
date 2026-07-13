@@ -271,6 +271,26 @@ Deno.test("numbered colour ramps preserve their roles across themes", () => {
   assertEquals(roleRampViolations(designTokens, themeTokens), []);
 });
 
+Deno.test("typography roles use the selected families and UI buttons", async () => {
+  const tokens = new Map(
+    designTokens.map((token) => [token.name, token.value]),
+  );
+  assertEquals(
+    tokens.get("--ds-font-display"),
+    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
+  );
+  assertEquals(
+    tokens.get("--ds-font-mono"),
+    '"Reddit Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  );
+
+  const buttonCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "core", "button", "button.css"),
+  );
+  assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
+  assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+});
+
 Deno.test("the one grain wash retains the reference motif", async () => {
   const css = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),

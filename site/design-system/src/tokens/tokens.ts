@@ -47,7 +47,7 @@ export const designTokens = [
   token("--ds-canvas-hue", "288", "Color", "Master hue for canvas neutrals."),
   token(
     "--ds-font-display",
-    '"EB Garamond", "Iowan Old Style", Georgia, serif',
+    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
     "Typography",
     "Editorial display face; font loading is external.",
   ),
@@ -59,7 +59,7 @@ export const designTokens = [
   ),
   token(
     "--ds-font-mono",
-    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    '"Reddit Mono", ui-monospace, "SF Mono", Menlo, monospace',
     "Typography",
     "Code and annotation face.",
   ),
