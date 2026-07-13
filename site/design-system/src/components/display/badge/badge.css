@@ -12,7 +12,7 @@
     border-radius: var(--ds-radius-pill);
     background: var(--ds-badge-bg);
     color: var(--ds-badge-text);
-    font-family: var(--ds-font-mono);
+    font-family: var(--ds-font-ui);
     font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.08em;

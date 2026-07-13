@@ -14,7 +14,7 @@
     border-radius: var(--ds-radius-pill);
     background: var(--ds-color-canvas);
     color: var(--ds-color-ink-faint);
-    font: 0.625rem var(--ds-font-mono);
+    font: 0.625rem var(--ds-font-ui);
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }

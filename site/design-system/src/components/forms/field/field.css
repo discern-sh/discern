@@ -6,7 +6,7 @@
   }
   .ds-field__label {
     color: var(--ds-color-ink-muted);
-    font: 0.625rem var(--ds-font-mono);
+    font: 0.625rem var(--ds-font-ui);
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;

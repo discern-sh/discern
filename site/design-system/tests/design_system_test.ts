@@ -299,6 +299,22 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
 });
 
+Deno.test("component labels and compact UI use the UI font", async () => {
+  for (
+    const component of [
+      ["display", "badge", "badge.css"],
+      ["display", "tag", "tag.css"],
+      ["display", "divider", "divider.css"],
+      ["forms", "field", "field.css"],
+      ["feedback", "tooltip", "tooltip.css"],
+    ]
+  ) {
+    const css = await Deno.readTextFile(join(COMPONENT_ROOT, ...component));
+    assertStringIncludes(css, "var(--ds-font-ui)", component.join("/"));
+    assert(!css.includes("var(--ds-font-mono)"), component.join("/"));
+  }
+});
+
 Deno.test("the one grain wash retains the reference motif", async () => {
   const css = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),
