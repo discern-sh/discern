@@ -67,6 +67,21 @@ Deno.test("every published page renders for a browser, with title and shell", as
   }
 });
 
+Deno.test("rendered Markdown rules use the editorial discern mark", async () => {
+  const css = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.css", import.meta.url),
+  );
+  const ruleStart = css.indexOf(".doc-body hr {");
+  const ruleEnd = css.indexOf("}", ruleStart);
+  assert(ruleStart >= 0 && ruleEnd > ruleStart);
+  const rule = css.slice(ruleStart, ruleEnd + 1);
+  assert(!rule.includes("repeating-linear-gradient"));
+  assertStringIncludes(rule, "background-size: 100% 1px");
+  assertStringIncludes(css, ".doc-body hr::after {");
+  assertStringIncludes(css, 'content: "◮";');
+  assertStringIncludes(css, "color: var(--ds-color-accent-500)");
+});
+
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {
   const site = await loadDocsSite();
   for (const page of site.pages) {

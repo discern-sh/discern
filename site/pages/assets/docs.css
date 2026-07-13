@@ -604,14 +604,33 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
 }
 
 .doc-body hr {
-  height: 8px;
+  position: relative;
+  height: 24px;
   margin: var(--ds-space-10) 0;
+  overflow: visible;
   border: 0;
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent 0 5px,
-    var(--ds-color-stripe) 5px 6px
-  );
+  background-image: linear-gradient(to right, transparent,
+    var(--ds-color-border-strong) 22% 78%, transparent);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+}
+
+.doc-body hr::after {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 24px;
+  background: var(--ds-color-canvas);
+  color: var(--ds-color-accent-500);
+  content: "◮";
+  font-family: var(--ds-font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  transform: translate(-50%, -50%);
 }
 
 .docs-anchor {

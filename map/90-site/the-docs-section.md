@@ -37,7 +37,8 @@ The browser shell is a design-system consumer: the server renders semantic HTML
 on the documented `.ds-*` classes, loading the generated tokens and component
 styles plus the self-hosted fonts from `/assets/design-system/`. Page-specific
 composition lives in `site/pages/assets/docs.css` and behaviour in
-`site/pages/assets/docs.js`.
+`site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial
+rule treatment with a centred `◮`, the first use of discern's intended mark.
 
 ## Reader negotiation
 
