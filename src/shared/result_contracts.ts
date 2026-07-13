@@ -263,6 +263,10 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   "mcp",
   "identity",
+  // `licenses` renders the third-party notices as human text; its `--json`
+  // returns the bundled-component list as a convenience, not a
+  // stability-guaranteed public data contract.
+  "licenses",
   // Provider hook entry points (hidden from help, stdin/stdout hook payloads).
   "worktree create",
   "worktree remove",
