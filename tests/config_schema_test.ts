@@ -38,7 +38,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // the schema can never drift from the one source of truth.
   assertEquals(c.skills.dir, SOURCE_PATHS.skills.defaultPath);
   assertEquals(c.map.dir, SOURCE_PATHS.map.defaultPath);
-  assertEquals(c.recipes.dir, SOURCE_PATHS.recipes.defaultPath);
+  assertEquals(c.scripts.dir, SOURCE_PATHS.scripts.defaultPath);
   assertEquals(c.guidance.sources, [SOURCE_PATHS.guidance.defaultPath]);
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
   // `agents` is OPTIONAL (no default): an absent key stays undefined so the

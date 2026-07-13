@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, `improve` → `improvement`; the decision
 > and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers reflect the suggestable-command surface that replaced the old Recipe
+> name satellite; the decision and reasoning are unchanged.
+
 **Status**: accepted. Extends [ADR 0029](0029-best-practices-audit.md): its
 deterministic-rule and qualitative-review split remains; this decision changes
 the product frame and adds a priority above the report.
@@ -35,8 +40,8 @@ which to choose one vocabulary.
 Hard-rename the verb to **`improvement`** and its MCP tool to
 **`discern_improvement`**. There is no `audit` alias. The CLI verb registry
 remains the canonical set; the existing parity guards force the command
-registration, recipe-name surface, MCP table, grouped help, schemas, and tests
-to move in lockstep.
+registration, suggestable-command surface, MCP table, grouped help, schemas, and
+tests to move in lockstep.
 
 Position `improvement` as a continuous-improvement coach:
 

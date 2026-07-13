@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, `finish` → `done`; the decision and
 > reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> older Recipe reference below describes the then-current command
+> implementation; the naming decision is unchanged.
+
 **Status**: accepted
 
 ## Context

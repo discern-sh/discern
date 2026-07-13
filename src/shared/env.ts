@@ -1,5 +1,5 @@
 /**
- * Project-root discovery and the `DISCERN_*` environment a project recipe is
+ * Project-root discovery and the `DISCERN_*` environment a Project Script is
  * exec'd with.
  *
  * The whole discern footprint in a project is a single root file: `discern.toml`
@@ -9,7 +9,7 @@
  * recognised as a legacy marker so a not-yet-upgraded install is found and
  * carried forward by `upgrade`.
  *
- * A recipe is handed the `DISCERN_*` variables and reads config via `discern
+ * A Project Script is handed the `DISCERN_*` variables and reads config via `discern
  * config get` rather than sourcing shell helpers; no engine paths
  * (`DISCERN_ENGINE`/`DISCERN_LIB`) are exported, because the engine lives in the
  * binary, not on disk.
@@ -100,29 +100,29 @@ export async function installedConfigRel(
   return undefined;
 }
 
-/** The resolved pieces a recipe's `DISCERN_*` environment is built from. */
-export interface RecipeEnv {
+/** The resolved pieces a Project Script's `DISCERN_*` environment is built from. */
+export interface ScriptEnv {
   /** Absolute project root. */
   root: string;
   /** Absolute path to the install config (resolved: `discern.toml` or legacy). */
   tomlPath: string;
-  /** The `[recipes].dir` value as configured (relative or absolute). */
-  recipesDir: string;
-  /** The recipes directory resolved to an absolute path. */
-  recipesAbs: string;
+  /** The `[scripts].dir` value as configured (relative or absolute). */
+  scriptsDir: string;
+  /** The Project Scripts directory resolved to an absolute path. */
+  scriptsAbs: string;
   /** The integration branch (`[project].main_branch`, default "main"). */
   mainBranch: string;
 }
 
 /**
- * Build the `DISCERN_*` environment variables a project recipe is exec'd with.
+ * Build the `DISCERN_*` environment variables a Project Script is exec'd with.
  */
-export function recipeEnvVars(e: RecipeEnv): Record<string, string> {
+export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
   return {
     DISCERN_ROOT: e.root,
     DISCERN_TOML: e.tomlPath,
-    DISCERN_RECIPES: e.recipesAbs,
-    DISCERN_RECIPES_DIR: e.recipesDir,
+    DISCERN_SCRIPTS: e.scriptsAbs,
+    DISCERN_SCRIPTS_DIR: e.scriptsDir,
     DISCERN_MAIN_BRANCH: e.mainBranch,
   };
 }

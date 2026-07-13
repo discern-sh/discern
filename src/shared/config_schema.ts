@@ -471,12 +471,12 @@ const couplingSection = z.strictObject({
   "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks.",
 );
 
-const recipesSection = z.strictObject({
-  dir: z.string().default(SOURCE_PATHS.recipes.defaultPath).describe(
-    'Where your recipes live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer.',
+const scriptsSection = z.strictObject({
+  dir: z.string().default(SOURCE_PATHS.scripts.defaultPath).describe(
+    'Where your Project Scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer.',
   ),
 }).prefault({}).describe(
-  "Your own `discern` commands. Drop an executable carrying a `# desc: ...` line into the directory below and it becomes a first-class `discern <name>` command.",
+  "Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.",
 );
 
 /** The canonical live-`discern.toml` schema. Every section carries a default, so
@@ -495,7 +495,7 @@ export const configSchema = z.strictObject({
   standards: standardsSection,
   gate: gateSection,
   coupling: couplingSection,
-  recipes: recipesSection,
+  scripts: scriptsSection,
 });
 
 /** The fully-typed, fully-defaulted live config the engine reads. Internal alias

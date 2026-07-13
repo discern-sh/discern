@@ -9,6 +9,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { MIGRATIONS } from "../src/lib/migrations.ts";
 import {
   KIT_VERSION,
   SCHEMA_VERSION,
@@ -78,7 +79,7 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
     // Every step from 1 up to the current schema is pending.
     assertEquals(
       res.data.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+      MIGRATIONS.map((migration) => migration.from),
     );
   });
 });

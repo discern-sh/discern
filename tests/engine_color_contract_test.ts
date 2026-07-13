@@ -225,7 +225,7 @@ Deno.test("the root help and a bare invocation honour --no-color on the real CLI
     );
     await gitInit(dir);
 
-    // Explicit help path (main() prints operatorHelp + the recipe listing).
+    // Explicit help path (main() prints the grouped operator help).
     for (const args of [["--help", "--no-color"], ["--no-color"]]) {
       const r = await runAgent(dir, args, { env: { NO_COLOR: "" } });
       assertEquals(

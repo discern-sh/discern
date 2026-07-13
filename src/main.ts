@@ -57,16 +57,15 @@ import {
 import {
   attachEngineCommands,
   dispatchHelper,
-  dispatchRecipeOrSuggest,
   KNOWN_VERBS,
-  printProjectRecipes,
   reportUnknownCommand,
+  reportUnknownOrSuggest,
   runConfigRead,
-  warnShadowedRecipe,
+  runProjectScript,
 } from "./engine/dispatch.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
-// dispatcher — the recipe-shadow authority — and re-exported here as the CLI's
+// dispatcher and re-exported here as the CLI's
 // `KNOWN_VERBS`, so the parity guard and existing importers keep this entry point.
 export { KNOWN_VERBS };
 
@@ -720,7 +719,7 @@ export function buildCli(
       );
     });
 
-  // Read-side config surface — what a project recipe uses to read scalar,
+  // Read-side config surface — what a Project Script uses to read scalar,
   // array, and membership values out of discern.toml.
   const configGet = new Command()
     .description("Print a scalar config value.")
@@ -838,7 +837,7 @@ function shouldWelcomeBare(
 }
 
 /** A parsed CLI invocation: the verb Cliffy will dispatch, and the argv left
- * for a non-Cliffy dispatch target (a project recipe) once that verb token is
+ * for a non-Cliffy dispatch target (a Project Script) once that verb token is
  * removed — leading global flags preserved, in order. */
 export interface CliInvocation {
   verb: string | undefined;
@@ -850,7 +849,7 @@ export interface CliInvocation {
  * that is not one of the root command's global flags. Cliffy accepts global
  * flags on either side of the subcommand (`discern --json map` ≡
  * `discern map --json`), so every pre-Cliffy routing decision — the setup
- * redirect (ADR 0036), the welcome/help split, shadow warnings, recipe
+ * redirect (ADR 0036), the welcome/help split, and Project Script
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
  *
@@ -895,6 +894,29 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
     }
   }
   return tokens;
+}
+
+/**
+ * Split a `script` invocation after {@link resolveInvocation} removed the verb.
+ * Root-global flags that preceded the verb remain at the front and belong to
+ * discern; the first non-global token is the script name, and every token after
+ * that name belongs to the child unchanged.
+ */
+function splitScriptInvocation(
+  argsWithoutVerb: readonly string[],
+  globalFlags: ReadonlySet<string>,
+): { name: string | undefined; args: string[] } {
+  let i = 0;
+  while (
+    i < argsWithoutVerb.length &&
+    globalFlags.has(argsWithoutVerb[i] ?? "")
+  ) {
+    i++;
+  }
+  return {
+    name: argsWithoutVerb[i],
+    args: [...argsWithoutVerb.slice(i + 1)],
+  };
 }
 
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
@@ -969,12 +991,11 @@ export async function main(args: string[]): Promise<void> {
         Deno.exit(await runDesk({}));
       }
       console.log(operatorHelp(cli as unknown as Command, { color }));
-      await printProjectRecipes();
       Deno.exit(0);
       return;
     }
 
-    // A retired spelling is not an alias: it refuses before recipe fallthrough or
+    // A retired spelling is not an alias: it refuses before unknown-command or
     // Cliffy dispatch and names the one canonical successor. JSON mode keeps the
     // same refusal in the uniform result envelope.
     const commandTokens = argv.filter((token) => !globalTokens.has(token));
@@ -1010,10 +1031,9 @@ export async function main(args: string[]): Promise<void> {
       verb = canonicalVerb;
     }
 
-    // Explicit help: Cliffy's help plus the project-recipe listing.
+    // Explicit help: the grouped Cliffy help.
     if (verb === "-h" || verb === "--help") {
       console.log(operatorHelp(cli as unknown as Command, { color }));
-      await printProjectRecipes();
       Deno.exit(0);
     }
 
@@ -1041,22 +1061,29 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
 
-    // A built-in verb (installer OR engine) with a same-named project recipe: warn
-    // it is shadowed and won't run. Keyed on the SAME KNOWN_VERBS the router refuses,
-    // so every name help could list is covered — not just the engine subset (B34).
-    // Silent under --json so the single-envelope stream stays pure (B35).
-    if (KNOWN_VERBS.has(verb)) {
-      await warnShadowedRecipe(verb, { json: argv.includes("--json") });
+    // Project Scripts have one explicit namespace. Intercept before Cliffy so
+    // everything after the name reaches the executable untouched; bare `script`
+    // lists the directory. Only parent-level help stays with Cliffy.
+    if (verb === "script") {
+      const script = splitScriptInvocation(
+        invocation.argsWithoutVerb,
+        globalTokens,
+      );
+      if (script.name !== "-h" && script.name !== "--help") {
+        Deno.exit(
+          await runProjectScript(script.name, script.args, {
+            json: argv.includes("--json"),
+          }),
+        );
+      }
     }
 
-    // Recipe fallthrough: an unknown verb (not a flag, not a known command) is a
-    // project-owned executable recipe, or an unknown-command lesson with a
-    // did-you-mean suggestion. The recipe receives the rest of argv verbatim — a
-    // leading global flag included, exactly as if it had been passed after the
-    // recipe name.
+    // An unknown top-level word never executes a Project Script. The suggestion
+    // path may point at `discern script <name>`, preserving discoverability while
+    // keeping the root command vocabulary closed.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(
-        await dispatchRecipeOrSuggest(verb, invocation.argsWithoutVerb, {
+        await reportUnknownOrSuggest(verb, {
           json: argv.includes("--json"),
         }),
       );

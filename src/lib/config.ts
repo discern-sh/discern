@@ -50,7 +50,7 @@ export const DEFAULTS = {
 
 /**
  * The neutral-scope globs a fresh install seeds (already TOML-quoted): docs, the
- * `discern/` namespace (guidance sources, authored skills, recipes, the ledger,
+ * `discern/` namespace (guidance sources, authored skills, Project Scripts, the ledger,
  * the brief — every default from the paths registry lives under it), and EVERY
  * known agent's generated dir — the last derived from the provider registry via
  * {@link neutralAgentScopePaths}, so adding an agent neutralizes its dir

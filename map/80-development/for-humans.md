@@ -19,14 +19,14 @@ What an install lays down is **one root file, `discern.toml`, plus one visible
 folder, `discern/`** — enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 Files split into **two buckets**: _your_ committed files (`discern.toml`, the
-namespace content — guidance, skills, recipes, the map, the ledger, the brief,
-each config-pointable elsewhere — plus the merged settings/gitignore), and _the
-binary's_ gitignored, re-published artifacts (the materialised skills dirs and
-the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` — ADR 0034). The
-full file-by-file map is in [install-surface.md](install-surface.md), and the
-[dispositions](../00-orientation/glossary.md#file-dispositions) are defined in
-the glossary. Edit your files in place; the binary's artifacts are produced from
-source in this repo and overwritten on `upgrade`.
+namespace content — guidance, skills, Project Scripts, the map, the ledger, the
+brief, each config-pointable elsewhere — plus the merged settings/gitignore),
+and _the binary's_ gitignored, re-published artifacts (the materialised skills
+dirs and the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` — ADR
+0034). The full file-by-file map is in [install-surface.md](install-surface.md),
+and the [dispositions](../00-orientation/glossary.md#file-dispositions) are
+defined in the glossary. Edit your files in place; the binary's artifacts are
+produced from source in this repo and overwritten on `upgrade`.
 
 ## Prerequisites
 

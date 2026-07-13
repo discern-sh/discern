@@ -11,7 +11,7 @@ import { join } from "@std/path";
 import {
   resolveConfigPath,
   resolveGuidanceSources,
-  resolveRecipesDir,
+  resolveScriptsDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
 import { CONFIG_REL, findRoot } from "../shared/env.ts";
@@ -337,24 +337,24 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     );
   }
 
-  // 6. recipe contract — a recipe reads config via `discern config get`, not by
-  // sourcing a helper library: `DISCERN_LIB` is not part of the recipe
-  // environment, so a recipe that does `. "$DISCERN_LIB/bootstrap.sh"` for
+  // 6. Project Script contract — a script reads config via `discern config get`,
+  // not by sourcing a helper library: `DISCERN_LIB` is not part of the script
+  // environment, so a script that does `. "$DISCERN_LIB/bootstrap.sh"` for
   // config/output helpers breaks at runtime. Flag it and point at the contract.
   // The needle is the retired contract's OWN identifier (`DISCERN_LIB`), never a
-  // generic filename — a project recipe running its own `bootstrap.sh` is
-  // healthy. README.md is documentation, not a recipe, so it is skipped.
+  // generic filename — a Project Script running its own `bootstrap.sh` is
+  // healthy. README.md is documentation, not an executable, so it is skipped.
   {
-    const { abs: recipesDir } = resolveRecipesDir(destDir, config);
+    const { abs: scriptsDir } = resolveScriptsDir(destDir, config);
     const offenders: string[] = [];
     let scanned = 0;
     try {
-      for await (const entry of Deno.readDir(recipesDir)) {
+      for await (const entry of Deno.readDir(scriptsDir)) {
         if (!entry.isFile || entry.name === "README.md") {
           continue;
         }
         scanned++;
-        const body = await Deno.readTextFile(join(recipesDir, entry.name));
+        const body = await Deno.readTextFile(join(scriptsDir, entry.name));
         if (body.includes("DISCERN_LIB")) {
           offenders.push(entry.name);
         }
@@ -363,31 +363,30 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       if (!(error instanceof Deno.errors.NotFound)) {
         throw error;
       }
-      // No recipes directory — nothing to check.
+      // No Project Scripts directory — nothing to check.
     }
     checks.push(
       offenders.length === 0
         ? {
-          name: "recipe contract",
+          name: "script contract",
           ok: true,
           detail: scanned === 0
-            ? "no project recipes to check"
-            : `${scanned} recipe(s); none source the retired shell library`,
+            ? "no Project Scripts to check"
+            : `${scanned} script(s); none source the retired shell library`,
         }
         : {
-          name: "recipe contract",
+          name: "script contract",
           ok: false,
-          detail: `recipe(s) source the removed shell library: ${
+          detail: `script(s) source the removed shell library: ${
             offenders.join(", ")
           }`,
           fix:
-            "recipes are standalone executables now — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
+            "Project Scripts are standalone executables — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
         },
     );
   }
 
-  // 7. `sh` resolves — the job runner and the recipe fallthrough both exec via
-  // `sh -c`, so a missing `sh` would break the gate and every project recipe.
+  // 7. `sh` resolves — the job runner executes configured commands via `sh -c`.
   if (await commandExists("sh")) {
     checks.push({ name: "sh", ok: true, detail: "present on PATH" });
   } else {
@@ -396,7 +395,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       ok: false,
       detail: "`sh` is not on PATH",
       fix:
-        "install a POSIX shell — the gate and project recipes run commands via `sh -c`",
+        "install a POSIX shell — the gate runs configured commands via `sh -c`",
     });
   }
 

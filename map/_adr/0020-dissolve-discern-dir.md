@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, the retired product-category wording →
 > `discern`, the gate, or the bar; the decision and reasoning are unchanged.
 
+> **Project Script amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> config-pointing and ownership rule now applies to `[scripts].dir`; Project
+> Scripts live under `discern script`, not the root command namespace.
+
 **Status**: accepted; **supersedes
 [ADR 0016](_superseded/0016-consolidate-install-surface.md)**; the
 single-root-file **config** footprint is narrowed for _runtime_ per-worktree

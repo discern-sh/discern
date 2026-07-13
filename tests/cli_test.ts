@@ -269,9 +269,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
 
 // B33 — the class: a help/informational path must render FULLY and exit 0 on bad
 // project state (a broken, missing, or schema-invalid discern.toml) — help is
-// exactly when a user most needs it to keep working. The recipe listing degrades
-// to a one-line notice rather than throwing out of `printProjectRecipes` and
-// truncating the help with a non-zero exit.
+// exactly when a user most needs it to keep working.
 const BAD_PROJECT_STATES: ReadonlyArray<{ name: string; toml: string | null }> =
   [
     { name: "missing discern.toml", toml: null },
@@ -304,8 +302,7 @@ for (const state of BAD_PROJECT_STATES) {
           await Deno.writeTextFile(join(dir, "discern.toml"), state.toml);
         }
         const r = await runCli([flag], dir);
-        // Exit 0 — the pre-fix bug exited 1 when the config threw out of the
-        // recipe listing.
+        // Exit 0 even when the surrounding project state is unreadable.
         assertEquals(
           r.code,
           0,
@@ -314,7 +311,7 @@ for (const state of BAD_PROJECT_STATES) {
         const out = r.stdout + r.stderr;
         // The help rendered in full — the grouped command list AND the trailing
         // drill-in footer both present (a truncated help would be missing the
-        // footer that comes AFTER the recipe section the config feeds).
+        // footer at the end of the generated help).
         assertStringIncludes(out, "Commands:");
         assertStringIncludes(out, "Agentic loop");
         assertStringIncludes(out, "discern <command> --help");
@@ -323,11 +320,6 @@ for (const state of BAD_PROJECT_STATES) {
           !out.includes("Uncaught"),
           `help must not dump a stack trace:\n${out}`,
         );
-        // A config that could not be read says so in one line instead of listing
-        // recipes (the missing-config case simply has no project, so no notice).
-        if (state.name.includes("broken") || state.name.includes("invalid")) {
-          assertStringIncludes(out, "Project recipes: unavailable");
-        }
       });
     });
   }

@@ -13,6 +13,11 @@
 > ([ADR 0052](0052-worktree-sibling-placement.md)), and `.discern/` is dissolved
 > ([ADR 0020](0020-dissolve-discern-dir.md)).
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> older Recipe reference below describes the then-current command
+> implementation; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context

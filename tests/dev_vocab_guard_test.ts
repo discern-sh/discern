@@ -83,7 +83,7 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
 
 const MAP = join(REPO_ROOT, "map");
 const TESTS = join(REPO_ROOT, "tests");
-const RECIPES = join(REPO_ROOT, "recipes");
+const PROJECT_SCRIPTS = join(REPO_ROOT, "discern", "scripts");
 
 /**
  * discern's one update channel is the install script (`src/lib/version.ts`
@@ -185,9 +185,9 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
       TESTS,
       MAP,
       TEMPLATES,
-      RECIPES,
       MOCKUPS,
       SCRIPTS,
+      PROJECT_SCRIPTS,
       SKILLS,
       GITHUB,
     ]
@@ -272,6 +272,52 @@ function isLaunchVocabularyRecord(rel: string): boolean {
       "tests/dev_vocab_guard_test.ts",
     ]).has(rel);
 }
+
+/** Compatibility records allowed to retain the retired Project Recipe contract. */
+function isProjectScriptMigrationRecord(rel: string): boolean {
+  return isLaunchVocabularyRecord(rel) ||
+    rel.includes("/_done/") ||
+    new Set([
+      "src/shared/paths_registry.ts",
+      "tests/paths_registry_test.ts",
+    ]).has(rel);
+}
+
+/**
+ * Structural remnants of the retired Project Recipe surface. Ordinary English
+ * such as a "CI recipe" remains legal; old config positions are covered by the
+ * table-driven launch-vocabulary guard below.
+ */
+const RETIRED_PROJECT_SCRIPT_SURFACE = [
+  /\bDISCERN_RECIPES(?:_DIR)?\b/u,
+  /\{\{recipes_dir\}\}/u,
+  /\bproject recipes?\b/iu,
+  /\bENGINE_RECIPE_NAMES\b/u,
+  /\bresolveRecipesDir\b/u,
+  /\brecipeEnvVars\b/u,
+  /\bRecipeEnv\b/u,
+  /\bdiscern\/recipes\b/u,
+];
+
+Deno.test("the retired Project Recipe surface survives only in migration records", async () => {
+  const offenders: string[] = [];
+  for (const [rel, source] of await commandSurfaceFiles()) {
+    if (isProjectScriptMigrationRecord(rel)) continue;
+    for (const pattern of RETIRED_PROJECT_SCRIPT_SURFACE) {
+      const hit = source.match(pattern);
+      if (hit !== null) {
+        offenders.push(`${rel} contains ${JSON.stringify(hit[0])}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `retired Project Recipe contract returned outside migration history:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
 
 interface ForbiddenPosition {
   retired: string;

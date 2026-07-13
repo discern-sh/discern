@@ -1,5 +1,11 @@
 # ADR 0014: A versioned, reversible migration system for upgrades
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> older Recipe references below describe the then-current command and install
+> surfaces. Project-owned executables are now Project Scripts under
+> `discern script`; the migration-system decision is unchanged.
+
 **Status**: accepted
 
 ## Context

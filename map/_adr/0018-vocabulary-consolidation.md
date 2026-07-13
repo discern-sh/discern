@@ -9,6 +9,12 @@
 > [ADR 0017](0017-capabilities-model.md) (declare capabilities, derive the gate)
 > — one 3→4 schema migration, best read as a pair.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> older Recipe layer below describes the then-current command implementation.
+> Project-owned executables are now Project Scripts under `discern script`; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context

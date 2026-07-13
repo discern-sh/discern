@@ -229,7 +229,7 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
 
 Deno.test("every failing doctor check names a fix (shape guard over the emitted set)", async () => {
   // The per-check tests pin fix-presence one check at a time (schema version, git,
-  // recipe contract, gotchas, the capability nudge…). This ties the invariant to the
+  // script contract, gotchas, the capability nudge…). This ties the invariant to the
   // whole emitted set: degrade the install so a broad set of checks trips at once,
   // then assert every check carries a closed status and every FAILING one names a
   // non-empty fix — an unactionable failure is a dead end. A new check that fails
@@ -625,71 +625,71 @@ Deno.test("doctor: worktree-resource commands honor env-assignment prefixes too"
   });
 });
 
-Deno.test("doctor: a fresh install passes the recipe-contract check (no recipes seeded)", async () => {
+Deno.test("doctor: a fresh install passes the script-contract check (no Project Scripts)", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A fresh install seeds no recipes dir at all, so there is nothing sourcing
+    // A fresh install seeds no Project Scripts directory, so nothing is sourcing
     // the retired shell library.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
-    assertEquals(check(payload, "recipe contract").ok, true);
+    assertEquals(check(payload, "script contract").ok, true);
   });
 });
 
-Deno.test("doctor: a recipe sourcing the retired shell library is flagged with the new-contract fix", async () => {
+Deno.test("doctor: a Project Script sourcing the retired shell library is flagged", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A recipe carried forward from a pre-binary install: it sources the engine
+    // A script carried forward from a pre-binary install: it sources the engine
     // library that no longer exists, so it would break at runtime. (The default
-    // [recipes].dir is discern/recipes; a fresh install seeds no recipes dir.)
-    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    // [scripts].dir is discern/scripts; a fresh install seeds no scripts dir.)
+    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/recipes/reset"),
+      join(dir, "discern/scripts/reset"),
       '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$DISCERN_LIB/bootstrap.sh"\nok done\n',
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const recipe = check(payload, "recipe contract");
-    assertEquals(recipe.ok, false);
-    assertStringIncludes(recipe.detail, "reset");
-    assertStringIncludes(recipe.fix ?? "", "discern config get");
+    const script = check(payload, "script contract");
+    assertEquals(script.ok, false);
+    assertStringIncludes(script.detail, "reset");
+    assertStringIncludes(script.fix ?? "", "discern config get");
   });
 });
 
-Deno.test("doctor: a recipe running the project's OWN bootstrap.sh is healthy", async () => {
+Deno.test("doctor: a Project Script running the project's OWN bootstrap.sh is healthy", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // bootstrap.sh is a generic script name; a project recipe invoking its own
+    // bootstrap.sh is a generic script name; a Project Script invoking its own
     // bootstrap script has nothing to do with discern's retired shell library
     // and must not fail the health check.
-    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/recipes/reset-env"),
+      join(dir, "discern/scripts/reset-env"),
       "#!/usr/bin/env sh\n# desc: reset the dev environment\n./scripts/bootstrap.sh --seed\n",
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const recipe = check(payload, "recipe contract");
-    assertEquals(recipe.ok, true);
+    const script = check(payload, "script contract");
+    assertEquals(script.ok, true);
   });
 });
 
-Deno.test("doctor: any DISCERN_LIB reference in a recipe is flagged, whatever file it loads", async () => {
+Deno.test("doctor: any DISCERN_LIB reference in a Project Script is flagged", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // The retired contract's own identifier is the discriminator: a recipe
+    // The retired contract's own identifier is the discriminator: a script
     // reaching for `$DISCERN_LIB` breaks at runtime regardless of which helper
     // it names.
-    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/recipes/legacy"),
+      join(dir, "discern/scripts/legacy"),
       '#!/usr/bin/env sh\n# desc: legacy helper user\n. "$DISCERN_LIB/output.sh"\n',
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const recipe = check(payload, "recipe contract");
-    assertEquals(recipe.ok, false);
-    assertStringIncludes(recipe.detail, "legacy");
+    const script = check(payload, "script contract");
+    assertEquals(script.ok, false);
+    assertStringIncludes(script.detail, "legacy");
   });
 });
 

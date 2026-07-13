@@ -13,6 +13,12 @@
 > verb remains the always-measure on-demand pass. The mechanism — the two
 > halves, `up`/`down`, the `DISCERN_METRIC` convention — is unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> older Recipe references below describe the then-current command
+> implementation. Project-owned executables are now Project Scripts under
+> `discern script`; the decision and reasoning are unchanged.
+
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below. **Extended by [ADR 0057](0057-rate-standards.md)** — an optional `per`
 denominator so a standard can hold a rate, not just a raw count.

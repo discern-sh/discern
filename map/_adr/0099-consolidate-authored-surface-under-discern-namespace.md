@@ -5,6 +5,11 @@
 > `docs/…` paths below: live config uses `[map]`, and a fresh tree defaults to
 > `map/`. The remaining namespace decision and reasoning are unchanged.
 
+> **Project Script amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The row
+> originally named `[recipes].dir` is now `[scripts].dir`; its default moved
+> from `discern/recipes` to `discern/scripts`. The placement rule stands.
+
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (its
 config-pointing and ownership rules stand; its root-scatter defaults are
 revised) and [ADR 0080](0080-configured-agent-map-root.md) (the docs default

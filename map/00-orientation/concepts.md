@@ -27,8 +27,8 @@ Everything below fits in **four layers**:
    their [settings](glossary.md#worktree-settings).
 3. **The agent surface — what agents read and run:**
    [Guidance](glossary.md#guidance-source) (always-on),
-   [Skills](glossary.md#skill) (on-demand), [Recipes](glossary.md#recipe) (your
-   own `discern` verbs).
+   [Skills](glossary.md#skill) (on-demand),
+   [Project Scripts](glossary.md#project-script) (your own `discern` verbs).
 4. **The ownership model — who owns what:**
    **[yours](glossary.md#your-files--yours)** (committed seeds) vs. **the
    [binary's](glossary.md#the-binarys-files)** (re-published artifacts), with

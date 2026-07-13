@@ -114,7 +114,7 @@ export function colorEnabled(): boolean {
   return Deno.stdout.isTerminal();
 }
 
-/** The human-output surface a gate recipe uses. */
+/** The human-output surface a gate command uses. */
 export interface Out {
   c: Palette;
   color: boolean;

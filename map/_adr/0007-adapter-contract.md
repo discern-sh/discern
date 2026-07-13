@@ -12,6 +12,11 @@
 > create-or-skip — but the mechanism (a directory overlay plus config fills
 > through the shared editor) still ships.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> project-owned executable called a Recipe below is now a Project Script under
+> `discern script`; the decision and reasoning are unchanged.
+
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_
 below.
 

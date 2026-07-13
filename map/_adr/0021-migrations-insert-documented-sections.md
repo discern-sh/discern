@@ -1,5 +1,10 @@
 # ADR 0021: Migrations insert a new section's documented block at its canonical position
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> `[recipes]` references below record the historical migration. Live config now
+> uses `[scripts]`; the documented-block decision is unchanged.
+
 **Status**: accepted
 
 ## Context

@@ -19,7 +19,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   resolveBriefPath,
   resolveMapDir,
-  resolveRecipesDir,
+  resolveScriptsDir,
   resolveSkillsDir,
   resolveTodoPath,
 } from "../src/lib/paths.ts";
@@ -37,10 +37,14 @@ Deno.test("registry defaults follow the namespace policy, with the project map a
       entry.defaultPath.startsWith(NAMESPACE_DIR),
       `${name}: default "${entry.defaultPath}" must live under ${NAMESPACE_DIR}`,
     );
-    assert(
-      !entry.legacyPath.startsWith(NAMESPACE_DIR),
-      `${name}: legacy "${entry.legacyPath}" predates the namespace`,
-    );
+    if (name === "scripts") {
+      assertEquals(entry.legacyPath, "discern/recipes");
+    } else {
+      assert(
+        !entry.legacyPath.startsWith(NAMESPACE_DIR),
+        `${name}: legacy "${entry.legacyPath}" predates the namespace`,
+      );
+    }
     assert(entry.description.length > 0, `${name}: needs a description`);
   }
 });
@@ -85,8 +89,8 @@ Deno.test("the resolvers read through the registry defaults", () => {
     join(root, SOURCE_PATHS.skills.defaultPath),
   );
   assertEquals(
-    resolveRecipesDir(root, c).abs,
-    join(root, SOURCE_PATHS.recipes.defaultPath),
+    resolveScriptsDir(root, c).abs,
+    join(root, SOURCE_PATHS.scripts.defaultPath),
   );
   assertEquals(
     resolveTodoPath(root, c).abs,

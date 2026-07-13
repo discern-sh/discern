@@ -4,6 +4,11 @@
 > pointers use the retired product-category wording → `discern`, the gate, or
 > the bar; the decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script for the former project Recipe surface; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted; implements
 [design principle 12](../00-orientation/design-principles.md) (exit honesty) and
 [13](../00-orientation/design-principles.md) (a provable footprint); inverts
@@ -48,8 +53,8 @@ uninstall that misses a new file silently breaks the promise it exists to keep.
   registry (the compiled agent files via `allGuidanceFilePaths()`, the skills
   dirs via `allSkillsDirs()`, and every declared MCP / hooks / worktree-app /
   project-rules file) and the set of things to keep is the paths registry (all
-  user content: guidance, the map, authored skills, recipes, the ledger, the
-  brief) plus `discern.toml`. Nothing is a hand-copied path list — the exact
+  user content: guidance, the map, authored skills, Project Scripts, the ledger,
+  the brief) plus `discern.toml`. Nothing is a hand-copied path list — the exact
   discipline ADR 0102 uses for the forward direction, applied in reverse.
 - **The forcing function is a round-trip test, not a compile error.** The strip
   logic a co-owned file needs is inherently per-file (a JSON settings merge and

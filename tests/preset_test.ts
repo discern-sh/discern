@@ -55,17 +55,17 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertEquals(result.verb, "preset");
     assertEquals(result.data.config_fills, true);
 
-    // Files overlaid: a seed recipe, a seed guideline fragment, a managed skill.
-    assert(await exists(join(dir, "discern/recipes/example-deploy")));
+    // Files overlaid: a Project Script, a guideline fragment, a managed skill.
+    assert(await exists(join(dir, "discern/scripts/example-deploy")));
     assert(await exists(join(dir, "discern/guidance.md")));
     assert(await exists(join(dir, "discern/skills/example-skill/SKILL.md")));
-    // The overlaid recipe kept its exec bit.
-    const recipeInfo = await Deno.stat(
-      join(dir, "discern/recipes/example-deploy"),
+    // The overlaid Project Script kept its exec bit.
+    const scriptInfo = await Deno.stat(
+      join(dir, "discern/scripts/example-deploy"),
     );
     assert(
-      ((recipeInfo.mode ?? 0) & 0o111) !== 0,
-      "recipe should be executable",
+      ((scriptInfo.mode ?? 0) & 0o111) !== 0,
+      "Project Script should be executable",
     );
     // preset.json is metadata — never scaffolded into the project.
     assert(!(await exists(join(dir, "preset.json"))));
@@ -100,15 +100,15 @@ Deno.test("preset --json without --yes emits exactly one envelope and applies (n
     assertEquals(result.ok, true);
     assertEquals(result.verb, "preset");
     // The overlay applied despite no --yes, because json mode auto-proceeds.
-    assert(await exists(join(dir, "discern/recipes/example-deploy")));
+    assert(await exists(join(dir, "discern/scripts/example-deploy")));
   });
 });
 
-Deno.test("preset: the overlaid project recipe is runnable via agent", async () => {
+Deno.test("preset: the overlaid Project Script is runnable through its namespace", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     await runCli(["preset", "example", "--yes"], dir, PRESET_ENV);
-    const r = await runAgent(dir, ["example-deploy"]);
+    const r = await runAgent(dir, ["script", "example-deploy"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "example deploy ran");
   });
@@ -125,7 +125,7 @@ Deno.test("preset --dry-run writes nothing (files or fills)", async () => {
     );
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).dry_run, true);
-    assert(!(await exists(join(dir, "discern/recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "discern/scripts/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -339,12 +339,12 @@ Deno.test("preset --dry-run prints the plan as plain text and writes nothing", a
     assertEquals(r.code, 0, r.stderr);
     // The plan rows print to stdout (the user-facing channel); the heading and
     // the config-fills note are status lines on stderr.
-    assertStringIncludes(r.stdout, "discern/recipes/example-deploy");
+    assertStringIncludes(r.stdout, "discern/scripts/example-deploy");
     assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(r.stderr, "Would fill discern.toml:");
     assertStringIncludes(r.stderr, "capabilities.test");
     // Nothing was written.
-    assert(!(await exists(join(dir, "discern/recipes/example-deploy"))));
+    assert(!(await exists(join(dir, "discern/scripts/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -357,7 +357,7 @@ Deno.test("preset overlays a preset that has no preset.json (files only, no fill
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "filesonly", {
-      "recipes/filesonly": "# files only preset\n",
+      "scripts/filesonly": "# files only preset\n",
     });
 
     const r = await runCli(
@@ -370,8 +370,8 @@ Deno.test("preset overlays a preset that has no preset.json (files only, no fill
     assertEquals(result.ok, true);
     // No preset.json → no config fills, and discern.toml is untouched.
     assertEquals(result.data.config_fills, false);
-    assert(result.data.written.includes("recipes/filesonly"));
-    assert(await exists(join(dir, "recipes/filesonly")));
+    assert(result.data.written.includes("scripts/filesonly"));
+    assert(await exists(join(dir, "scripts/filesonly")));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -384,7 +384,7 @@ Deno.test("preset rejects a preset.json that is not a JSON object", async () => 
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const { env } = await stagePreset(dir, "badjson", {
-      "recipes/badjson": "# preset with a non-object manifest\n",
+      "scripts/badjson": "# preset with a non-object manifest\n",
       "preset.json": '["not", "an", "object"]',
     });
 
@@ -399,7 +399,7 @@ Deno.test("preset rejects a preset.json that is not a JSON object", async () => 
     assertEquals(result.error, "invalid_preset");
     assertStringIncludes(result.message, "must be a JSON object");
     // Failed before writing anything (neither the file nor the toml changed).
-    assert(!(await exists(join(dir, "recipes/badjson"))));
+    assert(!(await exists(join(dir, "scripts/badjson"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
@@ -471,7 +471,7 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
     assertEquals(r.code, 0, r.stderr);
     assertEquals(JSON.parse(r.stdout).ok, true);
     // The overlay still applied normally despite the missing agents key.
-    assert(await exists(join(dir, "discern/recipes/example-deploy")));
+    assert(await exists(join(dir, "discern/scripts/example-deploy")));
   });
 });
 

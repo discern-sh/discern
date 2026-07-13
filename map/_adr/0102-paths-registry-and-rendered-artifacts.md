@@ -4,6 +4,11 @@
 > pointers use `docs` → `map` where it names the command, config, or tree; the
 > decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script and `[scripts].dir` for the former Recipe surface;
+> the decision and reasoning are unchanged.
+
 **Status**: accepted; builds on
 [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md);
 extends [ADR 0026](0026-typed-config-schema.md) (the schema stays the config
@@ -100,8 +105,8 @@ Current reality, mapped before this decision:
 - **Runtime indirection instead of rendering** (skills tell agents to run
   `discern config get docs.dir`). Rejected as the default: it survives
   reconfiguration without a refresh, but costs a tool call per use and makes
-  every skill read like plumbing; recipes already use it where live resolution
-  is the point.
+  every skill read like plumbing; Project Scripts already use it where live
+  resolution is the point.
 - **No registry — fix the literals in place.** Rejected: that is the current
   scatter, and it regrows; without one source to enumerate from, the sentinel
   and write-surface guards would run off hand-copied lists, the exact defect

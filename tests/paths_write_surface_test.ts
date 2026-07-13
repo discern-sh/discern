@@ -36,7 +36,7 @@ import {
   resolveBriefPath,
   resolveGuidanceSeedRel,
   resolveMapDir,
-  resolveRecipesDir,
+  resolveScriptsDir,
   resolveSkillsDir,
   resolveTodoPath,
 } from "../src/lib/paths.ts";
@@ -275,7 +275,7 @@ async function contractPredicate(
   // The paths registry, through the resolvers.
   prefixes.push(asPrefix(resolveMapDir(root, config).rel));
   prefixes.push(asPrefix(resolveSkillsDir(root, config).rel));
-  prefixes.push(asPrefix(resolveRecipesDir(root, config).rel));
+  prefixes.push(asPrefix(resolveScriptsDir(root, config).rel));
   exact.add(resolveTodoPath(root, config).rel);
   exact.add(resolveBriefPath(root).rel);
   exact.add(resolveGuidanceSeedRel(config));

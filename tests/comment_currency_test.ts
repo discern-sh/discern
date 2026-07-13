@@ -99,7 +99,7 @@ const RETIRED_ARCHITECTURE: RegExp[] = [
   /\bmanaged-file machinery\b/i,
   /\bts port\b/i,
   // "the shell `output.sh`" / "shell `identity`" — the dead shell engine
-  // named via a file or recipe. The backtick keeps runtime senses ("shell
+  // named via a file or command. The backtick keeps runtime senses ("shell
   // command", "via `sh -c`") out.
   /\bshell [`]/i,
   // "matching the shell" / "like the shell's date math" — parity-with-the-dead-

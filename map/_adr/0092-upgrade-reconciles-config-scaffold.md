@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, the retired product-category wording →
 > `discern`, the gate, or the bar; the decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> fixed config section is now `[scripts]`; the decision and reasoning are
+> unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -14,7 +19,7 @@ template: documented sections, keys in deliberate order, and default values that
 teach the shape. Existing installs, however, only advanced through versioned
 migrations. Once an install recorded the current `[meta].schema_version`,
 `discern upgrade --check` treated it as current even if the file was missing a
-fixed section such as `[recipes]` or a fixed key such as `[gate].fail_fast`.
+fixed section such as `[scripts]` or a fixed key such as `[gate].fail_fast`.
 
 The engine hid that drift because the typed schema supplies defaults at read
 time. Operationally, a missing key could still validate and run; socially, the

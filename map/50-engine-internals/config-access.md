@@ -17,12 +17,12 @@ and a drift fails the gate.
 ## The paths registry and its resolvers
 
 Every configurable source path — the guidance sources, the map, authored skills,
-recipes, the ledger, the brief — is one entry in the
+Project Scripts, the ledger, the brief — is one entry in the
 [paths registry](../../src/shared/paths_registry.ts): its config key, its
 `discern/` default, its pre-namespace legacy location, and a description
 ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). The Zod
 schema's path defaults derive from it, and code never reads a path key directly:
-the resolvers in [`lib/paths.ts`](../../src/lib/paths.ts) (`resolveDocsDir`,
+the resolvers in [`lib/paths.ts`](../../src/lib/paths.ts) (`resolveMapDir`,
 `resolveSkillsDir`, `resolveTodoPath`, …) turn a configured value into a
 project-absolute location, honouring an absolute or relative pointing. A
 registry default written as a literal anywhere else in `src/**` fails
@@ -36,11 +36,12 @@ extent expands to the configured docs dir
 
 ## The read surface
 
-Recipes and project tooling read config through the dispatcher, never by parsing
-TOML themselves: `discern config get|array|has|subsections|keys <dotted.key>`.
-The same values reach a Recipe's process as exported `DISCERN_*` variables. This
-keeps the config format an implementation detail of the binary — a recipe stays
-a plain executable with no TOML parser and no shell library to source.
+Project Scripts and project tooling read config through the dispatcher, never by
+parsing TOML themselves:
+`discern config get|array|has|subsections|keys <dotted.key>`. The same values
+reach a Project Script's process as exported `DISCERN_*` variables. This keeps
+the config format an implementation detail of the binary — a script stays a
+plain executable with no TOML parser and no shell library to source.
 
 ## The write surface
 

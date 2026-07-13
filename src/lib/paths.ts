@@ -3,7 +3,7 @@
  *
  * The whole footprint in a project is a single root file, `discern.toml` (ADR
  * 0020). Everything else a project opts into — guidance prose, authored skills,
- * recipes — lives at a config-pointed location with a sensible discoverable
+ * Project Scripts — lives at a config-pointed location with a sensible discoverable
  * default, read only when present. This module owns those defaults and resolvers,
  * plus the install-config locator and the `templates/` discovery.
  */
@@ -88,15 +88,15 @@ export function resolveMapDir(
 }
 
 /**
- * The project recipes directory: `[recipes].dir` (its default lives in the paths
+ * The Project Scripts directory: `[scripts].dir` (its default lives in the paths
  * registry). The default works with no config; point it elsewhere (e.g.
  * `tools/`) if preferred.
  */
-export function resolveRecipesDir(
+export function resolveScriptsDir(
   root: string,
   config: DiscernConfig,
 ): ResolvedDir {
-  return resolveDir(root, config.recipes.dir);
+  return resolveDir(root, config.scripts.dir);
 }
 
 /**

@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, `docs` → `map` where it names the
 > command, config, or tree; the decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script for the former project Recipe surface; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -74,8 +79,8 @@ defines every section, key, type, **default**, and **human description**
 - **`doctor` folds its structural validation into the shared validator.** One
   "config schema" check reports the issue list; the config is parsed **once**,
   not ~10 times. Only the _semantic/liveness_ checks stay bespoke (is a command
-  on PATH, does a recipe collide with an engine verb, does the gotchas doc
-  exist, does another tool also automate worktrees).
+  on PATH, does a Project Script source the retired shell library, does the
+  gotchas doc exist, does another tool also automate worktrees).
 
 - **The editor JSON Schema and the docs reference are GENERATED**
   (`deno task codegen`, `src/shared/config_codegen.ts`):
@@ -89,7 +94,7 @@ defines every section, key, type, **default**, and **human description**
 
 - **The narrow exception: `RawConfig`.** Two jobs need un-validated, generic
   dotted-key access and must NOT trip the schema: the `discern config get/…`
-  recipe passthrough (a `jq`-for-the-config over arbitrary keys) and the
+  Project Script passthrough (a `jq`-for-the-config over arbitrary keys) and the
   standard "never-loosen vs main" baseline (which reads an _older_, possibly
   un-migrated `git show main:discern.toml` for one number). `RawConfig` carries
   no schema knowledge, so there is nothing in it to drift.
@@ -175,7 +180,7 @@ coming back.
   drift-guard tests get the "cannot diverge" guarantee without the cost.
 - **Keep the stringly `Config` accessor for "flexibility."** Rejected: the
   flexibility was the bug. The one place that genuinely needs generic access
-  (the recipe passthrough) keeps it explicitly, as `RawConfig`.
+  (the Project Script passthrough) keeps it explicitly, as `RawConfig`.
 
 This applies [ADR 0017](0017-capabilities-model.md) (closed vocabulary) and
 [ADR 0019](0019-single-binary-ts-engine.md) (one source, nothing to drift) at

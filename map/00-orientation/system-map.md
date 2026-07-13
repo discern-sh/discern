@@ -29,7 +29,7 @@ runtime.
 │  discern.toml — the one root file (no engine, no manifest)  │
 │  + discern/ — the visible namespace, 100% yours:            │
 │      guidance.md · map/ · TODO.md ·                         │
-│      skills/ · recipes/ · brief.md (each config-pointable)  │
+│      skills/ · scripts/ · brief.md (each config-pointable)  │
 │  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
 │      .claude/skills/, .agents/skills/ (gitignored)          │
 │  + merged provider settings, co-managed .gitignore          │
@@ -47,13 +47,13 @@ person / coding agent
 │  dispatch.ts:        │              │  done · prepare · worktree   │
 │  root + verb routing │              │  standards · refresh · …      │
 └──────────┬───────────┘              └──────────────┬──────────────┘
-           │ unknown verb                            │  reads commands from
+           │ discern script <name>                   │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  project Recipe (exec'd)     │        │        discern.toml           │
-│  discern/recipes/<verb>      │        │  Capabilities · Checks ·      │
+│  Project Script (exec'd)     │        │        discern.toml           │
+│  discern/scripts/<name>      │        │  Capabilities · Checks ·      │
 │  with DISCERN_* exported     │ ─────► │  Scopes (+ gates) · Standards  │
-│  (built-in verb wins)        │ reads  │  · Worktree settings          │
+│  (built-in names are legal)  │ reads  │  · Worktree settings          │
 └──────────────────────────────┘  via   └──────────────────────────────┘
                                  discern config get
 ```

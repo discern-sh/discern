@@ -9,7 +9,7 @@
  * metadata, never scaffolded — is a discern config document (the same shape
  * `setup --config` reads) whose capabilities / checks / scopes / standards are
  * written into the project's `discern.toml` via the comment-preserving
- * editor. So a preset overlays both files (recipes, skills, guideline fragments,
+ * editor. So a preset overlays both files (Project Scripts, skills, guideline fragments,
  * docs) and config (capabilities, checks, scopes).
  *
  * The config half honors the same rule as the file half: **fill-if-absent,

@@ -28,17 +28,17 @@ function withoutSection(text: string, section: string): string {
 
 Deno.test("config reconciliation restores a missing fixed section with comments", async () => {
   const template = await renderedTemplate();
-  const drifted = withoutSection(template, "recipes");
+  const drifted = withoutSection(template, "scripts");
 
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
-  assertEquals(result.operations, [{ kind: "section", path: "recipes" }]);
+  assertEquals(result.operations, [{ kind: "section", path: "scripts" }]);
   assertStringIncludes(
     result.text,
-    "# [recipes] — your own `discern` commands",
+    "# [scripts] — your own executable Project Scripts",
   );
-  assertStringIncludes(result.text, "\n[recipes]\n");
-  assertStringIncludes(result.text, 'dir = "discern/recipes"');
+  assertStringIncludes(result.text, "\n[scripts]\n");
+  assertStringIncludes(result.text, 'dir = "discern/scripts"');
 
   const again = reconcileConfigTextWithTemplate(result.text, template);
   assertEquals(again.operations, []);

@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`; the decision and reasoning are
 > unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script for the former project Recipe surface; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted; extends [ADR 0051](0051-canonical-set-parity.md)'s
 drive-off-the-live-tree guard discipline to subprocess spawning, and clears the
 last open-coded remnants of the shell engine that preceded the single binary
@@ -68,7 +73,7 @@ auto-enrols; the sanctioned-file list is the rule, not a member list to keep in
 sync.
 
 The guard deliberately does **not** cover spawners that run a _dynamically
-named_ binary — the pager, a project recipe, the `with-gotchas` wrapper. Those
+named_ binary — the pager, a Project Script, the `with-gotchas` wrapper. Those
 exec an arbitrary user-chosen program, not git or the shell, so they are a
 different concern and out of scope by design; the guard matches the literal
 `"git"` / `gitBin()` / `"sh"` spawn forms only.

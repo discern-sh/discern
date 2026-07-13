@@ -74,6 +74,11 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
     commands: ["start", "update", "accept", "worktree", "identity"],
   },
   {
+    name: "Project Scripts",
+    note: "project-owned automation, listed or run by name",
+    commands: ["script"],
+  },
+  {
     name: "Setup & maintenance",
     note: "you or your agent tend the installation",
     commands: [

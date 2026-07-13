@@ -5,6 +5,11 @@
 > config, or tree, the retired product-category wording → `discern`, the gate,
 > or the bar; the decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script for the former project Recipe surface; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -72,7 +77,7 @@ command to two audiences** decided by the TTY.
 
 Explicit *no*s:
 
-- **Not a project recipe.** An install has no Deno; reimplementing this in POSIX
+- **Not a Project Script.** An install has no Deno; reimplementing this in POSIX
   shell would be a worse renderer and a large managed-surface cost, for a
   command that is a developer convenience, not part of the gate.
 - **Not a Markdown dependency, and not a full CommonMark parser.** The viewer

@@ -4,7 +4,7 @@
  *
  * The engine lives under `src/engine/**`, compiled into the binary. These tests
  * run it the way a real install does: `runAgent` invokes the engine via the repo's
- * `src/main.ts`, with a `discern` shim on PATH so a project recipe or hook that
+ * `src/main.ts`, with a `discern` shim on PATH so a Project Script or hook that
  * calls `discern <verb>` resolves the same command a real install would. It reuses
  * the installer's own `assembleInitPlan`/`applyPlan` to lay down a faithful install
  * (so the engine runs exactly the bytes a real `discern setup` would write), then
@@ -66,7 +66,7 @@ function shq(s: string): string {
 
 /**
  * A lazily-created directory holding a `discern` shim that execs the TS engine
- * exactly as runAgent does. Prepended to PATH so a project recipe (`discern
+ * exactly as runAgent does. Prepended to PATH so a Project Script (`discern
  * config get …`) or a settings.json hook (`discern worktree …`) resolves the
  * command the same way a real install (binary on PATH) would.
  */
@@ -208,7 +208,7 @@ async function markBootstrapped(configPath: string): Promise<void> {
 
 /**
  * Run `agent <args>` inside `dir`. Colour is forced off so assertions match
- * plain text, and git is isolated so recipes that shell out to git are hermetic.
+ * plain text, and git is isolated so Project Scripts that shell out to git are hermetic.
  * `opts.cwd` runs from a subdirectory (to exercise root-finding); `opts.env`
  * adds/overrides environment variables.
  */
@@ -339,7 +339,7 @@ export async function writeConfig(dir: string, toml: string): Promise<void> {
   }
 }
 
-/** Write an executable file (e.g. a project recipe or a capability command). */
+/** Write an executable file (e.g. a Project Script or a capability command). */
 export async function writeExecutable(
   path: string,
   contents: string,

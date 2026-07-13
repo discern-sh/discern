@@ -33,7 +33,7 @@ export const UPDATE_CHANNEL =
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **19**. The chain: schema-1→2 backfills
+ * The current shape is schema **20**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -77,8 +77,10 @@ export const UPDATE_CHANNEL =
  * work below the trunk happens on the pull axis, `start --from` /
  * `update --from` — ADR 0110); schema-17→18 renames the `[ratchets]` quality-
  * metric table to `[standards]`; schema-18→19 renames `[docs]` to `[map]` and
- * pins the installed tree's current directory (ADR 0120). See `MIGRATIONS`. A config with no
+ * pins the installed tree's current directory (ADR 0120); schema-19→20 renames
+ * Project Recipes to Project Scripts, moves the previous default directory, and
+ * preserves custom or colliding directory layouts (ADR 0137). See `MIGRATIONS`. A config with no
  * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
  * version), then migrated forward.
  */
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;

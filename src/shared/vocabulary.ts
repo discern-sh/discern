@@ -21,6 +21,7 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
 export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
   ratchets: "standards",
   docs: "map",
+  recipes: "scripts",
 };
 
 /** The successor for a retired top-level config key, if `key` is one. */
@@ -91,7 +92,7 @@ export function retiredCommandMessage(
  * canonical names win. Then an explicit irregular form may match. Finally, a
  * single trailing `s` is added or removed only when that produces exactly one
  * canonical verb; an ambiguous or unknown spelling is left untouched for the
- * normal recipe/typo path.
+ * normal unknown-command path.
  */
 export function normalizeVerbVariant(
   verb: string,

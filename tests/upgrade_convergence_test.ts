@@ -174,26 +174,29 @@ Deno.test("upgrade of a current install applies no migrations and stays at the c
 Deno.test("upgrade reconciles a current-schema config missing a fixed template section", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await removeConfigSection(dir, "recipes");
+    await removeConfigSection(dir, "scripts");
 
     const check = await upgradeCheck(dir);
     assertEquals(check.code, 1);
     assertEquals(check.res.data.pending_migrations, []);
     assertEquals(check.res.data.pending_reconciliation, [{
       kind: "section",
-      path: "recipes",
+      path: "scripts",
     }]);
 
     const res = await upgrade(dir);
     assertEquals(res.data.migrations_applied, []);
     assertEquals(res.data.config_reconciled, [{
       kind: "section",
-      path: "recipes",
+      path: "scripts",
     }]);
     const toml = await readTarget(dir, "discern.toml");
-    assertStringIncludes(toml, "# [recipes] — your own `discern` commands");
-    assertStringIncludes(toml, "\n[recipes]\n");
-    assertStringIncludes(toml, 'dir = "discern/recipes"');
+    assertStringIncludes(
+      toml,
+      "# [scripts] — your own executable Project Scripts",
+    );
+    assertStringIncludes(toml, "\n[scripts]\n");
+    assertStringIncludes(toml, 'dir = "discern/scripts"');
     await assertSecondUpgradeIsByteStable(dir);
   });
 });
@@ -342,6 +345,11 @@ async function removeMainBranch(dir: string): Promise<void> {
   await Deno.writeTextFile(p, kept.join("\n"));
 }
 
+/** Remove a current-only section before presenting a fresh scaffold as old. */
+async function removeCurrentScriptsSection(dir: string): Promise<void> {
+  await removeConfigSection(dir, "scripts");
+}
+
 Deno.test("a schema-1 install missing main_branch upgrades to the current schema and restores the field", async () => {
   await withTempDir(async (older) => {
     await withTempDir(async (fresh) => {
@@ -350,12 +358,13 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       // schema-1 install kept its config at the root (pre-.discern/ consolidation).
       await setup(older);
       await removeMainBranch(older);
+      await removeCurrentScriptsSection(older);
       await setSchema(older, 1);
 
       const res = await upgrade(older); // runs 1→2 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
       );
 
       await setup(fresh); // a fresh install at the current schema
@@ -423,7 +432,7 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
       );
 
       await setup(fresh);
@@ -475,6 +484,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
       .join("\n");
     await Deno.writeTextFile(join(dir, ".discern/config.toml"), stripped);
     await Deno.remove(join(dir, "discern.toml"));
+    await removeConfigSection(dir, "scripts");
     await Deno.writeTextFile(
       join(dir, ".discern/manifest.json"),
       '{ "kit_version": "1.0.0", "schema_version": 4 }\n',
@@ -498,7 +508,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4, so every later step runs.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

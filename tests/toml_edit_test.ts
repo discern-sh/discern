@@ -146,12 +146,12 @@ Deno.test("editor inserts a missing key into an existing section", () => {
 });
 
 Deno.test("editor appends a brand-new section at EOF", () => {
-  const out = new TomlEditor(SAMPLE).setString("recipes.dir", ".tools")
+  const out = new TomlEditor(SAMPLE).setString("scripts.dir", ".tools")
     .toString();
-  assertStringIncludes(out, "[recipes]");
+  assertStringIncludes(out, "[scripts]");
   assertStringIncludes(out, 'dir = ".tools"');
   // The new section comes after the original content.
-  assert(out.indexOf("[recipes]") > out.indexOf("[scopes.side_gates]"));
+  assert(out.indexOf("[scripts]") > out.indexOf("[scopes.side_gates]"));
 });
 
 const FAMILY_SAMPLE = `[project]

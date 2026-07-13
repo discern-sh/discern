@@ -718,7 +718,7 @@ export class TomlEditor {
    * group, i.e. the path with its final segment dropped (`scopes.assets`'s
    * group is `scopes`, so an existing `[scopes.docs]` is a sibling). Returns
    * null when `section` has no parent group (a single bare segment, e.g.
-   * `recipes`) or no family member exists yet, so callers can fall back to an
+   * `scripts`) or no family member exists yet, so callers can fall back to an
    * EOF append exactly as before this method existed.
    */
   private lastSiblingSection(

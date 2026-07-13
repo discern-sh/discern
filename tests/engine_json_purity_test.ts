@@ -27,7 +27,6 @@ import {
   type RunResult,
   scaffoldEngine,
   writeConfig,
-  writeExecutable,
 } from "./engine_helpers.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
@@ -184,35 +183,6 @@ Deno.test("worktree --json: setup steps and resource commands don't leak", async
       await runAgent(wt, ["worktree", "setup", "--json"]),
       "worktree setup",
     );
-  });
-});
-
-Deno.test("a shadowed recipe never leaks its warning onto a --json stream (B35)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // The default recipes dir is `discern/recipes`. A recipe named after a built-in
-    // engine verb is shadowed; in HUMAN mode the router warns (to stderr) that it
-    // won't run. Under --json that warning must stay silent, or it pollutes the one
-    // envelope — the exact B35 regression.
-    await writeConfig(
-      dir,
-      ["[project]", 'slug = "json-purity"', ""].join("\n"),
-    );
-    await gitInit(dir);
-    // Prove the shadow warning really fires in human mode (so the --json silence
-    // below is meaningful, not vacuous because no recipe was ever there).
-    await writeExecutable(
-      join(dir, "discern", "recipes", "status"),
-      "#!/usr/bin/env sh\n# desc: shadowed status\necho ran\n",
-    );
-    const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(
-      human.output,
-      "shadowed by a built-in",
-      "the shadow warning must fire in human mode for the guard to be meaningful",
-    );
-    // --json: the combined streams are exactly one envelope, warning suppressed.
-    assertEnvelopeOnly(await runAgent(dir, ["status", "--json"]), "status");
   });
 });
 

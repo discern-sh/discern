@@ -146,9 +146,10 @@ outstanding._
       receipt printer. Print the real `discern done` receipt (checks, test
       counts, commit, exit status — the result envelope) when a run passes or a
       branch lands. Most thermal printers speak ESC/POS over USB or network, so
-      a small script consuming `discern done --json` covers it; a recipe or hook
-      would be the natural wiring. Evidence: `site/pages/index.html` (#receipt —
-      the design to mirror); `src/shared/result.ts` (the envelope to print).
+      a small script consuming `discern done --json` covers it; a Project Script
+      or hook would be the natural wiring. Evidence: `site/pages/index.html`
+      (#receipt — the design to mirror); `src/shared/result.ts` (the envelope to
+      print).
 
 - [ ] **`discern improvement` candidates + a `// discern-coupled-to:`
       declaration marker — the discovery→enforcement bridge as a deliberate
@@ -212,8 +213,8 @@ _Product positioning, messaging, and launch/content tasks._
       material.
 - [ ] **Coin: "the project gets smarter over time".** A candidate tagline for
       the website/copy, capturing how the `discern-teach-the-project` skill
-      routes each session's lessons back into discern (guidance, skills,
-      recipes, docs, ADRs) so every future agent — of any vendor — inherits
+      routes each session's lessons back into discern (guidance, skills, Project
+      Scripts, docs, ADRs) so every future agent — of any vendor — inherits
       them. Drop it in when the messaging is ready.
 - [ ] **Explore: "grows your discernment" as a marketing angle.** Some bundled
       skills don't just guard quality, they teach it: `discern-shape-the-work`

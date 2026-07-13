@@ -39,8 +39,8 @@ and its story. Two recent steps show the range of what a step can do:
 - **`14 → 15`** consolidates the authored surface under the visible `discern/`
   [Namespace](../00-orientation/glossary.md#namespace): each source whose config
   key still pointed at its pre-namespace default (the guidance seed, the map,
-  authored skills, recipes, the ledger, the brief) moves from its `legacyPath`
-  to its `defaultPath` — both read from the
+  authored skills, the then-named Recipes, the ledger, the brief) moves from its
+  `legacyPath` to its `defaultPath` — both read from the
   [paths registry](../../src/shared/paths_registry.ts), so the step enumerates
   no path of its own — while a user-pointed path is left alone
   ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).

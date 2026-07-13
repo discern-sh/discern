@@ -1,5 +1,10 @@
 # ADR 0051: Every internal canonical set is tied to its satellites by a forcing function
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers reflect the closed root vocabulary and explicit Project Script
+> namespace; the decision and reasoning are unchanged.
+
 **Status**: accepted; grounds design principle
 [§2 "One source of truth"](../00-orientation/design-principles.md), generalizes
 [ADR 0043](0043-registry-derived-agent-parity.md) (the agent registry) from one
@@ -64,8 +69,8 @@ Two tools, strongest first:
    union). There, a test loops the canonical set and asserts each satellite
    covers it. `tests/engine_verb_parity_test.ts` is the keystone: one loop
    reconciles the verb SSOT against the Cliffy registrations, the MCP `TOOLS`,
-   the setup gate, the feature gate, the recipe-name list, and the identity
-   flags.
+   the setup gate, the feature gate, the suggestable-command list, and the
+   identity flags.
 
 The **derive-vs-tie** rule decides which per satellite:
 
@@ -75,10 +80,10 @@ The **derive-vs-tie** rule decides which per satellite:
 - **Tie by test** when the satellite legitimately DIFFERS (an intentional
   subset/superset). Do NOT force equality — assert the RELATIONSHIP with
   **explicit, named, documented exception sets** (`ENGINE_VERBS_WITHOUT_TOOL`,
-  `NON_ENGINE_TOOL_VERBS`, the recipe-name drops/adds). A new member then forces
-  a conscious choice — extend the satellite, or record why it is excepted — and
-  can't silently drift. Collapsing a deliberate difference into false equality
-  is a regression, not a fix.
+  `NON_ENGINE_TOOL_VERBS`, the suggestion-name drops/adds). A new member then
+  forces a conscious choice — extend the satellite, or record why it is excepted
+  — and can't silently drift. Collapsing a deliberate difference into false
+  equality is a regression, not a fix.
 
 Every guard must have teeth: it is confirmed to FAIL on a deliberate mismatch (a
 bogus member, a renamed literal, a weakened schema) before it is trusted. A

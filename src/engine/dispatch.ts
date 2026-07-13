@@ -1,7 +1,7 @@
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
- * `discern` CLI, and falls through to project-owned executable recipes under
- * `[recipes].dir` (default `./recipes`) for an unknown verb.
+ * `discern` CLI, including the `script` namespace for project-owned executables
+ * under `[scripts].dir` (whose default comes from the paths registry).
  *
  * Engine verbs operate on the project (found by walking up to `discern.toml`), so
  * each requires a project root.
@@ -21,11 +21,11 @@ import {
   findRoot,
   installedConfigRel,
   NO_PROJECT_MESSAGE,
-  recipeEnvVars,
+  scriptEnvVars,
 } from "../shared/env.ts";
 import {
   resolveConfigPath,
-  resolveRecipesDir,
+  resolveScriptsDir,
   resolveWorktreeRoot,
 } from "../lib/paths.ts";
 import {
@@ -85,7 +85,7 @@ import {
 } from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
 
-/** The top-level engine verbs Cliffy owns (everything else → recipe fallthrough).
+/** The top-level engine verbs Cliffy owns.
  * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
 export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "done",
@@ -104,13 +104,14 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "worktree",
   "identity",
   "skills",
+  "script",
   "mcp",
 ]);
 
 /** The installer verbs Cliffy owns (registered in `buildCli`, not the engine). Kept
  * beside the engine set so the FULL built-in vocabulary lives in one file — the
- * recipe dispatcher is exactly the component that must know every name a recipe can
- * collide with. `main.ts` re-exports the {@link KNOWN_VERBS} union it forms. */
+ * beside the engine set so the full built-in vocabulary remains one forcing
+ * function. `main.ts` re-exports the {@link KNOWN_VERBS} union it forms. */
 export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "setup",
   "upgrade",
@@ -125,25 +126,21 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
 
 /**
  * Every built-in verb the router dispatches itself — installer + engine. This is
- * the SINGLE source of truth for "does a name shadow a built-in?", so the four
- * surfaces that must agree — the router's recipe fallthrough (`main.ts`), the
- * `--help` recipe listing ({@link printProjectRecipes}), the typo suggester's recipe
- * names ({@link projectRecipeNames}), and the shadow warning ({@link
- * warnShadowedRecipe}) — all read THIS set and cannot diverge. `main.ts` re-exports
- * it as its own `KNOWN_VERBS`; the parity guard ties it to the live registrations.
+ * the single source of truth for routing, grammatical normalization, help-group
+ * coverage, and Project Script collision tests. `main.ts` re-exports it as its
+ * own `KNOWN_VERBS`; the parity guard ties it to the live registrations.
  */
 export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
   ...KNOWN_INSTALLER_VERBS,
   ...KNOWN_ENGINE_VERBS,
 ]);
 
-/** Hyphenated engine recipe filenames plus their displayed command form, for the suggester.
- * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops the command-group
- * verbs that have no recipe form (skills, mcp) and adds the worktree sub-recipes
- * (worktree-setup/create/remove/ensure/teardown/drop/prune). That deliberate relationship is
+/** Built-in command names considered by the typo suggester.
+ * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops command-group
+ * verbs and adds the worktree subcommands. That deliberate relationship is
  * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
  * forces a conscious choice here rather than silently drifting. */
-export const ENGINE_RECIPE_NAMES: readonly string[] = [
+export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "done",
   "prepare",
   "test",
@@ -166,7 +163,7 @@ export const ENGINE_RECIPE_NAMES: readonly string[] = [
   "worktree-prune",
 ];
 
-/** Render a recipe filename as the user-facing command (worktree-teardown -> worktree teardown). */
+/** Render an internal command token in its user-facing form. */
 function displayName(name: string): string {
   if (name === "identity") {
     return "identity";
@@ -351,6 +348,18 @@ export function attachEngineCommands(
       // The server resolves the project root itself and reports a missing one
       // per tool-call, so it need not requireRoot up front.
       Deno.exit(await runMcpServer());
+    });
+
+  root
+    .command("script")
+    .description(
+      "List the project's executable Project Scripts, or run one by name with every following argument forwarded unchanged.",
+    )
+    .arguments("[name:string] [...args:string]")
+    .action(async (_o, name: string | undefined, ...args: string[]) => {
+      Deno.exit(
+        await runProjectScript(name, args),
+      );
     });
 
   root
@@ -1012,54 +1021,48 @@ function matchCandidate(typo: string, name: string): boolean {
   return commonSuffixLen(typo, name) >= 4;
 }
 
-/** Executable project recipes (file is executable) carrying a `# desc:` line. */
-async function projectRecipeNames(recipesAbs: string): Promise<string[]> {
+/** Names of the executable Project Scripts in one configured directory. */
+async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for await (const entry of Deno.readDir(recipesAbs)) {
+    for await (const entry of Deno.readDir(scriptsAbs)) {
       if (!entry.isFile) {
         continue;
       }
-      if (!(await isExecutable(join(recipesAbs, entry.name)))) {
-        continue;
-      }
-      // Skip a recipe shadowed by ANY built-in (it would never run) — the same set
-      // the router refuses, so listing/suggesting can't advertise an unrunnable name.
-      if (KNOWN_VERBS.has(entry.name)) {
+      if (!(await isExecutable(join(scriptsAbs, entry.name)))) {
         continue;
       }
       names.push(entry.name);
     }
   } catch {
-    // no recipes dir — nothing to suggest
+    // no Project Scripts directory — nothing to suggest
   }
-  return names;
+  return names.sort();
 }
 
 /**
  * Suggest the command an unknown word most plausibly meant, or undefined. The
  * synonym table wins — a familiar word from another tool names its canonical
- * verb exactly — then the near-match candidates: the engine recipe names, and
- * (inside a project) the project's own recipes.
+ * verb exactly — then near-match built-in commands and Project Scripts.
  */
 async function suggestCommand(
   typo: string,
-  recipesAbs: string | undefined,
+  scriptsAbs: string | undefined,
 ): Promise<string | undefined> {
   const synonym = commandSynonymSuggestion(typo);
   if (synonym !== undefined) {
     return synonym;
   }
   const folded = typo.replace(/:/g, "-");
-  for (const name of ENGINE_RECIPE_NAMES) {
+  for (const name of SUGGESTABLE_ENGINE_COMMANDS) {
     if (matchCandidate(folded, name)) {
       return displayName(name);
     }
   }
-  if (recipesAbs !== undefined) {
-    for (const name of await projectRecipeNames(recipesAbs)) {
+  if (scriptsAbs !== undefined) {
+    for (const name of await projectScriptNames(scriptsAbs)) {
       if (matchCandidate(folded, name)) {
-        return displayName(name);
+        return `script ${name}`;
       }
     }
   }
@@ -1215,7 +1218,7 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 
 /**
  * `discern config <get|array|has|subsections|keys> <key>` — the READ side of the
- * config surface. This is what a project recipe uses to read `discern.toml`:
+ * config surface. This is what a Project Script uses to read `discern.toml`:
  * `has` answers via the exit code; the rest print to stdout.
  */
 export async function runConfigRead(
@@ -1227,7 +1230,7 @@ export async function runConfigRead(
     console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     return 1;
   }
-  // The recipe-facing passthrough reads ARBITRARY dotted keys verbatim, so it uses
+  // The Project-Script-facing passthrough reads arbitrary dotted keys verbatim, so it uses
   // the raw reader (no schema, no defaults) rather than the typed loader.
   const cfg = await RawConfig.load(root);
   switch (op) {
@@ -1254,7 +1257,7 @@ export async function runConfigRead(
   }
 }
 
-/** Read a recipe's first `# desc:` line, or undefined when it has none. */
+/** Read a Project Script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
   let text: string;
   try {
@@ -1281,50 +1284,26 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** The project recipes directory: its configured name and absolute path
- * (`[recipes].dir`, default `./recipes`). */
-function recipesDirOf(
+/** The configured Project Scripts directory and its absolute path. */
+function scriptsDirOf(
   root: string,
   cfg: DiscernConfig,
 ): { rel: string; abs: string } {
-  return resolveRecipesDir(root, cfg);
+  return resolveScriptsDir(root, cfg);
 }
 
-/**
- * Print the "Project recipes" help section: executables under the recipes dir
- * carrying a `# desc:` line, skipping any name shadowed by a built-in. No-op
- * outside a project or when there are no listable recipes.
- *
- * This runs on the `--help` / bare-`discern` path, so it must render and NEVER
- * throw on bad project state — help is exactly when a broken discern.toml most
- * needs to keep working. A config that can't be read (unparseable or
- * schema-invalid) degrades the recipe section to a one-line notice on stdout
- * (the help stream) instead of throwing out and truncating the help with a
- * non-zero exit.
- */
-export async function printProjectRecipes(): Promise<void> {
-  const root = await findRoot();
-  if (root === undefined) {
-    return;
-  }
-  let cfg: DiscernConfig;
-  try {
-    cfg = await loadConfig(root);
-  } catch {
-    // The recipe listing needs `[recipes].dir` from the typed config; without a
-    // readable one, say so in a line and let the rest of the help stand.
-    console.log(
-      "\nProject recipes: unavailable (discern.toml could not be read).",
-    );
-    return;
-  }
-  const { rel, abs } = recipesDirOf(root, cfg);
-  const lines: string[] = [];
+/** One executable Project Script surfaced by the listing. */
+interface ProjectScript {
+  name: string;
+  description?: string;
+}
+
+/** Discover every executable file, with an optional description, by name. */
+async function projectScripts(abs: string): Promise<ProjectScript[]> {
+  const scripts: ProjectScript[] = [];
   try {
     for await (const entry of Deno.readDir(abs)) {
-      // Skip a recipe shadowed by ANY built-in — the same set the router refuses, so
-      // help never lists a name that can never run.
-      if (!entry.isFile || KNOWN_VERBS.has(entry.name)) {
+      if (!entry.isFile) {
         continue;
       }
       const file = join(abs, entry.name);
@@ -1332,115 +1311,111 @@ export async function printProjectRecipes(): Promise<void> {
         continue;
       }
       const desc = await firstDescLine(file);
-      if (desc === undefined) {
-        continue;
-      }
-      lines.push(`  ${displayName(entry.name).padEnd(20)} ${desc}`);
+      scripts.push({
+        name: entry.name,
+        ...(desc === undefined ? {} : { description: desc }),
+      });
     }
   } catch {
-    return; // no recipes dir
+    return [];
   }
-  if (lines.length === 0) {
-    return;
-  }
-  console.log(`\nProject recipes (from ${rel}):`);
-  for (const line of lines) {
-    console.log(line);
-  }
+  return scripts.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Warn (to stderr) when a project recipe is shadowed by the built-in `verb`. This is
- * advisory human narration, so it MUST stay silent under `--json`: the combined
- * stdout+stderr of any `<verb> --json` is exactly one envelope (ADR 0030), and a
- * stray warning line would pollute it (B35). `json` is passed from the router, which
- * knows the mode before the verb runs.
+ * List Project Scripts or run one by name. The caller has already removed the
+ * `script` command and any leading discern-global flags; `args` is therefore the
+ * exact tail after the Project Script name and is forwarded byte-for-byte.
  */
-export async function warnShadowedRecipe(
-  verb: string,
+export async function runProjectScript(
+  name: string | undefined,
+  args: string[],
   opts: { json?: boolean } = {},
-): Promise<void> {
-  if (opts.json ?? false) {
-    return;
-  }
+): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    return;
+    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    return 1;
   }
-  // Advisory only: without a loadable config the recipes dir is unknowable, so a
-  // broken or schema-invalid config means "no shadow warning" — never a throw that
-  // would abort the verb before its own handler (e.g. `doctor`) can run.
-  const cfg = await loadConfig(root).catch(() => undefined);
-  if (cfg === undefined) {
-    return;
+  const cfg = await loadConfig(root);
+  const scripts = scriptsDirOf(root, cfg);
+
+  if (name === undefined) {
+    const entries = await projectScripts(scripts.abs);
+    if (opts.json ?? false) {
+      emitResult({
+        ok: true,
+        verb: "script",
+        data: { scripts: entries, directory: scripts.rel },
+      });
+      return 0;
+    }
+    console.log(`Project Scripts (from ${scripts.rel}):`);
+    if (entries.length === 0) {
+      console.log("  No executable scripts found.");
+      return 0;
+    }
+    for (const entry of entries) {
+      const suffix = entry.description === undefined
+        ? ""
+        : ` ${entry.description}`;
+      console.log(`  ${entry.name.padEnd(20)}${suffix}`);
+    }
+    return 0;
   }
-  const { abs } = recipesDirOf(root, cfg);
-  if (await pathExists(join(abs, verb.replace(/:/g, "-")))) {
-    console.error(
-      `discern: project recipe "${verb}" is shadowed by a built-in and was NOT run.`,
+
+  const scriptFile = join(scripts.abs, name.replace(/:/g, "-"));
+  if (await isExecutable(scriptFile)) {
+    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+      cfg.project.main_branch;
+    const tomlPath = join(
+      root,
+      (await installedConfigRel(root)) ?? CONFIG_REL,
     );
+    const child = new Deno.Command(scriptFile, {
+      args,
+      env: scriptEnvVars({
+        root,
+        tomlPath,
+        scriptsDir: scripts.rel,
+        scriptsAbs: scripts.abs,
+        mainBranch,
+      }),
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).spawn();
+    return (await child.status).code;
   }
+
+  if (await pathExists(scriptFile)) {
+    console.error(
+      `discern: script "${name}" exists but is not executable: ${scriptFile}`,
+    );
+    console.error(`       Run: chmod +x "${scriptFile}"`);
+    return 1;
+  }
+
+  reportUnknownCommand(`script ${name}`, undefined, opts);
+  return 1;
 }
 
 /**
- * Handle an unknown top-level verb: exec a matching project recipe under
- * `.discern/recipes/` (the engine always wins, so a recipe colliding with a
- * built-in is unreachable here), report an existing-but-non-executable recipe,
- * else report an unknown command with a did-you-mean suggestion — on stderr in
- * human mode, as the uniform refusal envelope under `--json`. The lesson shows
- * even outside a project or with an unreadable config (only the project-recipe
- * candidates need those), so a newcomer's first guess never dead-ends. Returns
- * the process exit code.
+ * Report an unknown top-level verb, considering Project Script names only as
+ * namespaced suggestions. A Project Script never executes from this path.
  */
-export async function dispatchRecipeOrSuggest(
+export async function reportUnknownOrSuggest(
   verb: string,
-  args: string[],
   opts: { json?: boolean } = {},
 ): Promise<number> {
   const root = await findRoot();
   const cfg = root === undefined
     ? undefined
     : await loadConfig(root).catch(() => undefined);
-  const recipes = root !== undefined && cfg !== undefined
-    ? recipesDirOf(root, cfg)
+  const scripts = root !== undefined && cfg !== undefined
+    ? scriptsDirOf(root, cfg)
     : undefined;
-
-  if (root !== undefined && cfg !== undefined && recipes !== undefined) {
-    const recipeFile = join(recipes.abs, verb.replace(/:/g, "-"));
-
-    if (await isExecutable(recipeFile)) {
-      const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-        cfg.project.main_branch;
-      const tomlPath = join(
-        root,
-        (await installedConfigRel(root)) ?? CONFIG_REL,
-      );
-      const child = new Deno.Command(recipeFile, {
-        args,
-        env: recipeEnvVars({
-          root,
-          tomlPath,
-          recipesDir: recipes.rel,
-          recipesAbs: recipes.abs,
-          mainBranch,
-        }),
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
-      }).spawn();
-      return (await child.status).code;
-    }
-
-    if (await pathExists(recipeFile)) {
-      console.error(
-        `discern: recipe "${verb}" exists but is not executable: ${recipeFile}`,
-      );
-      console.error(`       Run: chmod +x "${recipeFile}"`);
-      return 1;
-    }
-  }
-
-  const suggestion = await suggestCommand(verb, recipes?.abs);
+  const suggestion = await suggestCommand(verb, scripts?.abs);
   reportUnknownCommand(verb, suggestion, opts);
   return 1;
 }

@@ -79,6 +79,10 @@ const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
     18,
     "migration 18→19 renames [docs] to [map] and pins every installed directory form",
   ],
+  [
+    19,
+    "migration 19→20 renames Project Recipes to Project Scripts without losing their files",
+  ],
 ]);
 
 function historicalFixtureName(from: number): string {
@@ -185,8 +189,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // authored surface into the discern/ namespace), 15→16 (retire the
   // [features] toggles and [worktree].enabled), 16→17 (drop
   // [worktree].graduate_to — accept always lands on the trunk), 17→18
-  // ([ratchets] → [standards]), and 18→19 ([docs] → [map], with the installed
-  // directory pinned so the migration never moves a project's tree).
+  // ([ratchets] → [standards]), 18→19 ([docs] → [map], with the installed
+  // directory pinned), and 19→20 (Project Recipes → Project Scripts).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -206,6 +210,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     16,
     17,
     18,
+    19,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -971,6 +976,205 @@ Deno.test("migration 18→19 refuses colliding old and new map tables with a nex
       "Keep the intended directory under [map], remove [docs], then run `discern upgrade` again",
     );
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
+Deno.test("migration 19→20 renames Project Recipes to Project Scripts without losing their files", async () => {
+  const cases = [
+    {
+      name: "implicit default with no section",
+      text: "[meta]\nschema_version = 19\n",
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: undefined,
+    },
+    {
+      name: "explicit old default",
+      text: '[recipes]\ndir = "discern/recipes"\n',
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "dotted old default",
+      text: 'recipes.dir = "discern/recipes"\n',
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "quoted dotted old default",
+      text: `'recipes'."dir" = "discern/recipes"\n`,
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "inline old default",
+      text: 'recipes = { dir = "discern/recipes" }\n',
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "quoted table old default",
+      text: '["recipes"]\ndir = "discern/recipes"\n',
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "implicit old default section",
+      text: "[recipes]\n",
+      source: "discern/recipes",
+      target: "discern/scripts",
+      expectedDir: "discern/scripts",
+    },
+    {
+      name: "custom directory",
+      text: '[recipes]\ndir = "tools/automation"\n',
+      source: "tools/automation",
+      target: "tools/automation",
+      expectedDir: "tools/automation",
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const configPath = join(dir, "discern.toml");
+      await Deno.writeTextFile(configPath, testCase.text);
+      await Deno.mkdir(join(dir, testCase.source), { recursive: true });
+      await Deno.writeTextFile(
+        join(dir, testCase.source, "deploy"),
+        "#!/usr/bin/env sh\necho deployed\n",
+      );
+
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 19,
+        to: 20,
+        onNote: () => {},
+      });
+
+      const after = await Deno.readTextFile(configPath);
+      const raw = parseDiscernToml(after).raw;
+      assertEquals(
+        raw.recipes,
+        undefined,
+        `${testCase.name}: old section remains`,
+      );
+      if (testCase.expectedDir === undefined) {
+        assertEquals(raw.scripts, undefined, testCase.name);
+      } else {
+        assertEquals(
+          (raw.scripts as Record<string, unknown>).dir,
+          testCase.expectedDir,
+          testCase.name,
+        );
+      }
+      assertEquals(
+        await Deno.readTextFile(join(dir, testCase.target, "deploy")),
+        "#!/usr/bin/env sh\necho deployed\n",
+        `${testCase.name}: Project Script content was not preserved`,
+      );
+      if (testCase.source !== testCase.target) {
+        assertEquals(
+          await targetExists(dir, testCase.source),
+          false,
+          testCase.name,
+        );
+      }
+
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 19,
+        to: 20,
+        onNote: () => {},
+      });
+      assertEquals(await Deno.readTextFile(configPath), after, testCase.name);
+    });
+  }
+});
+
+Deno.test("migration 19→20 preserves both occupied default directories and pins the old one", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[recipes]\ndir = "discern/recipes"\n',
+    );
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "discern/recipes/old"), "old\n");
+    await Deno.writeTextFile(join(dir, "discern/scripts/new"), "new\n");
+
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 19,
+      to: 20,
+      onNote: () => {},
+    });
+
+    const raw = parseDiscernToml(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+    ).raw;
+    assertEquals(
+      (raw.scripts as Record<string, unknown>).dir,
+      "discern/recipes",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, "discern/recipes/old")),
+      "old\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, "discern/scripts/new")),
+      "new\n",
+    );
+  });
+});
+
+Deno.test("migration 19→20 refuses colliding old and new script tables with a next step", async () => {
+  await withTempDir(async (dir) => {
+    const text = '[recipes]\ndir = "old"\n\n[scripts]\ndir = "new"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 19,
+          to: 20,
+          onNote: () => {},
+        }),
+      Error,
+      "Keep the intended directory under [scripts], remove [recipes], then run `discern upgrade` again",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
+Deno.test("migration 19→20 leaves files untouched when an exotic Recipe key cannot be rewritten", async () => {
+  await withTempDir(async (dir) => {
+    const text = '["rec\\u0069pes"]\ndir = "discern/recipes"\n';
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await Deno.mkdir(join(dir, "discern/recipes"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "discern/recipes/deploy"), "original\n");
+
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 19,
+          to: 20,
+          onNote: () => {},
+        }),
+      Error,
+      "Rename it to [scripts], preserve its dir value",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "discern/recipes/deploy")),
+      "original\n",
+    );
+    assertEquals(await targetExists(dir, "discern/scripts"), false);
   });
 });
 

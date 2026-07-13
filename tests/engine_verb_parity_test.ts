@@ -7,7 +7,7 @@
  * handful of satellites RE-LIST members of those sets by hand, each needing its own
  * hand-wired handler so it can't be a derived list: the Cliffy `.command()`
  * registrations (verb → handler), the MCP `TOOLS` table (verb → tool), the
- * setup gate, and the typo-suggester's recipe names.
+ * setup gate, and the typo-suggester's command names.
  * Without a tie, adding or renaming a verb silently leaves one stale — a dead MCP
  * slug, or a verb the gate forgets to guard.
  *
@@ -25,8 +25,8 @@ import { assert, assertEquals } from "@std/assert";
 import { Command } from "@cliffy/command";
 import {
   attachEngineCommands,
-  ENGINE_RECIPE_NAMES,
   KNOWN_ENGINE_VERBS,
+  SUGGESTABLE_ENGINE_COMMANDS,
 } from "../src/engine/dispatch.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
@@ -52,7 +52,7 @@ Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → han
 });
 
 Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", () => {
-  // The dispatcher consults KNOWN_VERBS before recipe fallthrough. If buildCli grows a
+  // The dispatcher consults KNOWN_VERBS before unknown-command handling. If buildCli grows a
   // top-level command but KNOWN_VERBS does not, that registered command dispatches in
   // Cliffy yet `main` treats it as an unknown command. Tie the installer+engine
   // universe back to the actual Cliffy registrations — hidden ones included, since a
@@ -85,7 +85,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   );
 
   // The MCP surface is an intentional subset+ of the verbs: it ADDS three
-  // non-engine verbs (core/installer verbs an agent reaches for) and OMITS four
+  // non-engine verbs (core/installer verbs an agent reaches for) and omits
   // engine verbs that have no tool (command groups / plumbing). Both differences
   // are pinned here, so a new verb forces a choice rather than drifting.
   const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "map", "help"]);
@@ -94,6 +94,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
     "identity", // identity-resolution plumbing
     "skills", // a command group (skills list/eject)
     "mcp", // the server itself — it cannot expose itself as one of its tools
+    "script", // arbitrary project executables own their arguments and output
     // The interactive human surface: it wields supervisory actions over OTHER
     // efforts' worktrees, which the fleet-ownership rule forbids an agent —
     // deliberately CLI-only for `worktree drop`'s reason (ADR 0119).
@@ -174,18 +175,18 @@ Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT",
   );
 });
 
-Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plus the worktree sub-recipes", () => {
-  // The typo-suggester's recipe-name list intentionally DIFFERS from the verbs: it
-  // drops the command-group verbs that have no recipe form, and adds the worktree
-  // sub-recipes (real recipe files / hook entry points that are not top-level
-  // verbs). Both differences are explicit, so a new engine verb forces a decision.
-  const RECIPE_DROPS_ENGINE_VERB = new Set([
+Deno.test("SUGGESTABLE_ENGINE_COMMANDS is the engine verbs minus command groups, plus worktree subcommands", () => {
+  // The typo-suggester's command list intentionally differs from the verbs: it
+  // drops command groups and adds worktree subcommands that are not top-level
+  // verbs. Both differences are explicit, so a new engine verb forces a decision.
+  const SUGGESTION_DROPS_ENGINE_VERB = new Set([
     "worktree",
-    "skills", // a command group, not a suggestable recipe
-    "mcp", // the server entry point, not a suggestable recipe
-    "desk", // interactive-only — no recipe or hook form to suggest (ADR 0119)
+    "skills", // a command group, not a single suggested action
+    "script", // a namespace; Project Script names are suggested separately
+    "mcp", // the server entry point, not a suggested action
+    "desk", // interactive-only (ADR 0119)
   ]);
-  const RECIPE_ADDS_SUBRECIPES = [
+  const SUGGESTION_ADDS_SUBCOMMANDS = [
     "worktree-setup",
     "worktree-create",
     "worktree-remove",
@@ -195,28 +196,28 @@ Deno.test("ENGINE_RECIPE_NAMES is the engine verbs minus the command groups, plu
     "worktree-prune",
   ];
 
-  // The drop set must stay honest (each is a real engine verb the recipes omit).
-  for (const v of RECIPE_DROPS_ENGINE_VERB) {
+  // The drop set must stay honest (each is a real engine verb omitted here).
+  for (const v of SUGGESTION_DROPS_ENGINE_VERB) {
     assert(
-      KNOWN_ENGINE_VERBS.has(v) && !ENGINE_RECIPE_NAMES.includes(v),
-      `RECIPE_DROPS_ENGINE_VERB lists "${v}", but it is no longer a dropped engine verb`,
+      KNOWN_ENGINE_VERBS.has(v) && !SUGGESTABLE_ENGINE_COMMANDS.includes(v),
+      `SUGGESTION_DROPS_ENGINE_VERB lists "${v}", but it is no longer a dropped engine verb`,
     );
   }
-  // The added sub-recipes must not collide with the top-level verb names.
-  for (const v of RECIPE_ADDS_SUBRECIPES) {
+  // The added subcommands must not collide with the top-level verb names.
+  for (const v of SUGGESTION_ADDS_SUBCOMMANDS) {
     assert(
-      ENGINE_RECIPE_NAMES.includes(v) && !KNOWN_ENGINE_VERBS.has(v),
-      `RECIPE_ADDS_SUBRECIPES lists "${v}", but it is not an extra (non-verb) recipe name`,
+      SUGGESTABLE_ENGINE_COMMANDS.includes(v) && !KNOWN_ENGINE_VERBS.has(v),
+      `SUGGESTION_ADDS_SUBCOMMANDS lists "${v}", but it is not an extra command name`,
     );
   }
 
   const expected = [...KNOWN_ENGINE_VERBS]
-    .filter((v) => !RECIPE_DROPS_ENGINE_VERB.has(v))
-    .concat(RECIPE_ADDS_SUBRECIPES);
+    .filter((v) => !SUGGESTION_DROPS_ENGINE_VERB.has(v))
+    .concat(SUGGESTION_ADDS_SUBCOMMANDS);
   assertEquals(
-    sorted(ENGINE_RECIPE_NAMES),
+    sorted(SUGGESTABLE_ENGINE_COMMANDS),
     sorted(expected),
-    "ENGINE_RECIPE_NAMES has drifted from the verb SSOT — extend it for the new verb, " +
-      "or record the difference in RECIPE_DROPS_ENGINE_VERB / RECIPE_ADDS_SUBRECIPES",
+    "SUGGESTABLE_ENGINE_COMMANDS has drifted from the verb SSOT — extend it for the new verb, " +
+      "or record the difference in the explicit drop/add sets",
   );
 });

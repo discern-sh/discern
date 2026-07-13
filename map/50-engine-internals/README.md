@@ -6,39 +6,35 @@ This subtree covers the shared substrate under the gate, the Worktree workflow,
 and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
 **dispatcher**: it finds the project root (the nearest ancestor with an
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
-handler, execs an _unknown_ verb as a matching project Recipe (with the
-`DISCERN_*` environment exported), and lets the Engine win on a name collision
-with a project recipe. A word that matches nothing reports
-`unknown command "<word>"` and teaches the next step: a did-you-mean line — the
-cross-tool synonym table in
+handler, and owns the explicit Project Script namespace: `discern script` lists
+the executable files under `[scripts].dir`, while `discern script <name>` execs
+one with its argument tail and the `DISCERN_*` environment. A word outside the
+closed root vocabulary reports `unknown command "<word>"` and teaches the next
+step: a did-you-mean line — the cross-tool synonym table in
 [`shared/vocabulary.ts`](../../src/shared/vocabulary.ts) first ("init" and
 "install" name `setup`, "check" names `prepare`, "sync" names `update`, "land"
 and "merge" name `accept`; suggestions only, never dispatched, per
 [ADR 0120](../_adr/0120-launch-verb-canon.md)'s forgiveness policy), then the
-near-match suggester over recipe names — and always a closing pointer at
-`discern help`. Under `--json` that refusal is the uniform result envelope
-(error `unknown_command`, the advice as `hints`), and it renders even outside a
-project or with an unreadable config, where a newcomer's first guess most often
-lands. The single set of built-in names — `KNOWN_VERBS` (installer + engine),
-defined once in the dispatcher — is the SSOT for that collision: the router's
-recipe fall-through, the `--help` recipe listing, the suggester, the
-shadowed-recipe warning, and the `discern help <verb>` fall-through (which
-renders that verb's own `--help`, so both spellings a git user tries resolve)
-all read it, so help can never advertise (nor the suggester propose) a recipe
-the router would refuse. That warning is human narration, so it stays silent
-under `--json` to keep the one-envelope stream pure. Every subsystem's verbs are
-always registered — there is no toggle layer in the dispatch
-([ADR 0101](../_adr/0101-retire-the-features-toggles.md)); a verb can be
-_hidden_ from the help listing yet keep dispatching (`preset` while no presets
-ship; `setup` once bootstrapped). The router in [`main.ts`](../../src/main.ts)
-resolves the verb as the first token that is not a global flag, so
-`discern --json <verb>` routes exactly like `discern <verb> --json` — the
-pre-setup redirect ([ADR 0036](../_adr/0036-unify-setup.md)), the welcome/help
-split, and recipe dispatch included. The help path is resilient to bad project
-state: the root help renders in full and exits 0 even with a broken, missing, or
-schema-invalid `discern.toml`, degrading only the project-recipe listing (which
-needs the typed config) to a one-line notice — help is exactly when a broken
-config most needs to keep working.
+near-match suggester over built-ins and namespaced Project Script names — and
+always a closing pointer at `discern help`. Under `--json` that refusal is the
+uniform result envelope (error `unknown_command`, the advice as `hints`), and it
+renders even outside a project or with an unreadable config, where a newcomer's
+first guess most often lands. The single set of built-in names — `KNOWN_VERBS`
+(installer + engine), defined once in the dispatcher — drives routing,
+grammatical normalization, help coverage, and the test that proves every
+built-in name remains legal inside the Project Script namespace. Every
+subsystem's verbs are always registered — there is no toggle layer in the
+dispatch ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)); a verb can
+be _hidden_ from the help listing yet keep dispatching (`preset` while no
+presets ship; `setup` once bootstrapped). The router in
+[`main.ts`](../../src/main.ts) resolves the verb as the first token that is not
+a global flag, so `discern --json <verb>` routes exactly like
+`discern <verb> --json` — the pre-setup redirect
+([ADR 0036](../_adr/0036-unify-setup.md)), the welcome/help split, and Project
+Script dispatch included. The help path is resilient to bad project state: the
+root help renders in full and exits 0 even with a broken, missing, or
+schema-invalid `discern.toml` — help is exactly when a broken config most needs
+to keep working.
 
 The Engine is **TypeScript compiled into the binary**, under
 [`src/engine/`](../../src/engine/) and sharing
@@ -67,7 +63,7 @@ decision is "no colour", since that generator consults only `Deno.noColor`).
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
 never expands against the filesystem the way an unquoted shell glob would; a
-project Recipe is just an executable with normal shell globbing. This is
+Project Script is just an executable with normal shell globbing. This is
 internal plumbing: the built-in verbs run it, you rarely read it directly.
 
 Every **effectful** verb follows a **plan/apply** shape

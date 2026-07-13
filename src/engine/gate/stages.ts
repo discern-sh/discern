@@ -79,7 +79,7 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
 /**
  * Join the commands of every job in a stage with ` && `, in jobsInStage order;
  * `:` when the stage has no real job (so a track is never empty). Used by the
- * prepare/test convenience recipes and the no-op detection in finish's tail.
+ * prepare/test convenience commands and the no-op detection in done's tail.
  */
 export function cmdsInStage(config: DiscernConfig, stage: Stage): string {
   const cmds = jobsInStage(config, stage).map((j) => j.command).filter((c) =>

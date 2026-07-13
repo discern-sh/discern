@@ -1,24 +1,31 @@
 # ADR 0001: Project-owned recipes live in an unmanaged `.discern/recipes/`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
+> **Superseded by
+> [ADR 0137](../0137-project-scripts-live-under-the-script-command.md).**
+> Project-owned executables are now Project Scripts under `discern script`; they
+> no longer extend the root command namespace or use the Recipe vocabulary.
+
+> **Vocabulary amendment ([ADR 0120](../0120-launch-verb-canon.md)):** Current
 > pointers use `finish` → `done`, `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the
 > decision and reasoning are unchanged.
 
-> **Current-state note.** Recipes now live at the config-pointed `[recipes].dir`
-> (default `recipes/`), not `.discern/recipes/`
-> ([ADR 0020](0020-dissolve-discern-dir.md)), and read config via
+> **Prior current-state note (before ADR 0137).** Recipes then lived at the
+> config-pointed `[recipes].dir` (default `recipes/`), not `.discern/recipes/`
+> ([ADR 0020](../0020-dissolve-discern-dir.md)), and read config via
 > `discern config get` rather than sourcing a shell library
-> ([ADR 0019](0019-single-binary-ts-engine.md)). The
+> ([ADR 0019](../0019-single-binary-ts-engine.md)). The
 > engine-wins-on-name-collision rule still stands.
 
-**Status**: accepted; **amended by [ADR 0019](0019-single-binary-ts-engine.md)**
-— see _Update (single-binary cutover)_ below.
+**Status**: accepted; **amended by
+[ADR 0019](../0019-single-binary-ts-engine.md)** — see _Update (single-binary
+cutover)_ below.
 
 ## Update (single-binary cutover)
 
-Under the single-binary cutover ([ADR 0019](0019-single-binary-ts-engine.md)),
-`bin/agent` and `.discern/engine/` are gone: the dispatcher is `discern` and the
-engine is compiled into the binary. Project recipes still live in an unmanaged
+Under the single-binary cutover
+([ADR 0019](../0019-single-binary-ts-engine.md)), `bin/agent` and
+`.discern/engine/` are gone: the dispatcher is `discern` and the engine is
+compiled into the binary. Project recipes still live in an unmanaged
 `.discern/recipes/`, auto-discovered and exec'd on an unknown verb — but they
 read config via `discern config get` rather than sourcing a shell library, and
 the engine-always-wins shadow rule survives.

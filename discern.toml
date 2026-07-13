@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 19
+schema_version = 20
 bootstrapped   = true
 
 [project]
@@ -244,7 +244,7 @@ ignored_file_drift = true
 #   @port@          the deterministic dev-server port
 #   @project_slug@  your project slug
 #   @dir@           this worktree's root
-# Read a handle back from a recipe with `discern identity --resource <name>`
+# Read a handle back from a Project Script with `discern identity --resource <name>`
 # (also exported into the worktree's .env as DISCERN_RESOURCE_<NAME>).
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -483,21 +483,18 @@ timeout = 600
 in_gate = true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [recipes] — your own `discern` commands. Drop an executable script carrying a
-# `# desc: ...` line into the directory below and it becomes a first-class
-# `discern <name>` command, listed by `discern --help` under "Project recipes". This
-# directory is yours: `discern upgrade` never writes or refreshes anything here. A name
-# that collides with a built-in engine recipe (done, worktree setup, …) is ignored
-# with a warning — the engine always wins, so a project file can never redefine
-# the core gate. A recipe is a standalone executable in any language: `discern`
-# exec's it with the DISCERN_* environment exported (DISCERN_ROOT, DISCERN_RECIPES,
-# DISCERN_MAIN_BRANCH, …) and your args forwarded. A recipe is self-contained: it reads
-# config by calling the binary (`discern config get <key>`) and resolves worktree
+# [scripts] — your own executable Project Scripts. Drop any executable into the
+# directory below; `discern script` lists it and `discern script <name>` runs it.
+# An optional `# desc: ...` line describes it in the listing. This directory is
+# yours: `discern upgrade` never writes or refreshes anything here. Built-in names
+# are legal because Project Scripts live under their own command namespace. A
+# Project Script can use any language; discern exports DISCERN_* environment values
+# (DISCERN_ROOT, DISCERN_SCRIPTS, DISCERN_MAIN_BRANCH, …) and forwards every
+# argument after its name unchanged. It reads config by calling the binary
+# (`discern config get <key>`) and resolves worktree
 # identity with `discern identity --db|--site|--port|--resource <name>`.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[recipes]
-# Where your recipes live, relative to the project root. Pinned to the repo's
-# root layout — a deliberate non-default (ADR 0099); the shipped default is
-# discern/recipes.
-dir = "recipes"
+[scripts]
+# Where your Project Scripts live, relative to the project root.
+dir = "discern/scripts"

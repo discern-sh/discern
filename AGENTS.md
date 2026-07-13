@@ -142,11 +142,11 @@ in sync.
 
 A project's entire discern footprint is a single root file, **`discern.toml`**.
 Everything else is bundled in the binary, a **config-pointed** location the user
-chooses (with discoverable defaults — `guidance.md`, `./skills`, `./recipes`),
-or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are compiled,
-committed outputs; vendor-specific files and paths are materialized). Every
-subsystem is core (ADR 0101) — `[capabilities]` is the gate's command table, and
-the one per-skill knob is `[skills].exclude`.
+chooses (with discoverable defaults under `discern/` — `guidance.md`, `skills/`,
+`scripts/`), or a generated **output** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md` are
+compiled, committed outputs; vendor-specific files and paths are materialized).
+Every subsystem is core (ADR 0101) — `[capabilities]` is the gate's command
+table, and the one per-skill knob is `[skills].exclude`.
 
 ## ⚠️ Edit in place — there is no managed copy to sync
 
@@ -246,13 +246,13 @@ exactly as an end user would, so discern's full range is open to you too.
 
 `deno task test` is the authority on correctness, engine included: the
 `tests/engine_*` suite scaffolds the seed surface into temp dirs and drives the
-TS engine via `deno task dev <verb>` (with a `discern` PATH shim so recipes and
-hooks resolve the binary like a real install). It is the behavioral parity
-oracle for the engine. If a bad engine change ever breaks `discern done` itself,
-run `deno task test` directly. Add engine coverage to `tests/engine_*_test.ts`;
-installer coverage to the other `tests/*_test.ts`. Iterate on one suite with
-`deno task test tests/<name>_test.ts` (or `--filter <name>`) instead of running
-the whole suite each loop.
+TS engine via `deno task dev <verb>` (with a `discern` PATH shim so Project
+Scripts and hooks resolve the binary like a real install). It is the behavioral
+parity oracle for the engine. If a bad engine change ever breaks `discern done`
+itself, run `deno task test` directly. Add engine coverage to
+`tests/engine_*_test.ts`; installer coverage to the other `tests/*_test.ts`.
+Iterate on one suite with `deno task test tests/<name>_test.ts` (or
+`--filter <name>`) instead of running the whole suite each loop.
 
 ## Conventions & gotchas
 

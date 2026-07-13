@@ -23,7 +23,7 @@ export interface SourcePathEntry {
    * project map has its own root `map/` home so it cannot collide with a host
    * project's human documentation. Directories carry their canonical shape
    * (`[map].dir` keeps its trailing
-   * slash; the skills/recipes dirs do not), matching what the schema defaults
+   * slash; the skills/scripts dirs do not), matching what the schema defaults
    * and the shipped template write. */
   readonly defaultPath: string;
   /** The previous default a migration carries forward. It never seeds anything new. */
@@ -42,7 +42,7 @@ export const SOURCE_PATH_NAMES = [
   "guidance",
   "map",
   "skills",
-  "recipes",
+  "scripts",
   "todo",
   "brief",
 ] as const;
@@ -76,11 +76,11 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     legacyPath: "skills",
     description: "Where the project's authored skills live.",
   },
-  recipes: {
-    key: "recipes.dir",
-    defaultPath: "discern/recipes",
-    legacyPath: "recipes",
-    description: "Where the project's own `discern` recipe commands live.",
+  scripts: {
+    key: "scripts.dir",
+    defaultPath: "discern/scripts",
+    legacyPath: "discern/recipes",
+    description: "Where the project's own executable Project Scripts live.",
   },
   todo: {
     key: "project.todo",

@@ -5,7 +5,7 @@
  * must key on the RESOLVED verb (the first non-global-flag token), or a
  * leading `--json`/`--no-color` smuggles the invocation past the router:
  * the ADR 0036 setup redirect, the operator help, the pre-setup welcome,
- * the shadowed-recipe warning, and project-recipe dispatch all diverge.
+ * and Project Script dispatch all diverge.
  *
  * The matrices derive from the single sources of truth so a new member
  * auto-enrols: the global flags are read from the Cliffy registration itself
@@ -19,12 +19,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
 import { withTempDir } from "./helpers.ts";
-import {
-  gitInit,
-  runAgent,
-  scaffoldEngine,
-  writeExecutable,
-} from "./engine_helpers.ts";
+import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { buildCli, globalFlagTokens, resolveInvocation } from "../src/main.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 
@@ -121,46 +116,24 @@ Deno.test("pre-setup: a flags-only invocation routes to the welcome, structured 
   });
 });
 
-Deno.test("flag-first --help renders the operator help with the project-recipes listing", async () => {
+Deno.test("flag-first --help renders the operator help with the script command", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeExecutable(
-      join(dir, "discern/recipes/hello"),
-      "#!/usr/bin/env sh\n# desc: say hello\necho hi\n",
-    );
     const r = await runAgent(dir, ["--no-color", "--help"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Project recipes");
-    assertStringIncludes(r.stdout, "hello");
+    assertStringIncludes(r.stdout, "script");
   });
 });
 
-Deno.test("a project recipe dispatches with a global flag placed first", async () => {
+Deno.test("a Project Script dispatches with a global flag placed first", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
-      join(dir, "discern/recipes/hello"),
+      join(dir, "discern/scripts/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho HELLO-FROM-PROJECT\n",
     );
-    const r = await runAgent(dir, ["--no-color", "hello"]);
+    const r = await runAgent(dir, ["--no-color", "script", "hello"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "HELLO-FROM-PROJECT");
-  });
-});
-
-Deno.test("the shadowed-recipe warning fires with a global flag placed first", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await writeExecutable(
-      join(dir, "discern/recipes/done"),
-      "#!/usr/bin/env sh\n# desc: not the real gate\necho PROJECT-DONE-RAN\n",
-    );
-    const r = await runAgent(dir, ["--no-color", "done"]);
-    assert(
-      !r.output.includes("PROJECT-DONE-RAN"),
-      "the shadowed project recipe must not run",
-    );
-    assertStringIncludes(r.stderr, "shadowed");
   });
 });

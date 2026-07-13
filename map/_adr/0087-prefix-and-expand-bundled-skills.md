@@ -4,6 +4,11 @@
 > pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and
 > reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers use Project Script for the former project Recipe surface; the
+> decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
@@ -62,9 +67,9 @@ New skills:
   detector, falling standard (a one-way door, not gradualism — removal goes as
   fast as budget allows), permanent gate rule at zero.
 - `discern-teach-the-project` — route a session's lesson to exactly one of the
-  project's knowledge surfaces (guidance line, authored skill, recipe, doc,
-  ADR). The built-in skills guidance gains one ambient line telling agents to
-  _offer_ this at natural pauses — the first bundled-skill mention in the
+  project's knowledge surfaces (guidance line, authored skill, Project Script,
+  doc, ADR). The built-in skills guidance gains one ambient line telling agents
+  to _offer_ this at natural pauses — the first bundled-skill mention in the
   always-on guidance.
 - `discern-survey-the-fleet` — read-only reconnaissance across all worktrees:
   per-effort intent, classification, cross-worktree file-collision detection,

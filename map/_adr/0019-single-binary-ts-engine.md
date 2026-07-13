@@ -5,6 +5,12 @@
 > where it names the verb, the retired product-category wording → `discern`, the
 > gate, or the bar; the decision and reasoning are unchanged.
 
+> **Project Script amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The
+> language-agnostic executable contract stands, but current files are Project
+> Scripts under `[scripts].dir` and run through `discern script`; the root
+> fall-through and engine-wins collision rule described below are superseded.
+
 **Status**: accepted
 
 ## Context
@@ -106,8 +112,8 @@ dual-vocabulary renderer.
   `selfCmd` and its gate guard are deleted.
 - **[ADR 0008](_superseded/0008-declarative-managed-set.md) is moot.**
   `managed.json` and the managed-set classifier are deleted.
-- **[ADR 0001](0001-project-owned-recipes.md) is amended.** Recipes read config
-  via `discern config get`, not by sourcing the engine library; the
+- **[ADR 0001](_superseded/0001-project-owned-recipes.md) is amended.** Recipes
+  read config via `discern config get`, not by sourcing the engine library; the
   engine-always-wins shadow rule survives.
 - **The installer shrinks sharply.** `manifest.ts`, `invocation.ts`, the
   hash/`.new`/orphan logic in `fs_plan.ts`, the managed-sync half of

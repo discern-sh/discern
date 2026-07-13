@@ -31,7 +31,7 @@ There are **two layers**, sharing two helper modules:
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
   `deno run
   src/main.ts <verb>` inside that dir, with a `discern` shim on
-  `PATH` so project recipes resolve. So the engine verbs (`done`, `worktree`, …)
+  `PATH` so Project Scripts resolve. So the engine verbs (`done`, `worktree`, …)
   and their `--json` contracts are exercised against a faithful install, end to
   end.
 
@@ -52,7 +52,7 @@ alone but fails in the full run" trap is exactly this failure).
   lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the
   bytes under test are the bytes a real `discern setup` ships. Use `writeConfig`
   to set the `[capabilities]`/`[checks]`/`[scopes]`/`[standards]` a case needs,
-  and `addWorktree` for the worktree-recipe layout.
+  and `addWorktree` for the worktree-command layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus
   `testTokens` give a small synthetic tree for testing rendering/plan logic in
   isolation, separate from the full real templates.

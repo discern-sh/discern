@@ -398,8 +398,8 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
       expect: "zz-playbooks",
       contextOnly: true,
     },
-    recipes_dir: {
-      toml: '[recipes]\ndir = "zz-tools"\n[guidance]\nagents = ["codex"]\n',
+    scripts_dir: {
+      toml: '[scripts]\ndir = "zz-tools"\n[guidance]\nagents = ["codex"]\n',
       expect: "zz-tools",
       contextOnly: true,
     },

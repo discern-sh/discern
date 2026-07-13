@@ -1,6 +1,6 @@
 /**
  * Smoke tests for the engine-test harness itself: prove the scaffold-and-shell-
- * out path works and lock in the baseline behaviour of the core recipes
+ * out path works and lock in the baseline behaviour of the core commands
  * (`--help`, `done`, `doctor`, unknown-word) before feature tests build on
  * the same harness.
  */
@@ -48,9 +48,9 @@ Deno.test("engine smoke: doctor passes with warnings on a fresh install", async 
 Deno.test("engine smoke: an unknown word exits 1 and teaches the next step", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const r = await runAgent(dir, ["definitely-not-a-recipe"]);
+    const r = await runAgent(dir, ["definitely-not-a-script"]);
     assertEquals(r.code, 1);
-    assertStringIncludes(r.stderr, 'unknown command "definitely-not-a-recipe"');
+    assertStringIncludes(r.stderr, 'unknown command "definitely-not-a-script"');
     assertStringIncludes(r.stderr, "discern help");
   });
 });

@@ -85,7 +85,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "worktree.setup",
     "gate",
     "coupling",
-    "recipes",
+    "scripts",
   ]);
 });
 
@@ -132,12 +132,15 @@ Deno.test("[guidance] template comment names every known agent and guidance targ
   }
 });
 
-Deno.test("extracts the last section ([recipes]) up to EOF, trailing blanks trimmed", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "recipes");
+Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trimmed", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "scripts");
   assertExists(block);
-  assertStringIncludes(block, "# [recipes] — your own `discern` commands");
-  assertStringIncludes(block, "\n[recipes]\n");
-  assertStringIncludes(block, 'dir = "discern/recipes"');
+  assertStringIncludes(
+    block,
+    "# [scripts] — your own executable Project Scripts",
+  );
+  assertStringIncludes(block, "\n[scripts]\n");
+  assertStringIncludes(block, 'dir = "discern/scripts"');
   assert(!block.endsWith("\n"), "trailing blank lines are trimmed");
 });
 

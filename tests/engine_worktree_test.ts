@@ -2,7 +2,7 @@
  * Engine coverage for the isolated-worktree lifecycle — the repo's flagship
  * workflow, and (until now) its largest untested surface.
  *
- * These recipes run from git hooks, not `agent finish`, so the gate is otherwise
+ * These commands run from git hooks, not `discern done`, so the gate is otherwise
  * blind to them: a regression here would ship green. (The noglob break in
  * `guidelines` hid on exactly this path — the worktree-create hook runs it.)
  * Each test drives a REAL linked worktree in a hermetic git repo and shells out

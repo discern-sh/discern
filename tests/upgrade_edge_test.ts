@@ -18,7 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
-import type { Migration } from "../src/lib/migrations.ts";
+import { type Migration, MIGRATIONS } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 
@@ -261,7 +261,7 @@ Deno.test("upgrade --dry-run --json previews pending migrations without running 
     assertEquals(res.dry_run, true);
     assertEquals(
       res.data.pending_migrations.map((m: { from: number }) => m.from),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+      MIGRATIONS.map((migration) => migration.from),
     );
     // Still a dry run: the schema is untouched on disk.
     assertEquals(await recordedSchema(dir), 1);

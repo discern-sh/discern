@@ -40,20 +40,21 @@ files committed, the materialized skills ignored). The write boundary is
 enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))
 and every source can be config-pointed elsewhere (your
-[Guidance source](#guidance-source), [Skills](#skill), [Recipes](#recipe),
-[the Map](#map), the ledger). The seed and Skill files an install starts from
-originate under [`templates/`](../../templates/) and are **bundled into the
-binary**, which writes them out at `setup`.
+[Guidance source](#guidance-source), [Skills](#skill),
+[Project Scripts](#project-script), [the Map](#map), the ledger). The seed and
+Skill files an install starts from originate under
+[`templates/`](../../templates/) and are **bundled into the binary**, which
+writes them out at `setup`.
 
 ### Namespace
 
 The visible `discern/` directory — the default home for the
 [Guidance source](#guidance-source), authored [Skills](#skill),
-[Recipes](#recipe), the project brief, and the `TODO.md` deferred-work ledger.
-The [Map](#map) defaults separately to root `map/`. Content you author for
-audiences of your own never defaults into discern's paths. The Namespace is 100%
-yours — no generated artifact is ever written inside it — and every source in it
-keeps a config key that points it anywhere
+[Project Scripts](#project-script), the project brief, and the `TODO.md`
+deferred-work ledger. The [Map](#map) defaults separately to root `map/`.
+Content you author for audiences of your own never defaults into discern's
+paths. The Namespace is 100% yours — no generated artifact is ever written
+inside it — and every source in it keeps a config key that points it anywhere
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md),
 [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
@@ -92,23 +93,25 @@ files: not installed into a project at all.
 The verb-routing front of the `discern` binary
 ([`src/engine/dispatch.ts`](../../src/engine/dispatch.ts)). It finds the project
 root (the nearest ancestor with a `discern.toml`), routes a known verb to its
-built-in handler, and on an _unknown_ verb execs a matching project
-[Recipe](#recipe) with the `DISCERN_*` environment exported. A built-in verb
-wins over a same-named recipe (warning on the shadow). A word matching nothing
-reports `unknown command` with a did-you-mean suggestion — familiar words from
-other tools ("init", "sync", "land", …) name the canonical verb — and a pointer
-at `discern help`.
+built-in handler, and owns the explicit [Project Script](#project-script)
+namespace. An unknown root word never executes project code; it reports
+`unknown command` with a did-you-mean suggestion — familiar words from other
+tools ("init", "sync", "land", …) name the canonical verb, while a matching
+Project Script points at `discern script <name>` — and a pointer at
+`discern help`.
 
-### Recipe
+### Project Script
 
-A project's **own** `discern` verb — a language-agnostic executable under
-`[recipes].dir` (default `discern/recipes`). The binary execs it on an unknown
-verb, with `DISCERN_*` exported; a name with a colon maps to a hyphenated file
-(`some:verb` → `some-verb`). A recipe reads config through the
-`discern config get|array|has|subsections|keys` surface and worktree identity
-through `discern identity --db|--site|--port|--resource <name>` — it does
-**not** source a shell library. On a name collision with a built-in verb the
-binary wins ([ADR 0001](../_adr/0001-project-owned-recipes.md)).
+A project's **own** language-agnostic executable under `[scripts].dir` (default
+`discern/scripts`). `discern script` lists every executable. Add a `<name>` to
+run one with the remaining arguments and `DISCERN_*` exported. A name with a
+colon maps to a hyphenated file (`some:verb` → `some-verb`). A Project Script
+reads config through the `discern config get|array|has|subsections|keys` surface
+and worktree identity through
+`discern identity --db|--site|--port|--resource <name>` — it does **not** source
+a shell library. Built-in names remain legal because Project Scripts occupy
+their own namespace
+([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).
 
 ---
 
@@ -131,10 +134,11 @@ from.
 A plain monotonic integer — the anchor the [Migration](#migration) chain steps
 from, stamped into `[meta].schema_version` in `discern.toml`. It bumps **only**
 when an installed project needs a migration to stay correct, so most releases
-leave it untouched. The current shape is schema **19** — `17 → 18` renames the
+leave it untouched. The current shape is schema **20** — `17 → 18` renames the
 quality-number table to `[standards]`, and `18 → 19` renames the
 agent-maintained documentation table to `[map]` while preserving every existing
-install's directory.
+install's directory; `19 → 20` adopts the Project Script vocabulary and moves
+the old default directory without overwriting a custom or occupied path.
 
 ### Migration
 
@@ -146,8 +150,8 @@ project records a newer schema than the binary supports and `upgrade` refuses
 and point the user at reinstalling discern instead of stamping the config down.
 A step can edit the config comment-preserving, move/rewrite files, and
 deep-merge settings — the `5 → 6` step moves the config to the root, relocates
-guidance/recipes/authored skills out of `.discern/`, prunes the pristine bundled
-skills, and deletes `.discern/`
+guidance/the then-named Recipes/authored skills out of `.discern/`, prunes the
+pristine bundled skills, and deletes `.discern/`
 ([ADR 0014](../_adr/0014-versioned-migration-system.md),
 [ADR 0020](../_adr/0020-dissolve-discern-dir.md),
 [ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)).
@@ -186,10 +190,11 @@ or flagged by `upgrade`, and edited in place. `setup` may seed the project brief
 settings and the project-owned rules outside the [co-managed](#co-managed-seed)
 `.gitignore` block. The rest live in the [Namespace](#namespace) by default and
 anywhere you point their keys: your [Guidance source](#guidance-source),
-authored [Skills](#skill) under `[skills].dir`, [Recipes](#recipe) under
-`[recipes].dir`, and the two `discern setup begin` scaffolds and the setup
-authoring pass fills — [the Map](#map) under `[map].dir` and the deferred-work
-ledger at `[project].todo`.
+authored [Skills](#skill) under `[skills].dir`,
+[Project Scripts](#project-script) under `[scripts].dir`, and the two
+`discern setup begin` scaffolds and the setup authoring pass fills —
+[the Map](#map) under `[map].dir` and the deferred-work ledger at
+`[project].todo`.
 
 ### Placement is consent
 

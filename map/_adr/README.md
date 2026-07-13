@@ -29,7 +29,6 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 
 ## Index
 
-- [0001 — Project-owned recipes](0001-project-owned-recipes.md)
 - [0003 — Named metric standards](0003-named-metric-standards.md)
 - [0005 — Declarative config](0005-declarative-config.md)
 - [0006 — Long-slot ergonomics](0006-long-slot-ergonomics.md)
@@ -144,6 +143,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0134 — Landing attests consent: `accept` requires a `--confirmed` attestation](0134-accept-attests-consent.md)
 - [0135 — Site pages use build-time React and a static runtime](0135-site-pages-use-build-time-react-and-static-runtime.md)
 - [0136 — Third-party notices derive from the compile graph](0136-third-party-notices-derive-from-the-compile-graph.md)
+- [0137 — Project Scripts live under the `script` command](0137-project-scripts-live-under-the-script-command.md)
 
 ## Superseded and consolidated ADRs
 
@@ -151,6 +151,8 @@ Kept for history under [`_superseded/`](_superseded/); each names its successor
 in a banner at the top of the file. Listed here so the record is complete
 without cluttering the active index above.
 
+- [0001 — Project-owned recipes](_superseded/0001-project-owned-recipes.md) —
+  superseded by the explicit Project Script namespace (0137)
 - [0002 — First-class side-gates](_superseded/0002-first-class-side-gates.md) —
   replaced by the capabilities/checks model (0017) and the scope `gate` key
   (0018)

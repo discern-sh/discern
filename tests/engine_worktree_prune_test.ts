@@ -680,7 +680,7 @@ Deno.test("worktree teardown by cwd is the verb discern writes as Codex's enviro
 
 // ── inherit-main-env-vars — whitelisted secret propagation ──────────────────
 //
-// A fresh worktree's .env carries only what is in version control. This recipe
+// A fresh worktree's .env carries only what is in version control. This command
 // copies the [worktree].inherit_env whitelist from the MAIN checkout's .env into
 // the worktree's .env so the worktree's app can boot with the same secrets.
 
@@ -696,7 +696,7 @@ Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into 
 
     // FOO is a secret kept out of git: it lives only in main's .env.
     await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\n");
-    // The recipe is a no-op unless the worktree already has an .env to patch
+    // The command is a no-op unless the worktree already has an .env to patch
     // (it never creates one). Seed an empty .env so it has a target.
     await Deno.writeTextFile(join(wt, ".env"), "");
 

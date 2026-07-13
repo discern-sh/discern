@@ -717,7 +717,7 @@ export type EnsureResult =
   | { kind: "ran" };
 
 /**
- * The idempotent session-start check — the `worktree-ensure` recipe. Runs
+ * The idempotent session-start check — the `worktree ensure` command. Runs
  * `worktreeSetup` exactly once for a linked worktree that has not been set up.
  * Safe to run on every session start: the main checkout, a
  * non-git dir, or an already-configured worktree are all silent no-ops.
@@ -751,7 +751,7 @@ export async function worktreeEnsure(
 
 /**
  * Tear down this worktree's resources without accepting its
- * branch — the `worktree teardown` recipe, used when DISCARDING a worktree.
+ * branch — the `worktree teardown` command, used when discarding a worktree.
  * Asserts the worktree precondition; destroys every resource the worktree created.
  */
 export async function worktreeTeardown(
@@ -2806,7 +2806,7 @@ async function planResourceReclaims(
 }
 
 /**
- * Housekeeping for the worktree pool — the `worktree prune` recipe. Removes stale
+ * Housekeeping for the worktree pool — the `worktree prune` command. Removes stale
  * worktrees and fully-merged branches, reclaims gitlinked orphan directories, then
  * reclaims orphaned per-worktree RESOURCES (the GC safety net: a resource whose
  * worktree vanished without a clean teardown). Refuses to run from inside a linked

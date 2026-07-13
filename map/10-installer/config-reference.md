@@ -163,10 +163,10 @@ Co-change coupling detection — a zero-config, read-only advisory that mines gi
 | --- | --- | --- | --- |
 | `in_gate` | boolean | `false` | Surface the co-change advisory during the gate too — both `discern done` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail. |
 
-## `[recipes]`
+## `[scripts]`
 
-Your own `discern` commands. Drop an executable carrying a `# desc: ...` line into the directory below and it becomes a first-class `discern <name>` command.
+Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"discern/recipes"` | Where your recipes live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |
+| `dir` | string | `"discern/scripts"` | Where your Project Scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |

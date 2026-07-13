@@ -88,13 +88,13 @@ default, and a path literal anywhere else in `src/**` fails the gate
 `discern` scaffolds into a repository you care about, so every command must be
 safe to run again. The ownership split makes this structural: _your_ files (the
 committed `discern.toml`, the merged `settings.json`/`.gitignore`, and the
-`discern/` namespace content — the guidance source, authored skills, recipes,
-the map, the ledger, the brief, each config-pointable elsewhere) are written
-once by `setup` (or by you) and never touched again, so `upgrade` cannot clobber
-an edit. _The binary's_ files (the re-published artifacts — the materialized
-skills, the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always
-safe to overwrite precisely because they are not yours to edit; they are
-rewritten on every recompile
+`discern/` namespace content — the guidance source, authored skills, Project
+Scripts, the map, the ledger, the brief, each config-pointable elsewhere) are
+written once by `setup` (or by you) and never touched again, so `upgrade` cannot
+clobber an edit. _The binary's_ files (the re-published artifacts — the
+materialized skills, the compiled agent files
+`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`) are always safe to overwrite precisely
+because they are not yours to edit; they are rewritten on every recompile
 ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md),
 [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Migrations
 are idempotent and the tree must be clean (or `--allow-dirty`) so an upgrade
@@ -134,7 +134,7 @@ the host doesn't already have. A single self-contained binary is the one thing a
 target can always run.
 
 **How it shows up.** The engine lives in [`src/engine/`](../../src/engine/) and
-compiles into the binary; project [recipes](glossary.md#recipe) stay
+compiles into the binary; [Project Scripts](glossary.md#project-script) stay
 language-agnostic executables that read config through
 `discern config get|array|has|subsections|keys` rather than sourcing any
 library. Config is parsed with strict `@std/toml` inside the binary

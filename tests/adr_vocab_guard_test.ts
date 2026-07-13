@@ -30,7 +30,7 @@ const TEMPLATES = join(REPO_ROOT, "templates");
 const MAP = join(REPO_ROOT, "map");
 const ADRS = join(MAP, "_adr");
 const MOCKUPS = join(REPO_ROOT, "mockups");
-const RECIPES = join(REPO_ROOT, "recipes");
+const PROJECT_SCRIPTS = join(REPO_ROOT, "discern", "scripts");
 const SKILLS = join(REPO_ROOT, "skills");
 const TEMPLATE_FIXTURES = join(REPO_ROOT, "tests", "fixtures", "templates");
 
@@ -49,6 +49,8 @@ const RETIRED_ACTIVE_ADR_PATH =
   /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
 const ADR_0120_AMENDMENT =
   "Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md))";
+const ADR_0137_AMENDMENT =
+  "[ADR 0137](0137-project-scripts-live-under-the-script-command.md)";
 
 type Literal = { text: string; line: number };
 
@@ -286,10 +288,10 @@ Deno.test("user-facing source strings never use the retired harness category", a
   );
 });
 
-Deno.test("shipped templates, template fixtures, skills, recipes, and public map prose never use the retired harness category", async () => {
+Deno.test("shipped templates, template fixtures, skills, Project Scripts, and public map prose never use the retired harness category", async () => {
   const offenders: string[] = [];
   for (
-    const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, RECIPES, MAP]
+    const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, PROJECT_SCRIPTS, MAP]
   ) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
@@ -383,6 +385,34 @@ Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", a
   );
 });
 
+Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", async () => {
+  const offenders: string[] = [];
+  for await (const entry of walk(ADRS, { includeDirs: false, maxDepth: 1 })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (
+      !rel.endsWith(".md") ||
+      rel.endsWith("/0000-template.md") ||
+      rel.endsWith("/README.md") ||
+      rel.endsWith("/0137-project-scripts-live-under-the-script-command.md")
+    ) continue;
+    const contents = await Deno.readTextFile(entry.path);
+    if (
+      /\brecipes?\b/iu.test(contents) && !contents.includes(ADR_0137_AMENDMENT)
+    ) {
+      offenders.push(
+        `${rel} retains Recipe history without an ADR 0137 amendment`,
+      );
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `untriaged Project Script vocabulary remains in the active ADR set:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
 Deno.test("user-facing output consistently calls the shared branch the trunk", async () => {
   const offenders: string[] = [];
   for await (
@@ -397,7 +427,7 @@ Deno.test("user-facing output consistently calls the shared branch the trunk", a
     }
   }
 
-  for (const root of [TEMPLATES, RECIPES, MAP, MOCKUPS]) {
+  for (const root of [TEMPLATES, PROJECT_SCRIPTS, MAP, MOCKUPS]) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
       if (rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")) {

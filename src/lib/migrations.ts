@@ -58,9 +58,26 @@ const SCHEMA_14_MAP_PATH: SourcePathEntry = {
   description: "The schema-14 agent documentation tree.",
 };
 
+/** Schema 14's Project Recipe path, frozen before the Script vocabulary change. */
+const SCHEMA_14_RECIPE_PATH: SourcePathEntry = {
+  key: "recipes.dir",
+  defaultPath: "discern/recipes",
+  legacyPath: "recipes",
+  description: "The schema-14 Project Recipes directory.",
+};
+
+type Schema14SourcePathName = Exclude<SourcePathName, "scripts"> | "recipes";
+
+const SCHEMA_14_SOURCE_PATH_NAMES: readonly Schema14SourcePathName[] =
+  SOURCE_PATH_NAMES.map((name) => name === "scripts" ? "recipes" : name);
+
 /** The path entry schema 14 knew for a current registry name. */
-function namespaceMigrationEntry(name: SourcePathName): SourcePathEntry {
-  return name === "map" ? SCHEMA_14_MAP_PATH : SOURCE_PATHS[name];
+function namespaceMigrationEntry(
+  name: Schema14SourcePathName,
+): SourcePathEntry {
+  if (name === "map") return SCHEMA_14_MAP_PATH;
+  if (name === "recipes") return SCHEMA_14_RECIPE_PATH;
+  return SOURCE_PATHS[name];
 }
 
 /** Escape one literal token for interpolation into a regular expression. */
@@ -110,6 +127,110 @@ function renameTopLevelTomlKey(
     ),
     (_match, prefix: string, key: string) => `${prefix}${rewriteSpelling(key)}`,
   );
+}
+
+/**
+ * Replace one string inside a top-level table in every spelling supported by
+ * {@link renameTopLevelTomlKey}: table, dotted root key, quoted tokens, or root
+ * inline table. Comments and quote style remain untouched.
+ */
+function replaceTopLevelTableString(
+  text: string,
+  section: string,
+  key: string,
+  from: string,
+  to: string,
+): string {
+  const sectionToken = `(?:${escapeRegExp(section)}|"${
+    escapeRegExp(section)
+  }"|'${escapeRegExp(section)}')`;
+  const keyToken = `(?:${escapeRegExp(key)}|"${escapeRegExp(key)}"|'${
+    escapeRegExp(key)
+  }')`;
+  const oldValue = escapeRegExp(from);
+  const replaceValue = (
+    _match: string,
+    prefix: string,
+    quote: string,
+    suffix: string,
+  ): string => `${prefix}${quote}${to}${quote}${suffix}`;
+
+  const firstHeader = text.search(/^\s*\[{1,2}\s*[A-Za-z0-9_"']/mu);
+  const rootEnd = firstHeader === -1 ? text.length : firstHeader;
+  const root = text.slice(0, rootEnd)
+    .replace(
+      new RegExp(
+        `^(\\s*${sectionToken}\\s*\\.\\s*${keyToken}\\s*=\\s*)(["'])${oldValue}\\2(.*)$`,
+        "gmu",
+      ),
+      replaceValue,
+    )
+    .replace(
+      new RegExp(
+        `^(\\s*${sectionToken}\\s*=\\s*\\{[^\\n]*?${keyToken}\\s*=\\s*)(["'])${oldValue}\\2([^\\n]*\\}.*)$`,
+        "gmu",
+      ),
+      replaceValue,
+    );
+
+  const lines = text.slice(rootEnd).split("\n");
+  const header = new RegExp(`^\\s*\\[\\s*${sectionToken}\\s*\\]`);
+  const assignment = new RegExp(
+    `^(\\s*${keyToken}\\s*=\\s*)(["'])${oldValue}\\2(.*)$`,
+  );
+  let inSection = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^\s*\[/.test(line)) {
+      inSection = header.test(line);
+      continue;
+    }
+    if (inSection) {
+      lines[i] = line.replace(assignment, replaceValue);
+    }
+  }
+  return root + lines.join("\n");
+}
+
+/** Add one absent string key to a top-level table, including an inline table. */
+function addTopLevelTableString(
+  text: string,
+  section: string,
+  key: string,
+  value: string,
+): string {
+  const sectionToken = `(?:${escapeRegExp(section)}|"${
+    escapeRegExp(section)
+  }"|'${escapeRegExp(section)}')`;
+  const literal = tomlString(value);
+  const inline = new RegExp(
+    `^(\\s*${sectionToken}\\s*=\\s*\\{)([^\\n]*?)(\\}\\s*(?:#.*)?)$`,
+    "mu",
+  );
+  if (inline.test(text)) {
+    return text.replace(
+      inline,
+      (_match, open: string, body: string, close: string) => {
+        const trimmed = body.trim();
+        const next = trimmed === ""
+          ? ` ${key} = ${literal} `
+          : ` ${trimmed}, ${key} = ${literal} `;
+        return `${open}${next}${close}`;
+      },
+    );
+  }
+
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  const header = new RegExp(
+    `^(\\s*\\[\\s*${sectionToken}\\s*\\][^\\r\\n]*(?:\\r?\\n|$))`,
+    "mu",
+  );
+  if (header.test(text)) {
+    return text.replace(header, `$1${key} = ${literal}${newline}`);
+  }
+
+  const separator = text === "" || /\r?\n$/.test(text) ? "" : newline;
+  return `${text}${separator}[${section}]${newline}${key} = ${literal}${newline}`;
 }
 
 /** The operations a migration step performs against an install. */
@@ -947,8 +1068,8 @@ export const MIGRATIONS: Migration[] = [
       const installedDir = explicitInstalledDir ?? SOURCE_PATHS.map.legacyPath;
       const renamed = renameTopLevelTomlKey(text, "docs", "map");
       // Renaming preserves an explicit directory in place — including quoted,
-      // dotted, and inline TOML forms. Only an install that relied on the old
-      // implicit default needs a new key pinned into the document.
+      // dotted, and inline TOML forms. Only an install that relied on the
+      // previous implicit default needs a new key pinned into the document.
       const migrated = explicitInstalledDir === undefined
         ? (() => {
           const editor = new TomlEditor(renamed);
@@ -980,6 +1101,133 @@ export const MIGRATIONS: Migration[] = [
       ctx.note(
         `renamed [docs] to [map] and kept the existing tree at ${installedDir}`,
       );
+    },
+  },
+  {
+    from: 19,
+    // ADR 0137
+    describe:
+      "rename Project Recipes to Project Scripts and move the old default directory",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      if (raw.recipes !== undefined && raw.scripts !== undefined) {
+        throw new Error(
+          "discern.toml contains both [recipes] and [scripts]. Keep the intended " +
+            "directory under [scripts], remove [recipes], then run `discern upgrade` again.",
+        );
+      }
+      if (raw.scripts !== undefined) {
+        return; // already migrated; never reinterpret its configured directory.
+      }
+
+      const oldSection = isRecord(raw.recipes) ? raw.recipes : undefined;
+      if (raw.recipes !== undefined && oldSection === undefined) {
+        throw new Error(
+          "[recipes] must be a table before it can be renamed. Fix discern.toml, " +
+            "then run `discern upgrade` again.",
+        );
+      }
+      const explicitDir = typeof oldSection?.dir === "string"
+        ? oldSection.dir
+        : undefined;
+      const oldDefault = SOURCE_PATHS.scripts.legacyPath;
+      const newDefault = SOURCE_PATHS.scripts.defaultPath;
+      const usesOldDefault = explicitDir === undefined ||
+        explicitDir === oldDefault;
+
+      let migrated = raw.recipes === undefined
+        ? text
+        : renameTopLevelTomlKey(text, "recipes", "scripts");
+      let effectiveDir = explicitDir;
+      let moveOldDefault = false;
+
+      if (usesOldDefault) {
+        const oldExists = await ctx.exists(oldDefault);
+        const newExists = await ctx.exists(newDefault);
+        if (oldExists && !newExists) {
+          moveOldDefault = true;
+          effectiveDir = newDefault;
+        } else if (oldExists && newExists) {
+          effectiveDir = oldDefault;
+          ctx.note(
+            `kept Project Scripts at ${oldDefault} because ${newDefault} already exists`,
+          );
+        } else {
+          effectiveDir = newDefault;
+        }
+
+        if (raw.recipes !== undefined) {
+          if (explicitDir === undefined) {
+            migrated = addTopLevelTableString(
+              migrated,
+              "scripts",
+              "dir",
+              effectiveDir,
+            );
+          } else {
+            migrated = replaceTopLevelTableString(
+              migrated,
+              "scripts",
+              "dir",
+              oldDefault,
+              effectiveDir,
+            );
+          }
+        } else if (effectiveDir === oldDefault) {
+          // No legacy section needs renaming, but both directories exist. Pin
+          // the schema-19 directory so upgrade preserves the active install.
+          migrated = addTopLevelTableString(
+            migrated,
+            "scripts",
+            "dir",
+            oldDefault,
+          );
+        }
+      }
+
+      let after: Record<string, unknown>;
+      try {
+        after = parseDiscernToml(migrated).raw;
+      } catch {
+        throw new Error(
+          "discern could not rename [recipes] to [scripts] safely. Rename the " +
+            "table and preserve its directory, then run `discern upgrade` again.",
+        );
+      }
+      const nextScripts = isRecord(after.scripts) ? after.scripts : undefined;
+      const needsExplicitDir = raw.recipes !== undefined ||
+        effectiveDir === oldDefault;
+      if (
+        after.recipes !== undefined ||
+        (raw.recipes !== undefined && nextScripts === undefined) ||
+        (needsExplicitDir && effectiveDir !== undefined &&
+          nextScripts?.dir !== effectiveDir)
+      ) {
+        throw new Error(
+          "discern.toml uses a [recipes] spelling this migration cannot rewrite. " +
+            "Rename it to [scripts], preserve its dir value, then run `discern upgrade` again.",
+        );
+      }
+
+      // Prove the lexical rewrite before moving a byte. A parseable but exotic
+      // spelling must fail with the config and its active directory untouched.
+      if (moveOldDefault) {
+        await ctx.rename(oldDefault, newDefault);
+        ctx.note(`moved Project Scripts from ${oldDefault} to ${newDefault}`);
+      }
+      await ctx.rewrite("discern.toml", () => migrated);
+      if (raw.recipes !== undefined) {
+        ctx.note("renamed [recipes] to [scripts]");
+      }
     },
   },
 ];
@@ -1178,7 +1426,7 @@ function removeFeaturesSection(text: string): string {
  * pointed away from the pre-namespace default. */
 interface NamespaceMoveDecision {
   /** The registry entry being considered. */
-  name: SourcePathName;
+  name: Schema14SourcePathName;
   /** True when the configured value differs from the legacy default — the user
    * typed a path, so the migration must not touch it. */
   pointed: boolean;
@@ -1221,7 +1469,7 @@ function rawValueAt(
  */
 function decideNamespaceMove(
   raw: Record<string, unknown>,
-  name: SourcePathName,
+  name: Schema14SourcePathName,
 ): NamespaceMoveDecision {
   const entry = namespaceMigrationEntry(name);
   if (entry.key === null) {
@@ -1267,11 +1515,11 @@ async function migrateIntoNamespace(ctx: MigrationContext): Promise<void> {
     return; // unparseable — upgrade validates the config first; belt-and-braces.
   }
 
-  const moved: SourcePathName[] = [];
-  const pinned: SourcePathName[] = [];
+  const moved: Schema14SourcePathName[] = [];
+  const pinned: Schema14SourcePathName[] = [];
   const repoint: Array<{ key: string; value: string | string[] }> = [];
 
-  for (const name of SOURCE_PATH_NAMES) {
+  for (const name of SCHEMA_14_SOURCE_PATH_NAMES) {
     const entry = namespaceMigrationEntry(name);
     const decision = decideNamespaceMove(raw, name);
     if (decision.pointed) {

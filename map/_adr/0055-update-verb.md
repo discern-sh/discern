@@ -4,6 +4,11 @@
 > pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`,
 > the shared-branch label → the trunk; the decision and reasoning are unchanged.
 
+> **Project Script vocabulary amendment
+> ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current
+> pointers reflect the suggestable-command list that replaced the old Recipe
+> name satellite; the decision and reasoning are unchanged.
+
 **Status**: accepted. Completes the worktree lifecycle alongside
 [ADR 0011](0011-adopt-worktree-workflow.md), resolves the fail-fast merge check
 of [ADR 0050](0050-merge-check-fail-fast.md), and respects the no-auto-heal
@@ -91,11 +96,11 @@ the merge with the refresh is the irreducible core.
 
 Adding the verb followed the canonical-set discipline of
 [ADR 0051](0051-canonical-set-parity.md). Every satellite of the verb vocabulary
-learned about it: the engine-verb source of truth, the recipe-name list, the
-Cliffy registration, the tool table, the per-verb feature gate, the bootstrap
-gate. None needed an **exception-set edit**. `update` is an ordinary worktree
-verb that has a tool, so the forcing-function test went green once every
-satellite was in place, not by weakening it.
+learned about it: the engine-verb source of truth, the suggestable-command list,
+the Cliffy registration, the tool table, the per-verb feature gate, the
+bootstrap gate. None needed an **exception-set edit**. `update` is an ordinary
+worktree verb that has a tool, so the forcing-function test went green once
+every satellite was in place, not by weakening it.
 
 ## Consequences
 

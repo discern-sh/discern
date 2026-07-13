@@ -1,5 +1,5 @@
 /**
- * Engine coverage for the public recipes the suite never exercised directly:
+ * Engine coverage for public commands the suite never exercised directly:
  *   - `prepare` / `test` — the fast-loop and test-stage entry points (previously
  *     reached only transitively through `done`).
  *   - `doctor`'s failure path — the smoke test only covered the happy path.

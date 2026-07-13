@@ -4,7 +4,7 @@
  * module is the narrow exception for the two jobs that genuinely need an
  * un-validated, generic reader and must NOT trip schema validation:
  *
- *   - `discern config <get|array|has|subsections|keys> <key>` — the recipe-facing
+ *   - `discern config <get|array|has|subsections|keys> <key>` — the Project-Script-facing
  *     passthrough, a `jq`-for-the-config that reads arbitrary dotted keys verbatim.
  *   - the standard "never-loosen vs main" baseline, which reads an *older* config
  *     out of `git show main:discern.toml` and only wants one number out of it.
