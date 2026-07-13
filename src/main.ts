@@ -44,6 +44,7 @@ import { runSetupAccept } from "./commands/setup_accept.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
 import { runUninstall } from "./commands/uninstall.ts";
 import { runDoctor } from "./commands/doctor.ts";
+import { runLicenses } from "./commands/licenses.ts";
 import { runPreset } from "./commands/preset.ts";
 import { runHelp, runMap } from "./commands/docs.ts";
 import {
@@ -437,6 +438,19 @@ export function buildCli(
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         verbose: options.verbose ?? false,
+      });
+      Deno.exit(code);
+    });
+
+  root
+    .command("licenses")
+    .description(
+      "Print the third-party software notices for the components bundled in this binary.",
+    )
+    .action((options) => {
+      const code = runLicenses({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
       });
       Deno.exit(code);
     });

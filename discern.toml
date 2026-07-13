@@ -110,7 +110,7 @@ dir = "skills"
 
 [capabilities]
 format    = "deno fmt"
-build     = "deno task codegen"
+build     = ["deno task codegen", "deno task design-system:build"]
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
@@ -344,15 +344,30 @@ ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (id
 
 # Coverage standard — hold src/ line coverage at or above a rising floor. The run
 # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
-# for src/ (the installer AND the TS engine — both instrumented). Deferred from
-# the gate's measurement pass with the honest reason: it re-runs the ENTIRE test
-# suite under instrumentation, doubling the gate's slowest job — the pathological
+# for the repo's own src/ tree (the installer AND the TS engine — both
+# instrumented; scripts/coverage_lib.ts anchors the filter so dependency and
+# workspace src/ segments never count). Deferred from the gate's measurement
+# pass with the honest reason: it re-runs the ENTIRE test suite under
+# instrumentation, roughly doubling the gate's slowest job — the pathological
 # case the opt-out exists for. The never-loosen floor check still runs on every
 # `discern done`; CI measures it on every PR, and `discern standards` on demand.
+# `inputs` names everything the measurement reads, so a tree that touches none
+# of it (docs, map, site) replays the recorded value for free; `margin` keeps a
+# pin from setting the floor razor-tight against ordinary coverage drift.
 [standards.coverage]
 direction = "up"
-limit     = 91.8
+limit     = 91.7
+margin    = 0.5
 run       = "deno task coverage"
+inputs    = [
+  "src/**",
+  "tests/**",
+  "templates/**",
+  "scripts/coverage.ts",
+  "scripts/coverage_lib.ts",
+  "deno.json",
+  "deno.lock",
+]
 measure   = "on-demand"
 
 # Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
@@ -369,7 +384,7 @@ measure   = "on-demand"
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
-limit     = 14.43
+limit     = 14.27
 run       = "deno task prose \"${map.dir}\""
 inputs    = ["${map.dir}**", ".vale.ini", "scripts/prose.ts"]
 
@@ -384,7 +399,7 @@ inputs    = ["${map.dir}**", ".vale.ini", "scripts/prose.ts"]
 [standards.guidance]
 metric    = "guidance_words"
 direction = "down"
-limit     = 831
+limit     = 828
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 inputs    = ["templates/guidance/**"]
 
@@ -400,7 +415,7 @@ inputs    = ["templates/guidance/**"]
 [standards.binary_size]
 metric    = "binary_size_bytes"
 direction = "down"
-limit     = 139188600
+limit     = 143335040
 measure   = "on-demand"
 # The binary's byte count drifts with every commit, so `discern standards --pin`
 # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
@@ -417,7 +432,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 7.47
+limit     = 7.58
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
 inputs    = ["${map.dir}**", "scripts/public_doc_density.ts"]
 

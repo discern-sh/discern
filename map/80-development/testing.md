@@ -68,19 +68,29 @@ alone but fails in the full run" trap is exactly this failure).
 
 ## Coverage
 
-Line coverage of `src/` is measured by `deno task coverage`
+Line coverage of the repo's own `src/` tree is measured by `deno task coverage`
 ([scripts/coverage.ts](../../scripts/coverage.ts)): it runs the whole suite
-under Deno's coverage instrument, filters the lcov to paths under `/src/`, and
-prints one `DISCERN_METRIC coverage <pct>` line. Because the engine is now
-TypeScript under `src/engine/`, it is instrumented like the rest of `src/` — the
-`engine_*` subprocess tests that drive the verbs through `src/main.ts` count
-toward the number, so installer and engine share one coverage figure.
+under Deno's coverage instrument collecting raw profiles only, makes one lcov
+report pass, and prints one `DISCERN_METRIC coverage <pct>` line.
+[scripts/coverage_lib.ts](../../scripts/coverage_lib.ts) anchors the lcov filter
+to `<repo>/src/` — a `src/` segment inside `node_modules` or the site workspace
+(`site/design-system/src/`) never counts — and
+[tests/coverage_lib_test.ts](../../tests/coverage_lib_test.ts) pins that
+definition. Because the engine is TypeScript under `src/engine/`, it is
+instrumented like the rest of `src/` — the `engine_*` subprocess tests that
+drive the verbs through `src/main.ts` count toward the number, so installer and
+engine share one coverage figure. Those spawns are also why the run costs
+minutes: each leaves one V8 profile per loaded module, hundreds of thousands of
+small files per full run, and every report pass re-reads them all — the reason
+the script makes exactly one.
 
 That metric feeds a standard — `[standards.coverage]` in
 [discern.toml](../../discern.toml) — a floor that only ever rises. The
 `discern standards` verb checks it; it is slow, so it is **not** part of the
 `done` gate, and CI enforces it on every pull request. To raise the floor: add
-tests, then bump `limit` to just below the newly measured value.
+tests, then capture the gain with `discern standards --pin`; the standard's
+`margin` keeps the pinned floor a little below the measured value so ordinary
+drift does not trip it.
 
 Prompt dispatch is tested through real pseudo-TTYs. Every Cliffy prompt call is
 structurally confined to [src/lib/prompts.ts](../../src/lib/prompts.ts), whose
