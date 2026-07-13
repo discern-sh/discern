@@ -143,6 +143,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0133 — Standards join the gate: verified always, measured by default](0133-standards-join-the-gate.md)
 - [0134 — Landing attests consent: `accept` requires a `--confirmed` attestation](0134-accept-attests-consent.md)
 - [0135 — Site pages use build-time React and a static runtime](0135-site-pages-use-build-time-react-and-static-runtime.md)
+- [0136 — Third-party notices derive from the compile graph](0136-third-party-notices-derive-from-the-compile-graph.md)
 
 ## Superseded and consolidated ADRs
 
