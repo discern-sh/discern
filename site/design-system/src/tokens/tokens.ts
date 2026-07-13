@@ -84,6 +84,12 @@ export const designTokens = [
   token("--ds-font-size-md", "1rem", "Typography", "Body copy."),
   token("--ds-font-size-lg", "1.125rem", "Typography", "Lead copy."),
   token(
+    "--ds-font-size-card-title",
+    "var(--ds-font-size-lg)",
+    "Typography",
+    "Primary title within a card surface.",
+  ),
+  token(
     "--ds-font-size-display-sm",
     "1.5rem",
     "Typography",

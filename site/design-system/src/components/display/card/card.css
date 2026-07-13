@@ -7,7 +7,7 @@
   }
   .ds-card :where(h1, h2, h3, h4, h5, h6) {
     font-family: var(--ds-font-ui);
-    font-size: 0.9375rem;
+    font-size: var(--ds-font-size-card-title);
     font-weight: 600;
     letter-spacing: normal;
     line-height: 1.3;

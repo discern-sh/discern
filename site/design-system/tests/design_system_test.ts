@@ -283,6 +283,10 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     tokens.get("--ds-font-mono"),
     '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
   );
+  assertEquals(
+    tokens.get("--ds-font-size-card-title"),
+    "var(--ds-font-size-lg)",
+  );
 
   const buttonCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "core", "button", "button.css"),
@@ -328,7 +332,7 @@ Deno.test("card titles and stat figures use the UI font", async () => {
   );
   assertMatch(
     cardCss,
-    /\.ds-card :where\([^}]+font-size:\s*0\.9375rem;[^}]+font-weight:\s*600;/s,
+    /\.ds-card :where\([^}]+font-size:\s*var\(--ds-font-size-card-title\);[^}]+font-weight:\s*600;/s,
   );
 
   const demoCss = await Deno.readTextFile(
