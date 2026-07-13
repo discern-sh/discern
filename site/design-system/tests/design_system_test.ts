@@ -289,6 +289,14 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
   assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+
+  const foundationCss = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "src", "styles", "foundation.css"),
+  );
+  assertMatch(
+    foundationCss,
+    /:where\(\[data-ds-root\] h1,[^}]+text-wrap:\s*pretty;/s,
+  );
 });
 
 Deno.test("the one grain wash retains the reference motif", async () => {
