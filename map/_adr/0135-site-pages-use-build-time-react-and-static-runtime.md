@@ -4,11 +4,14 @@
 
 ## Context
 
-The first discern.sh editions were self-contained HTML experiments. They proved
-several messages and visual directions quickly, but each page owned a separate
-Tailwind theme, component vocabulary, font request, and inline script. Growing
-that pattern into the permanent site would make every shared visual decision a
-manual multi-page migration.
+The existing draft discern.sh landing pages are self-contained HTML pages,
+created as experiments before the project had established durable standards for
+their content, appearance, or integration. As discern prepares for public
+release, a coherent and maintainable frontend has become an architectural
+requirement. Each draft page currently owns a separate Tailwind theme, component
+vocabulary, font request, and inline script. Growing that pattern into the
+permanent site would make every shared visual decision a manual multi-page
+migration.
 
 A prototype design system supplied typed tokens, framework-neutral CSS, React
 adapters, component metadata, and an automatically discovered local catalogue.
