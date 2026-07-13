@@ -133,6 +133,13 @@ function selectorClassNames(source: string): Set<string> {
   return classNames;
 }
 
+function implementationClassNames(source: string): Set<string> {
+  return new Set(
+    [...source.matchAll(/(?<!-)\b(ds-[a-z0-9]+(?:[-_][a-z0-9]+)*)/g)]
+      .map((match) => match[1] ?? ""),
+  );
+}
+
 function componentOwnedSelectors(
   source: string,
   componentClassNames: ReadonlySet<string>,
@@ -292,12 +299,17 @@ Deno.test("authored design-system runtime sources are local-only", async () => {
 
 Deno.test("consumer styles never redefine component-owned selectors", async () => {
   const futureComponentCss = ".ds-future-widget__label { color: inherit; }";
+  const futureComponentTsx = '<div className="ds-future-widget" />';
+  const futureComponentClasses = new Set([
+    ...selectorClassNames(futureComponentCss),
+    ...implementationClassNames(futureComponentTsx),
+  ]);
   assertEquals(
     componentOwnedSelectors(
-      ".ds-future-widget__label, .consumer-shell { color: red; }",
-      selectorClassNames(futureComponentCss),
+      ".ds-future-widget, .ds-future-widget__label { color: red; }",
+      futureComponentClasses,
     ),
-    [".ds-future-widget__label, .consumer-shell"],
+    [".ds-future-widget, .ds-future-widget__label"],
   );
 
   const componentClassNames = new Set<string>();
@@ -307,6 +319,17 @@ Deno.test("consumer styles never redefine component-owned selectors", async () =
     )
   ) {
     for (const className of selectorClassNames(await Deno.readTextFile(path))) {
+      componentClassNames.add(className);
+    }
+  }
+  for (
+    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
+      candidate.endsWith(".tsx") && !candidate.endsWith(".examples.tsx")
+    )
+  ) {
+    for (
+      const className of implementationClassNames(await Deno.readTextFile(path))
+    ) {
       componentClassNames.add(className);
     }
   }
