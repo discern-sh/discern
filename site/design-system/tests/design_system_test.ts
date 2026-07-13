@@ -121,22 +121,27 @@ function roleRampViolations(
   return violations;
 }
 
+function selectorClassNames(source: string): Set<string> {
+  const classNames = new Set<string>();
+  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
+    const prelude = rule[1] ?? "";
+    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
+      classNames.add(match[1] ?? "");
+    }
+  }
+  return classNames;
+}
+
 function componentOwnedSelectors(
   source: string,
-  componentSlugs: ReadonlySet<string>,
+  componentClassNames: ReadonlySet<string>,
 ): string[] {
   const selectors = new Set<string>();
   for (const rule of source.matchAll(/([^{}]+)\{/g)) {
     const prelude = (rule[1] ?? "").trim();
     for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
       const className = match[1] ?? "";
-      if (
-        [...componentSlugs].some((slug) =>
-          className === `ds-${slug}` ||
-          className.startsWith(`ds-${slug}__`) ||
-          className.startsWith(`ds-${slug}--`)
-        )
-      ) {
+      if (componentClassNames.has(className)) {
         selectors.add(prelude);
       }
     }
@@ -242,23 +247,24 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
 });
 
 Deno.test("consumer styles never redefine component-owned selectors", async () => {
+  const futureComponentCss = ".ds-future-widget__label { color: inherit; }";
   assertEquals(
     componentOwnedSelectors(
       ".ds-future-widget__label, .consumer-shell { color: red; }",
-      new Set(["future-widget"]),
+      selectorClassNames(futureComponentCss),
     ),
     [".ds-future-widget__label, .consumer-shell"],
   );
 
-  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
-    path.endsWith(".meta.ts")
-  );
-  const slugs = new Set<string>();
-  for (const path of metaFiles) {
-    const meta = (await import(toFileUrl(path).href)) as {
-      default: { readonly slug: string };
-    };
-    slugs.add(meta.default.slug);
+  const componentClassNames = new Set<string>();
+  for (
+    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
+      candidate.endsWith(".css")
+    )
+  ) {
+    for (const className of selectorClassNames(await Deno.readTextFile(path))) {
+      componentClassNames.add(className);
+    }
   }
 
   const violations: string[] = [];
@@ -275,7 +281,7 @@ Deno.test("consumer styles never redefine component-owned selectors", async () =
     for (
       const selector of componentOwnedSelectors(
         await Deno.readTextFile(path),
-        slugs,
+        componentClassNames,
       )
     ) {
       violations.push(`${relative(ROOT, path)}: ${selector}`);
