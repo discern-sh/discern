@@ -318,6 +318,38 @@ Deno.test("component labels and compact UI use the UI font", async () => {
   }
 });
 
+Deno.test("card titles and stat figures use the UI font", async () => {
+  const cardCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "card", "card.css"),
+  );
+  assertMatch(
+    cardCss,
+    /\.ds-card :where\([^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+  assertMatch(
+    cardCss,
+    /\.ds-card :where\([^}]+font-size:\s*0\.9375rem;[^}]+font-weight:\s*600;/s,
+  );
+
+  const demoCss = await Deno.readTextFile(
+    join(ROOT, "site", "page-src", "design-system-demo.css"),
+  );
+  assertMatch(
+    demoCss,
+    /\.demo-flow__step h3\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+  assertMatch(
+    demoCss,
+    /\.demo-stat\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+
+  const styleguideCss = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
+  );
+  assertStringIncludes(styleguideCss, ".sg-component > header h4");
+  assert(!styleguideCss.includes(".sg-component h4"));
+});
+
 Deno.test("long styleguide token values stay inside their cards", async () => {
   const css = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),

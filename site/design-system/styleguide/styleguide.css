@@ -345,7 +345,7 @@
     flex: 1;
     min-width: 0;
   }
-  .sg-component h4 {
+  .sg-component > header h4 {
     margin: 0 0 3px;
     font-family: var(--ds-font-ui);
     font-size: 0.9375rem;
