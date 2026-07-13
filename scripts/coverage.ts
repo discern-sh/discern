@@ -7,13 +7,18 @@
  * it at or above the configured floor.
  *
  * It runs the full suite under Deno coverage, then computes line coverage over
- * `src/` — both the installer AND the TypeScript engine (`src/engine/**`), all
- * one tree, instrumented by the same number. (`runCli` subprocesses count too: Deno
- * propagates the coverage dir to child `deno` processes via the environment.)
+ * the repo's own `src/` tree — both the installer AND the TypeScript engine
+ * (`src/engine/**`), all one tree, instrumented by the same number. (`runAgent`
+ * subprocesses count too: Deno propagates the coverage dir to child `deno`
+ * processes via the environment.) `scripts/coverage_lib.ts` holds the anchored
+ * definition of which files count, and its tests pin it.
  *
  * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints the
  * human `deno coverage` table to stderr for context, then the metric line to stdout.
  */
+
+import { fromFileUrl } from "@std/path";
+import { srcLineCoverage } from "./coverage_lib.ts";
 
 const TEST_ARGS = [
   "test",
@@ -44,31 +49,6 @@ async function deno(
   return opts.capture ? new TextDecoder().decode(result.stdout) : "";
 }
 
-/**
- * Sum lcov `LF:`/`LH:` (lines found / lines hit) across records whose source
- * file lives under `src/`, and return the line-coverage percentage. Filtering on
- * the `SF:` path makes the number independent of `deno coverage`'s own include
- * defaults — only the installer source counts, never tests or templates.
- */
-function srcLineCoverage(
-  lcov: string,
-): { pct: number; hit: number; found: number } {
-  let found = 0;
-  let hit = 0;
-  let inSrc = false;
-  for (const line of lcov.split("\n")) {
-    if (line.startsWith("SF:")) {
-      inSrc = line.slice(3).includes("/src/");
-    } else if (inSrc && line.startsWith("LF:")) {
-      found += Number(line.slice(3)) || 0;
-    } else if (inSrc && line.startsWith("LH:")) {
-      hit += Number(line.slice(3)) || 0;
-    }
-  }
-  const pct = found === 0 ? 0 : (hit / found) * 100;
-  return { pct, hit, found };
-}
-
 const profile = await Deno.makeTempDir({ prefix: "discern-coverage-" });
 try {
   // 1. Run the whole suite under coverage instrumentation.
@@ -79,7 +59,8 @@ try {
 
   // 3. The machine metric to stdout — the line the standard reads.
   const lcov = await deno(["coverage", profile, "--lcov"], { capture: true });
-  const { pct, hit, found } = srcLineCoverage(lcov);
+  const repoRoot = fromFileUrl(new URL("../", import.meta.url));
+  const { pct, hit, found } = srcLineCoverage(lcov, repoRoot);
   console.error(`src/ line coverage: ${hit}/${found} lines`);
   console.log(`DISCERN_METRIC coverage ${pct.toFixed(1)}`);
 } finally {
