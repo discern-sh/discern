@@ -13,12 +13,20 @@
  * processes via the environment.) `scripts/coverage_lib.ts` holds the anchored
  * definition of which files count, and its tests pin it.
  *
- * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints the
- * human `deno coverage` table to stderr for context, then the metric line to stdout.
+ * Speed shape: those subprocesses leave one V8 profile per module per spawn —
+ * hundreds of thousands of small JSONs — and every report invocation over the
+ * profile dir re-reads them all, single-threaded, at a cost comparable to the
+ * suite itself. So the test run collects raw profiles only (suppressing the
+ * reports `deno test --coverage` generates at the end of a run), and exactly
+ * ONE report pass follows: the lcov below, which the table and the metric both
+ * derive from.
+ *
+ * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints a
+ * per-file table to stderr for context, then the metric line to stdout.
  */
 
 import { fromFileUrl } from "@std/path";
-import { srcLineCoverage } from "./coverage_lib.ts";
+import { renderTable, srcLineCoverage } from "./coverage_lib.ts";
 
 const TEST_ARGS = [
   "test",
@@ -30,6 +38,10 @@ const TEST_ARGS = [
   // the shared --coverage dir, so the aggregated number is identical to a serial
   // run (verified) while finishing in a fraction of the wall time.
   "--parallel",
+  // Raw profiles only: the end-of-run reports (table, lcov, HTML) each cost a
+  // full pass over the profile dir, and the one lcov pass below is the only
+  // report anything reads.
+  "--coverage-raw-data-only",
 ];
 
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
@@ -51,18 +63,24 @@ async function deno(
 
 const profile = await Deno.makeTempDir({ prefix: "discern-coverage-" });
 try {
-  // 1. Run the whole suite under coverage instrumentation.
+  // 1. Run the whole suite under coverage instrumentation (raw profiles only).
   await deno([...TEST_ARGS, `--coverage=${profile}`]);
 
-  // 2. Human-readable per-file table to stderr (context for the operator).
-  await deno(["coverage", profile, "--include=src/"]);
+  // 2. The single report pass. `--include` is a cheap size pre-filter over
+  //    script URLs; the authoritative anchored selection happens in
+  //    srcLineCoverage.
+  const lcov = await deno(
+    ["coverage", profile, "--lcov", "--include=src/"],
+    { capture: true },
+  );
 
-  // 3. The machine metric to stdout — the line the standard reads.
-  const lcov = await deno(["coverage", profile, "--lcov"], { capture: true });
+  // 3. Per-file table to stderr (context for the operator), then the machine
+  //    metric to stdout — the line the standard reads.
   const repoRoot = fromFileUrl(new URL("../", import.meta.url));
-  const { pct, hit, found } = srcLineCoverage(lcov, repoRoot);
-  console.error(`src/ line coverage: ${hit}/${found} lines`);
-  console.log(`DISCERN_METRIC coverage ${pct.toFixed(1)}`);
+  const cov = srcLineCoverage(lcov, repoRoot);
+  console.error(renderTable(cov));
+  console.error(`src/ line coverage: ${cov.hit}/${cov.found} lines`);
+  console.log(`DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`);
 } finally {
   await Deno.remove(profile, { recursive: true });
 }

@@ -10,7 +10,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { srcLineCoverage } from "../scripts/coverage_lib.ts";
+import { renderTable, srcLineCoverage } from "../scripts/coverage_lib.ts";
 
 const ROOT = "/repo/checkout";
 
@@ -56,4 +56,12 @@ Deno.test("an empty report is 0%, not NaN", () => {
   const cov = srcLineCoverage("", ROOT);
   assertEquals(cov.pct, 0);
   assertEquals(cov.files, []);
+});
+
+Deno.test("renderTable derives its rows and total from the same parse", () => {
+  const lines = renderTable(srcLineCoverage(LCOV, ROOT)).split("\n");
+  assertEquals(lines.length, 3);
+  assertEquals(lines[0]?.trim(), "src/engine/dispatch.ts   90.0%  9/10");
+  assertEquals(lines[1]?.trim(), "src/shared/config.ts     80.0%  8/10");
+  assertEquals(lines[2]?.trim(), "All src/ files           85.0%  17/20");
 });

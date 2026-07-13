@@ -62,3 +62,23 @@ export function srcLineCoverage(lcov: string, repoRoot: string): SrcCoverage {
   const hit = files.reduce((sum, f) => sum + f.hit, 0);
   return { pct: pct(hit, found), hit, found, files };
 }
+
+const TOTAL_LABEL = "All src/ files";
+
+/**
+ * Render the per-file breakdown as an aligned text table with a total row —
+ * the operator-context view `scripts/coverage.ts` prints to stderr, derived
+ * from the same parse as the metric so the two can never disagree.
+ */
+export function renderTable(cov: SrcCoverage): string {
+  const width = cov.files.reduce(
+    (max, f) => Math.max(max, f.path.length),
+    TOTAL_LABEL.length,
+  );
+  const row = (label: string, hit: number, found: number): string =>
+    `${label.padEnd(width)}  ${pct(hit, found).toFixed(1).padStart(5)}%  ` +
+    `${hit}/${found}`;
+  const lines = cov.files.map((f) => row(f.path, f.hit, f.found));
+  lines.push(row(TOTAL_LABEL, cov.hit, cov.found));
+  return lines.join("\n");
+}
