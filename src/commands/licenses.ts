@@ -2,20 +2,20 @@
  * `discern licenses` — print the third-party software notices for the
  * components bundled into this binary.
  *
- * The committed `THIRD_PARTY_NOTICES` document and component list are embedded
- * at compile time (raw imports), so the verb needs no project, no config, and
- * no network: every install prints exactly the notices it was built with. Both
- * artifacts are generated from the compile graph — see
+ * The committed notices travel inside the binary as a generated, compressed
+ * bundle (`src/lib/third_party_bundle.ts`), so the verb needs no project, no
+ * config, and no network: every install prints exactly the notices it was
+ * built with. The bundle and the human-readable `THIRD_PARTY_NOTICES` are
+ * generated from the same compile-graph render — see
  * `src/shared/third_party_codegen.ts`.
  */
 
-import NOTICES_TEXT from "../../THIRD_PARTY_NOTICES" with { type: "text" };
-import COMPONENTS from "../lib/third_party_components.json" with {
-  type: "json",
-};
+import { gunzipSync } from "zlib";
+import { decodeBase64 } from "@std/encoding/base64";
 import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
+import { THIRD_PARTY_BUNDLE_B64 } from "../lib/third_party_bundle.ts";
 
 /** Options for {@link runLicenses}. */
 export interface LicensesOptions {
@@ -28,12 +28,25 @@ export interface LicensesData {
   readonly components: readonly ThirdPartyComponent[];
 }
 
+interface Bundle {
+  readonly notices: string;
+  readonly components: readonly ThirdPartyComponent[];
+}
+
+let cached: Bundle | undefined;
+function bundle(): Bundle {
+  cached ??= JSON.parse(
+    new TextDecoder().decode(gunzipSync(decodeBase64(THIRD_PARTY_BUNDLE_B64))),
+  ) as Bundle;
+  return cached;
+}
+
 /** Build the `licenses` result envelope (the shared core for CLI + `--json`). */
 export function licensesResult(): DiscernResult<LicensesData> {
   return {
     ok: true,
     verb: "licenses",
-    data: { components: COMPONENTS },
+    data: { components: bundle().components },
   };
 }
 
@@ -43,7 +56,7 @@ export function runLicenses(options: LicensesOptions): number {
   if (options.json) {
     log.result(licensesResult());
   } else {
-    log.line(NOTICES_TEXT);
+    log.line(bundle().notices);
   }
   return 0;
 }

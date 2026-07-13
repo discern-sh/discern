@@ -31,16 +31,14 @@ import {
   generateThirdPartyArtifacts,
   THIRD_PARTY_ARTIFACT_PATHS,
 } from "../src/shared/third_party_codegen.ts";
+import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
-async function committedComponents(): Promise<ThirdPartyComponent[]> {
-  return JSON.parse(
-    await Deno.readTextFile(
-      join(repoRoot, THIRD_PARTY_ARTIFACT_PATHS.components),
-    ),
-  ) as ThirdPartyComponent[];
+/** The component list the binary actually serves, via the embedded bundle. */
+function committedComponents(): readonly ThirdPartyComponent[] {
+  return licensesResult().data?.components ?? [];
 }
 
 Deno.test("committed notices artifacts regenerate identically from the compile graph (run `deno task codegen`)", async () => {
@@ -50,7 +48,7 @@ Deno.test("committed notices artifacts regenerate identically from the compile g
   });
   const expected = [
     [THIRD_PARTY_ARTIFACT_PATHS.notices, fresh.notices],
-    [THIRD_PARTY_ARTIFACT_PATHS.components, fresh.componentsJson],
+    [THIRD_PARTY_ARTIFACT_PATHS.bundle, fresh.bundleModule],
     [THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache, fresh.jsrLicenseCacheJson],
   ] as const;
   for (const [rel, artifact] of expected) {
@@ -60,6 +58,28 @@ Deno.test("committed notices artifacts regenerate identically from the compile g
       `${rel} is stale — run \`deno task codegen\` and commit the result`,
     );
   }
+});
+
+Deno.test("the embedded bundle serves the same notices document as the committed file", async () => {
+  const { runLicenses } = await import("../src/commands/licenses.ts");
+  const printed: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]): void => {
+    printed.push(args.map((a) => String(a)).join(" "));
+  };
+  try {
+    runLicenses({ json: false, noColor: true });
+  } finally {
+    console.log = original;
+  }
+  const committed = await Deno.readTextFile(
+    join(repoRoot, THIRD_PARTY_ARTIFACT_PATHS.notices),
+  );
+  assertEquals(
+    printed.join("\n"),
+    committed,
+    "the bundled notices drifted from THIRD_PARTY_NOTICES — run `deno task codegen`",
+  );
 });
 
 /** `name@version` from a deno.lock npm key, dropping any `_peer` suffix. */
@@ -74,7 +94,7 @@ Deno.test("the credited npm set is closed under deno.lock dependency edges", asy
   const lock = JSON.parse(
     await Deno.readTextFile(join(repoRoot, "deno.lock")),
   ) as { npm?: Record<string, { dependencies?: string[] }> };
-  const npmComponents = (await committedComponents())
+  const npmComponents = committedComponents()
     .filter((c) => c.registry === "npm");
   const credited = new Set(npmComponents.map((c) => `${c.name}@${c.version}`));
   const creditedNames = new Set(npmComponents.map((c) => c.name));
@@ -147,7 +167,7 @@ Deno.test("every jsr:/npm: package src/ imports through the import map is credit
     "no registry imports found under src/ — the scan is broken, not the manifest",
   );
 
-  const credited = new Set((await committedComponents()).map((c) => c.name));
+  const credited = new Set(committedComponents().map((c) => c.name));
   for (const pkg of imported) {
     assert(
       credited.has(pkg),

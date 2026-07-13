@@ -65,7 +65,7 @@ const thirdParty = await generateThirdPartyArtifacts({
   allowFetch: true,
 });
 await write(THIRD_PARTY_ARTIFACT_PATHS.notices, thirdParty.notices);
-await write(THIRD_PARTY_ARTIFACT_PATHS.components, thirdParty.componentsJson);
+await write(THIRD_PARTY_ARTIFACT_PATHS.bundle, thirdParty.bundleModule);
 await write(
   THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
   thirdParty.jsrLicenseCacheJson,

@@ -54,9 +54,12 @@ No human judgment sits between the dependency graph and the notices.
    the gate stay offline. A package with no resolvable license fails generation.
    `LICENSE_OVERRIDES` is the deliberate, per-version escape hatch (empty
    today), never a second manifest.
-3. **The binary embeds the committed document itself.** `discern licenses`
-   prints `THIRD_PARTY_NOTICES` through a raw text import, so the printed
-   notices cannot drift from the committed file by construction.
+3. **The binary embeds the committed notices.** `discern licenses` prints them
+   from a generated bundle module compiled into the binary, so an install's
+   notices always match its build. The bundle is compressed — license text is
+   highly redundant — so the notices hold the `binary_size` ceiling rather than
+   raising it, and a drift test pins the bundle to the readable
+   `THIRD_PARTY_NOTICES`.
 4. **The notices credit the Deno runtime.** The binary also embeds the runtime.
    A fixed section credits the Deno authors (MIT) and points to Deno's own
    published license and notices rather than enumerating its Rust-crate closure.
