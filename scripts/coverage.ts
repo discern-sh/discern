@@ -6,7 +6,9 @@
  * scans the output for the LAST `DISCERN_METRIC coverage <number>` line, and holds
  * it at or above the configured floor.
  *
- * It runs the full suite under Deno coverage, then computes line coverage over
+ * It runs the full suite — through the project's `test` task, so everything
+ * that task provides (the site build, the permission flags, `--parallel`)
+ * comes from that one definition — then computes line coverage over
  * the repo's own `src/` tree — both the installer AND the TypeScript engine
  * (`src/engine/**`), all one tree, instrumented by the same number. (`runAgent`
  * subprocesses count too: Deno propagates the coverage dir to child `deno`
@@ -28,22 +30,6 @@
 import { fromFileUrl } from "@std/path";
 import { renderTable, srcLineCoverage } from "./coverage_lib.ts";
 
-const TEST_ARGS = [
-  "test",
-  "--allow-read",
-  "--allow-write",
-  "--allow-env",
-  "--allow-run",
-  // Collect coverage across worker threads. V8 writes a profile per isolate into
-  // the shared --coverage dir, so the aggregated number is identical to a serial
-  // run (verified) while finishing in a fraction of the wall time.
-  "--parallel",
-  // Raw profiles only: the end-of-run reports (table, lcov, HTML) each cost a
-  // full pass over the profile dir, and the one lcov pass below is the only
-  // report anything reads.
-  "--coverage-raw-data-only",
-];
-
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
 async function deno(
   args: string[],
@@ -63,8 +49,20 @@ async function deno(
 
 const profile = await Deno.makeTempDir({ prefix: "discern-coverage-" });
 try {
-  // 1. Run the whole suite under coverage instrumentation (raw profiles only).
-  await deno([...TEST_ARGS, `--coverage=${profile}`]);
+  // 1. Run the project's own `test` task under coverage instrumentation — the
+  //    task is the single definition of how the suite runs (site build, allow
+  //    flags, --parallel), and the extra args forward to its final command,
+  //    the `deno test` invocation. V8 writes a profile per isolate into the
+  //    shared dir, so the parallel run aggregates to the same number as a
+  //    serial one. Raw profiles only: the end-of-run reports (table, lcov,
+  //    HTML) each cost a full pass over the profile dir, and the one lcov
+  //    pass below is the only report anything reads.
+  await deno([
+    "task",
+    "test",
+    `--coverage=${profile}`,
+    "--coverage-raw-data-only",
+  ]);
 
   // 2. The single report pass. `--include` is a cheap size pre-filter over
   //    script URLs; the authoritative anchored selection happens in
