@@ -89,9 +89,9 @@ Deno.test("the credited npm set is closed under deno.lock dependency edges", asy
       // the lock resolves the name at more than one version.
       const versioned = depKey.includes("@", 1);
       const covered = versioned
-        ? credited.has(`${parseLockKey(depKey).name}@${
-          parseLockKey(depKey).version
-        }`)
+        ? credited.has(
+          `${parseLockKey(depKey).name}@${parseLockKey(depKey).version}`,
+        )
         : creditedNames.has(depKey);
       if (!covered) {
         uncredited.push(`${depKey} (dependency of ${pkg.name})`);
