@@ -17,9 +17,9 @@
     box-shadow: 3px 3px 0 var(--ds-button-shadow);
     color: var(--ds-button-text);
     cursor: pointer;
-    font-family: var(--ds-font-display);
+    font-family: var(--ds-font-ui);
     font-size: 0.9375rem;
-    font-weight: var(--ds-font-weight-display);
+    font-weight: 600;
     line-height: 1;
     text-decoration: none;
     transition: background var(--ds-duration-fast), box-shadow

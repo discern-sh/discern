@@ -200,8 +200,7 @@ body[data-ds-root] {
   color: var(--ds-color-success);
 }
 
-.demo-terminal__receipt svg,
-.ds-banner__icon svg {
+.demo-terminal__receipt svg {
   inline-size: 1.2rem;
   block-size: 1.2rem;
 }
@@ -262,7 +261,9 @@ body[data-ds-root] {
 
 .demo-flow__step h3 {
   margin: var(--ds-space-6) 0 var(--ds-space-3);
+  font-family: var(--ds-font-ui);
   font-size: var(--ds-font-size-display-sm);
+  font-weight: 600;
 }
 
 .demo-flow__step p {
@@ -278,9 +279,9 @@ body[data-ds-root] {
 
 .demo-stat {
   color: var(--ds-color-accent-600);
-  font-family: var(--ds-font-display);
+  font-family: var(--ds-font-ui);
   font-size: 2.6rem;
-  font-weight: var(--ds-font-weight-display);
+  font-weight: 600;
   line-height: 1;
 }
 

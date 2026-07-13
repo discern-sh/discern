@@ -1,18 +1,18 @@
-/* Font loading belongs to the consuming site, not the component library. */
+/* Optional self-hosted provider for the design-system font roles. */
 @font-face {
-  font-family: "EB Garamond";
+  font-family: "Crimson Pro";
   font-style: normal;
-  font-weight: 400 800;
+  font-weight: 200 900;
   font-display: swap;
-  src: url("./fonts/eb-garamond-roman.woff2") format("woff2");
+  src: url("./fonts/crimson-pro-roman.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "EB Garamond";
+  font-family: "Crimson Pro";
   font-style: italic;
-  font-weight: 400 800;
+  font-weight: 200 900;
   font-display: swap;
-  src: url("./fonts/eb-garamond-italic.woff2") format("woff2");
+  src: url("./fonts/crimson-pro-italic.woff2") format("woff2");
 }
 
 @font-face {

@@ -29,6 +29,7 @@
     font-weight: var(--ds-font-weight-display);
     line-height: var(--ds-leading-tight);
     letter-spacing: -0.014em;
+    text-wrap: pretty;
   }
 
   [data-ds-root] h1 {

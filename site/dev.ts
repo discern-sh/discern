@@ -2,15 +2,26 @@
  * whenever an authored site input changes. Production continues to use
  * `site/main.ts` and its platform-assigned bind address. */
 
-import { siteBuildInputPaths } from "./build_inputs.ts";
+import {
+  siteBuildEventNeedsRebuild,
+  siteBuildInputPaths,
+} from "./build_inputs.ts";
 import { handler } from "./serve.ts";
+import styleguideServer from "./design-system/scripts/serve.ts";
+import { resolveIdentity } from "../src/engine/worktree/identity.ts";
+import { fromFileUrl, join } from "@std/path";
 
 const REPO_ROOT = new URL("../", import.meta.url);
+const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
 const WATCH_DEBOUNCE_MS = 100;
 
 export const SITE_DEV_BIND_HOST = "127.0.0.1";
 export const SITE_DEV_BROWSER_HOST = "localhost";
 export const DEFAULT_SITE_DEV_PORT = 4507;
+export const LOCAL_SITE_BUILD_TASKS = [
+  "site:build",
+  "design-system:build",
+] as const;
 
 /** Parse an optional local port override without silently accepting garbage. */
 export function parseSiteDevPort(value: string | undefined): number {
@@ -24,16 +35,49 @@ export function parseSiteDevPort(value: string | undefined): number {
   return port;
 }
 
+/** Discover the port discern assigned when this checkout is a linked worktree. */
+async function assignedWorktreePort(): Promise<number | undefined> {
+  try {
+    if (!(await Deno.stat(join(REPO_ROOT_PATH, ".git"))).isFile) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return (await resolveIdentity(REPO_ROOT_PATH, REPO_ROOT_PATH)).port;
+}
+
+/** Prefer an explicit override, then worktree identity, then the main default. */
+export async function resolveSiteDevPort(
+  value: string | undefined,
+  discover: () => Promise<number | undefined> = assignedWorktreePort,
+): Promise<number> {
+  if (value !== undefined) return parseSiteDevPort(value);
+  return (await discover()) ?? DEFAULT_SITE_DEV_PORT;
+}
+
 /** Run the build in a fresh process so changed TS modules cannot remain cached. */
 async function runSiteBuild(): Promise<boolean> {
-  const result = await new Deno.Command(Deno.execPath(), {
-    args: ["task", "site:build"],
-    cwd: decodeURIComponent(REPO_ROOT.pathname),
-    stdin: "null",
-    stdout: "inherit",
-    stderr: "inherit",
-  }).output();
-  return result.success;
+  for (const task of LOCAL_SITE_BUILD_TASKS) {
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: ["task", task],
+      cwd: REPO_ROOT_PATH,
+      stdin: "null",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).output();
+    if (!result.success) return false;
+  }
+  return true;
+}
+
+/** Add the local catalogue without exposing it through the production handler. */
+export async function localHandler(request: Request): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  if (path === "/styleguide" || path.startsWith("/styleguide/")) {
+    return await styleguideServer.fetch(request);
+  }
+  return await handler(request);
 }
 
 function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
@@ -47,7 +91,7 @@ function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
         );
       },
     },
-    handler,
+    localHandler,
   );
 }
 
@@ -78,7 +122,9 @@ async function watchSiteBuildInputs(): Promise<never> {
 
   console.log("Watching authored site and design-system inputs...");
   for await (const event of watcher) {
-    if (event.kind === "access") continue;
+    if (event.kind === "access" || !siteBuildEventNeedsRebuild(event.paths)) {
+      continue;
+    }
     if (debounce !== undefined) clearTimeout(debounce);
     debounce = setTimeout(() => {
       debounce = undefined;
@@ -90,7 +136,7 @@ async function watchSiteBuildInputs(): Promise<never> {
 
 /** Build and serve the site, staying alive to rebuild when requested. */
 export async function runLocalSite(watch: boolean): Promise<void> {
-  const port = parseSiteDevPort(Deno.env.get("PORT"));
+  const port = await resolveSiteDevPort(Deno.env.get("PORT"));
   if (!await runSiteBuild()) throw new Error("Initial site build failed");
   const server = startSiteServer(port);
   if (watch) await watchSiteBuildInputs();

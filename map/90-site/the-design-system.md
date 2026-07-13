@@ -6,11 +6,11 @@ only when its own generated edition is ready to replace the old route.
 
 ## Ownership boundaries
 
-| Tree                                               | Owns                                                                                                           |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, and the local React catalogue. |
-| [`site/page-src/`](../../site/page-src/)           | Page composition, product copy, fonts, licences, and small progressive enhancements.                           |
-| [`site/pages/`](../../site/pages/)                 | Hand-authored legacy editions plus ignored design-system output created before local serving or deployment.    |
+| Tree                                               | Owns                                                                                                                   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, assets, and the local React catalogue. |
+| [`site/page-src/`](../../site/page-src/)           | Page composition, product copy, and small progressive enhancements.                                                    |
+| [`site/pages/`](../../site/pages/)                 | Hand-authored legacy editions plus ignored design-system output created before local serving or deployment.            |
 
 Product copy never enters the component library. Conversely, page sources use
 the library's tokens and components rather than reproducing their markup or
@@ -39,24 +39,39 @@ shipping a client framework is a separate architecture decision.
 deno task site:build             # static public demo + runtime CSS
 deno task design-system:build    # local component catalogue bundle
 deno task design-system:verify   # subsystem check, build, and tests
-deno task site                   # build, then serve on localhost:4507
+deno task site                   # build, then serve on main/worktree port
 deno task watch                  # serve and rebuild when authored inputs change
 ```
+
+The root watch task also builds and serves the catalogue at `/styleguide/` on
+the same main/worktree port as the public demo. The subsystem's
+`deno task
+serve` remains available for an isolated catalogue-only process, but
+ordinary design iteration needs only the root watcher.
 
 The library build discovers every `*.meta.ts` file. Its component folder must
 also carry the implementation, CSS, examples, and `mod.ts`; the public module
 must export that folder. This is checked from the discovered set, so a new
 component auto-enrols rather than waiting for a hand-maintained test list.
 
+The design-system README is the standalone page-authoring handoff: it identifies
+the public entrypoints, root/theme contract, layout primitives, typography
+roles, and the implementation/metadata/example source for each component.
+Consumer styles may compose a component through their own class but may not
+target classes declared by component CSS. The subsystem guard derives the owned
+class set from every component stylesheet and scans all authored site CSS, so
+new components, shared primitives, and consumer styles auto-enrol.
+
 `site/design-system/` is a Deno workspace member. The repository-wide
 `deno check` therefore includes it with its JSX and React dependency contract,
 while its scoped gate owns the catalogue build and subsystem tests.
 
 The generated runtime consists of `discern.css`, a deterministic manifest, and
-owned texture assets. The consuming page supplies font faces. The demo fonts are
-authored as WOFF2 files under `site/page-src/assets/design-system/fonts/`, with
-their SIL Open Font Licence texts beside them; the site build copies both into
-the public output.
+the complete authored `site/design-system/assets/` tree. That tree includes the
+optional local `fonts.css` provider, its WOFF2 files and SIL Open Font Licence
+texts, and texture assets. The isolated catalogue and generated demo therefore
+use the same design-system-owned provider; a consumer may replace it without
+changing the component runtime.
 
 ## Theme fidelity
 

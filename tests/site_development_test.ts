@@ -1,18 +1,27 @@
 /** Development-server contracts: local URLs stay browser-usable and watch mode
  * rebuilds from the complete authored site-input boundary. */
 
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
   DEFAULT_SITE_DEV_PORT,
+  LOCAL_SITE_BUILD_TASKS,
+  localHandler,
   parseSiteDevPort,
+  resolveSiteDevPort,
   SITE_DEV_BIND_HOST,
   SITE_DEV_BROWSER_HOST,
 } from "../site/dev.ts";
 import {
+  SITE_BUILD_EVENT_IGNORES,
   SITE_BUILD_INPUTS,
+  siteBuildEventNeedsRebuild,
   siteBuildInputPaths,
 } from "../site/build_inputs.ts";
+import { styleguideFilePath } from "../site/design-system/scripts/serve.ts";
+import { DESIGN_SYSTEM_BUILD_OUTPUTS } from "../site/design-system/scripts/build.ts";
+import { handler } from "../site/serve.ts";
+import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
 
 interface DenoConfig {
   readonly tasks?: Readonly<Record<string, string>>;
@@ -45,6 +54,26 @@ async function developmentConfigs(): Promise<ConfigEntry[]> {
   return entries;
 }
 
+function unignoredWatchedBuildOutputOverlaps(
+  inputs: readonly string[],
+  outputs: readonly string[],
+  ignores: readonly string[],
+): string[] {
+  const normalized = (path: string): string => path.replace(/\/$/, "");
+  return inputs.flatMap((input) => {
+    const root = normalized(input);
+    return outputs
+      .map(normalized)
+      .filter((output) => output === root || output.startsWith(`${root}/`))
+      .filter((output) =>
+        !ignores.map(normalized).some((ignored) =>
+          output === ignored || output.startsWith(`${ignored}/`)
+        )
+      )
+      .map((output) => `${root} -> ${output}`);
+  });
+}
+
 function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   const loopbackHost =
     /--host(?:=|\s+)(?:localhost|127\.0\.0\.1|::1|\[::1\])(?:\s|$)/;
@@ -69,6 +98,51 @@ Deno.test("the development-server detector catches a freshly named wildcard sibl
   );
 });
 
+Deno.test("watched build inputs never contain generated outputs", () => {
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      ["feature"],
+      ["feature/cache"],
+      [],
+    ),
+    ["feature -> feature/cache"],
+  );
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      ["feature"],
+      ["feature/cache"],
+      ["feature/cache"],
+    ),
+    [],
+  );
+  const outputs = [
+    ...GENERATED_SITE_OUTPUTS.map((path) => `site/${path}`),
+    ...Object.values(DESIGN_SYSTEM_BUILD_OUTPUTS).map((path) =>
+      `site/design-system/${path}`
+    ),
+  ];
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      SITE_BUILD_INPUTS,
+      outputs,
+      SITE_BUILD_EVENT_IGNORES,
+    ),
+    [],
+  );
+  assertEquals(
+    siteBuildEventNeedsRebuild([
+      join(REPO, "site/design-system/styleguide/generated/registry.ts"),
+    ]),
+    false,
+  );
+  assertEquals(
+    siteBuildEventNeedsRebuild([
+      join(REPO, "site/design-system/styleguide/app.tsx"),
+    ]),
+    true,
+  );
+});
+
 Deno.test("every deno serve task binds to loopback explicitly", async () => {
   assertEquals(
     wildcardServeTasks(await developmentConfigs()),
@@ -86,11 +160,71 @@ Deno.test("the site development runner advertises localhost and rejects bad port
   assertThrows(() => parseSiteDevPort("0"), Error, "PORT must be");
 });
 
+Deno.test("the site development port prefers an override, then worktree identity, then the main default", async () => {
+  const unexpectedDiscovery = (): Promise<number | undefined> => {
+    throw new Error("an explicit PORT must bypass worktree discovery");
+  };
+  assertEquals(
+    await resolveSiteDevPort("4510", unexpectedDiscovery),
+    4510,
+  );
+  assertEquals(
+    await resolveSiteDevPort(undefined, () => Promise.resolve(13_812)),
+    13_812,
+  );
+  assertEquals(
+    await resolveSiteDevPort(undefined, () => Promise.resolve(undefined)),
+    DEFAULT_SITE_DEV_PORT,
+  );
+});
+
+Deno.test("the local site runner builds and mounts the complete styleguide", async () => {
+  assertEquals(LOCAL_SITE_BUILD_TASKS, ["site:build", "design-system:build"]);
+  assertEquals(
+    styleguideFilePath("/styleguide/dist/styleguide.js"),
+    "./dist/styleguide.js",
+  );
+  assertEquals(
+    styleguideFilePath("/styleguide/src/components/core/button/button.tsx"),
+    "./src/components/core/button/button.tsx",
+  );
+  assertEquals(
+    styleguideFilePath("/styleguide/assets/fonts.css"),
+    "./assets/fonts.css",
+  );
+
+  const response = await localHandler(
+    new Request("http://localhost/styleguide/"),
+  );
+  assertEquals(response.status, 200);
+  assertStringIncludes(await response.text(), "Discern design system");
+
+  const fonts = await localHandler(
+    new Request("http://localhost/styleguide/assets/fonts.css"),
+  );
+  assertEquals(fonts.status, 200);
+  assertStringIncludes(fonts.headers.get("content-type") ?? "", "text/css");
+
+  const redirect = await localHandler(
+    new Request("http://localhost/styleguide"),
+  );
+  assertEquals(redirect.status, 307);
+  assertEquals(
+    redirect.headers.get("location"),
+    "http://localhost/styleguide/",
+  );
+
+  const production = await handler(
+    new Request("http://localhost/styleguide/"),
+  );
+  assertEquals(production.status, 404);
+});
+
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);

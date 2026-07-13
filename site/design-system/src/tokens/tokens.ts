@@ -47,7 +47,7 @@ export const designTokens = [
   token("--ds-canvas-hue", "288", "Color", "Master hue for canvas neutrals."),
   token(
     "--ds-font-display",
-    '"EB Garamond", "Iowan Old Style", Georgia, serif',
+    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
     "Typography",
     "Editorial display face; font loading is external.",
   ),
@@ -83,6 +83,12 @@ export const designTokens = [
   ),
   token("--ds-font-size-md", "1rem", "Typography", "Body copy."),
   token("--ds-font-size-lg", "1.125rem", "Typography", "Lead copy."),
+  token(
+    "--ds-font-size-card-title",
+    "var(--ds-font-size-lg)",
+    "Typography",
+    "Primary title within a card surface.",
+  ),
   token(
     "--ds-font-size-display-sm",
     "1.5rem",

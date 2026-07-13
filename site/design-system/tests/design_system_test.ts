@@ -17,15 +17,15 @@ import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
+import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
 const AUTHORED_ASSET_ROOT = join(
   ROOT,
   "site",
-  "page-src",
-  "assets",
   "design-system",
+  "assets",
 );
 const COMPONENT_ROOT = join(ROOT, "site", "design-system", "src", "components");
 
@@ -122,6 +122,41 @@ function roleRampViolations(
   return violations;
 }
 
+function selectorClassNames(source: string): Set<string> {
+  const classNames = new Set<string>();
+  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
+    const prelude = rule[1] ?? "";
+    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
+      classNames.add(match[1] ?? "");
+    }
+  }
+  return classNames;
+}
+
+function implementationClassNames(source: string): Set<string> {
+  return new Set(
+    [...source.matchAll(/(?<!-)\b(ds-[a-z0-9]+(?:[-_][a-z0-9]+)*)/g)]
+      .map((match) => match[1] ?? ""),
+  );
+}
+
+function componentOwnedSelectors(
+  source: string,
+  componentClassNames: ReadonlySet<string>,
+): string[] {
+  const selectors = new Set<string>();
+  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
+    const prelude = (rule[1] ?? "").trim();
+    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
+      const className = match[1] ?? "";
+      if (componentClassNames.has(className)) {
+        selectors.add(prelude);
+      }
+    }
+  }
+  return [...selectors].sort();
+}
+
 Deno.test("generated public site outputs are ignored and absent from Git", async () => {
   const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
     join("site", output)
@@ -144,12 +179,11 @@ Deno.test("design-system sources deterministically reproduce every generated run
   const temp = await Deno.makeTempDir();
   try {
     const summary = await buildDesignSystemRuntime(toFileUrl(`${temp}/`));
+    const authoredAssets = (await walk(AUTHORED_ASSET_ROOT)).map((path) =>
+      relative(AUTHORED_ASSET_ROOT, path)
+    );
     for (
-      const relative of [
-        "discern.css",
-        "manifest.json",
-        join("textures", "grain.png"),
-      ]
+      const relative of ["discern.css", "manifest.json", ...authoredAssets]
     ) {
       assertEquals(
         await sha256(join(temp, relative)),
@@ -173,7 +207,6 @@ Deno.test("design-system sources deterministically reproduce every generated run
     const [source, output] of [
       ["design-system-demo.css", "demo.css"],
       ["design-system-demo.js", "demo.js"],
-      ["design-system-fonts.css", "fonts.css"],
     ] as const
   ) {
     const authored = await Deno.readTextFile(
@@ -197,9 +230,35 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
   const publicModule = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "mod.ts"),
   );
+  const identities = new Set<string>();
+  const positions = new Set<string>();
   for (const meta of metaFiles) {
     const stem = meta.slice(0, -".meta.ts".length);
     const directory = stem.slice(0, stem.lastIndexOf("/"));
+    const folder = directory.slice(directory.lastIndexOf("/") + 1);
+    const metadata = (await import(toFileUrl(meta).href)) as {
+      default: ComponentMeta;
+    };
+    assertEquals(metadata.default.slug, folder, meta);
+    assert(metadata.default.name.trim().length > 0, `${meta} has no name`);
+    assert(
+      metadata.default.description.trim().length > 0,
+      `${meta} has no description`,
+    );
+    assert(
+      metadata.default.accessibility?.every((note) => note.trim().length > 0) ??
+        true,
+      `${meta} has an empty accessibility note`,
+    );
+    assert(
+      !identities.has(metadata.default.slug),
+      `${meta} duplicates slug ${metadata.default.slug}`,
+    );
+    identities.add(metadata.default.slug);
+    const position = `${metadata.default.group}:${metadata.default.order}`;
+    assert(!positions.has(position), `${meta} duplicates position ${position}`);
+    positions.add(position);
+
     for (
       const sibling of [`${stem}.tsx`, `${stem}.css`, `${stem}.examples.tsx`]
     ) {
@@ -219,6 +278,83 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
     const source = await Deno.readTextFile(path);
     assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
   }
+});
+
+Deno.test("authored design-system runtime sources are local-only", async () => {
+  const designSystemRoot = join(ROOT, "site", "design-system");
+  for (
+    const path of (await walk(designSystemRoot)).filter((candidate) => {
+      const repoPath = relative(designSystemRoot, candidate);
+      return /\.(?:css|html|tsx?|js)$/.test(candidate) &&
+        !repoPath.startsWith("dist/") &&
+        !repoPath.startsWith("styleguide/generated/");
+    })
+  ) {
+    assert(
+      !/https?:\/\//.test(await Deno.readTextFile(path)),
+      `${relative(ROOT, path)} contains a remote runtime URL`,
+    );
+  }
+});
+
+Deno.test("consumer styles never redefine component-owned selectors", async () => {
+  const futureComponentCss = ".ds-future-widget__label { color: inherit; }";
+  const futureComponentTsx = '<div className="ds-future-widget" />';
+  const futureComponentClasses = new Set([
+    ...selectorClassNames(futureComponentCss),
+    ...implementationClassNames(futureComponentTsx),
+  ]);
+  assertEquals(
+    componentOwnedSelectors(
+      ".ds-future-widget, .ds-future-widget__label { color: red; }",
+      futureComponentClasses,
+    ),
+    [".ds-future-widget, .ds-future-widget__label"],
+  );
+
+  const componentClassNames = new Set<string>();
+  for (
+    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
+      candidate.endsWith(".css")
+    )
+  ) {
+    for (const className of selectorClassNames(await Deno.readTextFile(path))) {
+      componentClassNames.add(className);
+    }
+  }
+  for (
+    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
+      candidate.endsWith(".tsx") && !candidate.endsWith(".examples.tsx")
+    )
+  ) {
+    for (
+      const className of implementationClassNames(await Deno.readTextFile(path))
+    ) {
+      componentClassNames.add(className);
+    }
+  }
+
+  const violations: string[] = [];
+  for (
+    const path of (await walk(join(ROOT, "site"))).filter((candidate) => {
+      const repoPath = relative(ROOT, candidate);
+      return candidate.endsWith(".css") &&
+        !repoPath.startsWith("site/design-system/src/") &&
+        !repoPath.startsWith("site/design-system/dist/") &&
+        !repoPath.startsWith("site/design-system/styleguide/generated/") &&
+        !repoPath.startsWith("site/pages/");
+    })
+  ) {
+    for (
+      const selector of componentOwnedSelectors(
+        await Deno.readTextFile(path),
+        componentClassNames,
+      )
+    ) {
+      violations.push(`${relative(ROOT, path)}: ${selector}`);
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {
@@ -269,6 +405,101 @@ Deno.test("numbered colour ramps preserve their roles across themes", () => {
     ["orbit: ramp members must be theme tokens"],
   );
   assertEquals(roleRampViolations(designTokens, themeTokens), []);
+});
+
+Deno.test("typography roles use the selected families and UI buttons", async () => {
+  const tokens = new Map(
+    designTokens.map((token) => [token.name, token.value]),
+  );
+  assertEquals(
+    tokens.get("--ds-font-display"),
+    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
+  );
+  assertEquals(
+    tokens.get("--ds-font-mono"),
+    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  );
+  assertEquals(
+    tokens.get("--ds-font-size-card-title"),
+    "var(--ds-font-size-lg)",
+  );
+
+  const buttonCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "core", "button", "button.css"),
+  );
+  assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
+  assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+
+  const foundationCss = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "src", "styles", "foundation.css"),
+  );
+  assertMatch(
+    foundationCss,
+    /:where\(\[data-ds-root\] h1,[^}]+text-wrap:\s*pretty;/s,
+  );
+  const headingCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "heading", "heading.css"),
+  );
+  assert(!headingCss.includes("text-wrap"));
+});
+
+Deno.test("component labels and compact UI use the UI font", async () => {
+  for (
+    const component of [
+      ["display", "badge", "badge.css"],
+      ["display", "tag", "tag.css"],
+      ["display", "divider", "divider.css"],
+      ["forms", "field", "field.css"],
+      ["feedback", "tooltip", "tooltip.css"],
+    ]
+  ) {
+    const css = await Deno.readTextFile(join(COMPONENT_ROOT, ...component));
+    assertStringIncludes(css, "var(--ds-font-ui)", component.join("/"));
+    assertStringIncludes(css, "var(--ds-font-size-xs)", component.join("/"));
+    assert(!css.includes("var(--ds-font-mono)"), component.join("/"));
+    assert(!css.includes("letter-spacing"), component.join("/"));
+    assert(!css.includes("text-transform: uppercase"), component.join("/"));
+  }
+});
+
+Deno.test("card titles and stat figures use the UI font", async () => {
+  const cardCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "card", "card.css"),
+  );
+  assertMatch(
+    cardCss,
+    /\.ds-card :where\([^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+  assertMatch(
+    cardCss,
+    /\.ds-card :where\([^}]+font-size:\s*var\(--ds-font-size-card-title\);[^}]+font-weight:\s*600;/s,
+  );
+
+  const demoCss = await Deno.readTextFile(
+    join(ROOT, "site", "page-src", "design-system-demo.css"),
+  );
+  assertMatch(
+    demoCss,
+    /\.demo-flow__step h3\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+  assertMatch(
+    demoCss,
+    /\.demo-stat\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+
+  const styleguideCss = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
+  );
+  assertStringIncludes(styleguideCss, ".sg-component > header h4");
+  assert(!styleguideCss.includes(".sg-component h4"));
+});
+
+Deno.test("long styleguide token values stay inside their cards", async () => {
+  const css = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
+  );
+  assertMatch(css, /\.sg-token > div\s*\{[^}]*min-width:\s*0;/s);
+  assertMatch(css, /\.sg-token small\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
 });
 
 Deno.test("the one grain wash retains the reference motif", async () => {
@@ -342,4 +573,14 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
       "SIL OPEN FONT LICENSE",
     );
   }
+
+  const provider = await Deno.readTextFile(
+    join(AUTHORED_ASSET_ROOT, "fonts.css"),
+  );
+  assert(!/https?:\/\//.test(provider));
+  const styleguide = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "index.html"),
+  );
+  assertStringIncludes(styleguide, 'href="assets/fonts.css"');
+  assert(!styleguide.includes("font-provider.css"));
 });
