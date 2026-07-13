@@ -10,9 +10,39 @@ import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
-const PAGE_ROOT = new URL("pages/", SITE_ROOT);
-const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
+const STATIC_ASSET_SOURCE_ROOT = new URL(
+  "assets/design-system/",
+  SOURCE_ROOT,
+);
+
+/** Public files produced by the site build and therefore forbidden from Git. */
+export const GENERATED_SITE_OUTPUTS = [
+  "pages/design-system-demo.html",
+  "pages/assets/design-system/",
+] as const;
+
+const PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
+const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
+
+async function removeIfPresent(url: URL): Promise<void> {
+  try {
+    await Deno.remove(url, { recursive: true });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+}
+
+async function copyTree(sourceRoot: URL, outputRoot: URL): Promise<void> {
+  await Deno.mkdir(outputRoot, { recursive: true });
+  for await (const entry of Deno.readDir(sourceRoot)) {
+    const suffix = entry.isDirectory ? "/" : "";
+    const source = new URL(`${entry.name}${suffix}`, sourceRoot);
+    const output = new URL(`${entry.name}${suffix}`, outputRoot);
+    if (entry.isDirectory) await copyTree(source, output);
+    else await Deno.copyFile(source, output);
+  }
+}
 
 async function writeGeneratedCopy(
   source: string,
@@ -25,16 +55,26 @@ async function writeGeneratedCopy(
   );
 }
 
-await Deno.mkdir(ASSET_ROOT, { recursive: true });
-const summary = await buildDesignSystemRuntime(ASSET_ROOT);
-await writeGeneratedCopy("design-system-demo.css", "demo.css");
-await writeGeneratedCopy("design-system-demo.js", "demo.js");
-await writeGeneratedCopy("design-system-fonts.css", "fonts.css");
-await Deno.writeTextFile(
-  new URL("design-system-demo.html", PAGE_ROOT),
-  await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
-);
+/** Rebuild the complete ignored public design-system surface from source. */
+export async function buildSite(): Promise<void> {
+  for (const output of GENERATED_SITE_OUTPUTS) {
+    await removeIfPresent(new URL(output, SITE_ROOT));
+  }
 
-console.log(
-  `Built the static design-system demo from ${summary.components} components and ${summary.tokens} tokens.`,
-);
+  await Deno.mkdir(ASSET_ROOT, { recursive: true });
+  const summary = await buildDesignSystemRuntime(ASSET_ROOT);
+  await copyTree(STATIC_ASSET_SOURCE_ROOT, ASSET_ROOT);
+  await writeGeneratedCopy("design-system-demo.css", "demo.css");
+  await writeGeneratedCopy("design-system-demo.js", "demo.js");
+  await writeGeneratedCopy("design-system-fonts.css", "fonts.css");
+  await Deno.writeTextFile(
+    PAGE_OUTPUT,
+    await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
+  );
+
+  console.log(
+    `Built the static design-system demo from ${summary.components} components and ${summary.tokens} tokens.`,
+  );
+}
+
+if (import.meta.main) await buildSite();

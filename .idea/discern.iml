@@ -2,8 +2,23 @@
 <module type="WEB_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/.agents/skills" />
+      <excludeFolder url="file://$MODULE_DIR$/.claude/skills" />
       <excludeFolder url="file://$MODULE_DIR$/.claude/worktrees" />
+      <excludeFolder url="file://$MODULE_DIR$/.discern-help-docs" />
+      <excludeFolder url="file://$MODULE_DIR$/.scratch" />
+      <excludeFolder url="file://$MODULE_DIR$/.vale/Microsoft" />
+      <excludeFolder url="file://$MODULE_DIR$/.vale/proselint" />
+      <excludeFolder url="file://$MODULE_DIR$/coverage" />
+      <excludeFolder url="file://$MODULE_DIR$/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/scripts/setup-eval/results" />
+      <excludeFolder url="file://$MODULE_DIR$/site/design-system/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/site/design-system/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/site/design-system/styleguide/generated" />
+      <excludeFolder url="file://$MODULE_DIR$/site/pages/assets/design-system" />
       <excludeFolder url="file://$MODULE_DIR$/tests/fixtures" />
+      <excludePattern pattern="design-system-demo.html" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

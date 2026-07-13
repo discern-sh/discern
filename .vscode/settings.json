@@ -5,13 +5,21 @@
     ".claude/skills": true,
     "dist": true,
     "coverage": true,
-    ".scratch": true
+    ".scratch": true,
+    "site/design-system/dist": true,
+    "site/design-system/styleguide/generated": true,
+    "site/pages/assets/design-system": true,
+    "site/pages/design-system-demo.html": true
   },
   "search.exclude": {
     ".agents/skills": true,
     ".claude/skills": true,
     "AGENTS.md": true,
     "CLAUDE.md": true,
-    "GEMINI.md": true
+    "GEMINI.md": true,
+    "site/design-system/dist": true,
+    "site/design-system/styleguide/generated": true,
+    "site/pages/assets/design-system": true,
+    "site/pages/design-system-demo.html": true
   }
 }
