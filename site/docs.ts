@@ -247,19 +247,26 @@ function esc(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function navHtml(site: DocsSite, current: DocsPage): string {
+/** Reading-order tier number of a section (`20-quality-gate` → `20`). */
+function sectionIndexOf(dir: string): string {
+  return /^(\d+)-/.exec(dir)?.[1] ?? "§";
+}
+
+function navHtml(site: DocsSite, current: DocsPage | null): string {
   return site.sections.map((section) => {
     const leaves = section.pages.filter((p) => !p.isIndex).map((p) => {
-      const here = p.route === current.route;
+      const here = current !== null && p.route === current.route;
       return `<li><a href="${p.route}"${here ? ' aria-current="page"' : ""}>${
         esc(p.entry.title)
       }</a></li>`;
     }).join("");
-    const here = section.index.route === current.route;
-    return `<section class="nav-section">
-      <a class="nav-label" href="${section.index.route}"${
+    const here = current !== null && section.index.route === current.route;
+    return `<section class="docs-nav-chapter">
+      <a class="ds-kicker docs-nav-label" href="${section.index.route}"${
       here ? ' aria-current="page"' : ""
-    }>${esc(section.title)}</a>
+    }><span class="ds-kicker__index">${sectionIndexOf(section.dir)}</span>${
+      esc(section.title)
+    }</a>
       <ul>${leaves}</ul>
     </section>`;
   }).join("\n");
@@ -268,12 +275,12 @@ function navHtml(site: DocsSite, current: DocsPage): string {
 function tocHtml(toc: TocItem[]): string {
   if (toc.length === 0) return "";
   const items = toc.map((item) =>
-    `<li class="toc-d${item.depth}"><a href="#${esc(item.id)}">${
+    `<li class="docs-toc-d${item.depth}"><a href="#${esc(item.id)}">${
       esc(item.text)
     }</a></li>`
   ).join("");
-  return `<nav class="toc" aria-label="On this page">
-    <div class="toc-label">Contents</div>
+  return `<nav class="docs-toc" aria-label="On this page">
+    <span class="ds-kicker">On this page</span>
     <ul>${items}</ul>
   </nav>`;
 }
@@ -287,108 +294,149 @@ function pagerHtml(site: DocsSite, page: DocsPage): string {
   if (!prev && !next) return "";
   const cell = (p: DocsPage | undefined, rel: "prev" | "next"): string =>
     p
-      ? `<a class="pager-${rel}" rel="${rel}" href="${p.route}">
-          <span class="pager-dir">${rel === "prev" ? "← previous" : "next →"}
-          </span><span class="pager-title">${esc(p.entry.title)}</span></a>`
-      : `<span></span>`;
-  return `<nav class="pager" aria-label="Pagination">${cell(prev, "prev")}${
-    cell(next, "next")
+      ? `<a class="docs-pager-cell docs-pager-${rel}" rel="${rel}" href="${p.route}">
+          <span class="docs-pager-dir">${
+        rel === "prev" ? "&larr; previous" : "next &rarr;"
+      }</span><span class="docs-pager-title">${esc(p.entry.title)}</span></a>`
+      : `<span class="docs-pager-cell docs-pager-empty"></span>`;
+  return `<nav class="docs-pager" aria-label="Pagination">${
+    cell(prev, "prev")
+  }${cell(next, "next")}</nav>`;
+}
+
+/** The breadcrumb trail as a mono path — the docs' terminal ancestry. */
+function crumbsHtml(page: DocsPage | null): string {
+  const sep = `<span class="docs-crumb-sep">/</span>`;
+  const parts = [`<a href="/docs">docs</a>`];
+  if (page !== null) {
+    if (page.isIndex) {
+      parts.push(`<span aria-current="page">${esc(page.sectionSlug)}</span>`);
+    } else {
+      parts.push(
+        `<a href="/docs/${page.sectionSlug}">${esc(page.sectionSlug)}</a>`,
+        `<span aria-current="page">${esc(page.entry.slug)}</span>`,
+      );
+    }
+  } else {
+    parts[0] = `<span aria-current="page">docs</span>`;
+  }
+  return `<nav class="docs-crumbs ds-mono" aria-label="Breadcrumb">${
+    parts.join(sep)
   }</nav>`;
 }
 
 const FAVICON =
-  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231A1814'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%234CC088' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E`;
+  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231C1E27'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237C89F2' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E`;
 
-/** The full document around one rendered page. */
-export function docsShell(
-  site: DocsSite,
-  page: DocsPage,
-  rendered: RenderedDoc,
-): string {
-  const title = page.entry.title;
-  const description = page.entry.description;
-  const sectionTitle =
-    site.sections.find((s) => s.slug === page.sectionSlug)?.title ?? "";
-  const crumbs = [
-    `<a href="/docs">docs</a>`,
-    page.isIndex
-      ? `<span aria-current="page">${esc(sectionTitle)}</span>`
-      : `<a href="/docs/${page.sectionSlug}">${esc(sectionTitle)}</a>`,
-    ...(page.isIndex ? [] : [`<span aria-current="page">${esc(title)}</span>`]),
-  ].join(`<span class="crumb-sep">/</span>`);
+const ICONS = {
+  menu:
+    `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
+  search:
+    `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4 14 14"/></svg>`,
+  sun:
+    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.8M8 13v1.8M1.2 8H3M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M12.8 3.2l-1.3 1.3M4.5 11.5l-1.3 1.3"/></svg>`,
+  moon:
+    `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
+} as const;
 
+interface ShellFrame {
+  /** Contents of the `<title>` element. */
+  htmlTitle: string;
+  description: string;
+  /** The page the nav and breadcrumbs highlight; null on the index. */
+  current: DocsPage | null;
+  /** Everything inside `<main>`, breadcrumbs excluded. */
+  mainHtml: string;
+  /** The right contents rail; empty when the page has no headings. */
+  tocHtml: string;
+}
+
+/**
+ * The document frame every /docs page shares: design-system foundations on the
+ * root, the manual's chrome (top bar, chapter nav, contents rail, search
+ * palette) around one `<main>`. Pages differ only in what they put inside it.
+ */
+function shellFrame(site: DocsSite, frame: ShellFrame): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-ds-root data-ds-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(title)} · discern docs</title>
-<meta name="description" content="${esc(description)}" />
-<meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#16171A" media="(prefers-color-scheme: dark)" />
+<title>${esc(frame.htmlTitle)}</title>
+<meta name="description" content="${esc(frame.description)}" />
+<meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
 <link rel="icon" href="${FAVICON}" />
 <script>
 (function () {
-  let stored = null;
+  var stored = null;
   try { stored = localStorage.getItem("discern-theme"); } catch (_) { /* file:// quirks */ }
-  const preferDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  if (stored === "dark" || (!stored && preferDark)) {
-    document.documentElement.classList.add("dark");
-  }
+  var dark = stored === "dark" ||
+    (stored === null && matchMedia("(prefers-color-scheme: dark)").matches);
+  if (dark) document.documentElement.setAttribute("data-ds-theme", "dark");
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/design-system/fonts.css" />
+<link rel="stylesheet" href="/assets/design-system/discern.css" />
 <link rel="stylesheet" href="/assets/docs.css" />
 <script defer src="/assets/docs.js"></script>
 </head>
 <body>
-<a class="skip" href="#doc">Skip to content</a>
-<header class="top">
-  <button class="nav-burger" aria-label="Open navigation" data-drawer>☰</button>
-  <a class="brand" href="/"><span class="brand-mark">✓</span> discern</a>
-  <a class="brand-docs" href="/docs">docs</a>
-  <div class="top-spacer"></div>
-  <button class="search-btn" data-search-open>
-    <span>search</span><kbd>⌘K</kbd>
+<a class="docs-skip" href="#doc">Skip to content</a>
+<header class="docs-top">
+  <button class="ds-icon-button docs-burger" type="button"
+    aria-label="Open navigation" aria-expanded="false" data-drawer-toggle>
+    <span class="ds-icon">${ICONS.menu}</span>
   </button>
-  <button class="theme-btn" aria-label="Toggle theme" data-theme-toggle>◐</button>
+  <a class="docs-brand" href="/">
+    <span class="docs-brand-mark" aria-hidden="true">✓</span>
+    <span class="docs-brand-word">discern</span></a><a
+    class="docs-brand-docs ds-mono" href="/docs">/docs</a>
+  <span class="docs-top-spacer"></span>
+  <button class="docs-search-btn" type="button" data-search-open>
+    <span class="ds-icon">${ICONS.search}</span>
+    <span class="docs-search-btn-word">Search the manual</span>
+    <kbd class="ds-mono">⌘K</kbd>
+  </button>
+  <button class="ds-icon-button docs-theme" type="button"
+    aria-label="Toggle color theme" data-theme-toggle>
+    <span class="ds-icon docs-theme-sun">${ICONS.sun}</span>
+    <span class="ds-icon docs-theme-moon">${ICONS.moon}</span>
+  </button>
 </header>
-<div class="layout">
-  <aside class="sidenav" id="sidenav">
-    <nav aria-label="Documentation">${navHtml(site, page)}</nav>
-    <div class="sidenav-foot">
-      <a href="/agents">the man page</a>
+<div class="docs-shell">
+  <div class="docs-veil" data-drawer-close hidden></div>
+  <aside class="docs-nav" id="docs-nav">
+    <nav class="docs-nav-scroll" aria-label="Documentation">
+${navHtml(site, frame.current)}
+    </nav>
+    <div class="docs-nav-foot ds-mono">
+      <a href="/agents">agents</a>
       <a href="/llms.txt">llms.txt</a>
+      <a href="${GITHUB}">github&nbsp;↗</a>
     </div>
   </aside>
-  <main id="doc">
-    <nav class="crumbs" aria-label="Breadcrumb">${crumbs}</nav>
-    <article class="doc-body">
-${rendered.html}
-    </article>
-    ${pagerHtml(site, page)}
-    <footer class="doc-foot">
-      <span>This page is also plain Markdown:
-        <a href="${page.route}.md">curl&nbsp;discern.sh${page.route}.md</a>
-        — the same bytes <code>discern help ${
-    esc(page.entry.slug)
-  } --raw</code> prints.</span>
-      <a href="${GITHUB}/blob/main/${
-    esc(page.entry.path)
-  }">View source on GitHub</a>
-    </footer>
+  <main id="doc" class="docs-main">
+    ${crumbsHtml(frame.current)}
+    ${frame.mainHtml}
   </main>
-  <div class="toc-rail">${tocHtml(rendered.toc)}</div>
+  <div class="docs-rail">${frame.tocHtml}</div>
 </div>
-<div class="search-veil" data-search-veil hidden>
-  <div class="search-panel" role="dialog" aria-label="Search documentation">
-    <input class="search-input" type="search"
-      placeholder="Search the docs…" data-search-input
-      autocomplete="off" spellcheck="false" />
-    <ul class="search-results" data-search-results></ul>
-    <div class="search-hint">↑↓ to choose · ↵ to open · esc to close</div>
+<div class="docs-search" data-search hidden>
+  <div class="docs-search-veil" data-search-close></div>
+  <div class="ds-window docs-search-panel" role="dialog" aria-modal="true"
+    aria-label="Search documentation">
+    <div class="ds-window__bar">
+      <span class="ds-window__dot"></span><span class="ds-window__dot"></span><span class="ds-window__dot"></span>
+      <span class="ds-window__title">search · discern.sh/docs</span>
+    </div>
+    <div class="ds-window__body docs-search-body">
+      <input class="docs-search-input ds-mono" type="search"
+        placeholder="Search the manual…" data-search-input
+        autocomplete="off" spellcheck="false" />
+      <ul class="docs-search-results" data-search-results></ul>
+      <div class="docs-search-hint ds-mono">↑↓ choose · ↵ open · esc close</div>
+    </div>
   </div>
 </div>
 </body>
@@ -396,53 +444,83 @@ ${rendered.html}
 `;
 }
 
-/** The /docs landing page: sections and their leaves, with descriptions. */
+/** The colophon under every page: the plain-text edition, then the source. */
+function colophonHtml(page: DocsPage | null): string {
+  const route = page?.route ?? "/docs";
+  const raw = page === null
+    ? ""
+    : ` — the same bytes <code>discern help ${
+      esc(page.entry.slug)
+    } --raw</code> prints`;
+  const source = page === null
+    ? `${GITHUB}/tree/main/map`
+    : `${GITHUB}/blob/main/${esc(page.entry.path)}`;
+  return `<footer class="docs-colophon">
+      <span>This page is plain text too:
+        <a class="ds-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>${raw}.</span>
+      <a href="${source}">View source&nbsp;↗</a>
+    </footer>`;
+}
+
+/** The full document around one rendered page. */
+export function docsShell(
+  site: DocsSite,
+  page: DocsPage,
+  rendered: RenderedDoc,
+): string {
+  return shellFrame(site, {
+    htmlTitle: `${page.entry.title} · discern docs`,
+    description: page.entry.description,
+    current: page,
+    mainHtml: `<article class="doc-body">
+${rendered.html}
+    </article>
+    ${pagerHtml(site, page)}
+    ${colophonHtml(page)}`,
+    tocHtml: tocHtml(rendered.toc),
+  });
+}
+
+/** The /docs landing page: the manual's cover and table of contents. */
 export function docsIndexShell(site: DocsSite): string {
-  const first = site.pages[0];
-  const cards = site.sections.map((section) => {
+  const chapters = site.sections.map((section) => {
     const leaves = section.pages.filter((p) => !p.isIndex).map((p) =>
       `<li><a href="${p.route}">${esc(p.entry.title)}</a>
-        <span class="leaf-desc">${esc(p.entry.description)}</span></li>`
+        <span class="docs-leaf-desc">${esc(p.entry.description)}</span></li>`
     ).join("");
-    return `<section class="index-section">
-      <h2><a href="${section.index.route}">${esc(section.title)}</a></h2>
-      <p>${esc(section.description)}</p>
-      <ul>${leaves}</ul>
+    return `<section class="docs-chapter">
+      <span class="docs-chapter-index" aria-hidden="true">${
+      sectionIndexOf(section.dir)
+    }</span>
+      <div class="docs-chapter-body">
+        <h2><a href="${section.index.route}">${esc(section.title)}</a></h2>
+        <p class="docs-chapter-desc">${esc(section.description)}</p>
+        <ul class="docs-chapter-leaves">${leaves}</ul>
+      </div>
     </section>`;
   }).join("\n");
 
-  const indexPage: DocsPage = first ?? {
-    route: "/docs",
-    entry: {
-      path: "map/README.md",
-      absPath: "",
-      relToDocs: "README.md",
-      section: "",
-      slug: "docs",
-      title: "Documentation",
-      description: "",
-      publish: true,
-    },
-    sectionSlug: "",
-    isIndex: true,
-  };
-
-  const body = `<header class="index-head">
-    <h1>The manual</h1>
-    <p>The same documentation <code>discern help</code> serves in your
-    terminal, kept current by the agents that work on discern. Text clients are
-    first-class here: <code>curl</code> any page, or append
-    <code>.md</code>, for the raw Markdown.</p>
+  const cover = `<header class="docs-cover">
+    <span class="ds-kicker"><span class="ds-kicker__index">man(1)</span>The discern manual</span>
+    <h1>Read what your <em class="ds-heading__accent">agents</em> read.</h1>
+    <p class="docs-cover-lead">The same documentation <code>discern help</code>
+    serves in a terminal, kept current by the agents that work on discern.
+    Text readers are first-class: <code>curl</code> any page — or append
+    <code>.md</code> — for the pristine Markdown.</p>
   </header>
-  ${cards}`;
+  <div class="docs-chapters">
+  ${chapters}
+  </div>
+  ${colophonHtml(null)}`;
 
-  const shell = docsShell(site, indexPage, { html: body, toc: [] });
-  return shell
-    .replace(/<title>[^<]*<\/title>/, "<title>Documentation · discern</title>")
-    .replace(
-      /<nav class="crumbs"[^>]*>[\s\S]*?<\/nav>/,
-      `<nav class="crumbs" aria-label="Breadcrumb"><span aria-current="page">docs</span></nav>`,
-    );
+  return shellFrame(site, {
+    htmlTitle: "The manual · discern",
+    description:
+      "The discern manual — the same documentation `discern help` serves.",
+    current: null,
+    mainHtml: cover,
+    tocHtml: "",
+  });
 }
 
 // ── Plain-text surfaces ────────────────────────────────────────────────────

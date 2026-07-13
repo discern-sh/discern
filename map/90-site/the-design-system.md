@@ -93,7 +93,9 @@ page-local greys.
 `/design-system-demo` is a non-negotiated HTML route and the first consumer. It
 exercises page composition, responsive layout, light and dark themes, local
 assets, and small copy/theme enhancements without touching `/`, `/agents`,
-`/start`, or `/careers`.
+`/start`, or `/careers`. The `/docs` shell is the second consumer, reproducing
+components as semantic HTML on the server — see
+[the-docs-section.md](the-docs-section.md).
 
 The migration pattern is deliberately page-sized:
 

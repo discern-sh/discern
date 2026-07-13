@@ -34,6 +34,12 @@ color belongs to verdicts alone. Relative links rewrite to routes when the
 target is published, and to the repository on GitHub when it is not (ADRs,
 internal tiers, source files), so no reference dead-ends.
 
+The browser shell is a design-system consumer: the server renders semantic HTML
+on the documented `.ds-*` classes, loading the generated tokens and component
+styles plus the self-hosted fonts from `/assets/design-system/`. Page-specific
+composition lives in `site/pages/assets/docs.css` and behaviour in
+`site/pages/assets/docs.js`; no React runtime ships.
+
 ## Reader negotiation
 
 Every docs route negotiates like the rest of the site: a text client receives
