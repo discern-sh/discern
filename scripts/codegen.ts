@@ -21,6 +21,7 @@ import {
   renderResultJsonSchema,
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
+import { renderThirdPartyNotices } from "../src/lib/third_party_notices.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -53,3 +54,7 @@ console.log(
 );
 await write("schema/discern-results.schema.json", renderResultJsonSchema());
 await write("types/discern-json.d.ts", renderResultTypesDts());
+console.log(
+  "Regenerating third-party notices from src/lib/third_party_notices.ts:",
+);
+await write("THIRD_PARTY_NOTICES", renderThirdPartyNotices());
