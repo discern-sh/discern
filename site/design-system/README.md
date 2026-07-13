@@ -33,6 +33,9 @@ design-system or page inputs change.
   component runtime.
 - New `*.meta.ts` + `*.examples.tsx` pairs are discovered by the build and
   automatically enter the styleguide.
+- Marketing components are page-scale blocks. They own reusable section geometry
+  and semantics, while every product claim, route, illustration, and command
+  enters through typed props or slots.
 - `assets/` owns reproducible fonts, licences, and textures. The build copies
   that complete tree into every runtime output.
 - `dist/`, `styleguide/generated/`, and the public runtime under
@@ -88,3 +91,24 @@ existing page or mock-up to recover component decisions:
 Stateful catalogue components still need an explicit browser-runtime strategy
 when a consumer is rendered to static HTML. That is a page architecture choice,
 not an implicit dependency of the visual system.
+
+## Marketing blocks
+
+The `Marketing` catalogue group is the landing-page vocabulary. It includes a
+site header and footer; split and centered heroes; trust, audience, feature,
+process, metric, comparison, testimonial, case-study, FAQ, and closing-action
+sections. Each block is useful independently, but their shared width, spacing,
+surface, heading, and responsive contracts let page authors compose a coherent
+edition without copying one existing page.
+
+Blocks accept content and visual slots rather than discern-specific copy. Page
+artwork keeps a page-owned class; consumer CSS never reaches into a
+component-owned `.ds-*` selector. Native semantics carry the important
+behaviour: comparisons remain tables, metrics remain description lists, process
+steps remain ordered lists, and FAQ disclosure works without JavaScript.
+
+The component metadata groups are one exported canonical sequence used by the
+styleguide. Adding another group cannot leave the catalogue renderer on a stale
+hand-maintained list. A structural test also discovers every Marketing metadata
+entry and requires the generated demo to represent its root block, so the
+showcase cannot silently fall behind the reusable library.

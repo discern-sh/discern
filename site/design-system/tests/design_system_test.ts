@@ -22,6 +22,7 @@ import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
 import { Kicker } from "../src/components/display/kicker/kicker.tsx";
 import { Terminal } from "../src/components/display/terminal/terminal.tsx";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
+import { runtimeAssetReferences } from "./runtime_references.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
@@ -296,6 +297,56 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
   for (const path of files.filter((file) => /\.(?:css|tsx?|js)$/.test(file))) {
     const source = await Deno.readTextFile(path);
     assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
+  }
+});
+
+Deno.test("every marketing block is represented in the demo", async () => {
+  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
+    path.endsWith(".meta.ts")
+  );
+  const marketing: ComponentMeta[] = [];
+  for (const path of metaFiles) {
+    const module = (await import(toFileUrl(path).href)) as {
+      default: ComponentMeta;
+    };
+    if (module.default.group === "Marketing") marketing.push(module.default);
+  }
+
+  assert(
+    marketing.length >= 12,
+    `expected a comprehensive marketing library, found ${marketing.length} blocks`,
+  );
+  const html = renderDesignSystemDemo({
+    components: metaFiles.length,
+    tokens: designTokens.length + themeTokens.length,
+  });
+  for (const meta of marketing) {
+    assertMatch(
+      html,
+      new RegExp(`class="[^"]*\\bds-${meta.slug}\\b`),
+      `${meta.name} is not represented in the demo`,
+    );
+    assert(
+      (meta.accessibility?.length ?? 0) > 0,
+      `${meta.name} has no accessibility contract`,
+    );
+  }
+
+  assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
+  assertStringIncludes(html, "<table");
+  assertStringIncludes(html, "<details");
+
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
+    .map((match) => match[1] ?? "");
+  assertEquals(new Set(ids).size, ids.length, "demo ids must be unique");
+  for (
+    const fragment of [...html.matchAll(/href="(#[^"]+)"/g)]
+      .map((match) => (match[1] ?? "").slice(1))
+  ) {
+    assert(
+      ids.includes(fragment),
+      `demo fragment #${fragment} has no matching id`,
+    );
   }
 });
 
@@ -606,7 +657,7 @@ Deno.test("component labels and compact UI use the UI font", async () => {
   }
 });
 
-Deno.test("card titles and stat figures use the UI font", async () => {
+Deno.test("card titles and marketing figures use the UI font", async () => {
   const cardCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "card", "card.css"),
   );
@@ -619,16 +670,30 @@ Deno.test("card titles and stat figures use the UI font", async () => {
     /\.ds-card :where\([^}]+font-size:\s*var\(--ds-font-size-card-title\);[^}]+font-weight:\s*600;/s,
   );
 
-  const demoCss = await Deno.readTextFile(
-    join(ROOT, "site", "page-src", "design-system-demo.css"),
+  const bentoCss = await Deno.readTextFile(
+    join(
+      COMPONENT_ROOT,
+      "marketing",
+      "feature-bento",
+      "feature-bento.css",
+    ),
   );
   assertMatch(
-    demoCss,
-    /\.demo-flow__step h3\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+    bentoCss,
+    /\.ds-feature-bento__item h3\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+  );
+
+  const metricsCss = await Deno.readTextFile(
+    join(
+      COMPONENT_ROOT,
+      "marketing",
+      "metrics-band",
+      "metrics-band.css",
+    ),
   );
   assertMatch(
-    demoCss,
-    /\.demo-stat\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+    metricsCss,
+    /\.ds-metrics-band__list dd\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
   );
 
   const styleguideCss = await Deno.readTextFile(
@@ -659,6 +724,27 @@ Deno.test("the one grain wash retains the reference motif", async () => {
   assertMatch(css, /opacity:\s*0\.38/);
 });
 
+Deno.test("runtime assets exclude navigation and auto-enrol new asset tags", () => {
+  const remoteOrigin = ["https:", "", "example.invalid"].join("/");
+  const html = `
+    <a href="${remoteOrigin}/elsewhere">Elsewhere</a>
+    <link rel="canonical" href="${remoteOrigin}/canonical">
+    <video poster="/poster.webp" src="/film.webm"></video>
+    <source srcset="/small.webp 1x, /large.webp 2x">
+    <object data="/diagram.svg"></object>
+    <link href="/theme.css" rel="preload stylesheet">
+  `;
+
+  assertEquals(runtimeAssetReferences(html), [
+    "/poster.webp",
+    "/film.webm",
+    "/small.webp",
+    "/large.webp",
+    "/diagram.svg",
+    "/theme.css",
+  ]);
+});
+
 Deno.test("the public demo ships static HTML and local runtime assets only", async () => {
   const html = await Deno.readTextFile(
     join(ROOT, "site", "pages", "design-system-demo.html"),
@@ -669,9 +755,7 @@ Deno.test("the public demo ships static HTML and local runtime assets only", asy
     "typed React at build time · static HTML at runtime",
   );
 
-  const runtimeRefs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
-    .map((match) => match[1] ?? "")
-    .filter((value) => !value.startsWith("#") && !value.startsWith("data:"));
+  const runtimeRefs = runtimeAssetReferences(html);
   assert(
     runtimeRefs.every((value) => value.startsWith("/")),
     `remote runtime references: ${runtimeRefs.join(", ")}`,

@@ -25,3 +25,41 @@ always-dark console palette in both site themes.
 small accent datum instead of a patterned band. In light mode, the sunken
 surface is a pale, low-chroma paper neutral so inset regions read through depth
 rather than a brown tint.
+
+## Marketing page frame
+
+`SiteHeader` and `SiteFooter` establish the top and bottom landmarks. The header
+may carry a notice, navigation, actions, and sticky positioning. Its mobile
+navigation remains present as a horizontally scrolling row. The footer groups
+links under real headings inside a labelled navigation landmark.
+
+`HeroBlock` supports split and centered openings with canvas, sunken, and accent
+surfaces. Its heading level is explicit, and its content stays before its visual
+in source order. `CtaBand` closes the story with centered or split action
+layouts and a product-owned visual slot.
+
+## Trust and audience
+
+`LogoCloud` is a quiet trust or integration band. Text names remain readable
+when a decorative mark is present. `AudienceGrid` gives each reader a headed
+article, so one product can lead with different outcomes for different levels of
+experience or responsibility.
+
+## Product storytelling
+
+`FeatureBento` provides an asymmetric twelve-column feature field. Items declare
+their size and surface while their DOM order stays straightforward.
+`SplitFeature` alternates narrative copy and evidence without reversing source
+order. `ProcessSteps` renders a horizontal or vertical ordered journey; its
+visual connectors are never the only account of sequence.
+
+## Evidence and decision
+
+`MetricsBand` pairs figures and labels in a description list. `ComparisonTable`
+remains a real table on wide screens and becomes labelled cards on narrow
+screens. `Testimonial` uses quotation and attribution semantics, while
+`CaseStudy` combines an article with visual and numerical evidence.
+
+`FaqBlock` uses native `details` and `summary`, so disclosure needs no client
+runtime. Together with `CtaBand`, it handles the final landing-page move from
+resolving uncertainty to offering a next action.

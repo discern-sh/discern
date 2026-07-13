@@ -2,17 +2,8 @@ import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Kicker } from "../src/components/display/kicker/kicker.tsx";
 import { allTokens } from "../src/tokens/tokens.ts";
-import type { ComponentGroup } from "../src/types/component-meta.ts";
+import { componentGroups } from "../src/types/component-meta.ts";
 import { registry } from "./generated/registry.ts";
-
-const GROUP_ORDER: readonly ComponentGroup[] = [
-  "Core",
-  "Layout",
-  "Display",
-  "Forms",
-  "Feedback",
-  "Navigation",
-];
 
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -82,7 +73,8 @@ function App() {
     registry
       .slice()
       .sort((a, b) =>
-        GROUP_ORDER.indexOf(a.meta.group) - GROUP_ORDER.indexOf(b.meta.group) ||
+        componentGroups.indexOf(a.meta.group) -
+          componentGroups.indexOf(b.meta.group) ||
         a.meta.order - b.meta.order
       )
       .filter(({ meta }) =>
@@ -102,7 +94,7 @@ function App() {
     [normalizedQuery],
   );
 
-  const groupedComponents = GROUP_ORDER.map((group) => ({
+  const groupedComponents = componentGroups.map((group) => ({
     group,
     entries: components.filter(({ meta }) => meta.group === group),
   })).filter(({ entries }) => entries.length);
