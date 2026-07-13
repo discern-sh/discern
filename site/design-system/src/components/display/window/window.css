@@ -29,7 +29,9 @@
     inset-inline: 70px;
     overflow: hidden;
     color: var(--ds-color-ink-faint);
-    font: 0.625rem var(--ds-font-mono);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: 0.625rem;
     letter-spacing: 0.05em;
     text-align: center;
     text-overflow: ellipsis;

@@ -17,6 +17,7 @@ export * from "./components/display/divider/mod.ts";
 export * from "./components/display/heading/mod.ts";
 export * from "./components/display/kicker/mod.ts";
 export * from "./components/display/tag/mod.ts";
+export * from "./components/display/terminal/mod.ts";
 export * from "./components/display/window/mod.ts";
 
 export * from "./components/forms/field/mod.ts";

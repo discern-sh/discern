@@ -10,8 +10,10 @@ export const Kicker = forwardRef<HTMLSpanElement, KickerProps>(
   function Kicker({ index, className, children, ...props }, ref) {
     return (
       <span ref={ref} className={classNames("ds-kicker", className)} {...props}>
-        {index ? <span className="ds-kicker__index">{index}</span> : null}
-        {children}
+        {index !== undefined && index !== null
+          ? <span className="ds-kicker__index">{index}</span>
+          : null}
+        <span className="ds-kicker__text">{children}</span>
       </span>
     );
   },

@@ -46,6 +46,24 @@ design-system or page inputs change.
 - Components can also be reproduced as semantic HTML using the documented
   `.ds-*` classes; React is an adapter rather than a CSS dependency.
 
+The body and UI family roles remain separate tokens even though both currently
+resolve to Inter. UI rules pair `--ds-font-ui` with `--ds-font-features-ui`;
+body copy does not inherit that interface-specific OpenType set. The bundled
+provider therefore ships one Inter face for both roles, alongside Crimson Pro
+for display type and JetBrains Mono for code.
+
+`Kicker` keeps its optional index in the mono role and renders its trailing
+label with the UI family and feature set; size, weight, tracking, colour, and
+uppercase treatment remain shared by both parts.
+
+Display chrome keeps the distinction explicit: `Window` titles use the UI role,
+while `Divider` is a quiet editorial rule whose optional label is marked by a
+small accent datum rather than a patterned band.
+
+`Terminal` mirrors the `Window` frame contract but renders its body as semantic
+`pre`/`code`: whitespace is preserved, long output scrolls horizontally, and the
+dark console palette stays recognisable in either site theme.
+
 ## Authoring a page from this directory
 
 This directory is the complete visual handoff. A page author should not need an

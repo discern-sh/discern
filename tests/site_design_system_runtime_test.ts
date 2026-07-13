@@ -45,7 +45,6 @@ Deno.test("every referenced design-system asset is served with its browser type"
     ["/assets/design-system/fonts/crimson-pro-roman.woff2", "font/woff2"],
     ["/assets/design-system/fonts/crimson-pro-italic.woff2", "font/woff2"],
     ["/assets/design-system/fonts/inter.woff2", "font/woff2"],
-    ["/assets/design-system/fonts/ibm-plex-sans.woff2", "font/woff2"],
     ["/assets/design-system/fonts/jetbrains-mono.woff2", "font/woff2"],
   ]);
 

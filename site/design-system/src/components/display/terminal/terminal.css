@@ -1,0 +1,83 @@
+@layer discern.components {
+  .ds-terminal {
+    --ds-terminal-surface: color-mix(in oklab, var(--ds-shadow-color) 94%,
+      var(--ds-color-accent-800));
+    --ds-terminal-text: var(--ds-color-surface);
+    --ds-terminal-muted: color-mix(in oklab, var(--ds-terminal-text) 58%,
+      transparent);
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid color-mix(in oklab, var(--ds-terminal-text) 22%,
+      var(--ds-terminal-surface));
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-terminal-surface);
+    box-shadow: var(--ds-shadow-window);
+    color: var(--ds-terminal-text);
+  }
+  [data-ds-theme="dark"] .ds-terminal {
+    --ds-terminal-text: var(--ds-color-ink);
+  }
+  .ds-terminal__bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: 38px;
+    padding-inline: 13px;
+    border-block-end: 1px solid color-mix(in oklab,
+      var(--ds-terminal-text) 15%, transparent);
+    background: color-mix(in oklab, var(--ds-terminal-surface) 86%,
+      var(--ds-color-accent-600));
+  }
+  .ds-terminal__dot {
+    inline-size: 7px;
+    block-size: 7px;
+    border-radius: 50%;
+    background: var(--ds-color-accent-400);
+  }
+  .ds-terminal__dot:nth-child(2) {
+    opacity: 0.7;
+  }
+  .ds-terminal__dot:nth-child(3) {
+    opacity: 0.4;
+  }
+  .ds-terminal__title {
+    position: absolute;
+    inset-inline: 70px;
+    overflow: hidden;
+    color: var(--ds-terminal-muted);
+    font-family: var(--ds-font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ds-terminal__body {
+    min-block-size: 190px;
+    max-inline-size: 100%;
+    margin: 0;
+    padding: var(--ds-space-6);
+    overflow: auto;
+    background: var(--ds-terminal-surface);
+    color: var(--ds-terminal-text);
+    font-family: var(--ds-font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    tab-size: 2;
+    white-space: pre;
+  }
+  .ds-terminal__body code {
+    color: inherit;
+    font: inherit;
+  }
+  .ds-terminal__prompt {
+    color: var(--ds-color-accent-400);
+  }
+  .ds-terminal__muted {
+    color: var(--ds-terminal-muted);
+  }
+  .ds-terminal__success {
+    color: var(--ds-color-success);
+  }
+}

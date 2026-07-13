@@ -12,11 +12,15 @@ import {
 } from "@std/assert";
 import { encodeHex } from "@std/encoding/hex";
 import { fromFileUrl, join, relative, toFileUrl } from "@std/path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
 import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
+import { Kicker } from "../src/components/display/kicker/kicker.tsx";
+import { Terminal } from "../src/components/display/terminal/terminal.tsx";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
@@ -155,6 +159,21 @@ function componentOwnedSelectors(
     }
   }
   return [...selectors].sort();
+}
+
+function leafDeclarationBlocks(source: string): string[] {
+  const starts: number[] = [];
+  const blocks: string[] = [];
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index];
+    if (character === "{") starts.push(index + 1);
+    if (character !== "}") continue;
+    const start = starts.pop();
+    if (start === undefined) continue;
+    const declarations = source.slice(start, index);
+    if (!declarations.includes("{")) blocks.push(declarations);
+  }
+  return blocks;
 }
 
 Deno.test("generated public site outputs are ignored and absent from Git", async () => {
@@ -411,10 +430,23 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   const tokens = new Map(
     designTokens.map((token) => [token.name, token.value]),
   );
+  const interStack = '"Inter", "Helvetica Neue", system-ui, sans-serif';
   assertEquals(
     tokens.get("--ds-font-display"),
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
   );
+  assertEquals(tokens.get("--ds-font-body"), interStack);
+  assertEquals(tokens.get("--ds-font-ui"), interStack);
+  assertEquals(
+    tokens.get("--ds-font-features-ui"),
+    "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
+  );
+  assertEquals(tokens.get("--ds-font-size-xs"), "0.85rem");
+  assertEquals(tokens.get("--ds-font-size-sm"), "0.95rem");
+  assertEquals(tokens.get("--ds-font-size-md"), "1.05rem");
+  assertEquals(tokens.get("--ds-leading-tight"), "1.08");
+  assertEquals(tokens.get("--ds-leading-snug"), "1.3");
+  assertEquals(tokens.get("--ds-leading-body"), "1.58");
   assertEquals(
     tokens.get("--ds-font-mono"),
     '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
@@ -429,6 +461,14 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
   assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+  assertStringIncludes(
+    buttonCss,
+    "--ds-button-fill: var(--ds-color-accent-100)",
+  );
+  assertStringIncludes(
+    buttonCss,
+    "box-shadow: 2px 2px 0 var(--ds-button-shadow)",
+  );
 
   const foundationCss = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "styles", "foundation.css"),
@@ -441,6 +481,110 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     join(COMPONENT_ROOT, "display", "heading", "heading.css"),
   );
   assert(!headingCss.includes("text-wrap"));
+});
+
+Deno.test("display chrome uses its intended typography and rule treatment", async () => {
+  const windowCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "window", "window.css"),
+  );
+  const titleRule = windowCss.match(/\.ds-window__title\s*\{[^}]+\}/s)?.[0] ??
+    "";
+  assertStringIncludes(titleRule, "font-family: var(--ds-font-ui)");
+  assertStringIncludes(
+    titleRule,
+    "font-feature-settings: var(--ds-font-features-ui)",
+  );
+  assert(!titleRule.includes("var(--ds-font-mono)"));
+
+  const dividerCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "divider", "divider.css"),
+  );
+  assert(!dividerCss.includes("repeating-linear-gradient"));
+  assertMatch(dividerCss, /\.ds-divider::before,[^}]+\.ds-divider::after/s);
+  assertMatch(
+    dividerCss,
+    /\.ds-divider__label::before\s*\{[^}]+transform:\s*rotate\(45deg\);/s,
+  );
+});
+
+Deno.test("the light sunken surface stays pale and low-chroma", () => {
+  const sunken = themeTokens.find((token) =>
+    token.name === "--ds-color-surface-sunken"
+  );
+  assertEquals(
+    sunken?.light,
+    "oklch(96.5% 0.004 var(--ds-canvas-hue))",
+  );
+});
+
+Deno.test("terminal renders semantic, scrollable monospace output", async () => {
+  const html = renderToStaticMarkup(
+    createElement(Terminal, {
+      title: "verify",
+      children: "$ deno task verify",
+    }),
+  );
+  assertStringIncludes(html, '<figure class="ds-terminal">');
+  assertStringIncludes(html, '<span class="ds-terminal__title">verify</span>');
+  assertStringIncludes(
+    html,
+    '<pre class="ds-terminal__body"><code>$ deno task verify</code></pre>',
+  );
+
+  const css = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "terminal", "terminal.css"),
+  );
+  const bodyRule = css.match(/\.ds-terminal__body\s*\{[^}]+\}/s)?.[0] ?? "";
+  assertStringIncludes(bodyRule, "overflow: auto");
+  assertStringIncludes(bodyRule, "font-family: var(--ds-font-mono)");
+  assertStringIncludes(bodyRule, "white-space: pre");
+});
+
+Deno.test("kicker isolates its monospace index from UI text", async () => {
+  const html = renderToStaticMarkup(
+    createElement(Kicker, { index: 0, children: "Lorem ipsum" }),
+  );
+  assertStringIncludes(
+    html,
+    '<span class="ds-kicker__index">0</span><span class="ds-kicker__text">Lorem ipsum</span>',
+  );
+
+  const css = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
+  );
+  const rootRule = css.match(/\.ds-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
+  assertStringIncludes(rootRule, "font-size: 0.625rem");
+  assert(!rootRule.includes("var(--ds-font-mono)"));
+  assertMatch(
+    css,
+    /\.ds-kicker__index\s*\{[^}]+font-family:\s*var\(--ds-font-mono\);/s,
+  );
+  assertMatch(
+    css,
+    /\.ds-kicker__text\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);[^}]+font-feature-settings:\s*var\(--ds-font-features-ui\);/s,
+  );
+});
+
+Deno.test("every authored UI font rule enables the shared Inter features", async () => {
+  const tracked = await git(["ls-files", "--", "site"]);
+  assertEquals(tracked.code, 0);
+  const cssFiles = new TextDecoder().decode(tracked.stdout).trim().split("\n")
+    .filter((path) => path.endsWith(".css"));
+  const violations: string[] = [];
+  for (const path of cssFiles) {
+    const source = await Deno.readTextFile(join(ROOT, path));
+    for (const declarations of leafDeclarationBlocks(source)) {
+      if (
+        declarations.includes("var(--ds-font-ui)") &&
+        !declarations.includes(
+          "font-feature-settings: var(--ds-font-features-ui);",
+        )
+      ) {
+        violations.push(path);
+      }
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("component labels and compact UI use the UI font", async () => {
@@ -558,15 +702,32 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
     );
   }
 
-  const fonts = await walk(join(PUBLIC_ROOT, "fonts"));
-  assertEquals(fonts.length, 5);
+  const fontRoot = join(PUBLIC_ROOT, "fonts");
+  const fonts = await walk(fontRoot);
+  assertEquals(
+    fonts.map((font) => relative(fontRoot, font)).toSorted(),
+    [
+      "crimson-pro-italic.woff2",
+      "crimson-pro-roman.woff2",
+      "inter.woff2",
+      "jetbrains-mono.woff2",
+    ],
+  );
   for (const font of fonts) {
     const bytes = await Deno.readFile(font);
     assertEquals(new TextDecoder().decode(bytes.slice(0, 4)), "wOF2", font);
   }
 
-  const licences = await walk(join(PUBLIC_ROOT, "licenses"));
-  assertEquals(licences.length, 4);
+  const licenceRoot = join(PUBLIC_ROOT, "licenses");
+  const licences = await walk(licenceRoot);
+  assertEquals(
+    licences.map((licence) => relative(licenceRoot, licence)).toSorted(),
+    [
+      "Crimson-Pro-OFL.txt",
+      "Inter-OFL.txt",
+      "JetBrains-Mono-OFL.txt",
+    ],
+  );
   for (const licence of licences) {
     assertStringIncludes(
       await Deno.readTextFile(licence),
@@ -578,6 +739,7 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
     join(AUTHORED_ASSET_ROOT, "fonts.css"),
   );
   assert(!/https?:\/\//.test(provider));
+  assert(!provider.includes("IBM Plex Sans"));
   const styleguide = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "styleguide", "index.html"),
   );

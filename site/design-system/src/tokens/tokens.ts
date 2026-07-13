@@ -44,7 +44,7 @@ export const designTokens = [
     "Master hue for the azure accent family.",
   ),
   token("--ds-ink-hue", "225", "Color", "Master hue for cool ink neutrals."),
-  token("--ds-canvas-hue", "288", "Color", "Master hue for canvas neutrals."),
+  token("--ds-canvas-hue", "80.72", "Color", "Master hue for canvas neutrals."),
   token(
     "--ds-font-display",
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
@@ -65,23 +65,29 @@ export const designTokens = [
   ),
   token(
     "--ds-font-ui",
-    '"IBM Plex Sans", system-ui, "Helvetica Neue", sans-serif',
+    '"Inter", "Helvetica Neue", system-ui, sans-serif',
     "Typography",
     "Dense interface chrome face.",
   ),
   token(
+    "--ds-font-features-ui",
+    "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
+    "Typography",
+    "OpenType features for interface chrome.",
+  ),
+  token(
     "--ds-font-size-xs",
-    "0.75rem",
+    "0.85rem",
     "Typography",
     "Fine print and compact labels.",
   ),
   token(
     "--ds-font-size-sm",
-    "0.84375rem",
+    "0.95rem",
     "Typography",
     "Secondary interface copy.",
   ),
-  token("--ds-font-size-md", "1rem", "Typography", "Body copy."),
+  token("--ds-font-size-md", "1.05rem", "Typography", "Body copy."),
   token("--ds-font-size-lg", "1.125rem", "Typography", "Lead copy."),
   token(
     "--ds-font-size-card-title",
@@ -126,14 +132,14 @@ export const designTokens = [
     "Typography",
     "Display heading weight.",
   ),
-  token("--ds-leading-tight", "1.06", "Typography", "Display line height."),
+  token("--ds-leading-tight", "1.08", "Typography", "Display line height."),
   token(
     "--ds-leading-snug",
-    "1.28",
+    "1.3",
     "Typography",
     "Compact heading line height.",
   ),
-  token("--ds-leading-body", "1.62", "Typography", "Body line height."),
+  token("--ds-leading-body", "1.58", "Typography", "Body line height."),
   ...([1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24] as const).map((step) =>
     token(
       `--ds-space-${step}`,
@@ -198,7 +204,7 @@ export const themeTokens = [
   ),
   themeToken(
     "--ds-color-canvas",
-    "oklch(96.6% 0.008 var(--ds-canvas-hue))",
+    "oklch(98.97% 0.0028 var(--ds-canvas-hue))",
     "oklch(20% 0.018 var(--ds-ink-hue))",
     "Page canvas.",
   ),
@@ -210,7 +216,7 @@ export const themeTokens = [
   ),
   themeToken(
     "--ds-color-surface-sunken",
-    "oklch(94.2% 0.01 var(--ds-canvas-hue))",
+    "oklch(96.5% 0.004 var(--ds-canvas-hue))",
     "oklch(17.5% 0.016 var(--ds-ink-hue))",
     "Inset surface.",
   ),
@@ -278,7 +284,7 @@ export const themeTokens = [
     "--ds-color-stripe",
     "oklch(85% 0.014 var(--ds-canvas-hue))",
     "oklch(33% 0.022 var(--ds-ink-hue))",
-    "Blueprint hatch and window-chrome pigment.",
+    "Decorative hatch and window-chrome pigment.",
   ),
   themeToken(
     "--ds-color-success",

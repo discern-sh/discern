@@ -94,6 +94,7 @@ body[data-ds-root] {
 .demo-nav a {
   color: var(--ds-color-ink-muted);
   font: 0.78rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   text-decoration: none;
 }
 
@@ -113,6 +114,7 @@ body[data-ds-root] {
   color: var(--ds-color-ink-muted);
   cursor: pointer;
   font: 0.7rem var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
 }
 
 .demo-theme:hover,
@@ -156,26 +158,15 @@ body[data-ds-root] {
   animation-delay: 120ms;
 }
 
-.demo-terminal {
-  position: relative;
-  min-height: 330px;
-  padding: clamp(1.5rem, 4vw, 2.25rem);
-  background: var(--ds-color-surface);
-  color: var(--ds-color-ink-muted);
-  font: 0.78rem/1.75 var(--ds-font-mono);
-}
-
 .demo-terminal__command {
-  color: var(--ds-color-ink);
-}
-
-.demo-terminal__command span {
-  color: var(--ds-color-accent-600);
+  display: block;
 }
 
 .demo-terminal__rule {
+  display: block;
   margin-block: var(--ds-space-4);
-  border-block-start: 1px dashed var(--ds-color-border-strong);
+  border-block-start: 1px dashed color-mix(in oklab, currentColor 22%,
+    transparent);
 }
 
 .demo-terminal__row {
@@ -185,7 +176,6 @@ body[data-ds-root] {
 }
 
 .demo-terminal__row strong {
-  color: var(--ds-color-success);
   font-weight: 600;
 }
 
@@ -196,7 +186,7 @@ body[data-ds-root] {
   padding: var(--ds-space-3);
   border: 1px solid var(--ds-color-success);
   border-radius: var(--ds-radius-md);
-  background: var(--ds-color-success-soft);
+  background: color-mix(in oklab, var(--ds-color-success) 12%, transparent);
   color: var(--ds-color-success);
 }
 
@@ -211,7 +201,7 @@ body[data-ds-root] {
   border: 0;
   border-block-end: 1px dashed var(--ds-color-border-strong);
   background: transparent;
-  color: var(--ds-color-accent-600);
+  color: var(--ds-color-accent-400);
   cursor: pointer;
   font: inherit;
 }
@@ -262,6 +252,7 @@ body[data-ds-root] {
 .demo-flow__step h3 {
   margin: var(--ds-space-6) 0 var(--ds-space-3);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: var(--ds-font-size-display-sm);
   font-weight: 600;
 }
@@ -280,6 +271,7 @@ body[data-ds-root] {
 .demo-stat {
   color: var(--ds-color-accent-600);
   font-family: var(--ds-font-ui);
+  font-feature-settings: var(--ds-font-features-ui);
   font-size: 2.6rem;
   font-weight: 600;
   line-height: 1;

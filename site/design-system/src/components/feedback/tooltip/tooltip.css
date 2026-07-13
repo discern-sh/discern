@@ -20,6 +20,7 @@
     transition: opacity var(--ds-duration-fast), translate
       var(--ds-duration-fast);
     font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
     font-size: var(--ds-font-size-xs);
     line-height: 1.4;
   }

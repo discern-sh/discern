@@ -73,6 +73,16 @@ texts, and texture assets. The isolated catalogue and generated demo therefore
 use the same design-system-owned provider; a consumer may replace it without
 changing the component runtime.
 
+Typography keeps body and interface roles separate even when they share a face.
+Both currently resolve to the one bundled Inter font, while interface rules
+additionally consume the central `--ds-font-features-ui` OpenType set. Crimson
+Pro remains the display face and JetBrains Mono the code face. A guard scans
+every tracked site stylesheet so any rule selecting `--ds-font-ui` must also
+select the interface feature set.
+
+Component-specific typography, framing, depth, and separation roles live in
+[component-catalogue.md](component-catalogue.md).
+
 ## Theme fidelity
 
 The numbered accent ramp names roles, not fixed lightness. In light mode,
