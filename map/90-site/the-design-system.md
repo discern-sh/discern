@@ -6,11 +6,11 @@ only when its own generated edition is ready to replace the old route.
 
 ## Ownership boundaries
 
-| Tree                                               | Owns                                                                                                              |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, and the local React catalogue.    |
-| [`site/page-src/`](../../site/page-src/)           | discern.sh page composition, product copy, font loading, and small progressive enhancements.                      |
-| [`site/pages/`](../../site/pages/)                 | The committed static artifact the fetch handler serves. Generated design-system files say which source owns them. |
+| Tree                                               | Owns                                                                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, and the local React catalogue. |
+| [`site/page-src/`](../../site/page-src/)           | Page composition, product copy, fonts, licences, and small progressive enhancements.                           |
+| [`site/pages/`](../../site/pages/)                 | Hand-authored legacy editions plus ignored design-system output created before local serving or deployment.    |
 
 Product copy never enters the component library. Conversely, page sources use
 the library's tokens and components rather than reproducing their markup or
@@ -22,8 +22,9 @@ site on the other.
 Page authors compose typed React adapters.
 [`site/build.ts`](../../site/build.ts) renders them with `renderToStaticMarkup`,
 builds the framework-neutral CSS, and writes deterministic HTML and assets into
-`site/pages/`. React is a build-time dependency: the browser receives no React
-bundle, hydration, or application runtime.
+`site/pages/`. The output is ignored and rebuilt both locally and by Deno
+Deploy. React is a build-time dependency: the browser receives no React bundle,
+hydration, or application runtime.
 
 The distinction matters for interactive components. Layout and display
 components render completely as static HTML. React adapters that own state or
@@ -39,6 +40,7 @@ deno task site:build             # static public demo + runtime CSS
 deno task design-system:build    # local component catalogue bundle
 deno task design-system:verify   # subsystem check, build, and tests
 deno task site                   # build, then serve on localhost:4507
+deno task watch                  # serve and rebuild when authored inputs change
 ```
 
 The library build discovers every `*.meta.ts` file. Its component folder must
@@ -52,8 +54,9 @@ while its scoped gate owns the catalogue build and subsystem tests.
 
 The generated runtime consists of `discern.css`, a deterministic manifest, and
 owned texture assets. The consuming page supplies font faces. The demo fonts are
-locally hosted WOFF2 files under `site/pages/assets/design-system/fonts/`, with
-their SIL Open Font Licence texts beside them.
+authored as WOFF2 files under `site/page-src/assets/design-system/fonts/`, with
+their SIL Open Font Licence texts beside them; the site build copies both into
+the public output.
 
 ## Theme fidelity
 

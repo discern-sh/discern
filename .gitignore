@@ -24,6 +24,12 @@
 # output, so they must never be committed.
 /scripts/setup-eval/results/
 
+# Public design-system artifacts are produced by `deno task site:build` locally
+# and by Deno Deploy's configured build step. Sources live under
+# `site/design-system/` and `site/page-src/`; build products never enter Git.
+/site/pages/design-system-demo.html
+/site/pages/assets/design-system/
+
 # --- discern ---
 # discern's managed ignore rules: only the skills directories it
 # materializes and machine-local provider state. discern owns this

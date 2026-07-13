@@ -4,6 +4,13 @@
   "exports": "./src/main.ts",
   "license": "Apache-2.0",
   "workspace": ["./site/design-system"],
+  "deploy": {
+    "build": "deno task site:build",
+    "runtime": {
+      "type": "dynamic",
+      "entrypoint": "site/main.ts"
+    }
+  },
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
     "strict": true,
@@ -27,7 +34,7 @@
   "tasks": {
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
-    "test": "deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "test": "deno task site:build && deno test --allow-read --allow-write --allow-env --allow-run --parallel",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
@@ -45,7 +52,8 @@
     "design-system:check": "deno task --config site/design-system/deno.json --cwd site/design-system check",
     "design-system:build": "deno task --config site/design-system/deno.json --cwd site/design-system build",
     "design-system:verify": "deno task --config site/design-system/deno.json --cwd site/design-system verify",
-    "site": "deno task site:build && deno serve --allow-read --port 4507 site/serve.ts"
+    "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT site/dev.ts",
+    "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT site/dev.ts --watch"
   },
   "imports": {
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",

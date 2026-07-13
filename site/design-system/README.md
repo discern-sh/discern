@@ -15,7 +15,8 @@ live in `site/page-src/`.
 
 From the repository root, `deno task site:build` uses these adapters only at
 build time to generate static public HTML and CSS. No React runtime ships with
-the landing-page demo.
+the landing-page demo. `deno task watch` serves that demo on localhost and
+rebuilds it when authored design-system or page inputs change.
 
 ## Source rules
 
@@ -27,9 +28,9 @@ the landing-page demo.
   isolated styleguide font provider.
 - New `*.meta.ts` + `*.examples.tsx` pairs are discovered by the build and
   automatically enter the styleguide.
-- `dist/` and `styleguide/generated/` are local generated output. The public
-  site build writes its committed runtime under
-  `site/pages/assets/design-system/`.
+- `dist/`, `styleguide/generated/`, and the public runtime under
+  `site/pages/assets/design-system/` are ignored build output. Authored public
+  assets live under `site/page-src/assets/design-system/`.
 
 ## Public surfaces
 

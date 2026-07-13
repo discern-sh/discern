@@ -6,8 +6,8 @@
  * unconditionally.
  *
  * The same handler runs everywhere, which is the parity guarantee:
- *   locally      `deno task site`   (`deno serve` consumes the default export)
- *   production   Deno Deploy runs `main.ts`, a `Deno.serve` over this handler
+ *   locally      `deno task site` runs `dev.ts`, a loopback server over it
+ *   production   Deno Deploy runs `main.ts`, an all-interface server over it
  *
  * The new Deno Deploy runs an entrypoint with `deno run`, which won't start a
  * server from a bare `{ fetch }` export — so `main.ts` binds the port. There is

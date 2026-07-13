@@ -1,6 +1,6 @@
 /**
  * The design-system demo's permanent boundary: authored sources generate the
- * committed static artifact deterministically, component additions auto-enrol,
+ * ignored static artifact deterministically, component additions auto-enrol,
  * and the browser-facing page remains local-asset-only with no React runtime.
  */
 
@@ -11,14 +11,22 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { encodeHex } from "@std/encoding/hex";
-import { fromFileUrl, join, toFileUrl } from "@std/path";
+import { fromFileUrl, join, relative, toFileUrl } from "@std/path";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
+import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
+const AUTHORED_ASSET_ROOT = join(
+  ROOT,
+  "site",
+  "page-src",
+  "assets",
+  "design-system",
+);
 const COMPONENT_ROOT = join(ROOT, "site", "design-system", "src", "components");
 
 async function walk(directory: string): Promise<string[]> {
@@ -34,6 +42,15 @@ async function walk(directory: string): Promise<string[]> {
 async function sha256(path: string): Promise<string> {
   const bytes = await Deno.readFile(path);
   return encodeHex(await crypto.subtle.digest("SHA-256", bytes));
+}
+
+async function git(args: string[]): Promise<Deno.CommandOutput> {
+  return await new Deno.Command("git", {
+    args,
+    cwd: ROOT,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
 }
 
 function themeIncoherentBackgrounds(
@@ -105,7 +122,25 @@ function roleRampViolations(
   return violations;
 }
 
-Deno.test("design-system sources deterministically reproduce every committed runtime asset", async () => {
+Deno.test("generated public site outputs are ignored and absent from Git", async () => {
+  const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
+    join("site", output)
+  );
+  const tracked = await git(["ls-files", "--", ...repoPaths]);
+  assertEquals(tracked.code, 0);
+  assertEquals(
+    new TextDecoder().decode(tracked.stdout).trim(),
+    "",
+    "generated public site outputs must not be tracked",
+  );
+
+  for (const path of repoPaths) {
+    const ignored = await git(["check-ignore", "--quiet", "--no-index", path]);
+    assertEquals(ignored.code, 0, `${path} must be ignored`);
+  }
+});
+
+Deno.test("design-system sources deterministically reproduce every generated runtime asset", async () => {
   const temp = await Deno.makeTempDir();
   try {
     const summary = await buildDesignSystemRuntime(toFileUrl(`${temp}/`));
@@ -283,6 +318,15 @@ Deno.test("the public demo ships static HTML and local runtime assets only", asy
 });
 
 Deno.test("self-hosted font binaries carry their open-font licences", async () => {
+  for (const source of await walk(AUTHORED_ASSET_ROOT)) {
+    const asset = relative(AUTHORED_ASSET_ROOT, source);
+    assertEquals(
+      await sha256(source),
+      await sha256(join(PUBLIC_ROOT, asset)),
+      `${asset} must be copied from the authored asset tree`,
+    );
+  }
+
   const fonts = await walk(join(PUBLIC_ROOT, "fonts"));
   assertEquals(fonts.length, 5);
   for (const font of fonts) {

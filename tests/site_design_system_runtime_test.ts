@@ -1,4 +1,4 @@
-/** Browser-facing checks for the committed design-system demo artifact. */
+/** Browser-facing checks for the built design-system demo artifact. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { handler } from "../site/serve.ts";
