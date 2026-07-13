@@ -44,7 +44,7 @@ export const designTokens = [
     "Master hue for the azure accent family.",
   ),
   token("--ds-ink-hue", "225", "Color", "Master hue for cool ink neutrals."),
-  token("--ds-canvas-hue", "288", "Color", "Master hue for canvas neutrals."),
+  token("--ds-canvas-hue", "85", "Color", "Master hue for canvas neutrals."),
   token(
     "--ds-font-display",
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
