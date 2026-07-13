@@ -77,17 +77,17 @@ export const designTokens = [
   ),
   token(
     "--ds-font-size-xs",
-    "0.75rem",
+    "0.85rem",
     "Typography",
     "Fine print and compact labels.",
   ),
   token(
     "--ds-font-size-sm",
-    "0.84375rem",
+    "0.95rem",
     "Typography",
     "Secondary interface copy.",
   ),
-  token("--ds-font-size-md", "1rem", "Typography", "Body copy."),
+  token("--ds-font-size-md", "1.05rem", "Typography", "Body copy."),
   token("--ds-font-size-lg", "1.125rem", "Typography", "Lead copy."),
   token(
     "--ds-font-size-card-title",
@@ -132,14 +132,14 @@ export const designTokens = [
     "Typography",
     "Display heading weight.",
   ),
-  token("--ds-leading-tight", "1.06", "Typography", "Display line height."),
+  token("--ds-leading-tight", "1.08", "Typography", "Display line height."),
   token(
     "--ds-leading-snug",
-    "1.28",
+    "1.3",
     "Typography",
     "Compact heading line height.",
   ),
-  token("--ds-leading-body", "1.62", "Typography", "Body line height."),
+  token("--ds-leading-body", "1.58", "Typography", "Body line height."),
   ...([1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24] as const).map((step) =>
     token(
       `--ds-space-${step}`,

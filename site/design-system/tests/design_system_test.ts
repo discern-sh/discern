@@ -12,11 +12,14 @@ import {
 } from "@std/assert";
 import { encodeHex } from "@std/encoding/hex";
 import { fromFileUrl, join, relative, toFileUrl } from "@std/path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
 import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
+import { Kicker } from "../src/components/display/kicker/kicker.tsx";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
@@ -437,6 +440,12 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     tokens.get("--ds-font-features-ui"),
     "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
   );
+  assertEquals(tokens.get("--ds-font-size-xs"), "0.85rem");
+  assertEquals(tokens.get("--ds-font-size-sm"), "0.95rem");
+  assertEquals(tokens.get("--ds-font-size-md"), "1.05rem");
+  assertEquals(tokens.get("--ds-leading-tight"), "1.08");
+  assertEquals(tokens.get("--ds-leading-snug"), "1.3");
+  assertEquals(tokens.get("--ds-leading-body"), "1.58");
   assertEquals(
     tokens.get("--ds-font-mono"),
     '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
@@ -463,6 +472,31 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     join(COMPONENT_ROOT, "display", "heading", "heading.css"),
   );
   assert(!headingCss.includes("text-wrap"));
+});
+
+Deno.test("kicker isolates its monospace index from UI text", async () => {
+  const html = renderToStaticMarkup(
+    createElement(Kicker, { index: 0, children: "Lorem ipsum" }),
+  );
+  assertStringIncludes(
+    html,
+    '<span class="ds-kicker__index">0</span><span class="ds-kicker__text">Lorem ipsum</span>',
+  );
+
+  const css = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
+  );
+  const rootRule = css.match(/\.ds-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
+  assertStringIncludes(rootRule, "font-size: 0.625rem");
+  assert(!rootRule.includes("var(--ds-font-mono)"));
+  assertMatch(
+    css,
+    /\.ds-kicker__index\s*\{[^}]+font-family:\s*var\(--ds-font-mono\);/s,
+  );
+  assertMatch(
+    css,
+    /\.ds-kicker__text\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);[^}]+font-feature-settings:\s*var\(--ds-font-features-ui\);/s,
+  );
 });
 
 Deno.test("every authored UI font rule enables the shared Inter features", async () => {

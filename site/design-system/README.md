@@ -52,6 +52,10 @@ body copy does not inherit that interface-specific OpenType set. The bundled
 provider therefore ships one Inter face for both roles, alongside Crimson Pro
 for display type and JetBrains Mono for code.
 
+`Kicker` keeps its optional index in the mono role and renders its trailing
+label with the UI family and feature set; size, weight, tracking, colour, and
+uppercase treatment remain shared by both parts.
+
 ## Authoring a page from this directory
 
 This directory is the complete visual handoff. A page author should not need an

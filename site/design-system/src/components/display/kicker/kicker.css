@@ -4,7 +4,7 @@
     align-items: baseline;
     gap: 8px;
     color: var(--ds-color-ink-faint);
-    font: 0.625rem var(--ds-font-mono);
+    font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.11em;
     line-height: 1.4;
@@ -12,6 +12,11 @@
   }
   .ds-kicker__index {
     color: var(--ds-color-accent-600);
+    font-family: var(--ds-font-mono);
+  }
+  .ds-kicker__text {
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
   }
   [data-ds-theme="dark"] .ds-kicker__index {
     color: var(--ds-color-accent-500);

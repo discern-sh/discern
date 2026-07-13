@@ -4,5 +4,5 @@ export default {
   slug: "kicker",
   group: "Display",
   order: 50,
-  description: "Monospace annotation label with an optional indexed prefix.",
+  description: "Uppercase annotation label with an optional monospace index.",
 } satisfies ComponentMeta;

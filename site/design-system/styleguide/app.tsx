@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Kicker } from "../src/components/display/kicker/kicker.tsx";
 import { allTokens } from "../src/tokens/tokens.ts";
 import type { ComponentGroup } from "../src/types/component-meta.ts";
 import { registry } from "./generated/registry.ts";
@@ -32,8 +33,7 @@ function TokenPreview(
     return (
       <span
         className="sg-token__type"
-        style={name.includes("font-") && !name.includes("font-size") &&
-            !name.includes("font-weight")
+        style={/^--ds-font-(?:display|body|mono|ui)$/.test(name)
           ? { fontFamily: `var(${name})` }
           : undefined}
       >
@@ -174,7 +174,8 @@ function App() {
       <main className="sg-main" id="top">
         <section className="sg-hero">
           <span className="ds-kicker">
-            <span className="sg-live-dot" />Generated reference
+            <span className="sg-live-dot" />
+            <span className="ds-kicker__text">Generated reference</span>
           </span>
           <h1>
             Discern, built as a <em>system</em>.
@@ -193,7 +194,7 @@ function App() {
         <section className="sg-section" id="foundations">
           <header className="sg-section__header">
             <div>
-              <span className="ds-kicker">01 — Foundations</span>
+              <Kicker index="01">— Foundations</Kicker>
               <h2>One value, every surface.</h2>
             </div>
             <p>
@@ -243,7 +244,7 @@ function App() {
         <section className="sg-section" id="components">
           <header className="sg-section__header">
             <div>
-              <span className="ds-kicker">02 — Components</span>
+              <Kicker index="02">— Components</Kicker>
               <h2>Typed, composable, inspectable.</h2>
             </div>
             <p>

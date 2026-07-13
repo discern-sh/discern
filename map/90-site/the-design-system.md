@@ -80,6 +80,11 @@ Pro remains the display face and JetBrains Mono the code face. A guard scans
 every tracked site stylesheet so any rule selecting `--ds-font-ui` must also
 select the interface feature set.
 
+The `Kicker` component is the deliberate mixed-role exception: its optional
+index uses the mono face, while its trailing label uses the UI family and
+feature set. Both parts inherit the component's compact size, colour, weight,
+tracking, and uppercase treatment.
+
 ## Theme fidelity
 
 The numbered accent ramp names roles, not fixed lightness. In light mode,
