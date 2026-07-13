@@ -17,6 +17,7 @@ import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
+import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
 const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
@@ -222,9 +223,35 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
   const publicModule = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "mod.ts"),
   );
+  const identities = new Set<string>();
+  const positions = new Set<string>();
   for (const meta of metaFiles) {
     const stem = meta.slice(0, -".meta.ts".length);
     const directory = stem.slice(0, stem.lastIndexOf("/"));
+    const folder = directory.slice(directory.lastIndexOf("/") + 1);
+    const metadata = (await import(toFileUrl(meta).href)) as {
+      default: ComponentMeta;
+    };
+    assertEquals(metadata.default.slug, folder, meta);
+    assert(metadata.default.name.trim().length > 0, `${meta} has no name`);
+    assert(
+      metadata.default.description.trim().length > 0,
+      `${meta} has no description`,
+    );
+    assert(
+      metadata.default.accessibility?.every((note) => note.trim().length > 0) ??
+        true,
+      `${meta} has an empty accessibility note`,
+    );
+    assert(
+      !identities.has(metadata.default.slug),
+      `${meta} duplicates slug ${metadata.default.slug}`,
+    );
+    identities.add(metadata.default.slug);
+    const position = `${metadata.default.group}:${metadata.default.order}`;
+    assert(!positions.has(position), `${meta} duplicates position ${position}`);
+    positions.add(position);
+
     for (
       const sibling of [`${stem}.tsx`, `${stem}.css`, `${stem}.examples.tsx`]
     ) {
@@ -243,6 +270,23 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
   for (const path of files.filter((file) => /\.(?:css|tsx?|js)$/.test(file))) {
     const source = await Deno.readTextFile(path);
     assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
+  }
+});
+
+Deno.test("authored design-system runtime sources are local-only", async () => {
+  const designSystemRoot = join(ROOT, "site", "design-system");
+  for (
+    const path of (await walk(designSystemRoot)).filter((candidate) => {
+      const repoPath = relative(designSystemRoot, candidate);
+      return /\.(?:css|html|tsx?|js)$/.test(candidate) &&
+        !repoPath.startsWith("dist/") &&
+        !repoPath.startsWith("styleguide/generated/");
+    })
+  ) {
+    assert(
+      !/https?:\/\//.test(await Deno.readTextFile(path)),
+      `${relative(ROOT, path)} contains a remote runtime URL`,
+    );
   }
 });
 
