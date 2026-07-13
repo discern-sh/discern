@@ -110,7 +110,10 @@ dir = "skills"
 
 [capabilities]
 format    = "deno fmt"
-build     = "deno task codegen"
+# The build stage produces every generated artifact the check stage reads:
+# codegen for the config reference/schemas/types, the design-system build for
+# the styleguide registry `deno check` type-checks against.
+build     = ["deno task codegen", "deno task design-system:build"]
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
