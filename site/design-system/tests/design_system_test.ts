@@ -414,6 +414,10 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     foundationCss,
     /:where\(\[data-ds-root\] h1,[^}]+text-wrap:\s*pretty;/s,
   );
+  const headingCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "heading", "heading.css"),
+  );
+  assert(!headingCss.includes("text-wrap"));
 });
 
 Deno.test("component labels and compact UI use the UI font", async () => {

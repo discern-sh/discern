@@ -1,7 +1,4 @@
 @layer discern.components {
-  .ds-heading {
-    text-wrap: balance;
-  }
   .ds-heading__accent {
     color: var(--ds-color-accent-600);
     font-style: italic;
