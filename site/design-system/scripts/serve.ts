@@ -22,7 +22,8 @@ export function styleguideFilePath(rawPathname: string): string | null {
   if (pathname.includes("..") || pathname.includes("\0")) return null;
   if (
     pathname.startsWith("/styleguide/dist/") ||
-    pathname.startsWith("/styleguide/src/")
+    pathname.startsWith("/styleguide/src/") ||
+    pathname.startsWith("/styleguide/assets/")
   ) {
     pathname = pathname.slice("/styleguide".length);
   }

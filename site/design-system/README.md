@@ -28,17 +28,20 @@ design-system or page inputs change.
   never target a component-owned `.ds-*` selector. Component internals remain
   reproducible from this directory alone.
 - Component source contains no product copy and no remote asset URLs.
-- Icons are renderable slots. Font loading belongs to the consuming app or the
-  isolated styleguide font provider.
+- Icons are renderable slots. `assets/fonts.css` is the optional, self-hosted
+  provider for the font roles; consumers may replace it without changing the
+  component runtime.
 - New `*.meta.ts` + `*.examples.tsx` pairs are discovered by the build and
   automatically enter the styleguide.
+- `assets/` owns reproducible fonts, licences, and textures. The build copies
+  that complete tree into every runtime output.
 - `dist/`, `styleguide/generated/`, and the public runtime under
-  `site/pages/assets/design-system/` are ignored build output. Authored public
-  assets live under `site/page-src/assets/design-system/`.
+  `site/pages/assets/design-system/` are ignored build output.
 
 ## Public surfaces
 
 - `src/mod.ts` — React component exports and token types.
 - `dist/discern.css` — tokens, foundations, utilities, and component styles.
+- `assets/fonts.css` — optional local font faces matching the typography roles.
 - Components can also be reproduced as semantic HTML using the documented
   `.ds-*` classes; React is an adapter rather than a CSS dependency.

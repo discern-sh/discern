@@ -3,6 +3,7 @@ import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const COMPONENT_ROOT = new URL("../src/components/", import.meta.url);
+const ASSET_ROOT = new URL("../assets/", import.meta.url);
 export const DESIGN_SYSTEM_BUILD_OUTPUTS = {
   runtime: "dist/",
   catalogueRegistry: "styleguide/generated/",
@@ -157,13 +158,15 @@ async function writeManifest(
   );
 }
 
-async function copyRuntimeAssets(outputRoot: URL): Promise<void> {
-  const textureRoot = new URL("textures/", outputRoot);
-  await Deno.mkdir(textureRoot, { recursive: true });
-  await Deno.copyFile(
-    new URL("../assets/textures/grain.png", import.meta.url),
-    new URL("grain.png", textureRoot),
-  );
+async function copyTree(sourceRoot: URL, outputRoot: URL): Promise<void> {
+  await Deno.mkdir(outputRoot, { recursive: true });
+  for await (const entry of Deno.readDir(sourceRoot)) {
+    const suffix = entry.isDirectory ? "/" : "";
+    const source = new URL(`${entry.name}${suffix}`, sourceRoot);
+    const output = new URL(`${entry.name}${suffix}`, outputRoot);
+    if (entry.isDirectory) await copyTree(source, output);
+    else await Deno.copyFile(source, output);
+  }
 }
 
 async function bundleStyleguide(): Promise<void> {
@@ -195,7 +198,7 @@ export async function buildDesignSystemRuntime(
   const components = await componentMetadata(sources);
   await generateCss(sources, outputRoot);
   await writeManifest(outputRoot, components);
-  await copyRuntimeAssets(outputRoot);
+  await copyTree(ASSET_ROOT, outputRoot);
   return { components: components.length, tokens: allTokens.length };
 }
 

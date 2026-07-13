@@ -1,4 +1,4 @@
-/* Font loading belongs to the consuming site, not the component library. */
+/* Optional self-hosted provider for the design-system font roles. */
 @font-face {
   font-family: "Crimson Pro";
   font-style: normal;

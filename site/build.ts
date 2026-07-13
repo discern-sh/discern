@@ -11,10 +11,6 @@ import { formatGeneratedText } from "./page-src/format-generated.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
-const STATIC_ASSET_SOURCE_ROOT = new URL(
-  "assets/design-system/",
-  SOURCE_ROOT,
-);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
@@ -30,17 +26,6 @@ async function removeIfPresent(url: URL): Promise<void> {
     await Deno.remove(url, { recursive: true });
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) throw error;
-  }
-}
-
-async function copyTree(sourceRoot: URL, outputRoot: URL): Promise<void> {
-  await Deno.mkdir(outputRoot, { recursive: true });
-  for await (const entry of Deno.readDir(sourceRoot)) {
-    const suffix = entry.isDirectory ? "/" : "";
-    const source = new URL(`${entry.name}${suffix}`, sourceRoot);
-    const output = new URL(`${entry.name}${suffix}`, outputRoot);
-    if (entry.isDirectory) await copyTree(source, output);
-    else await Deno.copyFile(source, output);
   }
 }
 
@@ -63,10 +48,8 @@ export async function buildSite(): Promise<void> {
 
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
   const summary = await buildDesignSystemRuntime(ASSET_ROOT);
-  await copyTree(STATIC_ASSET_SOURCE_ROOT, ASSET_ROOT);
   await writeGeneratedCopy("design-system-demo.css", "demo.css");
   await writeGeneratedCopy("design-system-demo.js", "demo.js");
-  await writeGeneratedCopy("design-system-fonts.css", "fonts.css");
   await Deno.writeTextFile(
     PAGE_OUTPUT,
     await formatGeneratedText(renderDesignSystemDemo(summary), "html"),

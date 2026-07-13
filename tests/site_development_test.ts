@@ -188,12 +188,22 @@ Deno.test("the local site runner builds and mounts the complete styleguide", asy
     styleguideFilePath("/styleguide/src/components/core/button/button.tsx"),
     "./src/components/core/button/button.tsx",
   );
+  assertEquals(
+    styleguideFilePath("/styleguide/assets/fonts.css"),
+    "./assets/fonts.css",
+  );
 
   const response = await localHandler(
     new Request("http://localhost/styleguide/"),
   );
   assertEquals(response.status, 200);
   assertStringIncludes(await response.text(), "Discern design system");
+
+  const fonts = await localHandler(
+    new Request("http://localhost/styleguide/assets/fonts.css"),
+  );
+  assertEquals(fonts.status, 200);
+  assertStringIncludes(fonts.headers.get("content-type") ?? "", "text/css");
 
   const redirect = await localHandler(
     new Request("http://localhost/styleguide"),

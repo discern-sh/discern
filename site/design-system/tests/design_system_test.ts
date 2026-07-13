@@ -23,9 +23,8 @@ const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
 const AUTHORED_ASSET_ROOT = join(
   ROOT,
   "site",
-  "page-src",
-  "assets",
   "design-system",
+  "assets",
 );
 const COMPONENT_ROOT = join(ROOT, "site", "design-system", "src", "components");
 
@@ -167,12 +166,11 @@ Deno.test("design-system sources deterministically reproduce every generated run
   const temp = await Deno.makeTempDir();
   try {
     const summary = await buildDesignSystemRuntime(toFileUrl(`${temp}/`));
+    const authoredAssets = (await walk(AUTHORED_ASSET_ROOT)).map((path) =>
+      relative(AUTHORED_ASSET_ROOT, path)
+    );
     for (
-      const relative of [
-        "discern.css",
-        "manifest.json",
-        join("textures", "grain.png"),
-      ]
+      const relative of ["discern.css", "manifest.json", ...authoredAssets]
     ) {
       assertEquals(
         await sha256(join(temp, relative)),
@@ -196,7 +194,6 @@ Deno.test("design-system sources deterministically reproduce every generated run
     const [source, output] of [
       ["design-system-demo.css", "demo.css"],
       ["design-system-demo.js", "demo.js"],
-      ["design-system-fonts.css", "fonts.css"],
     ] as const
   ) {
     const authored = await Deno.readTextFile(
@@ -499,4 +496,14 @@ Deno.test("self-hosted font binaries carry their open-font licences", async () =
       "SIL OPEN FONT LICENSE",
     );
   }
+
+  const provider = await Deno.readTextFile(
+    join(AUTHORED_ASSET_ROOT, "fonts.css"),
+  );
+  assert(!/https?:\/\//.test(provider));
+  const styleguide = await Deno.readTextFile(
+    join(ROOT, "site", "design-system", "styleguide", "index.html"),
+  );
+  assertStringIncludes(styleguide, 'href="assets/fonts.css"');
+  assert(!styleguide.includes("font-provider.css"));
 });

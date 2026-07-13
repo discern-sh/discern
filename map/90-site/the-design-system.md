@@ -8,8 +8,8 @@ only when its own generated edition is ready to replace the old route.
 
 | Tree                                               | Owns                                                                                                           |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, and the local React catalogue. |
-| [`site/page-src/`](../../site/page-src/)           | Page composition, product copy, fonts, licences, and small progressive enhancements.                           |
+| [`site/design-system/`](../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, assets, and the local React catalogue. |
+| [`site/page-src/`](../../site/page-src/)           | Page composition, product copy, and small progressive enhancements.                                                  |
 | [`site/pages/`](../../site/pages/)                 | Hand-authored legacy editions plus ignored design-system output created before local serving or deployment.    |
 
 Product copy never enters the component library. Conversely, page sources use
@@ -58,10 +58,11 @@ component auto-enrols rather than waiting for a hand-maintained test list.
 while its scoped gate owns the catalogue build and subsystem tests.
 
 The generated runtime consists of `discern.css`, a deterministic manifest, and
-owned texture assets. The consuming page supplies font faces. The demo fonts are
-authored as WOFF2 files under `site/page-src/assets/design-system/fonts/`, with
-their SIL Open Font Licence texts beside them; the site build copies both into
-the public output.
+the complete authored `site/design-system/assets/` tree. That tree includes the
+optional local `fonts.css` provider, its WOFF2 files and SIL Open Font Licence
+texts, and texture assets. The isolated catalogue and generated demo therefore
+use the same design-system-owned provider; a consumer may replace it without
+changing the component runtime.
 
 ## Theme fidelity
 
