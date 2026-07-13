@@ -60,6 +60,10 @@ Display chrome keeps the distinction explicit: `Window` titles use the UI role,
 while `Divider` is a quiet editorial rule whose optional label is marked by a
 small accent datum rather than a patterned band.
 
+`Terminal` mirrors the `Window` frame contract but renders its body as semantic
+`pre`/`code`: whitespace is preserved, long output scrolls horizontally, and the
+dark console palette stays recognisable in either site theme.
+
 ## Authoring a page from this directory
 
 This directory is the complete visual handoff. A page author should not need an

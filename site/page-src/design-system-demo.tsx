@@ -14,7 +14,7 @@ import {
   Section,
   Stack,
   Tag,
-  Window,
+  Terminal,
 } from "../design-system/src/mod.ts";
 
 export interface DemoStats {
@@ -137,38 +137,45 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
                 </Cluster>
               </Stack>
 
-              <Window title="discern done" className="demo-window ds-reveal">
-                <div className="demo-terminal">
-                  <div className="demo-terminal__command">
-                    <span aria-hidden="true">$</span> discern done --json
-                  </div>
-                  <div className="demo-terminal__rule" />
-                  <div className="demo-terminal__row">
-                    <span>format</span>
-                    <strong>passed</strong>
-                  </div>
-                  <div className="demo-terminal__row">
-                    <span>typecheck</span>
-                    <strong>passed</strong>
-                  </div>
-                  <div className="demo-terminal__row">
-                    <span>tests</span>
-                    <strong>1,284 passed</strong>
-                  </div>
-                  <div className="demo-terminal__rule" />
-                  <div className="demo-terminal__receipt">
-                    <CheckIcon />
-                    <span>clean HEAD · receipt recorded</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="demo-copy"
-                    data-copy="discern done --json"
-                  >
-                    copy command
-                  </button>
-                </div>
-              </Window>
+              <Terminal
+                title="discern done"
+                className="demo-window ds-reveal"
+                bodyStyle={{ minHeight: 330 }}
+              >
+                <span className="demo-terminal__command">
+                  <span className="ds-terminal__prompt" aria-hidden="true">
+                    $
+                  </span>{" "}
+                  discern done --json
+                </span>
+                <span className="demo-terminal__rule" />
+                <span className="demo-terminal__row">
+                  <span>format</span>
+                  <strong className="ds-terminal__success">passed</strong>
+                </span>
+                <span className="demo-terminal__row">
+                  <span>typecheck</span>
+                  <strong className="ds-terminal__success">passed</strong>
+                </span>
+                <span className="demo-terminal__row">
+                  <span>tests</span>
+                  <strong className="ds-terminal__success">
+                    1,284 passed
+                  </strong>
+                </span>
+                <span className="demo-terminal__rule" />
+                <span className="demo-terminal__receipt">
+                  <CheckIcon />
+                  <span>clean HEAD · receipt recorded</span>
+                </span>
+                <button
+                  type="button"
+                  className="demo-copy"
+                  data-copy="discern done --json"
+                >
+                  copy command
+                </button>
+              </Terminal>
             </div>
           </Container>
         </Section>

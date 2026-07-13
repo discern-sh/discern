@@ -20,6 +20,7 @@ import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
 import { Kicker } from "../src/components/display/kicker/kicker.tsx";
+import { Terminal } from "../src/components/display/terminal/terminal.tsx";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
@@ -514,6 +515,29 @@ Deno.test("the light sunken surface stays pale and low-chroma", () => {
     sunken?.light,
     "oklch(96.5% 0.004 var(--ds-canvas-hue))",
   );
+});
+
+Deno.test("terminal renders semantic, scrollable monospace output", async () => {
+  const html = renderToStaticMarkup(
+    createElement(Terminal, {
+      title: "verify",
+      children: "$ deno task verify",
+    }),
+  );
+  assertStringIncludes(html, '<figure class="ds-terminal">');
+  assertStringIncludes(html, '<span class="ds-terminal__title">verify</span>');
+  assertStringIncludes(
+    html,
+    '<pre class="ds-terminal__body"><code>$ deno task verify</code></pre>',
+  );
+
+  const css = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "terminal", "terminal.css"),
+  );
+  const bodyRule = css.match(/\.ds-terminal__body\s*\{[^}]+\}/s)?.[0] ?? "";
+  assertStringIncludes(bodyRule, "overflow: auto");
+  assertStringIncludes(bodyRule, "font-family: var(--ds-font-mono)");
+  assertStringIncludes(bodyRule, "white-space: pre");
 });
 
 Deno.test("kicker isolates its monospace index from UI text", async () => {

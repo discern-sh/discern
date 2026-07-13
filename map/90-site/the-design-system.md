@@ -90,6 +90,12 @@ while `Divider` uses a restrained editorial rule and accent datum instead of a
 large decorative band. The sunken surface remains a low-chroma paper neutral in
 light mode so inset regions read through depth rather than a brown tint.
 
+`Terminal` is the code-output counterpart to `Window`. It retains the same
+framed figure, title bar, and body-style override, while its semantic
+`pre`/`code` body preserves whitespace, scrolls long lines, and owns an
+always-dark console palette. The generated design-system demo consumes the
+component directly rather than recreating terminal chrome in page CSS.
+
 ## Theme fidelity
 
 The numbered accent ramp names roles, not fixed lightness. In light mode,
