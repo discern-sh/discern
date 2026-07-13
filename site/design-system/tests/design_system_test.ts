@@ -311,7 +311,10 @@ Deno.test("component labels and compact UI use the UI font", async () => {
   ) {
     const css = await Deno.readTextFile(join(COMPONENT_ROOT, ...component));
     assertStringIncludes(css, "var(--ds-font-ui)", component.join("/"));
+    assertStringIncludes(css, "var(--ds-font-size-xs)", component.join("/"));
     assert(!css.includes("var(--ds-font-mono)"), component.join("/"));
+    assert(!css.includes("letter-spacing"), component.join("/"));
+    assert(!css.includes("text-transform: uppercase"), component.join("/"));
   }
 });
 

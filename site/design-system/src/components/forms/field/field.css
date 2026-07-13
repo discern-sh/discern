@@ -6,10 +6,10 @@
   }
   .ds-field__label {
     color: var(--ds-color-ink-muted);
-    font: 0.625rem var(--ds-font-ui);
+    font-family: var(--ds-font-ui);
+    font-size: var(--ds-font-size-xs);
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    line-height: 1.2;
   }
   .ds-field__required {
     color: var(--ds-color-danger);

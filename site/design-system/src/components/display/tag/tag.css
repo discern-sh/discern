@@ -9,7 +9,9 @@
     border-radius: var(--ds-radius-xs);
     background: var(--ds-color-surface-sunken);
     color: var(--ds-color-ink-muted);
-    font: 0.6875rem var(--ds-font-ui);
+    font-family: var(--ds-font-ui);
+    font-size: var(--ds-font-size-xs);
+    line-height: 1.3;
   }
   .ds-tag__remove {
     display: grid;

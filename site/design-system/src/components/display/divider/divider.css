@@ -14,9 +14,10 @@
     border-radius: var(--ds-radius-pill);
     background: var(--ds-color-canvas);
     color: var(--ds-color-ink-faint);
-    font: 0.625rem var(--ds-font-ui);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-family: var(--ds-font-ui);
+    font-size: var(--ds-font-size-xs);
+    font-weight: 600;
+    line-height: 1.2;
   }
   .ds-divider--surface .ds-divider__label {
     background: var(--ds-color-surface);

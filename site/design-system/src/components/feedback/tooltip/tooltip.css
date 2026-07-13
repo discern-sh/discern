@@ -19,7 +19,8 @@
     translate: -50% 3px;
     transition: opacity var(--ds-duration-fast), translate
       var(--ds-duration-fast);
-    font: 0.6875rem var(--ds-font-ui);
+    font-family: var(--ds-font-ui);
+    font-size: var(--ds-font-size-xs);
     line-height: 1.4;
   }
   .ds-tooltip--bottom .ds-tooltip__bubble {

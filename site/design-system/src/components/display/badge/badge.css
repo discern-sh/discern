@@ -13,11 +13,9 @@
     background: var(--ds-badge-bg);
     color: var(--ds-badge-text);
     font-family: var(--ds-font-ui);
-    font-size: 0.625rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: 600;
-    letter-spacing: 0.08em;
-    line-height: 1;
-    text-transform: uppercase;
+    line-height: 1.2;
   }
   .ds-badge__dot {
     inline-size: 6px;
