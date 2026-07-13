@@ -2,7 +2,10 @@
  * whenever an authored site input changes. Production continues to use
  * `site/main.ts` and its platform-assigned bind address. */
 
-import { siteBuildInputPaths } from "./build_inputs.ts";
+import {
+  siteBuildEventNeedsRebuild,
+  siteBuildInputPaths,
+} from "./build_inputs.ts";
 import { handler } from "./serve.ts";
 import styleguideServer from "./design-system/scripts/serve.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
@@ -119,7 +122,9 @@ async function watchSiteBuildInputs(): Promise<never> {
 
   console.log("Watching authored site and design-system inputs...");
   for await (const event of watcher) {
-    if (event.kind === "access") continue;
+    if (event.kind === "access" || !siteBuildEventNeedsRebuild(event.paths)) {
+      continue;
+    }
     if (debounce !== undefined) clearTimeout(debounce);
     debounce = setTimeout(() => {
       debounce = undefined;

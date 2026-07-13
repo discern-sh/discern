@@ -3,8 +3,18 @@ import type { ComponentMeta } from "../src/types/component-meta.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const COMPONENT_ROOT = new URL("../src/components/", import.meta.url);
-const GENERATED_ROOT = new URL("../styleguide/generated/", import.meta.url);
-const DIST_ROOT = new URL("../dist/", import.meta.url);
+export const DESIGN_SYSTEM_BUILD_OUTPUTS = {
+  runtime: "dist/",
+  catalogueRegistry: "styleguide/generated/",
+} as const;
+const GENERATED_ROOT = new URL(
+  `../${DESIGN_SYSTEM_BUILD_OUTPUTS.catalogueRegistry}`,
+  import.meta.url,
+);
+const DIST_ROOT = new URL(
+  `../${DESIGN_SYSTEM_BUILD_OUTPUTS.runtime}`,
+  import.meta.url,
+);
 
 interface ComponentSource {
   readonly metaUrl: URL;

@@ -13,11 +13,15 @@ import {
   SITE_DEV_BROWSER_HOST,
 } from "../site/dev.ts";
 import {
+  SITE_BUILD_EVENT_IGNORES,
   SITE_BUILD_INPUTS,
+  siteBuildEventNeedsRebuild,
   siteBuildInputPaths,
 } from "../site/build_inputs.ts";
 import { styleguideFilePath } from "../site/design-system/scripts/serve.ts";
+import { DESIGN_SYSTEM_BUILD_OUTPUTS } from "../site/design-system/scripts/build.ts";
 import { handler } from "../site/serve.ts";
+import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
 
 interface DenoConfig {
   readonly tasks?: Readonly<Record<string, string>>;
@@ -50,6 +54,26 @@ async function developmentConfigs(): Promise<ConfigEntry[]> {
   return entries;
 }
 
+function unignoredWatchedBuildOutputOverlaps(
+  inputs: readonly string[],
+  outputs: readonly string[],
+  ignores: readonly string[],
+): string[] {
+  const normalized = (path: string): string => path.replace(/\/$/, "");
+  return inputs.flatMap((input) => {
+    const root = normalized(input);
+    return outputs
+      .map(normalized)
+      .filter((output) => output === root || output.startsWith(`${root}/`))
+      .filter((output) =>
+        !ignores.map(normalized).some((ignored) =>
+          output === ignored || output.startsWith(`${ignored}/`)
+        )
+      )
+      .map((output) => `${root} -> ${output}`);
+  });
+}
+
 function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   const loopbackHost =
     /--host(?:=|\s+)(?:localhost|127\.0\.0\.1|::1|\[::1\])(?:\s|$)/;
@@ -71,6 +95,51 @@ Deno.test("the development-server detector catches a freshly named wildcard sibl
       config: { tasks: { preview: "deno serve --port 9999 app.ts" } },
     }]),
     ["unrelated/deno.json:preview"],
+  );
+});
+
+Deno.test("watched build inputs never contain generated outputs", () => {
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      ["feature"],
+      ["feature/cache"],
+      [],
+    ),
+    ["feature -> feature/cache"],
+  );
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      ["feature"],
+      ["feature/cache"],
+      ["feature/cache"],
+    ),
+    [],
+  );
+  const outputs = [
+    ...GENERATED_SITE_OUTPUTS.map((path) => `site/${path}`),
+    ...Object.values(DESIGN_SYSTEM_BUILD_OUTPUTS).map((path) =>
+      `site/design-system/${path}`
+    ),
+  ];
+  assertEquals(
+    unignoredWatchedBuildOutputOverlaps(
+      SITE_BUILD_INPUTS,
+      outputs,
+      SITE_BUILD_EVENT_IGNORES,
+    ),
+    [],
+  );
+  assertEquals(
+    siteBuildEventNeedsRebuild([
+      join(REPO, "site/design-system/styleguide/generated/registry.ts"),
+    ]),
+    false,
+  );
+  assertEquals(
+    siteBuildEventNeedsRebuild([
+      join(REPO, "site/design-system/styleguide/app.tsx"),
+    ]),
+    true,
   );
 });
 
@@ -130,7 +199,10 @@ Deno.test("the local site runner builds and mounts the complete styleguide", asy
     new Request("http://localhost/styleguide"),
   );
   assertEquals(redirect.status, 307);
-  assertEquals(redirect.headers.get("location"), "http://localhost/styleguide/");
+  assertEquals(
+    redirect.headers.get("location"),
+    "http://localhost/styleguide/",
+  );
 
   const production = await handler(
     new Request("http://localhost/styleguide/"),
