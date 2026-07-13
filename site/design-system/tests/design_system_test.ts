@@ -281,7 +281,7 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   assertEquals(
     tokens.get("--ds-font-mono"),
-    '"Reddit Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
   );
 
   const buttonCss = await Deno.readTextFile(

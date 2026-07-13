@@ -59,7 +59,7 @@ export const designTokens = [
   ),
   token(
     "--ds-font-mono",
-    '"Reddit Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
     "Typography",
     "Code and annotation face.",
   ),

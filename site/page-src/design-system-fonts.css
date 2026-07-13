@@ -32,9 +32,9 @@
 }
 
 @font-face {
-  font-family: "Reddit Mono";
+  font-family: "JetBrains Mono";
   font-style: normal;
-  font-weight: 200 900;
+  font-weight: 400 600;
   font-display: swap;
-  src: url("./fonts/reddit-mono.woff2") format("woff2");
+  src: url("./fonts/jetbrains-mono.woff2") format("woff2");
 }
