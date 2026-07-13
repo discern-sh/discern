@@ -56,6 +56,10 @@ for display type and JetBrains Mono for code.
 label with the UI family and feature set; size, weight, tracking, colour, and
 uppercase treatment remain shared by both parts.
 
+Display chrome keeps the distinction explicit: `Window` titles use the UI role,
+while `Divider` is a quiet editorial rule whose optional label is marked by a
+small accent datum rather than a patterned band.
+
 ## Authoring a page from this directory
 
 This directory is the complete visual handoff. A page author should not need an

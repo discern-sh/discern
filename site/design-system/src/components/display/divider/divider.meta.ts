@@ -4,5 +4,5 @@ export default {
   slug: "divider",
   group: "Display",
   order: 30,
-  description: "Blueprint hatch separator with an optional annotation label.",
+  description: "Quiet editorial rule with an optional annotation label.",
 } satisfies ComponentMeta;

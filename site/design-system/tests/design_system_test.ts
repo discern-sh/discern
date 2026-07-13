@@ -460,6 +460,14 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
   assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+  assertStringIncludes(
+    buttonCss,
+    "--ds-button-fill: var(--ds-color-accent-100)",
+  );
+  assertStringIncludes(
+    buttonCss,
+    "box-shadow: 2px 2px 0 var(--ds-button-shadow)",
+  );
 
   const foundationCss = await Deno.readTextFile(
     join(ROOT, "site", "design-system", "src", "styles", "foundation.css"),
@@ -472,6 +480,40 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
     join(COMPONENT_ROOT, "display", "heading", "heading.css"),
   );
   assert(!headingCss.includes("text-wrap"));
+});
+
+Deno.test("display chrome uses its intended typography and rule treatment", async () => {
+  const windowCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "window", "window.css"),
+  );
+  const titleRule = windowCss.match(/\.ds-window__title\s*\{[^}]+\}/s)?.[0] ??
+    "";
+  assertStringIncludes(titleRule, "font-family: var(--ds-font-ui)");
+  assertStringIncludes(
+    titleRule,
+    "font-feature-settings: var(--ds-font-features-ui)",
+  );
+  assert(!titleRule.includes("var(--ds-font-mono)"));
+
+  const dividerCss = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "display", "divider", "divider.css"),
+  );
+  assert(!dividerCss.includes("repeating-linear-gradient"));
+  assertMatch(dividerCss, /\.ds-divider::before,[^}]+\.ds-divider::after/s);
+  assertMatch(
+    dividerCss,
+    /\.ds-divider__label::before\s*\{[^}]+transform:\s*rotate\(45deg\);/s,
+  );
+});
+
+Deno.test("the light sunken surface stays pale and low-chroma", () => {
+  const sunken = themeTokens.find((token) =>
+    token.name === "--ds-color-surface-sunken"
+  );
+  assertEquals(
+    sunken?.light,
+    "oklch(96.5% 0.004 var(--ds-canvas-hue))",
+  );
 });
 
 Deno.test("kicker isolates its monospace index from UI text", async () => {

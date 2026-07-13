@@ -216,7 +216,7 @@ export const themeTokens = [
   ),
   themeToken(
     "--ds-color-surface-sunken",
-    "oklch(94.2% 0.01 var(--ds-canvas-hue))",
+    "oklch(96.5% 0.004 var(--ds-canvas-hue))",
     "oklch(17.5% 0.016 var(--ds-ink-hue))",
     "Inset surface.",
   ),
@@ -284,7 +284,7 @@ export const themeTokens = [
     "--ds-color-stripe",
     "oklch(85% 0.014 var(--ds-canvas-hue))",
     "oklch(33% 0.022 var(--ds-ink-hue))",
-    "Blueprint hatch and window-chrome pigment.",
+    "Decorative hatch and window-chrome pigment.",
   ),
   themeToken(
     "--ds-color-success",

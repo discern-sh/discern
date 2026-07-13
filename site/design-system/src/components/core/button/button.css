@@ -1,7 +1,7 @@
 @layer discern.components {
   .ds-button {
-    --ds-button-fill: var(--ds-color-accent-200);
-    --ds-button-fill-hover: var(--ds-color-accent-100);
+    --ds-button-fill: var(--ds-color-accent-100);
+    --ds-button-fill-hover: var(--ds-color-accent-200);
     --ds-button-border: var(--ds-color-accent-600);
     --ds-button-text: var(--ds-color-accent-800);
     --ds-button-shadow: var(--ds-color-accent-600);
@@ -14,7 +14,7 @@
     border: 2px solid var(--ds-button-border);
     border-radius: var(--ds-radius-md);
     background: var(--ds-button-fill);
-    box-shadow: 3px 3px 0 var(--ds-button-shadow);
+    box-shadow: 2px 2px 0 var(--ds-button-shadow);
     color: var(--ds-button-text);
     cursor: pointer;
     font-family: var(--ds-font-ui);

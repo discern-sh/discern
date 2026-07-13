@@ -12,6 +12,7 @@ export const Divider = forwardRef<HTMLDivElement, DividerProps>(
     { label, surface = "canvas", className, ...props },
     ref,
   ) {
+    const hasLabel = label !== undefined && label !== null;
     return (
       <div
         ref={ref}
@@ -19,11 +20,12 @@ export const Divider = forwardRef<HTMLDivElement, DividerProps>(
         className={classNames(
           "ds-divider",
           `ds-divider--${surface}`,
+          hasLabel ? "ds-divider--labelled" : "ds-divider--plain",
           className,
         )}
         {...props}
       >
-        {label ? <span className="ds-divider__label">{label}</span> : null}
+        {hasLabel ? <span className="ds-divider__label">{label}</span> : null}
       </div>
     );
   },

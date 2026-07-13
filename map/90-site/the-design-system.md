@@ -85,6 +85,11 @@ index uses the mono face, while its trailing label uses the UI family and
 feature set. Both parts inherit the component's compact size, colour, weight,
 tracking, and uppercase treatment.
 
+Display chrome follows the same role boundary. `Window` titles use UI type,
+while `Divider` uses a restrained editorial rule and accent datum instead of a
+large decorative band. The sunken surface remains a low-chroma paper neutral in
+light mode so inset regions read through depth rather than a brown tint.
+
 ## Theme fidelity
 
 The numbered accent ramp names roles, not fixed lightness. In light mode,

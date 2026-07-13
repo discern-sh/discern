@@ -1,18 +1,41 @@
 @layer discern.components {
   .ds-divider {
+    --ds-divider-ground: var(--ds-color-canvas);
     display: flex;
     align-items: center;
     justify-content: center;
-    min-block-size: 36px;
-    border-block: 1px solid var(--ds-color-border);
-    background-image: repeating-linear-gradient(45deg, transparent 0 5px,
-      var(--ds-color-stripe) 5px 6px);
+    gap: var(--ds-space-3);
+    min-block-size: 24px;
+  }
+  .ds-divider::before,
+  .ds-divider::after {
+    flex: 1;
+    min-inline-size: 0;
+    block-size: 1px;
+    background: linear-gradient(to right, transparent,
+      var(--ds-color-border-strong));
+    content: "";
+  }
+  .ds-divider::after {
+    background: linear-gradient(to left, transparent,
+      var(--ds-color-border-strong));
+  }
+  .ds-divider--plain {
+    gap: 0;
+  }
+  .ds-divider--plain::before {
+    background: var(--ds-color-border);
+  }
+  .ds-divider--plain::after {
+    content: none;
   }
   .ds-divider__label {
-    padding: 4px 12px;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-pill);
-    background: var(--ds-color-canvas);
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--ds-space-2);
+    padding-inline: var(--ds-space-1);
+    background: var(--ds-divider-ground);
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
@@ -20,7 +43,15 @@
     font-weight: 600;
     line-height: 1.2;
   }
-  .ds-divider--surface .ds-divider__label {
-    background: var(--ds-color-surface);
+  .ds-divider__label::before {
+    inline-size: 6px;
+    block-size: 6px;
+    border: 1px solid var(--ds-color-accent-500);
+    background: var(--ds-color-accent-100);
+    content: "";
+    transform: rotate(45deg);
+  }
+  .ds-divider--surface {
+    --ds-divider-ground: var(--ds-color-surface);
   }
 }
