@@ -43,6 +43,11 @@ deno task site                   # build, then serve on main/worktree port
 deno task watch                  # serve and rebuild when authored inputs change
 ```
 
+The root watch task also builds and serves the catalogue at `/styleguide/` on
+the same main/worktree port as the public demo. The subsystem's `deno task
+serve` remains available for an isolated catalogue-only process, but ordinary
+design iteration needs only the root watcher.
+
 The library build discovers every `*.meta.ts` file. Its component folder must
 also carry the implementation, CSS, examples, and `mod.ts`; the public module
 must export that folder. This is checked from the discovered set, so a new

@@ -9,6 +9,7 @@ export const SITE_BUILD_INPUTS = [
   "site/design-system/assets",
   "site/design-system/scripts",
   "site/design-system/src",
+  "site/design-system/styleguide",
   "site/page-src",
 ] as const;
 

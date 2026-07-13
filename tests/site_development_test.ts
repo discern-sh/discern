@@ -1,10 +1,12 @@
 /** Development-server contracts: local URLs stay browser-usable and watch mode
  * rebuilds from the complete authored site-input boundary. */
 
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
   DEFAULT_SITE_DEV_PORT,
+  LOCAL_SITE_BUILD_TASKS,
+  localHandler,
   parseSiteDevPort,
   resolveSiteDevPort,
   SITE_DEV_BIND_HOST,
@@ -14,6 +16,8 @@ import {
   SITE_BUILD_INPUTS,
   siteBuildInputPaths,
 } from "../site/build_inputs.ts";
+import { styleguideFilePath } from "../site/design-system/scripts/serve.ts";
+import { handler } from "../site/serve.ts";
 
 interface DenoConfig {
   readonly tasks?: Readonly<Record<string, string>>;
@@ -103,6 +107,35 @@ Deno.test("the site development port prefers an override, then worktree identity
     await resolveSiteDevPort(undefined, () => Promise.resolve(undefined)),
     DEFAULT_SITE_DEV_PORT,
   );
+});
+
+Deno.test("the local site runner builds and mounts the complete styleguide", async () => {
+  assertEquals(LOCAL_SITE_BUILD_TASKS, ["site:build", "design-system:build"]);
+  assertEquals(
+    styleguideFilePath("/styleguide/dist/styleguide.js"),
+    "./dist/styleguide.js",
+  );
+  assertEquals(
+    styleguideFilePath("/styleguide/src/components/core/button/button.tsx"),
+    "./src/components/core/button/button.tsx",
+  );
+
+  const response = await localHandler(
+    new Request("http://localhost/styleguide/"),
+  );
+  assertEquals(response.status, 200);
+  assertStringIncludes(await response.text(), "Discern design system");
+
+  const redirect = await localHandler(
+    new Request("http://localhost/styleguide"),
+  );
+  assertEquals(redirect.status, 307);
+  assertEquals(redirect.headers.get("location"), "http://localhost/styleguide/");
+
+  const production = await handler(
+    new Request("http://localhost/styleguide/"),
+  );
+  assertEquals(production.status, 404);
 });
 
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {

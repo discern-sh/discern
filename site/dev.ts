@@ -4,6 +4,7 @@
 
 import { siteBuildInputPaths } from "./build_inputs.ts";
 import { handler } from "./serve.ts";
+import styleguideServer from "./design-system/scripts/serve.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { fromFileUrl, join } from "@std/path";
 
@@ -14,6 +15,10 @@ const WATCH_DEBOUNCE_MS = 100;
 export const SITE_DEV_BIND_HOST = "127.0.0.1";
 export const SITE_DEV_BROWSER_HOST = "localhost";
 export const DEFAULT_SITE_DEV_PORT = 4507;
+export const LOCAL_SITE_BUILD_TASKS = [
+  "site:build",
+  "design-system:build",
+] as const;
 
 /** Parse an optional local port override without silently accepting garbage. */
 export function parseSiteDevPort(value: string | undefined): number {
@@ -50,14 +55,26 @@ export async function resolveSiteDevPort(
 
 /** Run the build in a fresh process so changed TS modules cannot remain cached. */
 async function runSiteBuild(): Promise<boolean> {
-  const result = await new Deno.Command(Deno.execPath(), {
-    args: ["task", "site:build"],
-    cwd: decodeURIComponent(REPO_ROOT.pathname),
-    stdin: "null",
-    stdout: "inherit",
-    stderr: "inherit",
-  }).output();
-  return result.success;
+  for (const task of LOCAL_SITE_BUILD_TASKS) {
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: ["task", task],
+      cwd: REPO_ROOT_PATH,
+      stdin: "null",
+      stdout: "inherit",
+      stderr: "inherit",
+    }).output();
+    if (!result.success) return false;
+  }
+  return true;
+}
+
+/** Add the local catalogue without exposing it through the production handler. */
+export async function localHandler(request: Request): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  if (path === "/styleguide" || path.startsWith("/styleguide/")) {
+    return await styleguideServer.fetch(request);
+  }
+  return await handler(request);
 }
 
 function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
@@ -71,7 +88,7 @@ function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
         );
       },
     },
-    handler,
+    localHandler,
   );
 }
 

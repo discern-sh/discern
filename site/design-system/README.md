@@ -10,13 +10,14 @@ live in `site/page-src/`.
   browser styleguide bundle.
 - `deno task check` — formatting, linting, and strict type checking.
 - `deno task verify` — the complete local gate.
-- `deno task serve` — build and serve the local styleguide at
+- `deno task serve` — optionally build and serve the styleguide alone at
   `http://127.0.0.1:8010/styleguide/`.
 
 From the repository root, `deno task site:build` uses these adapters only at
 build time to generate static public HTML and CSS. No React runtime ships with
-the landing-page demo. `deno task watch` serves that demo on localhost and
-rebuilds it when authored design-system or page inputs change.
+the landing-page demo. Root `deno task watch` serves both that demo and the
+local catalogue at `/styleguide/`, rebuilding them together when authored
+design-system or page inputs change.
 
 ## Source rules
 

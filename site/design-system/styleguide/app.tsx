@@ -264,7 +264,7 @@ function App() {
                       <p>{meta.description}</p>
                     </div>
                     <a
-                      href={`../src/components/${meta.group.toLowerCase()}/${meta.slug}/${meta.slug}.tsx`}
+                      href={`src/components/${meta.group.toLowerCase()}/${meta.slug}/${meta.slug}.tsx`}
                       target="_blank"
                     >
                       Source ↗
