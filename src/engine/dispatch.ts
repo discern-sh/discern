@@ -120,6 +120,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "map",
   "help",
   "config",
+  "licenses",
 ]);
 
 /**

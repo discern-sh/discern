@@ -146,7 +146,7 @@ a production agentic-development workflow and generalised until nothing
 stack-specific remained.
 
 **[discern.sh](https://discern.sh)** · [Documentation](map/) ·
-[Decisions](map/_adr/)
+[Decisions](map/_adr/) · [License](LICENSE)
 
 ---
 
