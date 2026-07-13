@@ -4,9 +4,9 @@
 the engine's own `discoverDocs`, and the publish boundary is
 `BUNDLED_PUBLIC_DOC_DIRS` in [`src/lib/paths.ts`](../../src/lib/paths.ts) — the
 allowlist that already decides which map subtrees ship inside every customer
-binary ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). There is
-no site-side content list: a leaf added to a public tier appears in the nav, the
-search index, llms.txt, and the test suite with no site change.
+binary ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). A leaf
+added to a public tier appears in the nav, the search index, llms.txt, and the
+test suite automatically.
 
 ## Sourcing and routes
 
@@ -27,25 +27,23 @@ its landing page.
 
 ## Rendering
 
-Markdown renders at request time and caches for the process lifetime — files are
-immutable per deployment, so the cache never invalidates. Syntax highlighting is
-deliberately monochrome (weights and shades of ink): in this design family,
-color belongs to verdicts alone. Relative links rewrite to routes when the
-target is published, and to the repository on GitHub when it is not (ADRs,
-internal tiers, source files), so no reference dead-ends.
+Markdown renders at request time and caches for the process lifetime. Syntax
+highlighting is deliberately monochrome: in this design family, color belongs to
+verdicts alone. Relative links rewrite to routes when the target is published,
+and to the repository on GitHub when it is not (ADRs, internal tiers, source
+files), so no reference dead-ends.
 
 The browser shell is a design-system consumer: the server renders semantic HTML
 on the documented `.ds-*` classes, loading the generated tokens and component
 styles plus the self-hosted fonts from `/assets/design-system/`. Page-specific
 composition lives in `site/pages/assets/docs.css` and behaviour in
-`site/pages/assets/docs.js`; no React runtime ships.
+`site/pages/assets/docs.js`.
 
 ## Reader negotiation
 
 Every docs route negotiates like the rest of the site: a text client receives
-the leaf's raw Markdown — the same bytes `discern help <leaf> --raw` prints —
-and any reader can force it with the `.md` suffix. Negotiated responses carry
-`Vary: Accept, User-Agent`.
+the leaf's raw Markdown, and any reader can force it with the `.md` suffix.
+Negotiated responses carry `Vary: Accept, User-Agent`.
 
 ## Guards
 
