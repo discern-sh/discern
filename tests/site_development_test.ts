@@ -6,6 +6,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import {
   DEFAULT_SITE_DEV_PORT,
   parseSiteDevPort,
+  resolveSiteDevPort,
   SITE_DEV_BIND_HOST,
   SITE_DEV_BROWSER_HOST,
 } from "../site/dev.ts";
@@ -86,11 +87,29 @@ Deno.test("the site development runner advertises localhost and rejects bad port
   assertThrows(() => parseSiteDevPort("0"), Error, "PORT must be");
 });
 
+Deno.test("the site development port prefers an override, then worktree identity, then the main default", async () => {
+  const unexpectedDiscovery = (): Promise<number | undefined> => {
+    throw new Error("an explicit PORT must bypass worktree discovery");
+  };
+  assertEquals(
+    await resolveSiteDevPort("4510", unexpectedDiscovery),
+    4510,
+  );
+  assertEquals(
+    await resolveSiteDevPort(undefined, () => Promise.resolve(13_812)),
+    13_812,
+  );
+  assertEquals(
+    await resolveSiteDevPort(undefined, () => Promise.resolve(undefined)),
+    DEFAULT_SITE_DEV_PORT,
+  );
+});
+
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);

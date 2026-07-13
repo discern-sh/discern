@@ -8,7 +8,7 @@ production serves.
 ## Run it locally
 
 ```sh
-deno task site                    # http://localhost:4507
+deno task site                    # main: :4507; worktree: its discern port
 deno task watch                   # same URL; rebuild when authored inputs change
 deno task site:build
 deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after build
@@ -16,10 +16,13 @@ deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after buil
 
 The `site` task first runs `site:build`, which deterministically creates the
 ignored design-system demo HTML and assets, then serves the same handler on the
-loopback-only `http://localhost:4507/`. The `watch` task does the same initial
-build, then rebuilds in a fresh Deno process when page sources, design-system
-sources or assets, or build configuration changes. A failed watched rebuild is
-reported and the watcher remains ready for the correcting edit.
+loopback-only `http://localhost:4507/` in the main checkout. In a discern
+worktree both tasks discover its deterministic identity port automatically, so
+concurrent previews do not collide; an explicit `PORT` still wins. The `watch`
+task does the same initial build, then rebuilds in a fresh Deno process when
+page sources, design-system sources or assets, or build configuration changes.
+A failed watched rebuild is reported and the watcher remains ready for the
+correcting edit.
 
 Deno Deploy runs the same build task before it starts the handler through a
 `Deno.serve` entrypoint, [`site/main.ts`](../../site/main.ts) — because the new

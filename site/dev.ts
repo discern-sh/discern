@@ -4,8 +4,11 @@
 
 import { siteBuildInputPaths } from "./build_inputs.ts";
 import { handler } from "./serve.ts";
+import { resolveIdentity } from "../src/engine/worktree/identity.ts";
+import { fromFileUrl, join } from "@std/path";
 
 const REPO_ROOT = new URL("../", import.meta.url);
+const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
 const WATCH_DEBOUNCE_MS = 100;
 
 export const SITE_DEV_BIND_HOST = "127.0.0.1";
@@ -22,6 +25,27 @@ export function parseSiteDevPort(value: string | undefined): number {
     );
   }
   return port;
+}
+
+/** Discover the port discern assigned when this checkout is a linked worktree. */
+async function assignedWorktreePort(): Promise<number | undefined> {
+  try {
+    if (!(await Deno.stat(join(REPO_ROOT_PATH, ".git"))).isFile) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return (await resolveIdentity(REPO_ROOT_PATH, REPO_ROOT_PATH)).port;
+}
+
+/** Prefer an explicit override, then worktree identity, then the main default. */
+export async function resolveSiteDevPort(
+  value: string | undefined,
+  discover: () => Promise<number | undefined> = assignedWorktreePort,
+): Promise<number> {
+  if (value !== undefined) return parseSiteDevPort(value);
+  return (await discover()) ?? DEFAULT_SITE_DEV_PORT;
 }
 
 /** Run the build in a fresh process so changed TS modules cannot remain cached. */
@@ -90,7 +114,7 @@ async function watchSiteBuildInputs(): Promise<never> {
 
 /** Build and serve the site, staying alive to rebuild when requested. */
 export async function runLocalSite(watch: boolean): Promise<void> {
-  const port = parseSiteDevPort(Deno.env.get("PORT"));
+  const port = await resolveSiteDevPort(Deno.env.get("PORT"));
   if (!await runSiteBuild()) throw new Error("Initial site build failed");
   const server = startSiteServer(port);
   if (watch) await watchSiteBuildInputs();
