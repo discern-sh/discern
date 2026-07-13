@@ -23,7 +23,7 @@ Deno.test("the integration-branch override is namespaced and ignores MAIN_BRANCH
   );
 });
 
-Deno.test("Project Scripts receive DISCERN_MAIN_BRANCH and no unnamespaced alias", () => {
+Deno.test("Project scripts receive DISCERN_MAIN_BRANCH and no unnamespaced alias", () => {
   assertEquals(
     scriptEnvVars({
       root: "/project",

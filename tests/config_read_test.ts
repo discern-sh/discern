@@ -6,7 +6,7 @@ import {
 } from "../src/shared/config_read.ts";
 
 // `RawConfig` is the narrow, UNTYPED reader behind `discern config get` (the
-// Project Script passthrough) and the standard cross-branch baseline. It applies no schema
+// project script passthrough) and the standard cross-branch baseline. It applies no schema
 // and no defaults — it returns exactly what is on disk. The typed engine reader is
 // exercised by config_schema_test.ts.
 

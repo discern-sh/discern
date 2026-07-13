@@ -25,7 +25,7 @@ overwrites them.
   - `discern/brief.md` — the short description of your project captured during
     setup.
 
-  Skills and Project Scripts you write later live here too. Nothing generated is
+  Skills and project scripts you write later live here too. Nothing generated is
   ever placed inside `discern/` — it is 100% yours.
 
 ## Shared — the config, the ignore block, and your agents' settings

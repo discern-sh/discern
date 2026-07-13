@@ -20,7 +20,7 @@ Before running anything, write down what "works" would mean to the person who as
 
 ## 2. Exercise the real artifact, not a proxy
 
-Tests are proxies — indispensable, but they check the pieces the author thought to check, through the seams the author chose. To prove the change, run the thing itself the way its user would: launch the program, invoke the command, call the interface, feed the pipeline — whatever form this project's artifact takes. Find the project's own way of running it (its documentation, its task runner, its Project Scripts) rather than inventing one.
+Tests are proxies — indispensable, but they check the pieces the author thought to check, through the seams the author chose. To prove the change, run the thing itself the way its user would: launch the program, invoke the command, call the interface, feed the pipeline — whatever form this project's artifact takes. Find the project's own way of running it (its documentation, its task runner, its project scripts) rather than inventing one.
 
 If the artifact genuinely cannot be exercised where you are — it needs credentials you don't hold, hardware you don't have, a paid third party — say so **as the dossier's headline, not a footnote**: name exactly what could not be run, what it would take, and what the user must therefore verify by hand. An honest "unverifiable here" preserves the trust a quiet skip destroys.
 

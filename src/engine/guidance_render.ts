@@ -97,7 +97,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
       // is exposed here so both surfaces read one context.
       todo_path: config.project.todo,
-      // The authored-skills and Project Scripts directories, likewise consumed by the
+      // The authored-skills and project scripts directories, likewise consumed by the
       // rendered-skill surface (ADR 0102) rather than any built-in section.
       skills_dir: config.skills.dir,
       scripts_dir: config.scripts.dir,

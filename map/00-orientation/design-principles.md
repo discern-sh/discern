@@ -134,7 +134,7 @@ the host doesn't already have. A single self-contained binary is the one thing a
 target can always run.
 
 **How it shows up.** The engine lives in [`src/engine/`](../../src/engine/) and
-compiles into the binary; [Project Scripts](glossary.md#project-script) stay
+compiles into the binary; [project scripts](glossary.md#project-script) stay
 language-agnostic executables that read config through
 `discern config get|array|has|subsections|keys` rather than sourcing any
 library. Config is parsed with strict `@std/toml` inside the binary

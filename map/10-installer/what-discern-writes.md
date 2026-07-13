@@ -33,7 +33,7 @@ them.
 | `discern/guidance.md` | Your discern guidance, compiled into the agent files.  |
 | `map/`                | The documentation map discern scaffolds and maintains. |
 | `discern/skills/`     | Any skills you author.                                 |
-| `discern/scripts/`    | Any executable Project Scripts you add.                |
+| `discern/scripts/`    | Any executable project scripts you add.                |
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |
 | `discern/brief.md`    | The project brief captured at setup.                   |
 
@@ -86,7 +86,7 @@ discern's trust model is the same class as a `Makefile` or an npm `scripts`
 block: **it runs the commands you configure.** The gate (`discern done`) runs
 exactly the `format` / `build` / `lint` / `test` commands in your
 `discern.toml`; a Scope gate or a Standard runs the command you wrote for it; a
-Project Script is your own executable, run explicitly with `discern script`.
+project script is your own executable, run explicitly with `discern script`.
 discern adds no commands of its own beyond its built-in git and file operations,
 and it reads your config to decide what to run — so the code it executes is code
 you can read in one file.

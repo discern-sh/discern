@@ -244,7 +244,7 @@ ignored_file_drift = true
 #   @port@          the deterministic dev-server port
 #   @project_slug@  your project slug
 #   @dir@           this worktree's root
-# Read a handle back from a Project Script with `discern identity --resource <name>`
+# Read a handle back from a project script with `discern identity --resource <name>`
 # (also exported into the worktree's .env as DISCERN_RESOURCE_<NAME>).
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -483,12 +483,12 @@ timeout = 600
 in_gate = true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [scripts] — your own executable Project Scripts. Drop any executable into the
+# [scripts] — your own executable project scripts. Drop any executable into the
 # directory below; `discern script` lists it and `discern script <name>` runs it.
 # An optional `# desc: ...` line describes it in the listing. This directory is
 # yours: `discern upgrade` never writes or refreshes anything here. Built-in names
-# are legal because Project Scripts live under their own command namespace. A
-# Project Script can use any language; discern exports DISCERN_* environment values
+# are legal because project scripts live under their own command namespace. A
+# project script can use any language; discern exports DISCERN_* environment values
 # (DISCERN_ROOT, DISCERN_SCRIPTS, DISCERN_MAIN_BRANCH, …) and forwards every
 # argument after its name unchanged. It reads config by calling the binary
 # (`discern config get <key>`) and resolves worktree

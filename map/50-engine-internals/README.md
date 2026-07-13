@@ -6,7 +6,7 @@ This subtree covers the shared substrate under the gate, the Worktree workflow,
 and guidance. [`dispatch.ts`](../../src/engine/dispatch.ts) is the
 **dispatcher**: it finds the project root (the nearest ancestor with an
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
-handler, and owns the explicit Project Script namespace: `discern script` lists
+handler, and owns the explicit project script namespace: `discern script` lists
 the executable files under `[scripts].dir`, while `discern script <name>` execs
 one with its argument tail and the `DISCERN_*` environment. A word outside the
 closed root vocabulary reports `unknown command "<word>"` and teaches the next
@@ -15,14 +15,14 @@ step: a did-you-mean line — the cross-tool synonym table in
 "install" name `setup`, "check" names `prepare`, "sync" names `update`, "land"
 and "merge" name `accept`; suggestions only, never dispatched, per
 [ADR 0120](../_adr/0120-launch-verb-canon.md)'s forgiveness policy), then the
-near-match suggester over built-ins and namespaced Project Script names — and
+near-match suggester over built-ins and namespaced project script names — and
 always a closing pointer at `discern help`. Under `--json` that refusal is the
 uniform result envelope (error `unknown_command`, the advice as `hints`), and it
 renders even outside a project or with an unreadable config, where a newcomer's
 first guess most often lands. The single set of built-in names — `KNOWN_VERBS`
 (installer + engine), defined once in the dispatcher — drives routing,
 grammatical normalization, help coverage, and the test that proves every
-built-in name remains legal inside the Project Script namespace. Every
+built-in name remains legal inside the project script namespace. Every
 subsystem's verbs are always registered — there is no toggle layer in the
 dispatch ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)); a verb can
 be _hidden_ from the help listing yet keep dispatching (`preset` while no
@@ -63,7 +63,7 @@ decision is "no colour", since that generator consults only `Deno.noColor`).
 Scope globs are matched in-memory by
 [`scopes/glob.ts`](../../src/engine/scopes/glob.ts), so a glob in a config value
 never expands against the filesystem the way an unquoted shell glob would; a
-Project Script is just an executable with normal shell globbing. This is
+project script is just an executable with normal shell globbing. This is
 internal plumbing: the built-in verbs run it, you rarely read it directly.
 
 Every **effectful** verb follows a **plan/apply** shape

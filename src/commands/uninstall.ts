@@ -21,7 +21,7 @@
  * and is deleted; one the user shares keeps their content.
  *
  * What it keeps: `discern.toml`, and every path in the `discern/` namespace
- * (guidance, the map, authored skills, Project Scripts, the ledger, the brief) — plain
+ * (guidance, the map, authored skills, project scripts, the ledger, the brief) — plain
  * files at paths the user chose or accepted, valuable without the tool. It ends
  * by listing what stayed and the one line to remove the binary.
  *
@@ -383,7 +383,7 @@ async function computeUninstallPlan(
   );
   await keepIfExists(
     resolveScriptsDir(root, config).rel,
-    "your Project Scripts",
+    "your project scripts",
   );
   await keepIfExists(resolveTodoPath(root, config).rel, "the work ledger");
   await keepIfExists(resolveBriefPath(root).rel, "the project brief");

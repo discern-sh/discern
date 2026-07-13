@@ -80,7 +80,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     key: "scripts.dir",
     defaultPath: "discern/scripts",
     legacyPath: "discern/recipes",
-    description: "Where the project's own executable Project Scripts live.",
+    description: "Where the project's own executable scripts live.",
   },
   todo: {
     key: "project.todo",

@@ -169,4 +169,4 @@ Your own executable commands. Drop a script into the directory below and run it 
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"discern/scripts"` | Where your Project Scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |
+| `dir` | string | `"discern/scripts"` | Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |

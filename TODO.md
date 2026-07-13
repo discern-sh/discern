@@ -146,7 +146,7 @@ outstanding._
       receipt printer. Print the real `discern done` receipt (checks, test
       counts, commit, exit status — the result envelope) when a run passes or a
       branch lands. Most thermal printers speak ESC/POS over USB or network, so
-      a small script consuming `discern done --json` covers it; a Project Script
+      a small script consuming `discern done --json` covers it; a project script
       or hook would be the natural wiring. Evidence: `site/pages/index.html`
       (#receipt — the design to mirror); `src/shared/result.ts` (the envelope to
       print).

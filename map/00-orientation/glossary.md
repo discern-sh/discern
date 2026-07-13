@@ -93,11 +93,11 @@ files: not installed into a project at all.
 The verb-routing front of the `discern` binary
 ([`src/engine/dispatch.ts`](../../src/engine/dispatch.ts)). It finds the project
 root (the nearest ancestor with a `discern.toml`), routes a known verb to its
-built-in handler, and owns the explicit [Project Script](#project-script)
+built-in handler, and owns the explicit [project script](#project-script)
 namespace. An unknown root word never executes project code; it reports
 `unknown command` with a did-you-mean suggestion — familiar words from other
 tools ("init", "sync", "land", …) name the canonical verb, while a matching
-Project Script points at `discern script <name>` — and a pointer at
+project script points at `discern script <name>` — and a pointer at
 `discern help`.
 
 ### Project Script
@@ -105,11 +105,11 @@ Project Script points at `discern script <name>` — and a pointer at
 A project's **own** language-agnostic executable under `[scripts].dir` (default
 `discern/scripts`). `discern script` lists every executable. Add a `<name>` to
 run one with the remaining arguments and `DISCERN_*` exported. A name with a
-colon maps to a hyphenated file (`some:verb` → `some-verb`). A Project Script
+colon maps to a hyphenated file (`some:verb` → `some-verb`). A project script
 reads config through the `discern config get|array|has|subsections|keys` surface
 and worktree identity through
 `discern identity --db|--site|--port|--resource <name>` — it does **not** source
-a shell library. Built-in names remain legal because Project Scripts occupy
+a shell library. Built-in names remain legal because project scripts occupy
 their own namespace
 ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).
 

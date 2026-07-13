@@ -193,7 +193,7 @@ Deno.test("upgrade reconciles a current-schema config missing a fixed template s
     const toml = await readTarget(dir, "discern.toml");
     assertStringIncludes(
       toml,
-      "# [scripts] — your own executable Project Scripts",
+      "# [scripts] — your own executable project scripts",
     );
     assertStringIncludes(toml, "\n[scripts]\n");
     assertStringIncludes(toml, 'dir = "discern/scripts"');

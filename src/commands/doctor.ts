@@ -337,12 +337,12 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     );
   }
 
-  // 6. Project Script contract — a script reads config via `discern config get`,
+  // 6. Project script contract — a script reads config via `discern config get`,
   // not by sourcing a helper library: `DISCERN_LIB` is not part of the script
   // environment, so a script that does `. "$DISCERN_LIB/bootstrap.sh"` for
   // config/output helpers breaks at runtime. Flag it and point at the contract.
   // The needle is the retired contract's OWN identifier (`DISCERN_LIB`), never a
-  // generic filename — a Project Script running its own `bootstrap.sh` is
+  // generic filename — a project script running its own `bootstrap.sh` is
   // healthy. README.md is documentation, not an executable, so it is skipped.
   {
     const { abs: scriptsDir } = resolveScriptsDir(destDir, config);
@@ -363,7 +363,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       if (!(error instanceof Deno.errors.NotFound)) {
         throw error;
       }
-      // No Project Scripts directory — nothing to check.
+      // No project scripts directory — nothing to check.
     }
     checks.push(
       offenders.length === 0
@@ -371,7 +371,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           name: "script contract",
           ok: true,
           detail: scanned === 0
-            ? "no Project Scripts to check"
+            ? "no project scripts to check"
             : `${scanned} script(s); none source the retired shell library`,
         }
         : {
@@ -381,7 +381,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
             offenders.join(", ")
           }`,
           fix:
-            "Project Scripts are standalone executables — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
+            "Project scripts are standalone executables — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
         },
     );
   }

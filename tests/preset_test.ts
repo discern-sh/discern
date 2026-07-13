@@ -55,17 +55,17 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertEquals(result.verb, "preset");
     assertEquals(result.data.config_fills, true);
 
-    // Files overlaid: a Project Script, a guideline fragment, a managed skill.
+    // Files overlaid: a project script, a guideline fragment, a managed skill.
     assert(await exists(join(dir, "discern/scripts/example-deploy")));
     assert(await exists(join(dir, "discern/guidance.md")));
     assert(await exists(join(dir, "discern/skills/example-skill/SKILL.md")));
-    // The overlaid Project Script kept its exec bit.
+    // The overlaid project script kept its exec bit.
     const scriptInfo = await Deno.stat(
       join(dir, "discern/scripts/example-deploy"),
     );
     assert(
       ((scriptInfo.mode ?? 0) & 0o111) !== 0,
-      "Project Script should be executable",
+      "Project script should be executable",
     );
     // preset.json is metadata — never scaffolded into the project.
     assert(!(await exists(join(dir, "preset.json"))));
@@ -104,7 +104,7 @@ Deno.test("preset --json without --yes emits exactly one envelope and applies (n
   });
 });
 
-Deno.test("preset: the overlaid Project Script is runnable through its namespace", async () => {
+Deno.test("preset: the overlaid project script is runnable through its namespace", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     await runCli(["preset", "example", "--yes"], dir, PRESET_ENV);

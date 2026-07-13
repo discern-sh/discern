@@ -17,7 +17,7 @@ and a drift fails the gate.
 ## The paths registry and its resolvers
 
 Every configurable source path — the guidance sources, the map, authored skills,
-Project Scripts, the ledger, the brief — is one entry in the
+project scripts, the ledger, the brief — is one entry in the
 [paths registry](../../src/shared/paths_registry.ts): its config key, its
 `discern/` default, its pre-namespace legacy location, and a description
 ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). The Zod
@@ -36,10 +36,10 @@ extent expands to the configured docs dir
 
 ## The read surface
 
-Project Scripts and project tooling read config through the dispatcher, never by
+Project scripts and project tooling read config through the dispatcher, never by
 parsing TOML themselves:
 `discern config get|array|has|subsections|keys <dotted.key>`. The same values
-reach a Project Script's process as exported `DISCERN_*` variables. This keeps
+reach a project script's process as exported `DISCERN_*` variables. This keeps
 the config format an implementation detail of the binary — a script stays a
 plain executable with no TOML parser and no shell library to source.
 

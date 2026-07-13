@@ -11,7 +11,7 @@
  * auto-enrols, plus the separately modelled scope-gate group. Standards and
  * doctor's command probe use their own execution paths and get one behavioural
  * case each. Worktree setup/resources already require an explicit cwd at their
- * runner boundary; Project Scripts and `with-gotchas` intentionally retain the
+ * runner boundary; project scripts and `with-gotchas` intentionally retain the
  * caller's cwd and are outside this invariant.
  */
 

@@ -263,7 +263,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   "mcp",
   "identity",
-  // Listing has a convenience envelope, but named Project Scripts own their
+  // Listing has a convenience envelope, but named project scripts own their
   // output contract and receive their argument tail unchanged.
   "script",
   // `licenses` renders the third-party notices as human text; its `--json`

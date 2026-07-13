@@ -1159,7 +1159,7 @@ export const MIGRATIONS: Migration[] = [
         } else if (oldExists && newExists) {
           effectiveDir = oldDefault;
           ctx.note(
-            `kept Project Scripts at ${oldDefault} because ${newDefault} already exists`,
+            `kept project scripts at ${oldDefault} because ${newDefault} already exists`,
           );
         } else {
           effectiveDir = newDefault;
@@ -1222,7 +1222,7 @@ export const MIGRATIONS: Migration[] = [
       // spelling must fail with the config and its active directory untouched.
       if (moveOldDefault) {
         await ctx.rename(oldDefault, newDefault);
-        ctx.note(`moved Project Scripts from ${oldDefault} to ${newDefault}`);
+        ctx.note(`moved project scripts from ${oldDefault} to ${newDefault}`);
       }
       await ctx.rewrite("discern.toml", () => migrated);
       if (raw.recipes !== undefined) {

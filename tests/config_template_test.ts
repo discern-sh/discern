@@ -137,7 +137,7 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
   assertExists(block);
   assertStringIncludes(
     block,
-    "# [scripts] — your own executable Project Scripts",
+    "# [scripts] — your own executable project scripts",
   );
   assertStringIncludes(block, "\n[scripts]\n");
   assertStringIncludes(block, 'dir = "discern/scripts"');

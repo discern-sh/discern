@@ -31,7 +31,7 @@ There are **two layers**, sharing two helper modules:
   ([tests/engine_helpers.ts](../../tests/engine_helpers.ts)) —
   `deno run
   src/main.ts <verb>` inside that dir, with a `discern` shim on
-  `PATH` so Project Scripts resolve. So the engine verbs (`done`, `worktree`, …)
+  `PATH` so project scripts resolve. So the engine verbs (`done`, `worktree`, …)
   and their `--json` contracts are exercised against a faithful install, end to
   end.
 

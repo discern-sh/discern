@@ -1,5 +1,5 @@
 /**
- * Project-root discovery and the `DISCERN_*` environment a Project Script is
+ * Project-root discovery and the `DISCERN_*` environment a project script is
  * exec'd with.
  *
  * The whole discern footprint in a project is a single root file: `discern.toml`
@@ -9,7 +9,7 @@
  * recognised as a legacy marker so a not-yet-upgraded install is found and
  * carried forward by `upgrade`.
  *
- * A Project Script is handed the `DISCERN_*` variables and reads config via `discern
+ * A project script is handed the `DISCERN_*` variables and reads config via `discern
  * config get` rather than sourcing shell helpers; no engine paths
  * (`DISCERN_ENGINE`/`DISCERN_LIB`) are exported, because the engine lives in the
  * binary, not on disk.
@@ -100,7 +100,7 @@ export async function installedConfigRel(
   return undefined;
 }
 
-/** The resolved pieces a Project Script's `DISCERN_*` environment is built from. */
+/** The resolved pieces a project script's `DISCERN_*` environment is built from. */
 export interface ScriptEnv {
   /** Absolute project root. */
   root: string;
@@ -108,14 +108,14 @@ export interface ScriptEnv {
   tomlPath: string;
   /** The `[scripts].dir` value as configured (relative or absolute). */
   scriptsDir: string;
-  /** The Project Scripts directory resolved to an absolute path. */
+  /** The project scripts directory resolved to an absolute path. */
   scriptsAbs: string;
   /** The integration branch (`[project].main_branch`, default "main"). */
   mainBranch: string;
 }
 
 /**
- * Build the `DISCERN_*` environment variables a Project Script is exec'd with.
+ * Build the `DISCERN_*` environment variables a project script is exec'd with.
  */
 export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
   return {

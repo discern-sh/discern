@@ -5,7 +5,7 @@
  * must key on the RESOLVED verb (the first non-global-flag token), or a
  * leading `--json`/`--no-color` smuggles the invocation past the router:
  * the ADR 0036 setup redirect, the operator help, the pre-setup welcome,
- * and Project Script dispatch all diverge.
+ * and project script dispatch all diverge.
  *
  * The matrices derive from the single sources of truth so a new member
  * auto-enrols: the global flags are read from the Cliffy registration itself
@@ -125,7 +125,7 @@ Deno.test("flag-first --help renders the operator help with the script command",
   });
 });
 
-Deno.test("a Project Script dispatches with a global flag placed first", async () => {
+Deno.test("a project script dispatches with a global flag placed first", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(

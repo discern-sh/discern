@@ -1,5 +1,5 @@
 /**
- * Project Script command tests: discovery, listing, execution, argument/env
+ * Project script command tests: discovery, listing, execution, argument/env
  * forwarding, custom directories, and the retired root-command behavior.
  */
 
@@ -18,7 +18,7 @@ const SLUG_SCRIPT = `#!/usr/bin/env sh
 printf 'SLUG=%s\\n' "$(discern config get project.slug)"
 `;
 
-Deno.test("script: a Project Script runs under the script command with its raw argument tail", async () => {
+Deno.test("script: a project script runs under the script command with its raw argument tail", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -43,7 +43,7 @@ Deno.test("script: a Project Script runs under the script command with its raw a
   });
 });
 
-Deno.test("script and scripts list every executable Project Script in deterministic order", async () => {
+Deno.test("script and scripts list every executable project script in deterministic order", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -62,7 +62,7 @@ Deno.test("script and scripts list every executable Project Script in determinis
     for (const command of ["script", "scripts"]) {
       const r = await runAgent(dir, [command]);
       assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.stdout, "Project Scripts (from discern/scripts)");
+      assertStringIncludes(r.stdout, "Project scripts (from discern/scripts)");
       assertStringIncludes(r.stdout, "a-first");
       assertStringIncludes(r.stdout, "first script");
       assertStringIncludes(r.stdout, "z-last");
@@ -78,7 +78,7 @@ Deno.test("script and scripts list every executable Project Script in determinis
   });
 });
 
-Deno.test("script: --json lists Project Scripts as one structured result", async () => {
+Deno.test("script: --json lists project scripts as one structured result", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -99,7 +99,7 @@ Deno.test("script: --json lists Project Scripts as one structured result", async
   });
 });
 
-Deno.test("script: a Project Script reads config and receives the script environment", async () => {
+Deno.test("script: a project script reads config and receives the script environment", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "discern/scripts/show-slug"), SLUG_SCRIPT);
@@ -125,7 +125,7 @@ Deno.test("script: a Project Script reads config and receives the script environ
   });
 });
 
-Deno.test("script: Project Scripts retain normal executable shell behavior", async () => {
+Deno.test("script: project scripts retain normal executable shell behavior", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "glob-fixture/a.txt"), "a");
@@ -167,7 +167,7 @@ Deno.test("script: an existing non-executable file is reported, not run", async 
   });
 });
 
-Deno.test("script: [scripts].dir relocates the Project Scripts directory", async () => {
+Deno.test("script: [scripts].dir relocates the project scripts directory", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -190,11 +190,11 @@ Deno.test("script: [scripts].dir relocates the Project Scripts directory", async
     assertEquals(run.code, 0, run.output);
     assertStringIncludes(run.stdout, "BUILT-THE-THING");
     const list = await runAgent(dir, ["script"]);
-    assertStringIncludes(list.stdout, "Project Scripts (from tools)");
+    assertStringIncludes(list.stdout, "Project scripts (from tools)");
   });
 });
 
-Deno.test("a former root-level Project Script is unknown and points to the namespace", async () => {
+Deno.test("a former root-level project script is unknown and points to the namespace", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(

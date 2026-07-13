@@ -127,7 +127,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
 /**
  * Every built-in verb the router dispatches itself — installer + engine. This is
  * the single source of truth for routing, grammatical normalization, help-group
- * coverage, and Project Script collision tests. `main.ts` re-exports it as its
+ * coverage, and project script collision tests. `main.ts` re-exports it as its
  * own `KNOWN_VERBS`; the parity guard ties it to the live registrations.
  */
 export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
@@ -353,7 +353,7 @@ export function attachEngineCommands(
   root
     .command("script")
     .description(
-      "List the project's executable Project Scripts, or run one by name with every following argument forwarded unchanged.",
+      "List the project's executable project scripts, or run one by name with every following argument forwarded unchanged.",
     )
     .arguments("[name:string] [...args:string]")
     .action(async (_o, name: string | undefined, ...args: string[]) => {
@@ -1021,7 +1021,7 @@ function matchCandidate(typo: string, name: string): boolean {
   return commonSuffixLen(typo, name) >= 4;
 }
 
-/** Names of the executable Project Scripts in one configured directory. */
+/** Names of the executable project scripts in one configured directory. */
 async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
   const names: string[] = [];
   try {
@@ -1035,7 +1035,7 @@ async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
       names.push(entry.name);
     }
   } catch {
-    // no Project Scripts directory — nothing to suggest
+    // no project scripts directory — nothing to suggest
   }
   return names.sort();
 }
@@ -1043,7 +1043,7 @@ async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
 /**
  * Suggest the command an unknown word most plausibly meant, or undefined. The
  * synonym table wins — a familiar word from another tool names its canonical
- * verb exactly — then near-match built-in commands and Project Scripts.
+ * verb exactly — then near-match built-in commands and project scripts.
  */
 async function suggestCommand(
   typo: string,
@@ -1218,7 +1218,7 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 
 /**
  * `discern config <get|array|has|subsections|keys> <key>` — the READ side of the
- * config surface. This is what a Project Script uses to read `discern.toml`:
+ * config surface. This is what a project script uses to read `discern.toml`:
  * `has` answers via the exit code; the rest print to stdout.
  */
 export async function runConfigRead(
@@ -1257,7 +1257,7 @@ export async function runConfigRead(
   }
 }
 
-/** Read a Project Script's first `# desc:` line, or undefined when absent. */
+/** Read a project script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
   let text: string;
   try {
@@ -1284,7 +1284,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** The configured Project Scripts directory and its absolute path. */
+/** The configured project scripts directory and its absolute path. */
 function scriptsDirOf(
   root: string,
   cfg: DiscernConfig,
@@ -1292,7 +1292,7 @@ function scriptsDirOf(
   return resolveScriptsDir(root, cfg);
 }
 
-/** One executable Project Script surfaced by the listing. */
+/** One executable project script surfaced by the listing. */
 interface ProjectScript {
   name: string;
   description?: string;
@@ -1323,9 +1323,9 @@ async function projectScripts(abs: string): Promise<ProjectScript[]> {
 }
 
 /**
- * List Project Scripts or run one by name. The caller has already removed the
+ * List project scripts or run one by name. The caller has already removed the
  * `script` command and any leading discern-global flags; `args` is therefore the
- * exact tail after the Project Script name and is forwarded byte-for-byte.
+ * exact tail after the project script name and is forwarded byte-for-byte.
  */
 export async function runProjectScript(
   name: string | undefined,
@@ -1350,7 +1350,7 @@ export async function runProjectScript(
       });
       return 0;
     }
-    console.log(`Project Scripts (from ${scripts.rel}):`);
+    console.log(`Project scripts (from ${scripts.rel}):`);
     if (entries.length === 0) {
       console.log("  No executable scripts found.");
       return 0;
@@ -1401,8 +1401,8 @@ export async function runProjectScript(
 }
 
 /**
- * Report an unknown top-level verb, considering Project Script names only as
- * namespaced suggestions. A Project Script never executes from this path.
+ * Report an unknown top-level verb, considering project script names only as
+ * namespaced suggestions. A project script never executes from this path.
  */
 export async function reportUnknownOrSuggest(
   verb: string,

@@ -1075,7 +1075,7 @@ Deno.test("migration 19→20 renames Project Recipes to Project Scripts without 
       assertEquals(
         await Deno.readTextFile(join(dir, testCase.target, "deploy")),
         "#!/usr/bin/env sh\necho deployed\n",
-        `${testCase.name}: Project Script content was not preserved`,
+        `${testCase.name}: project script content was not preserved`,
       );
       if (testCase.source !== testCase.target) {
         assertEquals(

@@ -19,7 +19,7 @@ What an install lays down is **one root file, `discern.toml`, plus one visible
 folder, `discern/`** — enforced by test
 ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 Files split into **two buckets**: _your_ committed files (`discern.toml`, the
-namespace content — guidance, skills, Project Scripts, the map, the ledger, the
+namespace content — guidance, skills, project scripts, the map, the ledger, the
 brief, each config-pointable elsewhere — plus the merged settings/gitignore),
 and _the binary's_ gitignored, re-published artifacts (the materialised skills
 dirs and the compiled agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` — ADR

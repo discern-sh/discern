@@ -35,7 +35,7 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
   assertEquals(result.operations, [{ kind: "section", path: "scripts" }]);
   assertStringIncludes(
     result.text,
-    "# [scripts] — your own executable Project Scripts",
+    "# [scripts] — your own executable project scripts",
   );
   assertStringIncludes(result.text, "\n[scripts]\n");
   assertStringIncludes(result.text, 'dir = "discern/scripts"');

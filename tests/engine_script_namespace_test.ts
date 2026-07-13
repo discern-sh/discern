@@ -1,5 +1,5 @@
 /**
- * Namespace forcing function: every built-in verb is also a legal Project Script
+ * Namespace forcing function: every built-in verb is also a legal project script
  * name under `discern script`. Deriving the matrix from KNOWN_VERBS means a new
  * built-in auto-enrols instead of silently recreating a collision rule.
  */
@@ -15,7 +15,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 
-Deno.test("every built-in verb remains runnable as a namespaced Project Script", async () => {
+Deno.test("every built-in verb remains runnable as a namespaced project script", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, ["[project]", 'slug = "namespace"', ""].join("\n"));

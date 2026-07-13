@@ -719,7 +719,7 @@ export function buildCli(
       );
     });
 
-  // Read-side config surface — what a Project Script uses to read scalar,
+  // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
   const configGet = new Command()
     .description("Print a scalar config value.")
@@ -837,7 +837,7 @@ function shouldWelcomeBare(
 }
 
 /** A parsed CLI invocation: the verb Cliffy will dispatch, and the argv left
- * for a non-Cliffy dispatch target (a Project Script) once that verb token is
+ * for a non-Cliffy dispatch target (a project script) once that verb token is
  * removed — leading global flags preserved, in order. */
 export interface CliInvocation {
   verb: string | undefined;
@@ -849,7 +849,7 @@ export interface CliInvocation {
  * that is not one of the root command's global flags. Cliffy accepts global
  * flags on either side of the subcommand (`discern --json map` ≡
  * `discern map --json`), so every pre-Cliffy routing decision — the setup
- * redirect (ADR 0036), the welcome/help split, and Project Script
+ * redirect (ADR 0036), the welcome/help split, and project script
  * dispatch — must key on this resolved verb, never on `argv[0]`, or a leading
  * flag smuggles the invocation past the router and straight into Cliffy.
  *
@@ -1061,7 +1061,7 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
 
-    // Project Scripts have one explicit namespace. Intercept before Cliffy so
+    // Project scripts have one explicit namespace. Intercept before Cliffy so
     // everything after the name reaches the executable untouched; bare `script`
     // lists the directory. Only parent-level help stays with Cliffy.
     if (verb === "script") {
@@ -1078,7 +1078,7 @@ export async function main(args: string[]): Promise<void> {
       }
     }
 
-    // An unknown top-level word never executes a Project Script. The suggestion
+    // An unknown top-level word never executes a project script. The suggestion
     // path may point at `discern script <name>`, preserving discoverability while
     // keeping the root command vocabulary closed.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {

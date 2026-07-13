@@ -292,7 +292,7 @@ Deno.test("user-facing source strings never use the retired harness category", a
   );
 });
 
-Deno.test("shipped templates, template fixtures, skills, Project Scripts, and public map prose never use the retired harness category", async () => {
+Deno.test("shipped templates, template fixtures, skills, project scripts, and public map prose never use the retired harness category", async () => {
   const offenders: string[] = [];
   for (
     const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, PROJECT_SCRIPTS, MAP]
@@ -411,7 +411,7 @@ Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", 
   assertEquals(
     offenders,
     [],
-    `untriaged Project Script vocabulary remains in the active ADR set:\n  ${
+    `untriaged project script vocabulary remains in the active ADR set:\n  ${
       offenders.join("\n  ")
     }`,
   );

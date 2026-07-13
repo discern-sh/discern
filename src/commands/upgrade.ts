@@ -15,7 +15,7 @@
  *      `.claude/skills/` and writes the per-provider agent files;
  *   6. stamp the new `[meta].schema_version` into the config.
  *
- * Your config values, guidance sources, authored skills, and Project Scripts are never
+ * Your config values, guidance sources, authored skills, and project scripts are never
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
  */
 

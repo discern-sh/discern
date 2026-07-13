@@ -69,7 +69,7 @@ the common causes stage by stage and what to paste to your agent, and
 ## Does discern work on Windows?
 
 discern is developed and tested on macOS and Linux. On Windows, run it under
-**WSL2**, where the git-worktree workflow and POSIX Project Scripts behave as
+**WSL2**, where the git-worktree workflow and POSIX project scripts behave as
 they do on Linux. A native-Windows shell is not a supported target today.
 
 ## Can I use discern in a monorepo?

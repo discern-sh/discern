@@ -625,10 +625,10 @@ Deno.test("doctor: worktree-resource commands honor env-assignment prefixes too"
   });
 });
 
-Deno.test("doctor: a fresh install passes the script-contract check (no Project Scripts)", async () => {
+Deno.test("doctor: a fresh install passes the script-contract check (no project scripts)", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A fresh install seeds no Project Scripts directory, so nothing is sourcing
+    // A fresh install seeds no project scripts directory, so nothing is sourcing
     // the retired shell library.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
@@ -636,7 +636,7 @@ Deno.test("doctor: a fresh install passes the script-contract check (no Project 
   });
 });
 
-Deno.test("doctor: a Project Script sourcing the retired shell library is flagged", async () => {
+Deno.test("doctor: a project script sourcing the retired shell library is flagged", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     // A script carried forward from a pre-binary install: it sources the engine
@@ -656,10 +656,10 @@ Deno.test("doctor: a Project Script sourcing the retired shell library is flagge
   });
 });
 
-Deno.test("doctor: a Project Script running the project's OWN bootstrap.sh is healthy", async () => {
+Deno.test("doctor: a project script running the project's OWN bootstrap.sh is healthy", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // bootstrap.sh is a generic script name; a Project Script invoking its own
+    // bootstrap.sh is a generic script name; a project script invoking its own
     // bootstrap script has nothing to do with discern's retired shell library
     // and must not fail the health check.
     await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
@@ -674,7 +674,7 @@ Deno.test("doctor: a Project Script running the project's OWN bootstrap.sh is he
   });
 });
 
-Deno.test("doctor: any DISCERN_LIB reference in a Project Script is flagged", async () => {
+Deno.test("doctor: any DISCERN_LIB reference in a project script is flagged", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     // The retired contract's own identifier is the discriminator: a script
