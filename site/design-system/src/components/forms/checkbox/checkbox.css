@@ -1,0 +1,63 @@
+@layer discern.components {
+  .ds-choice {
+    display: grid;
+    gap: 3px;
+  }
+  .ds-choice__label {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--ds-color-ink);
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+  .ds-choice__label input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+  }
+  .ds-choice__control {
+    display: grid;
+    flex: none;
+    place-items: center;
+    inline-size: 18px;
+    block-size: 18px;
+    margin-block-start: 1px;
+    border: 1.5px solid var(--ds-color-border-strong);
+    border-radius: var(--ds-radius-xs);
+    background: var(--ds-color-surface);
+    transition: border-color var(--ds-duration-fast), background
+      var(--ds-duration-fast), box-shadow var(--ds-duration-fast);
+  }
+  .ds-choice__control > span {
+    inline-size: 8px;
+    block-size: 4px;
+    border-inline-start: 2px solid transparent;
+    border-block-end: 2px solid transparent;
+    rotate: -45deg;
+    translate: 0 -1px;
+  }
+  .ds-choice input:checked + .ds-choice__control {
+    border-color: var(--ds-color-accent-600);
+    background: var(--ds-color-accent-600);
+  }
+  .ds-choice input:checked + .ds-choice__control > span {
+    border-color: white;
+  }
+  .ds-choice input:focus-visible + .ds-choice__control {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-color-accent-500) 20%,
+      transparent);
+  }
+  .ds-choice input:disabled + .ds-choice__control,
+  .ds-choice__label:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .ds-choice__description {
+    padding-inline-start: 28px;
+    color: var(--ds-color-ink-faint);
+    font-size: var(--ds-font-size-xs);
+  }
+}

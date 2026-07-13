@@ -1,0 +1,17 @@
+@layer discern.components {
+  .ds-choice--radio .ds-choice__control {
+    border-radius: 50%;
+  }
+  .ds-choice--radio .ds-choice__control > span {
+    inline-size: 7px;
+    block-size: 7px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    rotate: none;
+    translate: none;
+  }
+  .ds-choice--radio input:checked + .ds-choice__control > span {
+    background: white;
+  }
+}

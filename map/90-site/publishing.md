@@ -12,10 +12,13 @@ deno task site                    # http://localhost:4507
 deno serve --allow-read --port 9000 site/serve.ts   # any other port
 ```
 
-The task runs `deno serve`, which consumes the handler's default `{ fetch }`
-export. Production starts the same handler a different way — a `Deno.serve`
-entrypoint, [`site/main.ts`](../../site/main.ts) — because the new Deno Deploy
-runs an entrypoint with `deno run` (see below).
+The task first runs `site:build`, which deterministically refreshes the
+committed design-system demo HTML and assets, then runs `deno serve`, which
+consumes the handler's default `{ fetch }` export. Production starts the same
+handler a different way — a `Deno.serve` entrypoint,
+[`site/main.ts`](../../site/main.ts) — because the new Deno Deploy runs an
+entrypoint with `deno run` (see below). The generated browser artifacts are
+committed, so production still needs no install or build command.
 
 Check both readers:
 

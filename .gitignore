@@ -1,5 +1,6 @@
 .DS_Store
 *.log
+/node_modules/
 
 # Compiled CLI binaries produced by `deno task build` / `deno compile`.
 /dist/

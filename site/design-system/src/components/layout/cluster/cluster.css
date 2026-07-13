@@ -1,0 +1,34 @@
+@layer discern.components {
+  .ds-cluster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ds-cluster-gap, var(--ds-space-3));
+  }
+  .ds-cluster--align-start {
+    align-items: flex-start;
+  }
+  .ds-cluster--align-center {
+    align-items: center;
+  }
+  .ds-cluster--align-end {
+    align-items: flex-end;
+  }
+  .ds-cluster--align-baseline {
+    align-items: baseline;
+  }
+  .ds-cluster--align-stretch {
+    align-items: stretch;
+  }
+  .ds-cluster--justify-start {
+    justify-content: flex-start;
+  }
+  .ds-cluster--justify-center {
+    justify-content: center;
+  }
+  .ds-cluster--justify-end {
+    justify-content: flex-end;
+  }
+  .ds-cluster--justify-between {
+    justify-content: space-between;
+  }
+}

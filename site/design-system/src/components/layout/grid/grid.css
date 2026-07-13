@@ -1,0 +1,8 @@
+@layer discern.components {
+  .ds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--ds-grid-min,
+      14rem)), 1fr));
+    gap: var(--ds-grid-gap, var(--ds-space-5));
+  }
+}

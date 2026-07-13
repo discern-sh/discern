@@ -1,0 +1,704 @@
+{
+  "version": 1,
+  "components": [
+    {
+      "name": "Icon",
+      "slug": "icon",
+      "group": "Core",
+      "order": 10,
+      "description": "Vendor-neutral sizing and accessibility wrapper for an injected icon graphic.",
+      "accessibility": [
+        "Decorative icons are hidden automatically.",
+        "Meaningful icons require a label."
+      ]
+    },
+    {
+      "name": "Button",
+      "slug": "button",
+      "group": "Core",
+      "order": 20,
+      "description": "Typed button and anchor variants with vendor-neutral leading and trailing icon slots.",
+      "accessibility": [
+        "Anchor and button props are mutually exclusive.",
+        "Visible focus and disabled states are built in."
+      ]
+    },
+    {
+      "name": "Icon button",
+      "slug": "icon-button",
+      "group": "Core",
+      "order": 30,
+      "description": "Square icon action with a required accessible label and injected graphic.",
+      "accessibility": [
+        "A text label is required even when only an icon is visible."
+      ]
+    },
+    {
+      "name": "Badge",
+      "slug": "badge",
+      "group": "Display",
+      "order": 10,
+      "description": "Compact status and metadata label with semantic tones."
+    },
+    {
+      "name": "Card",
+      "slug": "card",
+      "group": "Display",
+      "order": 20,
+      "description": "Composable surface with explicit elevation, texture, and padding choices."
+    },
+    {
+      "name": "Divider",
+      "slug": "divider",
+      "group": "Display",
+      "order": 30,
+      "description": "Blueprint hatch separator with an optional annotation label."
+    },
+    {
+      "name": "Heading",
+      "slug": "heading",
+      "group": "Display",
+      "order": 40,
+      "description": "Semantic heading with an explicit accent child instead of string parsing."
+    },
+    {
+      "name": "Kicker",
+      "slug": "kicker",
+      "group": "Display",
+      "order": 50,
+      "description": "Monospace annotation label with an optional indexed prefix."
+    },
+    {
+      "name": "Tag",
+      "slug": "tag",
+      "group": "Display",
+      "order": 60,
+      "description": "Compact metadata chip with an optional accessible remove action."
+    },
+    {
+      "name": "Window",
+      "slug": "window",
+      "group": "Display",
+      "order": 70,
+      "description": "Framed presentation surface for product UI and code examples."
+    },
+    {
+      "name": "Banner",
+      "slug": "banner",
+      "group": "Feedback",
+      "order": 10,
+      "description": "Inline semantic message with neutral, accent, success, warning, and danger tones."
+    },
+    {
+      "name": "Toast",
+      "slug": "toast",
+      "group": "Feedback",
+      "order": 20,
+      "description": "Transient status message plus a labelled live-region container.",
+      "accessibility": [
+        "Danger uses alert semantics; other tones use status semantics.",
+        "Auto-dismiss is opt-in."
+      ]
+    },
+    {
+      "name": "Tooltip",
+      "slug": "tooltip",
+      "group": "Feedback",
+      "order": 30,
+      "description": "Hover and focus tooltip that connects its bubble through aria-describedby.",
+      "accessibility": [
+        "The trigger must remain independently focusable when it represents an action."
+      ]
+    },
+    {
+      "name": "Dialog",
+      "slug": "dialog",
+      "group": "Feedback",
+      "order": 40,
+      "description": "Controlled native modal dialog with platform focus containment and explicit close behaviour.",
+      "accessibility": [
+        "Uses showModal(), aria-labelledby, Escape handling, and a labelled close button.",
+        "Background scrolling is locked while open."
+      ]
+    },
+    {
+      "name": "Field",
+      "slug": "field",
+      "group": "Forms",
+      "order": 10,
+      "description": "Shared label, hint, required, and error structure for custom controls.",
+      "accessibility": [
+        "Labels and messages use deterministic control IDs."
+      ]
+    },
+    {
+      "name": "Input",
+      "slug": "input",
+      "group": "Forms",
+      "order": 20,
+      "description": "Native input with typed label, help, required, and invalid relationships."
+    },
+    {
+      "name": "Textarea",
+      "slug": "textarea",
+      "group": "Forms",
+      "order": 30,
+      "description": "Resizable multiline input sharing the Field accessibility contract."
+    },
+    {
+      "name": "Select",
+      "slug": "select",
+      "group": "Forms",
+      "order": 40,
+      "description": "Styled native select with typed options and associated field messaging."
+    },
+    {
+      "name": "Checkbox",
+      "slug": "checkbox",
+      "group": "Forms",
+      "order": 50,
+      "description": "Native checkbox with an associated visible label and optional description."
+    },
+    {
+      "name": "Radio",
+      "slug": "radio",
+      "group": "Forms",
+      "order": 60,
+      "description": "Native radio option sharing the labelled Choice structure."
+    },
+    {
+      "name": "Switch",
+      "slug": "switch",
+      "group": "Forms",
+      "order": 70,
+      "description": "Native checkbox exposed as a switch, with associated label and description."
+    },
+    {
+      "name": "Container",
+      "slug": "container",
+      "group": "Layout",
+      "order": 10,
+      "description": "Centred responsive content boundary with named readable widths."
+    },
+    {
+      "name": "Stack",
+      "slug": "stack",
+      "group": "Layout",
+      "order": 20,
+      "description": "Vertical composition using token-constrained gaps and explicit alignment."
+    },
+    {
+      "name": "Cluster",
+      "slug": "cluster",
+      "group": "Layout",
+      "order": 30,
+      "description": "Wrapping horizontal composition for actions, tags, and compact groups."
+    },
+    {
+      "name": "Grid",
+      "slug": "grid",
+      "group": "Layout",
+      "order": 40,
+      "description": "Intrinsic responsive grid without breakpoint-specific column props."
+    },
+    {
+      "name": "Section",
+      "slug": "section",
+      "group": "Layout",
+      "order": 50,
+      "description": "Semantic page section with tokenized surface and vertical rhythm."
+    },
+    {
+      "name": "Tabs",
+      "slug": "tabs",
+      "group": "Navigation",
+      "order": 10,
+      "description": "Controlled or uncontrolled tab set with roving focus and complete horizontal keyboard navigation.",
+      "accessibility": [
+        "Arrow keys, Home, End, Enter, and Space follow the ARIA tabs pattern.",
+        "Tabs and panels have deterministic labelled relationships."
+      ]
+    }
+  ],
+  "tokens": [
+    {
+      "name": "--ds-accent-hue",
+      "value": "259",
+      "category": "Color",
+      "description": "Master hue for the azure accent family."
+    },
+    {
+      "name": "--ds-ink-hue",
+      "value": "225",
+      "category": "Color",
+      "description": "Master hue for cool ink neutrals."
+    },
+    {
+      "name": "--ds-canvas-hue",
+      "value": "288",
+      "category": "Color",
+      "description": "Master hue for canvas neutrals."
+    },
+    {
+      "name": "--ds-font-display",
+      "value": "\"EB Garamond\", \"Iowan Old Style\", Georgia, serif",
+      "category": "Typography",
+      "description": "Editorial display face; font loading is external."
+    },
+    {
+      "name": "--ds-font-body",
+      "value": "\"Inter\", \"Helvetica Neue\", system-ui, sans-serif",
+      "category": "Typography",
+      "description": "Body face; font loading is external."
+    },
+    {
+      "name": "--ds-font-mono",
+      "value": "\"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+      "category": "Typography",
+      "description": "Code and annotation face."
+    },
+    {
+      "name": "--ds-font-ui",
+      "value": "\"IBM Plex Sans\", system-ui, \"Helvetica Neue\", sans-serif",
+      "category": "Typography",
+      "description": "Dense interface chrome face."
+    },
+    {
+      "name": "--ds-font-size-xs",
+      "value": "0.75rem",
+      "category": "Typography",
+      "description": "Fine print and compact labels."
+    },
+    {
+      "name": "--ds-font-size-sm",
+      "value": "0.84375rem",
+      "category": "Typography",
+      "description": "Secondary interface copy."
+    },
+    {
+      "name": "--ds-font-size-md",
+      "value": "1rem",
+      "category": "Typography",
+      "description": "Body copy."
+    },
+    {
+      "name": "--ds-font-size-lg",
+      "value": "1.125rem",
+      "category": "Typography",
+      "description": "Lead copy."
+    },
+    {
+      "name": "--ds-font-size-display-sm",
+      "value": "1.5rem",
+      "category": "Typography",
+      "description": "Small display heading."
+    },
+    {
+      "name": "--ds-font-size-display-md",
+      "value": "2rem",
+      "category": "Typography",
+      "description": "Medium display heading."
+    },
+    {
+      "name": "--ds-font-size-display-lg",
+      "value": "2.75rem",
+      "category": "Typography",
+      "description": "Large display heading."
+    },
+    {
+      "name": "--ds-font-size-display-xl",
+      "value": "clamp(2.75rem, 5.4vw, 4.125rem)",
+      "category": "Typography",
+      "description": "Hero display heading."
+    },
+    {
+      "name": "--ds-font-weight-body",
+      "value": "400",
+      "category": "Typography",
+      "description": "Normal body weight."
+    },
+    {
+      "name": "--ds-font-weight-strong",
+      "value": "650",
+      "category": "Typography",
+      "description": "Strong body and UI weight."
+    },
+    {
+      "name": "--ds-font-weight-display",
+      "value": "700",
+      "category": "Typography",
+      "description": "Display heading weight."
+    },
+    {
+      "name": "--ds-leading-tight",
+      "value": "1.06",
+      "category": "Typography",
+      "description": "Display line height."
+    },
+    {
+      "name": "--ds-leading-snug",
+      "value": "1.28",
+      "category": "Typography",
+      "description": "Compact heading line height."
+    },
+    {
+      "name": "--ds-leading-body",
+      "value": "1.62",
+      "category": "Typography",
+      "description": "Body line height."
+    },
+    {
+      "name": "--ds-space-1",
+      "value": "4px",
+      "category": "Spacing",
+      "description": "4px spacing step."
+    },
+    {
+      "name": "--ds-space-2",
+      "value": "8px",
+      "category": "Spacing",
+      "description": "8px spacing step."
+    },
+    {
+      "name": "--ds-space-3",
+      "value": "12px",
+      "category": "Spacing",
+      "description": "12px spacing step."
+    },
+    {
+      "name": "--ds-space-4",
+      "value": "16px",
+      "category": "Spacing",
+      "description": "16px spacing step."
+    },
+    {
+      "name": "--ds-space-5",
+      "value": "20px",
+      "category": "Spacing",
+      "description": "20px spacing step."
+    },
+    {
+      "name": "--ds-space-6",
+      "value": "24px",
+      "category": "Spacing",
+      "description": "24px spacing step."
+    },
+    {
+      "name": "--ds-space-8",
+      "value": "32px",
+      "category": "Spacing",
+      "description": "32px spacing step."
+    },
+    {
+      "name": "--ds-space-10",
+      "value": "40px",
+      "category": "Spacing",
+      "description": "40px spacing step."
+    },
+    {
+      "name": "--ds-space-12",
+      "value": "48px",
+      "category": "Spacing",
+      "description": "48px spacing step."
+    },
+    {
+      "name": "--ds-space-16",
+      "value": "64px",
+      "category": "Spacing",
+      "description": "64px spacing step."
+    },
+    {
+      "name": "--ds-space-20",
+      "value": "80px",
+      "category": "Spacing",
+      "description": "80px spacing step."
+    },
+    {
+      "name": "--ds-space-24",
+      "value": "96px",
+      "category": "Spacing",
+      "description": "96px spacing step."
+    },
+    {
+      "name": "--ds-radius-xs",
+      "value": "4px",
+      "category": "Shape",
+      "description": "Fine control radius."
+    },
+    {
+      "name": "--ds-radius-sm",
+      "value": "6px",
+      "category": "Shape",
+      "description": "Input radius."
+    },
+    {
+      "name": "--ds-radius-md",
+      "value": "8px",
+      "category": "Shape",
+      "description": "Button and card radius."
+    },
+    {
+      "name": "--ds-radius-lg",
+      "value": "12px",
+      "category": "Shape",
+      "description": "Window and dialog radius."
+    },
+    {
+      "name": "--ds-radius-pill",
+      "value": "999px",
+      "category": "Shape",
+      "description": "Badge and tag pill radius."
+    },
+    {
+      "name": "--ds-duration-fast",
+      "value": "150ms",
+      "category": "Motion",
+      "description": "Hover and press response."
+    },
+    {
+      "name": "--ds-duration-medium",
+      "value": "300ms",
+      "category": "Motion",
+      "description": "Ordinary state transition."
+    },
+    {
+      "name": "--ds-duration-reveal",
+      "value": "650ms",
+      "category": "Motion",
+      "description": "Choreographed reveal."
+    },
+    {
+      "name": "--ds-ease-out",
+      "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+      "category": "Motion",
+      "description": "Primary deceleration curve."
+    },
+    {
+      "name": "--ds-ease-in-out",
+      "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+      "category": "Motion",
+      "description": "Balanced state curve."
+    },
+    {
+      "name": "--ds-page-max",
+      "value": "66.25rem",
+      "category": "Layout",
+      "description": "Maximum editorial page width."
+    },
+    {
+      "name": "--ds-measure",
+      "value": "62ch",
+      "category": "Layout",
+      "description": "Readable prose measure."
+    },
+    {
+      "name": "--ds-section-space",
+      "value": "clamp(4.5rem, 9vw, 7.75rem)",
+      "category": "Layout",
+      "description": "Section rhythm."
+    },
+    {
+      "name": "--ds-color-ink",
+      "light": "oklch(24% 0.03 var(--ds-ink-hue))",
+      "dark": "oklch(93% 0.012 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Primary ink."
+    },
+    {
+      "name": "--ds-color-ink-muted",
+      "light": "oklch(40% 0.026 var(--ds-ink-hue))",
+      "dark": "oklch(76% 0.016 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Secondary ink."
+    },
+    {
+      "name": "--ds-color-ink-faint",
+      "light": "oklch(56% 0.02 var(--ds-ink-hue))",
+      "dark": "oklch(60% 0.018 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Tertiary ink."
+    },
+    {
+      "name": "--ds-color-canvas",
+      "light": "oklch(96.6% 0.008 var(--ds-canvas-hue))",
+      "dark": "oklch(20% 0.018 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Page canvas."
+    },
+    {
+      "name": "--ds-color-surface",
+      "light": "#fff",
+      "dark": "oklch(24.5% 0.02 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Raised surface."
+    },
+    {
+      "name": "--ds-color-surface-sunken",
+      "light": "oklch(94.2% 0.01 var(--ds-canvas-hue))",
+      "dark": "oklch(17.5% 0.016 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Inset surface."
+    },
+    {
+      "name": "--ds-color-accent-100",
+      "light": "oklch(96.2% 0.019 var(--ds-accent-hue))",
+      "dark": "oklch(29% 0.055 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Subtlest accent surface."
+    },
+    {
+      "name": "--ds-color-accent-200",
+      "light": "oklch(92% 0.045 var(--ds-accent-hue))",
+      "dark": "oklch(35% 0.08 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Quiet accent surface."
+    },
+    {
+      "name": "--ds-color-accent-300",
+      "light": "oklch(85% 0.082 var(--ds-accent-hue))",
+      "dark": "oklch(46% 0.115 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Soft accent fill."
+    },
+    {
+      "name": "--ds-color-accent-400",
+      "light": "oklch(73% 0.128 var(--ds-accent-hue))",
+      "dark": "oklch(58% 0.15 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Mid accent fill."
+    },
+    {
+      "name": "--ds-color-accent-500",
+      "light": "oklch(61% 0.185 var(--ds-accent-hue))",
+      "dark": "oklch(67% 0.165 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Strong accent fill."
+    },
+    {
+      "name": "--ds-color-accent-600",
+      "light": "oklch(52% 0.208 var(--ds-accent-hue))",
+      "dark": "oklch(74% 0.14 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Default accent action."
+    },
+    {
+      "name": "--ds-color-accent-700",
+      "light": "oklch(44% 0.185 var(--ds-accent-hue))",
+      "dark": "oklch(82% 0.105 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Strong accent text."
+    },
+    {
+      "name": "--ds-color-accent-800",
+      "light": "oklch(34% 0.13 var(--ds-accent-hue))",
+      "dark": "oklch(90% 0.06 var(--ds-accent-hue))",
+      "category": "Color",
+      "description": "Deepest accent text."
+    },
+    {
+      "name": "--ds-color-border",
+      "light": "oklch(89.5% 0.012 var(--ds-canvas-hue))",
+      "dark": "oklch(31% 0.022 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Hairline border."
+    },
+    {
+      "name": "--ds-color-border-strong",
+      "light": "oklch(81% 0.016 var(--ds-canvas-hue))",
+      "dark": "oklch(42% 0.026 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Emphasised border."
+    },
+    {
+      "name": "--ds-color-stripe",
+      "light": "oklch(85% 0.014 var(--ds-canvas-hue))",
+      "dark": "oklch(33% 0.022 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Blueprint hatch and window-chrome pigment."
+    },
+    {
+      "name": "--ds-color-success",
+      "light": "oklch(64% 0.165 152)",
+      "dark": "oklch(70% 0.155 152)",
+      "category": "Color",
+      "description": "Successful outcome."
+    },
+    {
+      "name": "--ds-color-success-soft",
+      "light": "oklch(95% 0.05 152)",
+      "dark": "oklch(29% 0.06 152)",
+      "category": "Color",
+      "description": "Successful outcome surface."
+    },
+    {
+      "name": "--ds-color-success-deep",
+      "light": "oklch(37% 0.09 152)",
+      "dark": "oklch(88% 0.1 152)",
+      "category": "Color",
+      "description": "Successful outcome text on a tinted surface."
+    },
+    {
+      "name": "--ds-color-warning",
+      "light": "oklch(61% 0.14 74)",
+      "dark": "oklch(76% 0.13 82)",
+      "category": "Color",
+      "description": "Warning state."
+    },
+    {
+      "name": "--ds-color-warning-soft",
+      "light": "oklch(96% 0.045 82)",
+      "dark": "oklch(30% 0.055 82)",
+      "category": "Color",
+      "description": "Warning surface."
+    },
+    {
+      "name": "--ds-color-danger",
+      "light": "oklch(54% 0.19 28)",
+      "dark": "oklch(70% 0.17 28)",
+      "category": "Color",
+      "description": "Danger and invalid state."
+    },
+    {
+      "name": "--ds-color-danger-soft",
+      "light": "oklch(96% 0.035 28)",
+      "dark": "oklch(29% 0.055 28)",
+      "category": "Color",
+      "description": "Danger surface."
+    },
+    {
+      "name": "--ds-shadow-color",
+      "light": "var(--ds-color-ink)",
+      "dark": "oklch(6% 0.01 var(--ds-ink-hue))",
+      "category": "Color",
+      "description": "Shadow pigment."
+    },
+    {
+      "name": "--ds-shadow-card",
+      "light": "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+      "dark": "4px 4px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+      "category": "Shape",
+      "description": "Quiet hard-offset card shadow."
+    },
+    {
+      "name": "--ds-shadow-window",
+      "light": "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 6%, transparent)",
+      "dark": "8px 10px 0 color-mix(in oklab, var(--ds-shadow-color) 40%, transparent)",
+      "category": "Shape",
+      "description": "Hard-offset presentation window shadow."
+    },
+    {
+      "name": "--ds-shadow-pop",
+      "light": "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 12%, transparent)",
+      "dark": "6px 6px 0 color-mix(in oklab, var(--ds-shadow-color) 55%, transparent)",
+      "category": "Shape",
+      "description": "Raised overlay shadow."
+    },
+    {
+      "name": "--ds-color-overlay",
+      "light": "color-mix(in oklab, var(--ds-color-ink) 34%, transparent)",
+      "dark": "color-mix(in oklab, #000 58%, transparent)",
+      "category": "Color",
+      "description": "Modal backdrop."
+    }
+  ]
+}

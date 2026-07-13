@@ -1,0 +1,29 @@
+@layer discern.components {
+  .ds-card {
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-surface);
+    color: var(--ds-color-ink);
+  }
+  .ds-card--raised {
+    box-shadow: var(--ds-shadow-card);
+  }
+  .ds-card--dots {
+    background-color: var(--ds-color-surface-sunken);
+    background-image: radial-gradient(var(--ds-color-border-strong) 0.8px,
+      transparent 0.8px);
+    background-size: 10px 10px;
+  }
+  .ds-card--pad-none {
+    padding: 0;
+  }
+  .ds-card--pad-sm {
+    padding: var(--ds-space-4);
+  }
+  .ds-card--pad-md {
+    padding: var(--ds-space-6);
+  }
+  .ds-card--pad-lg {
+    padding: var(--ds-space-8);
+  }
+}

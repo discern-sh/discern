@@ -1,0 +1,28 @@
+@layer discern.components {
+  .ds-field {
+    display: grid;
+    gap: 7px;
+    min-inline-size: 0;
+  }
+  .ds-field__label {
+    color: var(--ds-color-ink-muted);
+    font: 0.625rem var(--ds-font-mono);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ds-field__required {
+    color: var(--ds-color-danger);
+  }
+  .ds-field__message {
+    color: var(--ds-color-ink-faint);
+    font-size: var(--ds-font-size-xs);
+    line-height: 1.45;
+  }
+  .ds-field__message--error {
+    color: var(--ds-color-danger);
+  }
+  .ds-field--invalid .ds-control {
+    border-color: var(--ds-color-danger);
+  }
+}

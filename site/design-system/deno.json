@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.10",
+    "@std/encoding/hex": "jsr:@std/encoding@^1.0.7/hex",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "react": "npm:react@18.3.1",
+    "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
+    "react-dom/client": "npm:react-dom@18.3.1/client",
+    "react-dom/server": "npm:react-dom@18.3.1/server"
+  },
+  "tasks": {
+    "build": "deno run --config deno.json --allow-read --allow-write --allow-run --allow-env=NODE_ENV scripts/build.ts",
+    "check": "deno fmt --config deno.json --check . ../build.ts ../page-src && deno lint --no-config src styleguide scripts tests ../build.ts ../page-src && deno check --config deno.json src/mod.ts scripts/build.ts ../build.ts ../page-src/design-system-demo.tsx",
+    "check:catalogue": "deno check --config deno.json styleguide/app.tsx",
+    "fix": "deno fmt --config deno.json . ../build.ts ../page-src && deno lint --no-config --fix src styleguide scripts tests ../build.ts ../page-src",
+    "serve": "deno task build && deno serve --allow-read --port 8010 scripts/serve.ts",
+    "test": "deno test --config deno.json --allow-read --allow-write --allow-env --allow-run tests/design_system_test.ts",
+    "verify": "deno task check && deno task build && deno task check:catalogue && deno task test"
+  },
+  "fmt": {
+    "exclude": ["dist/", "styleguide/generated/"]
+  },
+  "lint": {
+    "exclude": ["dist/", "styleguide/generated/"]
+  }
+}
