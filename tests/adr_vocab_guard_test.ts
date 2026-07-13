@@ -22,16 +22,20 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { join, relative } from "@std/path";
+import {
+  isRepoMapPath,
+  REPO_AUTHORED_PATHS,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
 
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
-const MAP = join(REPO_ROOT, "map");
+const MAP = REPO_AUTHORED_PATHS.map;
 const ADRS = join(MAP, "_adr");
 const MOCKUPS = join(REPO_ROOT, "mockups");
-const PROJECT_SCRIPTS = join(REPO_ROOT, "discern", "scripts");
-const SKILLS = join(REPO_ROOT, "skills");
+const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
+const SKILLS = REPO_AUTHORED_PATHS.skills;
 const TEMPLATE_FIXTURES = join(REPO_ROOT, "tests", "fixtures", "templates");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
@@ -295,9 +299,9 @@ Deno.test("shipped templates, template fixtures, skills, Project Scripts, and pu
   ) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
-      if (
-        rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")
-      ) continue;
+      if (isRepoMapPath(rel, "_adr") || isRepoMapPath(rel, "_private")) {
+        continue;
+      }
       let contents: string;
       try {
         contents = await Deno.readTextFile(entry.path);
@@ -430,7 +434,7 @@ Deno.test("user-facing output consistently calls the shared branch the trunk", a
   for (const root of [TEMPLATES, PROJECT_SCRIPTS, MAP, MOCKUPS]) {
     for await (const entry of walk(root, { includeDirs: false })) {
       const rel = relative(REPO_ROOT, entry.path);
-      if (rel.startsWith("map/_adr/") || rel.startsWith("map/_private/")) {
+      if (isRepoMapPath(rel, "_adr") || isRepoMapPath(rel, "_private")) {
         continue;
       }
       let contents: string;

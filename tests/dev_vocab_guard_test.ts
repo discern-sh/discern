@@ -15,19 +15,23 @@
 
 import { assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { join, relative } from "@std/path";
 import {
   RETIRED_COMMAND_REDIRECTS,
   RETIRED_CONFIG_KEY_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
 import { configSectionNames } from "../src/shared/config_codegen.ts";
+import {
+  isRepoMapPath,
+  REPO_AUTHORED_PATHS,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
 
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
 const MOCKUPS = join(REPO_ROOT, "mockups");
 const SCRIPTS = join(REPO_ROOT, "scripts");
-const SKILLS = join(REPO_ROOT, "skills");
+const SKILLS = REPO_AUTHORED_PATHS.skills;
 const GITHUB = join(REPO_ROOT, ".github");
 
 /** The retired Deno-task alias names that should no longer exist anywhere. */
@@ -81,9 +85,9 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
   );
 });
 
-const MAP = join(REPO_ROOT, "map");
+const MAP = REPO_AUTHORED_PATHS.map;
 const TESTS = join(REPO_ROOT, "tests");
-const PROJECT_SCRIPTS = join(REPO_ROOT, "discern", "scripts");
+const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
 
 /**
  * discern's one update channel is the install script (`src/lib/version.ts`
@@ -102,7 +106,8 @@ Deno.test("no shipped surface invents an update channel", async () => {
     ...await textFiles(SRC),
     ...await textFiles(TEMPLATES),
     ...(await textFiles(MAP)).filter(([rel]) =>
-      !rel.startsWith("map/_") && !rel.startsWith("map/80-development")
+      !rel.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/_`) &&
+      !isRepoMapPath(rel, "80-development")
     ),
   ];
   for (const [rel, text] of files) {
@@ -126,15 +131,17 @@ Deno.test("no shipped surface invents an update channel", async () => {
 const ROOT_TEXT_FILES = [
   "README.md",
   "CONTRIBUTING.md",
-  "TODO.md",
   "deno.json",
-  "guidance.md",
   "discern.toml",
 ];
 
 const RETIRED_COMMAND_ALLOWLIST = new Set([
   "tests/dev_vocab_guard_test.ts",
-  "map/_adr/0095-prelaunch-cli-vocabulary.md",
+  join(
+    REPO_AUTHORED_PATHS.mapRel,
+    "_adr",
+    "0095-prelaunch-cli-vocabulary.md",
+  ),
 ]);
 
 const RETIRED_COMMAND_TOKENS = [
@@ -177,6 +184,16 @@ async function maybeTextFile(
   }
 }
 
+async function maybeConfiguredTextFile(
+  path: string,
+): Promise<[string, string] | undefined> {
+  try {
+    return [relative(REPO_ROOT, path), await Deno.readTextFile(path)];
+  } catch {
+    return undefined;
+  }
+}
+
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
   for (
@@ -196,6 +213,15 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   }
   for (const rel of ROOT_TEXT_FILES) {
     const file = await maybeTextFile(rel);
+    if (file !== undefined) out.push(file);
+  }
+  for (
+    const path of [
+      ...REPO_AUTHORED_PATHS.guidance,
+      REPO_AUTHORED_PATHS.todo,
+    ]
+  ) {
+    const file = await maybeConfiguredTextFile(path);
     if (file !== undefined) out.push(file);
   }
   return out.filter(([rel]) => !RETIRED_COMMAND_ALLOWLIST.has(rel));
@@ -228,7 +254,7 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
 Deno.test("the retired 'docs tree' concept phrase does not reappear", async () => {
   const pattern = /\bdocs[ -]tree/i;
   const frozen = (rel: string): boolean =>
-    rel.startsWith("map/_adr/") ||
+    isRepoMapPath(rel, "_adr") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
     rel.startsWith("scripts/setup-eval/results/") ||
     rel.includes("/_done/");
@@ -261,7 +287,7 @@ function escapeRegExp(value: string): string {
  * migration searchable until bookkeeping removes the completed entries.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
-  return rel.startsWith("map/_adr/") ||
+  return isRepoMapPath(rel, "_adr") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
     new Set([
