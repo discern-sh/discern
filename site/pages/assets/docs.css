@@ -624,13 +624,13 @@ html:not([data-ds-theme="dark"]) .docs-theme-moon {
   inline-size: 32px;
   block-size: 24px;
   background: var(--ds-color-canvas);
-  color: var(--ds-color-accent-500);
+  color: var(--ds-color-ink-faint);
   content: "◮";
   font-family: var(--ds-font-mono);
-  font-size: 0.625rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -60%);
 }
 
 .docs-anchor {

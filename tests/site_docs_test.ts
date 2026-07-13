@@ -79,7 +79,9 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assertStringIncludes(rule, "background-size: 100% 1px");
   assertStringIncludes(css, ".doc-body hr::after {");
   assertStringIncludes(css, 'content: "◮";');
-  assertStringIncludes(css, "color: var(--ds-color-accent-500)");
+  assertStringIncludes(css, "color: var(--ds-color-ink-faint)");
+  assertStringIncludes(css, "font-size: 1rem");
+  assertStringIncludes(css, "transform: translate(-50%, -60%)");
 });
 
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {
