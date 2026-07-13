@@ -72,9 +72,9 @@ Line coverage of the repo's own `src/` tree is measured by `deno task coverage`
 ([scripts/coverage.ts](../../scripts/coverage.ts)): it runs the whole suite
 under Deno's coverage instrument collecting raw profiles only, makes one lcov
 report pass, and prints one `DISCERN_METRIC coverage <pct>` line.
-[scripts/coverage_lib.ts](../../scripts/coverage_lib.ts) anchors the lcov
-filter to `<repo>/src/` — a `src/` segment inside `node_modules` or the site
-workspace (`site/design-system/src/`) never counts — and
+[scripts/coverage_lib.ts](../../scripts/coverage_lib.ts) anchors the lcov filter
+to `<repo>/src/` — a `src/` segment inside `node_modules` or the site workspace
+(`site/design-system/src/`) never counts — and
 [tests/coverage_lib_test.ts](../../tests/coverage_lib_test.ts) pins that
 definition. Because the engine is TypeScript under `src/engine/`, it is
 instrumented like the rest of `src/` — the `engine_*` subprocess tests that
