@@ -30,7 +30,7 @@ Deno.test("licensesResult returns the embedded component list", () => {
   assert(result.data.components.length > 0);
   for (const c of result.data.components) {
     assert(
-      c.name.length > 0 && c.version.length > 0 && c.copyright.length > 0,
+      c.name.length > 0 && c.version.length > 0 && c.license.length > 0,
       `component ${c.name} is missing a field`,
     );
   }

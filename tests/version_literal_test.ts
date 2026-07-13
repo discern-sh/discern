@@ -25,15 +25,7 @@ Deno.test("src does not hardcode the current package semver outside version.ts",
   const offenders: string[] = [];
   for await (const path of tsFiles(SRC)) {
     const rel = relative(REPO, path);
-    // version.ts is the single source of discern's own version. The third-party
-    // notices manifest legitimately lists external dependency versions (one of
-    // which — json-schema-traverse@1.0.0 — currently coincides with discern's
-    // own), so it is a manifest of OTHER software's versions, not a hardcode of
-    // discern's.
-    if (
-      rel === "src/lib/version.ts" ||
-      rel === "src/lib/third_party_notices.ts"
-    ) {
+    if (rel === "src/lib/version.ts") {
       continue;
     }
     const text = await Deno.readTextFile(path);

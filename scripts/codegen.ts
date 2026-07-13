@@ -21,7 +21,10 @@ import {
   renderResultJsonSchema,
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
-import { renderThirdPartyNotices } from "../src/lib/third_party_notices.ts";
+import {
+  generateThirdPartyArtifacts,
+  THIRD_PARTY_ARTIFACT_PATHS,
+} from "../src/shared/third_party_codegen.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -55,6 +58,15 @@ console.log(
 await write("schema/discern-results.schema.json", renderResultJsonSchema());
 await write("types/discern-json.d.ts", renderResultTypesDts());
 console.log(
-  "Regenerating third-party notices from src/lib/third_party_notices.ts:",
+  "Regenerating third-party notices from the compile graph of src/main.ts:",
 );
-await write("THIRD_PARTY_NOTICES", renderThirdPartyNotices());
+const thirdParty = await generateThirdPartyArtifacts({
+  repoRoot,
+  allowFetch: true,
+});
+await write(THIRD_PARTY_ARTIFACT_PATHS.notices, thirdParty.notices);
+await write(THIRD_PARTY_ARTIFACT_PATHS.components, thirdParty.componentsJson);
+await write(
+  THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
+  thirdParty.jsrLicenseCacheJson,
+);

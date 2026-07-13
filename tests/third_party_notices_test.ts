@@ -1,108 +1,157 @@
 /**
- * Third-party notices GUARD — ties the hand-maintained notices manifest
- * (`src/lib/third_party_notices.ts`) to the dependency reality it describes, so
- * the bundled notices can never silently drift from what the binary embeds.
+ * Third-party notices GUARD — the committed notices artifacts must stay tied to
+ * the dependency reality the binary embeds, with no hand-maintained manifest in
+ * between (ADR 0136).
  *
- * Three ties:
- *  1. DRIFT — the committed `THIRD_PARTY_NOTICES` equals the render, so editing
- *     the manifest without regenerating (`deno task codegen`) fails the gate.
- *  2. VERSIONS — every listed component's version matches what `deno.lock`
- *     resolves, so a dependency bump forces the notices (and any changed
- *     copyright year) to be refreshed.
- *  3. COVERAGE — every third-party package `src/` actually imports appears in the
- *     manifest, so adding a new dependency fails the gate until it is credited.
+ * Three independent ties:
  *
- * When a tie fails, the fix is to update the manifest and run `deno task codegen`
- * — never to weaken the assertion.
+ *  1. REGENERATION PARITY — the committed artifacts equal a fresh offline
+ *     generation from the compile graph, so any dependency add/remove/bump that
+ *     lands without `deno task codegen` fails the gate. `allowFetch: false`
+ *     keeps the guard offline: a new JSR dependency whose license is not yet in
+ *     the committed cache fails with a "run codegen" message rather than
+ *     fetching.
+ *  2. CLOSURE CLOSEDNESS — checked against `deno.lock`, not the generator: for
+ *     every credited npm package, every dependency its lock entry declares is
+ *     credited too. A generator regression that silently drops part of the
+ *     embedded closure (the defect class that motivated ADR 0136) fails here
+ *     even though regeneration would still be self-consistent.
+ *  3. DIRECT-IMPORT COVERAGE — every jsr:/npm: package the import map serves to
+ *     `src/` imports is credited, scanned from the source text independently of
+ *     `deno info`.
+ *
+ * When a tie fails, the fix is `deno task codegen` (and committing the result)
+ * — never weakening the assertion.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
-  renderThirdPartyNotices,
-  THIRD_PARTY_COMPONENTS,
-} from "../src/lib/third_party_notices.ts";
+  generateThirdPartyArtifacts,
+  THIRD_PARTY_ARTIFACT_PATHS,
+} from "../src/shared/third_party_codegen.ts";
+import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
-const manifestNames = new Set(THIRD_PARTY_COMPONENTS.map((c) => c.name));
 
-Deno.test("committed THIRD_PARTY_NOTICES matches the manifest render", async () => {
-  const committed = await Deno.readTextFile(
-    join(repoRoot, "THIRD_PARTY_NOTICES"),
-  );
-  assertEquals(
-    committed,
-    renderThirdPartyNotices(),
-    "THIRD_PARTY_NOTICES is stale — regenerate it with `deno task codegen` and commit the result",
-  );
-});
+async function committedComponents(): Promise<ThirdPartyComponent[]> {
+  return JSON.parse(
+    await Deno.readTextFile(
+      join(repoRoot, THIRD_PARTY_ARTIFACT_PATHS.components),
+    ),
+  ) as ThirdPartyComponent[];
+}
 
-Deno.test("every embedded component's version matches deno.lock", async () => {
-  const lock = JSON.parse(
-    await Deno.readTextFile(join(repoRoot, "deno.lock")),
-  ) as { jsr?: Record<string, unknown>; npm?: Record<string, unknown> };
-
-  // name -> the set of versions deno.lock resolved for it (a package can appear
-  // at more than one version across the workspace).
-  const resolved = new Map<string, Set<string>>();
-  const record = (key: string): void => {
-    const bare = key.split("_")[0] ?? key; // drop the npm peer suffix
-    const at = bare.lastIndexOf("@");
-    if (at <= 0) return; // no version, or a leading-@ scope with no version
-    const name = bare.slice(0, at);
-    const version = bare.slice(at + 1);
-    const set = resolved.get(name) ?? new Set<string>();
-    set.add(version);
-    resolved.set(name, set);
-  };
-  for (const key of Object.keys(lock.jsr ?? {})) record(key);
-  for (const key of Object.keys(lock.npm ?? {})) record(key);
-
-  for (const c of THIRD_PARTY_COMPONENTS) {
-    const have = resolved.get(c.name);
-    assert(
-      have !== undefined,
-      `${c.name} is in the notices manifest but is not resolved in deno.lock`,
-    );
-    assert(
-      have.has(c.version),
-      `${c.name}@${c.version} does not match deno.lock (resolved: ${
-        [...have].join(", ")
-      }) — update src/lib/third_party_notices.ts and run \`deno task codegen\``,
+Deno.test("committed notices artifacts regenerate identically from the compile graph (run `deno task codegen`)", async () => {
+  const fresh = await generateThirdPartyArtifacts({
+    repoRoot,
+    allowFetch: false,
+  });
+  const expected = [
+    [THIRD_PARTY_ARTIFACT_PATHS.notices, fresh.notices],
+    [THIRD_PARTY_ARTIFACT_PATHS.components, fresh.componentsJson],
+    [THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache, fresh.jsrLicenseCacheJson],
+  ] as const;
+  for (const [rel, artifact] of expected) {
+    assertEquals(
+      await Deno.readTextFile(join(repoRoot, rel)),
+      artifact,
+      `${rel} is stale — run \`deno task codegen\` and commit the result`,
     );
   }
 });
 
-Deno.test("every third-party package imported by src/ is credited in the notices", async () => {
-  // The dependency families whose packages are embedded and must be credited.
-  const FAMILIES = ["@std/", "@cliffy/", "@zod/", "@modelcontextprotocol/"];
-  const IMPORT_RE = /from\s*["']([^"']+)["']/g;
+/** `name@version` from a deno.lock npm key, dropping any `_peer` suffix. */
+function parseLockKey(key: string): { name: string; version: string } {
+  const at = key.indexOf("@", key.startsWith("@") ? 1 : 0);
+  const name = key.slice(0, at);
+  const version = key.slice(at + 1).split("_")[0] ?? "";
+  return { name, version };
+}
+
+Deno.test("the credited npm set is closed under deno.lock dependency edges", async () => {
+  const lock = JSON.parse(
+    await Deno.readTextFile(join(repoRoot, "deno.lock")),
+  ) as { npm?: Record<string, { dependencies?: string[] }> };
+  const npmComponents = (await committedComponents())
+    .filter((c) => c.registry === "npm");
+  const credited = new Set(npmComponents.map((c) => `${c.name}@${c.version}`));
+  const creditedNames = new Set(npmComponents.map((c) => c.name));
+  assert(credited.size > 0, "no npm components credited — the walk is broken");
+
+  const uncredited: string[] = [];
+  for (const [key, entry] of Object.entries(lock.npm ?? {})) {
+    const pkg = parseLockKey(key);
+    if (!credited.has(`${pkg.name}@${pkg.version}`)) continue;
+    for (const depKey of entry.dependencies ?? []) {
+      // A dependency entry is a bare name, with `@version` appended only when
+      // the lock resolves the name at more than one version.
+      const versioned = depKey.includes("@", 1);
+      const covered = versioned
+        ? credited.has(`${parseLockKey(depKey).name}@${
+          parseLockKey(depKey).version
+        }`)
+        : creditedNames.has(depKey);
+      if (!covered) {
+        uncredited.push(`${depKey} (dependency of ${pkg.name})`);
+      }
+    }
+  }
+  assertEquals(
+    uncredited,
+    [],
+    "npm packages the binary embeds (dependencies of credited packages) are " +
+      "missing from the notices — `deno compile` embeds npm dependencies at " +
+      "package granularity, so the whole closure must be credited: " +
+      uncredited.join(", "),
+  );
+});
+
+Deno.test("every jsr:/npm: package src/ imports through the import map is credited", async () => {
+  const denoJson = JSON.parse(
+    await Deno.readTextFile(join(repoRoot, "deno.json")),
+  ) as { imports?: Record<string, string> };
+  const importMap = denoJson.imports ?? {};
+
+  /** The registry package name of a jsr:/npm: specifier, or undefined. */
+  const packageOf = (spec: string): string | undefined => {
+    const match = /^(?:jsr|npm):\/?(@[^/@]+\/[^/@]+|[^/@]+)/.exec(spec);
+    return match?.[1];
+  };
+  /** Resolve a source-text import through the import map (exact or prefix). */
+  const resolve = (spec: string): string => {
+    const exact = importMap[spec];
+    if (exact !== undefined) return exact;
+    for (const [key, value] of Object.entries(importMap)) {
+      if (key.endsWith("/") && spec.startsWith(key)) {
+        return value + spec.slice(key.length);
+      }
+    }
+    return spec;
+  };
 
   const imported = new Set<string>();
   for await (const entry of walk(join(repoRoot, "src"))) {
     if (!entry.isFile || !entry.path.endsWith(".ts")) continue;
     const source = await Deno.readTextFile(entry.path);
-    for (const match of source.matchAll(IMPORT_RE)) {
+    for (const match of source.matchAll(/from\s*["']([^"']+)["']/g)) {
       const spec = match[1];
-      if (spec === undefined || !FAMILIES.some((f) => spec.startsWith(f))) {
-        continue;
-      }
-      const [scope, name] = spec.split("/");
-      if (scope === undefined || name === undefined) continue;
-      imported.add(`${scope}/${name}`);
+      if (spec === undefined) continue;
+      const pkg = packageOf(resolve(spec));
+      if (pkg !== undefined) imported.add(pkg);
     }
   }
-
   assert(
     imported.size > 0,
-    "no third-party imports found under src/ — the scan is broken, not the manifest",
+    "no registry imports found under src/ — the scan is broken, not the manifest",
   );
+
+  const credited = new Set((await committedComponents()).map((c) => c.name));
   for (const pkg of imported) {
     assert(
-      manifestNames.has(pkg),
-      `src/ imports "${pkg}" but it is missing from THIRD_PARTY_COMPONENTS — ` +
-        "add it to src/lib/third_party_notices.ts and run `deno task codegen`",
+      credited.has(pkg),
+      `src/ imports "${pkg}" but the notices do not credit it — run \`deno task codegen\``,
     );
   }
 });
