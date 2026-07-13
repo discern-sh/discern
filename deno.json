@@ -2,6 +2,7 @@
   "name": "discern",
   "version": "1.0.0",
   "exports": "./src/main.ts",
+  "license": "Apache-2.0",
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
