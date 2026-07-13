@@ -496,5 +496,6 @@ in_gate = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [scripts]
-# Where your Project Scripts live, relative to the project root.
-dir = "discern/scripts"
+# This repository exercises a custom path; fresh installs default to
+# discern/scripts.
+dir = "scripts/commands"
