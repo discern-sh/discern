@@ -87,23 +87,3 @@ gradient geometry, overlay blend, grain scale, and opacity, and pages use it at
 most once, normally for the hero. Alternating content bands use the semantic
 canvas, raised surface, and sunken surface roles rather than inventing
 page-local greys.
-
-## The experiment route
-
-`/design-system-demo` is a non-negotiated HTML route and the first consumer. It
-exercises page composition, responsive layout, light and dark themes, local
-assets, and small copy/theme enhancements without touching `/`, `/agents`,
-`/start`, or `/careers`. The `/docs` shell is the second consumer, reproducing
-components as semantic HTML on the server — see
-[the-docs-section.md](the-docs-section.md).
-
-The migration pattern is deliberately page-sized:
-
-1. compose a new page under `site/page-src/`;
-2. generate it beside the existing edition without changing the live route;
-3. compare desktop, mobile, themes, assets, and reader behaviour;
-4. switch the route only after the new edition has passed its proof;
-5. remove the superseded HTML in a later deliberate cleanup.
-
-The original page remains a rollback surface throughout the comparison rather
-than being partially converted in place.
