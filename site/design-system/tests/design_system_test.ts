@@ -122,6 +122,29 @@ function roleRampViolations(
   return violations;
 }
 
+function componentOwnedSelectors(
+  source: string,
+  componentSlugs: ReadonlySet<string>,
+): string[] {
+  const selectors = new Set<string>();
+  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
+    const prelude = (rule[1] ?? "").trim();
+    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
+      const className = match[1] ?? "";
+      if (
+        [...componentSlugs].some((slug) =>
+          className === `ds-${slug}` ||
+          className.startsWith(`ds-${slug}__`) ||
+          className.startsWith(`ds-${slug}--`)
+        )
+      ) {
+        selectors.add(prelude);
+      }
+    }
+  }
+  return [...selectors].sort();
+}
+
 Deno.test("generated public site outputs are ignored and absent from Git", async () => {
   const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
     join("site", output)
@@ -219,6 +242,49 @@ Deno.test("every design-system component auto-enrols its implementation surfaces
     const source = await Deno.readTextFile(path);
     assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
   }
+});
+
+Deno.test("consumer styles never redefine component-owned selectors", async () => {
+  assertEquals(
+    componentOwnedSelectors(
+      ".ds-future-widget__label, .consumer-shell { color: red; }",
+      new Set(["future-widget"]),
+    ),
+    [".ds-future-widget__label, .consumer-shell"],
+  );
+
+  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
+    path.endsWith(".meta.ts")
+  );
+  const slugs = new Set<string>();
+  for (const path of metaFiles) {
+    const meta = (await import(toFileUrl(path).href)) as {
+      default: { readonly slug: string };
+    };
+    slugs.add(meta.default.slug);
+  }
+
+  const violations: string[] = [];
+  for (
+    const path of (await walk(join(ROOT, "site"))).filter((candidate) => {
+      const repoPath = relative(ROOT, candidate);
+      return candidate.endsWith(".css") &&
+        !repoPath.startsWith("site/design-system/src/") &&
+        !repoPath.startsWith("site/design-system/dist/") &&
+        !repoPath.startsWith("site/design-system/styleguide/generated/") &&
+        !repoPath.startsWith("site/pages/");
+    })
+  ) {
+    for (
+      const selector of componentOwnedSelectors(
+        await Deno.readTextFile(path),
+        slugs,
+      )
+    ) {
+      violations.push(`${relative(ROOT, path)}: ${selector}`);
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {

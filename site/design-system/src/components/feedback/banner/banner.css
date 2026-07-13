@@ -38,8 +38,8 @@
     display: grid;
     flex: none;
     place-items: center;
-    inline-size: 18px;
-    block-size: 18px;
+    inline-size: 1.2rem;
+    block-size: 1.2rem;
     margin-block-start: 1px;
   }
   .ds-banner__icon > :where(svg, img) {

@@ -24,6 +24,9 @@ design-system or page inputs change.
 - Change design values in `src/tokens/tokens.ts`; generated CSS is never edited.
 - Every public component owns a folder containing its implementation, styles,
   metadata, examples, and `mod.ts` export.
+- Consumer styles may compose components through an added consumer class, but
+  never target a component-owned `.ds-*` selector. Component internals remain
+  reproducible from this directory alone.
 - Component source contains no product copy and no remote asset URLs.
 - Icons are renderable slots. Font loading belongs to the consuming app or the
   isolated styleguide font provider.

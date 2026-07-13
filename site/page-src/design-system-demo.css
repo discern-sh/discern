@@ -200,8 +200,7 @@ body[data-ds-root] {
   color: var(--ds-color-success);
 }
 
-.demo-terminal__receipt svg,
-.ds-banner__icon svg {
+.demo-terminal__receipt svg {
   inline-size: 1.2rem;
   block-size: 1.2rem;
 }
