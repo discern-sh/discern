@@ -56,9 +56,9 @@ No human judgment sits between the dependency graph and the notices.
    today), never a second manifest.
 3. **The binary embeds the committed notices.** `discern licenses` prints them
    from a generated bundle module compiled into the binary, so an install's
-   notices always match its build. The bundle is compressed — license text is
-   highly redundant — so the notices hold the `binary_size` ceiling rather than
-   raising it, and a drift test pins the bundle to the readable
+   notices always match its build. Codegen compresses the bundle — license text
+   repeats the same few bodies — so the notices hold the `binary_size` ceiling
+   rather than raising it, and a drift test pins the bundle to the readable
    `THIRD_PARTY_NOTICES`.
 4. **The notices credit the Deno runtime.** The binary also embeds the runtime.
    A fixed section credits the Deno authors (MIT) and points to Deno's own

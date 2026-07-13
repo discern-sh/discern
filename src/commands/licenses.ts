@@ -11,7 +11,6 @@
  */
 
 import { gunzipSync } from "zlib";
-import { decodeBase64 } from "@std/encoding/base64";
 import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
@@ -35,8 +34,14 @@ interface Bundle {
 
 let cached: Bundle | undefined;
 function bundle(): Bundle {
+  // atob instead of @std/encoding keeps the decoder out of the compiled graph;
+  // the binary_size standard holds the ceiling the extra module would break.
   cached ??= JSON.parse(
-    new TextDecoder().decode(gunzipSync(decodeBase64(THIRD_PARTY_BUNDLE_B64))),
+    new TextDecoder().decode(
+      gunzipSync(
+        Uint8Array.from(atob(THIRD_PARTY_BUNDLE_B64), (c) => c.charCodeAt(0)),
+      ),
+    ),
   ) as Bundle;
   return cached;
 }
