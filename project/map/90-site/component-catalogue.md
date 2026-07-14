@@ -1,6 +1,6 @@
 # Design-system component roles
 
-The catalogue at `/styleguide/` is generated from each component's metadata,
+The catalogue at `/style-guide/` is generated from each component's metadata,
 implementation, styles, and examples. This page records the cross-component
 visual roles that a page author should preserve.
 
@@ -63,3 +63,34 @@ screens. `Testimonial` uses quotation and attribution semantics, while
 `FaqBlock` uses native `details` and `summary`, so disclosure needs no client
 runtime. Together with `CtaBand`, it handles the final landing-page move from
 resolving uncertainty to offering a next action.
+
+## Editorial page frame
+
+`ArticleHeader` is the publication-scale opening: title, introductory summary,
+byline, reading metadata, actions, and optional cover media. `ArticleLayout`
+provides a primary article landmark between optional navigation and context
+rails. The rails become ordinary flow content as the screen narrows rather than
+squeezing the reading measure.
+
+`TableOfContents` is labelled navigation with explicit current-location state.
+`Prose` supplies long-form rhythm, readable measures, heading spacing, lists,
+links, inline code, rules, and optional lead and drop-cap treatments without
+inventing hierarchy for the author. The drop cap aligns with the first line and
+does not add a separate semantic character.
+
+## Editorial emphasis and evidence
+
+`KeyPoints` is an ordered article brief. Its ordered ideas use a quieter surface
+than the heading so the information hierarchy remains visible without changing
+the document structure. `PullQuote` preserves quotation and attribution
+semantics, while `Callout` exposes context, interpretation, cautions, and
+successful outcomes as headed notes. None relies on visual colour or numbering
+as its only account of meaning.
+
+`CodeListing` keeps source as a horizontally scrolling code block with stable
+line numbers and optional highlights. `DataFigure` owns the title, legend,
+visual, caption, and source frame around a caller-provided accessible chart or
+diagram. `Timeline` expresses chronology as an ordered list. `Footnotes`
+provides stable note anchors and descriptive return links. `RelatedContent`
+closes a reading experience with headed article recommendations rather than
+generic link cards.

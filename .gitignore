@@ -28,6 +28,7 @@
 # and by Deno Deploy's configured build step. Sources live under
 # `site/design-system/` and `site/page-src/`; build products never enter Git.
 /site/pages/design-system-demo.html
+/site/pages/content-design-demo.html
 /site/pages/assets/design-system/
 
 # --- discern ---

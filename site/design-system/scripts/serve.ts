@@ -20,12 +20,11 @@ export function styleguideFilePath(rawPathname: string): string | null {
     return null;
   }
   if (pathname.includes("..") || pathname.includes("\0")) return null;
-  if (
-    pathname.startsWith("/styleguide/dist/") ||
-    pathname.startsWith("/styleguide/src/") ||
-    pathname.startsWith("/styleguide/assets/")
-  ) {
-    pathname = pathname.slice("/styleguide".length);
+  if (pathname.startsWith("/style-guide/")) {
+    const mountedPath = pathname.slice("/style-guide".length);
+    pathname = /^\/(?:dist|src|assets)\//.test(mountedPath)
+      ? mountedPath
+      : `/styleguide${mountedPath}`;
   }
   if (pathname.endsWith("/")) pathname += "index.html";
   return `.${pathname}`;
@@ -39,8 +38,8 @@ function safePath(url: URL): URL | null {
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/styleguide") {
-      url.pathname = "/styleguide/";
+    if (url.pathname === "/style-guide") {
+      url.pathname = "/style-guide/";
       return Response.redirect(url, 307);
     }
     const target = safePath(url);

@@ -25,8 +25,9 @@ failed watched rebuild is reported and the watcher remains ready for the
 correcting edit.
 
 The same local server exposes the complete component catalogue at
-`/styleguide/`. It is mounted only by `site/dev.ts`; the production handler does
-not publish the catalogue.
+`/style-guide/`. It is mounted only by `site/dev.ts`; the production handler
+does not publish the catalogue. The former `/styleguide/` path redirects to the
+new hyphenated route and preserves any component fragment.
 
 Deno Deploy runs the same build task before it starts the handler through a
 `Deno.serve` entrypoint, [`site/main.ts`](../../../site/main.ts) — because the

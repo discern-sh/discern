@@ -10,18 +10,24 @@ live in `site/page-src/`.
   browser styleguide bundle.
 - `deno task check` — formatting, linting, and strict type checking.
 - `deno task verify` — the complete local gate.
-- `deno task serve` — optionally build and serve the styleguide alone at
-  `http://127.0.0.1:8010/styleguide/`.
+- `deno task serve` — optionally build and serve the style guide alone at
+  `http://127.0.0.1:8010/style-guide/`.
 
 From the repository root, `deno task site:build` uses these adapters only at
 build time to generate static public HTML and CSS. No React runtime ships with
 the landing-page demo. Root `deno task watch` serves both that demo and the
-local catalogue at `/styleguide/`, rebuilding them together when authored
+local catalogue at `/style-guide/`, rebuilding them together when authored
 design-system or page inputs change.
 
 ## Source rules
 
 - Change design values in `src/tokens/tokens.ts`; generated CSS is never edited.
+- `--ds-font-size-xs` is the readability floor for authored interface text.
+  Components, demos, and the catalogue may use larger type roles but do not
+  introduce smaller literal `rem` sizes.
+- Contrast treatments use the stable `--ds-color-inverse-surface` and
+  `--ds-color-inverse-ink` roles instead of treating theme-relative canvas and
+  text colours as an inverse palette.
 - Every public component owns a folder containing its implementation, styles,
   metadata, examples, and `mod.ts` export.
 - Consumer styles may compose components through an added consumer class, but
@@ -112,3 +118,21 @@ styleguide. Adding another group cannot leave the catalogue renderer on a stale
 hand-maintained list. A structural test also discovers every Marketing metadata
 entry and requires the generated demo to represent its root block, so the
 showcase cannot silently fall behind the reusable library.
+
+## Editorial blocks
+
+The `Editorial` catalogue group is the long-form content vocabulary. It adds an
+article opener and responsive reading shell; contents navigation and prose
+rhythm; key points, pull quotes, and contextual callouts; code listings and data
+figures; chronological narratives, footnotes, and related-reading continuations.
+The components are intended for essays, reports, guides, changelogs, research,
+and premium technical narratives rather than one specific publication.
+
+`/content-design-demo` composes the complete group into one static editorial
+edition. Product copy, issue artwork, chart data, and article-specific controls
+remain under `site/page-src/`. A structural test derives the Editorial set from
+metadata and requires every root block in the rendered content demo, so new
+editorial components cannot leave the catalogue and composition atlas out of
+sync. The same guard rejects any dependency from Editorial component source back
+to an `editorial-demo-*` class: those page-prefixed classes are composition and
+bespoke artwork only, while every catalogue component remains reusable.

@@ -68,7 +68,7 @@
     box-shadow: 3px 3px 0 var(--ds-color-accent-300);
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-mono);
-    font-size: 0.65rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-process-steps__content {
     padding-block-start: var(--ds-space-6);

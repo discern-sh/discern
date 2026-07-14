@@ -27,8 +27,8 @@
     background:
       radial-gradient(circle at 100% 0%, color-mix(in oklab,
       var(--ds-color-accent-500) 32%, transparent), transparent 42%),
-      var(--ds-color-ink);
-    color: var(--ds-color-canvas);
+      var(--ds-color-inverse-surface);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-cta-band__inner::after {
     position: absolute;
@@ -58,7 +58,7 @@
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-cta-band--contrast .ds-cta-band__eyebrow {
-    color: var(--ds-color-canvas);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-cta-band__content h2 {
     max-width: 14ch;
@@ -73,7 +73,7 @@
     font-size: var(--ds-font-size-lg);
   }
   .ds-cta-band--contrast .ds-cta-band__description {
-    color: color-mix(in oklab, var(--ds-color-canvas) 76%, transparent);
+    color: color-mix(in oklab, var(--ds-color-inverse-ink) 76%, transparent);
   }
   .ds-cta-band__description > :last-child {
     margin-block-end: 0;
@@ -93,7 +93,7 @@
     font-size: var(--ds-font-size-xs);
   }
   .ds-cta-band--contrast .ds-cta-band__note {
-    color: color-mix(in oklab, var(--ds-color-canvas) 60%, transparent);
+    color: color-mix(in oklab, var(--ds-color-inverse-ink) 60%, transparent);
   }
   .ds-cta-band--split .ds-cta-band__inner,
   .ds-cta-band--with-visual .ds-cta-band__inner {

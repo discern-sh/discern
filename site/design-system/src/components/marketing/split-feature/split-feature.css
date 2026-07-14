@@ -62,7 +62,7 @@
     border-radius: 50%;
     background: var(--ds-color-success-soft);
     color: var(--ds-color-success-deep);
-    font-size: 0.75rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-split-feature__points strong,
   .ds-split-feature__points li span span {

@@ -19,7 +19,7 @@
     cursor: pointer;
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.9375rem;
+    font-size: var(--ds-font-size-sm);
     font-weight: 600;
     line-height: 1;
     text-decoration: none;
@@ -68,7 +68,7 @@
   .ds-button--sm {
     min-block-size: 32px;
     padding-inline: var(--ds-space-3);
-    font-size: 0.8125rem;
+    font-size: var(--ds-font-size-xs);
     box-shadow: 2px 2px 0 var(--ds-button-shadow);
   }
   .ds-button--lg {

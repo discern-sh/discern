@@ -16,6 +16,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildDesignSystemRuntime } from "../scripts/build.ts";
 import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
+import { renderContentDesignDemo } from "../../page-src/content-design-demo.tsx";
 import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../../page-src/format-generated.ts";
 import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
@@ -177,6 +178,31 @@ function leafDeclarationBlocks(source: string): string[] {
   return blocks;
 }
 
+function subminimumRemType(
+  source: string,
+  minimumRem: number,
+): string[] {
+  return [...source.matchAll(/\bfont(?:-size)?\s*:\s*(0?\.\d+)rem/g)]
+    .filter((match) => Number(match[1]) < minimumRem)
+    .map((match) => match[0]);
+}
+
+function invertedSemanticRoleDeclarations(source: string): string[] {
+  return leafDeclarationBlocks(source).flatMap((declarations) => {
+    const violations: string[] = [];
+    const background = declarations.match(
+      /background(?:-color)?\s*:\s*([^;]+)/s,
+    )?.[1] ?? "";
+    if (/(?:^|,)\s*var\(--ds-color-ink\)\s*$/s.test(background)) {
+      violations.push("text role used as a surface");
+    }
+    if (/\bcolor\s*:\s*var\(--ds-color-canvas\)/.test(declarations)) {
+      violations.push("canvas role used as text");
+    }
+    return violations;
+  });
+}
+
 function dataAttributeCounts(
   source: string,
   attribute: string,
@@ -268,6 +294,13 @@ Deno.test("design-system sources deterministically reproduce every generated run
       generatedPage,
       await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
     );
+    const generatedContentPage = await Deno.readTextFile(
+      join(ROOT, "site", "pages", "content-design-demo.html"),
+    );
+    assertEquals(
+      generatedContentPage,
+      await formatGeneratedText(renderContentDesignDemo(summary), "html"),
+    );
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
@@ -275,6 +308,7 @@ Deno.test("design-system sources deterministically reproduce every generated run
   for (
     const [source, output] of [
       ["design-system-demo.css", "demo.css"],
+      ["content-design-demo.css", "content-demo.css"],
       ["design-system-demo.js", "demo.js"],
     ] as const
   ) {
@@ -384,6 +418,9 @@ Deno.test("every marketing block is represented in the demo", async () => {
   assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
   assertStringIncludes(html, "<table");
   assertStringIncludes(html, "<details");
+  assertStringIncludes(html, 'href="/content-design-demo"');
+  assertStringIncludes(html, 'href="/style-guide/"');
+  assert(!html.includes('href="/styleguide/'));
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
     .map((match) => match[1] ?? "");
@@ -395,6 +432,74 @@ Deno.test("every marketing block is represented in the demo", async () => {
     assert(
       ids.includes(fragment),
       `demo fragment #${fragment} has no matching id`,
+    );
+  }
+});
+
+Deno.test("every editorial block is represented in the content demo", async () => {
+  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
+    path.endsWith(".meta.ts")
+  );
+  const editorial: ComponentMeta[] = [];
+  for (const path of metaFiles) {
+    const module = (await import(toFileUrl(path).href)) as {
+      default: ComponentMeta;
+    };
+    if (module.default.group === "Editorial") editorial.push(module.default);
+  }
+
+  assertEquals(
+    editorial.length,
+    12,
+    "the editorial set should stay comprehensive",
+  );
+  const html = renderContentDesignDemo({
+    components: metaFiles.length,
+    tokens: designTokens.length + themeTokens.length,
+  });
+  for (const meta of editorial) {
+    assertMatch(
+      html,
+      new RegExp(`class="[^"]*\\bds-${meta.slug}\\b`),
+      `${meta.name} is not represented in the content demo`,
+    );
+    assert(
+      (meta.accessibility?.length ?? 0) > 0,
+      `${meta.name} has no accessibility contract`,
+    );
+  }
+
+  assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
+  assertStringIncludes(html, 'href="/design-system-demo"');
+  assertStringIncludes(html, 'href="/style-guide/"');
+  assert(!html.includes('href="/styleguide/'));
+  for (
+    const semantic of [
+      "<article",
+      "<nav",
+      "<figure",
+      "<blockquote",
+      "<pre",
+      "<ol",
+    ]
+  ) {
+    assertStringIncludes(html, semantic);
+  }
+
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
+    .map((match) => match[1] ?? "");
+  assertEquals(
+    new Set(ids).size,
+    ids.length,
+    "content demo ids must be unique",
+  );
+  for (
+    const fragment of [...html.matchAll(/href="(#[^"]+)"/g)]
+      .map((match) => (match[1] ?? "").slice(1))
+  ) {
+    assert(
+      ids.includes(fragment),
+      `content demo fragment #${fragment} has no matching id`,
     );
   }
 });
@@ -418,7 +523,7 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
     ],
     [
       "contained stacks",
-      /\.demo-contained-stack\s*>\s*\*\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0 0 auto;[^}]*translate:\s*0 var\(--demo-stack-offset/s,
+      /\.demo-contained-stack\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--ds-space-3\);/s,
     ],
     [
       "fanout grids",
@@ -445,6 +550,97 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
       "unrelated-stack must use demo-contained-stack",
       "new-tree has 1 fanout arms for 2 targets",
     ],
+  );
+});
+
+Deno.test("authored design-system type respects the xs readability floor", async () => {
+  const xs = designTokens.find((token) => token.name === "--ds-font-size-xs");
+  assert(xs !== undefined);
+  const minimumRem = Number(xs.value.replace("rem", ""));
+  assert(Number.isFinite(minimumRem));
+
+  const authoredCss = [
+    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
+      .filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "page-src")))
+      .filter((path) => path.endsWith(".css")),
+  ];
+  const violations: string[] = [];
+  for (const path of authoredCss) {
+    const source = await Deno.readTextFile(path);
+    violations.push(
+      ...subminimumRemType(source, minimumRem).map((declaration) =>
+        `${relative(ROOT, path)}: ${declaration}`
+      ),
+    );
+  }
+  assertEquals(violations, []);
+  assertEquals(
+    subminimumRemType(
+      ".fresh-component { font-size: 0.7rem; }",
+      minimumRem,
+    ),
+    ["font-size: 0.7rem"],
+  );
+});
+
+Deno.test("inverse surfaces use stable inverse colour roles", async () => {
+  const authoredCss = [
+    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
+      .filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "page-src")))
+      .filter((path) => path.endsWith(".css")),
+  ];
+  const violations: string[] = [];
+  for (const path of authoredCss) {
+    const source = await Deno.readTextFile(path);
+    violations.push(
+      ...invertedSemanticRoleDeclarations(source).map((violation) =>
+        `${relative(ROOT, path)}: ${violation}`
+      ),
+    );
+  }
+  assertEquals(violations, []);
+  assertEquals(
+    invertedSemanticRoleDeclarations(
+      ".fresh-panel { background: var(--ds-color-ink); color: var(--ds-color-canvas); }",
+    ),
+    ["text role used as a surface", "canvas role used as text"],
+  );
+});
+
+Deno.test("editorial components stay independent from their demo page", async () => {
+  const editorialRoot = join(COMPONENT_ROOT, "editorial");
+  const violations: string[] = [];
+  for (
+    const path of (await walk(editorialRoot)).filter((candidate) =>
+      /\.(?:css|tsx)$/.test(candidate)
+    )
+  ) {
+    if ((await Deno.readTextFile(path)).includes("editorial-demo")) {
+      violations.push(relative(ROOT, path));
+    }
+  }
+  assertEquals(violations, []);
+});
+
+Deno.test("editorial reading treatments preserve their alignment and surface hierarchy", async () => {
+  const prose = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "editorial", "prose", "prose.css"),
+  );
+  assertMatch(
+    prose,
+    /\.ds-prose--drop-cap\s*>\s*p:first-child::first-letter\s*\{[^}]*margin:\s*0 0\.12em 0 0;/s,
+  );
+
+  const keyPoints = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "editorial", "key-points", "key-points.css"),
+  );
+  assertMatch(
+    keyPoints,
+    /\.ds-key-points ol\s*\{[^}]*background:\s*var\(--ds-color-surface-sunken\);/s,
   );
 });
 
@@ -702,7 +898,7 @@ Deno.test("kicker isolates its monospace index from UI text", async () => {
     join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
   );
   const rootRule = css.match(/\.ds-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
-  assertStringIncludes(rootRule, "font-size: 0.625rem");
+  assertStringIncludes(rootRule, "font-size: var(--ds-font-size-xs)");
   assert(!rootRule.includes("var(--ds-font-mono)"));
   assertMatch(
     css,
@@ -843,27 +1039,34 @@ Deno.test("runtime assets exclude navigation and auto-enrol new asset tags", () 
   ]);
 });
 
-Deno.test("the public demo ships static HTML and local runtime assets only", async () => {
-  const html = await Deno.readTextFile(
-    join(ROOT, "site", "pages", "design-system-demo.html"),
-  );
-  assertStringIncludes(html, "data-ds-root");
-  assertStringIncludes(
-    html,
-    "typed React at build time · static HTML at runtime",
-  );
+Deno.test("the public demos ship static HTML and local runtime assets only", async () => {
+  for (
+    const [page, marker] of [
+      [
+        "design-system-demo.html",
+        "typed React at build time · static HTML at runtime",
+      ],
+      ["content-design-demo.html", "editorial engineering · static by design"],
+    ] as const
+  ) {
+    const html = await Deno.readTextFile(join(ROOT, "site", "pages", page));
+    assertStringIncludes(html, "data-ds-root");
+    assertStringIncludes(html, marker);
 
-  const runtimeRefs = runtimeAssetReferences(html);
-  assert(
-    runtimeRefs.every((value) => value.startsWith("/")),
-    `remote runtime references: ${runtimeRefs.join(", ")}`,
-  );
-  assertEquals(
-    runtimeRefs.filter((value) => value.endsWith(".js")),
-    ["/assets/design-system/demo.js"],
-  );
+    const runtimeRefs = runtimeAssetReferences(html);
+    assert(
+      runtimeRefs.every((value) => value.startsWith("/")),
+      `${page} remote runtime references: ${runtimeRefs.join(", ")}`,
+    );
+    assertEquals(
+      runtimeRefs.filter((value) => value.endsWith(".js")),
+      ["/assets/design-system/demo.js"],
+    );
+  }
 
-  for (const asset of ["discern.css", "demo.css", "fonts.css"]) {
+  for (
+    const asset of ["discern.css", "demo.css", "content-demo.css", "fonts.css"]
+  ) {
     const css = await Deno.readTextFile(join(PUBLIC_ROOT, asset));
     assert(!/https?:\/\//.test(css), `${asset} contains a remote URL`);
   }

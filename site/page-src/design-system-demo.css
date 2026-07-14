@@ -18,8 +18,8 @@ body[data-ds-root] {
   inset: 0.75rem auto auto -999px;
   padding: var(--ds-space-2) var(--ds-space-4);
   border-radius: var(--ds-radius-sm);
-  background: var(--ds-color-ink);
-  color: var(--ds-color-canvas);
+  background: var(--ds-color-inverse-surface);
+  color: var(--ds-color-inverse-ink);
 }
 
 .demo-skip:focus {
@@ -39,7 +39,7 @@ body[data-ds-root] {
   cursor: pointer;
   font-family: var(--ds-font-ui);
   font-feature-settings: var(--ds-font-features-ui);
-  font-size: 0.72rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-theme:hover,
@@ -171,7 +171,7 @@ body[data-ds-root] {
   background: var(--ds-color-surface-sunken);
   color: var(--ds-color-ink-faint);
   font-family: var(--ds-font-mono);
-  font-size: 0.64rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-gate-visual__track {
@@ -199,7 +199,7 @@ body[data-ds-root] {
 .demo-gate-visual__track span {
   color: var(--ds-color-accent-600);
   font-family: var(--ds-font-mono);
-  font-size: 0.58rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-gate-visual__track strong {
@@ -211,7 +211,7 @@ body[data-ds-root] {
 
 .demo-gate-visual__track small {
   color: var(--ds-color-ink-faint);
-  font-size: 0.68rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-gate-visual__track i {
@@ -254,7 +254,7 @@ body[data-ds-root] {
 
 .demo-gate-visual__receipt small {
   margin-block-start: 2px;
-  font-size: 0.67rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-visual-inset {
@@ -265,22 +265,18 @@ body[data-ds-root] {
 }
 
 .demo-contained-stack {
-  position: relative;
-}
-
-.demo-contained-stack > * {
-  position: absolute;
-  inset: 0 0 auto;
-  translate: 0 var(--demo-stack-offset, 0);
+  display: grid;
+  gap: var(--ds-space-3);
 }
 
 .demo-worktrees {
   --demo-visual-max: 20rem;
-  height: 19rem;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  align-self: stretch;
+  min-height: 19rem;
 }
 
 .demo-worktrees > div {
-  --demo-stack-offset: calc(var(--demo-offset) * 3.5rem);
   display: grid;
   grid-template-columns: 2.2rem 1fr;
   gap: var(--ds-space-2) var(--ds-space-3);
@@ -321,14 +317,14 @@ body[data-ds-root] {
   min-width: 0;
   overflow: hidden;
   font-family: var(--ds-font-mono);
-  font-size: 0.72rem;
+  font-size: var(--ds-font-size-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .demo-worktrees small {
   color: var(--ds-color-ink-faint);
-  font-size: 0.68rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-guidance {
@@ -357,7 +353,7 @@ body[data-ds-root] {
 .demo-guidance__source span {
   color: var(--ds-color-accent-700);
   font-family: var(--ds-font-mono);
-  font-size: 0.62rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-guidance__source strong {
@@ -430,7 +426,7 @@ body[data-ds-root] {
   color: var(--ds-color-ink-muted);
   font-family: var(--ds-font-ui);
   font-feature-settings: var(--ds-font-features-ui);
-  font-size: 0.66rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-guidance__agents svg {
@@ -457,7 +453,7 @@ body[data-ds-root] {
 .demo-standards strong,
 .demo-standards small {
   font-family: var(--ds-font-mono);
-  font-size: 0.66rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-standards small {
@@ -488,7 +484,7 @@ body[data-ds-root] {
   padding-block-start: var(--ds-space-4);
   border-block-start: 1px solid var(--ds-color-border);
   color: var(--ds-color-ink-muted);
-  font-size: 0.7rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-standards p svg {
@@ -524,7 +520,7 @@ body[data-ds-root] {
 
 .demo-map > div strong {
   font-family: var(--ds-font-mono);
-  font-size: 0.72rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-map > span {
@@ -533,7 +529,7 @@ body[data-ds-root] {
   padding: var(--ds-space-2) var(--ds-space-3);
   border-radius: var(--ds-radius-sm);
   color: var(--ds-color-ink-muted);
-  font-size: 0.72rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-map > span:hover {
@@ -556,7 +552,7 @@ body[data-ds-root] {
   background: var(--ds-color-canvas);
   color: var(--ds-color-ink-faint);
   font-family: var(--ds-font-mono);
-  font-size: 0.63rem;
+  font-size: var(--ds-font-size-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -596,7 +592,7 @@ body[data-ds-root] {
 .demo-scenario small {
   color: var(--ds-color-ink-faint);
   font-family: var(--ds-font-mono);
-  font-size: 0.6rem;
+  font-size: var(--ds-font-size-xs);
   text-transform: uppercase;
 }
 
@@ -612,7 +608,7 @@ body[data-ds-root] {
   align-items: center;
   gap: var(--ds-space-2);
   color: var(--ds-color-ink-muted);
-  font-size: 0.68rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-scenario__after svg {
@@ -635,22 +631,22 @@ body[data-ds-root] {
 
 .demo-command-card {
   padding: var(--ds-space-6);
-  border: 1px solid color-mix(in oklab, var(--ds-color-canvas) 24%,
+  border: 1px solid color-mix(in oklab, var(--ds-color-inverse-ink) 24%,
     transparent);
   border-radius: var(--ds-radius-lg);
-  background: color-mix(in oklab, var(--ds-color-canvas) 7%, transparent);
+  background: color-mix(in oklab, var(--ds-color-inverse-ink) 7%, transparent);
   box-shadow: 8px 8px 0 color-mix(in oklab, #000 28%, transparent);
-  color: var(--ds-color-canvas);
+  color: var(--ds-color-inverse-ink);
   rotate: 1deg;
 }
 
 .demo-command-card__label {
   display: block;
   margin-block-end: var(--ds-space-4);
-  color: color-mix(in oklab, var(--ds-color-canvas) 62%, transparent);
+  color: color-mix(in oklab, var(--ds-color-inverse-ink) 62%, transparent);
   font-family: var(--ds-font-ui);
   font-feature-settings: var(--ds-font-features-ui);
-  font-size: 0.68rem;
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-command-card code {
@@ -659,8 +655,8 @@ body[data-ds-root] {
   padding: var(--ds-space-4);
   border-radius: var(--ds-radius-md);
   background: color-mix(in oklab, #000 72%, transparent);
-  color: var(--ds-color-canvas);
-  font: 0.72rem/1.6 var(--ds-font-mono);
+  color: var(--ds-color-inverse-ink);
+  font: var(--ds-font-size-xs)/1.6 var(--ds-font-mono);
   white-space: nowrap;
 }
 
@@ -679,8 +675,8 @@ body[data-ds-root] {
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-1);
-  color: color-mix(in oklab, var(--ds-color-canvas) 72%, transparent);
-  font-size: 0.65rem;
+  color: color-mix(in oklab, var(--ds-color-inverse-ink) 72%, transparent);
+  font-size: var(--ds-font-size-xs);
 }
 
 .demo-command-card > div svg {

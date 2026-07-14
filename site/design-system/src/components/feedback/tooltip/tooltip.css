@@ -12,8 +12,8 @@
     max-width: 18rem;
     padding: 6px 8px;
     border-radius: var(--ds-radius-xs);
-    background: var(--ds-color-ink);
-    color: var(--ds-color-canvas);
+    background: var(--ds-color-inverse-surface);
+    color: var(--ds-color-inverse-ink);
     opacity: 0;
     pointer-events: none;
     translate: -50% 3px;

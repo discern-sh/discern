@@ -10,8 +10,8 @@
   }
   .ds-metrics-band--contrast {
     border-color: transparent;
-    background: var(--ds-color-ink);
-    color: var(--ds-color-canvas);
+    background: var(--ds-color-inverse-surface);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-metrics-band__inner {
     display: grid;
@@ -50,7 +50,8 @@
     border-inline-start: 1px solid var(--ds-color-border);
   }
   .ds-metrics-band--contrast .ds-metrics-band__list > div + div {
-    border-color: color-mix(in oklab, var(--ds-color-canvas) 22%, transparent);
+    border-color: color-mix(in oklab, var(--ds-color-inverse-ink) 22%,
+      transparent);
   }
   .ds-metrics-band__list dd {
     margin: 0;
@@ -64,7 +65,7 @@
   }
   .ds-metrics-band--contrast .ds-metrics-band__list dd,
   .ds-metrics-band--contrast .ds-metrics-band__eyebrow {
-    color: var(--ds-color-canvas);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-metrics-band__list dt {
     margin-block-start: var(--ds-space-3);
@@ -79,7 +80,7 @@
     font-size: var(--ds-font-size-xs);
   }
   .ds-metrics-band--contrast .ds-metrics-band__detail {
-    color: color-mix(in oklab, var(--ds-color-canvas) 68%, transparent);
+    color: color-mix(in oklab, var(--ds-color-inverse-ink) 68%, transparent);
   }
   @media (max-width: 760px) {
     .ds-metrics-band__inner {

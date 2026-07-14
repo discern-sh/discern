@@ -15,7 +15,7 @@
   .ds-switch__text {
     display: block;
     color: var(--ds-color-ink);
-    font-size: 0.875rem;
+    font-size: var(--ds-font-size-sm);
   }
   .ds-switch__description {
     display: block;

@@ -6,6 +6,7 @@
  */
 
 import { buildDesignSystemRuntime } from "./design-system/scripts/build.ts";
+import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
 import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 
@@ -15,11 +16,13 @@ const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
   "pages/design-system-demo.html",
+  "pages/content-design-demo.html",
   "pages/assets/design-system/",
 ] as const;
 
-const PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
-const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
+const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
+const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
+const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
 
 async function removeIfPresent(url: URL): Promise<void> {
   try {
@@ -49,14 +52,19 @@ export async function buildSite(): Promise<void> {
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
   const summary = await buildDesignSystemRuntime(ASSET_ROOT);
   await writeGeneratedCopy("design-system-demo.css", "demo.css");
+  await writeGeneratedCopy("content-design-demo.css", "content-demo.css");
   await writeGeneratedCopy("design-system-demo.js", "demo.js");
   await Deno.writeTextFile(
-    PAGE_OUTPUT,
+    MARKETING_PAGE_OUTPUT,
     await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
+  );
+  await Deno.writeTextFile(
+    CONTENT_PAGE_OUTPUT,
+    await formatGeneratedText(renderContentDesignDemo(summary), "html"),
   );
 
   console.log(
-    `Built the static design-system demo from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built two static design-system demos from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

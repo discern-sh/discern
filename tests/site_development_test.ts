@@ -181,41 +181,54 @@ Deno.test("the site development port prefers an override, then worktree identity
 Deno.test("the local site runner builds and mounts the complete styleguide", async () => {
   assertEquals(LOCAL_SITE_BUILD_TASKS, ["site:build", "design-system:build"]);
   assertEquals(
-    styleguideFilePath("/styleguide/dist/styleguide.js"),
+    styleguideFilePath("/style-guide/dist/styleguide.js"),
     "./dist/styleguide.js",
   );
   assertEquals(
-    styleguideFilePath("/styleguide/src/components/core/button/button.tsx"),
+    styleguideFilePath("/style-guide/src/components/core/button/button.tsx"),
     "./src/components/core/button/button.tsx",
   );
   assertEquals(
-    styleguideFilePath("/styleguide/assets/fonts.css"),
+    styleguideFilePath("/style-guide/assets/fonts.css"),
     "./assets/fonts.css",
+  );
+  assertEquals(
+    styleguideFilePath("/style-guide/styleguide.css"),
+    "./styleguide/styleguide.css",
   );
 
   const response = await localHandler(
-    new Request("http://localhost/styleguide/"),
+    new Request("http://localhost/style-guide/"),
   );
   assertEquals(response.status, 200);
   assertStringIncludes(await response.text(), "Discern design system");
 
   const fonts = await localHandler(
-    new Request("http://localhost/styleguide/assets/fonts.css"),
+    new Request("http://localhost/style-guide/assets/fonts.css"),
   );
   assertEquals(fonts.status, 200);
   assertStringIncludes(fonts.headers.get("content-type") ?? "", "text/css");
 
   const redirect = await localHandler(
-    new Request("http://localhost/styleguide"),
+    new Request("http://localhost/style-guide"),
   );
   assertEquals(redirect.status, 307);
   assertEquals(
     redirect.headers.get("location"),
-    "http://localhost/styleguide/",
+    "http://localhost/style-guide/",
+  );
+
+  const legacy = await localHandler(
+    new Request("http://localhost/styleguide/#component-button"),
+  );
+  assertEquals(legacy.status, 307);
+  assertEquals(
+    legacy.headers.get("location"),
+    "http://localhost/style-guide/#component-button",
   );
 
   const production = await handler(
-    new Request("http://localhost/styleguide/"),
+    new Request("http://localhost/style-guide/"),
   );
   assertEquals(production.status, 404);
 });

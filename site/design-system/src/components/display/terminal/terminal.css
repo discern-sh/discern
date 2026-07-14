@@ -47,7 +47,7 @@
     overflow: hidden;
     color: var(--ds-terminal-muted);
     font-family: var(--ds-font-mono);
-    font-size: 0.625rem;
+    font-size: var(--ds-font-size-xs);
     letter-spacing: 0.04em;
     text-align: center;
     text-overflow: ellipsis;
@@ -62,7 +62,7 @@
     background: var(--ds-terminal-surface);
     color: var(--ds-terminal-text);
     font-family: var(--ds-font-mono);
-    font-size: 0.8125rem;
+    font-size: var(--ds-font-size-xs);
     line-height: 1.7;
     tab-size: 2;
     white-space: pre;

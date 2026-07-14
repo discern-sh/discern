@@ -35,6 +35,19 @@ export * from "./components/feedback/tooltip/mod.ts";
 
 export * from "./components/navigation/tabs/mod.ts";
 
+export * from "./components/editorial/article-header/mod.ts";
+export * from "./components/editorial/article-layout/mod.ts";
+export * from "./components/editorial/table-of-contents/mod.ts";
+export * from "./components/editorial/prose/mod.ts";
+export * from "./components/editorial/key-points/mod.ts";
+export * from "./components/editorial/pull-quote/mod.ts";
+export * from "./components/editorial/callout/mod.ts";
+export * from "./components/editorial/code-listing/mod.ts";
+export * from "./components/editorial/data-figure/mod.ts";
+export * from "./components/editorial/timeline/mod.ts";
+export * from "./components/editorial/footnotes/mod.ts";
+export * from "./components/editorial/related-content/mod.ts";
+
 export * from "./components/marketing/site-header/mod.ts";
 export * from "./components/marketing/hero-block/mod.ts";
 export * from "./components/marketing/logo-cloud/mod.ts";
