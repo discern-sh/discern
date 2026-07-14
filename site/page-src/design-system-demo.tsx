@@ -910,7 +910,7 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
   );
 }
 
-const THEME_BOOTSTRAP =
+export const THEME_BOOTSTRAP =
   `(function(){try{var t=localStorage.getItem("discern-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.dataset.dsTheme="dark"}}catch(_){}})();`;
 
 /** Render the complete, deterministic static document served at the demo route. */

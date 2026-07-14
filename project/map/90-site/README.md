@@ -14,7 +14,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/serve.ts`](../../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
-| [`site/build.ts`](../../../site/build.ts)                 | Deterministically builds the design-system runtime and static demo page.  |
+| [`site/build.ts`](../../../site/build.ts)                 | Deterministically builds the design-system runtime and static demo pages. |
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The authored input boundary that automatically triggers a watched build.  |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/pages/`](../../../site/pages/)                     | Hand-authored editions and ignored build output served by the handler.    |
@@ -24,16 +24,17 @@ Everything lives under [`site/`](../../../site/):
 
 The routes, from the handler's exported `PAGES` table:
 
-| Route                 | Page                                   | Text client receives                     |
-| --------------------- | -------------------------------------- | ---------------------------------------- |
-| `/`                   | the engineers edition                  | the plaintext edition                    |
-| `/agents`             | the agent's manual                     | the plaintext edition                    |
-| `/start`              | the prompt-builders edition            | the same HTML                            |
-| `/careers`            | the careers page                       | the same HTML                            |
-| `/design-system-demo` | the generated design-system experiment | the same HTML                            |
-| `/docs/…`             | the rendered manual                    | the page's raw Markdown                  |
-| `/llms.txt`           | —                                      | the plaintext edition plus a docs index, |
-|                       |                                        | for every reader                         |
+| Route                  | Page                                   | Text client receives                     |
+| ---------------------- | -------------------------------------- | ---------------------------------------- |
+| `/`                    | the engineers edition                  | the plaintext edition                    |
+| `/agents`              | the agent's manual                     | the plaintext edition                    |
+| `/start`               | the prompt-builders edition            | the same HTML                            |
+| `/careers`             | the careers page                       | the same HTML                            |
+| `/design-system-demo`  | the generated design-system experiment | the same HTML                            |
+| `/content-design-demo` | the generated long-form content atlas  | the same HTML                            |
+| `/docs/…`              | the rendered manual                    | the page's raw Markdown                  |
+| `/llms.txt`            | —                                      | the plaintext edition plus a docs index, |
+|                        |                                        | for every reader                         |
 
 ## Reader negotiation
 
@@ -76,10 +77,11 @@ to production.
   uses compiled CSS and self-hosted fonts with no third-party runtime request.
 - `mockups/landing/` is the design archive. Pages are promoted from there into
   `site/pages/` deliberately; the two are not synced.
-- The generated demo is the exception to `site/pages/` being hand-authored and
-  self-contained. Its source lives in `site/page-src/`; `deno task site:build`
-  owns ignored HTML and design-system assets under `site/pages/`, and Deno
-  Deploy runs that task before starting the handler.
+- The generated marketing and content demos are the exception to `site/pages/`
+  being hand-authored and self-contained. Their sources live in
+  `site/page-src/`; `deno task site:build` owns ignored HTML and design-system
+  assets under `site/pages/`, and Deno Deploy runs that task before starting the
+  handler.
 - [the-design-system.md](the-design-system.md) records the source, build,
   catalogue, and page-migration boundaries.
 - [component-catalogue.md](component-catalogue.md) records reusable component

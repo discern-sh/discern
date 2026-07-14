@@ -1,0 +1,107 @@
+@layer discern.components {
+  .ds-prose {
+    max-width: var(--ds-measure);
+    color: var(--ds-color-ink-muted);
+    font-size: var(--ds-font-size-md);
+  }
+  .ds-prose--narrow {
+    max-width: 52ch;
+  }
+  .ds-prose--wide {
+    max-width: 74ch;
+  }
+  .ds-prose > :where(h2, h3, h4) {
+    scroll-margin-top: 7rem;
+  }
+  .ds-prose > h2 {
+    margin-block: var(--ds-space-16) var(--ds-space-5);
+    padding-block-start: var(--ds-space-5);
+    border-block-start: 1px solid var(--ds-color-border-strong);
+  }
+  .ds-prose > h2:first-child {
+    margin-block-start: 0;
+  }
+  .ds-prose > h3 {
+    margin-block: var(--ds-space-10) var(--ds-space-4);
+  }
+  .ds-prose > h4 {
+    margin-block: var(--ds-space-8) var(--ds-space-3);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-lg);
+  }
+  .ds-prose > p,
+  .ds-prose > ul,
+  .ds-prose > ol {
+    margin-block: 0 var(--ds-space-6);
+  }
+  .ds-prose--lead > p:first-child {
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-display);
+    font-size: 1.3rem;
+    line-height: 1.45;
+  }
+  .ds-prose--drop-cap > p:first-child::first-letter {
+    float: left;
+    margin: 0.08em 0.12em 0 0;
+    color: var(--ds-color-accent-700);
+    font-family: var(--ds-font-display);
+    font-size: 4.4em;
+    font-weight: var(--ds-font-weight-display);
+    line-height: 0.72;
+  }
+  .ds-prose :where(ul, ol) {
+    padding-inline-start: 1.4em;
+  }
+  .ds-prose li {
+    padding-inline-start: var(--ds-space-2);
+  }
+  .ds-prose li + li {
+    margin-block-start: var(--ds-space-2);
+  }
+  .ds-prose li::marker {
+    color: var(--ds-color-accent-600);
+    font-family: var(--ds-font-mono);
+  }
+  .ds-prose a {
+    text-decoration-color: var(--ds-color-accent-300);
+    text-decoration-thickness: 0.12em;
+    text-underline-offset: 0.18em;
+  }
+  .ds-prose a:hover,
+  .ds-prose a:focus-visible {
+    color: var(--ds-color-accent-800);
+    text-decoration-color: currentColor;
+  }
+  .ds-prose :not(pre) > code {
+    padding: 0.12em 0.35em;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-xs);
+    background: var(--ds-color-surface-sunken);
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-mono);
+    font-size: 0.84em;
+  }
+  .ds-prose hr {
+    height: 1px;
+    margin-block: var(--ds-space-12);
+    border: 0;
+    background: var(--ds-color-border-strong);
+  }
+  .ds-prose hr::after {
+    display: block;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-inline: auto;
+    background: var(--ds-color-accent-500);
+    content: "";
+    transform: translateY(-50%) rotate(45deg);
+  }
+  .ds-prose small {
+    color: var(--ds-color-ink-faint);
+    font-size: var(--ds-font-size-xs);
+  }
+  .ds-prose > :last-child {
+    margin-block-end: 0;
+  }
+}

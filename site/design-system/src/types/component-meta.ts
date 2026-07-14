@@ -6,6 +6,7 @@ export const componentGroups = [
   "Feedback",
   "Navigation",
   "Marketing",
+  "Editorial",
 ] as const;
 
 export type ComponentGroup = (typeof componentGroups)[number];

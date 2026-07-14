@@ -21,10 +21,11 @@ site on the other.
 
 Page authors compose typed React adapters.
 [`site/build.ts`](../../../site/build.ts) renders them with
-`renderToStaticMarkup`, builds the framework-neutral CSS, and writes
-deterministic HTML and assets into `site/pages/`. The output is ignored and
-rebuilt both locally and by Deno Deploy. React is a build-time dependency: the
-browser receives no React bundle, hydration, or application runtime.
+`renderToStaticMarkup`, builds the framework-neutral CSS, and writes two
+deterministic demo editions plus their assets into `site/pages/`. The output is
+ignored and rebuilt both locally and by Deno Deploy. React is a build-time
+dependency: the browser receives no React bundle, hydration, or application
+runtime.
 
 The distinction matters for interactive components. Layout and display
 components render completely as static HTML. React adapters that own state or
@@ -99,6 +100,23 @@ the Marketing set from component metadata and requires every member's root class
 in the rendered demo. A new block therefore enters the generated style guide
 automatically and makes the gate demand a demo composition before the reusable
 set and its showcase can drift apart.
+
+## Long-form editorial blocks
+
+The `Editorial` group provides a second page-scale vocabulary for premium
+content: article openings, a responsive reading shell, contents navigation,
+prose, summary points, quotations, contextual notes, source listings, data
+figures, chronologies, footnotes, and related reading. These blocks keep
+headings, articles, navigation, figures, quotations, code, ordered sequences,
+and notes as native document semantics while giving them a shared publication
+rhythm.
+
+`/content-design-demo` is the composition atlas for this group. Its authored
+source and product-specific artwork live in `site/page-src/`; the generated HTML
+and `content-demo.css` asset remain ignored under `site/pages/`. A structural
+guard discovers every Editorial metadata entry and requires its root class in
+the content demo. The style guide and both composition atlases therefore enrol
+new members from the same component source of truth.
 
 ## Theme fidelity
 

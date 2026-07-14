@@ -1,0 +1,75 @@
+@layer discern.components {
+  .ds-table-of-contents {
+    color: var(--ds-color-ink-muted);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: 0.76rem;
+  }
+  .ds-table-of-contents__title {
+    display: block;
+    margin-block-end: var(--ds-space-4);
+    color: var(--ds-color-ink);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ds-table-of-contents ol {
+    display: grid;
+    gap: var(--ds-space-1);
+    margin: 0;
+    padding: 0;
+    border-inline-start: 1px solid var(--ds-color-border-strong);
+    list-style: none;
+  }
+  .ds-table-of-contents a {
+    display: grid;
+    grid-template-columns: 1.65rem minmax(0, 1fr);
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border-inline-start: 2px solid transparent;
+    color: inherit;
+    line-height: 1.35;
+    text-decoration: none;
+    transform: translateX(-1px);
+  }
+  .ds-table-of-contents a:hover,
+  .ds-table-of-contents a:focus-visible,
+  .ds-table-of-contents__item--current a {
+    border-inline-start-color: var(--ds-color-accent-600);
+    background: var(--ds-color-accent-100);
+    color: var(--ds-color-ink);
+    outline: none;
+  }
+  .ds-table-of-contents a span {
+    color: var(--ds-color-accent-700);
+    font-family: var(--ds-font-mono);
+    font-size: 0.62rem;
+  }
+  .ds-table-of-contents__progress {
+    margin-block-start: var(--ds-space-5);
+    padding-block-start: var(--ds-space-4);
+    border-block-start: 1px dashed var(--ds-color-border-strong);
+    color: var(--ds-color-ink-faint);
+    font-family: var(--ds-font-mono);
+    font-size: 0.62rem;
+  }
+  @media (max-width: 720px) {
+    .ds-table-of-contents ol {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-inline-start: 0;
+    }
+    .ds-table-of-contents a {
+      border: 1px solid var(--ds-color-border);
+      border-radius: var(--ds-radius-sm);
+      transform: none;
+    }
+    .ds-table-of-contents__progress {
+      display: none;
+    }
+  }
+  @media (max-width: 460px) {
+    .ds-table-of-contents ol {
+      grid-template-columns: 1fr;
+    }
+  }
+}

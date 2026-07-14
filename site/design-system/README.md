@@ -112,3 +112,19 @@ styleguide. Adding another group cannot leave the catalogue renderer on a stale
 hand-maintained list. A structural test also discovers every Marketing metadata
 entry and requires the generated demo to represent its root block, so the
 showcase cannot silently fall behind the reusable library.
+
+## Editorial blocks
+
+The `Editorial` catalogue group is the long-form content vocabulary. It adds an
+article opener and responsive reading shell; contents navigation and prose
+rhythm; key points, pull quotes, and contextual callouts; code listings and data
+figures; chronological narratives, footnotes, and related-reading continuations.
+The components are intended for essays, reports, guides, changelogs, research,
+and premium technical narratives rather than one specific publication.
+
+`/content-design-demo` composes the complete group into one static editorial
+edition. Product copy, issue artwork, chart data, and article-specific controls
+remain under `site/page-src/`. A structural test derives the Editorial set from
+metadata and requires every root block in the rendered content demo, so new
+editorial components cannot leave the catalogue and composition atlas out of
+sync.
