@@ -7,6 +7,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import type { ProjectScript } from "../src/engine/project_scripts.ts";
 import {
   buildDeskRows,
   classifyBucket,
@@ -115,6 +116,7 @@ Deno.test("classifyBucket: the decision-order table", () => {
 const ACTION_CASES: ReadonlyArray<{
   name: string;
   entry: StatusFleetEntry;
+  scripts?: readonly ProjectScript[];
   expect: readonly DeskAction[];
 }> = [
   {
@@ -133,6 +135,12 @@ const ACTION_CASES: ReadonlyArray<{
     expect: ["accept", "jump", "inspect", "drop"],
   },
   {
+    name: "scripts available in this checkout → run script before jump",
+    entry: entry({ ahead: 2 }),
+    scripts: [{ name: "deploy", description: "deploy the project" }],
+    expect: ["accept", "script", "jump", "inspect", "drop"],
+  },
+  {
     name: "dirty and behind → update offered, accept not",
     entry: entry({ clean: false, changed_files: 1, behind: 4 }),
     expect: ["update", "jump", "inspect", "drop"],
@@ -147,11 +155,21 @@ const ACTION_CASES: ReadonlyArray<{
     entry: entry({}),
     expect: ["jump", "inspect", "drop"],
   },
+  {
+    name: "broken with scripts present → still drop only",
+    entry: entry({ broken: true }),
+    scripts: [{ name: "unsafe" }],
+    expect: ["drop"],
+  },
 ];
 
 Deno.test("legalActions: the legality table", () => {
   for (const c of ACTION_CASES) {
-    assertEquals([...legalActions(c.entry)], [...c.expect], c.name);
+    assertEquals(
+      [...legalActions(c.entry, c.scripts ?? [])],
+      [...c.expect],
+      c.name,
+    );
   }
 });
 
@@ -193,9 +211,13 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     ["/p/ready-old", true],
     ["/p/ready-new", true],
   ]);
+  const scripts = new Map<string, readonly ProjectScript[]>([
+    ["/p/ready-new", [{ name: "ship" }]],
+  ]);
   const rows = buildDeskRows(
     [stale, main, readyOld, flying, readyNew],
     receipts,
+    scripts,
     NOW,
   );
 
@@ -207,11 +229,14 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     rows.every((r) => !r.entry.is_main),
     "the main checkout must never appear as a desk row",
   );
+  assertEquals(rows[0]?.scripts, [{ name: "ship" }]);
+  assertEquals(rows[1]?.scripts, []);
 });
 
 Deno.test("buildDeskRows: a path absent from the receipt map is never treated as vouched", () => {
   const rows = buildDeskRows(
     [entry({ ahead: 5, path: "/p/unvouched" })],
+    new Map(),
     new Map(),
     NOW,
   );

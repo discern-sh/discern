@@ -16,13 +16,7 @@ import {
   findSkeletonMarkers,
   setupUnfinishedHint,
 } from "../shared/setup_state.ts";
-import {
-  CONFIG_REL,
-  findRoot,
-  installedConfigRel,
-  NO_PROJECT_MESSAGE,
-  scriptEnvVars,
-} from "../shared/env.ts";
+import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import {
   resolveConfigPath,
   resolveScriptsDir,
@@ -77,13 +71,13 @@ import {
 } from "../lib/worktree_hooks.ts";
 import { gotchasHint } from "./gate/gotchas.ts";
 import { colorEnabled } from "./output.ts";
-import {
-  commandSynonymSuggestion,
-  didYouMeanHint,
-  UNKNOWN_COMMAND_POINTER,
-  unknownCommandMessage,
-} from "../shared/vocabulary.ts";
+import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import { discoverProjectScripts, runProjectScript } from "./project_scripts.ts";
+import { reportUnknownCommand } from "./unknown_command.ts";
+
+export { runProjectScript } from "./project_scripts.ts";
+export { reportUnknownCommand } from "./unknown_command.ts";
 
 /** The top-level engine verbs Cliffy owns.
  * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
@@ -1023,21 +1017,9 @@ function matchCandidate(typo: string, name: string): boolean {
 
 /** Names of the executable project scripts in one configured directory. */
 async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(scriptsAbs)) {
-      if (!entry.isFile) {
-        continue;
-      }
-      if (!(await isExecutable(join(scriptsAbs, entry.name)))) {
-        continue;
-      }
-      names.push(entry.name);
-    }
-  } catch {
-    // no project scripts directory — nothing to suggest
-  }
-  return names.sort();
+  return (await discoverProjectScripts(scriptsAbs)).map((script) =>
+    script.name
+  );
 }
 
 /**
@@ -1067,47 +1049,6 @@ async function suggestCommand(
     }
   }
   return undefined;
-}
-
-/**
- * Report an unknown top-level word on both surfaces: plain stderr lines in
- * human mode, the uniform refusal envelope (with the same advice as `hints`)
- * under `--json`. Always carries at least one hint — the standing pointer at
- * the documentation and the command list — so no first guess dead-ends.
- */
-export function reportUnknownCommand(
-  word: string,
-  suggestion: string | undefined,
-  opts: { json?: boolean } = {},
-): void {
-  const hints = [
-    ...(suggestion !== undefined ? [didYouMeanHint(suggestion)] : []),
-    UNKNOWN_COMMAND_POINTER,
-  ];
-  if (opts.json ?? false) {
-    emitResult({
-      ok: false,
-      verb: word,
-      error: "unknown_command",
-      message: unknownCommandMessage(word),
-      hints,
-    });
-    return;
-  }
-  console.error(`discern: ${unknownCommandMessage(word)}`);
-  for (const hint of hints) {
-    console.error(`       ${hint}`);
-  }
-}
-
-/** Whether a path is an executable regular file. */
-async function isExecutable(path: string): Promise<boolean> {
-  try {
-    const st = await Deno.stat(path);
-    return st.isFile && ((st.mode ?? 0) & 0o111) !== 0;
-  } catch {
-    return false;
-  }
 }
 
 /** Internal helper verbs — callable for scripts/tests, but collapsed out of the
@@ -1257,147 +1198,12 @@ export async function runConfigRead(
   }
 }
 
-/** Read a project script's first `# desc:` line, or undefined when absent. */
-async function firstDescLine(file: string): Promise<string | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(file);
-  } catch {
-    return undefined;
-  }
-  for (const line of text.split("\n")) {
-    const m = line.match(/^# desc:\s?(.*)$/);
-    if (m) {
-      return m[1];
-    }
-  }
-  return undefined;
-}
-
-/** True when a path exists (any type). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** The configured project scripts directory and its absolute path. */
 function scriptsDirOf(
   root: string,
   cfg: DiscernConfig,
 ): { rel: string; abs: string } {
   return resolveScriptsDir(root, cfg);
-}
-
-/** One executable project script surfaced by the listing. */
-interface ProjectScript {
-  name: string;
-  description?: string;
-}
-
-/** Discover every executable file, with an optional description, by name. */
-async function projectScripts(abs: string): Promise<ProjectScript[]> {
-  const scripts: ProjectScript[] = [];
-  try {
-    for await (const entry of Deno.readDir(abs)) {
-      if (!entry.isFile) {
-        continue;
-      }
-      const file = join(abs, entry.name);
-      if (!(await isExecutable(file))) {
-        continue;
-      }
-      const desc = await firstDescLine(file);
-      scripts.push({
-        name: entry.name,
-        ...(desc === undefined ? {} : { description: desc }),
-      });
-    }
-  } catch {
-    return [];
-  }
-  return scripts.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * List project scripts or run one by name. The caller has already removed the
- * `script` command and any leading discern-global flags; `args` is therefore the
- * exact tail after the project script name and is forwarded byte-for-byte.
- */
-export async function runProjectScript(
-  name: string | undefined,
-  args: string[],
-  opts: { json?: boolean } = {},
-): Promise<number> {
-  const root = await findRoot();
-  if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
-    return 1;
-  }
-  const cfg = await loadConfig(root);
-  const scripts = scriptsDirOf(root, cfg);
-
-  if (name === undefined) {
-    const entries = await projectScripts(scripts.abs);
-    if (opts.json ?? false) {
-      emitResult({
-        ok: true,
-        verb: "script",
-        data: { scripts: entries, directory: scripts.rel },
-      });
-      return 0;
-    }
-    console.log(`Project scripts (from ${scripts.rel}):`);
-    if (entries.length === 0) {
-      console.log("  No executable scripts found.");
-      return 0;
-    }
-    for (const entry of entries) {
-      const suffix = entry.description === undefined
-        ? ""
-        : ` ${entry.description}`;
-      console.log(`  ${entry.name.padEnd(20)}${suffix}`);
-    }
-    return 0;
-  }
-
-  const scriptFile = join(scripts.abs, name.replace(/:/g, "-"));
-  if (await isExecutable(scriptFile)) {
-    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-      cfg.project.main_branch;
-    const tomlPath = join(
-      root,
-      (await installedConfigRel(root)) ?? CONFIG_REL,
-    );
-    const child = new Deno.Command(scriptFile, {
-      args,
-      env: scriptEnvVars({
-        root,
-        tomlPath,
-        scriptsDir: scripts.rel,
-        scriptsAbs: scripts.abs,
-        mainBranch,
-      }),
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    return (await child.status).code;
-  }
-
-  if (await pathExists(scriptFile)) {
-    console.error(
-      `discern: script "${name}" exists but is not executable: ${scriptFile}`,
-    );
-    console.error(`       Run: chmod +x "${scriptFile}"`);
-    return 1;
-  }
-
-  reportUnknownCommand(`script ${name}`, undefined, opts);
-  return 1;
 }
 
 /**

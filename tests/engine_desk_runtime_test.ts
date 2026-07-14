@@ -139,6 +139,8 @@ function scriptedRuntime(
     drop: () => {},
     git: () => ({ success: true, stdout: "", stderr: "" }),
     shell: () => {},
+    scripts: () => [],
+    runScript: () => 0,
     now: () => NOW,
     ...patch,
   };
@@ -323,6 +325,76 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   for (const label of ["Accept", "Update", "Jump in", "Inspect", "Drop"]) {
     assertStringIncludes(actionMenu, label);
   }
+  assert(
+    !actionMenu.includes("Run Script"),
+    "a worktree without executable scripts must not offer Run Script",
+  );
+});
+
+Deno.test("desk offers and runs only the selected worktree's Project Scripts", async () => {
+  const output = transcript();
+  const empty = fleetEntry("agent/empty", "/worktrees/empty");
+  const scripted = fleetEntry("agent/scripted", "/worktrees/scripted");
+  const data = statusData([
+    fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+    empty,
+    scripted,
+  ]);
+  const choices = [empty.path, BACK, scripted.path, "script", "deploy", QUIT];
+  const menus: Array<{ message: string; options: string }> = [];
+  const discoveryRoots: string[] = [];
+  const runs: Array<{ root: string; name: string }> = [];
+  let pauses = 0;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    scripts: (root) => {
+      discoveryRoots.push(root);
+      return root === scripted.path
+        ? [{ name: "deploy", description: "deploy this checkout" }]
+        : [];
+    },
+    select: (options) => {
+      menus.push({
+        message: String(options.message),
+        options: JSON.stringify(options.options),
+      });
+      const choice = choices.shift();
+      assert(choice !== undefined, "the scripted desk exhausted its choices");
+      return choice;
+    },
+    runScript: (root, name) => {
+      runs.push({ root, name });
+      return 7;
+    },
+    pause: () => {
+      pauses++;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assert(discoveryRoots.includes(empty.path));
+  assert(discoveryRoots.includes(scripted.path));
+  assertEquals(runs, [{ root: scripted.path, name: "deploy" }]);
+  assertEquals(pauses, 1);
+
+  const emptyMenu = menus.find((menu) => menu.message.startsWith(empty.branch));
+  const scriptedMenu = menus.find((menu) =>
+    menu.message.startsWith(scripted.branch)
+  );
+  const scriptMenu = menus.find((menu) =>
+    menu.message.startsWith("Run a Project Script")
+  );
+  assert(emptyMenu !== undefined);
+  assert(scriptedMenu !== undefined);
+  assert(scriptMenu !== undefined);
+  assert(!emptyMenu.options.includes("Run Script"));
+  assertStringIncludes(scriptedMenu.options, "Run Script");
+  assertStringIncludes(scriptMenu.options, "deploy");
+  assertStringIncludes(scriptMenu.options, "deploy this checkout");
+
+  const text = joined(output);
+  assertStringIncludes(text, "discern script deploy  (in scripted)");
+  assertStringIncludes(text, "Project Script exited with status 7");
 });
 
 Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals", async () => {

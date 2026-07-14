@@ -10,6 +10,7 @@
  */
 
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import type { ProjectScript } from "../project_scripts.ts";
 import {
   idleDaysOf,
   relativeAge,
@@ -24,6 +25,7 @@ export type DeskBucket = (typeof DESK_BUCKETS)[number];
 export const DESK_ACTIONS = [
   "accept",
   "update",
+  "script",
   "jump",
   "inspect",
   "drop",
@@ -35,6 +37,8 @@ export interface DeskRow {
   readonly entry: StatusFleetEntry;
   /** Whether the row's clean HEAD holds a recorded gate receipt. */
   readonly receiptHonored: boolean;
+  /** Executable Project Scripts discovered through this worktree's config. */
+  readonly scripts: readonly ProjectScript[];
   readonly bucket: DeskBucket;
   /** The actions legal for this row's state, in menu order. */
   readonly actions: readonly DeskAction[];
@@ -93,7 +97,10 @@ export function classifyBucket(
  * requiring a receipt — acceptance validates the tree at the landing boundary
  * itself, so a receiptless clean branch simply pays for a full gate run there.
  */
-export function legalActions(entry: StatusFleetEntry): readonly DeskAction[] {
+export function legalActions(
+  entry: StatusFleetEntry,
+  scripts: readonly ProjectScript[],
+): readonly DeskAction[] {
   if (isUnhealthy(entry)) {
     // The checkout can't be trusted (or entered): discarding is the only move
     // the desk can honestly offer. `worktree drop` still refuses unverifiable
@@ -106,6 +113,9 @@ export function legalActions(entry: StatusFleetEntry): readonly DeskAction[] {
   }
   if ((entry.behind ?? 0) > 0) {
     actions.push("update");
+  }
+  if (scripts.length > 0) {
+    actions.push("script");
   }
   actions.push("jump", "inspect", "drop");
   return actions;
@@ -160,17 +170,20 @@ function byActivityDesc(a: StatusFleetEntry, b: StatusFleetEntry): number {
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
   receiptHonoredByPath: ReadonlyMap<string, boolean>,
+  scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
   nowMs: number,
 ): DeskRow[] {
   const rows = fleet
     .filter((entry) => !entry.is_main)
     .map((entry): DeskRow => {
       const receiptHonored = receiptHonoredByPath.get(entry.path) ?? false;
+      const scripts = scriptsByPath.get(entry.path) ?? [];
       return {
         entry,
         receiptHonored,
+        scripts,
         bucket: classifyBucket(entry, receiptHonored, nowMs),
-        actions: legalActions(entry),
+        actions: legalActions(entry, scripts),
         summary: rowSummary(entry, receiptHonored, nowMs),
       };
     });

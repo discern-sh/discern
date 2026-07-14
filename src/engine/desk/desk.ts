@@ -45,6 +45,11 @@ import { mainRepoPath } from "../worktree/git.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import {
+  listProjectScripts,
+  type ProjectScript,
+  runProjectScriptAt,
+} from "../project_scripts.ts";
+import {
   bucketTitle,
   buildDeskRows,
   DESK_BUCKETS,
@@ -106,6 +111,8 @@ export interface DeskRuntime {
     cwd: string,
   ): DeskMaybePromise<{ success: boolean; stdout: string; stderr: string }>;
   shell(command: string, cwd: string): DeskMaybePromise<void>;
+  scripts(root: string): DeskMaybePromise<readonly ProjectScript[]>;
+  runScript(root: string, name: string): DeskMaybePromise<number>;
   now(): number;
 }
 
@@ -177,6 +184,17 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     }).spawn();
     await child.status;
   },
+  scripts: async (root) => {
+    try {
+      return await listProjectScripts(root);
+    } catch {
+      // A branch-local config can be unreadable even while the main checkout's
+      // fleet survey remains healthy. In that state no script is safely
+      // available, so the conditional action stays hidden.
+      return [];
+    }
+  },
+  runScript: (root, name) => runProjectScriptAt(root, name, [], { cwd: root }),
   now: () => Date.now(),
 };
 
@@ -202,6 +220,8 @@ function actionLabel(action: DeskAction, trunk: string): string {
       return `Accept — land this branch on ${trunk}`;
     case "update":
       return `Update — bring ${trunk} into this branch`;
+    case "script":
+      return "Run Script — choose a Project Script in this worktree";
     case "jump":
       return "Jump in — open a shell inside the worktree";
     case "inspect":
@@ -209,6 +229,36 @@ function actionLabel(action: DeskAction, trunk: string): string {
     case "drop":
       return "Drop — discard the worktree and its branch";
   }
+}
+
+/** Pick one of a row's worktree-local Project Scripts. */
+async function pickScript(
+  row: DeskRow,
+  runtime: DeskRuntime,
+): Promise<ProjectScript | undefined> {
+  const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
+    ...row.scripts.map((script) => ({
+      name: script.description === undefined
+        ? script.name
+        : `${script.name}  ·  ${script.description}`,
+      value: script.name,
+    })),
+    Select.separator("─────"),
+    { name: "Back", value: BACK },
+  ];
+  let name: string;
+  try {
+    name = await runtime.select({
+      message: `Run a Project Script in ${row.entry.branch}`,
+      options,
+      search: true,
+    });
+  } catch {
+    return undefined;
+  }
+  return name === BACK
+    ? undefined
+    : row.scripts.find((script) => script.name === name);
 }
 
 /** The desk header: project identity, the main checkout's state, and the
@@ -372,6 +422,23 @@ async function dispatchAction(
         return true;
       }
     }
+    case "script": {
+      const script = await pickScript(row, runtime);
+      if (script === undefined) {
+        return false;
+      }
+      echoCommand(
+        out,
+        `discern script ${script.name}  (in ${target})`,
+      );
+      const code = await runtime.runScript(row.entry.path, script.name);
+      if (code !== 0) {
+        out.warn(`Project Script exited with status ${code}.`);
+      }
+      await runtime.pause(out);
+      // A Project Script can change project or Git state, so always re-survey.
+      return true;
+    }
     case "jump": {
       const shell = Deno.env.get("SHELL") ?? "/bin/sh";
       echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
@@ -524,15 +591,26 @@ export async function runDesk(
     clearBoard(out);
     const fleet = data.fleet ?? [];
     const receiptByPath = new Map<string, boolean>();
+    const scriptsByPath = new Map<string, readonly ProjectScript[]>();
     for (const entry of fleet) {
       if (
         !entry.is_main && entry.broken !== true &&
         entry.git_unavailable !== true
       ) {
-        receiptByPath.set(entry.path, await runtime.receiptHonored(entry.path));
+        const [receiptHonored, scripts] = await Promise.all([
+          runtime.receiptHonored(entry.path),
+          runtime.scripts(entry.path),
+        ]);
+        receiptByPath.set(entry.path, receiptHonored);
+        scriptsByPath.set(entry.path, scripts);
       }
     }
-    const rows = buildDeskRows(fleet, receiptByPath, runtime.now());
+    const rows = buildDeskRows(
+      fleet,
+      receiptByPath,
+      scriptsByPath,
+      runtime.now(),
+    );
     renderHeader(out, config, root, data);
 
     const choice = await pickRow(rows, out, runtime);

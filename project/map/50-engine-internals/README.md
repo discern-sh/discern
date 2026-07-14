@@ -6,11 +6,13 @@ This subtree covers the shared substrate under the gate, the Worktree workflow,
 and guidance. [`dispatch.ts`](../../../src/engine/dispatch.ts) is the
 **dispatcher**: it finds the project root (the nearest ancestor with an
 `discern.toml`), routes a known `discern <verb>` to its built-in in-binary
-handler, and owns the explicit project script namespace: `discern script` lists
-the executable files under `[scripts].dir`, while `discern script <name>` execs
-one with its argument tail and the `DISCERN_*` environment. A word outside the
-closed root vocabulary reports `unknown command "<word>"` and teaches the next
-step: a did-you-mean line — the cross-tool synonym table in
+handler, and routes the explicit Project Script namespace. The root-aware core
+in [`project_scripts.ts`](../../../src/engine/project_scripts.ts) discovers the
+executable files under a checkout's `[scripts].dir`; `discern script <name>`
+executes one with its argument tail and the `DISCERN_*` environment, while the
+desk uses the same core against a selected worktree. A word outside the closed
+root vocabulary reports `unknown command "<word>"` and teaches the next step: a
+did-you-mean line — the cross-tool synonym table in
 [`shared/vocabulary.ts`](../../../src/shared/vocabulary.ts) first ("init" and
 "install" name `setup`, "check" names `prepare`, "sync" names `update`, "land"
 and "merge" name `accept`; suggestions only, never dispatched, per

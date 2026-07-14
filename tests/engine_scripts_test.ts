@@ -12,6 +12,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { runProjectScriptAt } from "../src/engine/project_scripts.ts";
 
 const SLUG_SCRIPT = `#!/usr/bin/env sh
 # desc: print the project slug
@@ -40,6 +41,28 @@ Deno.test("script: a project script runs under the script command with its raw a
     ]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "ARGS=--target|staging|--json");
+  });
+});
+
+Deno.test("Project Script core runs in an explicitly selected worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "discern/scripts/mark-cwd"),
+      [
+        "#!/usr/bin/env sh",
+        "printf '%s\\n' \"$PWD\" > ran-from-here.txt",
+        "",
+      ].join("\n"),
+    );
+
+    assertEquals(
+      await runProjectScriptAt(dir, "mark-cwd", [], { cwd: dir }),
+      0,
+    );
+    const recorded = (await Deno.readTextFile(join(dir, "ran-from-here.txt")))
+      .trim();
+    assertEquals(await Deno.realPath(recorded), await Deno.realPath(dir));
   });
 });
 
