@@ -1,0 +1,307 @@
+#!/usr/bin/env sh
+# desc: rank repeated words and phrases in the map to expose possible prose clichés
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DEFAULT_MAP=$(dirname "$SCRIPT_DIR")/map
+
+exec deno run --allow-read --allow-write - "$DEFAULT_MAP" "$@" <<'MAP_CLICHES'
+type Counts = Map<string, number>;
+
+interface DocumentTokens {
+  segments: string[][];
+  tokens: string[];
+}
+
+interface Entry {
+  text: string;
+  count: number;
+  documents: number;
+}
+
+const STOPWORDS = new Set(`
+  a about above after again against all am an and any are aren't as at be because
+  been before being below between both but by can can't cannot could couldn't did
+  didn't do does doesn't doing don't down during each few for from further had
+  hadn't has hasn't have haven't having he her here hers herself him himself his
+  how i if in into is isn't it it's its itself just me more most must mustn't my
+  myself no nor not now of off on once only or other ought our ours ourselves out
+  over own same shall shan't she should shouldn't so some such than that that's the
+  their theirs them themselves then there there's these they this those through to
+  too under until up very was wasn't we were weren't what when where which while who
+  whom why will with won't would wouldn't you your yours yourself yourselves
+`.trim().split(/\s+/));
+
+const TOKEN = /[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*(?:-[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*)*/gu;
+
+function printHelp(defaultRoot: string): void {
+  console.log(`Map cliché candidate scanner
+
+Usage:
+  discern script map-cliches [options]
+  project/scripts/map-cliches [options]
+
+Options:
+  -i, --input <dir>    Markdown tree to scan
+                       (default: ${defaultRoot})
+  -o, --output <dir>   Results directory
+                       (default: a new discern-map-cliches-* temp directory)
+  -n, --limit <count>  Rows shown in report.txt and the terminal (default: 100)
+  -h, --help           Show this help
+
+The complete TSV tables are never truncated. The limit only controls the short
+human-readable report. Results are sorted by occurrence count, then by the
+number of documents containing the term.`);
+}
+
+function fail(message: string, defaultRoot: string): never {
+  console.error(`map-cliches: ${message}\n`);
+  printHelp(defaultRoot);
+  Deno.exit(2);
+}
+
+function takeValue(args: string[], option: string, defaultRoot: string): string {
+  const value = args.shift();
+  if (value === undefined || value.startsWith("-")) {
+    fail(`${option} requires a value`, defaultRoot);
+  }
+  return value;
+}
+
+async function markdownFiles(root: string): Promise<string[]> {
+  const paths: string[] = [];
+  for await (const item of Deno.readDir(root)) {
+    const path = `${root}/${item.name}`;
+    if (item.isDirectory) {
+      paths.push(...await markdownFiles(path));
+    } else if (item.isFile && item.name.endsWith(".md")) {
+      paths.push(path);
+    }
+  }
+  return paths.sort();
+}
+
+function proseOnly(markdown: string): string {
+  let text = markdown.replace(/^---\s*\n[\s\S]*?\n---\s*$/m, " ");
+  text = text.replace(/<!--[\s\S]*?-->/g, " ");
+  text = text.replace(/^\s*(```|~~~)[\s\S]*?^\s*\1.*$/gm, "\n\n");
+  text = text.replace(/`[^`\n]+`/g, " ");
+  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1");
+  text = text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  text = text.replace(/https?:\/\/\S+/g, " ");
+  text = text.replace(/<[^>]+>/g, " ");
+  text = text.replace(/^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/gm, "\n\n");
+  text = text.replace(/(?<=\p{L})-\s*\n\s*(?=\p{L})/gu, "-");
+  text = text.replace(/^\s{0,3}#{1,6}\s+.*$/gm, "\n\n");
+  text = text.replace(/^\s{0,3}(?:>|[-+*]|\d+[.)])\s+/gm, "\n\n");
+  text = text.replace(/^\s*\|/gm, "\n\n");
+  return text;
+}
+
+function tokenize(markdown: string): string[][] {
+  return proseOnly(markdown)
+    .split(/(?:\n\s*\n+)|[.!?;:]+(?:[\s\n]|$)/u)
+    .map((segment) =>
+      Array.from(
+        segment.toLocaleLowerCase("en").matchAll(TOKEN),
+        (match) => match[0].replaceAll("’", "'"),
+      )
+    )
+    .filter((tokens) => tokens.length > 0);
+}
+
+function increment(counts: Counts, key: string): void {
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
+function phraseStats(
+  documents: DocumentTokens[],
+): { counts: Counts; frequencies: Counts } {
+  const counts: Counts = new Map();
+  const frequencies: Counts = new Map();
+  for (const document of documents) {
+    const seenInDocument = new Set<string>();
+    for (const segment of document.segments) {
+      const seenInSegment = new Set<string>();
+      for (let start = 0; start < segment.length; start++) {
+        for (
+          let end = start + 2;
+          end <= Math.min(segment.length, start + 6);
+          end++
+        ) {
+          let left = start;
+          let right = end;
+          while (left < right && STOPWORDS.has(segment[left] ?? "")) left++;
+          while (right > left && STOPWORDS.has(segment[right - 1] ?? "")) {
+            right--;
+          }
+          if (right - left < 2) continue;
+          const phrase = segment.slice(left, right).join(" ");
+          const occurrence = `${left}:${right}:${phrase}`;
+          if (seenInSegment.has(occurrence)) continue;
+          seenInSegment.add(occurrence);
+          seenInDocument.add(phrase);
+          increment(counts, phrase);
+        }
+      }
+    }
+    for (const phrase of seenInDocument) increment(frequencies, phrase);
+  }
+  return { counts, frequencies };
+}
+
+function entries(counts: Counts, frequencies: Counts): Entry[] {
+  return Array.from(counts, ([text, count]) => ({
+    text,
+    count,
+    documents: frequencies.get(text) ?? 0,
+  })).sort((a, b) =>
+    b.count - a.count ||
+    b.documents - a.documents ||
+    a.text.localeCompare(b.text)
+  );
+}
+
+function maximalPhrases(all: Entry[]): Entry[] {
+  const eligible = all.filter((entry) => entry.count >= 3 && entry.documents >= 2);
+  return eligible.filter((entry) => {
+    const wrapped = ` ${entry.text} `;
+    return !eligible.some((other) =>
+      other.text !== entry.text &&
+      other.count === entry.count &&
+      other.documents === entry.documents &&
+      other.text.split(" ").length > entry.text.split(" ").length &&
+      ` ${other.text} `.includes(wrapped)
+    );
+  });
+}
+
+function tsv(rows: Entry[]): string {
+  return [
+    "count\tdocuments\ttext",
+    ...rows.map((row) => `${row.count}\t${row.documents}\t${row.text}`),
+  ].join("\n") + "\n";
+}
+
+function section(title: string, rows: Entry[], limit: number): string {
+  return `${title}\n${"-".repeat(title.length)}\n${tsv(rows.slice(0, limit))}`;
+}
+
+const args = [...Deno.args];
+const defaultRoot = args.shift();
+if (defaultRoot === undefined) {
+  throw new Error("internal error: default map path was not supplied");
+}
+
+let root = defaultRoot;
+let output: string | undefined;
+let limit = 100;
+
+while (args.length > 0) {
+  const option = args.shift();
+  switch (option) {
+    case "-h":
+    case "--help":
+      printHelp(defaultRoot);
+      Deno.exit(0);
+    case "-i":
+    case "--input":
+      root = takeValue(args, option, defaultRoot);
+      break;
+    case "-o":
+    case "--output":
+      output = takeValue(args, option, defaultRoot);
+      break;
+    case "-n":
+    case "--limit": {
+      const rawLimit = takeValue(args, option, defaultRoot);
+      limit = Number.parseInt(rawLimit, 10);
+      if (!/^\d+$/.test(rawLimit) || !Number.isSafeInteger(limit) || limit < 1) {
+        fail(`${option} must be a positive integer`, defaultRoot);
+      }
+      break;
+    }
+    default:
+      fail(`unknown option: ${option}`, defaultRoot);
+  }
+}
+
+try {
+  root = await Deno.realPath(root.replace(/\/$/, ""));
+} catch (error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  fail(`cannot read input directory: ${detail}`, defaultRoot);
+}
+
+const files = await markdownFiles(root);
+if (files.length === 0) fail(`no Markdown files found under ${root}`, defaultRoot);
+
+const documents: DocumentTokens[] = [];
+for (const path of files) {
+  const segments = tokenize(await Deno.readTextFile(path));
+  documents.push({ segments, tokens: segments.flat() });
+}
+
+const tokenCounts: Counts = new Map();
+const tokenFrequencies: Counts = new Map();
+for (const document of documents) {
+  for (const token of document.tokens) increment(tokenCounts, token);
+  for (const token of new Set(document.tokens)) increment(tokenFrequencies, token);
+}
+
+const phrases = phraseStats(documents);
+const allTokens = entries(tokenCounts, tokenFrequencies);
+const contentTokens = allTokens.filter((entry) =>
+  !STOPWORDS.has(entry.text) && !/^\d+(?:-\d+)*$/.test(entry.text)
+);
+const compounds = contentTokens.filter((entry) => entry.text.includes("-"));
+const repeatedPhrases = maximalPhrases(
+  entries(phrases.counts, phrases.frequencies),
+);
+
+if (output === undefined) {
+  output = await Deno.makeTempDir({ prefix: "discern-map-cliches-" });
+} else {
+  await Deno.mkdir(output, { recursive: true });
+  output = await Deno.realPath(output);
+}
+
+await Promise.all([
+  Deno.writeTextFile(`${output}/all-tokens.tsv`, tsv(allTokens)),
+  Deno.writeTextFile(`${output}/content-tokens.tsv`, tsv(contentTokens)),
+  Deno.writeTextFile(`${output}/hyphenated-compounds.tsv`, tsv(compounds)),
+  Deno.writeTextFile(`${output}/repeated-phrases.tsv`, tsv(repeatedPhrases)),
+]);
+
+const tokenTotal = allTokens.reduce((total, row) => total + row.count, 0);
+const report = [
+  "Map cliché candidate report",
+  "============================",
+  `Input: ${root}`,
+  `Scanned: ${files.length} Markdown files; ${tokenTotal} prose tokens`,
+  "",
+  "How to read this",
+  "----------------",
+  "Counts are corpus occurrences; documents is the number of files containing",
+  "the term. Start with hyphenated compounds and repeated phrases, then skim",
+  "content tokens. These are candidates for human review, not proof of a cliché.",
+  "The complete, untruncated tables are in the TSV files beside this report.",
+  "Code, URLs, link destinations, headings, HTML, and Markdown markers are omitted.",
+  "",
+  section("Hyphenated compounds", compounds, limit),
+  section("Repeated content words", contentTokens, limit),
+  section(
+    "Repeated phrases (maximal, >=3 uses in >=2 files)",
+    repeatedPhrases,
+    limit,
+  ),
+].join("\n");
+
+await Deno.writeTextFile(`${output}/report.txt`, report);
+console.log(report);
+console.log(`\nResults directory: ${output}`);
+console.log(`Short report:      ${output}/report.txt`);
+console.log("Full tables:       all-tokens.tsv, content-tokens.tsv,");
+console.log("                   hyphenated-compounds.tsv, repeated-phrases.tsv");
+MAP_CLICHES
