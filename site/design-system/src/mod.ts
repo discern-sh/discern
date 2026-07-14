@@ -34,3 +34,18 @@ export * from "./components/feedback/toast/mod.ts";
 export * from "./components/feedback/tooltip/mod.ts";
 
 export * from "./components/navigation/tabs/mod.ts";
+
+export * from "./components/marketing/site-header/mod.ts";
+export * from "./components/marketing/hero-block/mod.ts";
+export * from "./components/marketing/logo-cloud/mod.ts";
+export * from "./components/marketing/audience-grid/mod.ts";
+export * from "./components/marketing/feature-bento/mod.ts";
+export * from "./components/marketing/split-feature/mod.ts";
+export * from "./components/marketing/process-steps/mod.ts";
+export * from "./components/marketing/metrics-band/mod.ts";
+export * from "./components/marketing/comparison-table/mod.ts";
+export * from "./components/marketing/testimonial/mod.ts";
+export * from "./components/marketing/case-study/mod.ts";
+export * from "./components/marketing/faq-block/mod.ts";
+export * from "./components/marketing/cta-band/mod.ts";
+export * from "./components/marketing/site-footer/mod.ts";

@@ -1,0 +1,138 @@
+@layer discern.components {
+  .ds-testimonial {
+    padding: var(--ds-section-space) var(--ds-space-6);
+    background: var(--ds-color-canvas);
+  }
+  .ds-testimonial__frame {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.28fr);
+    gap: var(--ds-space-10);
+    width: min(100%, var(--ds-page-max));
+    margin: 0 auto;
+    overflow: hidden;
+    padding: clamp(2rem, 6vw, 4.5rem);
+    border: 1px solid var(--ds-color-accent-300);
+    border-radius: var(--ds-radius-lg);
+    background:
+      linear-gradient(135deg, var(--ds-color-accent-100), transparent 68%),
+      var(--ds-color-surface);
+    box-shadow: var(--ds-shadow-window);
+  }
+  .ds-testimonial__mark {
+    position: absolute;
+    top: -1.25rem;
+    right: 1.5rem;
+    color: color-mix(in oklab, var(--ds-color-accent-500) 22%, transparent);
+    font-family: var(--ds-font-display);
+    font-size: clamp(8rem, 18vw, 15rem);
+    font-weight: var(--ds-font-weight-display);
+    line-height: 1;
+    pointer-events: none;
+  }
+  .ds-testimonial__main {
+    position: relative;
+    min-width: 0;
+  }
+  .ds-testimonial__eyebrow {
+    margin-block-end: var(--ds-space-5);
+    color: var(--ds-color-accent-700);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-strong);
+  }
+  .ds-testimonial blockquote {
+    max-width: 30ch;
+    margin: 0;
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-display);
+    font-size: clamp(1.8rem, 4.2vw, 3.1rem);
+    font-weight: var(--ds-font-weight-display);
+    letter-spacing: -0.018em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+  .ds-testimonial blockquote > :last-child {
+    margin-block-end: 0;
+  }
+  .ds-testimonial figcaption {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-3);
+    margin-block-start: var(--ds-space-8);
+  }
+  .ds-testimonial__avatar {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    overflow: hidden;
+    border: 1px solid var(--ds-color-border-strong);
+    border-radius: 50%;
+    background: var(--ds-color-surface-sunken);
+    color: var(--ds-color-accent-700);
+  }
+  .ds-testimonial figcaption strong,
+  .ds-testimonial figcaption span span {
+    display: block;
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+  }
+  .ds-testimonial figcaption strong {
+    font-size: var(--ds-font-size-sm);
+  }
+  .ds-testimonial figcaption span span {
+    color: var(--ds-color-ink-faint);
+    font-size: var(--ds-font-size-xs);
+  }
+  .ds-testimonial__metric {
+    position: relative;
+    align-self: end;
+    padding-inline-start: var(--ds-space-8);
+    border-inline-start: 1px solid var(--ds-color-border);
+  }
+  .ds-testimonial__metric strong,
+  .ds-testimonial__metric span {
+    display: block;
+  }
+  .ds-testimonial__metric strong {
+    color: var(--ds-color-accent-600);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+  .ds-testimonial__metric span {
+    margin-block-start: var(--ds-space-3);
+    color: var(--ds-color-ink-muted);
+    font-size: var(--ds-font-size-xs);
+  }
+  .ds-testimonial--card {
+    padding: 0;
+  }
+  .ds-testimonial--card .ds-testimonial__frame {
+    grid-template-columns: 1fr;
+    padding: var(--ds-space-8);
+    box-shadow: var(--ds-shadow-card);
+  }
+  .ds-testimonial--card blockquote {
+    font-size: var(--ds-font-size-display-md);
+  }
+  .ds-testimonial--card .ds-testimonial__metric {
+    padding: var(--ds-space-6) 0 0;
+    border-block-start: 1px solid var(--ds-color-border);
+    border-inline-start: 0;
+  }
+  @media (max-width: 720px) {
+    .ds-testimonial__frame {
+      grid-template-columns: 1fr;
+    }
+    .ds-testimonial__metric {
+      padding: var(--ds-space-6) 0 0;
+      border-block-start: 1px solid var(--ds-color-border);
+      border-inline-start: 0;
+    }
+  }
+}

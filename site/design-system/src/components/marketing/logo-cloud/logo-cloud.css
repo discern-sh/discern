@@ -1,0 +1,61 @@
+@layer discern.components {
+  .ds-logo-cloud {
+    width: min(100% - 2 * var(--ds-space-6), var(--ds-page-max));
+    margin-inline: auto;
+    padding-block: var(--ds-space-10);
+  }
+  .ds-logo-cloud__label {
+    margin: 0 0 var(--ds-space-6);
+    color: var(--ds-color-ink-faint);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-xs);
+    text-align: center;
+  }
+  .ds-logo-cloud--start .ds-logo-cloud__label {
+    text-align: start;
+  }
+  .ds-logo-cloud__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    margin: 0;
+    padding: 0;
+    border-block: 1px solid var(--ds-color-border);
+    list-style: none;
+  }
+  .ds-logo-cloud__list li {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-space-2);
+    min-height: 5rem;
+    padding: var(--ds-space-4);
+    color: var(--ds-color-ink-muted);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-strong);
+    text-align: center;
+  }
+  .ds-logo-cloud__list li + li {
+    border-inline-start: 1px solid var(--ds-color-border);
+  }
+  .ds-logo-cloud__mark {
+    display: grid;
+    place-items: center;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    color: var(--ds-color-accent-600);
+  }
+  @media (max-width: 680px) {
+    .ds-logo-cloud__list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ds-logo-cloud__list li:nth-child(odd) {
+      border-inline-start: 0;
+    }
+    .ds-logo-cloud__list li:nth-child(n + 3) {
+      border-block-start: 1px solid var(--ds-color-border);
+    }
+  }
+}

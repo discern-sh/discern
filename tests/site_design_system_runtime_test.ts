@@ -1,6 +1,7 @@
 /** Browser-facing checks for the built design-system demo artifact. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { runtimeAssetReferences } from "../site/design-system/tests/runtime_references.ts";
 import { handler } from "../site/serve.ts";
 
 const BROWSER = {
@@ -21,9 +22,7 @@ Deno.test("the design-system demo route serves the generated static edition", as
     "typed React at build time · static HTML at runtime",
   );
 
-  const runtimeRefs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
-    .map((match) => match[1] ?? "")
-    .filter((value) => !value.startsWith("#") && !value.startsWith("data:"));
+  const runtimeRefs = runtimeAssetReferences(html);
   assert(
     runtimeRefs.every((value) => value.startsWith("/")),
     `remote runtime references: ${runtimeRefs.join(", ")}`,

@@ -1,0 +1,102 @@
+@layer discern.components {
+  .ds-split-feature {
+    padding-block: var(--ds-section-space);
+    background: var(--ds-color-canvas);
+  }
+  .ds-split-feature--surface {
+    background: var(--ds-color-surface);
+  }
+  .ds-split-feature--sunken {
+    background: var(--ds-color-surface-sunken);
+  }
+  .ds-split-feature__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
+    gap: clamp(3rem, 8vw, 7rem);
+    align-items: center;
+    width: min(100% - 2 * var(--ds-space-6), var(--ds-page-max));
+    margin-inline: auto;
+  }
+  .ds-split-feature--reverse .ds-split-feature__content {
+    order: 2;
+  }
+  .ds-split-feature__content {
+    min-width: 0;
+  }
+  .ds-split-feature__eyebrow {
+    margin-block-end: var(--ds-space-3);
+    color: var(--ds-color-accent-700);
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-strong);
+  }
+  .ds-split-feature__content h2 {
+    max-width: 14ch;
+  }
+  .ds-split-feature__description {
+    color: var(--ds-color-ink-muted);
+    font-size: var(--ds-font-size-lg);
+  }
+  .ds-split-feature__description > :last-child {
+    margin-block-end: 0;
+  }
+  .ds-split-feature__points {
+    display: grid;
+    gap: var(--ds-space-4);
+    margin: var(--ds-space-8) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ds-split-feature__points li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--ds-space-3);
+    align-items: start;
+  }
+  .ds-split-feature__check {
+    display: grid;
+    place-items: center;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    border-radius: 50%;
+    background: var(--ds-color-success-soft);
+    color: var(--ds-color-success-deep);
+    font-size: 0.75rem;
+  }
+  .ds-split-feature__points strong,
+  .ds-split-feature__points li span span {
+    display: block;
+  }
+  .ds-split-feature__points strong {
+    font-family: var(--ds-font-ui);
+    font-feature-settings: var(--ds-font-features-ui);
+    font-size: var(--ds-font-size-sm);
+  }
+  .ds-split-feature__points li span span {
+    margin-block-start: var(--ds-space-1);
+    color: var(--ds-color-ink-muted);
+    font-size: var(--ds-font-size-sm);
+  }
+  .ds-split-feature__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ds-space-3);
+    margin-block-start: var(--ds-space-8);
+  }
+  .ds-split-feature__media {
+    min-width: 0;
+  }
+  @media (max-width: 820px) {
+    .ds-split-feature__inner {
+      grid-template-columns: 1fr;
+    }
+    .ds-split-feature--reverse .ds-split-feature__content {
+      order: 0;
+    }
+    .ds-split-feature__media {
+      width: min(100%, 38rem);
+      margin-inline: auto;
+    }
+  }
+}

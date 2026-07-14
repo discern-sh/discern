@@ -1,10 +1,14 @@
-export type ComponentGroup =
-  | "Core"
-  | "Layout"
-  | "Display"
-  | "Forms"
-  | "Feedback"
-  | "Navigation";
+export const componentGroups = [
+  "Core",
+  "Layout",
+  "Display",
+  "Forms",
+  "Feedback",
+  "Navigation",
+  "Marketing",
+] as const;
+
+export type ComponentGroup = (typeof componentGroups)[number];
 
 export interface ComponentMeta {
   readonly name: string;

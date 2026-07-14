@@ -52,7 +52,9 @@ ordinary design iteration needs only the root watcher.
 The library build discovers every `*.meta.ts` file. Its component folder must
 also carry the implementation, CSS, examples, and `mod.ts`; the public module
 must export that folder. This is checked from the discovered set, so a new
-component auto-enrols rather than waiting for a hand-maintained test list.
+component auto-enrols rather than waiting for a hand-maintained test list. The
+ordered component groups come from the exported `componentGroups` tuple; the
+metadata type and style guide renderer consume that same value.
 
 The design-system README is the standalone page-authoring handoff: it identifies
 the public entrypoints, root/theme contract, layout primitives, typography
@@ -82,6 +84,21 @@ select the interface feature set.
 
 Component-specific typography, framing, depth, and separation roles live in
 [component-catalogue.md](component-catalogue.md).
+
+## Landing-page blocks
+
+The `Marketing` group turns the primitives into reusable page-scale sections:
+page chrome, heroes, trust and audience bands, feature stories, workflows,
+proof, comparisons, customer evidence, questions, and closing actions. The
+blocks own responsive geometry and semantic structure. Product copy, routes,
+commands, and bespoke artwork stay in `site/page-src/` and enter through typed
+props and slots.
+
+`/design-system-demo` is the composition atlas for this group. A test derives
+the Marketing set from component metadata and requires every member's root class
+in the rendered demo. A new block therefore enters the generated style guide
+automatically and makes the gate demand a demo composition before the reusable
+set and its showcase can drift apart.
 
 ## Theme fidelity
 
