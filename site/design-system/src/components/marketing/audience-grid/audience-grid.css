@@ -79,7 +79,7 @@
   }
   .ds-audience-grid__index {
     font-family: var(--ds-font-mono);
-    font-size: 0.65rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-audience-grid__item h3 {
     margin: var(--ds-space-6) 0 var(--ds-space-4);

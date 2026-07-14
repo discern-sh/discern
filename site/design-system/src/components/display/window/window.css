@@ -31,7 +31,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.625rem;
+    font-size: var(--ds-font-size-xs);
     letter-spacing: 0.05em;
     text-align: center;
     text-overflow: ellipsis;

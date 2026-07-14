@@ -73,8 +73,15 @@ async function runSiteBuild(): Promise<boolean> {
 
 /** Add the local catalogue without exposing it through the production handler. */
 export async function localHandler(request: Request): Promise<Response> {
-  const path = new URL(request.url).pathname;
+  const url = new URL(request.url);
+  const path = url.pathname;
   if (path === "/styleguide" || path.startsWith("/styleguide/")) {
+    url.pathname = path === "/styleguide"
+      ? "/style-guide/"
+      : path.replace(/^\/styleguide\//, "/style-guide/");
+    return Response.redirect(url, 307);
+  }
+  if (path === "/style-guide" || path.startsWith("/style-guide/")) {
     return await styleguideServer.fetch(request);
   }
   return await handler(request);

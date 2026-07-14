@@ -178,6 +178,31 @@ function leafDeclarationBlocks(source: string): string[] {
   return blocks;
 }
 
+function subminimumRemType(
+  source: string,
+  minimumRem: number,
+): string[] {
+  return [...source.matchAll(/\bfont(?:-size)?\s*:\s*(0?\.\d+)rem/g)]
+    .filter((match) => Number(match[1]) < minimumRem)
+    .map((match) => match[0]);
+}
+
+function invertedSemanticRoleDeclarations(source: string): string[] {
+  return leafDeclarationBlocks(source).flatMap((declarations) => {
+    const violations: string[] = [];
+    const background = declarations.match(
+      /background(?:-color)?\s*:\s*([^;]+)/s,
+    )?.[1] ?? "";
+    if (/(?:^|,)\s*var\(--ds-color-ink\)\s*$/s.test(background)) {
+      violations.push("text role used as a surface");
+    }
+    if (/\bcolor\s*:\s*var\(--ds-color-canvas\)/.test(declarations)) {
+      violations.push("canvas role used as text");
+    }
+    return violations;
+  });
+}
+
 function dataAttributeCounts(
   source: string,
   attribute: string,
@@ -393,6 +418,9 @@ Deno.test("every marketing block is represented in the demo", async () => {
   assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
   assertStringIncludes(html, "<table");
   assertStringIncludes(html, "<details");
+  assertStringIncludes(html, 'href="/content-design-demo"');
+  assertStringIncludes(html, 'href="/style-guide/"');
+  assert(!html.includes('href="/styleguide/'));
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
     .map((match) => match[1] ?? "");
@@ -442,6 +470,9 @@ Deno.test("every editorial block is represented in the content demo", async () =
   }
 
   assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
+  assertStringIncludes(html, 'href="/design-system-demo"');
+  assertStringIncludes(html, 'href="/style-guide/"');
+  assert(!html.includes('href="/styleguide/'));
   for (
     const semantic of [
       "<article",
@@ -492,7 +523,7 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
     ],
     [
       "contained stacks",
-      /\.demo-contained-stack\s*>\s*\*\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0 0 auto;[^}]*translate:\s*0 var\(--demo-stack-offset/s,
+      /\.demo-contained-stack\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--ds-space-3\);/s,
     ],
     [
       "fanout grids",
@@ -519,6 +550,97 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
       "unrelated-stack must use demo-contained-stack",
       "new-tree has 1 fanout arms for 2 targets",
     ],
+  );
+});
+
+Deno.test("authored design-system type respects the xs readability floor", async () => {
+  const xs = designTokens.find((token) => token.name === "--ds-font-size-xs");
+  assert(xs !== undefined);
+  const minimumRem = Number(xs.value.replace("rem", ""));
+  assert(Number.isFinite(minimumRem));
+
+  const authoredCss = [
+    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
+      .filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "page-src")))
+      .filter((path) => path.endsWith(".css")),
+  ];
+  const violations: string[] = [];
+  for (const path of authoredCss) {
+    const source = await Deno.readTextFile(path);
+    violations.push(
+      ...subminimumRemType(source, minimumRem).map((declaration) =>
+        `${relative(ROOT, path)}: ${declaration}`
+      ),
+    );
+  }
+  assertEquals(violations, []);
+  assertEquals(
+    subminimumRemType(
+      ".fresh-component { font-size: 0.7rem; }",
+      minimumRem,
+    ),
+    ["font-size: 0.7rem"],
+  );
+});
+
+Deno.test("inverse surfaces use stable inverse colour roles", async () => {
+  const authoredCss = [
+    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
+      .filter((path) => path.endsWith(".css")),
+    ...(await walk(join(ROOT, "site", "page-src")))
+      .filter((path) => path.endsWith(".css")),
+  ];
+  const violations: string[] = [];
+  for (const path of authoredCss) {
+    const source = await Deno.readTextFile(path);
+    violations.push(
+      ...invertedSemanticRoleDeclarations(source).map((violation) =>
+        `${relative(ROOT, path)}: ${violation}`
+      ),
+    );
+  }
+  assertEquals(violations, []);
+  assertEquals(
+    invertedSemanticRoleDeclarations(
+      ".fresh-panel { background: var(--ds-color-ink); color: var(--ds-color-canvas); }",
+    ),
+    ["text role used as a surface", "canvas role used as text"],
+  );
+});
+
+Deno.test("editorial components stay independent from their demo page", async () => {
+  const editorialRoot = join(COMPONENT_ROOT, "editorial");
+  const violations: string[] = [];
+  for (
+    const path of (await walk(editorialRoot)).filter((candidate) =>
+      /\.(?:css|tsx)$/.test(candidate)
+    )
+  ) {
+    if ((await Deno.readTextFile(path)).includes("editorial-demo")) {
+      violations.push(relative(ROOT, path));
+    }
+  }
+  assertEquals(violations, []);
+});
+
+Deno.test("editorial reading treatments preserve their alignment and surface hierarchy", async () => {
+  const prose = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "editorial", "prose", "prose.css"),
+  );
+  assertMatch(
+    prose,
+    /\.ds-prose--drop-cap\s*>\s*p:first-child::first-letter\s*\{[^}]*margin:\s*0 0\.12em 0 0;/s,
+  );
+
+  const keyPoints = await Deno.readTextFile(
+    join(COMPONENT_ROOT, "editorial", "key-points", "key-points.css"),
+  );
+  assertMatch(
+    keyPoints,
+    /\.ds-key-points ol\s*\{[^}]*background:\s*var\(--ds-color-surface-sunken\);/s,
   );
 });
 
@@ -776,7 +898,7 @@ Deno.test("kicker isolates its monospace index from UI text", async () => {
     join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
   );
   const rootRule = css.match(/\.ds-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
-  assertStringIncludes(rootRule, "font-size: 0.625rem");
+  assertStringIncludes(rootRule, "font-size: var(--ds-font-size-xs)");
   assert(!rootRule.includes("var(--ds-font-mono)"));
   assertMatch(
     css,

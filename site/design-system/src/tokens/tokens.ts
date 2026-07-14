@@ -221,6 +221,18 @@ export const themeTokens = [
     "Inset surface.",
   ),
   themeToken(
+    "--ds-color-inverse-surface",
+    "oklch(24% 0.03 var(--ds-ink-hue))",
+    "oklch(14.5% 0.018 var(--ds-ink-hue))",
+    "Stable dark surface for inverse and contrast treatments.",
+  ),
+  themeToken(
+    "--ds-color-inverse-ink",
+    "oklch(98.97% 0.0028 var(--ds-canvas-hue))",
+    "oklch(98.97% 0.0028 var(--ds-canvas-hue))",
+    "Readable light ink on inverse surfaces.",
+  ),
+  themeToken(
     "--ds-color-accent-100",
     "oklch(96.2% 0.019 var(--ds-accent-hue))",
     "oklch(29% 0.055 var(--ds-accent-hue))",

@@ -123,7 +123,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
         notice={
           <span>
             Content atlas · 12 reusable editorial patterns ·{" "}
-            <a href="/styleguide/">inspect the complete system</a>
+            <a href="/style-guide/">inspect the complete system</a>
           </span>
         }
         actions={
@@ -488,7 +488,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
                   responsive treatments.
                 </p>
               ),
-              href: "/styleguide/#group-editorial",
+              href: "/style-guide/#group-editorial",
               meta: `${stats.components} components`,
             },
           ]}
@@ -506,7 +506,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
           }
           actions={
             <>
-              <Button href="/styleguide/" size="lg">
+              <Button href="/style-guide/" size="lg">
                 Explore the components
               </Button>
               <Button href="/design-system-demo" size="lg" variant="secondary">
@@ -540,7 +540,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
           {
             title: "Design",
             links: [
-              { label: "Component catalogue", href: "/styleguide/" },
+              { label: "Component catalogue", href: "/style-guide/" },
               { label: "Marketing atlas", href: "/design-system-demo" },
               { label: "Content atlas", href: "/content-design-demo" },
             ],

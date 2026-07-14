@@ -11,7 +11,7 @@
     border-radius: var(--ds-radius-md);
     background: var(--ds-banner-bg);
     color: var(--ds-banner-text);
-    font-size: 0.875rem;
+    font-size: var(--ds-font-size-sm);
     line-height: 1.5;
   }
   .ds-banner--accent {

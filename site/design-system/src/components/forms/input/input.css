@@ -9,7 +9,7 @@
     background: var(--ds-color-surface);
     color: var(--ds-color-ink);
     font-family: var(--ds-font-body);
-    font-size: 0.875rem;
+    font-size: var(--ds-font-size-sm);
     line-height: 1.4;
     transition: border-color var(--ds-duration-fast), box-shadow
       var(--ds-duration-fast), background var(--ds-duration-fast);

@@ -42,7 +42,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.74rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-pull-quote figcaption strong {
     color: var(--ds-color-ink);

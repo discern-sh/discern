@@ -24,7 +24,7 @@
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.65rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-data-figure > header h3 {
@@ -42,7 +42,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     list-style: none;
   }
   .ds-data-figure > header li {
@@ -81,7 +81,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
   }
   @media (max-width: 620px) {
     .ds-data-figure > header {

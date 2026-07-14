@@ -82,7 +82,7 @@
   }
   .ds-article-header__author small {
     color: var(--ds-color-ink-faint);
-    font-size: 0.72rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-article-header__avatar {
     display: grid;
@@ -94,7 +94,7 @@
     background: var(--ds-color-accent-100);
     color: var(--ds-color-accent-800);
     font-family: var(--ds-font-mono);
-    font-size: 0.7rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-article-header__meta {
     display: flex;
@@ -105,7 +105,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.74rem;
+    font-size: var(--ds-font-size-xs);
     list-style: none;
   }
   .ds-article-header__meta li + li::before {

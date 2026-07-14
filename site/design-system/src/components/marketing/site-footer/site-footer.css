@@ -85,7 +85,7 @@
     border-block-start: 1px solid var(--ds-color-border);
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-mono);
-    font-size: 0.65rem;
+    font-size: var(--ds-font-size-xs);
   }
   @media (max-width: 720px) {
     .ds-site-footer__inner {

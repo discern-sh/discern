@@ -3,13 +3,13 @@
     color: var(--ds-color-ink-muted);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.76rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-table-of-contents__title {
     display: block;
     margin-block-end: var(--ds-space-4);
     color: var(--ds-color-ink);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -43,7 +43,7 @@
   .ds-table-of-contents a span {
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-mono);
-    font-size: 0.62rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-table-of-contents__progress {
     margin-block-start: var(--ds-space-5);
@@ -51,7 +51,7 @@
     border-block-start: 1px dashed var(--ds-color-border-strong);
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-mono);
-    font-size: 0.62rem;
+    font-size: var(--ds-font-size-xs);
   }
   @media (max-width: 720px) {
     .ds-table-of-contents ol {

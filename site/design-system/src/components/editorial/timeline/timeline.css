@@ -15,7 +15,7 @@
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-timeline > header h2 {
@@ -44,7 +44,7 @@
     padding-block-start: var(--ds-space-1);
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-mono);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     text-align: end;
   }
   .ds-timeline__marker {
@@ -100,7 +100,7 @@
     margin-block-start: var(--ds-space-3);
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-mono);
-    font-size: 0.64rem;
+    font-size: var(--ds-font-size-xs);
   }
   @media (max-width: 620px) {
     .ds-timeline > header {

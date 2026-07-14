@@ -23,7 +23,7 @@
     box-shadow: var(--ds-shadow-pop);
     color: var(--ds-color-ink);
     pointer-events: auto;
-    font-size: 0.8125rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-toast--success {
     --ds-toast-accent: var(--ds-color-success);

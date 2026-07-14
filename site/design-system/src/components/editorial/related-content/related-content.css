@@ -22,7 +22,7 @@
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-related-content__inner > header h2 {
@@ -48,7 +48,7 @@
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.66rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-related-content article h3 {
@@ -80,7 +80,7 @@
     color: var(--ds-color-ink-faint);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-related-content article footer > span:last-child {
     color: var(--ds-color-accent-700);

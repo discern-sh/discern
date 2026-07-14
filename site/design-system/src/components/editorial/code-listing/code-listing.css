@@ -42,7 +42,7 @@
     overflow: hidden;
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.67rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-body);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -55,7 +55,7 @@
     overflow: auto;
     padding-block: var(--ds-space-4);
     color: oklch(89% 0.015 var(--ds-ink-hue));
-    font: 0.76rem/1.72 var(--ds-font-mono);
+    font: var(--ds-font-size-xs)/1.72 var(--ds-font-mono);
     tab-size: 2;
   }
   .ds-code-listing__line {
@@ -84,6 +84,6 @@
     color: oklch(66% 0.015 var(--ds-ink-hue));
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
   }
 }

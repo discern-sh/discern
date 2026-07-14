@@ -44,7 +44,7 @@ deno task site                   # build, then serve on main/worktree port
 deno task watch                  # serve and rebuild when authored inputs change
 ```
 
-The root watch task also builds and serves the catalogue at `/styleguide/` on
+The root watch task also builds and serves the catalogue at `/style-guide/` on
 the same main/worktree port as the public demo. The subsystem's
 `deno task
 serve` remains available for an isolated catalogue-only process, but
@@ -81,7 +81,10 @@ Both currently resolve to the one bundled Inter font, while interface rules
 additionally consume the central `--ds-font-features-ui` OpenType set. Crimson
 Pro remains the display face and JetBrains Mono the code face. A guard scans
 every tracked site stylesheet so any rule selecting `--ds-font-ui` must also
-select the interface feature set.
+select the interface feature set. The same subsystem guard derives the
+`--ds-font-size-xs` value and rejects smaller literal `rem` type in components,
+the two demos, or the catalogue. Compact UI therefore has one readable floor
+rather than a collection of local fine-print sizes.
 
 Component-specific typography, framing, depth, and separation roles live in
 [component-catalogue.md](component-catalogue.md).
@@ -116,7 +119,9 @@ source and product-specific artwork live in `site/page-src/`; the generated HTML
 and `content-demo.css` asset remain ignored under `site/pages/`. A structural
 guard discovers every Editorial metadata entry and requires its root class in
 the content demo. The style guide and both composition atlases therefore enrol
-new members from the same component source of truth.
+new members from the same component source of truth. Editorial component source
+is also forbidden from depending on the page-owned `editorial-demo-*` namespace;
+those classes frame the edition and its bespoke cover artwork only.
 
 ## Theme fidelity
 
@@ -126,6 +131,12 @@ remaps the same roles so `accent-100` remains the quietest background and
 `accent-800` remains the strongest text. Components never compensate for a
 light-only palette locally. The subsystem test discovers every numbered colour
 ramp and rejects fixed members or a dark ramp whose roles do not invert.
+
+Inverse surfaces are the deliberate exception to theme-relative lightness.
+`--ds-color-inverse-surface` remains dark and `--ds-color-inverse-ink` remains
+light in either theme, so contrast bands, hover hints, and skip links do not
+swap their visual polarity when the page theme changes. A source-wide guard
+rejects using the ordinary ink role as a background or the canvas role as text.
 
 The grain wash is the one textured colour flourish. Its shared utility owns the
 gradient geometry, overlay blend, grain scale, and opacity, and pages use it at

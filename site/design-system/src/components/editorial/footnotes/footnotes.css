@@ -39,7 +39,7 @@
   .ds-footnotes li > span {
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-mono);
-    font-size: 0.65rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-footnotes li div > :last-child {
     margin-block-end: 0;

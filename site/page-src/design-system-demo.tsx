@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import type { CSSProperties } from "react";
 import {
   AudienceGrid,
   Badge,
@@ -168,8 +167,8 @@ function WorktreeVisual() {
         ["main", "trunk", "quiet"],
         ["agent/header", "site", "active"],
         ["agent/retry", "engine", "testing"],
-      ].map(([branch, scope, state], index) => (
-        <div key={branch} style={{ "--demo-offset": index } as CSSProperties}>
+      ].map(([branch, scope, state]) => (
+        <div key={branch}>
           <span>
             <DemoIcon name="branch" />
           </span>
@@ -331,7 +330,8 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
         notice={
           <span>
             Block atlas · 14 reusable marketing sections ·{" "}
-            <a href="/styleguide/">inspect every component</a>
+            <a href="/style-guide/">inspect every component</a> ·{" "}
+            <a href="/content-design-demo">open the content atlas</a>
           </span>
         }
         actions={
@@ -890,7 +890,8 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
             title: "Learn",
             links: [
               { label: "Documentation", href: "/docs" },
-              { label: "Design system", href: "/styleguide/" },
+              { label: "Design system", href: "/style-guide/" },
+              { label: "Content atlas", href: "/content-design-demo" },
               { label: "Plain-text edition", href: "/llms.txt" },
             ],
           },

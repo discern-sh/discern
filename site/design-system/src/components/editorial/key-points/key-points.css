@@ -11,9 +11,9 @@
     background: var(--ds-color-surface-sunken);
   }
   .ds-key-points--contrast {
-    border-color: var(--ds-color-ink);
-    background: var(--ds-color-ink);
-    color: var(--ds-color-canvas);
+    border-color: var(--ds-color-inverse-surface);
+    background: var(--ds-color-inverse-surface);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-key-points > header {
     display: grid;
@@ -27,7 +27,7 @@
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-ui);
     font-feature-settings: var(--ds-font-features-ui);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
     font-weight: var(--ds-font-weight-strong);
   }
   .ds-key-points > header h2 {
@@ -36,14 +36,23 @@
   }
   .ds-key-points--contrast > header h2,
   .ds-key-points--contrast > header > span {
-    color: var(--ds-color-canvas);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-key-points ol {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     margin: 0;
     padding: 0;
+    background: var(--ds-color-surface-sunken);
     list-style: none;
+  }
+  .ds-key-points--accent ol {
+    background: color-mix(in oklab, var(--ds-color-accent-100) 52%,
+      var(--ds-color-surface));
+  }
+  .ds-key-points--contrast ol {
+    background: color-mix(in oklab, var(--ds-color-inverse-ink) 7%,
+      var(--ds-color-inverse-surface));
   }
   .ds-key-points li {
     display: grid;
@@ -57,7 +66,7 @@
   .ds-key-points li > span {
     color: var(--ds-color-accent-700);
     font-family: var(--ds-font-mono);
-    font-size: 0.68rem;
+    font-size: var(--ds-font-size-xs);
   }
   .ds-key-points li h3 {
     margin-block-end: var(--ds-space-2);
@@ -74,10 +83,10 @@
   }
   .ds-key-points--contrast li h3,
   .ds-key-points--contrast li > span {
-    color: var(--ds-color-canvas);
+    color: var(--ds-color-inverse-ink);
   }
   .ds-key-points--contrast li div div {
-    color: color-mix(in oklab, var(--ds-color-canvas) 72%, transparent);
+    color: color-mix(in oklab, var(--ds-color-inverse-ink) 72%, transparent);
   }
   @media (max-width: 660px) {
     .ds-key-points > header {
