@@ -177,6 +177,55 @@ function leafDeclarationBlocks(source: string): string[] {
   return blocks;
 }
 
+function dataAttributeCounts(
+  source: string,
+  attribute: string,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  const pattern = new RegExp(`\\b${attribute}="([^"]+)"`, "g");
+  for (const match of source.matchAll(pattern)) {
+    const value = match[1] ?? "";
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function demoLayoutMarkupViolations(source: string): string[] {
+  const violations: string[] = [];
+  for (
+    const [attribute, requiredClass] of [
+      ["data-demo-inset", "demo-visual-inset"],
+      ["data-demo-contained-stack", "demo-contained-stack"],
+    ] as const
+  ) {
+    const pattern = new RegExp(
+      `<[^>]+\\b${attribute}="([^"]+)"[^>]*>`,
+      "g",
+    );
+    for (const match of source.matchAll(pattern)) {
+      const contract = match[1] ?? "";
+      const tag = match[0];
+      const classes = tag.match(/\bclass="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+      if (!classes.includes(requiredClass)) {
+        violations.push(`${contract} must use ${requiredClass}`);
+      }
+    }
+  }
+
+  const arms = dataAttributeCounts(source, "data-demo-fanout-arm");
+  const targets = dataAttributeCounts(source, "data-demo-fanout-target");
+  for (const contract of new Set([...arms.keys(), ...targets.keys()])) {
+    const armCount = arms.get(contract) ?? 0;
+    const targetCount = targets.get(contract) ?? 0;
+    if (armCount !== targetCount || targetCount === 0) {
+      violations.push(
+        `${contract} has ${armCount} fanout arms for ${targetCount} targets`,
+      );
+    }
+  }
+  return violations;
+}
+
 Deno.test("generated public site outputs are ignored and absent from Git", async () => {
   const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
     join("site", output)
@@ -348,6 +397,55 @@ Deno.test("every marketing block is represented in the demo", async () => {
       `demo fragment #${fragment} has no matching id`,
     );
   }
+});
+
+Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", async () => {
+  const componentCount =
+    (await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".meta.ts"))
+      .length;
+  const html = renderDesignSystemDemo({
+    components: componentCount,
+    tokens: designTokens.length + themeTokens.length,
+  });
+  const css = await Deno.readTextFile(
+    join(ROOT, "site", "page-src", "design-system-demo.css"),
+  );
+
+  const cssViolations = [
+    [
+      "uniform insets",
+      /\.demo-visual-inset\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*min\([^}]*margin:\s*var\(--ds-space-4\) auto;/s,
+    ],
+    [
+      "contained stacks",
+      /\.demo-contained-stack\s*>\s*\*\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0 0 auto;[^}]*translate:\s*0 var\(--demo-stack-offset/s,
+    ],
+    [
+      "fanout grids",
+      /\.demo-guidance__line,\s*\.demo-guidance__agents\s*\{[^}]*grid-template-columns:\s*var\(--demo-fanout-grid\);[^}]*gap:\s*var\(--demo-fanout-gap\);/s,
+    ],
+  ].filter(([, pattern]) => !(pattern as RegExp).test(css)).map(([label]) =>
+    String(label)
+  );
+  assertEquals(
+    [...demoLayoutMarkupViolations(html), ...cssViolations],
+    [],
+  );
+
+  assertEquals(
+    demoLayoutMarkupViolations(`
+      <div data-demo-inset="fresh-art"></div>
+      <div data-demo-contained-stack="unrelated-stack"></div>
+      <i data-demo-fanout-arm="new-tree"></i>
+      <i data-demo-fanout-target="new-tree"></i>
+      <i data-demo-fanout-target="new-tree"></i>
+    `),
+    [
+      "fresh-art must use demo-visual-inset",
+      "unrelated-stack must use demo-contained-stack",
+      "new-tree has 1 fanout arms for 2 targets",
+    ],
+  );
 });
 
 Deno.test("authored design-system runtime sources are local-only", async () => {

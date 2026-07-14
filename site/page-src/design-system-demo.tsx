@@ -158,7 +158,12 @@ function GateVisual() {
 
 function WorktreeVisual() {
   return (
-    <div className="demo-worktrees" aria-label="Three isolated worktrees">
+    <div
+      className="demo-worktrees demo-visual-inset demo-contained-stack"
+      data-demo-contained-stack="worktrees"
+      data-demo-inset="worktrees"
+      aria-label="Three isolated worktrees"
+    >
       {[
         ["main", "trunk", "quiet"],
         ["agent/header", "site", "active"],
@@ -176,6 +181,8 @@ function WorktreeVisual() {
   );
 }
 
+const GUIDANCE_AGENTS = ["Claude", "Codex", "Gemini"] as const;
+
 function GuidanceVisual() {
   return (
     <div className="demo-guidance" aria-label="One source feeding three agents">
@@ -183,10 +190,14 @@ function GuidanceVisual() {
         <span>project/guidance.md</span>
         <strong>one authored voice</strong>
       </div>
-      <div className="demo-guidance__line" aria-hidden="true" />
+      <div className="demo-guidance__line" aria-hidden="true">
+        {GUIDANCE_AGENTS.map((agent) => (
+          <span data-demo-fanout-arm="guidance" key={agent} />
+        ))}
+      </div>
       <div className="demo-guidance__agents">
-        {["Claude", "Codex", "Gemini"].map((agent) => (
-          <span key={agent}>
+        {GUIDANCE_AGENTS.map((agent) => (
+          <span data-demo-fanout-target="guidance" key={agent}>
             <DemoIcon name="agent" />
             {agent}
           </span>
@@ -224,7 +235,11 @@ function StandardsVisual() {
 
 function MapVisual() {
   return (
-    <div className="demo-map" aria-label="A browsable project map">
+    <div
+      className="demo-map demo-visual-inset"
+      data-demo-inset="map"
+      aria-label="A browsable project map"
+    >
       <div>
         <DemoIcon name="map" />
         <strong>project/map</strong>
