@@ -50,31 +50,43 @@ This changes ADR 0135's in-repository ownership/location clause. Its central
 decision still stands: Discern may use React at build time, and the browser
 receives static HTML/CSS with no implicit hydration or React runtime.
 
+## Implementation status
+
+The local package now has neutral and React entrypoints, selected runtime
+output, a manifest, optional assets, themes, and isolated tests. Discern
+consumes those entrypoints rather than an internal build script.
+
+External ownership remains pending: no repository, remote, scope, release, or
+immutable dependency exists. Discern owns the workspace subtree until 2A
+publishes it and 3A cuts over.
+
 ## Consequences
 
-- Discern loses the component source, catalogue, examples, package assets, and
-  package-only tooling, keeping its repository focused on the engine and the
-  small public site that presents it.
+- At cut-over, Discern loses the component source, catalogue, examples, package
+  assets, and package-only tooling, keeping its repository focused on the engine
+  and the small public site that presents it.
 - The same maintained visual system can serve Discern and unrelated Deno sites;
   attribution remains useful branding without forcing Discern product copy into
   examples.
 - CSS class names, custom properties, root attributes, layers, and animation
-  names become a versioned public API. The pre-launch `ds` to `discern` rename
+  names are now one `discern` public API. Completing the pre-launch `ds` rename
   avoids publishing two permanent namespaces.
-- React becomes an explicit optional adapter rather than a transitive
-  requirement for consumers that hand-author semantic HTML.
-- Consumers can select components/groups and optional assets instead of loading
-  the complete catalogue runtime. The package must maintain a dependency graph,
-  manifest schema, SemVer discipline, migration notes, and clean-room consumer
-  fixtures.
-- Discern's site build now depends on a package release. A package defect is
-  fixed and released in the package repository, then consumed as a new exact
-  version; it is not patched by copying source back into Discern.
+- React is now an explicit optional adapter rather than a transitive requirement
+  for consumers that hand-author semantic HTML.
+- Consumers can now select components/groups and optional assets instead of
+  loading the complete catalogue runtime. The package maintains a dependency
+  graph, manifest schema, and clean-room consumer fixtures; publication adds
+  SemVer discipline and migration notes.
+- After cut-over, Discern's site build will depend on a package release. A
+  package defect is fixed and released in the package repository, then consumed
+  as a new exact version; it is not patched by copying source back into Discern.
 - Releases require coordination across two repositories and cannot be made
   atomic. Publishing first and cutting over second supplies the rollback seam.
 - JSR's code-oriented module model makes the CSS/font/texture build interface a
-  deliberate contract. It must work on stable Deno without undocumented cache
-  paths, experimental byte imports, or production registry hotlinks.
+  deliberate contract. The local package-shaped proof works on stable Deno,
+  including cached-only reuse, without undocumented cache paths, experimental
+  byte imports, or production registry hotlinks; 2A must repeat that proof
+  against the immutable release.
 - The docs-browser platform work waits until the namespace and asset boundary
   have landed, avoiding a later rewrite of its CSP, hashed assets, search shell,
   accessibility fixtures, and size baselines.

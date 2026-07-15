@@ -1,139 +1,208 @@
 # Discern design system
 
-Framework-neutral visual foundations with typed React adapters. This directory
-owns reusable visual decisions; discern.sh page composition and product copy
-live in `site/page-src/`.
+The Discern design system is a local, independently testable Deno package. Its
+default graph is framework-neutral; React is an explicit authoring adapter for
+consumers that render static HTML. The package has not been assigned a public
+registry owner or scope and is not published in this wave.
 
-## Commands
+## Public imports
 
-- `deno task build` — generate CSS, the component registry, manifest, and the
-  browser styleguide bundle.
-- `deno task check` — formatting, linting, and strict type checking.
-- `deno task verify` — the complete local gate.
-- `deno task serve` — optionally build and serve the style guide alone at
-  `http://127.0.0.1:8010/style-guide/`.
+Discern's root import map currently binds these package-shaped specifiers to the
+local source. A future immutable release keeps the same export paths.
 
-From the repository root, `deno task site:build` uses these adapters only at
-build time to generate static public HTML and CSS. No React runtime ships with
-the landing-page demo. Root `deno task watch` serves both that demo and the
-local catalogue at `/style-guide/`, rebuilding them together when authored
-design-system or page inputs change.
+| Import                                | Contract                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `discern-design-system`               | Token metadata, component/group metadata types, the package manifest, and `semanticClass` |
+| `discern-design-system/manifest`      | Framework-neutral manifest schema and the complete package ownership manifest             |
+| `discern-design-system/runtime`       | Deterministic selected-runtime emitter                                                    |
+| `discern-design-system/tokens`        | Primitive, semantic, and Discern-preset token metadata                                    |
+| `discern-design-system/theme/discern` | Default branded blue preset                                                               |
+| `discern-design-system/react`         | Optional React components and their public prop types                                     |
 
-## Source rules
+Only `./react` resolves React. The package keeps React and React DOM as
+catalogue development dependencies and peer dependencies, while its root,
+manifest, runtime, token, and theme graphs do not import them.
 
-- Change design values in `src/tokens/tokens.ts`; generated CSS is never edited.
-- `--discern-font-size-xs` is the readability floor for authored interface text.
-  Components, demos, and the catalogue may use larger type roles but do not
-  introduce smaller literal `rem` sizes.
-- Contrast treatments use the stable `--discern-color-inverse-surface` and
-  `--discern-color-inverse-ink` roles instead of treating theme-relative canvas
-  and text colours as an inverse palette.
-- Every public component owns a folder containing its implementation, styles,
-  metadata, examples, and `mod.ts` export.
-- Consumer styles may compose components through an added consumer class, but
-  never target a component-owned `.discern-*` selector. Component internals
-  remain reproducible from this directory alone.
-- Component source contains no product copy and no remote asset URLs.
-- Icons are renderable slots. `assets/fonts.css` is the optional, self-hosted
-  provider for the font roles; consumers may replace it without changing the
-  component runtime.
-- New `*.meta.ts` + `*.examples.tsx` pairs are discovered by the build and
-  automatically enter the styleguide.
-- Marketing components are page-scale blocks. They own reusable section geometry
-  and semantics, while every product claim, route, illustration, and command
-  enters through typed props or slots.
-- `assets/` owns reproducible fonts, licences, and textures. The build copies
-  that complete tree into every runtime output.
-- `dist/`, `styleguide/generated/`, and the public runtime under
-  `site/pages/assets/design-system/` are ignored build output.
+## Root, theme, and semantic HTML
 
-## Public surfaces
+Generated foundations apply only inside an opted-in boundary. Put
+`data-discern-root` on that boundary and choose light or dark roles with
+`data-discern-theme`:
 
-- `src/mod.ts` — React component exports and token types.
-- `dist/discern.css` — tokens, foundations, utilities, and component styles.
-- `assets/fonts.css` — optional local font faces matching the typography roles.
-- Components can also be reproduced as semantic HTML using the documented
-  `.discern-*` classes; React is an adapter rather than a CSS dependency.
+```html
+<main data-discern-root data-discern-theme="light">
+  <button class="discern-button discern-button--primary discern-button--md">
+    <span class="discern-button__label">Continue</span>
+  </button>
+</main>
+```
 
-The body and UI family roles remain separate tokens even though both currently
-resolve to Inter. UI rules pair `--discern-font-ui` with
-`--discern-font-features-ui`; body copy does not inherit that interface-specific
-OpenType set. The bundled provider therefore ships one Inter face for both
-roles, alongside Crimson Pro for display type and JetBrains Mono for code.
+Load the emitted `discern.css` before consumer composition styles. Semantic HTML
+does not require React or a browser runtime. Public classes, custom properties,
+data attributes, layers, and keyframes use the `discern` namespace. Consumer
+styles may add their own composition class, but must not target a component's
+`ownedClasses` from `manifest.json`.
 
-`Kicker` keeps its optional index in the mono role and renders its trailing
-label with the UI family and feature set; size, weight, tracking, colour, and
-uppercase treatment remain shared by both parts.
+Core typography uses documented system fallbacks. Selecting the optional font
+pack changes the public font-role tokens without changing component CSS.
 
-Display chrome keeps the distinction explicit: `Window` titles use the UI role,
-while `Divider` is a quiet editorial rule whose optional label is marked by a
-small accent datum rather than a patterned band.
+## Emit a selected runtime
 
-`Terminal` mirrors the `Window` frame contract but renders its body as semantic
-`pre`/`code`: whitespace is preserved, long output scrolls horizontally, and the
-dark console palette stays recognisable in either site theme.
+The emitter accepts explicit component IDs, canonical groups, or the explicit
+`all` catalogue selection. It resolves dependencies from generated component
+metadata and writes stable output order to a dedicated directory:
 
-## Authoring a page from this directory
+```ts
+import { emitDesignSystemRuntime } from "discern-design-system/runtime";
 
-This directory is the complete visual handoff. A page author should not need an
-existing page or mock-up to recover component decisions:
+const result = await emitDesignSystemRuntime({
+  outputRoot: new URL("./public/design-system/", import.meta.url),
+  groups: ["Editorial"],
+  components: ["button", "icon"],
+  assets: ["fonts"],
+});
 
-1. Run `deno task build`. Load `assets/fonts.css` when using the bundled faces,
-   followed by `dist/discern.css`.
-2. Put `data-discern-root` on the page boundary and set
-   `data-discern-theme="light"` or `"dark"` there.
-3. Import React adapters and public types only from `src/mod.ts`. Start page
-   structure with `Section`, `Container`, `Stack`, `Cluster`, and `Grid`.
-4. Use `Heading` for document and section headlines. Card descendants use the UI
-   title role automatically; its size is `--discern-font-size-card-title` in
-   `src/tokens/tokens.ts`.
-5. For each component, read its `*.meta.ts` for intent and accessibility, its
-   `*.tsx` for the exhaustive prop contract, and its `*.examples.tsx` for a
-   representative composition. The same examples are generated into the local
-   catalogue.
-6. Add consumer classes for page-specific composition. Do not restyle a
-   component-owned `.discern-*` selector; visual variants belong in the
-   component.
+console.log(result.manifest.selection.resolvedComponents);
+```
 
-Stateful catalogue components still need an explicit browser-runtime strategy
-when a consumer is rendered to static HTML. That is a page architecture choice,
-not an implicit dependency of the visual system.
+`outputRoot` must end in `/` and must be dedicated to the runtime because each
+emission replaces it. Every selection writes:
 
-## Marketing blocks
+- `discern.css`, containing tokens, the selected theme, root-scoped foundations,
+  utilities, and dependency-ordered component CSS;
+- `manifest.json`, containing schema version, requested and resolved selections,
+  canonical groups, component dependencies, owned classes, public token names,
+  output paths, media types, byte sizes, and SHA-256 integrity; and
+- only the optional assets requested by the consumer.
 
-The `Marketing` catalogue group is the landing-page vocabulary. It includes a
-site header and footer; split and centered heroes; trust, audience, feature,
-process, metric, comparison, testimonial, case-study, FAQ, and closing-action
-sections. Each block is useful independently, but their shared width, spacing,
-surface, heading, and responsive contracts let page authors compose a coherent
-edition without copying one existing page.
+Use `{ all: true }` for the complete catalogue. Repeated emissions with the same
+inputs are byte-for-byte identical.
 
-Blocks accept content and visual slots rather than discern-specific copy. Page
-artwork keeps a page-owned class; consumer CSS never reaches into a
-component-owned `.discern-*` selector. Native semantics carry the important
-behaviour: comparisons remain tables, metrics remain description lists, process
-steps remain ordered lists, and FAQ disclosure works without JavaScript.
+## Optional assets
 
-The component metadata groups are one exported canonical sequence used by the
-styleguide. Adding another group cannot leave the catalogue renderer on a stale
-hand-maintained list. A structural test also discovers every Marketing metadata
-entry and requires the generated demo to represent its root block, so the
-showcase cannot silently fall behind the reusable library.
+No asset is copied by default. Asset selections are independent:
 
-## Editorial blocks
+- `fonts` emits `fonts.css`, four stable WOFF2 filenames, and all three SIL Open
+  Font Licence texts;
+- `grain` emits `grain.css` and `textures/grain.png`;
+- selecting either one never copies the other.
 
-The `Editorial` catalogue group is the long-form content vocabulary. It adds an
-article opener and responsive reading shell; contents navigation and prose
-rhythm; key points, pull quotes, and contextual callouts; code listings and data
-figures; chronological narratives, footnotes, and related-reading continuations.
-The components are intended for essays, reports, guides, changelogs, research,
-and premium technical narratives rather than one specific publication.
+Component CSS has no hidden texture dependency. The core `.discern-grain-wash`
+utility remains useful as a gradient without the optional texture; `grain.css`
+adds the texture only when a consumer chooses it. Consumers should read emitted
+asset paths from the manifest rather than infer a cache or registry location.
 
-`/content-design-demo` composes the complete group into one static editorial
-edition. Product copy, issue artwork, chart data, and article-specific controls
-remain under `site/page-src/`. A structural test derives the Editorial set from
-metadata and requires every root block in the rendered content demo, so new
-editorial components cannot leave the catalogue and composition atlas out of
-sync. The same guard rejects any dependency from Editorial component source back
-to an `editorial-demo-*` class: those page-prefixed classes are composition and
-bespoke artwork only, while every catalogue component remains reusable.
+## Custom themes
+
+Semantic component roles are separate from the default blue preset. The runtime
+uses that preset unless `theme: "none"` is requested. A consumer can override
+public tokens in its own layer without forking a component stylesheet:
+
+```css
+@layer discern.consumer {
+  :where([data-discern-root]) {
+    --discern-accent-hue: 145;
+    --discern-color-success: oklch(58% 0.16 190);
+    --discern-color-success-soft: oklch(95% 0.045 190);
+    --discern-color-success-deep: oklch(34% 0.1 190);
+  }
+
+  :where([data-discern-root][data-discern-theme="dark"]) {
+    --discern-color-success: oklch(74% 0.13 190);
+    --discern-color-success-soft: oklch(30% 0.055 190);
+    --discern-color-success-deep: oklch(90% 0.08 190);
+  }
+}
+```
+
+The distinct success hue is deliberate: a green accent must not erase the
+difference between brand actions and successful outcomes. Automated package
+tests cover light/dark text contrast, accent/success/warning/danger separation,
+reduced-motion rules, forced-colour focus outlines, and unchanged component CSS.
+Manual browser review still checks visible focus shape and status recognition in
+the consumer's actual type, layout, zoom, and operating-system colour settings.
+
+Inverse surface and ink roles remain dark-on-light in purpose across both site
+themes; they do not invert with the ordinary canvas and ink roles.
+
+## Optional React adapter
+
+React consumers import only the explicit adapter and can render the same class
+contract to static HTML:
+
+```ts
+import { renderToStaticMarkup } from "react-dom/server";
+import { Button } from "discern-design-system/react";
+
+const html = renderToStaticMarkup(
+  <Button variant="secondary">Continue</Button>,
+);
+```
+
+Discern uses this adapter at build time under ADR 0135. The browser receives
+static HTML and CSS, with no React bundle, hydration, or implicit component
+behaviour. Stateful catalogue examples require a consumer-owned browser strategy
+if they are used outside the catalogue.
+
+## Commands and local proof
+
+Run these from this directory:
+
+```sh
+deno task check
+deno task build
+deno task test
+deno task verify
+deno task serve
+```
+
+`deno task test` creates a temporary external Deno project. Its neutral fixture
+declares no React dependency, imports only documented package exports, emits a
+runtime, and is exercised again with `deno run --cached-only`. A second fixture
+adds the React peer contract and renders static HTML through `./react`. Neither
+fixture reaches into `dist/`, relies on a global Deno-cache path, uses
+`--unstable-raw-imports`, or fetches an asset at runtime.
+
+The repository root's `deno task site:build` consumes only the public runtime
+and React entrypoints. `deno task watch` rebuilds the static pages and serves
+the complete local catalogue at `/style-guide/`.
+
+## Boundary measurements
+
+Unminified bytes measured on 2026-07-15. Before this boundary, every consumer
+received the same 115,510-byte all-component CSS and all 292,467 authored asset
+bytes.
+
+| Selection                     | Before CSS | After CSS | Before assets | After assets | After manifest |
+| ----------------------------- | ---------: | --------: | ------------: | -----------: | -------------: |
+| Full catalogue, fonts + grain |    115,510 |   127,113 |       292,467 |      293,116 |         58,545 |
+| Docs components, fonts only   |    115,510 |    15,072 |       292,467 |      193,674 |          9,323 |
+
+The full CSS grows because the permanent namespace changes from `ds` to
+`discern` and the theme seam becomes explicit. The docs-sized selection drops
+unrelated Marketing and Editorial component CSS. A core selection with no
+optional assets emits zero asset bytes.
+
+## Authoring rules
+
+- Change token values in `src/tokens/tokens.ts`; do not edit emitted CSS.
+- Every component folder owns its implementation, CSS, metadata, examples, and
+  `mod.ts`. Metadata and group order generate the runtime registry, React export
+  surface, catalogue registry, and dependency graph.
+- Run `deno task codegen` after changing component metadata, component CSS,
+  component imports, or package assets. Do not edit `src/generated/` or
+  `styleguide/generated/` by hand.
+- Keep examples generic. Product claims, customer names, routes, commands, and
+  bespoke artwork belong to the consumer and enter components through props or
+  slots.
+- Preserve `--discern-font-size-xs` as the authored interface-text floor and
+  pair the UI font role with its central OpenType feature set.
+- Preserve the stable inverse roles rather than using ordinary theme-relative
+  canvas and ink as an inverse palette.
+- Keep font licences with their files and the repository's Apache-2.0 terms.
+- `dist/`, `styleguide/generated/`, and Discern's generated site runtime are
+  ignored outputs.
+
+The package test suite cannot import Discern parent source. Site routes,
+generated-page assertions, static-runtime checks, and consumer CSS ownership
+guards belong to the repository-level consumer tests.

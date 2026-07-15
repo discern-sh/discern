@@ -9,11 +9,11 @@ only when its own generated edition is ready to replace the old route.
 
 ## Ownership boundaries
 
-| Tree                                                  | Owns                                                                                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [`site/design-system/`](../../../site/design-system/) | Product-neutral tokens, foundations, utilities, components, metadata, examples, assets, and the local React catalogue. |
-| [`site/page-src/`](../../../site/page-src/)           | Page composition, product copy, and small progressive enhancements.                                                    |
-| [`site/pages/`](../../../site/pages/)                 | Hand-authored legacy editions plus ignored design-system output created before local serving or deployment.            |
+| Tree                                                  | Owns                                                                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`site/design-system/`](../../../site/design-system/) | Package entrypoints, tokens, scoped CSS, components, metadata, examples, optional assets, runtime emitter, tests, and the local catalogue. |
+| [`site/page-src/`](../../../site/page-src/)           | Page composition, product copy, consumer styles, and small progressive enhancements.                                                       |
+| [`site/pages/`](../../../site/pages/)                 | Hand-authored legacy editions plus ignored selected runtime output created before local serving or deployment.                             |
 
 Product copy never enters the component library. Conversely, page sources use
 the library's tokens and components rather than reproducing their markup or
@@ -23,12 +23,11 @@ site on the other.
 ## Static production, typed authoring
 
 Page authors compose typed React adapters.
-[`site/build.ts`](../../../site/build.ts) renders them with
-`renderToStaticMarkup`, builds the framework-neutral CSS, and writes two
-deterministic demo editions plus their assets into `site/pages/`. The output is
-ignored and rebuilt both locally and by Deno Deploy. React is a build-time
-dependency: the browser receives no React bundle, hydration, or application
-runtime.
+[`site/build.ts`](../../../site/build.ts) imports the package's public
+`./runtime` and `./react` entrypoints, renders the adapters with
+`renderToStaticMarkup`, and writes two demos with selected local assets. Output
+is ignored and rebuilt locally and by Deno Deploy. React remains build-only: the
+browser receives no React bundle or hydration.
 
 The distinction matters for interactive components. Layout and display
 components render completely as static HTML. React adapters that own state or
@@ -47,37 +46,30 @@ deno task site                   # build, then serve on main/worktree port
 deno task watch                  # serve and rebuild when authored inputs change
 ```
 
-The root watch task also builds and serves the catalogue at `/style-guide/` on
-the same main/worktree port as the public demo. The subsystem's
-`deno task
-serve` remains available for an isolated catalogue-only process, but
-ordinary design iteration needs only the root watcher.
+The root watcher serves the catalogue at `/style-guide/` beside the public demo.
+The package `serve` task still runs the catalogue alone.
 
-The library build discovers every `*.meta.ts` file. Its component folder must
-also carry the implementation, CSS, examples, and `mod.ts`; the public module
-must export that folder. This is checked from the discovered set, so a new
-component auto-enrols rather than waiting for a hand-maintained test list. The
-ordered component groups come from the exported `componentGroups` tuple; the
-metadata type and style guide renderer consume that same value.
+Each discovered `*.meta.ts` folder must also contain implementation, CSS,
+examples, and `mod.ts`. That set generates the runtime registry, dependency
+graph, React exports, and catalogue registry; group order comes from
+`componentGroups`.
 
-The design-system README is the standalone page-authoring handoff: it identifies
-the public entrypoints, root/theme contract, layout primitives, typography
-roles, and the implementation/metadata/example source for each component.
-Consumer styles may compose a component through their own class but may not
-target classes declared by component CSS. The subsystem guard derives the owned
-class set from every component stylesheet and scans all authored site CSS, so
-new components, shared primitives, and consumer styles auto-enrol.
+The package README documents imports, themes, semantic HTML, React, runtime, and
+assets. Emitted manifests record component-owned classes, so Discern's consumer
+guard need not scan package source.
 
 `site/design-system/` is a Deno workspace member. The repository-wide
 `deno check` therefore includes it with its JSX and React dependency contract,
 while its scoped gate owns the catalogue build and subsystem tests.
 
-The generated runtime consists of `discern.css`, a deterministic manifest, and
-the complete authored `site/design-system/assets/` tree. That tree includes the
-optional local `fonts.css` provider, its WOFF2 files and SIL Open Font Licence
-texts, and texture assets. The isolated catalogue and generated demo therefore
-use the same design-system-owned provider; a consumer may replace it without
-changing the component runtime.
+The deterministic runtime contains selected, dependency-ordered CSS, a versioned
+manifest, and requested assets. The manifest carries selection, ownership,
+tokens, output, media-type, byte, and integrity facts. The catalogue selects
+`all`; Discern selects its two page groups and shared docs components.
+
+Core uses system font fallbacks and copies no assets. `fonts` includes provider
+CSS, stable WOFF2 names, and licences; `grain` includes its CSS and texture.
+Neither selection implies the other or a hidden component dependency.
 
 Typography keeps body and interface roles separate even when they share a face.
 Both currently resolve to the one bundled Inter font, while interface rules
@@ -141,8 +133,13 @@ remains light in either theme, so contrast bands, hover hints, and skip links do
 not swap their visual polarity when the page theme changes. A source-wide guard
 rejects using the ordinary ink role as a background or the canvas role as text.
 
-The grain wash is the one textured colour flourish. Its shared utility owns the
-gradient geometry, overlay blend, grain scale, and opacity, and pages use it at
-most once, normally for the hero. Alternating content bands use the semantic
-canvas, raised surface, and sunken surface roles rather than inventing
-page-local greys.
+Semantic roles are separate from the blue `./theme/discern` preset. A green
+fixture changes only public tokens, retains component CSS, and distinguishes
+success from brand actions. Tests cover contrast, state separation, reduced
+motion, and forced-colour focus; rendered context remains a manual check.
+
+The grain wash is the one optional textured colour flourish. Its core utility
+owns the texture-free gradient geometry, while the selected `grain.css` provider
+adds the local texture. Pages use it at most once, normally for the hero.
+Alternating content bands use semantic canvas, raised surface, and sunken
+surface roles rather than page-local greys.
