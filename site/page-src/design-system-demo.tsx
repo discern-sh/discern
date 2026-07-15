@@ -19,7 +19,7 @@ import {
   Tag,
   Terminal,
   Testimonial,
-} from "../design-system/src/mod.ts";
+} from "discern-design-system/react";
 
 export interface DemoStats {
   readonly components: number;
@@ -930,6 +930,7 @@ export function renderDesignSystemDemo(stats: DemoStats): string {
 <script>${THEME_BOOTSTRAP}</script>
 <link rel="stylesheet" href="/assets/design-system/fonts.css" />
 <link rel="stylesheet" href="/assets/design-system/discern.css" />
+<link rel="stylesheet" href="/assets/design-system/grain.css" />
 <link rel="stylesheet" href="/assets/design-system/demo.css" />
 <script defer src="/assets/design-system/demo.js"></script>
 </head>

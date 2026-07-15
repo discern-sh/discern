@@ -1,39 +1,27 @@
-/**
- * The design-system demo's permanent boundary: authored sources generate the
- * ignored static artifact deterministically, component additions auto-enrol,
- * and the browser-facing page remains local-asset-only with no React runtime.
- */
-
 import {
   assert,
   assertEquals,
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
-import { encodeHex } from "@std/encoding/hex";
 import { fromFileUrl, join, relative, toFileUrl } from "@std/path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildDesignSystemRuntime } from "../scripts/build.ts";
-import { GENERATED_SITE_OUTPUTS } from "../../build.ts";
-import { renderContentDesignDemo } from "../../page-src/content-design-demo.tsx";
-import { renderDesignSystemDemo } from "../../page-src/design-system-demo.tsx";
-import { formatGeneratedText } from "../../page-src/format-generated.ts";
-import { designTokens, themeTokens } from "../src/tokens/tokens.ts";
-import { Kicker } from "../src/components/display/kicker/kicker.tsx";
-import { Terminal } from "../src/components/display/terminal/terminal.tsx";
+import { generateSources } from "../scripts/generate.ts";
+import { packageManifest } from "../src/manifest.ts";
+import { Button } from "../src/react.ts";
+import { emitDesignSystemRuntime } from "../src/runtime.ts";
+import { semanticClass } from "../src/semantic-class.ts";
+import {
+  baseTokens,
+  discernThemeTokens,
+  themeTokens,
+} from "../src/tokens/tokens.ts";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
-import { runtimeAssetReferences } from "./runtime_references.ts";
 
-const ROOT = fromFileUrl(new URL("../../../", import.meta.url));
-const PUBLIC_ROOT = join(ROOT, "site", "pages", "assets", "design-system");
-const AUTHORED_ASSET_ROOT = join(
-  ROOT,
-  "site",
-  "design-system",
-  "assets",
-);
-const COMPONENT_ROOT = join(ROOT, "site", "design-system", "src", "components");
+const PACKAGE_ROOT_URL = new URL("../", import.meta.url);
+const PACKAGE_ROOT = fromFileUrl(PACKAGE_ROOT_URL);
+const COMPONENT_ROOT = join(PACKAGE_ROOT, "src", "components");
 
 async function walk(directory: string): Promise<string[]> {
   const files: string[] = [];
@@ -42,105 +30,36 @@ async function walk(directory: string): Promise<string[]> {
     if (entry.isDirectory) files.push(...await walk(path));
     else files.push(path);
   }
-  return files;
+  return files.toSorted();
 }
 
-async function sha256(path: string): Promise<string> {
-  const bytes = await Deno.readFile(path);
-  return encodeHex(await crypto.subtle.digest("SHA-256", bytes));
+async function outputPaths(root: string): Promise<string[]> {
+  return (await walk(root)).map((path) => relative(root, path)).toSorted();
 }
 
-async function git(args: string[]): Promise<Deno.CommandOutput> {
-  return await new Deno.Command("git", {
-    args,
-    cwd: ROOT,
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const input = new Uint8Array(bytes.byteLength);
+  input.set(bytes);
+  const hash = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", input.buffer),
+  );
+  return [...hash].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function command(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const result = await new Deno.Command(Deno.execPath(), {
+    cwd,
+    args: [...args],
     stdout: "piped",
     stderr: "piped",
   }).output();
-}
-
-function themeIncoherentBackgrounds(
-  source: string,
-  fixedColorNames: ReadonlySet<string>,
-): string[] {
-  return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .filter((match) => {
-      const declarations = match[2] ?? "";
-      const background = declarations.match(/background(?:-color)?\s*:[^;]+;/s)
-        ?.[0] ?? "";
-      const references = [
-        ...background.matchAll(/var\((--discern-color-[^)]+)\)/g),
-      ]
-        .map((reference) => reference[1] ?? "");
-      return /--discern-color-(?:canvas|surface(?:-sunken)?)/.test(
-        background,
-      ) &&
-        references.some((reference) => fixedColorNames.has(reference));
-    })
-    .map((match) => (match[1] ?? "").trim());
-}
-
-interface RampToken {
-  readonly name: string;
-  readonly value?: string;
-  readonly light?: string;
-  readonly dark?: string;
-}
-
-function roleRampViolations(
-  fixed: readonly RampToken[],
-  themed: readonly RampToken[],
-): string[] {
-  const pattern = /^--discern-color-(.+)-(\d+)$/;
-  const groups = new Map<string, RampToken[]>();
-  for (const token of [...fixed, ...themed]) {
-    const match = token.name.match(pattern);
-    if (match === null) continue;
-    const group = match[1] ?? "";
-    groups.set(group, [...(groups.get(group) ?? []), token]);
-  }
-
-  const violations: string[] = [];
-  const fixedNames = new Set(fixed.map((token) => token.name));
-  for (const [group, tokens] of groups) {
-    if (tokens.length < 2) continue;
-    if (tokens.some((token) => fixedNames.has(token.name))) {
-      violations.push(`${group}: ramp members must be theme tokens`);
-      continue;
-    }
-
-    const ordered = tokens.toSorted((a, b) => {
-      const aStep = Number(a.name.match(pattern)?.[2] ?? 0);
-      const bStep = Number(b.name.match(pattern)?.[2] ?? 0);
-      return aStep - bStep;
-    });
-    const lightness = (value: string | undefined): number =>
-      Number(value?.match(/oklch\(([\d.]+)%/)?.[1] ?? Number.NaN);
-    for (let index = 1; index < ordered.length; index++) {
-      const previous = ordered[index - 1];
-      const current = ordered[index];
-      if (previous === undefined || current === undefined) continue;
-      if (
-        lightness(previous.light) <= lightness(current.light) ||
-        lightness(previous.dark) >= lightness(current.dark)
-      ) {
-        violations.push(`${group}: light and dark roles must invert`);
-        break;
-      }
-    }
-  }
-  return violations;
-}
-
-function selectorClassNames(source: string): Set<string> {
-  const classNames = new Set<string>();
-  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
-    const prelude = rule[1] ?? "";
-    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
-      classNames.add(match[1] ?? "");
-    }
-  }
-  return classNames;
+  const stdout = new TextDecoder().decode(result.stdout);
+  const stderr = new TextDecoder().decode(result.stderr);
+  assert(result.success, `${args.join(" ")}\n${stdout}\n${stderr}`);
+  return stdout;
 }
 
 interface PublicCssGlobals {
@@ -176,1061 +95,563 @@ function publicCssGlobals(source: string): PublicCssGlobals {
   };
 }
 
-function implementationClassNames(source: string): Set<string> {
-  return new Set(
-    [...source.matchAll(/(?<!-)\b(discern-[a-z0-9]+(?:[-_][a-z0-9]+)*)/g)]
-      .map((match) => match[1] ?? ""),
+interface Oklab {
+  readonly l: number;
+  readonly a: number;
+  readonly b: number;
+}
+
+function parseOklch(value: string): Oklab {
+  const match = value.match(
+    /oklch\(([\d.]+)%\s+([\d.]+)\s+([\d.]+)\)/,
+  );
+  assert(match !== null, `expected concrete oklch(), received ${value}`);
+  const l = Number(match[1]) / 100;
+  const chroma = Number(match[2]);
+  const radians = Number(match[3]) * Math.PI / 180;
+  return { l, a: chroma * Math.cos(radians), b: chroma * Math.sin(radians) };
+}
+
+function linearRgb(color: Oklab): readonly [number, number, number] {
+  const lRoot = color.l + 0.3963377774 * color.a + 0.2158037573 * color.b;
+  const mRoot = color.l - 0.1055613458 * color.a - 0.0638541728 * color.b;
+  const sRoot = color.l - 0.0894841775 * color.a - 1.291485548 * color.b;
+  const l = lRoot ** 3;
+  const m = mRoot ** 3;
+  const s = sRoot ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+}
+
+function luminance(value: string): number {
+  if (value === "#fff") return 1;
+  const [red, green, blue] = linearRgb(parseOklch(value))
+    .map((channel) => Math.max(0, Math.min(1, channel))) as [
+      number,
+      number,
+      number,
+    ];
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrast(first: string, second: string): number {
+  const values = [luminance(first), luminance(second)].toSorted((a, b) =>
+    b - a
+  );
+  const lighter = values[0] ?? 0;
+  const darker = values[1] ?? 0;
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function distance(first: Oklab, second: Oklab): number {
+  return Math.hypot(
+    first.l - second.l,
+    first.a - second.a,
+    first.b - second.b,
   );
 }
 
-function componentOwnedSelectors(
-  source: string,
-  componentClassNames: ReadonlySet<string>,
-): string[] {
-  const selectors = new Set<string>();
-  for (const rule of source.matchAll(/([^{}]+)\{/g)) {
-    const prelude = (rule[1] ?? "").trim();
-    for (const match of prelude.matchAll(/\.([_a-zA-Z0-9-]+)/g)) {
-      const className = match[1] ?? "";
-      if (componentClassNames.has(className)) {
-        selectors.add(prelude);
-      }
-    }
+function themeValue(
+  name: string,
+  mode: "light" | "dark",
+  overrides: ReadonlyMap<string, string>,
+): string {
+  const override = overrides.get(`${mode}:${name}`) ?? overrides.get(name);
+  const token = themeTokens.find((candidate) => candidate.name === name);
+  assert(
+    override !== undefined || token !== undefined,
+    `unknown token ${name}`,
+  );
+  const raw = override ?? (mode === "light" ? token?.light : token?.dark) ?? "";
+  const values = new Map([
+    ...baseTokens.map((item) => [item.name, item.value] as const),
+    ...discernThemeTokens.map((item) => [item.name, item.value] as const),
+    ...[...overrides.entries()].filter(([key]) => !key.includes(":")),
+  ]);
+  return raw.replace(
+    /var\((--discern-[^)]+)\)/g,
+    (_match, key: string) => values.get(key) ?? "0",
+  );
+}
+
+function fixtureOverrides(source: string): Map<string, string> {
+  const overrides = new Map<string, string>();
+  const darkStart = source.indexOf('[data-discern-theme="dark"]');
+  for (const match of source.matchAll(/(--discern-[\w-]+):\s*([^;]+);/g)) {
+    const name = match[1] ?? "";
+    const value = match[2]?.trim() ?? "";
+    const offset = match.index ?? 0;
+    overrides.set(
+      darkStart >= 0 && offset > darkStart ? `dark:${name}` : name,
+      value,
+    );
   }
-  return [...selectors].sort();
+  return overrides;
 }
 
-function leafDeclarationBlocks(source: string): string[] {
-  const starts: number[] = [];
-  const blocks: string[] = [];
-  for (let index = 0; index < source.length; index++) {
-    const character = source[index];
-    if (character === "{") starts.push(index + 1);
-    if (character !== "}") continue;
-    const start = starts.pop();
-    if (start === undefined) continue;
-    const declarations = source.slice(start, index);
-    if (!declarations.includes("{")) blocks.push(declarations);
-  }
-  return blocks;
-}
-
-function subminimumRemType(
-  source: string,
-  minimumRem: number,
-): string[] {
-  return [...source.matchAll(/\bfont(?:-size)?\s*:\s*(0?\.\d+)rem/g)]
-    .filter((match) => Number(match[1]) < minimumRem)
-    .map((match) => match[0]);
-}
-
-function invertedSemanticRoleDeclarations(source: string): string[] {
-  return leafDeclarationBlocks(source).flatMap((declarations) => {
-    const violations: string[] = [];
-    const background = declarations.match(
-      /background(?:-color)?\s*:\s*([^;]+)/s,
-    )?.[1] ?? "";
-    if (/(?:^|,)\s*var\(--discern-color-ink\)\s*$/s.test(background)) {
-      violations.push("text role used as a surface");
-    }
-    if (/\bcolor\s*:\s*var\(--discern-color-canvas\)/.test(declarations)) {
-      violations.push("canvas role used as text");
-    }
-    return violations;
-  });
-}
-
-function dataAttributeCounts(
-  source: string,
-  attribute: string,
-): Map<string, number> {
-  const counts = new Map<string, number>();
-  const pattern = new RegExp(`\\b${attribute}="([^"]+)"`, "g");
-  for (const match of source.matchAll(pattern)) {
-    const value = match[1] ?? "";
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-  return counts;
-}
-
-function demoLayoutMarkupViolations(source: string): string[] {
+Deno.test("package tests and tasks cannot reach above the package root", async () => {
+  const config = await Deno.readTextFile(join(PACKAGE_ROOT, "deno.json"));
+  assert(
+    !config.includes('"../'),
+    "package tasks must not target parent source",
+  );
+  const packagePrefix = PACKAGE_ROOT_URL.href;
   const violations: string[] = [];
   for (
-    const [attribute, requiredClass] of [
-      ["data-demo-inset", "demo-visual-inset"],
-      ["data-demo-contained-stack", "demo-contained-stack"],
-    ] as const
+    const path of (await walk(join(PACKAGE_ROOT, "tests"))).filter((
+      candidate,
+    ) => candidate.endsWith(".ts"))
   ) {
-    const pattern = new RegExp(
-      `<[^>]+\\b${attribute}="([^"]+)"[^>]*>`,
-      "g",
-    );
-    for (const match of source.matchAll(pattern)) {
-      const contract = match[1] ?? "";
-      const tag = match[0];
-      const classes = tag.match(/\bclass="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
-      if (!classes.includes(requiredClass)) {
-        violations.push(`${contract} must use ${requiredClass}`);
+    const source = await Deno.readTextFile(path);
+    const specifiers = [
+      ...source.matchAll(/(?:from\s+|import\s*\()["'](\.\.?\/[^"']+)["']/g),
+      ...source.matchAll(
+        /new URL\(["'](\.\.?\/[^"']+)["'],\s*import\.meta\.url\)/g,
+      ),
+    ].map((match) => match[1] ?? "");
+    for (const specifier of specifiers) {
+      const resolved = new URL(specifier, toFileUrl(path));
+      if (!resolved.href.startsWith(packagePrefix)) {
+        violations.push(`${relative(PACKAGE_ROOT, path)} -> ${specifier}`);
       }
     }
   }
-
-  const arms = dataAttributeCounts(source, "data-demo-fanout-arm");
-  const targets = dataAttributeCounts(source, "data-demo-fanout-target");
-  for (const contract of new Set([...arms.keys(), ...targets.keys()])) {
-    const armCount = arms.get(contract) ?? 0;
-    const targetCount = targets.get(contract) ?? 0;
-    if (armCount !== targetCount || targetCount === 0) {
-      violations.push(
-        `${contract} has ${armCount} fanout arms for ${targetCount} targets`,
-      );
-    }
-  }
-  return violations;
-}
-
-Deno.test("generated public site outputs are ignored and absent from Git", async () => {
-  const repoPaths = GENERATED_SITE_OUTPUTS.map((output) =>
-    join("site", output)
-  );
-  const tracked = await git(["ls-files", "--", ...repoPaths]);
-  assertEquals(tracked.code, 0);
-  assertEquals(
-    new TextDecoder().decode(tracked.stdout).trim(),
-    "",
-    "generated public site outputs must not be tracked",
-  );
-
-  for (const path of repoPaths) {
-    const ignored = await git(["check-ignore", "--quiet", "--no-index", path]);
-    assertEquals(ignored.code, 0, `${path} must be ignored`);
-  }
+  assertEquals(violations, []);
 });
 
-Deno.test("design-system sources deterministically reproduce every generated runtime asset", async () => {
-  const temp = await Deno.makeTempDir();
-  try {
-    const summary = await buildDesignSystemRuntime(toFileUrl(`${temp}/`));
-    const authoredAssets = (await walk(AUTHORED_ASSET_ROOT)).map((path) =>
-      relative(AUTHORED_ASSET_ROOT, path)
-    );
-    for (
-      const relative of ["discern.css", "manifest.json", ...authoredAssets]
-    ) {
-      assertEquals(
-        await sha256(join(temp, relative)),
-        await sha256(join(PUBLIC_ROOT, relative)),
-        relative,
-      );
-    }
-
-    const generatedPage = await Deno.readTextFile(
-      join(ROOT, "site", "pages", "design-system-demo.html"),
-    );
-    assertEquals(
-      generatedPage,
-      await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
-    );
-    const generatedContentPage = await Deno.readTextFile(
-      join(ROOT, "site", "pages", "content-design-demo.html"),
-    );
-    assertEquals(
-      generatedContentPage,
-      await formatGeneratedText(renderContentDesignDemo(summary), "html"),
-    );
-  } finally {
-    await Deno.remove(temp, { recursive: true });
-  }
-
-  for (
-    const [source, output] of [
-      ["design-system-demo.css", "demo.css"],
-      ["content-design-demo.css", "content-demo.css"],
-      ["design-system-demo.js", "demo.js"],
-    ] as const
-  ) {
-    const authored = await Deno.readTextFile(
-      join(ROOT, "site", "page-src", source),
-    );
-    const generated = await Deno.readTextFile(join(PUBLIC_ROOT, output));
-    assertEquals(
-      generated,
-      `/* Generated by site/build.ts from site/page-src/${source}. Do not edit. */\n${authored}`,
-      output,
-    );
-  }
-});
-
-Deno.test("every design-system component auto-enrols its implementation surfaces", async () => {
+Deno.test("component metadata auto-enrols React and runtime surfaces", async () => {
   const files = await walk(COMPONENT_ROOT);
   const fileSet = new Set(files);
   const metaFiles = files.filter((path) => path.endsWith(".meta.ts"));
-  assert(metaFiles.length > 0);
-
-  const publicModule = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "src", "mod.ts"),
-  );
   const identities = new Set<string>();
   const positions = new Set<string>();
-  for (const meta of metaFiles) {
-    const stem = meta.slice(0, -".meta.ts".length);
+  for (const metaPath of metaFiles) {
+    const stem = metaPath.slice(0, -".meta.ts".length);
     const directory = stem.slice(0, stem.lastIndexOf("/"));
     const folder = directory.slice(directory.lastIndexOf("/") + 1);
-    const metadata = (await import(toFileUrl(meta).href)) as {
+    const module = await import(toFileUrl(metaPath).href) as {
       default: ComponentMeta;
     };
-    assertEquals(metadata.default.slug, folder, meta);
-    assert(metadata.default.name.trim().length > 0, `${meta} has no name`);
+    const meta = module.default;
+    assertEquals(meta.slug, folder, metaPath);
+    assert(!identities.has(meta.slug), `duplicate component ${meta.slug}`);
+    identities.add(meta.slug);
+    const position = `${meta.group}:${meta.order}`;
     assert(
-      metadata.default.description.trim().length > 0,
-      `${meta} has no description`,
+      !positions.has(position),
+      `duplicate component position ${position}`,
     );
-    assert(
-      metadata.default.accessibility?.every((note) => note.trim().length > 0) ??
-        true,
-      `${meta} has an empty accessibility note`,
-    );
-    assert(
-      !identities.has(metadata.default.slug),
-      `${meta} duplicates slug ${metadata.default.slug}`,
-    );
-    identities.add(metadata.default.slug);
-    const position = `${metadata.default.group}:${metadata.default.order}`;
-    assert(!positions.has(position), `${meta} duplicates position ${position}`);
     positions.add(position);
-
     for (
       const sibling of [`${stem}.tsx`, `${stem}.css`, `${stem}.examples.tsx`]
     ) {
-      assert(fileSet.has(sibling), `${meta} is missing ${sibling}`);
+      assert(fileSet.has(sibling), `${metaPath} is missing ${sibling}`);
     }
-    assert(fileSet.has(join(directory, "mod.ts")), `${meta} is missing mod.ts`);
-
-    const componentRelative = directory.slice(COMPONENT_ROOT.length + 1);
-    assertStringIncludes(
-      publicModule,
-      `./components/${componentRelative}/mod.ts`,
-      `${componentRelative} is missing from src/mod.ts`,
+    assert(
+      fileSet.has(join(directory, "mod.ts")),
+      `${metaPath} is missing mod.ts`,
     );
   }
+  assert(metaFiles.length > 0);
+  assertEquals(packageManifest.components.length, metaFiles.length);
 
-  for (const path of files.filter((file) => /\.(?:css|tsx?|js)$/.test(file))) {
-    const source = await Deno.readTextFile(path);
-    assert(!/https?:\/\//.test(source), `${path} contains a remote asset URL`);
-  }
+  const generated = await generateSources();
+  assertEquals(
+    await Deno.readTextFile(
+      join(PACKAGE_ROOT, "src", "generated", "component-registry.ts"),
+    ),
+    generated.registry,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(PACKAGE_ROOT, "src", "generated", "assets.ts"),
+    ),
+    generated.assets,
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      join(PACKAGE_ROOT, "src", "generated", "react.ts"),
+    ),
+    generated.react,
+  );
 });
 
-Deno.test("every marketing block is represented in the demo", async () => {
-  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
-    path.endsWith(".meta.ts")
-  );
-  const marketing: ComponentMeta[] = [];
-  for (const path of metaFiles) {
-    const module = (await import(toFileUrl(path).href)) as {
-      default: ComponentMeta;
-    };
-    if (module.default.group === "Marketing") marketing.push(module.default);
-  }
-
-  assert(
-    marketing.length >= 12,
-    `expected a comprehensive marketing library, found ${marketing.length} blocks`,
-  );
-  const html = renderDesignSystemDemo({
-    components: metaFiles.length,
-    tokens: designTokens.length + themeTokens.length,
-  });
-  for (const meta of marketing) {
+Deno.test("runtime globals are branded and defaults stay inside the opted-in root", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${temp}/`),
+      all: true,
+      assets: ["fonts", "grain"],
+    });
+    const authoredSources = (await walk(PACKAGE_ROOT)).filter((path) => {
+      const packagePath = relative(PACKAGE_ROOT, path);
+      return !packagePath.startsWith("tests/") &&
+        !packagePath.startsWith("dist/") &&
+        /\.(?:css|html|json|md|ts|tsx)$/.test(path);
+    });
+    const generatedSources = (await walk(temp)).filter((path) =>
+      /\.(?:css|json)$/.test(path)
+    );
+    for (const path of [...authoredSources, ...generatedSources]) {
+      const source = await Deno.readTextFile(path);
+      assert(
+        !/(?:\.ds-|--ds-|data-ds-|@keyframes\s+ds-)/.test(source),
+        `legacy public identifier in ${path}`,
+      );
+    }
+    const runtimeCss = [...authoredSources, ...generatedSources].filter(
+      (path) => path.endsWith(".css"),
+    );
+    const violations: string[] = [];
+    for (const path of runtimeCss) {
+      const source = await Deno.readTextFile(path);
+      const globals = publicCssGlobals(source);
+      for (const value of globals.classes) {
+        if (!value.startsWith("discern-")) {
+          violations.push(`${path}: .${value}`);
+        }
+      }
+      for (const value of globals.customProperties) {
+        if (!value.startsWith("--discern-")) {
+          violations.push(`${path}: ${value}`);
+        }
+      }
+      for (const value of globals.dataAttributes) {
+        if (!value.startsWith("data-discern-")) {
+          violations.push(`${path}: ${value}`);
+        }
+      }
+      for (const value of globals.keyframes) {
+        if (!value.startsWith("discern-")) {
+          violations.push(`${path}: @keyframes ${value}`);
+        }
+      }
+    }
+    assertEquals(violations, []);
+    const output = await Deno.readTextFile(join(temp, "discern.css"));
     assertMatch(
-      html,
-      new RegExp(`class="[^"]*\\bdiscern-${meta.slug}\\b`),
-      `${meta.name} is not represented in the demo`,
+      output,
+      /@layer discern\.tokens \{\s*:where\(\[data-discern-root\]\)/,
     );
-    assert(
-      (meta.accessibility?.length ?? 0) > 0,
-      `${meta.name} has no accessibility contract`,
-    );
-  }
-
-  assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
-  assertStringIncludes(html, "<table");
-  assertStringIncludes(html, "<details");
-  assertStringIncludes(html, 'href="/content-design-demo"');
-  assertStringIncludes(html, 'href="/style-guide/"');
-  assert(!html.includes('href="/styleguide/'));
-
-  const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
-    .map((match) => match[1] ?? "");
-  assertEquals(new Set(ids).size, ids.length, "demo ids must be unique");
-  for (
-    const fragment of [...html.matchAll(/href="(#[^"]+)"/g)]
-      .map((match) => (match[1] ?? "").slice(1))
-  ) {
-    assert(
-      ids.includes(fragment),
-      `demo fragment #${fragment} has no matching id`,
-    );
+    assert(!output.includes("\n  :root {"));
+  } finally {
+    await Deno.remove(temp, { recursive: true });
   }
 });
 
-Deno.test("every editorial block is represented in the content demo", async () => {
-  const metaFiles = (await walk(COMPONENT_ROOT)).filter((path) =>
-    path.endsWith(".meta.ts")
-  );
-  const editorial: ComponentMeta[] = [];
-  for (const path of metaFiles) {
-    const module = (await import(toFileUrl(path).href)) as {
-      default: ComponentMeta;
+Deno.test("selection resolves dependencies and excludes unrelated groups", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const summary = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${temp}/`),
+      components: ["dialog"],
+    });
+    assertEquals(summary.manifest.selection.resolvedComponents, [
+      "kicker",
+      "dialog",
+    ]);
+    const css = await Deno.readTextFile(join(temp, "discern.css"));
+    assertStringIncludes(css, ".discern-kicker");
+    assertStringIncludes(css, ".discern-dialog");
+    assert(!css.includes(".discern-hero-block"));
+    assert(!css.includes(".discern-prose"));
+
+    const docs = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${temp}/`),
+      components: ["icon", "icon-button", "kicker", "window"],
+    });
+    assertEquals(docs.manifest.selection.resolvedComponents, [
+      "icon",
+      "icon-button",
+      "kicker",
+      "window",
+    ]);
+    assertEquals(docs.manifest.selection.requestedGroups, []);
+    assertEquals(await outputPaths(temp), ["discern.css", "manifest.json"]);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+Deno.test("all selection and repeated emission are byte-for-byte deterministic", async () => {
+  const first = await Deno.makeTempDir();
+  const second = await Deno.makeTempDir();
+  try {
+    const options = {
+      all: true,
+      assets: ["fonts", "grain"] as const,
     };
-    if (module.default.group === "Editorial") editorial.push(module.default);
-  }
-
-  assertEquals(
-    editorial.length,
-    12,
-    "the editorial set should stay comprehensive",
-  );
-  const html = renderContentDesignDemo({
-    components: metaFiles.length,
-    tokens: designTokens.length + themeTokens.length,
-  });
-  for (const meta of editorial) {
-    assertMatch(
-      html,
-      new RegExp(`class="[^"]*\\bdiscern-${meta.slug}\\b`),
-      `${meta.name} is not represented in the content demo`,
-    );
-    assert(
-      (meta.accessibility?.length ?? 0) > 0,
-      `${meta.name} has no accessibility contract`,
-    );
-  }
-
-  assertEquals([...html.matchAll(/<h1(?:\s|>)/g)].length, 1);
-  assertStringIncludes(html, 'href="/design-system-demo"');
-  assertStringIncludes(html, 'href="/style-guide/"');
-  assert(!html.includes('href="/styleguide/'));
-  for (
-    const semantic of [
-      "<article",
-      "<nav",
-      "<figure",
-      "<blockquote",
-      "<pre",
-      "<ol",
-    ]
-  ) {
-    assertStringIncludes(html, semantic);
-  }
-
-  const ids = [...html.matchAll(/\sid="([^"]+)"/g)]
-    .map((match) => match[1] ?? "");
-  assertEquals(
-    new Set(ids).size,
-    ids.length,
-    "content demo ids must be unique",
-  );
-  for (
-    const fragment of [...html.matchAll(/href="(#[^"]+)"/g)]
-      .map((match) => (match[1] ?? "").slice(1))
-  ) {
-    assert(
-      ids.includes(fragment),
-      `content demo fragment #${fragment} has no matching id`,
-    );
-  }
-});
-
-Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", async () => {
-  const componentCount =
-    (await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".meta.ts"))
-      .length;
-  const html = renderDesignSystemDemo({
-    components: componentCount,
-    tokens: designTokens.length + themeTokens.length,
-  });
-  const css = await Deno.readTextFile(
-    join(ROOT, "site", "page-src", "design-system-demo.css"),
-  );
-
-  const cssViolations = [
-    [
-      "uniform insets",
-      /\.demo-visual-inset\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*min\([^}]*margin:\s*var\(--discern-space-4\) auto;/s,
-    ],
-    [
-      "contained stacks",
-      /\.demo-contained-stack\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--discern-space-3\);/s,
-    ],
-    [
-      "fanout grids",
-      /\.demo-guidance__line,\s*\.demo-guidance__agents\s*\{[^}]*grid-template-columns:\s*var\(--demo-fanout-grid\);[^}]*gap:\s*var\(--demo-fanout-gap\);/s,
-    ],
-  ].filter(([, pattern]) => !(pattern as RegExp).test(css)).map(([label]) =>
-    String(label)
-  );
-  assertEquals(
-    [...demoLayoutMarkupViolations(html), ...cssViolations],
-    [],
-  );
-
-  assertEquals(
-    demoLayoutMarkupViolations(`
-      <div data-demo-inset="fresh-art"></div>
-      <div data-demo-contained-stack="unrelated-stack"></div>
-      <i data-demo-fanout-arm="new-tree"></i>
-      <i data-demo-fanout-target="new-tree"></i>
-      <i data-demo-fanout-target="new-tree"></i>
-    `),
-    [
-      "fresh-art must use demo-visual-inset",
-      "unrelated-stack must use demo-contained-stack",
-      "new-tree has 1 fanout arms for 2 targets",
-    ],
-  );
-});
-
-Deno.test("authored design-system type respects the xs readability floor", async () => {
-  const xs = designTokens.find((token) =>
-    token.name === "--discern-font-size-xs"
-  );
-  assert(xs !== undefined);
-  const minimumRem = Number(xs.value.replace("rem", ""));
-  assert(Number.isFinite(minimumRem));
-
-  const authoredCss = [
-    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
-    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
-      .filter((path) => path.endsWith(".css")),
-    ...(await walk(join(ROOT, "site", "page-src")))
-      .filter((path) => path.endsWith(".css")),
-  ];
-  const violations: string[] = [];
-  for (const path of authoredCss) {
-    const source = await Deno.readTextFile(path);
-    violations.push(
-      ...subminimumRemType(source, minimumRem).map((declaration) =>
-        `${relative(ROOT, path)}: ${declaration}`
-      ),
-    );
-  }
-  assertEquals(violations, []);
-  assertEquals(
-    subminimumRemType(
-      ".fresh-component { font-size: 0.7rem; }",
-      minimumRem,
-    ),
-    ["font-size: 0.7rem"],
-  );
-});
-
-Deno.test("inverse surfaces use stable inverse colour roles", async () => {
-  const authoredCss = [
-    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
-    ...(await walk(join(ROOT, "site", "design-system", "styleguide")))
-      .filter((path) => path.endsWith(".css")),
-    ...(await walk(join(ROOT, "site", "page-src")))
-      .filter((path) => path.endsWith(".css")),
-  ];
-  const violations: string[] = [];
-  for (const path of authoredCss) {
-    const source = await Deno.readTextFile(path);
-    violations.push(
-      ...invertedSemanticRoleDeclarations(source).map((violation) =>
-        `${relative(ROOT, path)}: ${violation}`
-      ),
-    );
-  }
-  assertEquals(violations, []);
-  assertEquals(
-    invertedSemanticRoleDeclarations(
-      ".fresh-panel { background: var(--discern-color-ink); color: var(--discern-color-canvas); }",
-    ),
-    ["text role used as a surface", "canvas role used as text"],
-  );
-});
-
-Deno.test("editorial components stay independent from their demo page", async () => {
-  const editorialRoot = join(COMPONENT_ROOT, "editorial");
-  const violations: string[] = [];
-  for (
-    const path of (await walk(editorialRoot)).filter((candidate) =>
-      /\.(?:css|tsx)$/.test(candidate)
-    )
-  ) {
-    if ((await Deno.readTextFile(path)).includes("editorial-demo")) {
-      violations.push(relative(ROOT, path));
+    const firstSummary = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${first}/`),
+      ...options,
+    });
+    const secondSummary = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${second}/`),
+      ...options,
+    });
+    assertEquals(firstSummary.components, 54);
+    assertEquals(firstSummary.manifest, secondSummary.manifest);
+    const paths = await outputPaths(first);
+    assertEquals(paths, await outputPaths(second));
+    for (const path of paths) {
+      assertEquals(
+        await Deno.readFile(join(first, path)),
+        await Deno.readFile(join(second, path)),
+        path,
+      );
     }
-  }
-  assertEquals(violations, []);
-});
-
-Deno.test("editorial reading treatments preserve their alignment and surface hierarchy", async () => {
-  const prose = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "editorial", "prose", "prose.css"),
-  );
-  assertMatch(
-    prose,
-    /\.discern-prose--drop-cap\s*>\s*p:first-child::first-letter\s*\{[^}]*margin:\s*0 0\.12em 0 0;/s,
-  );
-
-  const keyPoints = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "editorial", "key-points", "key-points.css"),
-  );
-  assertMatch(
-    keyPoints,
-    /\.discern-key-points ol\s*\{[^}]*background:\s*var\(--discern-color-surface-sunken\);/s,
-  );
-});
-
-Deno.test("authored design-system runtime sources are local-only", async () => {
-  const designSystemRoot = join(ROOT, "site", "design-system");
-  for (
-    const path of (await walk(designSystemRoot)).filter((candidate) => {
-      const repoPath = relative(designSystemRoot, candidate);
-      return /\.(?:css|html|tsx?|js)$/.test(candidate) &&
-        !repoPath.startsWith("dist/") &&
-        !repoPath.startsWith("styleguide/generated/");
-    })
-  ) {
-    assert(
-      !/https?:\/\//.test(await Deno.readTextFile(path)),
-      `${relative(ROOT, path)} contains a remote runtime URL`,
-    );
+  } finally {
+    await Deno.remove(first, { recursive: true });
+    await Deno.remove(second, { recursive: true });
   }
 });
 
-Deno.test("every public runtime CSS global uses the discern namespace", async () => {
-  const runtimeCss = [
-    ...(await walk(join(ROOT, "site", "design-system", "src", "styles")))
-      .filter((path) => path.endsWith(".css")),
-    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
-    join(PUBLIC_ROOT, "discern.css"),
-  ];
-  const violations: string[] = [];
-  for (const path of runtimeCss) {
-    const source = await Deno.readTextFile(path);
-    const globals = publicCssGlobals(source);
-    for (const className of globals.classes) {
-      if (!className.startsWith("discern-")) {
-        violations.push(`${relative(ROOT, path)}: .${className}`);
-      }
-    }
-    for (const property of globals.customProperties) {
-      if (!property.startsWith("--discern-")) {
-        violations.push(`${relative(ROOT, path)}: ${property}`);
-      }
-    }
-    for (const attribute of globals.dataAttributes) {
-      if (!attribute.startsWith("data-discern-")) {
-        violations.push(`${relative(ROOT, path)}: ${attribute}`);
-      }
-    }
-    for (const keyframe of globals.keyframes) {
-      if (!keyframe.startsWith("discern-")) {
-        violations.push(`${relative(ROOT, path)}: @keyframes ${keyframe}`);
-      }
-    }
-    if (/(?:\.ds-|--ds-|data-ds-|@keyframes\s+ds-)/.test(source)) {
-      violations.push(`${relative(ROOT, path)}: legacy ds identifier`);
-    }
-  }
-  assertEquals(violations, []);
-
-  const fixture = publicCssGlobals(`
-    .button { --tone: red; }
-    [data-theme="dark"] .discern-safe { color: var(--discern-ink); }
-    @keyframes reveal { from { opacity: 0; } }
-  `);
-  assertEquals([...fixture.classes].toSorted(), ["button", "discern-safe"]);
-  assertEquals([...fixture.customProperties].toSorted(), [
-    "--discern-ink",
-    "--tone",
-  ]);
-  assertEquals([...fixture.dataAttributes], ["data-theme"]);
-  assertEquals([...fixture.keyframes], ["reveal"]);
-});
-
-Deno.test("consumer styles never redefine component-owned selectors", async () => {
-  const futureComponentCss =
-    ".discern-future-widget__label { color: inherit; }";
-  const futureComponentTsx = '<div className="discern-future-widget" />';
-  const futureComponentClasses = new Set([
-    ...selectorClassNames(futureComponentCss),
-    ...implementationClassNames(futureComponentTsx),
-  ]);
-  assertEquals(
-    componentOwnedSelectors(
-      ".discern-future-widget, .discern-future-widget__label { color: red; }",
-      futureComponentClasses,
-    ),
-    [".discern-future-widget, .discern-future-widget__label"],
-  );
-
-  const componentClassNames = new Set<string>();
-  for (
-    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
-      candidate.endsWith(".css")
-    )
-  ) {
-    for (const className of selectorClassNames(await Deno.readTextFile(path))) {
-      componentClassNames.add(className);
-    }
-  }
-  for (
-    const path of (await walk(COMPONENT_ROOT)).filter((candidate) =>
-      candidate.endsWith(".tsx") && !candidate.endsWith(".examples.tsx")
-    )
-  ) {
+Deno.test("font and grain assets are independent, licensed, and integrity-mapped", async () => {
+  const fonts = await Deno.makeTempDir();
+  const grain = await Deno.makeTempDir();
+  try {
+    const fontSummary = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${fonts}/`),
+      components: ["button"],
+      assets: ["fonts"],
+    });
+    const fontPaths = await outputPaths(fonts);
+    assert(fontPaths.includes("fonts.css"));
+    assert(fontPaths.some((path) => path.startsWith("fonts/")));
+    assert(fontPaths.some((path) => path.startsWith("licenses/")));
+    assert(!fontPaths.includes("grain.css"));
+    assert(!fontPaths.some((path) => path.startsWith("textures/")));
     for (
-      const className of implementationClassNames(await Deno.readTextFile(path))
-    ) {
-      componentClassNames.add(className);
-    }
-  }
-
-  const violations: string[] = [];
-  for (
-    const path of (await walk(join(ROOT, "site"))).filter((candidate) => {
-      const repoPath = relative(ROOT, candidate);
-      return candidate.endsWith(".css") &&
-        !repoPath.startsWith("site/design-system/src/") &&
-        !repoPath.startsWith("site/design-system/dist/") &&
-        !repoPath.startsWith("site/design-system/styleguide/generated/") &&
-        !repoPath.startsWith("site/pages/");
-    })
-  ) {
-    for (
-      const selector of componentOwnedSelectors(
-        await Deno.readTextFile(path),
-        componentClassNames,
+      const path of fontPaths.filter((candidate) =>
+        candidate.endsWith(".woff2")
       )
     ) {
-      violations.push(`${relative(ROOT, path)}: ${selector}`);
+      const bytes = await Deno.readFile(join(fonts, path));
+      assertEquals(new TextDecoder().decode(bytes.slice(0, 4)), "wOF2", path);
     }
-  }
-  assertEquals(violations, []);
-});
-
-Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {
-  const futureSibling = `.unrelated-aurora {
-    background: linear-gradient(
-      var(--discern-color-static-glow),
-      var(--discern-color-surface-sunken)
-    );
-  }`;
-  assertEquals(
-    themeIncoherentBackgrounds(
-      futureSibling,
-      new Set(["--discern-color-static-glow"]),
-    ),
-    [".unrelated-aurora"],
-  );
-
-  const violations: string[] = [];
-  const fixedColorNames = new Set(
-    designTokens.filter((token) => token.category === "Color")
-      .map((token) => token.name),
-  );
-  for (
-    const path of (await walk(join(ROOT, "site", "design-system", "src")))
-      .filter((file) => file.endsWith(".css"))
-  ) {
     for (
-      const selector of themeIncoherentBackgrounds(
-        await Deno.readTextFile(path),
-        fixedColorNames,
-      )
+      const path of fontPaths.filter((candidate) => candidate.endsWith(".txt"))
     ) {
-      violations.push(`${path.slice(ROOT.length)}: ${selector}`);
+      assertStringIncludes(
+        await Deno.readTextFile(join(fonts, path)),
+        "SIL OPEN FONT LICENSE",
+      );
     }
+
+    const grainSummary = await emitDesignSystemRuntime({
+      outputRoot: toFileUrl(`${grain}/`),
+      components: ["button"],
+      assets: ["grain"],
+    });
+    assertEquals(await outputPaths(grain), [
+      "discern.css",
+      "grain.css",
+      "manifest.json",
+      "textures/grain.png",
+    ]);
+    const core = await Deno.readTextFile(join(grain, "discern.css"));
+    assert(!core.includes('url("./textures/grain.png")'));
+    assertStringIncludes(
+      await Deno.readTextFile(join(grain, "grain.css")),
+      'url("./textures/grain.png")',
+    );
+
+    for (const summary of [fontSummary, grainSummary]) {
+      assertEquals(summary.manifest.schemaVersion, 1);
+      assert(!JSON.stringify(summary.manifest).includes('"description"'));
+      for (const file of summary.manifest.integrity.files) {
+        const root = summary === fontSummary ? fonts : grain;
+        assertEquals(
+          file.integrity,
+          `sha256:${await sha256(await Deno.readFile(join(root, file.path)))}`,
+        );
+      }
+    }
+  } finally {
+    await Deno.remove(fonts, { recursive: true });
+    await Deno.remove(grain, { recursive: true });
   }
-  assertEquals(violations, []);
 });
 
-Deno.test("numbered colour ramps preserve their roles across themes", () => {
-  assertEquals(
-    roleRampViolations(
-      [
-        { name: "--discern-color-orbit-100", value: "oklch(90% 0.1 250)" },
-        { name: "--discern-color-orbit-200", value: "oklch(70% 0.1 250)" },
-      ],
-      [],
-    ),
-    ["orbit: ramp members must be theme tokens"],
+Deno.test("default blue and green themes share component CSS and preserve state semantics", async () => {
+  const fixture = await Deno.readTextFile(
+    join(PACKAGE_ROOT, "tests", "fixtures", "green-theme.css"),
   );
-  assertEquals(roleRampViolations(designTokens, themeTokens), []);
-});
-
-Deno.test("typography roles use the selected families and UI buttons", async () => {
-  const tokens = new Map(
-    designTokens.map((token) => [token.name, token.value]),
-  );
-  const interStack = '"Inter", "Helvetica Neue", system-ui, sans-serif';
-  assertEquals(
-    tokens.get("--discern-font-display"),
-    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
-  );
-  assertEquals(tokens.get("--discern-font-body"), interStack);
-  assertEquals(tokens.get("--discern-font-ui"), interStack);
-  assertEquals(
-    tokens.get("--discern-font-features-ui"),
-    "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
-  );
-  assertEquals(tokens.get("--discern-font-size-xs"), "0.85rem");
-  assertEquals(tokens.get("--discern-font-size-sm"), "0.95rem");
-  assertEquals(tokens.get("--discern-font-size-md"), "1.05rem");
-  assertEquals(tokens.get("--discern-leading-tight"), "1.08");
-  assertEquals(tokens.get("--discern-leading-snug"), "1.3");
-  assertEquals(tokens.get("--discern-leading-body"), "1.58");
-  assertEquals(
-    tokens.get("--discern-font-mono"),
-    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
-  );
-  assertEquals(
-    tokens.get("--discern-font-size-card-title"),
-    "var(--discern-font-size-lg)",
-  );
-
-  const buttonCss = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "core", "button", "button.css"),
-  );
-  assertStringIncludes(buttonCss, "font-family: var(--discern-font-ui)");
-  assert(!buttonCss.includes("font-family: var(--discern-font-display)"));
-  assertStringIncludes(
-    buttonCss,
-    "--discern-button-fill: var(--discern-color-accent-100)",
-  );
-  assertStringIncludes(
-    buttonCss,
-    "box-shadow: 2px 2px 0 var(--discern-button-shadow)",
-  );
-
-  const foundationCss = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "src", "styles", "foundation.css"),
-  );
-  assertMatch(
-    foundationCss,
-    /:where\(\[data-discern-root\] h1,[^}]+text-wrap:\s*pretty;/s,
-  );
-  const headingCss = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "heading", "heading.css"),
-  );
-  assert(!headingCss.includes("text-wrap"));
-});
-
-Deno.test("display chrome uses its intended typography and rule treatment", async () => {
-  const windowCss = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "window", "window.css"),
-  );
-  const titleRule =
-    windowCss.match(/\.discern-window__title\s*\{[^}]+\}/s)?.[0] ??
-      "";
-  assertStringIncludes(titleRule, "font-family: var(--discern-font-ui)");
-  assertStringIncludes(
-    titleRule,
-    "font-feature-settings: var(--discern-font-features-ui)",
-  );
-  assert(!titleRule.includes("var(--discern-font-mono)"));
-
-  const dividerCss = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "divider", "divider.css"),
-  );
-  assert(!dividerCss.includes("repeating-linear-gradient"));
-  assertMatch(
-    dividerCss,
-    /\.discern-divider::before,[^}]+\.discern-divider::after/s,
-  );
-  assertMatch(
-    dividerCss,
-    /\.discern-divider__label::before\s*\{[^}]+transform:\s*rotate\(45deg\);/s,
-  );
-});
-
-Deno.test("the light sunken surface stays pale and low-chroma", () => {
-  const sunken = themeTokens.find((token) =>
-    token.name === "--discern-color-surface-sunken"
-  );
-  assertEquals(
-    sunken?.light,
-    "oklch(96.5% 0.004 var(--discern-canvas-hue))",
-  );
-});
-
-Deno.test("terminal renders semantic, scrollable monospace output", async () => {
-  const html = renderToStaticMarkup(
-    createElement(Terminal, {
-      title: "verify",
-      children: "$ deno task verify",
-    }),
-  );
-  assertStringIncludes(html, '<figure class="discern-terminal">');
-  assertStringIncludes(
-    html,
-    '<span class="discern-terminal__title">verify</span>',
-  );
-  assertStringIncludes(
-    html,
-    '<pre class="discern-terminal__body"><code>$ deno task verify</code></pre>',
-  );
-
-  const css = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "terminal", "terminal.css"),
-  );
-  const bodyRule = css.match(/\.discern-terminal__body\s*\{[^}]+\}/s)?.[0] ??
-    "";
-  assertStringIncludes(bodyRule, "overflow: auto");
-  assertStringIncludes(bodyRule, "font-family: var(--discern-font-mono)");
-  assertStringIncludes(bodyRule, "white-space: pre");
-});
-
-Deno.test("kicker isolates its monospace index from UI text", async () => {
-  const html = renderToStaticMarkup(
-    createElement(Kicker, { index: 0, children: "Lorem ipsum" }),
-  );
-  assertStringIncludes(
-    html,
-    '<span class="discern-kicker__index">0</span><span class="discern-kicker__text">Lorem ipsum</span>',
-  );
-
-  const css = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
-  );
-  const rootRule = css.match(/\.discern-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
-  assertStringIncludes(rootRule, "font-size: var(--discern-font-size-xs)");
-  assert(!rootRule.includes("var(--discern-font-mono)"));
-  assertMatch(
-    css,
-    /\.discern-kicker__index\s*\{[^}]+font-family:\s*var\(--discern-font-mono\);/s,
-  );
-  assertMatch(
-    css,
-    /\.discern-kicker__text\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);[^}]+font-feature-settings:\s*var\(--discern-font-features-ui\);/s,
-  );
-});
-
-Deno.test("every authored UI font rule enables the shared Inter features", async () => {
-  const tracked = await git(["ls-files", "--", "site"]);
-  assertEquals(tracked.code, 0);
-  const cssFiles = new TextDecoder().decode(tracked.stdout).trim().split("\n")
-    .filter((path) => path.endsWith(".css"));
-  const violations: string[] = [];
-  for (const path of cssFiles) {
-    const source = await Deno.readTextFile(join(ROOT, path));
-    for (const declarations of leafDeclarationBlocks(source)) {
-      if (
-        declarations.includes("var(--discern-font-ui)") &&
-        !declarations.includes(
-          "font-feature-settings: var(--discern-font-features-ui);",
-        )
-      ) {
-        violations.push(path);
+  assertEquals([...publicCssGlobals(fixture).classes], []);
+  for (const declaration of fixture.matchAll(/(--[\w-]+):/g)) {
+    assert((declaration[1] ?? "").startsWith("--discern-"));
+  }
+  const overrides = fixtureOverrides(fixture);
+  for (const mode of ["light", "dark"] as const) {
+    const pairs = [
+      ["--discern-color-ink", "--discern-color-canvas"],
+      ["--discern-color-accent-800", "--discern-color-accent-100"],
+    ] as const;
+    for (const [foreground, background] of pairs) {
+      assert(
+        contrast(
+          themeValue(foreground, mode, overrides),
+          themeValue(background, mode, overrides),
+        ) >= 4.5,
+        `${mode} ${foreground} on ${background} lacks text contrast`,
+      );
+    }
+    const states = [
+      parseOklch(themeValue("--discern-color-accent-600", mode, overrides)),
+      parseOklch(themeValue("--discern-color-success", mode, overrides)),
+      parseOklch(themeValue("--discern-color-warning", mode, overrides)),
+      parseOklch(themeValue("--discern-color-danger", mode, overrides)),
+    ];
+    for (let first = 0; first < states.length; first++) {
+      for (let second = first + 1; second < states.length; second++) {
+        const left = states[first];
+        const right = states[second];
+        assert(left !== undefined && right !== undefined);
+        assert(
+          distance(left, right) >= 0.08,
+          `${mode} states ${first}/${second}`,
+        );
       }
     }
   }
-  assertEquals(violations, []);
+
+  const foundation = await Deno.readTextFile(
+    join(PACKAGE_ROOT, "src", "styles", "foundation.css"),
+  );
+  assertStringIncludes(foundation, "@media (prefers-reduced-motion: reduce)");
+  assertStringIncludes(foundation, "@media (forced-colors: active)");
+  assertStringIncludes(foundation, ":focus-visible");
+  assertStringIncludes(foundation, "CanvasText");
 });
 
-Deno.test("component labels and compact UI use the UI font", async () => {
-  for (
-    const component of [
-      ["display", "badge", "badge.css"],
-      ["display", "tag", "tag.css"],
-      ["display", "divider", "divider.css"],
-      ["forms", "field", "field.css"],
-      ["feedback", "tooltip", "tooltip.css"],
-    ]
-  ) {
-    const css = await Deno.readTextFile(join(COMPONENT_ROOT, ...component));
-    assertStringIncludes(css, "var(--discern-font-ui)", component.join("/"));
-    assertStringIncludes(
-      css,
-      "var(--discern-font-size-xs)",
-      component.join("/"),
+Deno.test("neutral entrypoints work in an external cached-only Deno project", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const packageImports = {
+      "discern-design-system": new URL("../src/mod.ts", import.meta.url).href,
+      "discern-design-system/manifest": new URL(
+        "../src/manifest.ts",
+        import.meta.url,
+      ).href,
+      "discern-design-system/react": new URL("../src/react.ts", import.meta.url)
+        .href,
+      "discern-design-system/runtime": new URL(
+        "../src/runtime.ts",
+        import.meta.url,
+      ).href,
+      "discern-design-system/theme/discern": new URL(
+        "../src/theme/discern.ts",
+        import.meta.url,
+      ).href,
+      "discern-design-system/tokens": new URL(
+        "../src/tokens/tokens.ts",
+        import.meta.url,
+      ).href,
+    };
+    await Deno.writeTextFile(
+      join(temp, "deno.json"),
+      JSON.stringify(
+        {
+          nodeModulesDir: "none",
+          imports: packageImports,
+        },
+        null,
+        2,
+      ),
     );
-    assert(!css.includes("var(--discern-font-mono)"), component.join("/"));
-    assert(!css.includes("letter-spacing"), component.join("/"));
-    assert(!css.includes("text-transform: uppercase"), component.join("/"));
-  }
+    await Deno.writeTextFile(
+      join(temp, "neutral.ts"),
+      `import { packageManifest, semanticClass } from "discern-design-system";
+import { emitDesignSystemRuntime } from "discern-design-system/runtime";
+import { discernTheme } from "discern-design-system/theme/discern";
+const result = await emitDesignSystemRuntime({
+  outputRoot: new URL("./runtime/", import.meta.url),
+  components: ["button"],
 });
-
-Deno.test("card titles and marketing figures use the UI font", async () => {
-  const cardCss = await Deno.readTextFile(
-    join(COMPONENT_ROOT, "display", "card", "card.css"),
-  );
-  assertMatch(
-    cardCss,
-    /\.discern-card :where\([^}]+font-family:\s*var\(--discern-font-ui\);/s,
-  );
-  assertMatch(
-    cardCss,
-    /\.discern-card :where\([^}]+font-size:\s*var\(--discern-font-size-card-title\);[^}]+font-weight:\s*600;/s,
-  );
-
-  const bentoCss = await Deno.readTextFile(
-    join(
-      COMPONENT_ROOT,
-      "marketing",
-      "feature-bento",
-      "feature-bento.css",
-    ),
-  );
-  assertMatch(
-    bentoCss,
-    /\.discern-feature-bento__item h3\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);/s,
-  );
-
-  const metricsCss = await Deno.readTextFile(
-    join(
-      COMPONENT_ROOT,
-      "marketing",
-      "metrics-band",
-      "metrics-band.css",
-    ),
-  );
-  assertMatch(
-    metricsCss,
-    /\.discern-metrics-band__list dd\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);/s,
-  );
-
-  const styleguideCss = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
-  );
-  assertStringIncludes(styleguideCss, ".sg-component > header h4");
-  assert(!styleguideCss.includes(".sg-component h4"));
-});
-
-Deno.test("long styleguide token values stay inside their cards", async () => {
-  const css = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "styleguide", "styleguide.css"),
-  );
-  assertMatch(css, /\.sg-token > div\s*\{[^}]*min-width:\s*0;/s);
-  assertMatch(css, /\.sg-token small\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
-});
-
-Deno.test("the one grain wash retains the reference motif", async () => {
-  const css = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),
-  );
-  assertStringIncludes(css, "radial-gradient(110% 72% at 50% -8%");
-  assertStringIncludes(css, "var(--discern-color-accent-300) 85%, transparent");
-  assertStringIncludes(css, "var(--discern-color-accent-200) 90%");
-  assertStringIncludes(css, "var(--discern-color-canvas) 82%");
-  assertMatch(css, /background-size:\s*200px 200px/);
-  assertMatch(css, /mix-blend-mode:\s*overlay/);
-  assertMatch(css, /opacity:\s*0\.38/);
-});
-
-Deno.test("runtime assets exclude navigation and auto-enrol new asset tags", () => {
-  const remoteOrigin = ["https:", "", "example.invalid"].join("/");
-  const html = `
-    <a href="${remoteOrigin}/elsewhere">Elsewhere</a>
-    <link rel="canonical" href="${remoteOrigin}/canonical">
-    <video poster="/poster.webp" src="/film.webm"></video>
-    <source srcset="/small.webp 1x, /large.webp 2x">
-    <object data="/diagram.svg"></object>
-    <link href="/theme.css" rel="preload stylesheet">
-  `;
-
-  assertEquals(runtimeAssetReferences(html), [
-    "/poster.webp",
-    "/film.webm",
-    "/small.webp",
-    "/large.webp",
-    "/diagram.svg",
-    "/theme.css",
-  ]);
-});
-
-Deno.test("the public demos ship static HTML and local runtime assets only", async () => {
-  for (
-    const [page, marker] of [
-      [
-        "design-system-demo.html",
-        "typed React at build time · static HTML at runtime",
-      ],
-      ["content-design-demo.html", "editorial engineering · static by design"],
-    ] as const
-  ) {
-    const html = await Deno.readTextFile(join(ROOT, "site", "pages", page));
-    assertStringIncludes(html, "data-discern-root");
-    assertStringIncludes(html, marker);
-
-    const runtimeRefs = runtimeAssetReferences(html);
+console.log(JSON.stringify({
+  className: semanticClass("button"),
+  components: result.components,
+  package: packageManifest.package,
+  theme: discernTheme.name,
+}));
+`,
+    );
+    const first = await command(temp, ["run", "--allow-write", "neutral.ts"]);
+    assertStringIncludes(first, '"className":"discern-button"');
+    const cached = await command(temp, [
+      "run",
+      "--cached-only",
+      "--allow-write",
+      "neutral.ts",
+    ]);
+    assertEquals(cached, first);
+    const graph = await command(temp, ["info", "--json", "neutral.ts"]);
+    assert(!graph.includes("npm:react"), "neutral graph resolved React");
     assert(
-      runtimeRefs.every((value) => value.startsWith("/")),
-      `${page} remote runtime references: ${runtimeRefs.join(", ")}`,
+      !graph.includes("/src/react.ts"),
+      "neutral graph reached the adapter",
     );
-    assertEquals(
-      runtimeRefs.filter((value) => value.endsWith(".js")),
-      ["/assets/design-system/demo.js"],
+
+    await Deno.writeTextFile(
+      join(temp, "deno.json"),
+      JSON.stringify(
+        {
+          nodeModulesDir: "none",
+          compilerOptions: { jsx: "react-jsx", jsxImportSource: "react" },
+          imports: {
+            ...packageImports,
+            "react": "npm:react@18.3.1",
+            "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
+            "react-dom/server": "npm:react-dom@18.3.1/server",
+          },
+        },
+        null,
+        2,
+      ),
     );
+    await Deno.writeTextFile(
+      join(temp, "react-consumer.ts"),
+      `import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Button } from "discern-design-system/react";
+console.log(renderToStaticMarkup(createElement(Button, null, "Continue")));
+`,
+    );
+    const rendered = await command(temp, [
+      "run",
+      "--allow-env=NODE_ENV",
+      "react-consumer.ts",
+    ]);
+    const cachedRendered = await command(temp, [
+      "run",
+      "--cached-only",
+      "--allow-env=NODE_ENV",
+      "react-consumer.ts",
+    ]);
+    assertStringIncludes(rendered, 'class="discern-button ');
+    assert(!rendered.includes("react"));
+    assertEquals(cachedRendered, rendered);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
   }
-
-  for (
-    const asset of ["discern.css", "demo.css", "content-demo.css", "fonts.css"]
-  ) {
-    const css = await Deno.readTextFile(join(PUBLIC_ROOT, asset));
-    assert(!/https?:\/\//.test(css), `${asset} contains a remote URL`);
-  }
-
-  const manifest = JSON.parse(
-    await Deno.readTextFile(join(PUBLIC_ROOT, "manifest.json")),
-  ) as Record<string, unknown>;
-  assertEquals("generatedAt" in manifest, false);
 });
 
-Deno.test("self-hosted font binaries carry their open-font licences", async () => {
-  for (const source of await walk(AUTHORED_ASSET_ROOT)) {
-    const asset = relative(AUTHORED_ASSET_ROOT, source);
-    assertEquals(
-      await sha256(source),
-      await sha256(join(PUBLIC_ROOT, asset)),
-      `${asset} must be copied from the authored asset tree`,
-    );
-  }
-
-  const fontRoot = join(PUBLIC_ROOT, "fonts");
-  const fonts = await walk(fontRoot);
+Deno.test("semantic HTML and React adapters share the public class contract", () => {
+  assertEquals(semanticClass("button"), "discern-button");
   assertEquals(
-    fonts.map((font) => relative(fontRoot, font)).toSorted(),
-    [
-      "crimson-pro-italic.woff2",
-      "crimson-pro-roman.woff2",
-      "inter.woff2",
-      "jetbrains-mono.woff2",
-    ],
+    semanticClass("button", { element: "icon", modifier: "trailing" }),
+    "discern-button__icon--trailing",
   );
-  for (const font of fonts) {
-    const bytes = await Deno.readFile(font);
-    assertEquals(new TextDecoder().decode(bytes.slice(0, 4)), "wOF2", font);
-  }
-
-  const licenceRoot = join(PUBLIC_ROOT, "licenses");
-  const licences = await walk(licenceRoot);
-  assertEquals(
-    licences.map((licence) => relative(licenceRoot, licence)).toSorted(),
-    [
-      "Crimson-Pro-OFL.txt",
-      "Inter-OFL.txt",
-      "JetBrains-Mono-OFL.txt",
-    ],
+  const html = renderToStaticMarkup(
+    createElement(Button, { variant: "secondary", children: "Continue" }),
   );
-  for (const licence of licences) {
-    assertStringIncludes(
-      await Deno.readTextFile(licence),
-      "SIL OPEN FONT LICENSE",
-    );
-  }
-
-  const provider = await Deno.readTextFile(
-    join(AUTHORED_ASSET_ROOT, "fonts.css"),
+  assertStringIncludes(
+    html,
+    'class="discern-button discern-button--secondary discern-button--md"',
   );
-  assert(!/https?:\/\//.test(provider));
-  assert(!provider.includes("IBM Plex Sans"));
-  const styleguide = await Deno.readTextFile(
-    join(ROOT, "site", "design-system", "styleguide", "index.html"),
-  );
-  assertStringIncludes(styleguide, 'href="assets/fonts.css"');
-  assert(!styleguide.includes("font-provider.css"));
+  assertMatch(html, /^<button/);
 });

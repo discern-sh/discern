@@ -18,7 +18,7 @@ import {
   SiteHeader,
   TableOfContents,
   Timeline,
-} from "../design-system/src/mod.ts";
+} from "discern-design-system/react";
 import type { DemoStats } from "./design-system-demo.tsx";
 import { THEME_BOOTSTRAP } from "./design-system-demo.tsx";
 

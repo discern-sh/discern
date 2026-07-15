@@ -5,7 +5,7 @@
  * HTML, writes deterministic CSS/assets, and ships no React runtime.
  */
 
-import { buildDesignSystemRuntime } from "./design-system/scripts/build.ts";
+import { emitDesignSystemRuntime } from "discern-design-system/runtime";
 import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
 import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
@@ -23,6 +23,17 @@ export const GENERATED_SITE_OUTPUTS = [
 const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
 const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
 const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const SITE_RUNTIME_COMPONENTS = [
+  "badge",
+  "button",
+  "heading",
+  "icon",
+  "icon-button",
+  "kicker",
+  "tag",
+  "terminal",
+  "window",
+] as const;
 
 async function removeIfPresent(url: URL): Promise<void> {
   try {
@@ -50,7 +61,12 @@ export async function buildSite(): Promise<void> {
   }
 
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
-  const summary = await buildDesignSystemRuntime(ASSET_ROOT);
+  const summary = await emitDesignSystemRuntime({
+    outputRoot: ASSET_ROOT,
+    groups: ["Marketing", "Editorial"],
+    components: SITE_RUNTIME_COMPONENTS,
+    assets: ["fonts", "grain"],
+  });
   await writeGeneratedCopy("design-system-demo.css", "demo.css");
   await writeGeneratedCopy("content-design-demo.css", "content-demo.css");
   await writeGeneratedCopy("design-system-demo.js", "demo.js");

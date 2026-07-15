@@ -1,9 +1,9 @@
-import { allTokens, designTokens, themeTokens } from "../src/tokens/tokens.ts";
+import type { BuildSummary } from "../src/runtime.ts";
 import type { ComponentMeta } from "../src/types/component-meta.ts";
+import { writeGeneratedSources } from "./generate.ts";
 
 const ROOT = new URL("../", import.meta.url);
 const COMPONENT_ROOT = new URL("../src/components/", import.meta.url);
-const ASSET_ROOT = new URL("../assets/", import.meta.url);
 export const DESIGN_SYSTEM_BUILD_OUTPUTS = {
   runtime: "dist/",
   catalogueRegistry: "styleguide/generated/",
@@ -20,12 +20,6 @@ const DIST_ROOT = new URL(
 interface ComponentSource {
   readonly metaUrl: URL;
   readonly examplesUrl: URL;
-  readonly cssUrl: URL | null;
-}
-
-export interface BuildSummary {
-  readonly components: number;
-  readonly tokens: number;
 }
 
 async function walk(directory: URL): Promise<URL[]> {
@@ -39,10 +33,11 @@ async function walk(directory: URL): Promise<URL[]> {
 }
 
 function relativeImport(fromDirectory: URL, target: URL): string {
-  const from = decodeURIComponent(fromDirectory.pathname);
-  const to = decodeURIComponent(target.pathname);
-  const fromParts = from.split("/").filter(Boolean);
-  const toParts = to.split("/").filter(Boolean);
+  const fromParts = decodeURIComponent(fromDirectory.pathname).split("/")
+    .filter(Boolean);
+  const toParts = decodeURIComponent(target.pathname).split("/").filter(
+    Boolean,
+  );
   while (fromParts[0] === toParts[0]) {
     fromParts.shift();
     toParts.shift();
@@ -59,51 +54,11 @@ async function discoverComponents(): Promise<ComponentSource[]> {
       metaUrl.pathname.replace(/\.meta\.ts$/, ".examples.tsx"),
       metaUrl,
     );
-    const cssCandidate = new URL(
-      metaUrl.pathname.replace(/\.meta\.ts$/, ".css"),
-      metaUrl,
-    );
-    const hasExamples = files.some((file) =>
-      file.pathname === examplesUrl.pathname
-    );
-    if (!hasExamples) {
+    if (!files.some((file) => file.pathname === examplesUrl.pathname)) {
       throw new Error(`Missing examples for ${metaUrl.pathname}`);
     }
-    return {
-      metaUrl,
-      examplesUrl,
-      cssUrl: files.some((file) => file.pathname === cssCandidate.pathname)
-        ? cssCandidate
-        : null,
-    };
+    return { metaUrl, examplesUrl };
   });
-}
-
-function generateTokenCss(): string {
-  const primitiveLines = designTokens.map(({ name, value }) =>
-    `    ${name}: ${value};`
-  ).join("\n");
-  const lightLines = themeTokens.map(({ name, light }) =>
-    `    ${name}: ${light};`
-  ).join("\n");
-  const darkLines = themeTokens.map(({ name, dark }) => `    ${name}: ${dark};`)
-    .join("\n");
-  return `/* Generated from src/tokens/tokens.ts. Do not edit. */\n@layer discern.tokens {\n  :where([data-discern-root]) {\n    color-scheme: light;\n${primitiveLines}\n${lightLines}\n  }\n\n  :where([data-discern-root][data-discern-theme="dark"]) {\n    color-scheme: dark;\n${darkLines}\n  }\n}\n`;
-}
-
-async function componentMetadata(
-  sources: readonly ComponentSource[],
-): Promise<ComponentMeta[]> {
-  const metadata: ComponentMeta[] = [];
-  for (const source of sources) {
-    const module = await import(source.metaUrl.href) as {
-      default: ComponentMeta;
-    };
-    metadata.push(module.default);
-  }
-  return metadata.sort((a, b) =>
-    a.group.localeCompare(b.group) || a.order - b.order
-  );
 }
 
 async function generateRegistry(
@@ -112,13 +67,14 @@ async function generateRegistry(
   const imports: string[] = [];
   const entries: string[] = [];
   for (const [index, source] of sources.entries()) {
-    const metaSpecifier = relativeImport(GENERATED_ROOT, source.metaUrl);
-    const examplesSpecifier = relativeImport(
-      GENERATED_ROOT,
-      source.examplesUrl,
+    imports.push(
+      `import meta${index} from ${
+        JSON.stringify(relativeImport(GENERATED_ROOT, source.metaUrl))
+      };`,
+      `import Examples${index} from ${
+        JSON.stringify(relativeImport(GENERATED_ROOT, source.examplesUrl))
+      };`,
     );
-    imports.push(`import meta${index} from "${metaSpecifier}";`);
-    imports.push(`import Examples${index} from "${examplesSpecifier}";`);
     entries.push(`  { meta: meta${index}, Examples: Examples${index} },`);
   }
   const registry =
@@ -127,46 +83,21 @@ async function generateRegistry(
     }\n\nexport interface RegistryEntry { readonly meta: ComponentMeta; readonly Examples: ComponentType; }\nexport const registry: readonly RegistryEntry[] = [\n${
       entries.join("\n")
     }\n];\n`;
+  await Deno.mkdir(GENERATED_ROOT, { recursive: true });
   await Deno.writeTextFile(new URL("registry.ts", GENERATED_ROOT), registry);
 }
 
-async function generateCss(
+async function componentCount(
   sources: readonly ComponentSource[],
-  outputRoot: URL,
-): Promise<void> {
-  const sourceStyles = [
-    new URL("../src/styles/foundation.css", import.meta.url),
-    new URL("../src/styles/utilities.css", import.meta.url),
-    ...sources.flatMap((source) => source.cssUrl ? [source.cssUrl] : []),
-  ];
-  const sections = [generateTokenCss()];
-  for (const url of sourceStyles) sections.push(await Deno.readTextFile(url));
-  await Deno.writeTextFile(
-    new URL("discern.css", outputRoot),
-    `${sections.map((section) => section.trim()).join("\n\n")}\n`,
-  );
-}
-
-async function writeManifest(
-  outputRoot: URL,
-  components: readonly ComponentMeta[],
-): Promise<void> {
-  await Deno.writeTextFile(
-    new URL("manifest.json", outputRoot),
-    JSON.stringify({ version: 1, components, tokens: allTokens }, null, 2) +
-      "\n",
-  );
-}
-
-async function copyTree(sourceRoot: URL, outputRoot: URL): Promise<void> {
-  await Deno.mkdir(outputRoot, { recursive: true });
-  for await (const entry of Deno.readDir(sourceRoot)) {
-    const suffix = entry.isDirectory ? "/" : "";
-    const source = new URL(`${entry.name}${suffix}`, sourceRoot);
-    const output = new URL(`${entry.name}${suffix}`, outputRoot);
-    if (entry.isDirectory) await copyTree(source, output);
-    else await Deno.copyFile(source, output);
+): Promise<number> {
+  const metadata: ComponentMeta[] = [];
+  for (const source of sources) {
+    const module = await import(source.metaUrl.href) as {
+      default: ComponentMeta;
+    };
+    metadata.push(module.default);
   }
+  return metadata.length;
 }
 
 async function bundleStyleguide(): Promise<void> {
@@ -189,26 +120,20 @@ async function bundleStyleguide(): Promise<void> {
   }
 }
 
-/** Build the deterministic, framework-neutral runtime into a chosen directory. */
-export async function buildDesignSystemRuntime(
-  outputRoot: URL,
-): Promise<BuildSummary> {
-  await Deno.mkdir(outputRoot, { recursive: true });
-  const sources = await discoverComponents();
-  const components = await componentMetadata(sources);
-  await generateCss(sources, outputRoot);
-  await writeManifest(outputRoot, components);
-  await copyTree(ASSET_ROOT, outputRoot);
-  return { components: components.length, tokens: allTokens.length };
-}
-
-/** Build the local React catalogue as well as the framework-neutral runtime. */
+/** Build the React catalogue and its explicit all-component runtime. */
 export async function buildDesignSystem(): Promise<BuildSummary> {
-  await Deno.mkdir(GENERATED_ROOT, { recursive: true });
-  await Deno.mkdir(DIST_ROOT, { recursive: true });
+  await writeGeneratedSources();
   const sources = await discoverComponents();
   await generateRegistry(sources);
-  const summary = await buildDesignSystemRuntime(DIST_ROOT);
+  const { emitDesignSystemRuntime } = await import("../src/runtime.ts");
+  const summary = await emitDesignSystemRuntime({
+    outputRoot: DIST_ROOT,
+    all: true,
+    assets: ["fonts", "grain"],
+  });
+  if (summary.components !== await componentCount(sources)) {
+    throw new Error("Catalogue and runtime component discovery disagree");
+  }
   await bundleStyleguide();
   return summary;
 }

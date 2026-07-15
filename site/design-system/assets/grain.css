@@ -1,0 +1,11 @@
+/* Optional texture provider for the framework-neutral grain-wash utility. */
+.discern-grain-wash::after {
+  position: absolute;
+  inset: 0;
+  background: url("./textures/grain.png") repeat;
+  background-size: 200px 200px;
+  content: "";
+  mix-blend-mode: overlay;
+  opacity: 0.38;
+  pointer-events: none;
+}

@@ -30,3 +30,11 @@
   font-display: swap;
   src: url("./fonts/jetbrains-mono.woff2") format("woff2");
 }
+
+:where([data-discern-root]) {
+  --discern-font-display: "Crimson Pro", "Iowan Old Style", Georgia, serif;
+  --discern-font-body: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --discern-font-ui: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --discern-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo,
+    monospace;
+}

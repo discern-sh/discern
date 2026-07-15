@@ -1,8 +1,16 @@
 {
-  "name": "@discern/design-system",
+  "name": "discern-design-system",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./manifest": "./src/manifest.ts",
+    "./react": "./src/react.ts",
+    "./runtime": "./src/runtime.ts",
+    "./theme/discern": "./src/theme/discern.ts",
+    "./tokens": "./src/tokens/tokens.ts"
+  },
   "sideEffects": [
     "*.css"
   ],

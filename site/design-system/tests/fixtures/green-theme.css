@@ -1,0 +1,15 @@
+/* Consumer fixture: theme adaptation uses public tokens, never component CSS. */
+@layer discern.consumer {
+  :where([data-discern-root]) {
+    --discern-accent-hue: 145;
+    --discern-color-success: oklch(58% 0.16 190);
+    --discern-color-success-soft: oklch(95% 0.045 190);
+    --discern-color-success-deep: oklch(34% 0.1 190);
+  }
+
+  :where([data-discern-root][data-discern-theme="dark"]) {
+    --discern-color-success: oklch(74% 0.13 190);
+    --discern-color-success-soft: oklch(30% 0.055 190);
+    --discern-color-success-deep: oklch(90% 0.08 190);
+  }
+}

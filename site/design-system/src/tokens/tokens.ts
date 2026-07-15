@@ -36,13 +36,18 @@ const themeToken = (
   category: TokenCategory = "Color",
 ): ThemeToken => ({ name, light, dark, category, description });
 
-export const designTokens = [
+/** Public values owned by the default blue preset, not by the semantic base. */
+export const discernThemeTokens = [
   token(
     "--discern-accent-hue",
     "259",
     "Color",
-    "Master hue for the azure accent family.",
+    "Master hue for the default Discern accent family.",
   ),
+] satisfies readonly DesignToken[];
+
+/** Framework-neutral primitives and system-font defaults shared by every theme. */
+export const baseTokens = [
   token(
     "--discern-ink-hue",
     "225",
@@ -57,27 +62,27 @@ export const designTokens = [
   ),
   token(
     "--discern-font-display",
-    '"Crimson Pro", "Iowan Old Style", Georgia, serif',
+    '"Iowan Old Style", "Palatino Linotype", Georgia, ui-serif, serif',
     "Typography",
-    "Editorial display face; font loading is external.",
+    "System display stack; optional font assets may override it.",
   ),
   token(
     "--discern-font-body",
-    '"Inter", "Helvetica Neue", system-ui, sans-serif',
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     "Typography",
-    "Body face; font loading is external.",
+    "System body stack; optional font assets may override it.",
   ),
   token(
     "--discern-font-mono",
-    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    'ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace',
     "Typography",
-    "Code and annotation face.",
+    "System code and annotation stack.",
   ),
   token(
     "--discern-font-ui",
-    '"Inter", "Helvetica Neue", system-ui, sans-serif',
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     "Typography",
-    "Dense interface chrome face.",
+    "System interface stack; optional font assets may override it.",
   ),
   token(
     "--discern-font-features-ui",
@@ -222,6 +227,9 @@ export const designTokens = [
     "Section rhythm.",
   ),
 ] satisfies readonly DesignToken[];
+
+/** Compatibility inventory for catalogue consumers; base and preset stay distinct. */
+export const designTokens = [...baseTokens, ...discernThemeTokens] as const;
 
 export const themeTokens = [
   themeToken(

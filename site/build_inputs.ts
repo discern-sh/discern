@@ -1,6 +1,5 @@
 /** Authored inputs whose changes require the generated public site to rebuild. */
 import { fromFileUrl, join, SEPARATOR } from "@std/path";
-import { DESIGN_SYSTEM_BUILD_OUTPUTS } from "./design-system/scripts/build.ts";
 
 export const SITE_BUILD_INPUTS = [
   "deno.json",
@@ -14,9 +13,10 @@ export const SITE_BUILD_INPUTS = [
   "site/page-src",
 ] as const;
 
-export const SITE_BUILD_EVENT_IGNORES = Object.values(
-  DESIGN_SYSTEM_BUILD_OUTPUTS,
-).map((path) => `site/design-system/${path}`);
+export const SITE_BUILD_EVENT_IGNORES = [
+  "site/design-system/dist/",
+  "site/design-system/styleguide/generated/",
+] as const;
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 

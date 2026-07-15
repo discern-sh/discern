@@ -49,16 +49,6 @@
       var(--discern-color-accent-200) 90%, var(--discern-color-canvas)) 0%,
       var(--discern-color-canvas) 82%);
   }
-  .discern-grain-wash::after {
-    position: absolute;
-    inset: 0;
-    background: url("./textures/grain.png") repeat;
-    background-size: 200px 200px;
-    content: "";
-    mix-blend-mode: overlay;
-    opacity: 0.38;
-    pointer-events: none;
-  }
   .discern-grain-wash > * {
     position: relative;
   }

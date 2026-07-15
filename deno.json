@@ -75,7 +75,13 @@
     "react": "npm:react@18.3.1",
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
-    "react-dom/server": "npm:react-dom@18.3.1/server"
+    "react-dom/server": "npm:react-dom@18.3.1/server",
+    "discern-design-system": "./site/design-system/src/mod.ts",
+    "discern-design-system/manifest": "./site/design-system/src/manifest.ts",
+    "discern-design-system/react": "./site/design-system/src/react.ts",
+    "discern-design-system/runtime": "./site/design-system/src/runtime.ts",
+    "discern-design-system/theme/discern": "./site/design-system/src/theme/discern.ts",
+    "discern-design-system/tokens": "./site/design-system/src/tokens/tokens.ts"
   },
   "fmt": {
     "exclude": [
@@ -89,6 +95,7 @@
       "dist/",
       "site/design-system/dist/",
       "site/design-system/node_modules/",
+      "site/design-system/src/generated/",
       "site/design-system/styleguide/generated/",
       "project/map/10-installer/config-reference.md",
       "GEMINI.md",

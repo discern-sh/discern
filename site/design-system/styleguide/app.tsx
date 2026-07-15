@@ -15,7 +15,7 @@ function TokenPreview(
   if (category === "Color") {
     return (
       <span
-        className="sg-token__swatch"
+        className="discern-catalogue-token__swatch"
         style={{ background: `var(${name})` }}
       />
     );
@@ -23,7 +23,7 @@ function TokenPreview(
   if (category === "Typography") {
     return (
       <span
-        className="sg-token__type"
+        className="discern-catalogue-token__type"
         style={/^--discern-font-(?:display|body|mono|ui)$/.test(name)
           ? { fontFamily: `var(${name})` }
           : undefined}
@@ -35,7 +35,7 @@ function TokenPreview(
   if (category === "Spacing" || category === "Layout") {
     return (
       <span
-        className="sg-token__space"
+        className="discern-catalogue-token__space"
         style={{ width: `min(var(${name}), 100%)` }}
       />
     );
@@ -43,7 +43,7 @@ function TokenPreview(
   if (category === "Shape") {
     return (
       <span
-        className="sg-token__shape"
+        className="discern-catalogue-token__shape"
         style={name.includes("radius")
           ? { borderRadius: `var(${name})` }
           : { boxShadow: `var(${name})` }}
@@ -52,7 +52,7 @@ function TokenPreview(
   }
   const isDuration = name.includes("duration");
   return (
-    <span className="sg-token__motion">
+    <span className="discern-catalogue-token__motion">
       <span
         style={isDuration
           ? { animationDuration: `var(${name})` }
@@ -109,27 +109,31 @@ function App() {
   };
 
   return (
-    <div className="sg-shell" data-discern-root data-discern-theme={theme}>
-      <aside className="sg-sidebar">
-        <a className="sg-brand" href="#top">
-          <span className="sg-brand__mark">D</span>
+    <div
+      className="discern-catalogue-shell"
+      data-discern-root
+      data-discern-theme={theme}
+    >
+      <aside className="discern-catalogue-sidebar">
+        <a className="discern-catalogue-brand" href="#top">
+          <span className="discern-catalogue-brand__mark">D</span>
           <span>
             <strong>Discern</strong>
             <small>Design system</small>
           </span>
         </a>
-        <nav className="sg-nav" aria-label="Styleguide">
+        <nav className="discern-catalogue-nav" aria-label="Styleguide">
           <a href="#foundations">Foundations</a>
           {tokenCategories.map((category) => (
             <a
               key={category}
-              className="sg-nav__child"
+              className="discern-catalogue-nav__child"
               href={`#tokens-${slugify(category)}`}
             >
               {category}
             </a>
           ))}
-          <span className="sg-nav__heading">Components</span>
+          <span className="discern-catalogue-nav__heading">Components</span>
           {groupedComponents.map(({ group, entries }) => (
             <div key={group}>
               <a href={`#group-${slugify(group)}`}>
@@ -139,7 +143,7 @@ function App() {
               {entries.map(({ meta }) => (
                 <a
                   key={meta.slug}
-                  className="sg-nav__child"
+                  className="discern-catalogue-nav__child"
                   href={`#component-${meta.slug}`}
                 >
                   {meta.name}
@@ -150,8 +154,8 @@ function App() {
         </nav>
       </aside>
 
-      <header className="sg-toolbar">
-        <label className="sg-search">
+      <header className="discern-catalogue-toolbar">
+        <label className="discern-catalogue-search">
           <span aria-hidden="true">⌕</span>
           <input
             type="search"
@@ -160,15 +164,19 @@ function App() {
             placeholder="Search tokens and components"
           />
         </label>
-        <button className="sg-theme" type="button" onClick={toggleTheme}>
+        <button
+          className="discern-catalogue-theme"
+          type="button"
+          onClick={toggleTheme}
+        >
           {theme === "light" ? "Dark" : "Light"} mode
         </button>
       </header>
 
-      <main className="sg-main" id="top">
-        <section className="sg-hero">
+      <main className="discern-catalogue-main" id="top">
+        <section className="discern-catalogue-hero">
           <span className="discern-kicker">
-            <span className="sg-live-dot" />
+            <span className="discern-catalogue-live-dot" />
             <span className="discern-kicker__text">Generated reference</span>
           </span>
           <h1>
@@ -178,15 +186,15 @@ function App() {
             Typed tokens, framework-neutral CSS, accessible React adapters, and
             automatically enrolled component examples.
           </p>
-          <div className="sg-stats">
+          <div className="discern-catalogue-stats">
             <span>{allTokens.length} tokens</span>
             <span>{registry.length} components</span>
             <span>0 remote runtime assets</span>
           </div>
         </section>
 
-        <section className="sg-section" id="foundations">
-          <header className="sg-section__header">
+        <section className="discern-catalogue-section" id="foundations">
+          <header className="discern-catalogue-section__header">
             <div>
               <Kicker index="01">— Foundations</Kicker>
               <h2>One value, every surface.</h2>
@@ -203,17 +211,20 @@ function App() {
             );
             return (
               <section
-                className="sg-subsection"
+                className="discern-catalogue-subsection"
                 id={`tokens-${slugify(category)}`}
                 key={category}
               >
-                <div className="sg-subsection__heading">
+                <div className="discern-catalogue-subsection__heading">
                   <h3>{category}</h3>
                   <span>{categoryTokens.length}</span>
                 </div>
-                <div className="sg-token-grid">
+                <div className="discern-catalogue-token-grid">
                   {categoryTokens.map((token) => (
-                    <article className="sg-token" key={token.name}>
+                    <article
+                      className="discern-catalogue-token"
+                      key={token.name}
+                    >
                       <TokenPreview
                         name={token.name}
                         category={token.category}
@@ -235,8 +246,8 @@ function App() {
           })}
         </section>
 
-        <section className="sg-section" id="components">
-          <header className="sg-section__header">
+        <section className="discern-catalogue-section" id="components">
+          <header className="discern-catalogue-section__header">
             <div>
               <Kicker index="02">— Components</Kicker>
               <h2>Typed, composable, inspectable.</h2>
@@ -248,17 +259,17 @@ function App() {
           </header>
           {groupedComponents.map(({ group, entries }) => (
             <section
-              className="sg-component-group"
+              className="discern-catalogue-component-group"
               id={`group-${slugify(group)}`}
               key={group}
             >
-              <div className="sg-subsection__heading">
+              <div className="discern-catalogue-subsection__heading">
                 <h3>{group}</h3>
                 <span>{entries.length}</span>
               </div>
               {entries.map(({ meta, Examples }) => (
                 <article
-                  className="sg-component"
+                  className="discern-catalogue-component"
                   id={`component-${meta.slug}`}
                   key={meta.slug}
                 >
@@ -274,7 +285,7 @@ function App() {
                       Source ↗
                     </a>
                   </header>
-                  <div className="sg-component__canvas">
+                  <div className="discern-catalogue-component__canvas">
                     <Examples />
                   </div>
                   {meta.accessibility?.length
@@ -297,7 +308,7 @@ function App() {
 
         {!components.length && !tokens.length
           ? (
-            <div className="sg-empty">
+            <div className="discern-catalogue-empty">
               <h2>No matches.</h2>
               <p>Try a component group, token role, or visual property.</p>
             </div>

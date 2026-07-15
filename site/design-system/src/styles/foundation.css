@@ -1,12 +1,9 @@
-@layer discern.reset, discern.tokens, discern.foundation, discern.components,
-  discern.utilities;
-
 @layer discern.foundation {
   :where([data-discern-root], [data-discern-root] *) {
     box-sizing: border-box;
   }
 
-  [data-discern-root] {
+  :where([data-discern-root]) {
     min-width: 0;
     background: var(--discern-color-canvas);
     color: var(--discern-color-ink);
@@ -17,12 +14,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  [data-discern-root] ::selection {
+  :where([data-discern-root]) ::selection {
     background: var(--discern-color-accent-200);
     color: var(--discern-color-ink);
   }
 
-  :where([data-discern-root] h1, [data-discern-root] h2, [data-discern-root] h3, [data-discern-root] h4, [data-discern-root] h5, [data-discern-root] h6) {
+  :where([data-discern-root]) :where(h1, h2, h3, h4, h5, h6) {
     margin-block: 0 var(--discern-space-4);
     color: var(--discern-color-ink);
     font-family: var(--discern-font-display);
@@ -32,39 +29,46 @@
     text-wrap: pretty;
   }
 
-  [data-discern-root] h1 {
+  :where([data-discern-root]) h1 {
     font-size: var(--discern-font-size-display-xl);
   }
-  [data-discern-root] h2 {
+  :where([data-discern-root]) h2 {
     font-size: var(--discern-font-size-display-lg);
   }
-  [data-discern-root] h3 {
+  :where([data-discern-root]) h3 {
     font-size: var(--discern-font-size-display-md);
   }
-  [data-discern-root] h4 {
+  :where([data-discern-root]) h4 {
     font-size: var(--discern-font-size-display-sm);
   }
-  [data-discern-root] p {
+  :where([data-discern-root]) p {
     margin-block: 0 var(--discern-space-4);
   }
-  [data-discern-root] a {
+  :where([data-discern-root]) a {
     color: var(--discern-color-accent-600);
   }
-  [data-discern-root] button,
-  [data-discern-root] input,
-  [data-discern-root] select,
-  [data-discern-root] textarea {
+  :where([data-discern-root]) button,
+  :where([data-discern-root]) input,
+  :where([data-discern-root]) select,
+  :where([data-discern-root]) textarea {
     font: inherit;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-discern-root] *,
-  [data-discern-root] *::before,
-  [data-discern-root] *::after {
+  :where([data-discern-root]) *,
+  :where([data-discern-root]) *::before,
+  :where([data-discern-root]) *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :where([data-discern-root]) :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid CanvasText !important;
+    outline-offset: 2px !important;
   }
 }

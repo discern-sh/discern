@@ -19,7 +19,6 @@ import {
   siteBuildInputPaths,
 } from "../site/build_inputs.ts";
 import { styleguideFilePath } from "../site/design-system/scripts/serve.ts";
-import { DESIGN_SYSTEM_BUILD_OUTPUTS } from "../site/design-system/scripts/build.ts";
 import { handler } from "../site/serve.ts";
 import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
 
@@ -117,9 +116,7 @@ Deno.test("watched build inputs never contain generated outputs", () => {
   );
   const outputs = [
     ...GENERATED_SITE_OUTPUTS.map((path) => `site/${path}`),
-    ...Object.values(DESIGN_SYSTEM_BUILD_OUTPUTS).map((path) =>
-      `site/design-system/${path}`
-    ),
+    ...SITE_BUILD_EVENT_IGNORES,
   ];
   assertEquals(
     unignoredWatchedBuildOutputOverlaps(

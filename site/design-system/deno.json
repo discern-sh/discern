@@ -1,4 +1,13 @@
 {
+  "version": "0.0.0",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./manifest": "./src/manifest.ts",
+    "./react": "./src/react.ts",
+    "./runtime": "./src/runtime.ts",
+    "./theme/discern": "./src/theme/discern.ts",
+    "./tokens": "./src/tokens/tokens.ts"
+  },
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
     "strict": true,
@@ -24,18 +33,19 @@
     "react-dom/server": "npm:react-dom@18.3.1/server"
   },
   "tasks": {
+    "codegen": "deno run --config deno.json --allow-read --allow-write scripts/generate.ts",
     "build": "deno run --config deno.json --allow-read --allow-write --allow-run --allow-env=NODE_ENV scripts/build.ts",
-    "check": "deno fmt --config deno.json --check . ../build.ts ../page-src && deno lint --no-config src styleguide scripts tests ../build.ts ../page-src && deno check --config deno.json src/mod.ts scripts/build.ts ../build.ts ../page-src/design-system-demo.tsx",
+    "check": "deno fmt --config deno.json --check . && deno lint --no-config src styleguide scripts tests && deno check --config deno.json src/mod.ts src/manifest.ts src/runtime.ts src/react.ts src/theme/discern.ts scripts/build.ts scripts/generate.ts",
     "check:catalogue": "deno check --config deno.json styleguide/app.tsx",
-    "fix": "deno fmt --config deno.json . ../build.ts ../page-src && deno lint --no-config --fix src styleguide scripts tests ../build.ts ../page-src",
+    "fix": "deno fmt --config deno.json . && deno lint --no-config --fix src styleguide scripts tests",
     "serve": "deno task build && deno serve --host 127.0.0.1 --allow-read --port 8010 scripts/serve.ts",
-    "test": "deno task --cwd ../.. site:build && deno test --config deno.json --allow-read --allow-write --allow-env --allow-run tests/design_system_test.ts",
+    "test": "deno test --config deno.json --allow-read --allow-write --allow-env --allow-run tests",
     "verify": "deno task check && deno task build && deno task check:catalogue && deno task test"
   },
   "fmt": {
-    "exclude": ["dist/", "styleguide/generated/"]
+    "exclude": ["dist/", "src/generated/", "styleguide/generated/"]
   },
   "lint": {
-    "exclude": ["dist/", "styleguide/generated/"]
+    "exclude": ["dist/", "src/generated/", "styleguide/generated/"]
   }
 }
