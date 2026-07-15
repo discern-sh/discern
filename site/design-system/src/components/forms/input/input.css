@@ -1,38 +1,39 @@
 @layer discern.components {
-  .ds-control {
+  .discern-control {
     inline-size: 100%;
     min-block-size: 42px;
     padding: 9px 12px;
-    border: 1px solid var(--ds-color-border-strong);
-    border-radius: var(--ds-radius-sm);
+    border: 1px solid var(--discern-color-border-strong);
+    border-radius: var(--discern-radius-sm);
     outline: none;
-    background: var(--ds-color-surface);
-    color: var(--ds-color-ink);
-    font-family: var(--ds-font-body);
-    font-size: var(--ds-font-size-sm);
+    background: var(--discern-color-surface);
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-body);
+    font-size: var(--discern-font-size-sm);
     line-height: 1.4;
-    transition: border-color var(--ds-duration-fast), box-shadow
-      var(--ds-duration-fast), background var(--ds-duration-fast);
+    transition: border-color var(--discern-duration-fast), box-shadow
+      var(--discern-duration-fast), background var(--discern-duration-fast);
   }
-  .ds-control::placeholder {
-    color: var(--ds-color-ink-faint);
+  .discern-control::placeholder {
+    color: var(--discern-color-ink-faint);
   }
-  .ds-control:hover:not(:disabled) {
-    border-color: var(--ds-color-ink-faint);
+  .discern-control:hover:not(:disabled) {
+    border-color: var(--discern-color-ink-faint);
   }
-  .ds-control:focus-visible {
-    border-color: var(--ds-color-accent-500);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-color-accent-500) 18%,
+  .discern-control:focus-visible {
+    border-color: var(--discern-color-accent-500);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--discern-color-accent-500)
+      18%,
       transparent);
   }
-  .ds-control:disabled {
+  .discern-control:disabled {
     cursor: not-allowed;
-    background: var(--ds-color-surface-sunken);
+    background: var(--discern-color-surface-sunken);
     opacity: 0.62;
   }
-  .ds-control[aria-invalid="true"] {
-    border-color: var(--ds-color-danger);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-color-danger) 14%,
+  .discern-control[aria-invalid="true"] {
+    border-color: var(--discern-color-danger);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--discern-color-danger) 14%,
       transparent);
   }
 }

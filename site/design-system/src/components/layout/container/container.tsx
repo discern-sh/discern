@@ -12,8 +12,8 @@ export const Container = forwardRef<HTMLDivElement, ContainerProps>(
       <div
         ref={ref}
         className={classNames(
-          "ds-container-box",
-          `ds-container-box--${size}`,
+          "discern-container-box",
+          `discern-container-box--${size}`,
           className,
         )}
         {...props}

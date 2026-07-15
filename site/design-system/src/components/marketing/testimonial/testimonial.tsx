@@ -35,23 +35,28 @@ export const Testimonial = forwardRef<HTMLElement, TestimonialProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-testimonial",
-          `ds-testimonial--${layout}`,
+          "discern-testimonial",
+          `discern-testimonial--${layout}`,
           className,
         )}
         {...props}
       >
-        <figure className="ds-testimonial__frame">
-          <div className="ds-testimonial__mark" aria-hidden="true">{mark}</div>
-          <div className="ds-testimonial__main">
+        <figure className="discern-testimonial__frame">
+          <div className="discern-testimonial__mark" aria-hidden="true">
+            {mark}
+          </div>
+          <div className="discern-testimonial__main">
             {eyebrow
-              ? <div className="ds-testimonial__eyebrow">{eyebrow}</div>
+              ? <div className="discern-testimonial__eyebrow">{eyebrow}</div>
               : null}
             <blockquote>{quote}</blockquote>
             <figcaption>
               {avatar
                 ? (
-                  <span className="ds-testimonial__avatar" aria-hidden="true">
+                  <span
+                    className="discern-testimonial__avatar"
+                    aria-hidden="true"
+                  >
                     {avatar}
                   </span>
                 )
@@ -64,7 +69,7 @@ export const Testimonial = forwardRef<HTMLElement, TestimonialProps>(
           </div>
           {metric
             ? (
-              <div className="ds-testimonial__metric">
+              <div className="discern-testimonial__metric">
                 <strong>{metric}</strong>
                 {metricLabel ? <span>{metricLabel}</span> : null}
               </div>

@@ -24,10 +24,10 @@ export const Prose = forwardRef<HTMLDivElement, ProseProps>(function Prose(
     <div
       ref={ref}
       className={classNames(
-        "ds-prose",
-        `ds-prose--${measure}`,
-        dropCap && "ds-prose--drop-cap",
-        lead && "ds-prose--lead",
+        "discern-prose",
+        `discern-prose--${measure}`,
+        dropCap && "discern-prose--drop-cap",
+        lead && "discern-prose--lead",
         className,
       )}
       {...props}

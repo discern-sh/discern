@@ -28,38 +28,38 @@ export const FeatureBento = forwardRef<HTMLElement, FeatureBentoProps>(
     return (
       <section
         ref={ref}
-        className={classNames("ds-feature-bento", className)}
+        className={classNames("discern-feature-bento", className)}
         {...props}
       >
-        <div className="ds-feature-bento__inner">
-          <header className="ds-feature-bento__header">
+        <div className="discern-feature-bento__inner">
+          <header className="discern-feature-bento__header">
             {eyebrow
-              ? <div className="ds-feature-bento__eyebrow">{eyebrow}</div>
+              ? <div className="discern-feature-bento__eyebrow">{eyebrow}</div>
               : null}
             <h2>{title}</h2>
             {description
               ? (
-                <div className="ds-feature-bento__description">
+                <div className="discern-feature-bento__description">
                   {description}
                 </div>
               )
               : null}
           </header>
-          <div className="ds-feature-bento__grid">
+          <div className="discern-feature-bento__grid">
             {items.map((item, index) => (
               <article
                 className={classNames(
-                  "ds-feature-bento__item",
-                  `ds-feature-bento__item--${item.size ?? "standard"}`,
-                  `ds-feature-bento__item--${item.tone ?? "plain"}`,
+                  "discern-feature-bento__item",
+                  `discern-feature-bento__item--${item.size ?? "standard"}`,
+                  `discern-feature-bento__item--${item.tone ?? "plain"}`,
                 )}
                 key={index}
               >
-                <div className="ds-feature-bento__copy">
+                <div className="discern-feature-bento__copy">
                   {item.icon
                     ? (
                       <span
-                        className="ds-feature-bento__icon"
+                        className="discern-feature-bento__icon"
                         aria-hidden="true"
                       >
                         {item.icon}
@@ -68,7 +68,7 @@ export const FeatureBento = forwardRef<HTMLElement, FeatureBentoProps>(
                     : null}
                   {item.eyebrow
                     ? (
-                      <div className="ds-feature-bento__item-eyebrow">
+                      <div className="discern-feature-bento__item-eyebrow">
                         {item.eyebrow}
                       </div>
                     )
@@ -78,7 +78,7 @@ export const FeatureBento = forwardRef<HTMLElement, FeatureBentoProps>(
                 </div>
                 {item.visual
                   ? (
-                    <div className="ds-feature-bento__visual">
+                    <div className="discern-feature-bento__visual">
                       {item.visual}
                     </div>
                   )

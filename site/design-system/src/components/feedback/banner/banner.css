@@ -1,40 +1,40 @@
 @layer discern.components {
-  .ds-banner {
-    --ds-banner-bg: var(--ds-color-surface-sunken);
-    --ds-banner-border: var(--ds-color-border);
-    --ds-banner-text: var(--ds-color-ink-muted);
+  .discern-banner {
+    --discern-banner-bg: var(--discern-color-surface-sunken);
+    --discern-banner-border: var(--discern-color-border);
+    --discern-banner-text: var(--discern-color-ink-muted);
     display: flex;
     align-items: flex-start;
     gap: 10px;
     padding: 12px 14px;
-    border: 1px solid var(--ds-banner-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-banner-bg);
-    color: var(--ds-banner-text);
-    font-size: var(--ds-font-size-sm);
+    border: 1px solid var(--discern-banner-border);
+    border-radius: var(--discern-radius-md);
+    background: var(--discern-banner-bg);
+    color: var(--discern-banner-text);
+    font-size: var(--discern-font-size-sm);
     line-height: 1.5;
   }
-  .ds-banner--accent {
-    --ds-banner-bg: var(--ds-color-accent-100);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
-    --ds-banner-text: var(--ds-color-accent-800);
+  .discern-banner--accent {
+    --discern-banner-bg: var(--discern-color-accent-100);
+    --discern-banner-border: color-mix(in oklab, var(--discern-color-accent-400) 50%, transparent);
+    --discern-banner-text: var(--discern-color-accent-800);
   }
-  .ds-banner--success {
-    --ds-banner-bg: var(--ds-color-success-soft);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
-    --ds-banner-text: var(--ds-color-success-deep);
+  .discern-banner--success {
+    --discern-banner-bg: var(--discern-color-success-soft);
+    --discern-banner-border: color-mix(in oklab, var(--discern-color-success) 50%, transparent);
+    --discern-banner-text: var(--discern-color-success-deep);
   }
-  .ds-banner--warning {
-    --ds-banner-bg: var(--ds-color-warning-soft);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-warning) 36%, transparent);
-    --ds-banner-text: var(--ds-color-warning);
+  .discern-banner--warning {
+    --discern-banner-bg: var(--discern-color-warning-soft);
+    --discern-banner-border: color-mix(in oklab, var(--discern-color-warning) 36%, transparent);
+    --discern-banner-text: var(--discern-color-warning);
   }
-  .ds-banner--danger {
-    --ds-banner-bg: var(--ds-color-danger-soft);
-    --ds-banner-border: color-mix(in oklab, var(--ds-color-danger) 36%, transparent);
-    --ds-banner-text: var(--ds-color-danger);
+  .discern-banner--danger {
+    --discern-banner-bg: var(--discern-color-danger-soft);
+    --discern-banner-border: color-mix(in oklab, var(--discern-color-danger) 36%, transparent);
+    --discern-banner-text: var(--discern-color-danger);
   }
-  .ds-banner__icon {
+  .discern-banner__icon {
     display: grid;
     flex: none;
     place-items: center;
@@ -42,7 +42,7 @@
     block-size: 1.2rem;
     margin-block-start: 1px;
   }
-  .ds-banner__icon > :where(svg, img) {
+  .discern-banner__icon > :where(svg, img) {
     inline-size: 100%;
     block-size: 100%;
   }

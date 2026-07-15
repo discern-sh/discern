@@ -1,23 +1,23 @@
 @layer discern.components {
-  .ds-terminal {
-    --ds-terminal-surface: color-mix(in oklab, var(--ds-shadow-color) 94%,
-      var(--ds-color-accent-800));
-    --ds-terminal-text: var(--ds-color-surface);
-    --ds-terminal-muted: color-mix(in oklab, var(--ds-terminal-text) 58%,
+  .discern-terminal {
+    --discern-terminal-surface: color-mix(in oklab, var(--discern-shadow-color) 94%,
+      var(--discern-color-accent-800));
+    --discern-terminal-text: var(--discern-color-surface);
+    --discern-terminal-muted: color-mix(in oklab, var(--discern-terminal-text) 58%,
       transparent);
     overflow: hidden;
     margin: 0;
-    border: 1px solid color-mix(in oklab, var(--ds-terminal-text) 22%,
-      var(--ds-terminal-surface));
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-terminal-surface);
-    box-shadow: var(--ds-shadow-window);
-    color: var(--ds-terminal-text);
+    border: 1px solid color-mix(in oklab, var(--discern-terminal-text) 22%,
+      var(--discern-terminal-surface));
+    border-radius: var(--discern-radius-lg);
+    background: var(--discern-terminal-surface);
+    box-shadow: var(--discern-shadow-window);
+    color: var(--discern-terminal-text);
   }
-  [data-ds-theme="dark"] .ds-terminal {
-    --ds-terminal-text: var(--ds-color-ink);
+  [data-discern-theme="dark"] .discern-terminal {
+    --discern-terminal-text: var(--discern-color-ink);
   }
-  .ds-terminal__bar {
+  .discern-terminal__bar {
     position: relative;
     display: flex;
     align-items: center;
@@ -25,59 +25,59 @@
     min-block-size: 38px;
     padding-inline: 13px;
     border-block-end: 1px solid color-mix(in oklab,
-      var(--ds-terminal-text) 15%, transparent);
-    background: color-mix(in oklab, var(--ds-terminal-surface) 86%,
-      var(--ds-color-accent-600));
+      var(--discern-terminal-text) 15%, transparent);
+    background: color-mix(in oklab, var(--discern-terminal-surface) 86%,
+      var(--discern-color-accent-600));
   }
-  .ds-terminal__dot {
+  .discern-terminal__dot {
     inline-size: 7px;
     block-size: 7px;
     border-radius: 50%;
-    background: var(--ds-color-accent-400);
+    background: var(--discern-color-accent-400);
   }
-  .ds-terminal__dot:nth-child(2) {
+  .discern-terminal__dot:nth-child(2) {
     opacity: 0.7;
   }
-  .ds-terminal__dot:nth-child(3) {
+  .discern-terminal__dot:nth-child(3) {
     opacity: 0.4;
   }
-  .ds-terminal__title {
+  .discern-terminal__title {
     position: absolute;
     inset-inline: 70px;
     overflow: hidden;
-    color: var(--ds-terminal-muted);
-    font-family: var(--ds-font-mono);
-    font-size: var(--ds-font-size-xs);
+    color: var(--discern-terminal-muted);
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
     letter-spacing: 0.04em;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .ds-terminal__body {
+  .discern-terminal__body {
     min-block-size: 190px;
     max-inline-size: 100%;
     margin: 0;
-    padding: var(--ds-space-6);
+    padding: var(--discern-space-6);
     overflow: auto;
-    background: var(--ds-terminal-surface);
-    color: var(--ds-terminal-text);
-    font-family: var(--ds-font-mono);
-    font-size: var(--ds-font-size-xs);
+    background: var(--discern-terminal-surface);
+    color: var(--discern-terminal-text);
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
     line-height: 1.7;
     tab-size: 2;
     white-space: pre;
   }
-  .ds-terminal__body code {
+  .discern-terminal__body code {
     color: inherit;
     font: inherit;
   }
-  .ds-terminal__prompt {
-    color: var(--ds-color-accent-400);
+  .discern-terminal__prompt {
+    color: var(--discern-color-accent-400);
   }
-  .ds-terminal__muted {
-    color: var(--ds-terminal-muted);
+  .discern-terminal__muted {
+    color: var(--discern-terminal-muted);
   }
-  .ds-terminal__success {
-    color: var(--ds-color-success);
+  .discern-terminal__success {
+    color: var(--discern-color-success);
   }
 }

@@ -34,9 +34,9 @@ and to the repository on GitHub when it is not (ADRs, internal tiers, source
 files), so no reference dead-ends.
 
 The browser shell is a design-system consumer: the server renders semantic HTML
-on the documented `.ds-*` classes, loading the generated tokens and component
-styles plus the self-hosted fonts from `/assets/design-system/`. Page-specific
-composition lives in `site/pages/assets/docs.css` and behaviour in
+on the documented `.discern-*` classes, loading the generated tokens and
+component styles plus the self-hosted fonts from `/assets/design-system/`.
+Page-specific composition lives in `site/pages/assets/docs.css` and behaviour in
 `site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial
 rule treatment with a centred `◮`, the first use of discern's intended mark.
 

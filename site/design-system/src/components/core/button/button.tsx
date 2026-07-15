@@ -51,15 +51,15 @@ function content(
     <>
       {leadingIcon
         ? (
-          <span className="ds-button__icon" aria-hidden="true">
+          <span className="discern-button__icon" aria-hidden="true">
             {leadingIcon}
           </span>
         )
         : null}
-      <span className="ds-button__label">{children}</span>
+      <span className="discern-button__label">{children}</span>
       {trailingIcon
         ? (
-          <span className="ds-button__icon" aria-hidden="true">
+          <span className="discern-button__icon" aria-hidden="true">
             {trailingIcon}
           </span>
         )
@@ -76,9 +76,9 @@ export const Button = forwardRef<
     const variant = props.variant ?? "primary";
     const size = props.size ?? "md";
     const classes = classNames(
-      "ds-button",
-      `ds-button--${variant}`,
-      `ds-button--${size}`,
+      "discern-button",
+      `discern-button--${variant}`,
+      `discern-button--${size}`,
       props.className,
     );
 

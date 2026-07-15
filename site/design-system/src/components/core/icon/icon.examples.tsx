@@ -3,7 +3,7 @@ import { Icon } from "./icon.tsx";
 
 export default function IconExamples() {
   return (
-    <div className="ds-example-row ds-example-row--large">
+    <div className="discern-example-row discern-example-row--large">
       {(["spark", "arrow", "check", "info", "moon", "close"] as const).map((
         name,
       ) => (

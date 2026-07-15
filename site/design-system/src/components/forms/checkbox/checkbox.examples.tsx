@@ -1,7 +1,7 @@
 import { Checkbox } from "./checkbox.tsx";
 export default function CheckboxExamples() {
   return (
-    <div className="ds-example-stack">
+    <div className="discern-example-stack">
       <Checkbox
         label="Lorem ipsum dolor"
         description="Consectetur adipiscing elit."

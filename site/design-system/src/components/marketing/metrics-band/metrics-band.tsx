@@ -25,30 +25,38 @@ export const MetricsBand = forwardRef<HTMLElement, MetricsBandProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-metrics-band",
-          `ds-metrics-band--${tone}`,
+          "discern-metrics-band",
+          `discern-metrics-band--${tone}`,
           className,
         )}
         {...props}
       >
-        <div className="ds-metrics-band__inner">
+        <div className="discern-metrics-band__inner">
           {eyebrow || title
             ? (
-              <header className="ds-metrics-band__header">
+              <header className="discern-metrics-band__header">
                 {eyebrow
-                  ? <div className="ds-metrics-band__eyebrow">{eyebrow}</div>
+                  ? (
+                    <div className="discern-metrics-band__eyebrow">
+                      {eyebrow}
+                    </div>
+                  )
                   : null}
                 {title ? <h2>{title}</h2> : null}
               </header>
             )
             : null}
-          <dl className="ds-metrics-band__list">
+          <dl className="discern-metrics-band__list">
             {items.map((item, index) => (
               <div key={index}>
                 <dd>{item.value}</dd>
                 <dt>{item.label}</dt>
                 {item.detail
-                  ? <div className="ds-metrics-band__detail">{item.detail}</div>
+                  ? (
+                    <div className="discern-metrics-band__detail">
+                      {item.detail}
+                    </div>
+                  )
                   : null}
               </div>
             ))}

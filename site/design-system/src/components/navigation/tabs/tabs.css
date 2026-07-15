@@ -1,60 +1,60 @@
 @layer discern.components {
-  .ds-tabs__list {
+  .discern-tabs__list {
     display: flex;
-    gap: var(--ds-space-5);
+    gap: var(--discern-space-5);
     overflow-x: auto;
-    border-block-end: 1px solid var(--ds-color-border);
+    border-block-end: 1px solid var(--discern-color-border);
   }
-  .ds-tabs__tab {
+  .discern-tabs__tab {
     position: relative;
     flex: none;
     padding: 10px 1px 11px;
     border: 0;
     background: transparent;
-    color: var(--ds-color-ink-muted);
+    color: var(--discern-color-ink-muted);
     cursor: pointer;
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
     font-weight: 500;
   }
-  .ds-tabs__tab::after {
+  .discern-tabs__tab::after {
     position: absolute;
     inset: auto 0 -1px;
     block-size: 2px;
-    background: var(--ds-color-accent-600);
+    background: var(--discern-color-accent-600);
     content: "";
     opacity: 0;
     transform: scaleX(0.5);
-    transition: opacity var(--ds-duration-fast), transform
-      var(--ds-duration-fast);
+    transition: opacity var(--discern-duration-fast), transform
+      var(--discern-duration-fast);
   }
-  .ds-tabs__tab:hover {
-    color: var(--ds-color-ink);
+  .discern-tabs__tab:hover {
+    color: var(--discern-color-ink);
   }
-  .ds-tabs__tab[aria-selected="true"] {
-    color: var(--ds-color-ink);
+  .discern-tabs__tab[aria-selected="true"] {
+    color: var(--discern-color-ink);
   }
-  .ds-tabs__tab[aria-selected="true"]::after {
+  .discern-tabs__tab[aria-selected="true"]::after {
     opacity: 1;
     transform: scaleX(1);
   }
-  .ds-tabs__tab:focus-visible {
-    border-radius: var(--ds-radius-xs);
-    outline: 2px solid var(--ds-color-accent-500);
+  .discern-tabs__tab:focus-visible {
+    border-radius: var(--discern-radius-xs);
+    outline: 2px solid var(--discern-color-accent-500);
     outline-offset: 3px;
   }
-  .ds-tabs__tab:disabled {
+  .discern-tabs__tab:disabled {
     cursor: not-allowed;
     opacity: 0.4;
   }
-  .ds-tabs__panel {
-    padding-block-start: var(--ds-space-5);
+  .discern-tabs__panel {
+    padding-block-start: var(--discern-space-5);
     outline: none;
   }
-  .ds-tabs__panel:focus-visible {
-    border-radius: var(--ds-radius-sm);
-    outline: 2px solid color-mix(in oklab, var(--ds-color-accent-500) 45%,
+  .discern-tabs__panel:focus-visible {
+    border-radius: var(--discern-radius-sm);
+    outline: 2px solid color-mix(in oklab, var(--discern-color-accent-500) 45%,
       transparent);
     outline-offset: 4px;
   }

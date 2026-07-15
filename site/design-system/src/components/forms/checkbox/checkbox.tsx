@@ -25,8 +25,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     const describedBy =
       [ariaDescribedBy, descriptionId].filter(Boolean).join(" ") || undefined;
     return (
-      <div className={classNames("ds-choice", className)}>
-        <label className="ds-choice__label" htmlFor={controlId}>
+      <div className={classNames("discern-choice", className)}>
+        <label className="discern-choice__label" htmlFor={controlId}>
           <input
             ref={ref}
             id={controlId}
@@ -34,14 +34,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             aria-describedby={describedBy}
             {...props}
           />
-          <span className="ds-choice__control" aria-hidden="true">
+          <span className="discern-choice__control" aria-hidden="true">
             <span />
           </span>
           <span>{label}</span>
         </label>
         {description
           ? (
-            <span className="ds-choice__description" id={descriptionId}>
+            <span className="discern-choice__description" id={descriptionId}>
               {description}
             </span>
           )

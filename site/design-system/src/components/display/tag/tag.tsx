@@ -13,13 +13,17 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
     ref,
   ) {
     return (
-      <span ref={ref} className={classNames("ds-tag", className)} {...props}>
+      <span
+        ref={ref}
+        className={classNames("discern-tag", className)}
+        {...props}
+      >
         {children}
         {onRemove
           ? (
             <button
               type="button"
-              className="ds-tag__remove"
+              className="discern-tag__remove"
               aria-label={removeLabel}
               onClick={onRemove}
             >

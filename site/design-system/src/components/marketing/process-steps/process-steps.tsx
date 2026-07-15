@@ -35,49 +35,53 @@ export const ProcessSteps = forwardRef<HTMLElement, ProcessStepsProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-process-steps",
-          `ds-process-steps--${orientation}`,
+          "discern-process-steps",
+          `discern-process-steps--${orientation}`,
           className,
         )}
         {...props}
       >
-        <div className="ds-process-steps__inner">
-          <header className="ds-process-steps__header">
+        <div className="discern-process-steps__inner">
+          <header className="discern-process-steps__header">
             <div>
               {eyebrow
-                ? <div className="ds-process-steps__eyebrow">{eyebrow}</div>
+                ? (
+                  <div className="discern-process-steps__eyebrow">
+                    {eyebrow}
+                  </div>
+                )
                 : null}
               <h2>{title}</h2>
             </div>
             {description
               ? (
-                <div className="ds-process-steps__description">
+                <div className="discern-process-steps__description">
                   {description}
                 </div>
               )
               : null}
           </header>
-          <ol className="ds-process-steps__list">
+          <ol className="discern-process-steps__list">
             {steps.map((step, index) => (
               <li key={index}>
-                <div className="ds-process-steps__marker">
+                <div className="discern-process-steps__marker">
                   <span>{String(index + 1).padStart(2, "0")}</span>
                 </div>
-                <div className="ds-process-steps__content">
+                <div className="discern-process-steps__content">
                   {step.eyebrow
                     ? (
-                      <div className="ds-process-steps__step-eyebrow">
+                      <div className="discern-process-steps__step-eyebrow">
                         {step.eyebrow}
                       </div>
                     )
                     : null}
                   <h3>{step.title}</h3>
-                  <div className="ds-process-steps__copy">
+                  <div className="discern-process-steps__copy">
                     {step.description}
                   </div>
                   {step.detail
                     ? (
-                      <div className="ds-process-steps__detail">
+                      <div className="discern-process-steps__detail">
                         {step.detail}
                       </div>
                     )

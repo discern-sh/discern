@@ -39,34 +39,41 @@ export const ComparisonTable = forwardRef<HTMLElement, ComparisonTableProps>(
     return (
       <section
         ref={ref}
-        className={classNames("ds-comparison-table", className)}
+        className={classNames("discern-comparison-table", className)}
         {...props}
       >
-        <div className="ds-comparison-table__inner">
-          <header className="ds-comparison-table__header">
+        <div className="discern-comparison-table__inner">
+          <header className="discern-comparison-table__header">
             {eyebrow
-              ? <div className="ds-comparison-table__eyebrow">{eyebrow}</div>
+              ? (
+                <div className="discern-comparison-table__eyebrow">
+                  {eyebrow}
+                </div>
+              )
               : null}
             <h2>{title}</h2>
             {description
               ? (
-                <div className="ds-comparison-table__description">
+                <div className="discern-comparison-table__description">
                   {description}
                 </div>
               )
               : null}
           </header>
-          <div className="ds-comparison-table__frame">
+          <div className="discern-comparison-table__frame">
             <table>
               <thead>
                 <tr>
                   <th scope="col">{featureLabel}</th>
                   <th scope="col">{firstLabel}</th>
-                  <th scope="col" className="ds-comparison-table__highlight">
+                  <th
+                    scope="col"
+                    className="discern-comparison-table__highlight"
+                  >
                     <span>{secondLabel}</span>
                     {secondBadge
                       ? (
-                        <span className="ds-comparison-table__badge">
+                        <span className="discern-comparison-table__badge">
                           {secondBadge}
                         </span>
                       )
@@ -81,7 +88,7 @@ export const ComparisonTable = forwardRef<HTMLElement, ComparisonTableProps>(
                     <td data-label={firstLabel}>{row.first}</td>
                     <td
                       data-label={secondLabel}
-                      className="ds-comparison-table__highlight"
+                      className="discern-comparison-table__highlight"
                     >
                       {row.second}
                     </td>

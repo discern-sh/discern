@@ -68,9 +68,13 @@ function themeIncoherentBackgrounds(
       const declarations = match[2] ?? "";
       const background = declarations.match(/background(?:-color)?\s*:[^;]+;/s)
         ?.[0] ?? "";
-      const references = [...background.matchAll(/var\((--ds-color-[^)]+)\)/g)]
+      const references = [
+        ...background.matchAll(/var\((--discern-color-[^)]+)\)/g),
+      ]
         .map((reference) => reference[1] ?? "");
-      return /--ds-color-(?:canvas|surface(?:-sunken)?)/.test(background) &&
+      return /--discern-color-(?:canvas|surface(?:-sunken)?)/.test(
+        background,
+      ) &&
         references.some((reference) => fixedColorNames.has(reference));
     })
     .map((match) => (match[1] ?? "").trim());
@@ -87,7 +91,7 @@ function roleRampViolations(
   fixed: readonly RampToken[],
   themed: readonly RampToken[],
 ): string[] {
-  const pattern = /^--ds-color-(.+)-(\d+)$/;
+  const pattern = /^--discern-color-(.+)-(\d+)$/;
   const groups = new Map<string, RampToken[]>();
   for (const token of [...fixed, ...themed]) {
     const match = token.name.match(pattern);
@@ -139,9 +143,42 @@ function selectorClassNames(source: string): Set<string> {
   return classNames;
 }
 
+interface PublicCssGlobals {
+  readonly classes: ReadonlySet<string>;
+  readonly customProperties: ReadonlySet<string>;
+  readonly dataAttributes: ReadonlySet<string>;
+  readonly keyframes: ReadonlySet<string>;
+}
+
+function publicCssGlobals(source: string): PublicCssGlobals {
+  const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const selectorPrelude = [...css.matchAll(/([^{}]+)\{/g)]
+    .map((match) => match[1] ?? "")
+    .filter((prelude) => !prelude.trimStart().startsWith("@"))
+    .join("\n");
+  return {
+    classes: new Set(
+      [...selectorPrelude.matchAll(/\.([_a-zA-Z][-_a-zA-Z0-9]*)/g)]
+        .map((match) => match[1] ?? ""),
+    ),
+    customProperties: new Set(
+      [...css.matchAll(/(?<![-_a-zA-Z0-9])(--[_a-zA-Z][-_a-zA-Z0-9]*)/g)]
+        .map((match) => match[1] ?? ""),
+    ),
+    dataAttributes: new Set(
+      [...css.matchAll(/\[(data-[_a-zA-Z][-_a-zA-Z0-9]*)/g)]
+        .map((match) => match[1] ?? ""),
+    ),
+    keyframes: new Set(
+      [...css.matchAll(/@keyframes\s+([_a-zA-Z][-_a-zA-Z0-9]*)/g)]
+        .map((match) => match[1] ?? ""),
+    ),
+  };
+}
+
 function implementationClassNames(source: string): Set<string> {
   return new Set(
-    [...source.matchAll(/(?<!-)\b(ds-[a-z0-9]+(?:[-_][a-z0-9]+)*)/g)]
+    [...source.matchAll(/(?<!-)\b(discern-[a-z0-9]+(?:[-_][a-z0-9]+)*)/g)]
       .map((match) => match[1] ?? ""),
   );
 }
@@ -193,10 +230,10 @@ function invertedSemanticRoleDeclarations(source: string): string[] {
     const background = declarations.match(
       /background(?:-color)?\s*:\s*([^;]+)/s,
     )?.[1] ?? "";
-    if (/(?:^|,)\s*var\(--ds-color-ink\)\s*$/s.test(background)) {
+    if (/(?:^|,)\s*var\(--discern-color-ink\)\s*$/s.test(background)) {
       violations.push("text role used as a surface");
     }
-    if (/\bcolor\s*:\s*var\(--ds-color-canvas\)/.test(declarations)) {
+    if (/\bcolor\s*:\s*var\(--discern-color-canvas\)/.test(declarations)) {
       violations.push("canvas role used as text");
     }
     return violations;
@@ -406,7 +443,7 @@ Deno.test("every marketing block is represented in the demo", async () => {
   for (const meta of marketing) {
     assertMatch(
       html,
-      new RegExp(`class="[^"]*\\bds-${meta.slug}\\b`),
+      new RegExp(`class="[^"]*\\bdiscern-${meta.slug}\\b`),
       `${meta.name} is not represented in the demo`,
     );
     assert(
@@ -460,7 +497,7 @@ Deno.test("every editorial block is represented in the content demo", async () =
   for (const meta of editorial) {
     assertMatch(
       html,
-      new RegExp(`class="[^"]*\\bds-${meta.slug}\\b`),
+      new RegExp(`class="[^"]*\\bdiscern-${meta.slug}\\b`),
       `${meta.name} is not represented in the content demo`,
     );
     assert(
@@ -519,11 +556,11 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
   const cssViolations = [
     [
       "uniform insets",
-      /\.demo-visual-inset\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*min\([^}]*margin:\s*var\(--ds-space-4\) auto;/s,
+      /\.demo-visual-inset\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*min\([^}]*margin:\s*var\(--discern-space-4\) auto;/s,
     ],
     [
       "contained stacks",
-      /\.demo-contained-stack\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--ds-space-3\);/s,
+      /\.demo-contained-stack\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--discern-space-3\);/s,
     ],
     [
       "fanout grids",
@@ -554,7 +591,9 @@ Deno.test("demo artwork geometry contracts auto-enrol every annotated visual", a
 });
 
 Deno.test("authored design-system type respects the xs readability floor", async () => {
-  const xs = designTokens.find((token) => token.name === "--ds-font-size-xs");
+  const xs = designTokens.find((token) =>
+    token.name === "--discern-font-size-xs"
+  );
   assert(xs !== undefined);
   const minimumRem = Number(xs.value.replace("rem", ""));
   assert(Number.isFinite(minimumRem));
@@ -605,7 +644,7 @@ Deno.test("inverse surfaces use stable inverse colour roles", async () => {
   assertEquals(violations, []);
   assertEquals(
     invertedSemanticRoleDeclarations(
-      ".fresh-panel { background: var(--ds-color-ink); color: var(--ds-color-canvas); }",
+      ".fresh-panel { background: var(--discern-color-ink); color: var(--discern-color-canvas); }",
     ),
     ["text role used as a surface", "canvas role used as text"],
   );
@@ -632,7 +671,7 @@ Deno.test("editorial reading treatments preserve their alignment and surface hie
   );
   assertMatch(
     prose,
-    /\.ds-prose--drop-cap\s*>\s*p:first-child::first-letter\s*\{[^}]*margin:\s*0 0\.12em 0 0;/s,
+    /\.discern-prose--drop-cap\s*>\s*p:first-child::first-letter\s*\{[^}]*margin:\s*0 0\.12em 0 0;/s,
   );
 
   const keyPoints = await Deno.readTextFile(
@@ -640,7 +679,7 @@ Deno.test("editorial reading treatments preserve their alignment and surface hie
   );
   assertMatch(
     keyPoints,
-    /\.ds-key-points ol\s*\{[^}]*background:\s*var\(--ds-color-surface-sunken\);/s,
+    /\.discern-key-points ol\s*\{[^}]*background:\s*var\(--discern-color-surface-sunken\);/s,
   );
 });
 
@@ -661,19 +700,71 @@ Deno.test("authored design-system runtime sources are local-only", async () => {
   }
 });
 
+Deno.test("every public runtime CSS global uses the discern namespace", async () => {
+  const runtimeCss = [
+    ...(await walk(join(ROOT, "site", "design-system", "src", "styles")))
+      .filter((path) => path.endsWith(".css")),
+    ...(await walk(COMPONENT_ROOT)).filter((path) => path.endsWith(".css")),
+    join(PUBLIC_ROOT, "discern.css"),
+  ];
+  const violations: string[] = [];
+  for (const path of runtimeCss) {
+    const source = await Deno.readTextFile(path);
+    const globals = publicCssGlobals(source);
+    for (const className of globals.classes) {
+      if (!className.startsWith("discern-")) {
+        violations.push(`${relative(ROOT, path)}: .${className}`);
+      }
+    }
+    for (const property of globals.customProperties) {
+      if (!property.startsWith("--discern-")) {
+        violations.push(`${relative(ROOT, path)}: ${property}`);
+      }
+    }
+    for (const attribute of globals.dataAttributes) {
+      if (!attribute.startsWith("data-discern-")) {
+        violations.push(`${relative(ROOT, path)}: ${attribute}`);
+      }
+    }
+    for (const keyframe of globals.keyframes) {
+      if (!keyframe.startsWith("discern-")) {
+        violations.push(`${relative(ROOT, path)}: @keyframes ${keyframe}`);
+      }
+    }
+    if (/(?:\.ds-|--ds-|data-ds-|@keyframes\s+ds-)/.test(source)) {
+      violations.push(`${relative(ROOT, path)}: legacy ds identifier`);
+    }
+  }
+  assertEquals(violations, []);
+
+  const fixture = publicCssGlobals(`
+    .button { --tone: red; }
+    [data-theme="dark"] .discern-safe { color: var(--discern-ink); }
+    @keyframes reveal { from { opacity: 0; } }
+  `);
+  assertEquals([...fixture.classes].toSorted(), ["button", "discern-safe"]);
+  assertEquals([...fixture.customProperties].toSorted(), [
+    "--discern-ink",
+    "--tone",
+  ]);
+  assertEquals([...fixture.dataAttributes], ["data-theme"]);
+  assertEquals([...fixture.keyframes], ["reveal"]);
+});
+
 Deno.test("consumer styles never redefine component-owned selectors", async () => {
-  const futureComponentCss = ".ds-future-widget__label { color: inherit; }";
-  const futureComponentTsx = '<div className="ds-future-widget" />';
+  const futureComponentCss =
+    ".discern-future-widget__label { color: inherit; }";
+  const futureComponentTsx = '<div className="discern-future-widget" />';
   const futureComponentClasses = new Set([
     ...selectorClassNames(futureComponentCss),
     ...implementationClassNames(futureComponentTsx),
   ]);
   assertEquals(
     componentOwnedSelectors(
-      ".ds-future-widget, .ds-future-widget__label { color: red; }",
+      ".discern-future-widget, .discern-future-widget__label { color: red; }",
       futureComponentClasses,
     ),
-    [".ds-future-widget, .ds-future-widget__label"],
+    [".discern-future-widget, .discern-future-widget__label"],
   );
 
   const componentClassNames = new Set<string>();
@@ -724,14 +815,14 @@ Deno.test("consumer styles never redefine component-owned selectors", async () =
 Deno.test("theme-aware design-system surfaces never mix semantic and fixed palette backgrounds", async () => {
   const futureSibling = `.unrelated-aurora {
     background: linear-gradient(
-      var(--ds-color-static-glow),
-      var(--ds-color-surface-sunken)
+      var(--discern-color-static-glow),
+      var(--discern-color-surface-sunken)
     );
   }`;
   assertEquals(
     themeIncoherentBackgrounds(
       futureSibling,
-      new Set(["--ds-color-static-glow"]),
+      new Set(["--discern-color-static-glow"]),
     ),
     [".unrelated-aurora"],
   );
@@ -761,8 +852,8 @@ Deno.test("numbered colour ramps preserve their roles across themes", () => {
   assertEquals(
     roleRampViolations(
       [
-        { name: "--ds-color-orbit-100", value: "oklch(90% 0.1 250)" },
-        { name: "--ds-color-orbit-200", value: "oklch(70% 0.1 250)" },
+        { name: "--discern-color-orbit-100", value: "oklch(90% 0.1 250)" },
+        { name: "--discern-color-orbit-200", value: "oklch(70% 0.1 250)" },
       ],
       [],
     ),
@@ -777,42 +868,42 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   const interStack = '"Inter", "Helvetica Neue", system-ui, sans-serif';
   assertEquals(
-    tokens.get("--ds-font-display"),
+    tokens.get("--discern-font-display"),
     '"Crimson Pro", "Iowan Old Style", Georgia, serif',
   );
-  assertEquals(tokens.get("--ds-font-body"), interStack);
-  assertEquals(tokens.get("--ds-font-ui"), interStack);
+  assertEquals(tokens.get("--discern-font-body"), interStack);
+  assertEquals(tokens.get("--discern-font-ui"), interStack);
   assertEquals(
-    tokens.get("--ds-font-features-ui"),
+    tokens.get("--discern-font-features-ui"),
     "'liga' 1, 'calt' 1, 'dlig' 1, 'tnum' 1, 'zero' 1, 'ss03' 1, 'salt' 1",
   );
-  assertEquals(tokens.get("--ds-font-size-xs"), "0.85rem");
-  assertEquals(tokens.get("--ds-font-size-sm"), "0.95rem");
-  assertEquals(tokens.get("--ds-font-size-md"), "1.05rem");
-  assertEquals(tokens.get("--ds-leading-tight"), "1.08");
-  assertEquals(tokens.get("--ds-leading-snug"), "1.3");
-  assertEquals(tokens.get("--ds-leading-body"), "1.58");
+  assertEquals(tokens.get("--discern-font-size-xs"), "0.85rem");
+  assertEquals(tokens.get("--discern-font-size-sm"), "0.95rem");
+  assertEquals(tokens.get("--discern-font-size-md"), "1.05rem");
+  assertEquals(tokens.get("--discern-leading-tight"), "1.08");
+  assertEquals(tokens.get("--discern-leading-snug"), "1.3");
+  assertEquals(tokens.get("--discern-leading-body"), "1.58");
   assertEquals(
-    tokens.get("--ds-font-mono"),
+    tokens.get("--discern-font-mono"),
     '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
   );
   assertEquals(
-    tokens.get("--ds-font-size-card-title"),
-    "var(--ds-font-size-lg)",
+    tokens.get("--discern-font-size-card-title"),
+    "var(--discern-font-size-lg)",
   );
 
   const buttonCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "core", "button", "button.css"),
   );
-  assertStringIncludes(buttonCss, "font-family: var(--ds-font-ui)");
-  assert(!buttonCss.includes("font-family: var(--ds-font-display)"));
+  assertStringIncludes(buttonCss, "font-family: var(--discern-font-ui)");
+  assert(!buttonCss.includes("font-family: var(--discern-font-display)"));
   assertStringIncludes(
     buttonCss,
-    "--ds-button-fill: var(--ds-color-accent-100)",
+    "--discern-button-fill: var(--discern-color-accent-100)",
   );
   assertStringIncludes(
     buttonCss,
-    "box-shadow: 2px 2px 0 var(--ds-button-shadow)",
+    "box-shadow: 2px 2px 0 var(--discern-button-shadow)",
   );
 
   const foundationCss = await Deno.readTextFile(
@@ -820,7 +911,7 @@ Deno.test("typography roles use the selected families and UI buttons", async () 
   );
   assertMatch(
     foundationCss,
-    /:where\(\[data-ds-root\] h1,[^}]+text-wrap:\s*pretty;/s,
+    /:where\(\[data-discern-root\] h1,[^}]+text-wrap:\s*pretty;/s,
   );
   const headingCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "heading", "heading.css"),
@@ -832,33 +923,37 @@ Deno.test("display chrome uses its intended typography and rule treatment", asyn
   const windowCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "window", "window.css"),
   );
-  const titleRule = windowCss.match(/\.ds-window__title\s*\{[^}]+\}/s)?.[0] ??
-    "";
-  assertStringIncludes(titleRule, "font-family: var(--ds-font-ui)");
+  const titleRule =
+    windowCss.match(/\.discern-window__title\s*\{[^}]+\}/s)?.[0] ??
+      "";
+  assertStringIncludes(titleRule, "font-family: var(--discern-font-ui)");
   assertStringIncludes(
     titleRule,
-    "font-feature-settings: var(--ds-font-features-ui)",
+    "font-feature-settings: var(--discern-font-features-ui)",
   );
-  assert(!titleRule.includes("var(--ds-font-mono)"));
+  assert(!titleRule.includes("var(--discern-font-mono)"));
 
   const dividerCss = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "divider", "divider.css"),
   );
   assert(!dividerCss.includes("repeating-linear-gradient"));
-  assertMatch(dividerCss, /\.ds-divider::before,[^}]+\.ds-divider::after/s);
   assertMatch(
     dividerCss,
-    /\.ds-divider__label::before\s*\{[^}]+transform:\s*rotate\(45deg\);/s,
+    /\.discern-divider::before,[^}]+\.discern-divider::after/s,
+  );
+  assertMatch(
+    dividerCss,
+    /\.discern-divider__label::before\s*\{[^}]+transform:\s*rotate\(45deg\);/s,
   );
 });
 
 Deno.test("the light sunken surface stays pale and low-chroma", () => {
   const sunken = themeTokens.find((token) =>
-    token.name === "--ds-color-surface-sunken"
+    token.name === "--discern-color-surface-sunken"
   );
   assertEquals(
     sunken?.light,
-    "oklch(96.5% 0.004 var(--ds-canvas-hue))",
+    "oklch(96.5% 0.004 var(--discern-canvas-hue))",
   );
 });
 
@@ -869,19 +964,23 @@ Deno.test("terminal renders semantic, scrollable monospace output", async () => 
       children: "$ deno task verify",
     }),
   );
-  assertStringIncludes(html, '<figure class="ds-terminal">');
-  assertStringIncludes(html, '<span class="ds-terminal__title">verify</span>');
+  assertStringIncludes(html, '<figure class="discern-terminal">');
   assertStringIncludes(
     html,
-    '<pre class="ds-terminal__body"><code>$ deno task verify</code></pre>',
+    '<span class="discern-terminal__title">verify</span>',
+  );
+  assertStringIncludes(
+    html,
+    '<pre class="discern-terminal__body"><code>$ deno task verify</code></pre>',
   );
 
   const css = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "terminal", "terminal.css"),
   );
-  const bodyRule = css.match(/\.ds-terminal__body\s*\{[^}]+\}/s)?.[0] ?? "";
+  const bodyRule = css.match(/\.discern-terminal__body\s*\{[^}]+\}/s)?.[0] ??
+    "";
   assertStringIncludes(bodyRule, "overflow: auto");
-  assertStringIncludes(bodyRule, "font-family: var(--ds-font-mono)");
+  assertStringIncludes(bodyRule, "font-family: var(--discern-font-mono)");
   assertStringIncludes(bodyRule, "white-space: pre");
 });
 
@@ -891,22 +990,22 @@ Deno.test("kicker isolates its monospace index from UI text", async () => {
   );
   assertStringIncludes(
     html,
-    '<span class="ds-kicker__index">0</span><span class="ds-kicker__text">Lorem ipsum</span>',
+    '<span class="discern-kicker__index">0</span><span class="discern-kicker__text">Lorem ipsum</span>',
   );
 
   const css = await Deno.readTextFile(
     join(COMPONENT_ROOT, "display", "kicker", "kicker.css"),
   );
-  const rootRule = css.match(/\.ds-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
-  assertStringIncludes(rootRule, "font-size: var(--ds-font-size-xs)");
-  assert(!rootRule.includes("var(--ds-font-mono)"));
+  const rootRule = css.match(/\.discern-kicker\s*\{[^}]+\}/s)?.[0] ?? "";
+  assertStringIncludes(rootRule, "font-size: var(--discern-font-size-xs)");
+  assert(!rootRule.includes("var(--discern-font-mono)"));
   assertMatch(
     css,
-    /\.ds-kicker__index\s*\{[^}]+font-family:\s*var\(--ds-font-mono\);/s,
+    /\.discern-kicker__index\s*\{[^}]+font-family:\s*var\(--discern-font-mono\);/s,
   );
   assertMatch(
     css,
-    /\.ds-kicker__text\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);[^}]+font-feature-settings:\s*var\(--ds-font-features-ui\);/s,
+    /\.discern-kicker__text\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);[^}]+font-feature-settings:\s*var\(--discern-font-features-ui\);/s,
   );
 });
 
@@ -920,9 +1019,9 @@ Deno.test("every authored UI font rule enables the shared Inter features", async
     const source = await Deno.readTextFile(join(ROOT, path));
     for (const declarations of leafDeclarationBlocks(source)) {
       if (
-        declarations.includes("var(--ds-font-ui)") &&
+        declarations.includes("var(--discern-font-ui)") &&
         !declarations.includes(
-          "font-feature-settings: var(--ds-font-features-ui);",
+          "font-feature-settings: var(--discern-font-features-ui);",
         )
       ) {
         violations.push(path);
@@ -943,9 +1042,13 @@ Deno.test("component labels and compact UI use the UI font", async () => {
     ]
   ) {
     const css = await Deno.readTextFile(join(COMPONENT_ROOT, ...component));
-    assertStringIncludes(css, "var(--ds-font-ui)", component.join("/"));
-    assertStringIncludes(css, "var(--ds-font-size-xs)", component.join("/"));
-    assert(!css.includes("var(--ds-font-mono)"), component.join("/"));
+    assertStringIncludes(css, "var(--discern-font-ui)", component.join("/"));
+    assertStringIncludes(
+      css,
+      "var(--discern-font-size-xs)",
+      component.join("/"),
+    );
+    assert(!css.includes("var(--discern-font-mono)"), component.join("/"));
     assert(!css.includes("letter-spacing"), component.join("/"));
     assert(!css.includes("text-transform: uppercase"), component.join("/"));
   }
@@ -957,11 +1060,11 @@ Deno.test("card titles and marketing figures use the UI font", async () => {
   );
   assertMatch(
     cardCss,
-    /\.ds-card :where\([^}]+font-family:\s*var\(--ds-font-ui\);/s,
+    /\.discern-card :where\([^}]+font-family:\s*var\(--discern-font-ui\);/s,
   );
   assertMatch(
     cardCss,
-    /\.ds-card :where\([^}]+font-size:\s*var\(--ds-font-size-card-title\);[^}]+font-weight:\s*600;/s,
+    /\.discern-card :where\([^}]+font-size:\s*var\(--discern-font-size-card-title\);[^}]+font-weight:\s*600;/s,
   );
 
   const bentoCss = await Deno.readTextFile(
@@ -974,7 +1077,7 @@ Deno.test("card titles and marketing figures use the UI font", async () => {
   );
   assertMatch(
     bentoCss,
-    /\.ds-feature-bento__item h3\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+    /\.discern-feature-bento__item h3\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);/s,
   );
 
   const metricsCss = await Deno.readTextFile(
@@ -987,7 +1090,7 @@ Deno.test("card titles and marketing figures use the UI font", async () => {
   );
   assertMatch(
     metricsCss,
-    /\.ds-metrics-band__list dd\s*\{[^}]+font-family:\s*var\(--ds-font-ui\);/s,
+    /\.discern-metrics-band__list dd\s*\{[^}]+font-family:\s*var\(--discern-font-ui\);/s,
   );
 
   const styleguideCss = await Deno.readTextFile(
@@ -1010,9 +1113,9 @@ Deno.test("the one grain wash retains the reference motif", async () => {
     join(ROOT, "site", "design-system", "src", "styles", "utilities.css"),
   );
   assertStringIncludes(css, "radial-gradient(110% 72% at 50% -8%");
-  assertStringIncludes(css, "var(--ds-color-accent-300) 85%, transparent");
-  assertStringIncludes(css, "var(--ds-color-accent-200) 90%");
-  assertStringIncludes(css, "var(--ds-color-canvas) 82%");
+  assertStringIncludes(css, "var(--discern-color-accent-300) 85%, transparent");
+  assertStringIncludes(css, "var(--discern-color-accent-200) 90%");
+  assertStringIncludes(css, "var(--discern-color-canvas) 82%");
   assertMatch(css, /background-size:\s*200px 200px/);
   assertMatch(css, /mix-blend-mode:\s*overlay/);
   assertMatch(css, /opacity:\s*0\.38/);
@@ -1050,7 +1153,7 @@ Deno.test("the public demos ship static HTML and local runtime assets only", asy
     ] as const
   ) {
     const html = await Deno.readTextFile(join(ROOT, "site", "pages", page));
-    assertStringIncludes(html, "data-ds-root");
+    assertStringIncludes(html, "data-discern-root");
     assertStringIncludes(html, marker);
 
     const runtimeRefs = runtimeAssetReferences(html);

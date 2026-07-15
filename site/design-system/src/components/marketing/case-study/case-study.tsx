@@ -39,29 +39,33 @@ export const CaseStudy = forwardRef<HTMLElement, CaseStudyProps>(
       <article
         ref={ref}
         className={classNames(
-          "ds-case-study",
-          reverse && "ds-case-study--reverse",
+          "discern-case-study",
+          reverse && "discern-case-study--reverse",
           className,
         )}
         {...props}
       >
-        <div className="ds-case-study__inner">
-          <div className="ds-case-study__story">
+        <div className="discern-case-study__inner">
+          <div className="discern-case-study__story">
             {eyebrow
-              ? <div className="ds-case-study__eyebrow">{eyebrow}</div>
+              ? <div className="discern-case-study__eyebrow">{eyebrow}</div>
               : null}
             <h2>{title}</h2>
-            <div className="ds-case-study__summary">{summary}</div>
-            {body ? <div className="ds-case-study__body">{body}</div> : null}
+            <div className="discern-case-study__summary">{summary}</div>
+            {body
+              ? <div className="discern-case-study__body">{body}</div>
+              : null}
             {action
-              ? <div className="ds-case-study__action">{action}</div>
+              ? <div className="discern-case-study__action">{action}</div>
               : null}
           </div>
-          <aside className="ds-case-study__evidence">
-            {media ? <div className="ds-case-study__media">{media}</div> : null}
+          <aside className="discern-case-study__evidence">
+            {media
+              ? <div className="discern-case-study__media">{media}</div>
+              : null}
             {stats.length
               ? (
-                <dl className="ds-case-study__stats">
+                <dl className="discern-case-study__stats">
                   {stats.map((stat, index) => (
                     <div key={index}>
                       <dd>{stat.value}</dd>

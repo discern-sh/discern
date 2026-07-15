@@ -31,16 +31,16 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
     return (
       <nav
         ref={ref}
-        className={classNames("ds-table-of-contents", className)}
+        className={classNames("discern-table-of-contents", className)}
         aria-label={label}
         {...props}
       >
-        <strong className="ds-table-of-contents__title">{title}</strong>
+        <strong className="discern-table-of-contents__title">{title}</strong>
         <ol>
           {items.map((item, index) => (
             <li
               className={classNames(
-                item.current && "ds-table-of-contents__item--current",
+                item.current && "discern-table-of-contents__item--current",
               )}
               key={item.href}
             >
@@ -55,7 +55,11 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
           ))}
         </ol>
         {progress
-          ? <div className="ds-table-of-contents__progress">{progress}</div>
+          ? (
+            <div className="discern-table-of-contents__progress">
+              {progress}
+            </div>
+          )
           : null}
       </nav>
     );

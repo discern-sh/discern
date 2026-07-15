@@ -34,29 +34,35 @@ export const CtaBand = forwardRef<HTMLElement, CtaBandProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-cta-band",
-          `ds-cta-band--${tone}`,
-          `ds-cta-band--${align}`,
-          Boolean(visual) && "ds-cta-band--with-visual",
+          "discern-cta-band",
+          `discern-cta-band--${tone}`,
+          `discern-cta-band--${align}`,
+          Boolean(visual) && "discern-cta-band--with-visual",
           className,
         )}
         {...props}
       >
-        <div className="ds-cta-band__inner">
-          <div className="ds-cta-band__content">
+        <div className="discern-cta-band__inner">
+          <div className="discern-cta-band__content">
             {eyebrow
-              ? <div className="ds-cta-band__eyebrow">{eyebrow}</div>
+              ? <div className="discern-cta-band__eyebrow">{eyebrow}</div>
               : null}
             <h2>{title}</h2>
             {description
-              ? <div className="ds-cta-band__description">{description}</div>
+              ? (
+                <div className="discern-cta-band__description">
+                  {description}
+                </div>
+              )
               : null}
             {actions
-              ? <div className="ds-cta-band__actions">{actions}</div>
+              ? <div className="discern-cta-band__actions">{actions}</div>
               : null}
-            {note ? <div className="ds-cta-band__note">{note}</div> : null}
+            {note ? <div className="discern-cta-band__note">{note}</div> : null}
           </div>
-          {visual ? <div className="ds-cta-band__visual">{visual}</div> : null}
+          {visual
+            ? <div className="discern-cta-band__visual">{visual}</div>
+            : null}
         </div>
       </section>
     );

@@ -1,44 +1,44 @@
 @layer discern.components {
-  .ds-window {
+  .discern-window {
     overflow: hidden;
     margin: 0;
-    border: 1px solid var(--ds-color-border-strong);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-surface);
-    box-shadow: var(--ds-shadow-window);
+    border: 1px solid var(--discern-color-border-strong);
+    border-radius: var(--discern-radius-lg);
+    background: var(--discern-color-surface);
+    box-shadow: var(--discern-shadow-window);
   }
-  .ds-window__bar {
+  .discern-window__bar {
     position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
     min-block-size: 38px;
     padding-inline: 13px;
-    border-block-end: 1px solid var(--ds-color-border);
-    background: color-mix(in oklab, var(--ds-color-canvas) 55%,
-      var(--ds-color-surface));
+    border-block-end: 1px solid var(--discern-color-border);
+    background: color-mix(in oklab, var(--discern-color-canvas) 55%,
+      var(--discern-color-surface));
   }
-  .ds-window__dot {
+  .discern-window__dot {
     inline-size: 8px;
     block-size: 8px;
     border-radius: 50%;
-    background: var(--ds-color-stripe);
+    background: var(--discern-color-stripe);
   }
-  .ds-window__title {
+  .discern-window__title {
     position: absolute;
     inset-inline: 70px;
     overflow: hidden;
-    color: var(--ds-color-ink-faint);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+    color: var(--discern-color-ink-faint);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
     letter-spacing: 0.05em;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .ds-window__body {
+  .discern-window__body {
     min-block-size: 80px;
-    background: var(--ds-color-surface);
+    background: var(--discern-color-surface);
   }
 }

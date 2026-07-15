@@ -18,17 +18,21 @@ export function Field(
   return (
     <div
       className={classNames(
-        "ds-field",
-        Boolean(error) && "ds-field--invalid",
+        "discern-field",
+        Boolean(error) && "discern-field--invalid",
         className,
       )}
     >
       {label
         ? (
-          <label className="ds-field__label" htmlFor={controlId}>
+          <label className="discern-field__label" htmlFor={controlId}>
             {label}
             {required
-              ? <span className="ds-field__required" aria-hidden="true">*</span>
+              ? (
+                <span className="discern-field__required" aria-hidden="true">
+                  *
+                </span>
+              )
               : null}
           </label>
         )
@@ -37,7 +41,7 @@ export function Field(
       {error
         ? (
           <span
-            className="ds-field__message ds-field__message--error"
+            className="discern-field__message discern-field__message--error"
             id={`${controlId}-error`}
           >
             {error}
@@ -45,7 +49,7 @@ export function Field(
         )
         : hint
         ? (
-          <span className="ds-field__message" id={`${controlId}-hint`}>
+          <span className="discern-field__message" id={`${controlId}-hint`}>
             {hint}
           </span>
         )

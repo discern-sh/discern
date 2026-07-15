@@ -39,33 +39,33 @@ export const SplitFeature = forwardRef<HTMLElement, SplitFeatureProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-split-feature",
-          reverse && "ds-split-feature--reverse",
-          `ds-split-feature--${surface}`,
+          "discern-split-feature",
+          reverse && "discern-split-feature--reverse",
+          `discern-split-feature--${surface}`,
           className,
         )}
         {...props}
       >
-        <div className="ds-split-feature__inner">
-          <div className="ds-split-feature__content">
+        <div className="discern-split-feature__inner">
+          <div className="discern-split-feature__content">
             {eyebrow
-              ? <div className="ds-split-feature__eyebrow">{eyebrow}</div>
+              ? <div className="discern-split-feature__eyebrow">{eyebrow}</div>
               : null}
             <h2>{title}</h2>
             {description
               ? (
-                <div className="ds-split-feature__description">
+                <div className="discern-split-feature__description">
                   {description}
                 </div>
               )
               : null}
             {points.length
               ? (
-                <ul className="ds-split-feature__points">
+                <ul className="discern-split-feature__points">
                   {points.map((point, index) => (
                     <li key={index}>
                       <span
-                        className="ds-split-feature__check"
+                        className="discern-split-feature__check"
                         aria-hidden="true"
                       >
                         ✓
@@ -82,10 +82,10 @@ export const SplitFeature = forwardRef<HTMLElement, SplitFeatureProps>(
               )
               : null}
             {actions
-              ? <div className="ds-split-feature__actions">{actions}</div>
+              ? <div className="discern-split-feature__actions">{actions}</div>
               : null}
           </div>
-          <div className="ds-split-feature__media">{media}</div>
+          <div className="discern-split-feature__media">{media}</div>
         </div>
       </section>
     );

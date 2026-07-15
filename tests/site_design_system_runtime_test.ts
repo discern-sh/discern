@@ -28,7 +28,7 @@ Deno.test("the design-system demo routes serve generated static editions", async
       "text/html",
     );
     const html = await response.text();
-    assertStringIncludes(html, "data-ds-root");
+    assertStringIncludes(html, "data-discern-root");
     assertStringIncludes(html, marker);
 
     const runtimeRefs = runtimeAssetReferences(html);

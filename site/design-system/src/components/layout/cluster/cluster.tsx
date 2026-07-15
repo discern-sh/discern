@@ -3,7 +3,9 @@ import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { classNames } from "../../class-names.ts";
 import { spaceValue } from "../space.ts";
 import type { SpaceStep } from "../space.ts";
-type ClusterStyle = CSSProperties & { readonly "--ds-cluster-gap"?: string };
+type ClusterStyle = CSSProperties & {
+  readonly "--discern-cluster-gap"?: string;
+};
 export interface ClusterProps extends HTMLAttributes<HTMLDivElement> {
   readonly gap?: SpaceStep;
   readonly align?: "start" | "center" | "end" | "baseline" | "stretch";
@@ -24,16 +26,16 @@ export const Cluster = forwardRef<HTMLDivElement, ClusterProps>(
     ref,
   ) {
     const clusterStyle: ClusterStyle = {
-      "--ds-cluster-gap": spaceValue(gap),
+      "--discern-cluster-gap": spaceValue(gap),
       ...style,
     };
     return (
       <div
         ref={ref}
         className={classNames(
-          "ds-cluster",
-          `ds-cluster--align-${align}`,
-          `ds-cluster--justify-${justify}`,
+          "discern-cluster",
+          `discern-cluster--align-${align}`,
+          `discern-cluster--justify-${justify}`,
           className,
         )}
         style={clusterStyle}

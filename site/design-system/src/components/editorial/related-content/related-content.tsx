@@ -27,18 +27,18 @@ export const RelatedContent = forwardRef<HTMLElement, RelatedContentProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-related-content",
-          `ds-related-content--${surface}`,
+          "discern-related-content",
+          `discern-related-content--${surface}`,
           className,
         )}
         {...props}
       >
-        <div className="ds-related-content__inner">
+        <div className="discern-related-content__inner">
           <header>
             {eyebrow ? <span>{eyebrow}</span> : null}
             <h2>{title}</h2>
           </header>
-          <div className="ds-related-content__grid">
+          <div className="discern-related-content__grid">
             {items.map((item, index) => (
               <article key={index}>
                 {item.eyebrow ? <span>{item.eyebrow}</span> : null}
@@ -47,7 +47,7 @@ export const RelatedContent = forwardRef<HTMLElement, RelatedContentProps>(
                 </h3>
                 {item.description
                   ? (
-                    <div className="ds-related-content__description">
+                    <div className="discern-related-content__description">
                       {item.description}
                     </div>
                   )

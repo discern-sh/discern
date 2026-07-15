@@ -1,55 +1,55 @@
 @layer discern.components {
-  .ds-toast-region {
+  .discern-toast-region {
     position: fixed;
     z-index: 100;
-    inset-block-end: var(--ds-space-6);
-    inset-inline: var(--ds-space-6);
+    inset-block-end: var(--discern-space-6);
+    inset-inline: var(--discern-space-6);
     display: grid;
     justify-items: center;
-    gap: var(--ds-space-3);
+    gap: var(--discern-space-3);
     pointer-events: none;
   }
-  .ds-toast {
-    --ds-toast-accent: var(--ds-color-border-strong);
+  .discern-toast {
+    --discern-toast-accent: var(--discern-color-border-strong);
     display: flex;
     align-items: center;
     gap: 10px;
     width: fit-content;
     max-inline-size: min(30rem, 100%);
     padding: 11px 12px 11px 14px;
-    border: 1px solid var(--ds-toast-accent);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-surface);
-    box-shadow: var(--ds-shadow-pop);
-    color: var(--ds-color-ink);
+    border: 1px solid var(--discern-toast-accent);
+    border-radius: var(--discern-radius-md);
+    background: var(--discern-color-surface);
+    box-shadow: var(--discern-shadow-pop);
+    color: var(--discern-color-ink);
     pointer-events: auto;
-    font-size: var(--ds-font-size-xs);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-toast--success {
-    --ds-toast-accent: var(--ds-color-success);
+  .discern-toast--success {
+    --discern-toast-accent: var(--discern-color-success);
   }
-  .ds-toast--warning {
-    --ds-toast-accent: var(--ds-color-warning);
+  .discern-toast--warning {
+    --discern-toast-accent: var(--discern-color-warning);
   }
-  .ds-toast--danger {
-    --ds-toast-accent: var(--ds-color-danger);
+  .discern-toast--danger {
+    --discern-toast-accent: var(--discern-color-danger);
   }
-  .ds-toast__icon {
+  .discern-toast__icon {
     display: grid;
     flex: none;
     place-items: center;
     inline-size: 17px;
     block-size: 17px;
-    color: var(--ds-toast-accent);
+    color: var(--discern-toast-accent);
   }
-  .ds-toast__icon > :where(svg, img) {
+  .discern-toast__icon > :where(svg, img) {
     inline-size: 100%;
     block-size: 100%;
   }
-  .ds-toast__content {
+  .discern-toast__content {
     min-inline-size: 0;
   }
-  .ds-toast__dismiss {
+  .discern-toast__dismiss {
     display: grid;
     place-items: center;
     inline-size: 26px;
@@ -57,16 +57,16 @@
     margin-inline-start: 4px;
     padding: 0;
     border: 0;
-    border-radius: var(--ds-radius-xs);
+    border-radius: var(--discern-radius-xs);
     background: transparent;
-    color: var(--ds-color-ink-muted);
+    color: var(--discern-color-ink-muted);
     cursor: pointer;
     font-size: 1.1rem;
   }
-  .ds-toast__dismiss:hover,
-  .ds-toast__dismiss:focus-visible {
-    background: var(--ds-color-surface-sunken);
-    color: var(--ds-color-ink);
+  .discern-toast__dismiss:hover,
+  .discern-toast__dismiss:focus-visible {
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-ink);
     outline: none;
   }
 }

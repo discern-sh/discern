@@ -4,8 +4,8 @@ import { Button } from "./button.tsx";
 
 export default function ButtonExamples() {
   return (
-    <div className="ds-example-stack">
-      <div className="ds-example-row">
+    <div className="discern-example-stack">
+      <div className="discern-example-row">
         <Button leadingIcon={<ExampleIcon name="spark" />}>
           {fixtureCopy.shortLabel}
         </Button>
@@ -15,7 +15,7 @@ export default function ButtonExamples() {
         </Button>
         <Button variant="danger">Danger</Button>
       </div>
-      <div className="ds-example-row">
+      <div className="discern-example-row">
         <Button size="sm">Small</Button>
         <Button size="lg">Large</Button>
         <Button disabled>Disabled</Button>

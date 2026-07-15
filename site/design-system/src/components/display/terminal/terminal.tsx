@@ -14,19 +14,21 @@ export const Terminal = forwardRef<HTMLElement, TerminalProps>(
     return (
       <figure
         ref={ref}
-        className={classNames("ds-terminal", className)}
+        className={classNames("discern-terminal", className)}
         {...props}
       >
         <div
-          className="ds-terminal__bar"
+          className="discern-terminal__bar"
           aria-hidden={title ? undefined : true}
         >
-          <span className="ds-terminal__dot" />
-          <span className="ds-terminal__dot" />
-          <span className="ds-terminal__dot" />
-          {title ? <span className="ds-terminal__title">{title}</span> : null}
+          <span className="discern-terminal__dot" />
+          <span className="discern-terminal__dot" />
+          <span className="discern-terminal__dot" />
+          {title
+            ? <span className="discern-terminal__title">{title}</span>
+            : null}
         </div>
-        <pre className="ds-terminal__body" style={bodyStyle}>
+        <pre className="discern-terminal__body" style={bodyStyle}>
           <code>{children}</code>
         </pre>
       </figure>

@@ -3,7 +3,7 @@ import { IconButton } from "./icon-button.tsx";
 
 export default function IconButtonExamples() {
   return (
-    <div className="ds-example-row">
+    <div className="discern-example-row">
       <IconButton icon={<ExampleIcon name="moon" />} label="Toggle theme" />
       <IconButton
         icon={<ExampleIcon name="info" />}

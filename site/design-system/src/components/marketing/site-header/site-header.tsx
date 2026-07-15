@@ -38,19 +38,21 @@ export const SiteHeader = forwardRef<HTMLElement, SiteHeaderProps>(
       <header
         ref={ref}
         className={classNames(
-          "ds-site-header",
-          sticky && "ds-site-header--sticky",
-          Boolean(notice) && "ds-site-header--with-notice",
+          "discern-site-header",
+          sticky && "discern-site-header--sticky",
+          Boolean(notice) && "discern-site-header--with-notice",
           className,
         )}
         {...props}
       >
-        {notice ? <div className="ds-site-header__notice">{notice}</div> : null}
-        <div className="ds-site-header__inner">
-          <a className="ds-site-header__brand" href={homeHref}>
+        {notice
+          ? <div className="discern-site-header__notice">{notice}</div>
+          : null}
+        <div className="discern-site-header__inner">
+          <a className="discern-site-header__brand" href={homeHref}>
             {brandMark
               ? (
-                <span className="ds-site-header__mark" aria-hidden="true">
+                <span className="discern-site-header__mark" aria-hidden="true">
                   {brandMark}
                 </span>
               )
@@ -59,7 +61,7 @@ export const SiteHeader = forwardRef<HTMLElement, SiteHeaderProps>(
           </a>
           {navItems.length
             ? (
-              <nav className="ds-site-header__nav" aria-label={navLabel}>
+              <nav className="discern-site-header__nav" aria-label={navLabel}>
                 {navItems.map((item) => (
                   <a href={item.href} key={item.href}>{item.label}</a>
                 ))}
@@ -67,7 +69,7 @@ export const SiteHeader = forwardRef<HTMLElement, SiteHeaderProps>(
             )
             : null}
           {actions
-            ? <div className="ds-site-header__actions">{actions}</div>
+            ? <div className="discern-site-header__actions">{actions}</div>
             : null}
         </div>
       </header>

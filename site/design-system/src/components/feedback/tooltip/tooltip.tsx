@@ -27,14 +27,14 @@ export const Tooltip = forwardRef<HTMLSpanElement, TooltipProps>(
       <span
         ref={ref}
         className={classNames(
-          "ds-tooltip",
-          `ds-tooltip--${placement}`,
+          "discern-tooltip",
+          `discern-tooltip--${placement}`,
           className,
         )}
         {...props}
       >
         {trigger}
-        <span id={tooltipId} role="tooltip" className="ds-tooltip__bubble">
+        <span id={tooltipId} role="tooltip" className="discern-tooltip__bubble">
           {label}
         </span>
       </span>

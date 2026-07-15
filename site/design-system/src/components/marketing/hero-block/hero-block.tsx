@@ -37,30 +37,36 @@ export const HeroBlock = forwardRef<HTMLElement, HeroBlockProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-hero-block",
-          `ds-hero-block--${layout}`,
-          `ds-hero-block--${surface}`,
-          !visual && "ds-hero-block--without-visual",
+          "discern-hero-block",
+          `discern-hero-block--${layout}`,
+          `discern-hero-block--${surface}`,
+          !visual && "discern-hero-block--without-visual",
           className,
         )}
         {...props}
       >
-        <div className="ds-hero-block__inner">
-          <div className="ds-hero-block__content">
+        <div className="discern-hero-block__inner">
+          <div className="discern-hero-block__content">
             {eyebrow
-              ? <div className="ds-hero-block__eyebrow">{eyebrow}</div>
+              ? <div className="discern-hero-block__eyebrow">{eyebrow}</div>
               : null}
-            <Heading className="ds-hero-block__title">{title}</Heading>
+            <Heading className="discern-hero-block__title">{title}</Heading>
             {description
-              ? <div className="ds-hero-block__description">{description}</div>
+              ? (
+                <div className="discern-hero-block__description">
+                  {description}
+                </div>
+              )
               : null}
             {actions
-              ? <div className="ds-hero-block__actions">{actions}</div>
+              ? <div className="discern-hero-block__actions">{actions}</div>
               : null}
-            {meta ? <div className="ds-hero-block__meta">{meta}</div> : null}
+            {meta
+              ? <div className="discern-hero-block__meta">{meta}</div>
+              : null}
           </div>
           {visual
-            ? <div className="ds-hero-block__visual">{visual}</div>
+            ? <div className="discern-hero-block__visual">{visual}</div>
             : null}
         </div>
       </section>

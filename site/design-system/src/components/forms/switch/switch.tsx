@@ -25,13 +25,16 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
     const describedBy =
       [ariaDescribedBy, descriptionId].filter(Boolean).join(" ") || undefined;
     return (
-      <div className={classNames("ds-switch", className)}>
-        <label className="ds-switch__label" htmlFor={controlId}>
+      <div className={classNames("discern-switch", className)}>
+        <label className="discern-switch__label" htmlFor={controlId}>
           <span>
-            <span className="ds-switch__text">{label}</span>
+            <span className="discern-switch__text">{label}</span>
             {description
               ? (
-                <span className="ds-switch__description" id={descriptionId}>
+                <span
+                  className="discern-switch__description"
+                  id={descriptionId}
+                >
                   {description}
                 </span>
               )
@@ -45,7 +48,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
             aria-describedby={describedBy}
             {...props}
           />
-          <span className="ds-switch__track" aria-hidden="true">
+          <span className="discern-switch__track" aria-hidden="true">
             <span />
           </span>
         </label>

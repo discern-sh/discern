@@ -30,12 +30,12 @@ export const CodeListing = forwardRef<HTMLElement, CodeListingProps>(
     return (
       <figure
         ref={ref}
-        className={classNames("ds-code-listing", className)}
+        className={classNames("discern-code-listing", className)}
         {...props}
       >
         {title || filename || language
           ? (
-            <header className="ds-code-listing__header">
+            <header className="discern-code-listing__header">
               <span>
                 <i aria-hidden="true" />
                 <i aria-hidden="true" />
@@ -46,14 +46,14 @@ export const CodeListing = forwardRef<HTMLElement, CodeListingProps>(
             </header>
           )
           : null}
-        <pre className="ds-code-listing__body" data-language={language}>
+        <pre className="discern-code-listing__body" data-language={language}>
           <code>
             {lines.map((line, index) => (
               <span
                 className={classNames(
-                  "ds-code-listing__line",
+                  "discern-code-listing__line",
                   highlightLines.includes(index + 1) &&
-                    "ds-code-listing__line--highlighted",
+                    "discern-code-listing__line--highlighted",
                 )}
                 data-line={index + 1}
                 key={index}

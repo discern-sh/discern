@@ -22,7 +22,7 @@ export const Footnotes = forwardRef<HTMLElement, FootnotesProps>(
     return (
       <section
         ref={ref}
-        className={classNames("ds-footnotes", className)}
+        className={classNames("discern-footnotes", className)}
         {...props}
       >
         <header>

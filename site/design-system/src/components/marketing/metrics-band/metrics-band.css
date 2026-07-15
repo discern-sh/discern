@@ -1,96 +1,97 @@
 @layer discern.components {
-  .ds-metrics-band {
+  .discern-metrics-band {
     padding-block: clamp(3.5rem, 7vw, 5.5rem);
-    border-block: 1px solid var(--ds-color-border);
-    background: var(--ds-color-surface);
+    border-block: 1px solid var(--discern-color-border);
+    background: var(--discern-color-surface);
   }
-  .ds-metrics-band--accent {
-    border-color: var(--ds-color-accent-300);
-    background: var(--ds-color-accent-100);
+  .discern-metrics-band--accent {
+    border-color: var(--discern-color-accent-300);
+    background: var(--discern-color-accent-100);
   }
-  .ds-metrics-band--contrast {
+  .discern-metrics-band--contrast {
     border-color: transparent;
-    background: var(--ds-color-inverse-surface);
-    color: var(--ds-color-inverse-ink);
+    background: var(--discern-color-inverse-surface);
+    color: var(--discern-color-inverse-ink);
   }
-  .ds-metrics-band__inner {
+  .discern-metrics-band__inner {
     display: grid;
     grid-template-columns: minmax(12rem, 0.65fr) minmax(0, 1.35fr);
-    gap: var(--ds-space-12);
+    gap: var(--discern-space-12);
     align-items: end;
-    width: min(100% - 2 * var(--ds-space-6), var(--ds-page-max));
+    width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));
     margin-inline: auto;
   }
-  .ds-metrics-band__header h2 {
+  .discern-metrics-band__header h2 {
     max-width: 11ch;
     margin: 0;
-    font-size: var(--ds-font-size-display-md);
+    font-size: var(--discern-font-size-display-md);
   }
-  .ds-metrics-band--contrast .ds-metrics-band__header h2 {
+  .discern-metrics-band--contrast .discern-metrics-band__header h2 {
     color: inherit;
   }
-  .ds-metrics-band__eyebrow {
-    margin-block-end: var(--ds-space-3);
-    color: var(--ds-color-accent-600);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-strong);
+  .discern-metrics-band__eyebrow {
+    margin-block-end: var(--discern-space-3);
+    color: var(--discern-color-accent-600);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
+    font-weight: var(--discern-font-weight-strong);
   }
-  .ds-metrics-band__list {
+  .discern-metrics-band__list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     margin: 0;
   }
-  .ds-metrics-band__list > div {
+  .discern-metrics-band__list > div {
     min-width: 0;
-    padding-inline: var(--ds-space-6);
+    padding-inline: var(--discern-space-6);
   }
-  .ds-metrics-band__list > div + div {
-    border-inline-start: 1px solid var(--ds-color-border);
+  .discern-metrics-band__list > div + div {
+    border-inline-start: 1px solid var(--discern-color-border);
   }
-  .ds-metrics-band--contrast .ds-metrics-band__list > div + div {
-    border-color: color-mix(in oklab, var(--ds-color-inverse-ink) 22%,
+  .discern-metrics-band--contrast .discern-metrics-band__list > div + div {
+    border-color: color-mix(in oklab, var(--discern-color-inverse-ink) 22%,
       transparent);
   }
-  .ds-metrics-band__list dd {
+  .discern-metrics-band__list dd {
     margin: 0;
-    color: var(--ds-color-accent-600);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
+    color: var(--discern-color-accent-600);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
     font-size: clamp(2.3rem, 5vw, 3.65rem);
-    font-weight: var(--ds-font-weight-strong);
+    font-weight: var(--discern-font-weight-strong);
     letter-spacing: -0.04em;
     line-height: 1;
   }
-  .ds-metrics-band--contrast .ds-metrics-band__list dd,
-  .ds-metrics-band--contrast .ds-metrics-band__eyebrow {
-    color: var(--ds-color-inverse-ink);
+  .discern-metrics-band--contrast .discern-metrics-band__list dd,
+  .discern-metrics-band--contrast .discern-metrics-band__eyebrow {
+    color: var(--discern-color-inverse-ink);
   }
-  .ds-metrics-band__list dt {
-    margin-block-start: var(--ds-space-3);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-strong);
+  .discern-metrics-band__list dt {
+    margin-block-start: var(--discern-space-3);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-sm);
+    font-weight: var(--discern-font-weight-strong);
   }
-  .ds-metrics-band__detail {
-    margin-block-start: var(--ds-space-1);
-    color: var(--ds-color-ink-faint);
-    font-size: var(--ds-font-size-xs);
+  .discern-metrics-band__detail {
+    margin-block-start: var(--discern-space-1);
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-metrics-band--contrast .ds-metrics-band__detail {
-    color: color-mix(in oklab, var(--ds-color-inverse-ink) 68%, transparent);
+  .discern-metrics-band--contrast .discern-metrics-band__detail {
+    color: color-mix(in oklab, var(--discern-color-inverse-ink) 68%,
+      transparent);
   }
   @media (max-width: 760px) {
-    .ds-metrics-band__inner {
+    .discern-metrics-band__inner {
       grid-template-columns: 1fr;
     }
-    .ds-metrics-band__list {
+    .discern-metrics-band__list {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--ds-space-8) 0;
+      gap: var(--discern-space-8) 0;
     }
-    .ds-metrics-band__list > div:nth-child(odd) {
+    .discern-metrics-band__list > div:nth-child(odd) {
       padding-inline-start: 0;
       border-inline-start: 0;
     }

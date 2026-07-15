@@ -3,7 +3,7 @@ import { IconButton } from "../../core/icon-button/icon-button.tsx";
 import { Tooltip } from "./tooltip.tsx";
 export default function TooltipExamples() {
   return (
-    <div className="ds-example-row">
+    <div className="discern-example-row">
       <Tooltip label="Lorem ipsum dolor">
         <IconButton
           icon={<ExampleIcon name="info" />}
@@ -12,7 +12,7 @@ export default function TooltipExamples() {
         />
       </Tooltip>
       <Tooltip label="Consectetur adipiscing" placement="bottom">
-        <button className="ds-text-trigger" type="button">
+        <button className="discern-text-trigger" type="button">
           Focus or hover
         </button>
       </Tooltip>

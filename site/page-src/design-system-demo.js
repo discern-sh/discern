@@ -7,15 +7,15 @@
   const themeLabel = document.querySelector("[data-theme-label]");
 
   const reflectTheme = () => {
-    const dark = root.dataset.dsTheme === "dark";
+    const dark = root.dataset.discernTheme === "dark";
     if (themeLabel) themeLabel.textContent = dark ? "Light" : "Dark";
     if (themeButton) themeButton.setAttribute("aria-pressed", String(dark));
   };
 
   if (themeButton) {
     themeButton.addEventListener("click", () => {
-      const dark = root.dataset.dsTheme !== "dark";
-      root.dataset.dsTheme = dark ? "dark" : "light";
+      const dark = root.dataset.discernTheme !== "dark";
+      root.dataset.discernTheme = dark ? "dark" : "light";
       try {
         localStorage.setItem("discern-theme", dark ? "dark" : "light");
       } catch {

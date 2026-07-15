@@ -26,7 +26,7 @@ export const Timeline = forwardRef<HTMLElement, TimelineProps>(
     return (
       <section
         ref={ref}
-        className={classNames("ds-timeline", className)}
+        className={classNames("discern-timeline", className)}
         {...props}
       >
         <header>
@@ -37,12 +37,12 @@ export const Timeline = forwardRef<HTMLElement, TimelineProps>(
         <ol>
           {items.map((item, index) => (
             <li
-              className={`ds-timeline__item--${item.status ?? "upcoming"}`}
+              className={`discern-timeline__item--${item.status ?? "upcoming"}`}
               key={index}
             >
-              <div className="ds-timeline__date">{item.date}</div>
-              <span className="ds-timeline__marker" aria-hidden="true" />
-              <div className="ds-timeline__content">
+              <div className="discern-timeline__date">{item.date}</div>
+              <span className="discern-timeline__marker" aria-hidden="true" />
+              <div className="discern-timeline__content">
                 <h3>{item.title}</h3>
                 <div>{item.description}</div>
                 {item.detail ? <small>{item.detail}</small> : null}

@@ -1,106 +1,106 @@
 @layer discern.components {
-  .ds-button {
-    --ds-button-fill: var(--ds-color-accent-100);
-    --ds-button-fill-hover: var(--ds-color-accent-200);
-    --ds-button-border: var(--ds-color-accent-600);
-    --ds-button-text: var(--ds-color-accent-800);
-    --ds-button-shadow: var(--ds-color-accent-600);
+  .discern-button {
+    --discern-button-fill: var(--discern-color-accent-100);
+    --discern-button-fill-hover: var(--discern-color-accent-200);
+    --discern-button-border: var(--discern-color-accent-600);
+    --discern-button-text: var(--discern-color-accent-800);
+    --discern-button-shadow: var(--discern-color-accent-600);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--ds-space-2);
+    gap: var(--discern-space-2);
     min-block-size: 40px;
-    padding: 0 var(--ds-space-5);
-    border: 2px solid var(--ds-button-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-button-fill);
-    box-shadow: 2px 2px 0 var(--ds-button-shadow);
-    color: var(--ds-button-text);
+    padding: 0 var(--discern-space-5);
+    border: 2px solid var(--discern-button-border);
+    border-radius: var(--discern-radius-md);
+    background: var(--discern-button-fill);
+    box-shadow: 2px 2px 0 var(--discern-button-shadow);
+    color: var(--discern-button-text);
     cursor: pointer;
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-sm);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-sm);
     font-weight: 600;
     line-height: 1;
     text-decoration: none;
-    transition: background var(--ds-duration-fast), box-shadow
-      var(--ds-duration-fast), transform var(--ds-duration-fast);
+    transition: background var(--discern-duration-fast), box-shadow
+      var(--discern-duration-fast), transform var(--discern-duration-fast);
   }
-  .ds-button:hover {
-    background: var(--ds-button-fill-hover);
+  .discern-button:hover {
+    background: var(--discern-button-fill-hover);
   }
-  .ds-button:active {
+  .discern-button:active {
     transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--ds-button-shadow);
+    box-shadow: 1px 1px 0 var(--discern-button-shadow);
   }
-  .ds-button:focus-visible {
-    outline: 3px solid color-mix(in oklab, var(--ds-color-accent-500) 35%,
+  .discern-button:focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--discern-color-accent-500) 35%,
       transparent);
     outline-offset: 3px;
   }
-  .ds-button:disabled {
+  .discern-button:disabled {
     cursor: not-allowed;
     opacity: 0.48;
     transform: none;
     box-shadow: none;
   }
-  .ds-button--secondary {
-    --ds-button-fill: var(--ds-color-surface);
-    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 55%, var(--ds-color-surface));
-    --ds-button-border: var(--ds-color-ink);
-    --ds-button-text: var(--ds-color-ink);
-    --ds-button-shadow: var(--ds-color-ink);
+  .discern-button--secondary {
+    --discern-button-fill: var(--discern-color-surface);
+    --discern-button-fill-hover: color-mix(in oklab, var(--discern-color-accent-100) 55%, var(--discern-color-surface));
+    --discern-button-border: var(--discern-color-ink);
+    --discern-button-text: var(--discern-color-ink);
+    --discern-button-shadow: var(--discern-color-ink);
   }
-  .ds-button--ghost {
-    --ds-button-fill: transparent;
-    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 70%, transparent);
-    --ds-button-border: transparent;
-    --ds-button-shadow: transparent;
-    --ds-button-text: var(--ds-color-accent-600);
+  .discern-button--ghost {
+    --discern-button-fill: transparent;
+    --discern-button-fill-hover: color-mix(in oklab, var(--discern-color-accent-100) 70%, transparent);
+    --discern-button-border: transparent;
+    --discern-button-shadow: transparent;
+    --discern-button-text: var(--discern-color-accent-600);
   }
-  .ds-button--danger {
-    --ds-button-fill: var(--ds-color-danger-soft);
-    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-danger-soft) 78%, var(--ds-color-danger));
-    --ds-button-border: var(--ds-color-danger);
-    --ds-button-shadow: var(--ds-color-danger);
-    --ds-button-text: var(--ds-color-danger);
+  .discern-button--danger {
+    --discern-button-fill: var(--discern-color-danger-soft);
+    --discern-button-fill-hover: color-mix(in oklab, var(--discern-color-danger-soft) 78%, var(--discern-color-danger));
+    --discern-button-border: var(--discern-color-danger);
+    --discern-button-shadow: var(--discern-color-danger);
+    --discern-button-text: var(--discern-color-danger);
   }
-  .ds-button--sm {
+  .discern-button--sm {
     min-block-size: 32px;
-    padding-inline: var(--ds-space-3);
-    font-size: var(--ds-font-size-xs);
-    box-shadow: 2px 2px 0 var(--ds-button-shadow);
+    padding-inline: var(--discern-space-3);
+    font-size: var(--discern-font-size-xs);
+    box-shadow: 2px 2px 0 var(--discern-button-shadow);
   }
-  .ds-button--lg {
+  .discern-button--lg {
     min-block-size: 48px;
-    padding-inline: var(--ds-space-6);
+    padding-inline: var(--discern-space-6);
     font-size: 1.0625rem;
   }
-  [data-ds-theme="dark"] .ds-button:not(.ds-button--secondary):not(.ds-button--ghost):not(.ds-button--danger) {
-    --ds-button-fill: var(--ds-color-accent-100);
-    --ds-button-fill-hover: var(--ds-color-accent-200);
-    --ds-button-border: var(--ds-color-accent-500);
-    --ds-button-shadow: var(--ds-shadow-color);
+  [data-discern-theme="dark"] .discern-button:not(.discern-button--secondary):not(.discern-button--ghost):not(.discern-button--danger) {
+    --discern-button-fill: var(--discern-color-accent-100);
+    --discern-button-fill-hover: var(--discern-color-accent-200);
+    --discern-button-border: var(--discern-color-accent-500);
+    --discern-button-shadow: var(--discern-shadow-color);
   }
-  [data-ds-theme="dark"] .ds-button--secondary {
-    --ds-button-fill: var(--ds-color-surface);
-    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 55%, var(--ds-color-surface));
-    --ds-button-border: var(--ds-color-border-strong);
-    --ds-button-shadow: var(--ds-shadow-color);
+  [data-discern-theme="dark"] .discern-button--secondary {
+    --discern-button-fill: var(--discern-color-surface);
+    --discern-button-fill-hover: color-mix(in oklab, var(--discern-color-accent-100) 55%, var(--discern-color-surface));
+    --discern-button-border: var(--discern-color-border-strong);
+    --discern-button-shadow: var(--discern-shadow-color);
   }
-  [data-ds-theme="dark"] .ds-button--ghost {
-    --ds-button-fill: transparent;
-    --ds-button-fill-hover: color-mix(in oklab, var(--ds-color-accent-100) 70%, transparent);
-    --ds-button-border: transparent;
-    --ds-button-shadow: transparent;
+  [data-discern-theme="dark"] .discern-button--ghost {
+    --discern-button-fill: transparent;
+    --discern-button-fill-hover: color-mix(in oklab, var(--discern-color-accent-100) 70%, transparent);
+    --discern-button-border: transparent;
+    --discern-button-shadow: transparent;
   }
-  .ds-button__icon {
+  .discern-button__icon {
     display: inline-grid;
     place-items: center;
     inline-size: 1em;
     block-size: 1em;
   }
-  .ds-button__icon > :where(svg, img) {
+  .discern-button__icon > :where(svg, img) {
     inline-size: 100%;
     block-size: 100%;
   }

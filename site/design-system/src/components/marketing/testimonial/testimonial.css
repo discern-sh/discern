@@ -1,137 +1,138 @@
 @layer discern.components {
-  .ds-testimonial {
-    padding: var(--ds-section-space) var(--ds-space-6);
-    background: var(--ds-color-canvas);
+  .discern-testimonial {
+    padding: var(--discern-section-space) var(--discern-space-6);
+    background: var(--discern-color-canvas);
   }
-  .ds-testimonial__frame {
+  .discern-testimonial__frame {
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.28fr);
-    gap: var(--ds-space-10);
-    width: min(100%, var(--ds-page-max));
+    gap: var(--discern-space-10);
+    width: min(100%, var(--discern-page-max));
     margin: 0 auto;
     overflow: hidden;
     padding: clamp(2rem, 6vw, 4.5rem);
-    border: 1px solid var(--ds-color-accent-300);
-    border-radius: var(--ds-radius-lg);
+    border: 1px solid var(--discern-color-accent-300);
+    border-radius: var(--discern-radius-lg);
     background:
-      linear-gradient(135deg, var(--ds-color-accent-100), transparent 68%),
-      var(--ds-color-surface);
-    box-shadow: var(--ds-shadow-window);
+      linear-gradient(135deg, var(--discern-color-accent-100), transparent 68%),
+      var(--discern-color-surface);
+    box-shadow: var(--discern-shadow-window);
   }
-  .ds-testimonial__mark {
+  .discern-testimonial__mark {
     position: absolute;
     top: -1.25rem;
     right: 1.5rem;
-    color: color-mix(in oklab, var(--ds-color-accent-500) 22%, transparent);
-    font-family: var(--ds-font-display);
+    color: color-mix(in oklab, var(--discern-color-accent-500) 22%,
+      transparent);
+    font-family: var(--discern-font-display);
     font-size: clamp(8rem, 18vw, 15rem);
-    font-weight: var(--ds-font-weight-display);
+    font-weight: var(--discern-font-weight-display);
     line-height: 1;
     pointer-events: none;
   }
-  .ds-testimonial__main {
+  .discern-testimonial__main {
     position: relative;
     min-width: 0;
   }
-  .ds-testimonial__eyebrow {
-    margin-block-end: var(--ds-space-5);
-    color: var(--ds-color-accent-700);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-strong);
+  .discern-testimonial__eyebrow {
+    margin-block-end: var(--discern-space-5);
+    color: var(--discern-color-accent-700);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
+    font-weight: var(--discern-font-weight-strong);
   }
-  .ds-testimonial blockquote {
+  .discern-testimonial blockquote {
     max-width: 30ch;
     margin: 0;
-    color: var(--ds-color-ink);
-    font-family: var(--ds-font-display);
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-display);
     font-size: clamp(1.8rem, 4.2vw, 3.1rem);
-    font-weight: var(--ds-font-weight-display);
+    font-weight: var(--discern-font-weight-display);
     letter-spacing: -0.018em;
     line-height: 1.12;
     text-wrap: balance;
   }
-  .ds-testimonial blockquote > :last-child {
+  .discern-testimonial blockquote > :last-child {
     margin-block-end: 0;
   }
-  .ds-testimonial figcaption {
+  .discern-testimonial figcaption {
     display: flex;
     align-items: center;
-    gap: var(--ds-space-3);
-    margin-block-start: var(--ds-space-8);
+    gap: var(--discern-space-3);
+    margin-block-start: var(--discern-space-8);
   }
-  .ds-testimonial__avatar {
+  .discern-testimonial__avatar {
     display: grid;
     place-items: center;
     inline-size: 2.75rem;
     block-size: 2.75rem;
     overflow: hidden;
-    border: 1px solid var(--ds-color-border-strong);
+    border: 1px solid var(--discern-color-border-strong);
     border-radius: 50%;
-    background: var(--ds-color-surface-sunken);
-    color: var(--ds-color-accent-700);
+    background: var(--discern-color-surface-sunken);
+    color: var(--discern-color-accent-700);
   }
-  .ds-testimonial figcaption strong,
-  .ds-testimonial figcaption span span {
+  .discern-testimonial figcaption strong,
+  .discern-testimonial figcaption span span {
     display: block;
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
   }
-  .ds-testimonial figcaption strong {
-    font-size: var(--ds-font-size-sm);
+  .discern-testimonial figcaption strong {
+    font-size: var(--discern-font-size-sm);
   }
-  .ds-testimonial figcaption span span {
-    color: var(--ds-color-ink-faint);
-    font-size: var(--ds-font-size-xs);
+  .discern-testimonial figcaption span span {
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-testimonial__metric {
+  .discern-testimonial__metric {
     position: relative;
     align-self: end;
-    padding-inline-start: var(--ds-space-8);
-    border-inline-start: 1px solid var(--ds-color-border);
+    padding-inline-start: var(--discern-space-8);
+    border-inline-start: 1px solid var(--discern-color-border);
   }
-  .ds-testimonial__metric strong,
-  .ds-testimonial__metric span {
+  .discern-testimonial__metric strong,
+  .discern-testimonial__metric span {
     display: block;
   }
-  .ds-testimonial__metric strong {
-    color: var(--ds-color-accent-600);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
+  .discern-testimonial__metric strong {
+    color: var(--discern-color-accent-600);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
     font-size: clamp(2.5rem, 5vw, 4rem);
     letter-spacing: -0.045em;
     line-height: 1;
   }
-  .ds-testimonial__metric span {
-    margin-block-start: var(--ds-space-3);
-    color: var(--ds-color-ink-muted);
-    font-size: var(--ds-font-size-xs);
+  .discern-testimonial__metric span {
+    margin-block-start: var(--discern-space-3);
+    color: var(--discern-color-ink-muted);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-testimonial--card {
+  .discern-testimonial--card {
     padding: 0;
   }
-  .ds-testimonial--card .ds-testimonial__frame {
+  .discern-testimonial--card .discern-testimonial__frame {
     grid-template-columns: 1fr;
-    padding: var(--ds-space-8);
-    box-shadow: var(--ds-shadow-card);
+    padding: var(--discern-space-8);
+    box-shadow: var(--discern-shadow-card);
   }
-  .ds-testimonial--card blockquote {
-    font-size: var(--ds-font-size-display-md);
+  .discern-testimonial--card blockquote {
+    font-size: var(--discern-font-size-display-md);
   }
-  .ds-testimonial--card .ds-testimonial__metric {
-    padding: var(--ds-space-6) 0 0;
-    border-block-start: 1px solid var(--ds-color-border);
+  .discern-testimonial--card .discern-testimonial__metric {
+    padding: var(--discern-space-6) 0 0;
+    border-block-start: 1px solid var(--discern-color-border);
     border-inline-start: 0;
   }
   @media (max-width: 720px) {
-    .ds-testimonial__frame {
+    .discern-testimonial__frame {
       grid-template-columns: 1fr;
     }
-    .ds-testimonial__metric {
-      padding: var(--ds-space-6) 0 0;
-      border-block-start: 1px solid var(--ds-color-border);
+    .discern-testimonial__metric {
+      padding: var(--discern-space-6) 0 0;
+      border-block-start: 1px solid var(--discern-color-border);
       border-inline-start: 0;
     }
   }

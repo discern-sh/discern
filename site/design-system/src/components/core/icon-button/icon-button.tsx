@@ -29,9 +29,9 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         type={type}
         aria-label={label}
         className={classNames(
-          "ds-icon-button",
-          `ds-icon-button--${variant}`,
-          `ds-icon-button--${size}`,
+          "discern-icon-button",
+          `discern-icon-button--${variant}`,
+          `discern-icon-button--${size}`,
           className,
         )}
         {...props}

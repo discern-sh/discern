@@ -27,13 +27,13 @@ export const PullQuote = forwardRef<HTMLElement, PullQuoteProps>(
       <figure
         ref={ref}
         className={classNames(
-          "ds-pull-quote",
-          `ds-pull-quote--${align}`,
+          "discern-pull-quote",
+          `discern-pull-quote--${align}`,
           className,
         )}
         {...props}
       >
-        <span className="ds-pull-quote__mark" aria-hidden="true">“</span>
+        <span className="discern-pull-quote__mark" aria-hidden="true">“</span>
         <blockquote cite={citeUrl}>{quote}</blockquote>
         {attribution || citation
           ? (

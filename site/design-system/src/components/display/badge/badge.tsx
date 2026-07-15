@@ -17,10 +17,14 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
   return (
     <span
       ref={ref}
-      className={classNames("ds-badge", `ds-badge--${tone}`, className)}
+      className={classNames(
+        "discern-badge",
+        `discern-badge--${tone}`,
+        className,
+      )}
       {...props}
     >
-      {dot ? <span className="ds-badge__dot" aria-hidden="true" /> : null}
+      {dot ? <span className="discern-badge__dot" aria-hidden="true" /> : null}
       {children}
     </span>
   );

@@ -4,8 +4,8 @@ import { FeatureBento } from "./feature-bento.tsx";
 const visual = (label: string) => (
   <span
     style={{
-      color: "var(--ds-color-ink-faint)",
-      fontFamily: "var(--ds-font-mono)",
+      color: "var(--discern-color-ink-faint)",
+      fontFamily: "var(--discern-font-mono)",
     }}
   >
     {label}

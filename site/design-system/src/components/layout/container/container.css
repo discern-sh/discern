@@ -1,22 +1,22 @@
 @layer discern.components {
-  .ds-container-box {
-    width: min(100% - 2 * var(--ds-space-6), var(--ds-container-max,
-      var(--ds-page-max)));
+  .discern-container-box {
+    width: min(100% - 2 * var(--discern-space-6), var(--discern-container-max,
+      var(--discern-page-max)));
     margin-inline: auto;
   }
-  .ds-container-box--measure {
-    --ds-container-max: var(--ds-measure);
+  .discern-container-box--measure {
+    --discern-container-max: var(--discern-measure);
   }
-  .ds-container-box--sm {
-    --ds-container-max: 40rem;
+  .discern-container-box--sm {
+    --discern-container-max: 40rem;
   }
-  .ds-container-box--md {
-    --ds-container-max: 52rem;
+  .discern-container-box--md {
+    --discern-container-max: 52rem;
   }
-  .ds-container-box--lg {
-    --ds-container-max: var(--ds-page-max);
+  .discern-container-box--lg {
+    --discern-container-max: var(--discern-page-max);
   }
-  .ds-container-box--full {
+  .discern-container-box--full {
     width: 100%;
     max-width: none;
   }

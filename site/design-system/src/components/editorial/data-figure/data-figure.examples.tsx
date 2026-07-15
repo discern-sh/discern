@@ -26,8 +26,8 @@ export default function DataFigureExamples() {
               style={{
                 height: `${height}%`,
                 background: index === 4
-                  ? "var(--ds-color-accent-500)"
-                  : "var(--ds-color-accent-200)",
+                  ? "var(--discern-color-accent-500)"
+                  : "var(--discern-color-accent-200)",
               }}
             />
           ))}

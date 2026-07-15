@@ -1,24 +1,24 @@
 @layer discern.components {
-  .ds-section {
-    background: var(--ds-color-canvas);
-    color: var(--ds-color-ink);
+  .discern-section {
+    background: var(--discern-color-canvas);
+    color: var(--discern-color-ink);
   }
-  .ds-section--surface {
-    background: var(--ds-color-surface);
+  .discern-section--surface {
+    background: var(--discern-color-surface);
   }
-  .ds-section--sunken {
-    background: var(--ds-color-surface-sunken);
+  .discern-section--sunken {
+    background: var(--discern-color-surface-sunken);
   }
-  .ds-section--space-none {
+  .discern-section--space-none {
     padding-block: 0;
   }
-  .ds-section--space-sm {
-    padding-block: var(--ds-space-8);
+  .discern-section--space-sm {
+    padding-block: var(--discern-space-8);
   }
-  .ds-section--space-md {
-    padding-block: var(--ds-space-16);
+  .discern-section--space-md {
+    padding-block: var(--discern-space-16);
   }
-  .ds-section--space-lg {
-    padding-block: var(--ds-section-space);
+  .discern-section--space-lg {
+    padding-block: var(--discern-section-space);
   }
 }

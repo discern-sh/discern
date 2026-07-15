@@ -9,11 +9,15 @@ export interface KickerProps extends HTMLAttributes<HTMLSpanElement> {
 export const Kicker = forwardRef<HTMLSpanElement, KickerProps>(
   function Kicker({ index, className, children, ...props }, ref) {
     return (
-      <span ref={ref} className={classNames("ds-kicker", className)} {...props}>
+      <span
+        ref={ref}
+        className={classNames("discern-kicker", className)}
+        {...props}
+      >
         {index !== undefined && index !== null
-          ? <span className="ds-kicker__index">{index}</span>
+          ? <span className="discern-kicker__index">{index}</span>
           : null}
-        <span className="ds-kicker__text">{children}</span>
+        <span className="discern-kicker__text">{children}</span>
       </span>
     );
   },

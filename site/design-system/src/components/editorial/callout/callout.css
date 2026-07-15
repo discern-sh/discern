@@ -1,59 +1,59 @@
 @layer discern.components {
-  .ds-callout {
-    --ds-callout-edge: var(--ds-color-accent-500);
-    --ds-callout-fill: var(--ds-color-accent-100);
+  .discern-callout {
+    --discern-callout-edge: var(--discern-color-accent-500);
+    --discern-callout-fill: var(--discern-color-accent-100);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--ds-space-4);
-    margin-block: var(--ds-space-8);
-    padding: var(--ds-space-6);
-    border: 1px solid var(--ds-color-border-strong);
-    border-inline-start: 4px solid var(--ds-callout-edge);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-callout-fill);
+    gap: var(--discern-space-4);
+    margin-block: var(--discern-space-8);
+    padding: var(--discern-space-6);
+    border: 1px solid var(--discern-color-border-strong);
+    border-inline-start: 4px solid var(--discern-callout-edge);
+    border-radius: var(--discern-radius-md);
+    background: var(--discern-callout-fill);
   }
-  .ds-callout--note {
-    --ds-callout-fill: var(--ds-color-surface-sunken);
+  .discern-callout--note {
+    --discern-callout-fill: var(--discern-color-surface-sunken);
   }
-  .ds-callout--warning {
-    --ds-callout-edge: var(--ds-color-warning);
-    --ds-callout-fill: var(--ds-color-warning-soft);
+  .discern-callout--warning {
+    --discern-callout-edge: var(--discern-color-warning);
+    --discern-callout-fill: var(--discern-color-warning-soft);
   }
-  .ds-callout--success {
-    --ds-callout-edge: var(--ds-color-success);
-    --ds-callout-fill: var(--ds-color-success-soft);
+  .discern-callout--success {
+    --discern-callout-edge: var(--discern-color-success);
+    --discern-callout-fill: var(--discern-color-success-soft);
   }
-  .ds-callout__icon {
+  .discern-callout__icon {
     display: grid;
     place-items: center;
     inline-size: 2.25rem;
     block-size: 2.25rem;
-    border: 1px solid var(--ds-callout-edge);
+    border: 1px solid var(--discern-callout-edge);
     border-radius: 50%;
-    color: var(--ds-callout-edge);
-    font-family: var(--ds-font-mono);
-    font-size: var(--ds-font-size-xs);
+    color: var(--discern-callout-edge);
+    font-family: var(--discern-font-mono);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-callout__eyebrow {
+  .discern-callout__eyebrow {
     display: block;
-    margin-block-end: var(--ds-space-1);
-    color: var(--ds-callout-edge);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-strong);
+    margin-block-end: var(--discern-space-1);
+    color: var(--discern-callout-edge);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
+    font-weight: var(--discern-font-weight-strong);
   }
-  .ds-callout h3 {
-    margin-block-end: var(--ds-space-2);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-sm);
+  .discern-callout h3 {
+    margin-block-end: var(--discern-space-2);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-sm);
   }
-  .ds-callout__body {
-    color: var(--ds-color-ink-muted);
-    font-size: var(--ds-font-size-xs);
+  .discern-callout__body {
+    color: var(--discern-color-ink-muted);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-callout__body > :last-child {
+  .discern-callout__body > :last-child {
     margin-block-end: 0;
   }
 }

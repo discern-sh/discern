@@ -80,7 +80,7 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assertStringIncludes(rule, "background-size: 100% 1px");
   assertStringIncludes(css, ".doc-body hr::after {");
   assertStringIncludes(css, 'content: "◮";');
-  assertStringIncludes(css, "color: var(--ds-color-ink-faint)");
+  assertStringIncludes(css, "color: var(--discern-color-ink-faint)");
   assertStringIncludes(css, "font-size: 1rem");
   assertStringIncludes(css, "transform: translate(-50%, -60%)");
 });

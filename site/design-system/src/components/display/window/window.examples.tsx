@@ -4,7 +4,7 @@ import { Window } from "./window.tsx";
 export default function WindowExamples() {
   return (
     <Window title="lorem — ipsum">
-      <div className="ds-example-window-body">
+      <div className="discern-example-window-body">
         <Kicker>Example content</Kicker>
         <h4>{fixtureCopy.heading}</h4>
         <p>{fixtureCopy.paragraph}</p>

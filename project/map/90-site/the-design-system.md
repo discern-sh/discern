@@ -81,13 +81,13 @@ changing the component runtime.
 
 Typography keeps body and interface roles separate even when they share a face.
 Both currently resolve to the one bundled Inter font, while interface rules
-additionally consume the central `--ds-font-features-ui` OpenType set. Crimson
-Pro remains the display face and JetBrains Mono the code face. A guard scans
-every tracked site stylesheet so any rule selecting `--ds-font-ui` must also
-select the interface feature set. The same subsystem guard derives the
-`--ds-font-size-xs` value and rejects smaller literal `rem` type in components,
-the two demos, or the catalogue. Compact UI therefore has one readable floor
-rather than a collection of local fine-print sizes.
+additionally consume the central `--discern-font-features-ui` OpenType set.
+Crimson Pro remains the display face and JetBrains Mono the code face. A guard
+scans every tracked site stylesheet so any rule selecting `--discern-font-ui`
+must also select the interface feature set. The same subsystem guard derives the
+`--discern-font-size-xs` value and rejects smaller literal `rem` type in
+components, the two demos, or the catalogue. Compact UI therefore has one
+readable floor rather than a collection of local fine-print sizes.
 
 Component-specific typography, framing, depth, and separation roles live in
 [component-catalogue.md](component-catalogue.md).
@@ -136,9 +136,9 @@ light-only palette locally. The subsystem test discovers every numbered colour
 ramp and rejects fixed members or a dark ramp whose roles do not invert.
 
 Inverse surfaces are the deliberate exception to theme-relative lightness.
-`--ds-color-inverse-surface` remains dark and `--ds-color-inverse-ink` remains
-light in either theme, so contrast bands, hover hints, and skip links do not
-swap their visual polarity when the page theme changes. A source-wide guard
+`--discern-color-inverse-surface` remains dark and `--discern-color-inverse-ink`
+remains light in either theme, so contrast bands, hover hints, and skip links do
+not swap their visual polarity when the page theme changes. A source-wide guard
 rejects using the ordinary ink role as a background or the canvas role as text.
 
 The grain wash is the one textured colour flourish. Its shared utility owns the

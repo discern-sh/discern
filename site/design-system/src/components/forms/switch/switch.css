@@ -1,62 +1,64 @@
 @layer discern.components {
-  .ds-switch__label {
+  .discern-switch__label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--ds-space-4);
+    gap: var(--discern-space-4);
     cursor: pointer;
   }
-  .ds-switch__label input {
+  .discern-switch__label input {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
     opacity: 0;
   }
-  .ds-switch__text {
+  .discern-switch__text {
     display: block;
-    color: var(--ds-color-ink);
-    font-size: var(--ds-font-size-sm);
+    color: var(--discern-color-ink);
+    font-size: var(--discern-font-size-sm);
   }
-  .ds-switch__description {
+  .discern-switch__description {
     display: block;
     margin-block-start: 3px;
-    color: var(--ds-color-ink-faint);
-    font-size: var(--ds-font-size-xs);
+    color: var(--discern-color-ink-faint);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-switch__track {
+  .discern-switch__track {
     display: flex;
     flex: none;
     align-items: center;
     inline-size: 38px;
     block-size: 22px;
     padding: 2px;
-    border: 1px solid var(--ds-color-border-strong);
-    border-radius: var(--ds-radius-pill);
-    background: var(--ds-color-surface-sunken);
-    transition: border-color var(--ds-duration-fast), background
-      var(--ds-duration-fast), box-shadow var(--ds-duration-fast);
+    border: 1px solid var(--discern-color-border-strong);
+    border-radius: var(--discern-radius-pill);
+    background: var(--discern-color-surface-sunken);
+    transition: border-color var(--discern-duration-fast), background
+      var(--discern-duration-fast), box-shadow var(--discern-duration-fast);
   }
-  .ds-switch__track > span {
+  .discern-switch__track > span {
     inline-size: 16px;
     block-size: 16px;
     border-radius: 50%;
-    background: var(--ds-color-surface);
-    box-shadow: 0 1px 2px color-mix(in oklab, var(--ds-shadow-color) 22%,
+    background: var(--discern-color-surface);
+    box-shadow: 0 1px 2px color-mix(in oklab, var(--discern-shadow-color) 22%,
       transparent);
-    transition: translate var(--ds-duration-medium) var(--ds-ease-out);
+    transition: translate var(--discern-duration-medium)
+      var(--discern-ease-out);
   }
-  .ds-switch input:checked + .ds-switch__track {
-    border-color: var(--ds-color-accent-600);
-    background: var(--ds-color-accent-600);
+  .discern-switch input:checked + .discern-switch__track {
+    border-color: var(--discern-color-accent-600);
+    background: var(--discern-color-accent-600);
   }
-  .ds-switch input:checked + .ds-switch__track > span {
+  .discern-switch input:checked + .discern-switch__track > span {
     translate: 16px 0;
   }
-  .ds-switch input:focus-visible + .ds-switch__track {
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-color-accent-500) 20%,
+  .discern-switch input:focus-visible + .discern-switch__track {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--discern-color-accent-500)
+      20%,
       transparent);
   }
-  .ds-switch__label:has(input:disabled) {
+  .discern-switch__label:has(input:disabled) {
     cursor: not-allowed;
     opacity: 0.5;
   }

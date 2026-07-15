@@ -1,20 +1,20 @@
 @layer discern.components {
-  .ds-select {
+  .discern-select {
     position: relative;
     display: block;
   }
-  .ds-select .ds-control {
+  .discern-select .discern-control {
     appearance: none;
     padding-inline-end: 38px;
   }
-  .ds-select__chevron {
+  .discern-select__chevron {
     position: absolute;
     top: 50%;
     right: 14px;
     inline-size: 8px;
     block-size: 8px;
-    border-inline-end: 1.5px solid var(--ds-color-ink-muted);
-    border-block-end: 1.5px solid var(--ds-color-ink-muted);
+    border-inline-end: 1.5px solid var(--discern-color-ink-muted);
+    border-block-end: 1.5px solid var(--discern-color-ink-muted);
     pointer-events: none;
     rotate: 45deg;
     translate: 0 -70%;

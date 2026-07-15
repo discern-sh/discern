@@ -20,7 +20,7 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
     return (
       <Element
         ref={ref}
-        className={classNames("ds-heading", className)}
+        className={classNames("discern-heading", className)}
         {...props}
       >
         {children}
@@ -37,7 +37,7 @@ export const HeadingAccent = forwardRef<HTMLSpanElement, HeadingAccentProps>(
     return (
       <span
         ref={ref}
-        className={classNames("ds-heading__accent", className)}
+        className={classNames("discern-heading__accent", className)}
         {...props}
       >
         {children}

@@ -2,7 +2,7 @@ import { ExampleIcon } from "../../../fixtures/example-icon.tsx";
 import { Toast } from "./toast.tsx";
 export default function ToastExamples() {
   return (
-    <div className="ds-example-stack ds-example-stack--start">
+    <div className="discern-example-stack discern-example-stack--start">
       <Toast>Lorem ipsum dolor sit amet.</Toast>
       <Toast
         tone="success"

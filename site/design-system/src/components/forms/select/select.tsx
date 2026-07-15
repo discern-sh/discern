@@ -37,14 +37,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         Boolean,
       ).join(" ") || undefined;
     const control = (
-      <span className="ds-select">
+      <span className="discern-select">
         <select
           ref={ref}
           id={controlId}
           required={required}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={classNames("ds-control", className)}
+          className={classNames("discern-control", className)}
           {...props}
         >
           {options
@@ -59,7 +59,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ))
             : children}
         </select>
-        <span className="ds-select__chevron" aria-hidden="true" />
+        <span className="discern-select__chevron" aria-hidden="true" />
       </span>
     );
     if (!label && !hint && !error) return control;

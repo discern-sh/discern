@@ -15,9 +15,9 @@ export const Section = forwardRef<HTMLElement, SectionProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-section",
-          `ds-section--${surface}`,
-          `ds-section--space-${spacing}`,
+          "discern-section",
+          `discern-section--${surface}`,
+          `discern-section--space-${spacing}`,
           className,
         )}
         {...props}

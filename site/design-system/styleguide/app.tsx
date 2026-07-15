@@ -24,7 +24,7 @@ function TokenPreview(
     return (
       <span
         className="sg-token__type"
-        style={/^--ds-font-(?:display|body|mono|ui)$/.test(name)
+        style={/^--discern-font-(?:display|body|mono|ui)$/.test(name)
           ? { fontFamily: `var(${name})` }
           : undefined}
       >
@@ -64,7 +64,9 @@ function TokenPreview(
 
 function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() =>
-    localStorage.getItem("ds-styleguide-theme") === "dark" ? "dark" : "light"
+    localStorage.getItem("discern-styleguide-theme") === "dark"
+      ? "dark"
+      : "light"
   );
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
@@ -103,11 +105,11 @@ function App() {
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
-    localStorage.setItem("ds-styleguide-theme", next);
+    localStorage.setItem("discern-styleguide-theme", next);
   };
 
   return (
-    <div className="sg-shell" data-ds-root data-ds-theme={theme}>
+    <div className="sg-shell" data-discern-root data-discern-theme={theme}>
       <aside className="sg-sidebar">
         <a className="sg-brand" href="#top">
           <span className="sg-brand__mark">D</span>
@@ -165,9 +167,9 @@ function App() {
 
       <main className="sg-main" id="top">
         <section className="sg-hero">
-          <span className="ds-kicker">
+          <span className="discern-kicker">
             <span className="sg-live-dot" />
-            <span className="ds-kicker__text">Generated reference</span>
+            <span className="discern-kicker__text">Generated reference</span>
           </span>
           <h1>
             Discern, built as a <em>system</em>.

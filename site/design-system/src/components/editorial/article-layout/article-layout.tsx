@@ -27,9 +27,9 @@ export const ArticleLayout = forwardRef<HTMLDivElement, ArticleLayoutProps>(
       <div
         ref={ref}
         className={classNames(
-          "ds-article-layout",
-          !navigation && "ds-article-layout--no-navigation",
-          !rail && "ds-article-layout--no-rail",
+          "discern-article-layout",
+          !navigation && "discern-article-layout--no-navigation",
+          !rail && "discern-article-layout--no-rail",
           className,
         )}
         {...props}
@@ -37,18 +37,21 @@ export const ArticleLayout = forwardRef<HTMLDivElement, ArticleLayoutProps>(
         {navigation
           ? (
             <aside
-              className="ds-article-layout__navigation"
+              className="discern-article-layout__navigation"
               aria-label={navigationLabel}
             >
-              <div className="ds-article-layout__sticky">{navigation}</div>
+              <div className="discern-article-layout__sticky">{navigation}</div>
             </aside>
           )
           : null}
-        <article className="ds-article-layout__body">{children}</article>
+        <article className="discern-article-layout__body">{children}</article>
         {rail
           ? (
-            <aside className="ds-article-layout__rail" aria-label={railLabel}>
-              <div className="ds-article-layout__sticky">{rail}</div>
+            <aside
+              className="discern-article-layout__rail"
+              aria-label={railLabel}
+            >
+              <div className="discern-article-layout__sticky">{rail}</div>
             </aside>
           )
           : null}

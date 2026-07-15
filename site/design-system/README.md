@@ -22,17 +22,17 @@ design-system or page inputs change.
 ## Source rules
 
 - Change design values in `src/tokens/tokens.ts`; generated CSS is never edited.
-- `--ds-font-size-xs` is the readability floor for authored interface text.
+- `--discern-font-size-xs` is the readability floor for authored interface text.
   Components, demos, and the catalogue may use larger type roles but do not
   introduce smaller literal `rem` sizes.
-- Contrast treatments use the stable `--ds-color-inverse-surface` and
-  `--ds-color-inverse-ink` roles instead of treating theme-relative canvas and
-  text colours as an inverse palette.
+- Contrast treatments use the stable `--discern-color-inverse-surface` and
+  `--discern-color-inverse-ink` roles instead of treating theme-relative canvas
+  and text colours as an inverse palette.
 - Every public component owns a folder containing its implementation, styles,
   metadata, examples, and `mod.ts` export.
 - Consumer styles may compose components through an added consumer class, but
-  never target a component-owned `.ds-*` selector. Component internals remain
-  reproducible from this directory alone.
+  never target a component-owned `.discern-*` selector. Component internals
+  remain reproducible from this directory alone.
 - Component source contains no product copy and no remote asset URLs.
 - Icons are renderable slots. `assets/fonts.css` is the optional, self-hosted
   provider for the font roles; consumers may replace it without changing the
@@ -53,13 +53,13 @@ design-system or page inputs change.
 - `dist/discern.css` — tokens, foundations, utilities, and component styles.
 - `assets/fonts.css` — optional local font faces matching the typography roles.
 - Components can also be reproduced as semantic HTML using the documented
-  `.ds-*` classes; React is an adapter rather than a CSS dependency.
+  `.discern-*` classes; React is an adapter rather than a CSS dependency.
 
 The body and UI family roles remain separate tokens even though both currently
-resolve to Inter. UI rules pair `--ds-font-ui` with `--ds-font-features-ui`;
-body copy does not inherit that interface-specific OpenType set. The bundled
-provider therefore ships one Inter face for both roles, alongside Crimson Pro
-for display type and JetBrains Mono for code.
+resolve to Inter. UI rules pair `--discern-font-ui` with
+`--discern-font-features-ui`; body copy does not inherit that interface-specific
+OpenType set. The bundled provider therefore ships one Inter face for both
+roles, alongside Crimson Pro for display type and JetBrains Mono for code.
 
 `Kicker` keeps its optional index in the mono role and renders its trailing
 label with the UI family and feature set; size, weight, tracking, colour, and
@@ -80,19 +80,20 @@ existing page or mock-up to recover component decisions:
 
 1. Run `deno task build`. Load `assets/fonts.css` when using the bundled faces,
    followed by `dist/discern.css`.
-2. Put `data-ds-root` on the page boundary and set `data-ds-theme="light"` or
-   `"dark"` there.
+2. Put `data-discern-root` on the page boundary and set
+   `data-discern-theme="light"` or `"dark"` there.
 3. Import React adapters and public types only from `src/mod.ts`. Start page
    structure with `Section`, `Container`, `Stack`, `Cluster`, and `Grid`.
 4. Use `Heading` for document and section headlines. Card descendants use the UI
-   title role automatically; its size is `--ds-font-size-card-title` in
+   title role automatically; its size is `--discern-font-size-card-title` in
    `src/tokens/tokens.ts`.
 5. For each component, read its `*.meta.ts` for intent and accessibility, its
    `*.tsx` for the exhaustive prop contract, and its `*.examples.tsx` for a
    representative composition. The same examples are generated into the local
    catalogue.
 6. Add consumer classes for page-specific composition. Do not restyle a
-   component-owned `.ds-*` selector; visual variants belong in the component.
+   component-owned `.discern-*` selector; visual variants belong in the
+   component.
 
 Stateful catalogue components still need an explicit browser-runtime strategy
 when a consumer is rendered to static HTML. That is a page architecture choice,
@@ -109,7 +110,7 @@ edition without copying one existing page.
 
 Blocks accept content and visual slots rather than discern-specific copy. Page
 artwork keeps a page-owned class; consumer CSS never reaches into a
-component-owned `.ds-*` selector. Native semantics carry the important
+component-owned `.discern-*` selector. Native semantics carry the important
 behaviour: comparisons remain tables, metrics remain description lists, process
 steps remain ordered lists, and FAQ disclosure works without JavaScript.
 

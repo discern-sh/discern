@@ -37,8 +37,8 @@ export const DataFigure = forwardRef<HTMLElement, DataFigureProps>(
       <figure
         ref={ref}
         className={classNames(
-          "ds-data-figure",
-          `ds-data-figure--${surface}`,
+          "discern-data-figure",
+          `discern-data-figure--${surface}`,
           className,
         )}
         {...props}
@@ -54,7 +54,7 @@ export const DataFigure = forwardRef<HTMLElement, DataFigureProps>(
                 {legend.map((item, index) => (
                   <li key={index}>
                     <i
-                      className={`ds-data-figure__swatch--${
+                      className={`discern-data-figure__swatch--${
                         item.tone ?? "accent"
                       }`}
                       aria-hidden="true"
@@ -66,7 +66,7 @@ export const DataFigure = forwardRef<HTMLElement, DataFigureProps>(
             )
             : null}
         </header>
-        <div className="ds-data-figure__visual">{visual}</div>
+        <div className="discern-data-figure__visual">{visual}</div>
         <figcaption>
           <span>{caption}</span>
           {source ? <small>Source: {source}</small> : null}

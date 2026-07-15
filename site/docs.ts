@@ -264,11 +264,11 @@ function navHtml(site: DocsSite, current: DocsPage | null): string {
     }).join("");
     const here = current !== null && section.index.route === current.route;
     return `<section class="docs-nav-chapter">
-      <a class="ds-kicker docs-nav-label" href="${section.index.route}"${
+      <a class="discern-kicker docs-nav-label" href="${section.index.route}"${
       here ? ' aria-current="page"' : ""
-    }><span class="ds-kicker__index">${sectionIndexOf(section.dir)}</span>${
-      esc(section.title)
-    }</a>
+    }><span class="discern-kicker__index">${
+      sectionIndexOf(section.dir)
+    }</span>${esc(section.title)}</a>
       <ul>${leaves}</ul>
     </section>`;
   }).join("\n");
@@ -282,7 +282,7 @@ function tocHtml(toc: TocItem[]): string {
     }</a></li>`
   ).join("");
   return `<nav class="docs-toc" aria-label="On this page">
-    <span class="ds-kicker">On this page</span>
+    <span class="discern-kicker">On this page</span>
     <ul>${items}</ul>
   </nav>`;
 }
@@ -322,7 +322,7 @@ function crumbsHtml(page: DocsPage | null): string {
   } else {
     parts[0] = `<span aria-current="page">docs</span>`;
   }
-  return `<nav class="docs-crumbs ds-mono" aria-label="Breadcrumb">${
+  return `<nav class="docs-crumbs discern-mono" aria-label="Breadcrumb">${
     parts.join(sep)
   }</nav>`;
 }
@@ -360,7 +360,7 @@ interface ShellFrame {
  */
 function shellFrame(site: DocsSite, frame: ShellFrame): string {
   return `<!doctype html>
-<html lang="en" data-ds-root data-ds-theme="light">
+<html lang="en" data-discern-root data-discern-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -375,7 +375,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   try { stored = localStorage.getItem("discern-theme"); } catch (_) { /* file:// quirks */ }
   var dark = stored === "dark" ||
     (stored === null && matchMedia("(prefers-color-scheme: dark)").matches);
-  if (dark) document.documentElement.setAttribute("data-ds-theme", "dark");
+  if (dark) document.documentElement.setAttribute("data-discern-theme", "dark");
 })();
 </script>
 <link rel="stylesheet" href="/assets/design-system/fonts.css" />
@@ -386,24 +386,24 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <body>
 <a class="docs-skip" href="#doc">Skip to content</a>
 <header class="docs-top">
-  <button class="ds-icon-button docs-burger" type="button"
+  <button class="discern-icon-button docs-burger" type="button"
     aria-label="Open navigation" aria-expanded="false" data-drawer-toggle>
-    <span class="ds-icon">${ICONS.menu}</span>
+    <span class="discern-icon">${ICONS.menu}</span>
   </button>
   <a class="docs-brand" href="/">
     <span class="docs-brand-mark" aria-hidden="true">✓</span>
     <span class="docs-brand-word">discern</span></a><a
-    class="docs-brand-docs ds-mono" href="/docs">/docs</a>
+    class="docs-brand-docs discern-mono" href="/docs">/docs</a>
   <span class="docs-top-spacer"></span>
   <button class="docs-search-btn" type="button" data-search-open>
-    <span class="ds-icon">${ICONS.search}</span>
+    <span class="discern-icon">${ICONS.search}</span>
     <span class="docs-search-btn-word">Search the manual</span>
-    <kbd class="ds-mono">⌘K</kbd>
+    <kbd class="discern-mono">⌘K</kbd>
   </button>
-  <button class="ds-icon-button docs-theme" type="button"
+  <button class="discern-icon-button docs-theme" type="button"
     aria-label="Toggle color theme" data-theme-toggle>
-    <span class="ds-icon docs-theme-sun">${ICONS.sun}</span>
-    <span class="ds-icon docs-theme-moon">${ICONS.moon}</span>
+    <span class="discern-icon docs-theme-sun">${ICONS.sun}</span>
+    <span class="discern-icon docs-theme-moon">${ICONS.moon}</span>
   </button>
 </header>
 <div class="docs-shell">
@@ -412,7 +412,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     <nav class="docs-nav-scroll" aria-label="Documentation">
 ${navHtml(site, frame.current)}
     </nav>
-    <div class="docs-nav-foot ds-mono">
+    <div class="docs-nav-foot discern-mono">
       <a href="/agents">agents</a>
       <a href="/llms.txt">llms.txt</a>
       <a href="${GITHUB}">github&nbsp;↗</a>
@@ -426,18 +426,18 @@ ${navHtml(site, frame.current)}
 </div>
 <div class="docs-search" data-search hidden>
   <div class="docs-search-veil" data-search-close></div>
-  <div class="ds-window docs-search-panel" role="dialog" aria-modal="true"
+  <div class="discern-window docs-search-panel" role="dialog" aria-modal="true"
     aria-label="Search documentation">
-    <div class="ds-window__bar">
-      <span class="ds-window__dot"></span><span class="ds-window__dot"></span><span class="ds-window__dot"></span>
-      <span class="ds-window__title">search · discern.sh/docs</span>
+    <div class="discern-window__bar">
+      <span class="discern-window__dot"></span><span class="discern-window__dot"></span><span class="discern-window__dot"></span>
+      <span class="discern-window__title">search · discern.sh/docs</span>
     </div>
-    <div class="ds-window__body docs-search-body">
-      <input class="docs-search-input ds-mono" type="search"
+    <div class="discern-window__body docs-search-body">
+      <input class="docs-search-input discern-mono" type="search"
         placeholder="Search the manual…" data-search-input
         autocomplete="off" spellcheck="false" />
       <ul class="docs-search-results" data-search-results></ul>
-      <div class="docs-search-hint ds-mono">↑↓ choose · ↵ open · esc close</div>
+      <div class="docs-search-hint discern-mono">↑↓ choose · ↵ open · esc close</div>
     </div>
   </div>
 </div>
@@ -459,7 +459,7 @@ function colophonHtml(page: DocsPage | null): string {
     : `${GITHUB}/blob/main/${esc(page.entry.path)}`;
   return `<footer class="docs-colophon">
       <span>This page is plain text too:
-        <a class="ds-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>${raw}.</span>
+        <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>${raw}.</span>
       <a href="${source}">View source&nbsp;↗</a>
     </footer>`;
 }
@@ -503,8 +503,8 @@ export function docsIndexShell(site: DocsSite): string {
   }).join("\n");
 
   const cover = `<header class="docs-cover">
-    <span class="ds-kicker"><span class="ds-kicker__index">man(1)</span>The discern manual</span>
-    <h1>Read what your <em class="ds-heading__accent">agents</em> read.</h1>
+    <span class="discern-kicker"><span class="discern-kicker__index">man(1)</span>The discern manual</span>
+    <h1>Read what your <em class="discern-heading__accent">agents</em> read.</h1>
     <p class="docs-cover-lead">The same documentation <code>discern help</code>
     serves in a terminal, kept current by the agents that work on discern.
     Text readers are first-class: <code>curl</code> any page — or append

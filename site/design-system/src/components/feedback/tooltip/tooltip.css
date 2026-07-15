@@ -1,9 +1,9 @@
 @layer discern.components {
-  .ds-tooltip {
+  .discern-tooltip {
     position: relative;
     display: inline-flex;
   }
-  .ds-tooltip__bubble {
+  .discern-tooltip__bubble {
     position: absolute;
     z-index: 20;
     inset-block-end: calc(100% + 8px);
@@ -11,24 +11,24 @@
     width: max-content;
     max-width: 18rem;
     padding: 6px 8px;
-    border-radius: var(--ds-radius-xs);
-    background: var(--ds-color-inverse-surface);
-    color: var(--ds-color-inverse-ink);
+    border-radius: var(--discern-radius-xs);
+    background: var(--discern-color-inverse-surface);
+    color: var(--discern-color-inverse-ink);
     opacity: 0;
     pointer-events: none;
     translate: -50% 3px;
-    transition: opacity var(--ds-duration-fast), translate
-      var(--ds-duration-fast);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+    transition: opacity var(--discern-duration-fast), translate
+      var(--discern-duration-fast);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
     line-height: 1.4;
   }
-  .ds-tooltip--bottom .ds-tooltip__bubble {
+  .discern-tooltip--bottom .discern-tooltip__bubble {
     inset-block: calc(100% + 8px) auto;
   }
-  .ds-tooltip:hover .ds-tooltip__bubble,
-  .ds-tooltip:focus-within .ds-tooltip__bubble {
+  .discern-tooltip:hover .discern-tooltip__bubble,
+  .discern-tooltip:focus-within .discern-tooltip__bubble {
     opacity: 1;
     translate: -50% 0;
   }

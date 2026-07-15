@@ -24,10 +24,10 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={classNames(
-        "ds-card",
-        raised && "ds-card--raised",
-        texture === "dots" && "ds-card--dots",
-        `ds-card--pad-${padding}`,
+        "discern-card",
+        raised && "discern-card--raised",
+        texture === "dots" && "discern-card--dots",
+        `discern-card--pad-${padding}`,
         className,
       )}
       {...props}

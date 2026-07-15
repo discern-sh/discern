@@ -27,22 +27,26 @@ export const Callout = forwardRef<HTMLElement, CalloutProps>(function Callout(
     <aside
       ref={ref}
       className={classNames(
-        "ds-callout",
-        `ds-callout--${tone}`,
+        "discern-callout",
+        `discern-callout--${tone}`,
         className,
       )}
       role="note"
       {...props}
     >
       {icon
-        ? <span className="ds-callout__icon" aria-hidden="true">{icon}</span>
+        ? (
+          <span className="discern-callout__icon" aria-hidden="true">
+            {icon}
+          </span>
+        )
         : null}
       <div>
         {eyebrow
-          ? <span className="ds-callout__eyebrow">{eyebrow}</span>
+          ? <span className="discern-callout__eyebrow">{eyebrow}</span>
           : null}
         <h3>{title}</h3>
-        <div className="ds-callout__body">{children}</div>
+        <div className="discern-callout__body">{children}</div>
       </div>
     </aside>
   );

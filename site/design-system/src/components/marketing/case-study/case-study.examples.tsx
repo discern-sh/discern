@@ -31,7 +31,7 @@ export default function CaseStudyExamples() {
             placeItems: "center",
             padding: "2rem",
             background:
-              "radial-gradient(circle, var(--ds-color-accent-200), transparent 60%)",
+              "radial-gradient(circle, var(--discern-color-accent-200), transparent 60%)",
           }}
         >
           <strong>Customer evidence or product photography</strong>

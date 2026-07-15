@@ -1,22 +1,22 @@
 @layer discern.utilities {
-  .ds-container {
-    width: min(100% - 2 * var(--ds-space-6), var(--ds-page-max));
+  .discern-container {
+    width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));
     margin-inline: auto;
   }
-  .ds-measure {
-    max-width: var(--ds-measure);
+  .discern-measure {
+    max-width: var(--discern-measure);
   }
-  .ds-accent {
-    color: var(--ds-color-accent-600);
+  .discern-accent {
+    color: var(--discern-color-accent-600);
     font-style: italic;
   }
-  [data-ds-theme="dark"] .ds-accent {
-    color: var(--ds-color-accent-500);
+  [data-discern-theme="dark"] .discern-accent {
+    color: var(--discern-color-accent-500);
   }
-  .ds-mono {
-    font-family: var(--ds-font-mono);
+  .discern-mono {
+    font-family: var(--discern-font-mono);
   }
-  .ds-visually-hidden {
+  .discern-visually-hidden {
     position: absolute !important;
     width: 1px !important;
     height: 1px !important;
@@ -27,28 +27,29 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
-  .ds-dot-grid {
-    background-image: radial-gradient(color-mix(in oklab, var(--ds-color-ink)
+  .discern-dot-grid {
+    background-image: radial-gradient(color-mix(in oklab,
+      var(--discern-color-ink)
       16%, transparent) 1px,
       transparent 1.4px);
     background-size: 16px 16px;
   }
-  .ds-hatch {
+  .discern-hatch {
     background-image: repeating-linear-gradient(45deg, transparent 0 5px,
-      var(--ds-color-stripe) 5px 6px);
+      var(--discern-color-stripe) 5px 6px);
   }
-  .ds-grain-wash {
+  .discern-grain-wash {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background:
       radial-gradient(110% 72% at 50% -8%, color-mix(in oklab,
-      var(--ds-color-accent-300) 85%, transparent) 0%, transparent 62%),
+      var(--discern-color-accent-300) 85%, transparent) 0%, transparent 62%),
       linear-gradient(to bottom, color-mix(in oklab,
-      var(--ds-color-accent-200) 90%, var(--ds-color-canvas)) 0%,
-      var(--ds-color-canvas) 82%);
+      var(--discern-color-accent-200) 90%, var(--discern-color-canvas)) 0%,
+      var(--discern-color-canvas) 82%);
   }
-  .ds-grain-wash::after {
+  .discern-grain-wash::after {
     position: absolute;
     inset: 0;
     background: url("./textures/grain.png") repeat;
@@ -58,13 +59,14 @@
     opacity: 0.38;
     pointer-events: none;
   }
-  .ds-grain-wash > * {
+  .discern-grain-wash > * {
     position: relative;
   }
-  .ds-reveal {
-    animation: ds-reveal-in var(--ds-duration-reveal) var(--ds-ease-out) both;
+  .discern-reveal {
+    animation: discern-reveal-in var(--discern-duration-reveal)
+      var(--discern-ease-out) both;
   }
-  @keyframes ds-reveal-in {
+  @keyframes discern-reveal-in {
     from {
       opacity: 0;
       transform: translateY(14px);

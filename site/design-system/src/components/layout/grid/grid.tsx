@@ -4,8 +4,8 @@ import { classNames } from "../../class-names.ts";
 import { spaceValue } from "../space.ts";
 import type { SpaceStep } from "../space.ts";
 type GridStyle = CSSProperties & {
-  readonly "--ds-grid-gap"?: string;
-  readonly "--ds-grid-min"?: string;
+  readonly "--discern-grid-gap"?: string;
+  readonly "--discern-grid-min"?: string;
 };
 export interface GridProps extends HTMLAttributes<HTMLDivElement> {
   readonly gap?: SpaceStep;
@@ -18,14 +18,14 @@ export const Grid = forwardRef<HTMLDivElement, GridProps>(
     ref,
   ) {
     const gridStyle: GridStyle = {
-      "--ds-grid-gap": spaceValue(gap),
-      "--ds-grid-min": minimum,
+      "--discern-grid-gap": spaceValue(gap),
+      "--discern-grid-min": minimum,
       ...style,
     };
     return (
       <div
         ref={ref}
-        className={classNames("ds-grid", className)}
+        className={classNames("discern-grid", className)}
         style={gridStyle}
         {...props}
       >

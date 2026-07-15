@@ -12,10 +12,10 @@
   // ── Theme ────────────────────────────────────────────────────────────────
 
   $("[data-theme-toggle]")?.addEventListener("click", () => {
-    const next = root.getAttribute("data-ds-theme") === "dark"
+    const next = root.getAttribute("data-discern-theme") === "dark"
       ? "light"
       : "dark";
-    root.setAttribute("data-ds-theme", next);
+    root.setAttribute("data-discern-theme", next);
     try {
       localStorage.setItem("discern-theme", next);
     } catch {

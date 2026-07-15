@@ -18,14 +18,16 @@ export const Divider = forwardRef<HTMLDivElement, DividerProps>(
         ref={ref}
         role="separator"
         className={classNames(
-          "ds-divider",
-          `ds-divider--${surface}`,
-          hasLabel ? "ds-divider--labelled" : "ds-divider--plain",
+          "discern-divider",
+          `discern-divider--${surface}`,
+          hasLabel ? "discern-divider--labelled" : "discern-divider--plain",
           className,
         )}
         {...props}
       >
-        {hasLabel ? <span className="ds-divider__label">{label}</span> : null}
+        {hasLabel
+          ? <span className="discern-divider__label">{label}</span>
+          : null}
       </div>
     );
   },

@@ -22,19 +22,19 @@ export const LogoCloud = forwardRef<HTMLElement, LogoCloudProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-logo-cloud",
-          `ds-logo-cloud--${align}`,
+          "discern-logo-cloud",
+          `discern-logo-cloud--${align}`,
           className,
         )}
         {...props}
       >
-        {label ? <p className="ds-logo-cloud__label">{label}</p> : null}
-        <ul className="ds-logo-cloud__list">
+        {label ? <p className="discern-logo-cloud__label">{label}</p> : null}
+        <ul className="discern-logo-cloud__list">
           {items.map((item) => (
             <li key={item.name}>
               {item.mark
                 ? (
-                  <span className="ds-logo-cloud__mark" aria-hidden="true">
+                  <span className="discern-logo-cloud__mark" aria-hidden="true">
                     {item.mark}
                   </span>
                 )

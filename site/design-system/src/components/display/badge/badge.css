@@ -1,47 +1,47 @@
 @layer discern.components {
-  .ds-badge {
-    --ds-badge-bg: var(--ds-color-accent-100);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-accent-400) 50%, transparent);
-    --ds-badge-text: var(--ds-color-accent-800);
+  .discern-badge {
+    --discern-badge-bg: var(--discern-color-accent-100);
+    --discern-badge-border: color-mix(in oklab, var(--discern-color-accent-400) 50%, transparent);
+    --discern-badge-text: var(--discern-color-accent-800);
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-block-size: 24px;
     padding-inline: 9px;
-    border: 1px solid var(--ds-badge-border);
-    border-radius: var(--ds-radius-pill);
-    background: var(--ds-badge-bg);
-    color: var(--ds-badge-text);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+    border: 1px solid var(--discern-badge-border);
+    border-radius: var(--discern-radius-pill);
+    background: var(--discern-badge-bg);
+    color: var(--discern-badge-text);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
     font-weight: 600;
     line-height: 1.2;
   }
-  .ds-badge__dot {
+  .discern-badge__dot {
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
     background: currentColor;
   }
-  .ds-badge--neutral {
-    --ds-badge-bg: var(--ds-color-surface-sunken);
-    --ds-badge-border: var(--ds-color-border);
-    --ds-badge-text: var(--ds-color-ink-muted);
+  .discern-badge--neutral {
+    --discern-badge-bg: var(--discern-color-surface-sunken);
+    --discern-badge-border: var(--discern-color-border);
+    --discern-badge-text: var(--discern-color-ink-muted);
   }
-  .ds-badge--success {
-    --ds-badge-bg: var(--ds-color-success-soft);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-success) 50%, transparent);
-    --ds-badge-text: var(--ds-color-success-deep);
+  .discern-badge--success {
+    --discern-badge-bg: var(--discern-color-success-soft);
+    --discern-badge-border: color-mix(in oklab, var(--discern-color-success) 50%, transparent);
+    --discern-badge-text: var(--discern-color-success-deep);
   }
-  .ds-badge--warning {
-    --ds-badge-bg: var(--ds-color-warning-soft);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-warning) 42%, transparent);
-    --ds-badge-text: var(--ds-color-warning);
+  .discern-badge--warning {
+    --discern-badge-bg: var(--discern-color-warning-soft);
+    --discern-badge-border: color-mix(in oklab, var(--discern-color-warning) 42%, transparent);
+    --discern-badge-text: var(--discern-color-warning);
   }
-  .ds-badge--danger {
-    --ds-badge-bg: var(--ds-color-danger-soft);
-    --ds-badge-border: color-mix(in oklab, var(--ds-color-danger) 42%, transparent);
-    --ds-badge-text: var(--ds-color-danger);
+  .discern-badge--danger {
+    --discern-badge-bg: var(--discern-color-danger-soft);
+    --discern-badge-border: color-mix(in oklab, var(--discern-color-danger) 42%, transparent);
+    --discern-badge-text: var(--discern-color-danger);
   }
 }

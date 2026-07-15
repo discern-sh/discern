@@ -23,11 +23,19 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
       <div
         ref={ref}
         role={semanticRole}
-        className={classNames("ds-banner", `ds-banner--${tone}`, className)}
+        className={classNames(
+          "discern-banner",
+          `discern-banner--${tone}`,
+          className,
+        )}
         {...props}
       >
         {icon
-          ? <span className="ds-banner__icon" aria-hidden="true">{icon}</span>
+          ? (
+            <span className="discern-banner__icon" aria-hidden="true">
+              {icon}
+            </span>
+          )
           : null}
         <div>{children}</div>
       </div>

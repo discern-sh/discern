@@ -38,7 +38,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={classNames("ds-control", "ds-textarea", className)}
+        className={classNames("discern-control", "discern-textarea", className)}
         {...props}
       />
     );

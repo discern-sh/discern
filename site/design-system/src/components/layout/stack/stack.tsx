@@ -3,7 +3,7 @@ import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { classNames } from "../../class-names.ts";
 import { spaceValue } from "../space.ts";
 import type { SpaceStep } from "../space.ts";
-type StackStyle = CSSProperties & { readonly "--ds-stack-gap"?: string };
+type StackStyle = CSSProperties & { readonly "--discern-stack-gap"?: string };
 export interface StackProps extends HTMLAttributes<HTMLDivElement> {
   readonly gap?: SpaceStep;
   readonly align?: "start" | "center" | "end" | "stretch";
@@ -15,13 +15,17 @@ export const Stack = forwardRef<HTMLDivElement, StackProps>(
     ref,
   ) {
     const stackStyle: StackStyle = {
-      "--ds-stack-gap": spaceValue(gap),
+      "--discern-stack-gap": spaceValue(gap),
       ...style,
     };
     return (
       <div
         ref={ref}
-        className={classNames("ds-stack", `ds-stack--${align}`, className)}
+        className={classNames(
+          "discern-stack",
+          `discern-stack--${align}`,
+          className,
+        )}
         style={stackStyle}
         {...props}
       >

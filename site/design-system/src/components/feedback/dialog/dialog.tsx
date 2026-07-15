@@ -78,7 +78,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(
       <dialog
         ref={internalRef}
         aria-labelledby={titleId}
-        className={classNames("ds-dialog", className)}
+        className={classNames("discern-dialog", className)}
         onCancel={(event) => {
           event.preventDefault();
           onOpenChange(false);
@@ -86,24 +86,24 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(
         onMouseDown={handleBackdrop}
         {...props}
       >
-        <div className="ds-dialog__panel">
-          <header className="ds-dialog__header">
+        <div className="discern-dialog__panel">
+          <header className="discern-dialog__header">
             <div>
               {kicker ? <Kicker>{kicker}</Kicker> : null}
-              <h2 className="ds-dialog__title" id={titleId}>{title}</h2>
+              <h2 className="discern-dialog__title" id={titleId}>{title}</h2>
             </div>
             <button
               type="button"
-              className="ds-dialog__close"
+              className="discern-dialog__close"
               aria-label={closeLabel}
               onClick={() => onOpenChange(false)}
             >
               <span aria-hidden="true">×</span>
             </button>
           </header>
-          <div className="ds-dialog__body">{children}</div>
+          <div className="discern-dialog__body">{children}</div>
           {actions
-            ? <footer className="ds-dialog__actions">{actions}</footer>
+            ? <footer className="discern-dialog__actions">{actions}</footer>
             : null}
         </div>
       </dialog>

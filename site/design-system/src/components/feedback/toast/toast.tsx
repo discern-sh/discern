@@ -36,18 +36,26 @@ export const Toast = forwardRef<HTMLDivElement, ToastProps>(
       <div
         ref={ref}
         role={semanticRole}
-        className={classNames("ds-toast", `ds-toast--${tone}`, className)}
+        className={classNames(
+          "discern-toast",
+          `discern-toast--${tone}`,
+          className,
+        )}
         {...props}
       >
         {icon
-          ? <span className="ds-toast__icon" aria-hidden="true">{icon}</span>
+          ? (
+            <span className="discern-toast__icon" aria-hidden="true">
+              {icon}
+            </span>
+          )
           : null}
-        <span className="ds-toast__content">{children}</span>
+        <span className="discern-toast__content">{children}</span>
         {onDismiss
           ? (
             <button
               type="button"
-              className="ds-toast__dismiss"
+              className="discern-toast__dismiss"
               aria-label={dismissLabel}
               onClick={onDismiss}
             >
@@ -69,7 +77,7 @@ export const ToastRegion = forwardRef<HTMLDivElement, ToastRegionProps>(
       <div
         ref={ref}
         aria-label={label}
-        className={classNames("ds-toast-region", className)}
+        className={classNames("discern-toast-region", className)}
         {...props}
       />
     );

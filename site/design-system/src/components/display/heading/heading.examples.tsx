@@ -1,7 +1,7 @@
 import { Heading, HeadingAccent } from "./heading.tsx";
 export default function HeadingExamples() {
   return (
-    <div className="ds-example-stack">
+    <div className="discern-example-stack">
       <Heading level={2}>
         Lorem <HeadingAccent>ipsum</HeadingAccent> dolor sit amet.
       </Heading>

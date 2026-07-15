@@ -2,7 +2,7 @@ import { fixtureCopy } from "../../../fixtures/content.ts";
 import { Input } from "./input.tsx";
 export default function InputExamples() {
   return (
-    <div className="ds-example-grid">
+    <div className="discern-example-grid">
       <Input
         label="Lorem ipsum"
         placeholder="Dolor sit amet"

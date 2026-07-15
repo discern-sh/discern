@@ -1,90 +1,90 @@
 @layer discern.components {
-  .ds-data-figure {
-    margin-block: var(--ds-space-10);
+  .discern-data-figure {
+    margin-block: var(--discern-space-10);
     overflow: hidden;
-    border: 1px solid var(--ds-color-border-strong);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-surface);
-    box-shadow: var(--ds-shadow-card);
+    border: 1px solid var(--discern-color-border-strong);
+    border-radius: var(--discern-radius-lg);
+    background: var(--discern-color-surface);
+    box-shadow: var(--discern-shadow-card);
   }
-  .ds-data-figure--sunken {
-    background: var(--ds-color-surface-sunken);
+  .discern-data-figure--sunken {
+    background: var(--discern-color-surface-sunken);
   }
-  .ds-data-figure > header {
+  .discern-data-figure > header {
     display: flex;
     justify-content: space-between;
-    gap: var(--ds-space-5);
+    gap: var(--discern-space-5);
     align-items: end;
-    padding: var(--ds-space-5) var(--ds-space-6);
-    border-block-end: 1px solid var(--ds-color-border);
+    padding: var(--discern-space-5) var(--discern-space-6);
+    border-block-end: 1px solid var(--discern-color-border);
   }
-  .ds-data-figure > header span {
+  .discern-data-figure > header span {
     display: block;
-    margin-block-end: var(--ds-space-1);
-    color: var(--ds-color-accent-700);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-strong);
+    margin-block-end: var(--discern-space-1);
+    color: var(--discern-color-accent-700);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
+    font-weight: var(--discern-font-weight-strong);
   }
-  .ds-data-figure > header h3 {
+  .discern-data-figure > header h3 {
     margin: 0;
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-lg);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-lg);
   }
-  .ds-data-figure > header ul {
+  .discern-data-figure > header ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--ds-space-3);
+    gap: var(--discern-space-3);
     margin: 0;
     padding: 0;
-    color: var(--ds-color-ink-faint);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+    color: var(--discern-color-ink-faint);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
     list-style: none;
   }
-  .ds-data-figure > header li {
+  .discern-data-figure > header li {
     display: inline-flex;
     align-items: center;
-    gap: var(--ds-space-1);
+    gap: var(--discern-space-1);
   }
-  .ds-data-figure > header i {
+  .discern-data-figure > header i {
     inline-size: 0.55rem;
     block-size: 0.55rem;
     border-radius: 2px;
-    background: var(--ds-color-accent-500);
+    background: var(--discern-color-accent-500);
   }
-  .ds-data-figure > header .ds-data-figure__swatch--ink {
-    background: var(--ds-color-ink-muted);
+  .discern-data-figure > header .discern-data-figure__swatch--ink {
+    background: var(--discern-color-ink-muted);
   }
-  .ds-data-figure > header .ds-data-figure__swatch--success {
-    background: var(--ds-color-success);
+  .discern-data-figure > header .discern-data-figure__swatch--success {
+    background: var(--discern-color-success);
   }
-  .ds-data-figure > header .ds-data-figure__swatch--warning {
-    background: var(--ds-color-warning);
+  .discern-data-figure > header .discern-data-figure__swatch--warning {
+    background: var(--discern-color-warning);
   }
-  .ds-data-figure__visual {
+  .discern-data-figure__visual {
     min-height: 16rem;
-    padding: var(--ds-space-6);
+    padding: var(--discern-space-6);
   }
-  .ds-data-figure figcaption {
+  .discern-data-figure figcaption {
     display: grid;
-    gap: var(--ds-space-1);
-    padding: var(--ds-space-4) var(--ds-space-6);
-    border-block-start: 1px solid var(--ds-color-border);
-    color: var(--ds-color-ink-muted);
-    font-size: var(--ds-font-size-xs);
+    gap: var(--discern-space-1);
+    padding: var(--discern-space-4) var(--discern-space-6);
+    border-block-start: 1px solid var(--discern-color-border);
+    color: var(--discern-color-ink-muted);
+    font-size: var(--discern-font-size-xs);
   }
-  .ds-data-figure figcaption small {
-    color: var(--ds-color-ink-faint);
-    font-family: var(--ds-font-ui);
-    font-feature-settings: var(--ds-font-features-ui);
-    font-size: var(--ds-font-size-xs);
+  .discern-data-figure figcaption small {
+    color: var(--discern-color-ink-faint);
+    font-family: var(--discern-font-ui);
+    font-feature-settings: var(--discern-font-features-ui);
+    font-size: var(--discern-font-size-xs);
   }
   @media (max-width: 620px) {
-    .ds-data-figure > header {
+    .discern-data-figure > header {
       align-items: flex-start;
       flex-direction: column;
     }

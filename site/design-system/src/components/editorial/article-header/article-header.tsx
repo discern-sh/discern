@@ -43,35 +43,37 @@ export const ArticleHeader = forwardRef<HTMLElement, ArticleHeaderProps>(
       <header
         ref={ref}
         className={classNames(
-          "ds-article-header",
-          `ds-article-header--${surface}`,
-          Boolean(media) && "ds-article-header--with-media",
+          "discern-article-header",
+          `discern-article-header--${surface}`,
+          Boolean(media) && "discern-article-header--with-media",
           className,
         )}
         {...props}
       >
-        <div className="ds-article-header__inner">
-          <div className="ds-article-header__copy">
+        <div className="discern-article-header__inner">
+          <div className="discern-article-header__copy">
             {eyebrow
-              ? <div className="ds-article-header__eyebrow">{eyebrow}</div>
+              ? <div className="discern-article-header__eyebrow">{eyebrow}</div>
               : null}
             <Heading>{title}</Heading>
-            <div className="ds-article-header__standfirst">{standfirst}</div>
+            <div className="discern-article-header__standfirst">
+              {standfirst}
+            </div>
             {authors.length || meta.length || actions
               ? (
-                <div className="ds-article-header__footer">
+                <div className="discern-article-header__footer">
                   {authors.length
                     ? (
-                      <address className="ds-article-header__authors">
+                      <address className="discern-article-header__authors">
                         {authors.map((author, index) => (
                           <span
-                            className="ds-article-header__author"
+                            className="discern-article-header__author"
                             key={index}
                           >
                             {author.initials
                               ? (
                                 <span
-                                  className="ds-article-header__avatar"
+                                  className="discern-article-header__avatar"
                                   aria-hidden="true"
                                 >
                                   {author.initials}
@@ -91,14 +93,14 @@ export const ArticleHeader = forwardRef<HTMLElement, ArticleHeaderProps>(
                     : null}
                   {meta.length
                     ? (
-                      <ul className="ds-article-header__meta">
+                      <ul className="discern-article-header__meta">
                         {meta.map((item, index) => <li key={index}>{item}</li>)}
                       </ul>
                     )
                     : null}
                   {actions
                     ? (
-                      <div className="ds-article-header__actions">
+                      <div className="discern-article-header__actions">
                         {actions}
                       </div>
                     )
@@ -108,7 +110,7 @@ export const ArticleHeader = forwardRef<HTMLElement, ArticleHeaderProps>(
               : null}
           </div>
           {media
-            ? <div className="ds-article-header__media">{media}</div>
+            ? <div className="discern-article-header__media">{media}</div>
             : null}
         </div>
       </header>

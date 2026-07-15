@@ -2,7 +2,7 @@ import { ExampleIcon } from "../../../fixtures/example-icon.tsx";
 import { Banner } from "./banner.tsx";
 export default function BannerExamples() {
   return (
-    <div className="ds-example-stack">
+    <div className="discern-example-stack">
       <Banner icon={<ExampleIcon name="info" />}>
         Lorem ipsum dolor sit amet.
       </Banner>

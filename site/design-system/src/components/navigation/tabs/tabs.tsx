@@ -105,8 +105,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     item.value === activeValue && !item.disabled
   ) ?? items.find((item) => !item.disabled);
   return (
-    <div ref={ref} className={classNames("ds-tabs", className)} {...props}>
-      <div role="tablist" aria-label={label} className="ds-tabs__list">
+    <div ref={ref} className={classNames("discern-tabs", className)} {...props}>
+      <div role="tablist" aria-label={label} className="discern-tabs__list">
         {items.map((item, index) => {
           const selected = item.value === activeItem?.value;
           return (
@@ -122,9 +122,10 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
               aria-controls={`${baseId}-panel-${index}`}
               disabled={item.disabled}
               tabIndex={selected ? 0 : -1}
-              className="ds-tabs__tab"
+              className="discern-tabs__tab"
               onClick={() => select(item.value)}
-              onKeyDown={(event) => handleKeyDown(event, index, item)}
+              onKeyDown={(event) =>
+                handleKeyDown(event, index, item)}
             >
               {item.label}
             </button>
@@ -140,7 +141,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
               role="tabpanel"
               aria-labelledby={`${baseId}-tab-${activeIndex}`}
               tabIndex={0}
-              className="ds-tabs__panel"
+              className="discern-tabs__panel"
             >
               {activeItem.content}
             </div>

@@ -34,28 +34,37 @@ export const FaqBlock = forwardRef<HTMLElement, FaqBlockProps>(
     return (
       <section
         ref={ref}
-        className={classNames("ds-faq-block", className)}
+        className={classNames("discern-faq-block", className)}
         {...props}
       >
-        <div className="ds-faq-block__inner">
-          <header className="ds-faq-block__header">
+        <div className="discern-faq-block__inner">
+          <header className="discern-faq-block__header">
             {eyebrow
-              ? <div className="ds-faq-block__eyebrow">{eyebrow}</div>
+              ? <div className="discern-faq-block__eyebrow">{eyebrow}</div>
               : null}
             <h2>{title}</h2>
             {description
-              ? <div className="ds-faq-block__description">{description}</div>
+              ? (
+                <div className="discern-faq-block__description">
+                  {description}
+                </div>
+              )
               : null}
-            {aside ? <div className="ds-faq-block__aside">{aside}</div> : null}
+            {aside
+              ? <div className="discern-faq-block__aside">{aside}</div>
+              : null}
           </header>
-          <div className="ds-faq-block__items">
+          <div className="discern-faq-block__items">
             {items.map((item, index) => (
               <details key={index} open={openFirst && index === 0}>
                 <summary>
                   <span>{item.question}</span>
-                  <span className="ds-faq-block__toggle" aria-hidden="true" />
+                  <span
+                    className="discern-faq-block__toggle"
+                    aria-hidden="true"
+                  />
                 </summary>
-                <div className="ds-faq-block__answer">{item.answer}</div>
+                <div className="discern-faq-block__answer">{item.answer}</div>
               </details>
             ))}
           </div>

@@ -13,16 +13,21 @@ export const Window = forwardRef<HTMLElement, WindowProps>(
     return (
       <figure
         ref={ref}
-        className={classNames("ds-window", className)}
+        className={classNames("discern-window", className)}
         {...props}
       >
-        <div className="ds-window__bar" aria-hidden={title ? undefined : true}>
-          <span className="ds-window__dot" />
-          <span className="ds-window__dot" />
-          <span className="ds-window__dot" />
-          {title ? <span className="ds-window__title">{title}</span> : null}
+        <div
+          className="discern-window__bar"
+          aria-hidden={title ? undefined : true}
+        >
+          <span className="discern-window__dot" />
+          <span className="discern-window__dot" />
+          <span className="discern-window__dot" />
+          {title
+            ? <span className="discern-window__title">{title}</span>
+            : null}
         </div>
-        <div className="ds-window__body" style={bodyStyle}>{children}</div>
+        <div className="discern-window__body" style={bodyStyle}>{children}</div>
       </figure>
     );
   },

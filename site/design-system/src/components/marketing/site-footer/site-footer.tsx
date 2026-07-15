@@ -38,15 +38,18 @@ export const SiteFooter = forwardRef<HTMLElement, SiteFooterProps>(
     return (
       <footer
         ref={ref}
-        className={classNames("ds-site-footer", className)}
+        className={classNames("discern-site-footer", className)}
         {...props}
       >
-        <div className="ds-site-footer__inner">
-          <div className="ds-site-footer__brand-column">
-            <a className="ds-site-footer__brand" href="/">
+        <div className="discern-site-footer__inner">
+          <div className="discern-site-footer__brand-column">
+            <a className="discern-site-footer__brand" href="/">
               {brandMark
                 ? (
-                  <span className="ds-site-footer__mark" aria-hidden="true">
+                  <span
+                    className="discern-site-footer__mark"
+                    aria-hidden="true"
+                  >
                     {brandMark}
                   </span>
                 )
@@ -54,12 +57,16 @@ export const SiteFooter = forwardRef<HTMLElement, SiteFooterProps>(
               <span>{brand}</span>
             </a>
             {description
-              ? <div className="ds-site-footer__description">{description}</div>
+              ? (
+                <div className="discern-site-footer__description">
+                  {description}
+                </div>
+              )
               : null}
           </div>
           {groups.length
             ? (
-              <nav className="ds-site-footer__nav" aria-label="Footer">
+              <nav className="discern-site-footer__nav" aria-label="Footer">
                 {groups.map((group, index) => (
                   <div key={index}>
                     <h2>{group.title}</h2>
@@ -77,7 +84,7 @@ export const SiteFooter = forwardRef<HTMLElement, SiteFooterProps>(
             : null}
           {legal || meta
             ? (
-              <div className="ds-site-footer__base">
+              <div className="discern-site-footer__base">
                 <span>{legal}</span>
                 <span>{meta}</span>
               </div>

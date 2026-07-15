@@ -1,7 +1,7 @@
 import { Switch } from "./switch.tsx";
 export default function SwitchExamples() {
   return (
-    <div className="ds-example-stack">
+    <div className="discern-example-stack">
       <Switch
         label="Lorem ipsum"
         description="Consectetur adipiscing elit."

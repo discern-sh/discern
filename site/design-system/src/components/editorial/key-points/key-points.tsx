@@ -24,8 +24,8 @@ export const KeyPoints = forwardRef<HTMLElement, KeyPointsProps>(
       <section
         ref={ref}
         className={classNames(
-          "ds-key-points",
-          `ds-key-points--${tone}`,
+          "discern-key-points",
+          `discern-key-points--${tone}`,
           className,
         )}
         {...props}

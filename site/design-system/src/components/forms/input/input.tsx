@@ -34,7 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       required={required}
       aria-invalid={error ? true : undefined}
       aria-describedby={describedBy}
-      className={classNames("ds-control", className)}
+      className={classNames("discern-control", className)}
       {...props}
     />
   );

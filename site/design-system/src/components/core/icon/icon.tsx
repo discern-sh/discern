@@ -19,7 +19,7 @@ export const Icon = forwardRef<HTMLSpanElement, IconProps>(function Icon(
   return (
     <span
       ref={ref}
-      className={classNames("ds-icon", className)}
+      className={classNames("discern-icon", className)}
       style={{ width: size, height: size, ...style }}
       {...accessibility}
       {...props}
