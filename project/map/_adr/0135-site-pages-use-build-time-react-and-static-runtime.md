@@ -2,6 +2,11 @@
 
 **Status**: accepted
 
+**Ownership amendment**:
+[ADR 0139](0139-the-design-system-is-an-independent-package.md) makes the
+authored design system an external package. This ADR's build-time React and
+static-browser-runtime decision remains active.
+
 ## Context
 
 The existing draft discern.sh landing pages are self-contained HTML pages,

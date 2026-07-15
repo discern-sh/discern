@@ -4,6 +4,9 @@ The design system is the long-term visual foundation for discern.sh. It can
 evolve beside the original self-contained HTML experiments, and a page adopts it
 only when its own generated edition is ready to replace the old route.
 
+`site/design-system/` remains live during the
+[external-package migration](../_adr/0139-the-design-system-is-an-independent-package.md).
+
 ## Ownership boundaries
 
 | Tree                                                  | Owns                                                                                                                   |

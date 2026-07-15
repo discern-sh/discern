@@ -144,6 +144,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0136 — Third-party notices derive from the compile graph](0136-third-party-notices-derive-from-the-compile-graph.md)
 - [0137 — Project scripts live under the `script` command](0137-project-scripts-live-under-the-script-command.md)
 - [0138 — All ruled config banners are managed regions](0138-all-ruled-config-banners-are-managed.md)
+- [0139 — The design system is an independently versioned package](0139-the-design-system-is-an-independent-package.md)
 
 ## Superseded and consolidated ADRs
 
