@@ -166,6 +166,58 @@ export function publicDocs(entries: readonly DocEntry[]): DocEntry[] {
   return entries.filter(isPublicDoc);
 }
 
+/** One surface enrolled with the publication predicate. */
+export interface PublicDocSurface {
+  name: string;
+  /** Repo-relative source module that applies {@link isPublicDoc}. */
+  source: string;
+  /** How the predicate reaches the surface. */
+  via: string;
+}
+
+/**
+ * The registry of PUBLISHED surfaces — the projection matrix, in code. Every
+ * surface that projects a doc tree to an audience is listed here, and the
+ * parity guard (tests/public_doc_parity_test.ts) reconciles the list against
+ * the sources: an enrolled surface must consume {@link isPublicDoc}, and no
+ * other module may re-derive page-level publication by hand. Building a new
+ * public surface? Filter through the predicate and add the entry — the guard
+ * fails until you do.
+ */
+export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
+  {
+    name: "site",
+    source: "site/docs.ts",
+    via: "buildDocsSite filters pages through isPublicDoc; the search index, " +
+      "llms.txt, the sitemap, and the raw .md editions all derive from " +
+      "those pages",
+  },
+  {
+    name: "help",
+    source: "src/commands/docs.ts",
+    via: "verbTree applies publicDocs to every help view — terminal browse, " +
+      "TOC, JSON/MCP results, and target resolution",
+  },
+  {
+    name: "export-public",
+    source: "src/commands/docs.ts",
+    via: "exportDocs filters the public scope through publicDocs",
+  },
+];
+
+/**
+ * Surfaces that MUST enrol when their wiring lands (a later brief owns each).
+ * The parity guard asserts these do NOT yet consume the predicate — the day
+ * one does, it must move to {@link PUBLIC_DOC_SURFACES} or the guard fails.
+ */
+export const PUBLIC_DOC_SURFACES_PENDING: readonly PublicDocSurface[] = [
+  {
+    name: "help-staging",
+    source: "scripts/build.ts",
+    via: "the binary embed stages only published docs (brief 1G wires it)",
+  },
+];
+
 /** One page a redirect registry is built over: its live route and the
  * historical routes its frontmatter claims (`redirect_from:`). */
 export interface RedirectPage {
