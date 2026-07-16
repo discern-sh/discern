@@ -1,21 +1,22 @@
 # Closing recap sections restate the page the reader just read (voice skill:
 # banned moves). Banned under ~800 words; on longer pages prefer one plain
-# next-step sentence.
+# next-step sentence. Zero legitimate uses, so it blocks the gate. Words join
+# with \s+ for uniformity with the other rules, though a heading never wraps.
 extends: existence
 message: "'%s' heads a recap section: end when the reader has what they need."
 ignorecase: true
 level: error
 scope: heading
 tokens:
-  - ^in summary
+  - ^in\s+summary
   - ^summary
-  - ^to recap
+  - ^to\s+recap
   - ^recap
-  - ^wrapping up
-  - ^in closing
-  - ^in conclusion
+  - ^wrapping\s+up
+  - ^in\s+closing
+  - ^in\s+conclusion
   - ^conclusion
-  - ^key takeaways
-  - ^final thoughts
-  - ^the short version
+  - ^key\s+takeaways
+  - ^final\s+thoughts
+  - ^the\s+short\s+version
   - ^tl;dr

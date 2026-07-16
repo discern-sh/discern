@@ -1,15 +1,16 @@
 # Announcing importance instead of stating the point (voice skill: banned
 # moves). If the point matters, say the point; the reader decides what's
-# crucial. Zero legitimate uses, so it blocks the gate.
+# crucial. Zero legitimate uses, so it blocks the gate. Words join with \s+ so
+# an instance wrapped across source lines still matches.
 extends: existence
 message: "'%s' narrates importance instead of stating the point: say the point."
 ignorecase: true
 level: error
 tokens:
-  - the crux
-  - the key insight
-  - the heart of the matter
-  - here(?:'|’)s the thing
-  - the real magic
-  - the punchline is
-  - the (?:moment|part) that matters
+  - the\s+crux
+  - the\s+key\s+insight
+  - the\s+heart\s+of\s+the\s+matter
+  - here(?:'|’)s\s+the\s+thing
+  - the\s+real\s+magic
+  - the\s+punchline\s+is
+  - the\s+(?:moment|part)\s+that\s+matters

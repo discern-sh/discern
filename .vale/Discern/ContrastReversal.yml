@@ -7,5 +7,5 @@ ignorecase: true
 level: warning
 nonword: true
 tokens:
-  - ',\s+not [^.?!;:—]{1,45}[.?!:;]'
-  - ',\s+never [^.?!;:—]{1,45}[.?!:;]'
+  - ',\s+not\s+[^.?!;:—]{1,45}[.?!:;]'
+  - ',\s+never\s+[^.?!;:—]{1,45}[.?!:;]'

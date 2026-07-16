@@ -6,8 +6,8 @@ message: "Contrast-frame ('not X, but Y'): state the true half plainly, unless t
 ignorecase: true
 level: warning
 tokens:
-  - not [^.?!;:—]{1,45},\s+but
-  - isn(?:'|’)t [^.?!;:—]{1,45}[,;]\s+it(?:'|’)s
-  - wasn(?:'|’)t [^.?!;:—]{1,45}[,;]\s+it (?:was|is)
-  - was never the point
-  - not about [^.?!;:—]{1,45}[,;.]\s+it(?:'|’)s about
+  - not\s+[^.?!;:—]{1,45},\s+but
+  - isn(?:'|’)t\s+[^.?!;:—]{1,45}[,;]\s+it(?:'|’)s
+  - wasn(?:'|’)t\s+[^.?!;:—]{1,45}[,;]\s+it\s+(?:was|is)
+  - was\s+never\s+the\s+point
+  - not\s+about\s+[^.?!;:—]{1,45}[,;.]\s+it(?:'|’)s\s+about

@@ -1,5 +1,8 @@
 # Adjectives and slogans that dodge "compared to what?" — replace with the
-# sourced fact that earned them, or nothing (voice skill: banned words).
+# sourced fact that earned them, or nothing (voice skill: banned words). Zero
+# legitimate uses, so it blocks the gate (a literal command like `git worktree
+# unlock` belongs in backticks, which Vale never lints). Words join with \s+
+# so an instance wrapped across source lines still matches.
 extends: existence
 message: "'%s' is hype vocabulary: state the sourced fact that earned it, or cut it."
 ignorecase: true
@@ -15,11 +18,11 @@ tokens:
   - delightful(?:ly)?
   - beautiful(?:ly)?
   - supercharg(?:e[sd]?|ing)
-  - game.chang(?:er|ing)
+  - game[\s.-]chang(?:er|ing)
   - unlocks?
   - empowers?
   - vibes
-  - just works
-  - ship faster
-  - ship with confidence
-  - ship at scale
+  - just\s+works
+  - ship\s+faster
+  - ship\s+with\s+confidence
+  - ship\s+at\s+scale

@@ -69,8 +69,16 @@ try {
       stderr: "piped",
     }).output();
     const decoder = new TextDecoder();
-    const stdout = restoreStagePaths(decoder.decode(run.stdout), stage, docsDir);
-    const stderr = restoreStagePaths(decoder.decode(run.stderr), stage, docsDir);
+    const stdout = restoreStagePaths(
+      decoder.decode(run.stdout),
+      stage,
+      docsDir,
+    );
+    const stderr = restoreStagePaths(
+      decoder.decode(run.stderr),
+      stage,
+      docsDir,
+    );
     if (stdout) console.log(stdout.trimEnd());
     if (stderr) console.error(stderr.trimEnd());
     code = run.code;

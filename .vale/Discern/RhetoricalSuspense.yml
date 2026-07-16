@@ -1,12 +1,14 @@
 # Manufactured suspense — a question posed only to answer itself (voice skill:
-# banned moves). A direct question that routes the reader is fine.
+# banned moves). A direct question that routes the reader is fine. Zero
+# legitimate uses, so it blocks the gate. Words join with \s+ so an instance
+# wrapped across source lines still matches.
 extends: existence
 message: "Manufactured suspense ('%s'): state the point instead of teasing it."
 ignorecase: true
 level: error
 nonword: true
 tokens:
-  - '\bsound familiar\?'
-  - '\bthe catch\?'
-  - '\bthe best part\?'
-  - '\bthe result\?'
+  - '\bsound\s+familiar\?'
+  - '\bthe\s+catch\?'
+  - '\bthe\s+best\s+part\?'
+  - '\bthe\s+result\?'

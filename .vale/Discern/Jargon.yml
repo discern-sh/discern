@@ -10,4 +10,4 @@ action:
   name: replace
 swap:
   postures?: tracked or ignored
-  the shapes? of: how it fits together
+  the\s+shapes?\s+of: how it fits together

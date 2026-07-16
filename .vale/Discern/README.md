@@ -18,11 +18,11 @@ Two rules of the pairing:
   legitimate uses (self-narration, recap headings, hedging stacks, vendor-speak,
   banned jargon) is an `error`: `[checks.prose]` blocks the gate and the
   diagnostic names the file and line. A rule that needs the writer's judgment
-  (contrast-frames carry a one-per-page budget, em-dash chains need a rebuild,
-  a counted set is occasionally the fact) stays a `warning` — tracked by the
+  (contrast-frames carry a one-per-page budget, em-dash chains need a rebuild, a
+  counted set is occasionally the fact) stays a `warning` — tracked by the
   density standard and surfaced on demand by `discern script prose-page`.
-  Semantic voice judgment stays with the writer: a page can pass every rule
-  here and still fail the skill.
+  Semantic voice judgment stays with the writer: a page can pass every rule here
+  and still fail the skill.
 
 Scope: the map's published and `_internal` tiers. `_adr/` is exempt in
 `.vale.ini` — decision records are dated documents, never re-toned — and

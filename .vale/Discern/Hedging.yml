@@ -1,11 +1,13 @@
 # A stack of hedges where the reader came for a recommendation (voice skill:
-# banned words). Say "Do X," or "Do X unless Y."
+# banned words). Say "Do X," or "Do X unless Y." Zero legitimate uses, so it
+# blocks the gate. Words join with \s+ so an instance wrapped across source
+# lines still matches.
 extends: existence
 message: "'%s' hedges a recommendation: say 'Do X', or 'Do X unless Y'."
 ignorecase: true
 level: error
 tokens:
-  - you may want to consider
-  - you might want to consider
-  - you may wish to
-  - it may be worth considering
+  - you\s+may\s+want\s+to\s+consider
+  - you\s+might\s+want\s+to\s+consider
+  - you\s+may\s+wish\s+to
+  - it\s+may\s+be\s+worth\s+considering
