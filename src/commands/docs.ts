@@ -28,6 +28,7 @@ import {
   basename,
   dirname,
   isAbsolute,
+  join,
   relative,
   resolve,
   SEPARATOR,
@@ -48,10 +49,7 @@ import {
 } from "../lib/docs.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
-import {
-  BUNDLED_INTERNAL_DOC_DIRS,
-  resolveBundledDocsDir,
-} from "../lib/paths.ts";
+import { HELP_ADR_DOC_DIR, resolveBundledDocsDir } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
 import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
@@ -126,6 +124,12 @@ const HELP_VERB: DocsVerb = {
   exportScopes: ["public"],
 };
 
+/** The useful installed-binary response when its internal history is requested. */
+const EXTERNAL_DECISIONS_MESSAGE =
+  "discern's decision records are not bundled with installed binaries. " +
+  "Read them at https://discern.sh/docs/decisions or in the source repository " +
+  "at https://github.com/jackwh/discern/tree/main/project/map/_adr.";
+
 /** Render an allowed-scope list for an error message ("public, all, or select"). */
 function listScopes(scopes: readonly DocsExportScope[]): string {
   if (scopes.length <= 1) return scopes.join("");
@@ -133,18 +137,26 @@ function listScopes(scopes: readonly DocsExportScope[]): string {
 }
 
 /**
- * The internal-subtree policy for a browse. `help --adr` reveals the bundled ADR
- * tree — and ONLY that ({@link BUNDLED_INTERNAL_DOC_DIRS}), never `_internal` /
- * `_private`, and never over MCP (the `helpResult` path passes nothing).
- * Everything else stays public-only.
+ * The internal-subtree policy for a browse. In a source checkout, `help --adr`
+ * reveals the decision tree — and only that — never `_internal` / `_private`,
+ * and never over MCP (the `helpResult` path passes nothing). Installed binaries
+ * do not contain the tree and point readers to its public homes instead.
  */
 function internalScope(
   desc: DocsVerb,
   options: DocsOptions,
 ): boolean | readonly string[] {
-  return desc.verb === "help" && options.adr
-    ? BUNDLED_INTERNAL_DOC_DIRS
-    : false;
+  return desc.verb === "help" && options.adr ? [HELP_ADR_DOC_DIR] : false;
+}
+
+/** Whether the resolved source tree actually carries the checkout-only records. */
+async function hasDecisionRecords(dir: string | undefined): Promise<boolean> {
+  if (dir === undefined) return false;
+  try {
+    return (await Deno.stat(join(dir, HELP_ADR_DOC_DIR))).isDirectory;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -628,9 +640,20 @@ async function treeResult(
     target?: string | undefined;
     dir?: string | undefined;
     internal?: boolean | readonly string[] | undefined;
+    adr?: boolean | undefined;
   } = {},
 ): Promise<DiscernResult<DocsData>> {
   const resolved = await desc.resolveDir(opts);
+  if (
+    desc.verb === "help" && opts.adr === true && resolved.kind === "ok" &&
+    !(await hasDecisionRecords(resolved.dir))
+  ) {
+    return {
+      ok: true,
+      verb: desc.verb,
+      message: EXTERNAL_DECISIONS_MESSAGE,
+    };
+  }
   const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({
@@ -861,12 +884,20 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       target: options.target,
       dir: options.dir,
       internal,
+      adr: options.adr,
     });
     log.result(result);
     return result.ok ? 0 : 1;
   }
 
   const resolved = await desc.resolveDir(options);
+  if (
+    desc.verb === "help" && options.adr === true && resolved.kind === "ok" &&
+    !(await hasDecisionRecords(resolved.dir))
+  ) {
+    log.line(EXTERNAL_DECISIONS_MESSAGE);
+    return 0;
+  }
   const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
