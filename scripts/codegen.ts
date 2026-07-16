@@ -23,6 +23,7 @@ import {
 } from "../src/shared/result_codegen.ts";
 import {
   generateThirdPartyArtifacts,
+  sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
 } from "../src/shared/third_party_codegen.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
@@ -35,8 +36,14 @@ const configReference = relative(
   join(mapDir, "10-installer", "config-reference.md"),
 );
 
-/** Write `text` to a repo-relative path, reporting whether it changed. */
-async function write(rel: string, text: string): Promise<void> {
+type EquivalentText = (before: string, after: string) => boolean;
+
+/** Write `text` unless the committed artifact is equivalent, then report it. */
+async function write(
+  rel: string,
+  text: string,
+  equivalent: EquivalentText = (before, after) => before === after,
+): Promise<void> {
   const path = join(repoRoot, rel);
   let before: string | undefined;
   try {
@@ -44,7 +51,7 @@ async function write(rel: string, text: string): Promise<void> {
   } catch {
     before = undefined;
   }
-  if (before === text) {
+  if (before !== undefined && equivalent(before, text)) {
     console.log(`  unchanged  ${rel}`);
     return;
   }
@@ -69,7 +76,11 @@ const thirdParty = await generateThirdPartyArtifacts({
   allowFetch: true,
 });
 await write(THIRD_PARTY_ARTIFACT_PATHS.notices, thirdParty.notices);
-await write(THIRD_PARTY_ARTIFACT_PATHS.bundle, thirdParty.bundleModule);
+await write(
+  THIRD_PARTY_ARTIFACT_PATHS.bundle,
+  thirdParty.bundleModule,
+  sameThirdPartyBundlePayload,
+);
 await write(
   THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
   thirdParty.jsrLicenseCacheJson,
