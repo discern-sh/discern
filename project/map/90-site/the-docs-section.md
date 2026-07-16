@@ -32,20 +32,34 @@ The wider model — the strict frontmatter schema, the redirect registry, and th
 per-entry metadata the site reads — is documented in
 [the document model](../50-engine-internals/the-document-model.md).
 
-| Surface               | Content                                                           |
-| --------------------- | ----------------------------------------------------------------- |
-| `/docs`               | Section index with derived descriptions.                          |
-| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.        |
-| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                      |
-| `/docs/decisions`     | Project-history index derived from every numbered ADR.            |
-| `/docs/decisions/<n>` | One current or visibly superseded decision record.                |
-| `/docs/index.json`    | The search-palette index: routes, titles, descriptions, headings. |
-| `/llms.txt`           | The plaintext edition plus a generated docs listing.              |
+| Surface               | Content                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `/docs`               | Section index with derived descriptions.                      |
+| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.    |
+| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                  |
+| `/docs/decisions`     | Project-history index derived from every numbered ADR.        |
+| `/docs/decisions/<n>` | One current or visibly superseded decision record.            |
+| `/docs/index.json`    | The client-side search index over published product guidance. |
+| `/llms.txt`           | The plaintext edition plus a generated docs listing.          |
 
 `DocsSite.sitemapRoutes` is the canonical HTML route source for the sitemap: the
 docs landing, every public guidance page, the decisions index, and every
 decision record. Decision routes deliberately stay out of `site.pages`, the
 guidance-only source used by search and llms.
+
+## Search
+
+[`site/search.ts`](../../../site/search.ts) builds the index from the stripped
+public projection. It applies `isPublicDoc` before reading a source and excludes
+the decision section independently of the guidance-only caller. Each record
+keeps title, `aliases`, headings, code terms, and body text separate so the
+client can rank them in that order; descriptions share the body weight. Exact
+phrases receive a further boost.
+
+The browser fetches the index once and searches it locally, with no third-party
+code, query telemetry, or query persistence. Results carry a contextual body
+excerpt or page description and may link directly to a matching heading. An
+empty result points readers toward commands, config keys, and exact error text.
 
 ## Rendering
 
@@ -78,6 +92,20 @@ component styles plus the self-hosted fonts from the minimal
 Rendered Markdown thematic breaks use the editorial rule treatment with a
 centred `◮`, the first use of discern's intended mark.
 
+## Accessibility and resilience
+
+WCAG 2.2 AA is the shell's working target. The mobile drawer and search palette
+move focus into their modal surfaces, make the background inert, trap focus,
+close on Escape, and restore focus to the opener. Search exposes its labelled
+input, result choices, active option, and result count to assistive technology.
+
+Heading permalinks are siblings of their headings, so they do not change the
+heading name. The drawer trigger reports whether it opens or closes navigation,
+the theme control reports the action and current pressed state, and copy
+controls announce success or failure. Drawer and search transitions honour
+reduced motion. Without JavaScript, mobile navigation stays in the document flow
+while controls that require scripting remain hidden.
+
 ## Reader negotiation
 
 Every docs route negotiates like the rest of the site: a text client receives
@@ -97,3 +125,15 @@ projection fixtures prove that a missing section README or a section-less
 published leaf fails the build. Unpublished tiers are asserted absent by walking
 the map directory's complement of the allowlist, so a new internal tier enrols
 in the 404 guard the day it is created.
+
+[`tests/site_search_test.ts`](../../../tests/site_search_test.ts) pins exact
+command, config-key, error-string, and alias searches against synthetic source
+content. It also guards the field weights, snippets, strict publish boundary,
+decision exclusion, and no-telemetry policy.
+
+[`tests/site_accessibility_test.ts`](../../../tests/site_accessibility_test.ts)
+runs axe against representative guidance and decision pages, including the
+search modal, and rejects serious or critical WCAG findings. Focused contract
+checks cover responsive, client-generated, reduced-motion, and no-JavaScript
+states that the automated audit cannot activate. The Markdown renderer's list
+tests guard valid nested-list semantics found by this audit.
