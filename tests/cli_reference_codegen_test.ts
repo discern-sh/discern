@@ -15,6 +15,7 @@ import type { Command } from "@cliffy/command";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import {
   cliCommandModel,
+  commandHeadingLabel,
   renderCliReferenceDoc,
   walkCliCommands,
 } from "../src/shared/cli_reference_codegen.ts";
@@ -53,7 +54,7 @@ Deno.test("every public CLI verb appears in the generated reference; no hidden c
     if (node.hidden) continue;
     assertStringIncludes(
       rendered,
-      `\n### \`discern ${verb}\`\n`,
+      `\n### \`${commandHeadingLabel(node)}\`\n`,
       `the CLI reference is missing the public verb "${verb}" — the generator ` +
         "must be total over the visible surface",
     );
@@ -64,7 +65,7 @@ Deno.test("every public CLI verb appears in the generated reference; no hidden c
   // command (preset, worktree create/remove, …) leaks into the public page.
   for (const node of walkCliCommands(model)) {
     if (node.path.length === 0) continue;
-    const heading = `\`discern ${node.path.join(" ")}\``;
+    const heading = `\`${commandHeadingLabel(node)}\``;
     if (node.hidden) {
       assert(
         !rendered.includes(heading),

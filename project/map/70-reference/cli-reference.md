@@ -125,11 +125,11 @@ Usage: `discern accept [options]`
 | `--dry-run` | Show the acceptance plan; touch nothing. |
 | `--confirmed` | Attest that your owner has accepted this landing (or gave standing pre-authorization). Without it, acceptance refuses read-only and re-serves the review moment; a dry-run never needs it. |
 
-### `discern worktree`
+### `discern worktree <subcommand>`
 
 Manage worktrees — separate checkouts and branches for individual changes.
 
-Usage: `discern worktree [options]`
+Usage: `discern worktree <subcommand>`
 
 #### `discern worktree setup`
 
@@ -312,11 +312,11 @@ Usage: `discern doctor [options]`
 | --- | --- |
 | `-v, --verbose` | Show the hint explaining each execution-model step (hidden by default). |
 
-### `discern config`
+### `discern config <subcommand>`
 
 Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.
 
-Usage: `discern config [options]`
+Usage: `discern config <subcommand>`
 
 #### `discern config set-capability`
 
@@ -461,11 +461,11 @@ Usage: `discern standards [names...] [options]`
 | `--force` | Run standards on a dirty worktree; intended only while authoring standards. |
 | `--pin` | Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree. |
 
-### `discern skills`
+### `discern skills <subcommand>`
 
 Manage skills: list the effective set, or eject a built-in to customize it.
 
-Usage: `discern skills [options]`
+Usage: `discern skills <subcommand>`
 
 #### `discern skills list`
 

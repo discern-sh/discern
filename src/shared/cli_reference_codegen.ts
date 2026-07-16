@@ -151,6 +151,25 @@ function argLabel(arg: CliArg): string {
   return arg.optional ? `[${arg.name}${dots}]` : `<${arg.name}${dots}>`;
 }
 
+/**
+ * A help-only command GROUP: subcommands, no positionals, and nothing of its
+ * own to invoke. The prelaunch vocabulary retired presenting a bare group as a
+ * command — docs teach `discern worktree <subcommand>`, never `discern
+ * worktree` — so the reference renders groups in that canonical shape.
+ */
+export function isHelpOnlyGroup(node: CliCommand): boolean {
+  return node.children.length > 0 && node.args.length === 0 &&
+    node.options.every((o) => o.hidden || o.global);
+}
+
+/** The backticked label a command's heading and usage carry: the full path,
+ * with `<subcommand>` appended for a help-only group. */
+export function commandHeadingLabel(node: CliCommand): string {
+  const words = ["discern", ...node.path];
+  if (isHelpOnlyGroup(node)) words.push("<subcommand>");
+  return words.join(" ");
+}
+
 /** A flag's value spec with Cliffy's `:type` annotations dropped:
  * `<name:string>` → `<name>`. */
 function valueSpec(typeDefinition: string): string {
@@ -159,6 +178,7 @@ function valueSpec(typeDefinition: string): string {
 
 /** The full usage line for one command, e.g. `discern map [target] [options]`. */
 function usageLine(node: CliCommand): string {
+  if (isHelpOnlyGroup(node)) return commandHeadingLabel(node);
   const words = ["discern", ...node.path, ...node.args.map(argLabel)];
   if (node.options.some((o) => !o.hidden)) {
     words.push("[options]");
@@ -185,7 +205,7 @@ function optionsTable(node: CliCommand): string {
 function commandSection(node: CliCommand, depth: number): string {
   const heading = "#".repeat(depth);
   const parts: string[] = [
-    `${heading} \`discern ${node.path.join(" ")}\``,
+    `${heading} \`${commandHeadingLabel(node)}\``,
     "",
     node.description,
     "",
