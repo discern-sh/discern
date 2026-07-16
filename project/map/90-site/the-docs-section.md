@@ -90,7 +90,8 @@ component styles plus the self-hosted fonts from the minimal
 `/assets/design-system/docs/` bundle. Page-specific composition lives in
 `site/pages/assets/docs.css` and behaviour in `site/pages/assets/docs.js`.
 Rendered Markdown thematic breaks use the editorial rule treatment with a
-centred `◮`, the first use of discern's intended mark.
+centred `◮`, discern's mark
+([ADR 0147](../_adr/0147-the-mark-is-the-unicode-glyph.md)).
 
 ## Accessibility and resilience
 

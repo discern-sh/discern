@@ -33,6 +33,7 @@ CLIs?
 codebase('s)?
 codegen
 codemod
+codepoints?
 composable
 concat
 configs?
@@ -70,6 +71,7 @@ escapable
 eval
 exec'd
 fail_fast
+favicons?
 fd
 footgun
 formatter('s|s)?
@@ -111,6 +113,7 @@ maintainer
 Makefiles?
 metacharacters
 migrator
+misalign(s|ed|ing)?
 misconfigur(ed|ation)s?
 mockups?
 monorepo
@@ -140,6 +143,7 @@ prefixer
 prepended
 preprints?
 pushback
+rasteriz(e|ed|es|ing)
 ratchetable
 READMEs?
 recompiles?
@@ -184,6 +188,7 @@ subprocess(es)?
 subshell
 subtrees?
 suppressions?
+SVGs?
 symlink
 teardown
 templated
@@ -212,6 +217,7 @@ untrack(ed|ing|s)
 untrusted
 uppercased
 validator
+Vercel('s)?
 vhost
 walkthrough(s)?
 wget
