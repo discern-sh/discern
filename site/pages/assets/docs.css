@@ -58,6 +58,17 @@ body {
   overflow: hidden;
 }
 
+.docs-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 
 .docs-top {
@@ -554,6 +565,12 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
   opacity: 1;
 }
 
+.docs-copy.is-copy-failed {
+  border-color: var(--discern-color-danger);
+  color: var(--discern-color-danger);
+  opacity: 1;
+}
+
 .doc-body blockquote {
   margin: var(--discern-space-6) 0;
   padding: var(--discern-space-4) var(--discern-space-5);
@@ -636,8 +653,18 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
   transform: translate(-50%, -60%);
 }
 
+.docs-heading-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.docs-heading-row > :is(h2, h3, h4) {
+  flex: 1;
+  min-width: 0;
+}
+
 .docs-anchor {
-  margin-left: 10px;
   color: var(--discern-color-ink-faint);
   font: 400 0.75em var(--discern-font-mono);
   text-decoration: none;
@@ -645,7 +672,7 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
   transition: opacity var(--discern-duration-fast);
 }
 
-.doc-body :is(h2, h3, h4):hover .docs-anchor,
+.docs-heading-row:hover .docs-anchor,
 .docs-anchor:focus-visible {
   opacity: 1;
 }
@@ -884,6 +911,10 @@ a.docs-pager-cell:hover {
   box-shadow: var(--discern-shadow-pop);
 }
 
+.docs-search-close {
+  margin-left: auto;
+}
+
 .docs-search-input {
   width: 100%;
   padding: 14px 16px;
@@ -907,19 +938,19 @@ a.docs-pager-cell:hover {
   list-style: none;
 }
 
-.docs-search-results a {
+.docs-search-option {
   display: block;
   padding: 9px 12px;
   border-left: 2px solid transparent;
   border-radius: var(--discern-radius-sm);
-  text-decoration: none;
+  cursor: pointer;
 }
 
-.docs-search-results a:hover {
+.docs-search-option:hover {
   background: var(--discern-color-surface-sunken);
 }
 
-.docs-search-results li.is-selected a {
+.docs-search-option[aria-selected="true"] {
   border-left-color: var(--discern-color-accent-600);
   background: color-mix(in oklab, var(--discern-color-accent-100) 80%,
     transparent);
@@ -954,6 +985,10 @@ a.docs-pager-cell:hover {
   font-feature-settings: var(--discern-font-features-ui);
 }
 
+.docs-search-empty[hidden] {
+  display: none;
+}
+
 .docs-search-hint {
   padding: 8px 16px;
   border-top: 1px solid var(--discern-color-border);
@@ -985,7 +1020,7 @@ a.docs-pager-cell:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .docs-nav {
+  .docs-js .docs-nav {
     position: fixed;
     top: 0;
     bottom: 0;
@@ -1001,12 +1036,12 @@ a.docs-pager-cell:hover {
       var(--discern-ease-out);
   }
 
-  .docs-nav.is-open {
+  .docs-js .docs-nav.is-open {
     transform: none;
     box-shadow: var(--discern-shadow-pop);
   }
 
-  .docs-veil {
+  .docs-js .docs-veil {
     display: block;
     position: fixed;
     inset: 0;
@@ -1014,12 +1049,38 @@ a.docs-pager-cell:hover {
     background: var(--discern-color-overlay);
   }
 
-  .docs-veil[hidden] {
+  .docs-js .docs-veil[hidden] {
     display: none;
+  }
+
+  html:not(.docs-js) .docs-burger,
+  html:not(.docs-js) .docs-search-btn,
+  html:not(.docs-js) .docs-theme,
+  html:not(.docs-js) .docs-veil {
+    display: none;
+  }
+
+  html:not(.docs-js) .docs-nav {
+    position: static;
+    width: auto;
+    max-height: none;
+    padding-block: var(--discern-space-6);
+    transform: none;
+    transition: none;
   }
 
   .docs-main {
     padding-top: var(--discern-space-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-nav,
+  .docs-search,
+  .docs-search-panel,
+  .docs-search-veil {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

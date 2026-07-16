@@ -378,6 +378,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <link rel="icon" href="${FAVICON}" />
 <script>
 (function () {
+  document.documentElement.classList.add("docs-js");
   var stored = null;
   try { stored = localStorage.getItem("discern-theme"); } catch (_) { /* file:// quirks */ }
   var dark = stored === "dark" ||
@@ -394,7 +395,8 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <a class="docs-skip" href="#doc">Skip to content</a>
 <header class="docs-top">
   <button class="discern-icon-button docs-burger" type="button"
-    aria-label="Open navigation" aria-expanded="false" data-drawer-toggle>
+    data-drawer-toggle aria-controls="docs-nav"
+    aria-label="Open navigation" aria-expanded="false">
     <span class="discern-icon">${ICONS.menu}</span>
   </button>
   <a class="docs-brand" href="/">
@@ -402,13 +404,14 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     <span class="docs-brand-word">discern</span></a><a
     class="docs-brand-docs discern-mono" href="/docs">/docs</a>
   <span class="docs-top-spacer"></span>
-  <button class="docs-search-btn" type="button" data-search-open>
+  <button class="docs-search-btn" type="button" data-search-open
+    aria-label="Search documentation">
     <span class="discern-icon docs-search-icon">${ICONS.search}</span>
     <span class="docs-search-btn-word">Search the manual</span>
     <kbd class="discern-mono">⌘K</kbd>
   </button>
   <button class="discern-icon-button docs-theme" type="button"
-    aria-label="Toggle color theme" data-theme-toggle>
+    aria-label="Use dark theme" aria-pressed="false" data-theme-toggle>
     <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
     <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
   </button>
@@ -434,16 +437,24 @@ ${navHtml(site, frame.current)}
 <div class="docs-search" data-search hidden>
   <div class="docs-search-veil" data-search-close></div>
   <div class="discern-window docs-search-panel" role="dialog" aria-modal="true"
-    aria-label="Search documentation">
+    aria-labelledby="docs-search-title">
     <div class="discern-window__bar">
       <span class="discern-window__dot"></span><span class="discern-window__dot"></span><span class="discern-window__dot"></span>
-      <span class="discern-window__title">search · discern.sh/docs</span>
+      <span class="discern-window__title" id="docs-search-title">search · discern.sh/docs</span>
+      <button class="discern-icon-button docs-search-close" type="button"
+        data-search-close aria-label="Close search"><span aria-hidden="true">×</span></button>
     </div>
     <div class="discern-window__body docs-search-body">
       <input class="docs-search-input discern-mono" type="search"
-        placeholder="Search the manual…" data-search-input
+        placeholder="Search the manual…" data-search-input role="combobox"
+        aria-label="Search documentation" aria-autocomplete="list"
+        aria-expanded="false" aria-controls="docs-search-results"
         autocomplete="off" spellcheck="false" />
-      <ul class="docs-search-results" data-search-results></ul>
+      <ul class="docs-search-results" id="docs-search-results" role="listbox"
+        aria-label="Search results" data-search-results></ul>
+      <div class="docs-search-empty" data-search-empty hidden></div>
+      <div class="docs-visually-hidden" role="status" aria-live="polite"
+        aria-atomic="true" data-search-status></div>
       <div class="docs-search-hint discern-mono">↑↓ choose · ↵ open · esc close</div>
     </div>
   </div>

@@ -8,7 +8,11 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { inlineToPlain, renderMarkdown } from "../src/lib/markdown.ts";
+import {
+  inlineToPlain,
+  renderMarkdown,
+  renderMarkdownHtml,
+} from "../src/lib/markdown.ts";
 
 const plain = (md: string, width = 80) =>
   renderMarkdown(md, { width, color: false });
@@ -60,6 +64,18 @@ Deno.test("nested list items are indented under their parent", () => {
   const out = plain("- parent\n  - child");
   assertStringIncludes(out, "• parent");
   assertStringIncludes(out, "  • child");
+});
+
+Deno.test("HTML nested lists keep every child list inside its parent item", () => {
+  const rendered = renderMarkdownHtml(
+    "- alpha\n  - fresh sibling\n  1. ordered sibling\n- omega",
+  );
+  assertEquals(
+    rendered.html,
+    "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
+      "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
+      "<li>omega</li>\n</ul>",
+  );
 });
 
 Deno.test("fenced code blocks keep their fences in plain mode", () => {
