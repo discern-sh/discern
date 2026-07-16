@@ -11,11 +11,16 @@ test suite automatically.
 ## Sourcing and routes
 
 [`site/docs.ts`](../../../site/docs.ts) filters the discovered tree to the
-allowlisted sections (honouring a leaf's `publish: false` frontmatter), then
-derives routes by stripping each tier's reading-order prefix —
+allowlisted sections, composed with the document model's `isPublicDoc` predicate
+— `publish: false` is the sole page-level withhold, shared with every other
+published surface
+([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)) —
+then derives routes by stripping each tier's reading-order prefix —
 `/docs/quality-gate/the-receipt`, never `/docs/20-quality-gate/…` — so
 renumbering a tier cannot break an inbound link. A section's `README.md` becomes
-its landing page.
+its landing page. The wider model — the strict frontmatter schema, the redirect
+registry, and the per-entry metadata the site reads — is documented in
+[the document model](../50-engine-internals/the-document-model.md).
 
 | Surface               | Content                                                           |
 | --------------------- | ----------------------------------------------------------------- |
@@ -27,11 +32,15 @@ its landing page.
 
 ## Rendering
 
-Markdown renders at request time and caches for the process lifetime. Syntax
-highlighting is deliberately monochrome: in this design family, color belongs to
-verdicts alone. Relative links rewrite to routes when the target is published,
-and to the repository on GitHub when it is not (ADRs, internal tiers, source
-files), so no reference dead-ends.
+Markdown renders at request time and caches for the process lifetime. The
+frontmatter block and inline ADR citation groups are stripped before rendering —
+human-rendered prose carries neither, while the `.md` editions stay pristine
+([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)); the cited decisions
+remain available per page as `DocEntry.citedAdrs` for a related-decisions
+treatment. Syntax highlighting is deliberately monochrome: in this design
+family, color belongs to verdicts alone. Relative links rewrite to routes when
+the target is published, and to the repository on GitHub when it is not (ADRs,
+internal tiers, source files), so no reference dead-ends.
 
 The browser shell is a design-system consumer: the server renders semantic HTML
 on the documented `.discern-*` classes, loading the generated tokens and

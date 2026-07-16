@@ -73,8 +73,12 @@ pass fills it — a blank map is worse than none
 (`discern map --json`, `discern help`) describe each leaf with a title derived
 from its first heading and a one-line description derived from its lead
 paragraph; a leaf may open with optional frontmatter (`title`, `description`,
-`order`, `publish`) to override a derived value when the derivation reads poorly
-([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)).
+`order`, `publish`, `redirect_from`, `aliases`) to override a derived value or
+carry publishing metadata — the schema is strict at the gate, and
+`publish: false` is the sole page-level withhold, honoured by every published
+surface through one predicate
+([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md),
+[ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)).
 
 ### Engine
 

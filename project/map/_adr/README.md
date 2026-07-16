@@ -145,6 +145,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0137 — Project scripts live under the `script` command](0137-project-scripts-live-under-the-script-command.md)
 - [0138 — All ruled config banners are managed regions](0138-all-ruled-config-banners-are-managed.md)
 - [0139 — The design system is an independently versioned package](0139-the-design-system-is-an-independent-package.md)
+- [0140 — Frontmatter is a gate-validated schema and `publish: false` is the sole page-level withhold](0140-validated-frontmatter-and-the-publish-predicate.md)
+- [0141 — ADR citations take one strippable form and strip at render time](0141-adr-citations-strip-at-render.md)
 
 ## Superseded and consolidated ADRs
 
