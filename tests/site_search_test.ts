@@ -182,3 +182,20 @@ Deno.test("search field weights stay title > aliases > headings > code > body", 
     ["/docs/title", "/docs/alias", "/docs/heading", "/docs/code", "/docs/body"],
   );
 });
+
+Deno.test("search queries stay in the browser with no telemetry or persistence", async () => {
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const matcher = await Deno.readTextFile(
+    new URL("../site/pages/assets/search.js", import.meta.url),
+  );
+  const searchSection = client.slice(client.indexOf("// ── Search palette"));
+  const statefulApis = [
+    ...`${searchSection}\n${matcher}`.matchAll(
+      /\b(fetch|sendBeacon|localStorage|XMLHttpRequest|WebSocket)\b/g,
+    ),
+  ].map((match) => match[1]);
+  assertEquals(statefulApis, ["fetch"]);
+  assertStringIncludes(searchSection, 'fetch("/docs/index.json")');
+});
