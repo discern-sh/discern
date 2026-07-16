@@ -1,23 +1,23 @@
 /**
  * Architectural guard for what `discern help` ships. The curation rule —
- * "public docs + the explicit `BUNDLED_INTERNAL_DOC_DIRS` allowlist ship; every
- * other `_`-prefixed tree (`_internal`, `_private`, …) stays out of the binary
- * AND the default view" — is the property that lets a new private doc tree be
- * safe the moment it is created, with no list to remember. These tests pin it
- * against THIS repo's configured map and the one predicate the build filters
- * on ({@link isBundledDocEntry}), so a regression (a private tree leaking into
- * the embed, or the build and the view disagreeing) fails the gate rather than a
- * customer binary.
+ * "the binary stages exactly the published leaves in its public subtree
+ * allowlist" — is the property that keeps unpublished pages and every internal
+ * tree out of customer binaries. These tests pin the actual build seam to the
+ * document model's one page-level predicate, so a new page cannot ship or be
+ * withheld by accident.
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { exists } from "@std/fs";
 import { join } from "@std/path";
 import {
-  BUNDLED_INTERNAL_DOC_DIRS,
   BUNDLED_PUBLIC_DOC_DIRS,
+  HELP_ADR_DOC_DIR,
   isBundledDocEntry,
 } from "../src/lib/paths.ts";
-import { discoverDocs } from "../src/lib/docs.ts";
+import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
+import { stageBundledDocs } from "../scripts/build.ts";
+import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const MAP_DIR = REPO_AUTHORED_PATHS.map;
@@ -29,37 +29,30 @@ async function topLevelDocEntries(): Promise<string[]> {
   return names.sort();
 }
 
-Deno.test("isBundledDocEntry ships public + the ADR allowlist, and nothing else internal", () => {
-  // Allowlisted public entries and the root README ship; the never-ship private
-  // trees do not.
+Deno.test("isBundledDocEntry admits public help tiers and no internal tree", () => {
   assert(isBundledDocEntry("00-orientation"));
   assert(isBundledDocEntry("README.md"));
+  assertEquals(isBundledDocEntry(HELP_ADR_DOC_DIR), false);
   assertEquals(isBundledDocEntry("_internal"), false);
   assertEquals(isBundledDocEntry("_private"), false);
-  // A brand-new `_`-prefixed tree is private by default — no list to update.
   assertEquals(isBundledDocEntry("_anything-new"), false);
-  // The contributor/engine-internals trees are for people working ON discern,
-  // not using it — they never ship in a customer binary.
   assertEquals(isBundledDocEntry("50-engine-internals"), false);
   assertEquals(isBundledDocEntry("80-development"), false);
-  // Exactly the allowlists ship — the ADR internal tree, and every user-relevant
-  // public tree.
-  for (const allowed of BUNDLED_INTERNAL_DOC_DIRS) {
-    assert(isBundledDocEntry(allowed), `${allowed} should be bundled`);
-  }
   for (const allowed of BUNDLED_PUBLIC_DOC_DIRS) {
     assert(isBundledDocEntry(allowed), `${allowed} should be bundled`);
   }
 });
 
-Deno.test("the real configured map embeds only public docs + the allowlist", async () => {
+Deno.test("the real configured map admits only public help tiers", async () => {
   const names = await topLevelDocEntries();
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
 
-  // The only `_`-prefixed trees that ship are exactly the allowlist — so the
-  // maintainer/internal material under `_private/` and `_internal/` never does.
-  assertEquals(internalEmbedded.sort(), [...BUNDLED_INTERNAL_DOC_DIRS].sort());
+  assertEquals(internalEmbedded, []);
+  assert(
+    !embedded.includes(HELP_ADR_DOC_DIR),
+    "decision records must not ship",
+  );
   assert(!embedded.includes("_private"), "_private must never be embedded");
   assert(!embedded.includes("_internal"), "_internal must never be embedded");
 
@@ -70,15 +63,13 @@ Deno.test("the real configured map embeds only public docs + the allowlist", asy
   }
   assert(
     !embedded.includes("50-engine-internals"),
-    "engine-internals must not ship in a user binary",
+    "engine-internals must not ship in a customer binary",
   );
   assert(
     !embedded.includes("80-development"),
     "the development tree must not ship in a user binary",
   );
 
-  // Every top-level dir is either a numbered public subtree or `_`-prefixed —
-  // nothing can be private-by-intent yet ship because someone forgot the prefix.
   for (const name of names) {
     const isDir = (await Deno.stat(join(MAP_DIR, name))).isDirectory;
     if (!isDir) continue;
@@ -88,6 +79,56 @@ Deno.test("the real configured map embeds only public docs + the allowlist", asy
         `number it to ship it, or prefix it with _ to keep it private`,
     );
   }
+});
+
+Deno.test("the staged file set equals the public projection", async () => {
+  await withTempDir(async (dir) => {
+    const source = join(dir, "map");
+    const files: Record<string, string> = {
+      "README.md": "# Public front door\n",
+      "00-orientation/README.md": "# Orientation\n",
+      "00-orientation/public.md": "# Public page\n",
+      "00-orientation/withheld.md":
+        "---\npublish: false\n---\n# Withheld page\n",
+      "50-engine-internals/implementation.md": "# Implementation\n",
+      "_adr/0001-private-history.md": "# Decision history\n",
+      "_private/notes.md": "# Private notes\n",
+    };
+    for (const [rel, content] of Object.entries(files)) {
+      const path = join(source, rel);
+      await Deno.mkdir(join(path, ".."), { recursive: true });
+      await Deno.writeTextFile(path, content);
+    }
+
+    const sourceTree = await discoverDocs({
+      cwd: dir,
+      dir: source,
+      includeInternal: false,
+    });
+    assert(sourceTree);
+    const expected = sourceTree.entries
+      .filter((entry) => {
+        const topLevel = entry.relToDocs.split("/")[0] ?? entry.relToDocs;
+        return isBundledDocEntry(topLevel) && isPublicDoc(entry);
+      })
+      .map((entry) => entry.relToDocs);
+
+    const stagedDir = join(dir, "staged", "docs");
+    const copied = await stageBundledDocs(source, stagedDir);
+    const stagedTree = await discoverDocs({
+      cwd: dir,
+      dir: stagedDir,
+      includeInternal: true,
+    });
+    assert(stagedTree);
+    const actual = stagedTree.entries.map((entry) => entry.relToDocs);
+
+    assertEquals(copied, expected);
+    assertEquals(actual, expected);
+    assert(!actual.includes("00-orientation/withheld.md"));
+    assertEquals(await exists(join(stagedDir, HELP_ADR_DOC_DIR)), false);
+    assertEquals(await exists(join(stagedDir, "_private")), false);
+  });
 });
 
 Deno.test("the default help view excludes every internal subtree; --adr reveals only the ADRs", async () => {
@@ -109,7 +150,7 @@ Deno.test("the default help view excludes every internal subtree; --adr reveals 
   const adrTree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: MAP_DIR,
-    includeInternal: BUNDLED_INTERNAL_DOC_DIRS,
+    includeInternal: [HELP_ADR_DOC_DIR],
   });
   assert(adrTree);
   assert(

@@ -8,7 +8,7 @@ binary ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). A leaf
 added to a public tier appears in the nav, the search index, llms.txt, and the
 test suite automatically. The map's decision records use the same document model
 through a separate, explicitly historical route family
-([ADR 0142](../_adr/0142-decisions-on-the-web.md)).
+([ADR 0143](../_adr/0143-decisions-on-the-web.md)).
 
 ## Sourcing and routes
 

@@ -539,7 +539,7 @@ export function buildCli(
     )
     .option(
       "--adr",
-      "Also surface discern's Architecture Decision Records (hidden by default).",
+      "Browse decision records in a source checkout, or show their public location.",
     )
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option("--width <cols:number>", "Wrap width for rendered output.")

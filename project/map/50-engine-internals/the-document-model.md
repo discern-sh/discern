@@ -46,7 +46,10 @@ of the project map (`discern map`, the tree on disk) keep everything.
 [`tests/public_doc_parity_test.ts`](../../../tests/public_doc_parity_test.ts)
 forces every enrolled surface onto the predicate and bans hand-rolled `.publish`
 filtering anywhere else. Tier-level curation (`BUNDLED_PUBLIC_DOC_DIRS` in
-[`src/lib/paths.ts`](../../../src/lib/paths.ts)) is a separate axis.
+[`src/lib/paths.ts`](../../../src/lib/paths.ts)) is a separate axis. Binary help
+staging walks the indexed leaves and applies both axes, so the compiled resource
+contains exactly the published pages in the product-help tiers and no internal
+tree ([ADR 0142](../_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
 ## Projections
 
@@ -61,6 +64,12 @@ citation form is gate-enforced by
 Both prose standards measure the body only: the word count strips frontmatter
 directly, and Vale lints a frontmatter-blanked staged mirror
 ([`scripts/prose_lib.ts`](../../../scripts/prose_lib.ts)).
+
+`help --adr` has a source/install split. A source checkout resolves this repo's
+configured map and can browse `_adr/`; a customer binary contains no such
+directory and returns the public decisions-site and repository locations. MCP
+help has no internal mode and serves the same staged public set through
+`helpResult`.
 
 ## Redirects
 
