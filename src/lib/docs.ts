@@ -72,7 +72,7 @@ export interface DocEntry {
   order?: number | undefined;
   /** Search synonyms from frontmatter (`aliases:`), `[]` when none. */
   aliases: string[];
-  /** Historical absolute routes that redirect here (`redirect_from:`). */
+  /** Retired absolute routes that redirect here (`redirect_from:`). */
   redirectFrom: string[];
   /** Decisions the doc cites, in citation order, for related-decision surfaces. */
   citedAdrs: AdrCitation[];
@@ -219,7 +219,7 @@ export const PUBLIC_DOC_SURFACES_PENDING: readonly PublicDocSurface[] = [
 ];
 
 /** One page a redirect registry is built over: its live route and the
- * historical routes its frontmatter claims (`redirect_from:`). */
+ * retired routes its frontmatter claims (`redirect_from:`). */
 export interface RedirectPage {
   route: string;
   redirectFrom: readonly string[];

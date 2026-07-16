@@ -10,7 +10,7 @@
  *    real file;
  *  - `_private/` is skipped outright (it is unshipped and carries no prose
  *    contract — the same exclusion `.vale.ini` declares by glob, re-applied
- *    here because the staged paths no longer match that glob).
+ *    here because staged paths never match that glob).
  *
  * Callers map Vale's output paths back through {@link restoreStagePaths} so a
  * diagnostic names the real file, then remove the stage directory.

@@ -55,7 +55,7 @@ export interface DocMeta {
   order?: number | undefined;
   /** `false` withholds the leaf from published/exported surfaces. */
   publish?: boolean | undefined;
-  /** Historical absolute routes that should redirect to this page. */
+  /** Retired absolute routes that redirect to this page. */
   redirect_from?: string[] | undefined;
   /** Search synonyms: renamed terms, CLI spellings. */
   aliases?: string[] | undefined;
