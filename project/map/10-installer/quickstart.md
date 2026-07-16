@@ -64,8 +64,8 @@ Two things remain for you:
 
 1. **Start a fresh agent session.** The MCP tools and session hooks setup wired
    load at session start, so the session that ran setup can't see them yet.
-2. **Review and land the `discern-setup` branch.** Setup is ordinary file
-   edits on a branch you can read, and it reviews like any other.
+2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits
+   on a branch you can read, and it reviews like any other.
 
 ## 4. Ship a change through the gate
 

@@ -117,9 +117,10 @@ could reject the run has passed.
   key, type, and default. **Generated** from the one canonical config schema
   ([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
   `deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)), so the
-  reference, the editor [JSON Schema](../../../schema/discern-config.schema.json),
-  and the rules the engine enforces come from one source and cannot drift. Edit
-  the schema, not the generated file.
+  reference, the editor
+  [JSON Schema](../../../schema/discern-config.schema.json), and the rules the
+  engine enforces come from one source and cannot drift. Edit the schema, not
+  the generated file.
 - [migrations.md](migrations.md) — the versioned Migration chain, the Schema
   version, and the idempotency contract.
 - [config-access.md](../50-engine-internals/config-access.md) — the typed
