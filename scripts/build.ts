@@ -6,9 +6,8 @@
  *    Deno and no network to scaffold; and
  *  - discern's OWN documentation, staged into {@link BUNDLED_DOCS_STAGE_DIR}
  *    first (see {@link stageBundledDocs}) and `--include`d, so `discern help`
- *    serves it from any install. The PUBLIC subtrees plus the opt-in
- *    {@link BUNDLED_INTERNAL_DOC_DIRS} (the ADRs, reachable only via
- *    `discern help --adr`) are staged; `_internal`/`_private` are never
+ *    serves it from any install. Only published pages in the public help
+ *    subtrees are staged; internal decision and maintainer trees are never
  *    embedded in a customer binary.
  *
  * Output goes to `dist/`.
@@ -19,6 +18,7 @@
 import { copy, ensureDir } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
 import {
   BUNDLED_DOCS_STAGE_DIR,
   isBundledDocEntry,
@@ -57,30 +57,49 @@ const PERMISSIONS = [
 ];
 
 /**
- * Stage discern's documentation into {@link BUNDLED_DOCS_STAGE_DIR} for embedding:
- * the PUBLIC subtrees plus exactly the opt-in {@link BUNDLED_INTERNAL_DOC_DIRS}
- * (the ADRs, surfaced only by `discern help --adr`). Every other `_`-prefixed
- * subtree (`_internal`, `_private`) is excluded, so internal/maintainer notes
- * never ship inside a customer binary — default-deny ({@link isBundledDocEntry}),
- * so a new private tree stays out until it is added to the allowlist on purpose.
- * The tree nests an inner `docs/` so help's embedded document paths retain their
- * stable `docs/…` shape; {@link resolveBundledDocsDir} reads it back. Returns the staged
- * parent directory to `--include`. Curation is at the EMBED here; the view (the
- * default `includeInternal: false`, and the `--adr` allowlist) is the second line
- * of defence (ADR 0039).
+ * Copy the public projection of `mapDir` into `stagedDocs`. The subtree
+ * allowlist is the tier-level boundary; {@link isPublicDoc} is the page-level
+ * boundary. Walking the document model and copying individual leaves means a
+ * `publish: false` page is absent from the binary rather than merely hidden by
+ * its views, while internal decision and maintainer trees never enter the stage.
+ *
+ * Exported so the parity suite can drive the exact build seam against fixtures.
  */
-async function stageBundledDocs(): Promise<string> {
+export async function stageBundledDocs(
+  mapDir: string,
+  stagedDocs: string,
+): Promise<string[]> {
+  const tree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: mapDir,
+    includeInternal: false,
+  });
+  if (tree === undefined) {
+    throw new Error(`could not discover documentation under ${mapDir}`);
+  }
+
+  const staged: string[] = [];
+  await ensureDir(stagedDocs);
+  for (const entry of tree.entries) {
+    const topLevel = entry.relToDocs.split("/")[0] ?? entry.relToDocs;
+    if (!isBundledDocEntry(topLevel) || !isPublicDoc(entry)) continue;
+    const destination = join(stagedDocs, entry.relToDocs);
+    await ensureDir(dirname(destination));
+    await copy(entry.absPath, destination);
+    staged.push(entry.relToDocs);
+  }
+  return staged;
+}
+
+/** Prepare the repo-relative include tree consumed by `deno compile`. */
+async function prepareBundledDocs(): Promise<string> {
   const stageDir = join(REPO_ROOT, BUNDLED_DOCS_STAGE_DIR);
   await Deno.remove(stageDir, { recursive: true }).catch(
     () => {},
   );
   const stagedDocs = join(stageDir, "docs");
   const mapDir = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
-  await ensureDir(stagedDocs);
-  for await (const entry of Deno.readDir(mapDir)) {
-    if (!isBundledDocEntry(entry.name)) continue;
-    await copy(join(mapDir, entry.name), join(stagedDocs, entry.name));
-  }
+  await stageBundledDocs(mapDir, stagedDocs);
   // Keep the include path repo-relative, exactly as the compiled resource
   // resolver expects; the filesystem work above stays rooted explicitly.
   return BUNDLED_DOCS_STAGE_DIR;
@@ -163,7 +182,7 @@ async function main(): Promise<void> {
     Deno.exit(1);
   }
 
-  const docsStageDir = await stageBundledDocs();
+  const docsStageDir = await prepareBundledDocs();
   try {
     for (const target of targets) {
       await compileTarget(target, distDir, docsStageDir);

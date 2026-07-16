@@ -219,24 +219,17 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 
 /**
  * The repo-root staging directory `scripts/build.ts` lays the bundled help tree into
- * before `--include`-ing it (so customer binaries embed the public tree plus the
- * ADR allowlist, never `_private`/`_internal`). The single source of truth for the name,
- * shared by the build (which writes it) and {@link resolveBundledDocsDir} (which
- * reads it). It nests an inner `docs/` so bundled-help document paths keep the
- * stable `docs/…` shape used by the public interface.
+ * before `--include`-ing it (so customer binaries embed only the public
+ * projection, never internal decision or maintainer trees). The single source
+ * of truth for the name is shared by the build (which writes it) and
+ * {@link resolveBundledDocsDir} (which reads it). It nests an inner `docs/` so
+ * bundled-help document paths keep the stable `docs/…` shape used by the public
+ * interface.
  */
 export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
 
-/**
- * The internal (`_`-prefixed) doc subtrees that ARE bundled into the binary and
- * may be surfaced — only through an explicit opt-in (`discern help --adr`), never
- * by default and never over MCP. Default-DENY is the safety property: the build
- * embeds public docs plus exactly these, and `--adr` reveals exactly these, so a
- * new private tree (e.g. anything under `_private/`) stays out of every customer
- * binary until it is added here on purpose. The single source for both the embed
- * (`scripts/build.ts`) and the view (the `--adr` allowlist).
- */
-export const BUNDLED_INTERNAL_DOC_DIRS: readonly string[] = ["_adr"];
+/** The source-checkout decision-record directory that `help --adr` can browse. */
+export const HELP_ADR_DOC_DIR = "_adr";
 
 /**
  * The public docs subtrees a customer binary ships for `discern help` — the
@@ -257,19 +250,14 @@ export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
 ];
 
 /**
- * Whether a top-level project-map entry is embedded into the binary for
- * `discern help`. Allowlisted, default-DENY on every axis: a `_`-prefixed tree
- * ships only when named in {@link BUNDLED_INTERNAL_DOC_DIRS} (the ADRs), a
- * numbered subtree only when it is a user-relevant one in
- * {@link BUNDLED_PUBLIC_DOC_DIRS} (so the engine-internals and development trees
- * stay out), and a root-level Markdown file (the docs front door) always ships.
- * The one predicate `scripts/build.ts` filters the embed on — keeping the binary
- * and the guard test on a single source (ADR 0051).
+ * Whether a top-level project-map entry belongs to the binary's public help
+ * projection. Allowlisted and default-deny: no `_`-prefixed tree ships, a
+ * numbered subtree ships only when it is user-relevant, and a root-level
+ * Markdown file (the docs front door) ships. The build combines this tier-level
+ * predicate with `isPublicDoc` for the page-level boundary.
  */
 export function isBundledDocEntry(name: string): boolean {
-  if (name.startsWith("_")) {
-    return BUNDLED_INTERNAL_DOC_DIRS.includes(name);
-  }
+  if (name.startsWith("_")) return false;
   if (!name.includes("/") && name.endsWith(".md")) {
     return true; // a root-level doc (the front-door README)
   }
@@ -340,7 +328,7 @@ export async function resolveTemplatesDir(
  *
  * Resolution order:
  *   1. `DISCERN_DOCS_DIR` env override (tests point this at a fixture).
- *   2. the build-staged PUBLIC docs embedded in a compiled binary, found by
+ *   2. the build-staged public projection embedded in a compiled binary, found by
  *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
  *      keeps bundled-help document paths stable).
  *   3. this repo's own configured map when running from a checkout. Its

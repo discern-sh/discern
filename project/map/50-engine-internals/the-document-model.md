@@ -8,13 +8,19 @@ renderer rediscovers, filters, orders, or titles documents on its own.
 ## Discovery and the entry
 
 `discoverDocs` walks the configured tree and yields one `DocEntry` per leaf:
-paths, section, slug, a title from the first heading, a description from the
-lead paragraph (`extractTitle` and `leadParagraph` live beside the model — they
-are its only content-derived fields), plus the frontmatter-carried metadata:
-`publish`, `order`, `aliases`, `redirectFrom`, and `citedAdrs` (the decisions
-the page cites, collected by
+paths, section, slug, a title from the first heading, and a description from the
+lead paragraph (`extractTitle` and `leadParagraph` live beside the model). The
+model also carries `publish`, `order`, `aliases`, `redirectFrom`, and
+`citedAdrs` (the decisions the page cites, collected by
 [`src/lib/adr_citations.ts`](../../../src/lib/adr_citations.ts)).
 `map_overview.ts` reuses `DocEntry.description` rather than re-deriving it.
+
+Sibling reading order is README-first, then `DocEntry.order`. An explicit
+frontmatter `order` is authoritative; while a sibling has none, discovery fills
+it from the section README's authored table/list link order. Only direct sibling
+Markdown links count, so source links and cross-section "see also" lists cannot
+reorder a section. This makes the README's existing curation part of the model
+rather than something each renderer must rediscover.
 
 ## Frontmatter: lenient read, strict gate
 
@@ -40,7 +46,10 @@ of the project map (`discern map`, the tree on disk) keep everything.
 [`tests/public_doc_parity_test.ts`](../../../tests/public_doc_parity_test.ts)
 forces every enrolled surface onto the predicate and bans hand-rolled `.publish`
 filtering anywhere else. Tier-level curation (`BUNDLED_PUBLIC_DOC_DIRS` in
-[`src/lib/paths.ts`](../../../src/lib/paths.ts)) is a separate axis.
+[`src/lib/paths.ts`](../../../src/lib/paths.ts)) is a separate axis. Binary help
+staging walks the indexed leaves and applies both axes, so the compiled resource
+contains exactly the published pages in the product-help tiers and no internal
+tree ([ADR 0142](../_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
 ## Projections
 
@@ -55,6 +64,12 @@ citation form is gate-enforced by
 Both prose standards measure the body only: the word count strips frontmatter
 directly, and Vale lints a frontmatter-blanked staged mirror
 ([`scripts/prose_lib.ts`](../../../scripts/prose_lib.ts)).
+
+`help --adr` has a source/install split. A source checkout resolves this repo's
+configured map and can browse `_adr/`; a customer binary contains no such
+directory and returns the public decisions-site and repository locations. MCP
+help has no internal mode and serves the same staged public set through
+`helpResult`.
 
 ## Redirects
 

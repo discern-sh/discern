@@ -23,21 +23,23 @@ glossary, and the shape of the system. Then follow the reading order below.
 
 ## The sections
 
-| Section                                          | What's in it                                                                    |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Section                                          | What's in it                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
 | [00-orientation/](00-orientation/)               | The shape of the system in plain English: concepts, glossary, design principles. |
 | [10-installer/](10-installer/)                   | Install and setup: quickstart, walkthrough, config reference, FAQ.               |
 | [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.  |
 | [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.     |
 | [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once, compiled into every agent file, plus the bundled skills. |
-| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.   |
+| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.    |
 
 Three more trees serve contributors rather than users and stay out of
 `discern help` ([ADR 0039](_adr/0039-bundled-help-docs.md)):
 [50-engine-internals/](50-engine-internals/) documents the TypeScript engine,
 [80-development/](80-development/) covers working on discern itself, and
 [90-site/](90-site/) covers discern.sh. The records under [_adr/](_adr/) are
-the project's decision history, browsable with `discern help --adr`.
+the project's decision history, published on the site's decisions pages and
+never embedded in customer binaries
+([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
 ## Browsing from the terminal
 

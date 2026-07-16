@@ -105,6 +105,40 @@ Deno.test("discoverDocs lists user-facing docs in reading order, README first", 
   });
 });
 
+Deno.test("README sibling links curate missing orders; frontmatter remains authoritative", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/README.md"),
+      "# Intro\n\n## In this section\n\n" +
+        "| Page |\n| --- |\n| [beta.md](beta.md) |\n" +
+        "| [alpha.md](alpha.md) |\n",
+    );
+
+    const curated = await discoverDocs({ cwd: dir });
+    assertExists(curated);
+    assertEquals(
+      curated.entries.filter((entry) => entry.section === "00-intro").map(
+        (entry) => entry.slug,
+      ),
+      ["README", "beta", "alpha"],
+    );
+
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/alpha.md"),
+      "---\norder: 5\n---\n# Alpha\n\nThe alpha body.\n",
+    );
+    const explicit = await discoverDocs({ cwd: dir });
+    assertExists(explicit);
+    assertEquals(
+      explicit.entries.filter((entry) => entry.section === "00-intro").map(
+        (entry) => entry.slug,
+      ),
+      ["README", "alpha", "beta"],
+    );
+  });
+});
+
 Deno.test("discoverDocs can include internal subtrees after public docs", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
