@@ -29,8 +29,9 @@ The branded `discern-design-system` is developed and released from its own Git
 repository as one independently versioned package. JSR is its first canonical
 registry because the known consumers are Deno applications; npm publication is
 deferred until a real non-Deno consumer justifies a second release channel. The
-GitHub owner and JSR scope are selected immediately before publication, not
-guessed during local preparation.
+selected release coordinates are `discern-sh/design-system` on GitHub and
+`@discern-sh/design-system` on JSR. Publication remains a separate authorized
+wave.
 
 The package owns tokens, scoped framework-neutral CSS, components, metadata,
 examples, catalogue, optional assets, an optional React adapter, and a
@@ -56,9 +57,9 @@ The local package now has neutral and React entrypoints, selected runtime
 output, a manifest, optional assets, themes, and isolated tests. Discern
 consumes those entrypoints rather than an internal build script.
 
-External ownership remains pending: no repository, remote, scope, release, or
-immutable dependency exists. Discern owns the workspace subtree until 2A
-publishes it and 3A cuts over.
+External ownership remains pending: the coordinates are recorded, but 1A creates
+no repository, release, or immutable dependency. Discern owns the workspace
+subtree until 2A publishes it and 3A cuts over.
 
 ## Consequences
 

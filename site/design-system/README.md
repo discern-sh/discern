@@ -2,8 +2,9 @@
 
 The Discern design system is a local, independently testable Deno package. Its
 default graph is framework-neutral; React is an explicit authoring adapter for
-consumers that render static HTML. The package has not been assigned a public
-registry owner or scope and is not published in this wave.
+consumers that render static HTML. The extraction programme records
+`@discern-sh/design-system` as its intended JSR coordinate; this wave remains
+local and unpublished.
 
 ## Public imports
 
