@@ -1,142 +1,55 @@
-# discern documentation
-
-The full documentation tree for discern. Audience is layered: each subtree's
-`README.md` is for newcomers and visitors; the deeper leaves are for future-you
-and the coding agents that ground their work in this codebase.
-
-**This tree is the canonical source of truth for how the system fits together.**
-It is written to describe **only what currently exists in code** — present
-tense, no "will eventually". When a change alters something the docs describe,
-the docs change with it. If a fact lives here and also in code, the code is
-authoritative and the docs must not drift from it.
-
-If you're new, start with [00-orientation/](00-orientation/) and follow the
-trail.
-
+---
+title: The discern manual
+description: The quality gate, isolated worktrees, agent guidance, config, and skills — one documentation tree, served on every surface.
+aliases:
+  - docs
+  - documentation
+  - manual
 ---
 
-## Browsing from the CLI
+# The discern documentation
 
-Two commands read a documentation tree, and they read **different** ones:
+_The manual for discern: the same pages on discern.sh, in `discern help`, and
+in your coding agent's MCP tools._
 
-- **`discern help`** browses **discern's own documentation** — this tree —
-  bundled into every install. Run it from any project that uses discern to read
-  the [config reference](10-installer/config-reference.md), the concepts, or the
-  gate/worktree/standard pages, without leaving the terminal: `discern help` for
-  the index, `discern help config-reference` for one page, and `--list` /
-  `--json` / `--raw` for scripted access. It always serves discern's **public**
-  docs (never the host project's) and never shows the `_internal` / `_private`
-  subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by
-  default but can be browsed with `discern help --adr` (CLI only — the MCP tool
-  never exposes them).
-- **`discern map`** opens with an overview of **the host project's map** — the
-  agent-maintained documentation tree at `[map].dir` (default `map/`, resolved
-  from the project root) ([ADR 0120](_adr/0120-launch-verb-canon.md)). This repo
-  points it at `project/map/`. The overview derives one line per public
-  top-level subtree from its `README.md`. Beside it, Git reports when those
-  pages last changed and how many later commits touched specific tracked files
-  linked by the subtree's pages. Directory links do not expand into coverage. A
-  subtree with no linked files or usable history says its freshness is unknown.
-  It takes a one-call `--dir` override, and (unlike `help`) is refused before
-  setup, since the project's tree is empty until setup seeds and fills it
-  ([ADR 0080](_adr/0080-configured-agent-map-root.md)).
+discern is documented once. This tree renders on the site, in your terminal,
+and over MCP, and it describes only what exists in code today — present tense,
+no "will eventually." When a change alters something these pages describe, the
+docs change in the same commit; a stale page is treated as a defect, not a
+chore.
 
-Both share one implementation and the same drill-in surfaces: an interactive
-picker on a TTY, and `--list` / `--json` / `--raw` / `--export` off one. The
-map's no-argument human view is the region overview; on a TTY the picker follows
-it, while a pipe receives the overview alone. Its JSON index includes the same
-`regions` digest. Each region carries `pages_changed_at` and
-`code_changes_since` only when both facts are known; absence means unknown. It
-carries no freshness verdict or linked-path list
-([ADR 0127](_adr/0127-map-freshness-ships-file-facts.md)).
+New here? Start with [orientation](00-orientation/): the concepts, the
+glossary, and the shape of the system. Then follow the reading order below.
 
-The global `--plain` flag makes every command use its static, non-paged form and
-never prompt. An enabled `CI` environment or non-terminal stdin/stdout applies
-the same interaction policy automatically. Read-only commands fall back to their
-static report; a flow that needs a choice refuses and names the explicit flag or
-alternative command to use.
+## The sections
 
----
+| Section                                          | What's in it                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| [00-orientation/](00-orientation/)               | The shape of the system in plain English: concepts, glossary, design principles. |
+| [10-installer/](10-installer/)                   | Install and setup: quickstart, walkthrough, config reference, FAQ.               |
+| [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.  |
+| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.     |
+| [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once, compiled into every agent file, plus the bundled skills. |
+| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.   |
 
-## Reading order
+Three more trees serve contributors rather than users and stay out of
+`discern help` ([ADR 0039](_adr/0039-bundled-help-docs.md)):
+[50-engine-internals/](50-engine-internals/) documents the TypeScript engine,
+[80-development/](80-development/) covers working on discern itself, and
+[90-site/](90-site/) covers discern.sh. The records under [_adr/](_adr/) are
+the project's decision history, browsable with `discern help --adr`.
 
-### Start here
+## Browsing from the terminal
 
-| Path                               | What's in it                                                                                                                                                            |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [00-orientation/](00-orientation/) | The shape of the system in plain English. Concepts, glossary, an ASCII system map, and the design principles. Read this once and the rest of the tree slots into place. |
+`discern help` serves these pages inside any project discern is installed in —
+`discern help` for the index, `discern help config-reference` for one page,
+`--list` / `--json` / `--raw` for scripts. `discern map` is a different verb
+for a different tree: it opens the documentation map agents maintain for _your_
+project's code, never this manual
+([ADR 0120](_adr/0120-launch-verb-canon.md)).
 
-### Subsystems
+## Who writes this
 
-The subsystems are numbered subtrees, in the order a newcomer should read them.
-Each currently holds a `README.md` tour; deeper leaves are filled
-subtree-by-subtree with the
-[`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-skill. The numbers are a reading order, not a contract — rename and renumber
-freely.
-
-| Path                                             | What's in it                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [10-installer/](10-installer/)                   | The Deno/TypeScript **Installer**: `setup`, `doctor`, `config`, `preset`, `uninstall`, the seed scaffolding (`templates/` → your files) and materialized skills, and the Schema-version Migration chain. New here? Start with the [walkthrough](10-installer/walkthrough.md), then [what discern writes](10-installer/what-discern-writes.md) and the [FAQ](10-installer/faq.md).                                                                                     |
-| [20-quality-gate/](20-quality-gate/)             | `discern done` and the Capability/Check execution model — fix · build · check · test — plus Scope classification (and Scope gates), Standards, and the [`improvement`](20-quality-gate/improvement.md) continuous-improvement coach.                                                                                                                                                                                                                                  |
-| [30-worktrees/](30-worktrees/)                   | The isolated-Worktree workflow: lifecycle (create · ensure · accept · teardown · prune), per-Worktree identity (name · port · site · db · resource), and per-Worktree resources (create/destroy + orphan GC).                                                                                                                                                                                                                                                         |
-| [40-agent-guidance/](40-agent-guidance/)         | Author-once → compile-everywhere: the Guidance source, the `discern refresh` compiler, the Compiled agent files, and the bundled Skills.                                                                                                                                                                                                                                                                                                                              |
-| [50-engine-internals/](50-engine-internals/)     | The TypeScript **engine** compiled into the binary — the verb dispatcher, the job runner, scope classification, config access, output, and the failure-pointer wording. Contributor-facing: not bundled into `discern help`.                                                                                                                                                                                                                                          |
-| [60-agent-integrations/](60-agent-integrations/) | Provider-specific integration guides: the files discern writes for each supported coding agent, their trust gates, and their daily-use gotchas.                                                                                                                                                                                                                                                                                                                       |
-| [80-development/](80-development/)               | Working on discern: getting set up, the [notes for humans](80-development/for-humans.md) (IDE setup and local prerequisites), the testing approach, code conventions, the [install surface](80-development/install-surface.md) (what an install contains, yours vs the binary's), and the [gate gotchas](80-development/done-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. Contributor-facing: not bundled into `discern help`. |
-| [90-site/](90-site/)                             | The public site (discern.sh): the editions under `site/pages/`, the fetch handler that serves them, reader negotiation (`curl` receives the plaintext DISCERN(1) edition), and [how to publish](90-site/publishing.md). Contributor-facing: not bundled into `discern help`.                                                                                                                                                                                          |
-
-### Reference material
-
-| Path                     | What's in it                                                                                                                                                                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [_adr/](_adr/)           | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Embedded in the binary and browsable with `discern help --adr` (hidden by default). |
-| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                 |
-| [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
-
-How `discern help` curates these trees: the **user-relevant** numbered subtrees
-ship in every binary; `_adr/` is **internal but opt-in** (shipped, revealed only
-by `--adr`); and the **contributor** trees (`50-engine-internals/`,
-`80-development/`) plus every `_`-prefixed private tree (`_internal/`,
-`_private/`) are **excluded** from the binary — a user browsing `discern help`
-sees how to operate discern, not how it is built or the maintainer's notes. Two
-allowlists in [`src/lib/paths.ts`](../../src/lib/paths.ts) decide it —
-`BUNDLED_PUBLIC_DOC_DIRS` (the user-relevant public trees) and
-`BUNDLED_INTERNAL_DOC_DIRS` (the ADRs) — so a tree ships only when named, a new
-private tree is safe the moment it is created, and a guard test pins it
-(`tests/docs_curation_test.ts`).
-
----
-
-## How this tree is produced and kept current
-
-The tree is seeded once by `discern setup` at `[map].dir`, then grown
-subtree-by-subtree with the
-[`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
-skill, which resolves the same configured root and follows the brief in
-[_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
-single skeleton-and-orientation pass establishes the shared terminology and
-shape before any subtree is filled in.
-
-Because the tree is the source of truth, it must not drift from code. When you
-change something a doc describes — the architecture, the data model, a
-subsystem's documented behaviour, a public convention, or whether a feature
-exists — update the affected docs in the same change.
-
----
-
-## Conventions
-
-- **File links** use relative paths from inside `project/map/`:
-  `[some module](../../src/path/Thing.ext)`. Never a leading `project/map/` from
-  within the map.
-- **Terminology** follows the [glossary](00-orientation/glossary.md). The
-  project's canonical nouns are defined there once; synonyms are not introduced.
-- **No modal verbs about the system** ("should", "would", "could", "will
-  eventually"). Every claim describes what exists in code today. Half-built or
-  deprecated things live under a "Current state & gotchas" heading and are
-  called out plainly.
-- **Diagrams are ASCII-first**, so they live in the text and stay diffable. A
-  richer rendered image is the exception, not the default.
-- **Outstanding work does not live here.** The docs say what _is_;
-  [`project/TODO.md`](../TODO.md) tracks what is _owed_.
+The coding agents that work on discern do, under the same gate as the code.
+Terminology is defined once in the [glossary](00-orientation/glossary.md) and
+used identically everywhere; claims link the source files they describe.

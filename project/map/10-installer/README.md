@@ -112,14 +112,13 @@ Edit the schema, not the generated files.
 
 ## Guides
 
+- [quickstart.md](quickstart.md) — install → setup → your first green gate, in
+  four steps.
 - [walkthrough.md](walkthrough.md) — one honest session end to end: install →
   the setup conversation → shipping a first change → `done` → `accept`.
-- [what-discern-writes.md](what-discern-writes.md) — the whole footprint (what
-  discern creates, merges into, and keeps), what runs on your machine, and how
-  `discern uninstall` removes it.
-- [artifact-ownership.md](artifact-ownership.md) — the per-kind posture behind
-  the managed `.gitignore` block: compiled guidance tracked, materialized and
-  machine-local artifacts ignored.
+- [artifact-ownership.md](artifact-ownership.md) — Files & ownership: the whole
+  footprint (what discern creates, merges into, and keeps), each file's git
+  posture, what runs on your machine, and how `discern uninstall` removes it.
 - [faq.md](faq.md) — common questions and troubleshooting, fronted by
   `discern doctor`.
 

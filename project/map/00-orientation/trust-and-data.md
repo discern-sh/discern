@@ -31,7 +31,7 @@ and what the gate will run is all in one file you can read.
 
 The full list of files discern writes is short, and a test fails the moment any
 command writes outside it —
-[what discern writes](../10-installer/what-discern-writes.md) is the complete
+[Files & ownership](../10-installer/artifact-ownership.md) is the complete
 inventory. In brief: one committed `discern.toml`, one visible `discern/` folder
 of your own content, a marked block in your agents' config files and
 `.gitignore`, and a handful of generated files — the compiled agent files
@@ -55,7 +55,7 @@ to touch is a separate control, and it stays entirely in your hands.
 
 ## See also
 
-- [What discern writes to your repo](../10-installer/what-discern-writes.md) —
-  the enforced footprint and how to remove it.
+- [Files & ownership](../10-installer/artifact-ownership.md) — the enforced
+  footprint, who owns each file, and how to remove it.
 - [Design principles](design-principles.md) — sovereign inside, deferential
   outside (7); a provable footprint (13).
