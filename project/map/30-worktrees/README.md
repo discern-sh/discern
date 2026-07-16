@@ -114,7 +114,11 @@ it prints [the receipt](../20-quality-gate/the-receipt.md) for the landed tree �
 the landing record, pasteable into a PR body. Its main-checkout precondition
 also cares about tracked changes, not untracked local scratch; the worktree
 precondition is stricter because acceptance refuses any tracked, not staged,
-staged, or untracked worktree change before it removes the checkout;
+staged, or untracked worktree change before it removes the checkout; before
+removal it compares ignored files with their setup baseline. Inspection keeps
+exact Git roots, bounds content hashing, uses tree metadata, and collapses
+changed labels for the report
+([ADR 0147](../_adr/0147-ignored-drift-uses-bounded-hybrid-fingerprints.md));
 [`worktree drop <id|path>`](../../../src/engine/worktree/lifecycle.ts) — run
 from the main checkout — is the sanctioned removal for **abandoned work**: it
 tears down the worktree's resources, removes the worktree, and deletes its
