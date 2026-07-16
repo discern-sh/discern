@@ -1,6 +1,8 @@
 /* discern.sh/docs — the manual's behaviors: theme, drawer, search palette,
-   contents-rail scroll spy, and prose enhancements. Plain script, no
-   dependencies, no network beyond /docs/index.json. */
+   contents-rail scroll spy, and prose enhancements. Plain local modules, no
+   third-party dependencies, no network beyond /docs/index.json. */
+import { searchPages } from "./search.js";
+
 (() => {
   "use strict";
 
@@ -160,37 +162,6 @@
       doc.body.classList.remove("docs-no-scroll");
     };
 
-    const search = (query) => {
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      if (terms.length === 0 || !pages) return [];
-      const scored = [];
-      for (const page of pages) {
-        const title = page.title.toLowerCase();
-        const body = `${page.section} ${page.description}`.toLowerCase();
-        let score = 0;
-        let heading = null;
-        for (const term of terms) {
-          let hit = 0;
-          if (title.includes(term)) hit = 30;
-          const inHeading = page.headings.find((h) =>
-            h.text.toLowerCase().includes(term)
-          );
-          if (inHeading) {
-            hit = Math.max(hit, 12);
-            heading ??= inHeading;
-          }
-          if (body.includes(term)) hit = Math.max(hit, 6);
-          if (hit === 0) {
-            score = 0;
-            break;
-          }
-          score += hit;
-        }
-        if (score > 0) scored.push({ page, heading, score });
-      }
-      return scored.sort((a, b) => b.score - a.score).slice(0, 12);
-    };
-
     const render = () => {
       list.textContent = "";
       if (results.length === 0) {
@@ -198,13 +169,13 @@
           const empty = doc.createElement("li");
           empty.className = "docs-search-empty";
           empty.textContent = pages
-            ? "Nothing in the manual matches."
+            ? "No results. Try a command, config key, or exact error message."
             : "Loading the index…";
           list.append(empty);
         }
         return;
       }
-      results.forEach(({ page, heading }, i) => {
+      results.forEach(({ page, heading, snippet }, i) => {
         const item = doc.createElement("li");
         if (i === selected) item.className = "is-selected";
         const link = doc.createElement("a");
@@ -221,7 +192,10 @@
         const path = doc.createElement("span");
         path.className = "docs-search-path";
         path.textContent = `${page.section.toLowerCase()} ${page.route}`;
-        link.append(title, path);
+        const context = doc.createElement("span");
+        context.className = "docs-search-snippet";
+        context.textContent = snippet;
+        link.append(title, context, path);
         item.append(link);
         item.addEventListener("mousemove", () => {
           if (selected !== i) {
@@ -234,7 +208,7 @@
     };
 
     const update = () => {
-      results = search(input.value);
+      results = pages ? searchPages(pages, input.value) : [];
       selected = 0;
       render();
     };

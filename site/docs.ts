@@ -22,6 +22,7 @@ import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { designSystemAssetPath } from "./design_system.ts";
+import { buildSearchIndex } from "./search.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -387,7 +388,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
 <link rel="stylesheet" href="/assets/docs.css" />
-<script defer src="/assets/docs.js"></script>
+<script type="module" src="/assets/docs.js"></script>
 </head>
 <body>
 <a class="docs-skip" href="#doc">Skip to content</a>
@@ -581,19 +582,14 @@ let searchIndexCache: string | undefined;
 
 async function searchIndexJson(site: DocsSite): Promise<string> {
   if (searchIndexCache !== undefined) return searchIndexCache;
-  const pages = [];
-  for (const page of site.pages) {
-    const { toc } = await renderDoc(page, site);
-    pages.push({
-      route: page.route,
-      title: page.entry.title,
-      section: site.sections.find((s) => s.slug === page.sectionSlug)?.title ??
-        "",
-      description: page.entry.description,
-      headings: toc.map((t) => ({ id: t.id, text: t.text })),
-    });
-  }
-  searchIndexCache = JSON.stringify({ pages });
+  const index = await buildSearchIndex(site.pages.map((page) => ({
+    route: page.route,
+    section: site.sections.find((section) =>
+      section.slug === page.sectionSlug
+    )?.title ?? "",
+    entry: page.entry,
+  })));
+  searchIndexCache = JSON.stringify(index);
   return searchIndexCache;
 }
 
