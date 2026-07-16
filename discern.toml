@@ -3,7 +3,7 @@
 # discern is a stack-neutral system for coding agents and their humans.
 # Use discern.toml to teach discern about your project, preferences, and tooling.
 #
-# The quickest way to get started is to simply tell your coding agent:
+# The quickest way to get started is to tell your coding agent:
 #   "Run `discern setup` and follow the instructions.".
 #
 # Help is always available through the command line or MCP server:
