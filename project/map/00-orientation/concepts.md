@@ -36,7 +36,7 @@ Everything below fits in **four layers**:
 
 ---
 
-## The shape of the system
+## How the pieces fit together
 
 discern turns **any repository** into one with a working agentic-development
 system — a quality gate, an isolated-worktree workflow, an author-once agent

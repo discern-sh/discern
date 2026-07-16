@@ -37,8 +37,8 @@ measurements against the exact commit. `--dry-run` previews which standards
 would run without measuring anything.
 
 Nothing about a standard you never define costs you anything — an undefined
-metric is simply not measured (design principle 9). You add a standard only
-where a number is worth defending.
+metric is not measured (design principle 9). You add a standard only where a
+number is worth defending.
 
 ## What a standard block looks like
 

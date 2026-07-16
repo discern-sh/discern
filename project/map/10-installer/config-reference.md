@@ -47,7 +47,7 @@ Focused, reusable task playbooks. The effective set is discern's bundled built-i
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins. |
+| `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins. |
 | `exclude` | string[] | `[]` | Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal. |
 
 ## `[map]`

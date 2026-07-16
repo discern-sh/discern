@@ -75,9 +75,9 @@ window of recent commits:
   include B often enough to be worth mentioning (a confidence ratio,
   scale-free), and the association is statistically **significant** — a
   log-likelihood-ratio test (a G-test over raw commit counts) that is unit-free
-  and robust at the low counts a young repo has. This is the standard tool for
-  "do these co-occur more than chance," and it's what lets one significance
-  level transfer across repos where a raw support floor cannot.
+  and stays reliable at the low counts a young repo has. This is the standard
+  tool for "do these co-occur more than chance," and it's what lets one
+  significance level transfer across repos where a raw support floor cannot.
 
 Survivors are ranked strongest-first and **capped** (top-k), so the advisory
 never floods. The broad survivor set feeds the direct `discern coupling` result:

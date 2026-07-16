@@ -1,6 +1,6 @@
 # Orientation
 
-The shape of the system in plain English. Read this tier once and the rest of
+How discern fits together, in plain English. Read this tier once and the rest of
 the documentation tree slots into place.
 
 Orientation is deliberately small and stable. The subsystem subtrees go deep on

@@ -17,7 +17,7 @@ git mechanics are generic; the resources are the only stack-specific part,
 declared as `[worktree.resources.<name>]` tables in `discern.toml`. A fresh
 install declares none, so a Worktree round is a clean no-op until a project
 wires one. The workflow is core — always wired, with no configuration attached;
-a session that never runs `start` simply never uses it
+a session that never runs `start` never uses it
 ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md),
 [ADR 0025](../_adr/0025-worktree-resources.md),
 [ADR 0101](../_adr/0101-retire-the-features-toggles.md)).

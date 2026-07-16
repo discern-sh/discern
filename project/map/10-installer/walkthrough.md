@@ -29,9 +29,9 @@ discern."_ The agent runs `discern`, and because the project isn't set up yet,
 discern prints a **welcome** the agent relays to you: what discern is, and that
 it is about to ask for consent before writing anything.
 
-Then the agent runs `discern setup verify`, and this is the moment that matters.
-discern serves a first-person **consent message** the agent relays verbatim (or
-in its own words) — it tells you, plainly:
+Then the agent runs `discern setup verify`, and discern serves a first-person
+**consent message** the agent relays verbatim (or in its own words) — it tells
+you, plainly:
 
 - what discern will write (one `discern.toml`, a visible `discern/` namespace
   for your guidance, the map at `map/`, the agent files each coding agent needs,
