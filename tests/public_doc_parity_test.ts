@@ -37,12 +37,12 @@ const PUBLISH_ACCESS_EXCEPTIONS = new Map<string, string>([
   [
     "src/lib/frontmatter.ts",
     "parses the frontmatter key the flag comes from (the metadata layer, " +
-      "below the predicate)",
+    "below the predicate)",
   ],
   [
     "src/commands/docs.ts",
     "toRecord passes the flag through as a structured field (metadata " +
-      "surfacing, not a filter — the filtering goes through publicDocs)",
+    "surfacing, not a filter — the filtering goes through publicDocs)",
   ],
 ]);
 
