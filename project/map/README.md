@@ -26,9 +26,11 @@ Two commands read a documentation tree, and they read **different** ones:
   the index, `discern help config-reference` for one page, and `--list` /
   `--json` / `--raw` for scripted access. It always serves discern's **public**
   docs (never the host project's) and never shows the `_internal` / `_private`
-  subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). The ADRs are hidden by
-  default but can be browsed with `discern help --adr` (CLI only — the MCP tool
-  never exposes them).
+  subtrees ([ADR 0039](_adr/0039-bundled-help-docs.md)). Decision records do not
+  ship in customer binaries: installed `help --adr` points to the public
+  decisions archive and repository, while a source checkout keeps the local
+  browse path for repo agents. The MCP tool serves the staged public set only
+  ([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
 - **`discern map`** opens with an overview of **the host project's map** — the
   agent-maintained documentation tree at `[map].dir` (default `map/`, resolved
   from the project root) ([ADR 0120](_adr/0120-launch-verb-canon.md)). This repo
@@ -88,23 +90,21 @@ freely.
 
 ### Reference material
 
-| Path                     | What's in it                                                                                                                                                                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [_adr/](_adr/)           | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Embedded in the binary and browsable with `discern help --adr` (hidden by default). |
-| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                 |
-| [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
+| Path                     | What's in it                                                                                                                                                                                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [_adr/](_adr/)           | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Kept in the repo and published on the decisions site; never embedded in customer binaries. |
+| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                        |
+| [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                        |
 
-How `discern help` curates these trees: the **user-relevant** numbered subtrees
-ship in every binary; `_adr/` is **internal but opt-in** (shipped, revealed only
-by `--adr`); and the **contributor** trees (`50-engine-internals/`,
-`80-development/`) plus every `_`-prefixed private tree (`_internal/`,
-`_private/`) are **excluded** from the binary — a user browsing `discern help`
-sees how to operate discern, not how it is built or the maintainer's notes. Two
-allowlists in [`src/lib/paths.ts`](../../src/lib/paths.ts) decide it —
-`BUNDLED_PUBLIC_DOC_DIRS` (the user-relevant public trees) and
-`BUNDLED_INTERNAL_DOC_DIRS` (the ADRs) — so a tree ships only when named, a new
-private tree is safe the moment it is created, and a guard test pins it
-(`tests/docs_curation_test.ts`).
+How `discern help` curates these trees: `BUNDLED_PUBLIC_DOC_DIRS` in
+[`src/lib/paths.ts`](../../src/lib/paths.ts) admits the **user-relevant**
+numbered subtrees, and `isPublicDoc` admits the published leaves inside them.
+The **contributor** trees (`50-engine-internals/`, `80-development/`) and every
+`_`-prefixed tree (`_adr/`, `_internal/`, `_private/`) are excluded from the
+binary. A customer browsing `discern help` sees how to operate discern, not how
+it is built or the maintainer's history. The build stages individual leaves, and
+[`tests/map_curation_test.ts`](../../tests/map_curation_test.ts) pins the staged
+set exactly to that two-axis public projection.
 
 ---
 
