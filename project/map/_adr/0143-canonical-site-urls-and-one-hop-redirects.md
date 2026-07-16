@@ -1,4 +1,4 @@
-# ADR 0142: Site URLs are canonical at the apex and redirects resolve in one hop
+# ADR 0143: Site URLs are canonical at the apex and redirects resolve in one hop
 
 **Status**: accepted
 

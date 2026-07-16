@@ -57,7 +57,7 @@ resolve with a 308 before routing, and a historical redirect is folded into the
 same hop. Destination pages own `redirect_from`; section-level moves live in
 `STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry
 refuses dead targets, collisions, chains, and loops
-([ADR 0142](../_adr/0142-canonical-site-urls-and-one-hop-redirects.md)).
+([ADR 0143](../_adr/0143-canonical-site-urls-and-one-hop-redirects.md)).
 
 Every successful HTML response receives a canonical link, bounded description,
 Open Graph and Twitter fields, and the static branded card. Docs pages add a
