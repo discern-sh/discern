@@ -99,17 +99,6 @@ those agents' seed files, never reverting to the built-in default pair. And
 the `[meta].bootstrapped` marker is only ever written after every check that
 could reject the run has passed.
 
-## Config reference
-
-[`config-reference.md`](config-reference.md) documents every `discern.toml`
-section, key, type, and default. It is **generated** from the one canonical
-config schema
-([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
-`deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)) — so the
-reference, the editor [JSON Schema](../../../schema/discern-config.schema.json),
-and the rules the engine enforces all come from one source and cannot drift.
-Edit the schema, not the generated files.
-
 ## Guides
 
 - [quickstart.md](quickstart.md) — install → setup → your first green gate, in
@@ -124,6 +113,13 @@ Edit the schema, not the generated files.
 
 ## Reference
 
+- [config-reference.md](config-reference.md) — every `discern.toml` section,
+  key, type, and default. **Generated** from the one canonical config schema
+  ([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
+  `deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)), so the
+  reference, the editor [JSON Schema](../../../schema/discern-config.schema.json),
+  and the rules the engine enforces come from one source and cannot drift. Edit
+  the schema, not the generated file.
 - [migrations.md](migrations.md) — the versioned Migration chain, the Schema
   version, and the idempotency contract.
 - [config-access.md](../50-engine-internals/config-access.md) — the typed

@@ -34,13 +34,13 @@ In your project, tell your agent:
 > Set this project up with discern.
 
 The agent runs `discern`, and discern walks it through a staged setup
-([ADR 0075](../_adr/0075-setup-staged-handshake.md)). The moment that
-matters is consent: before writing anything, discern serves a message for the
-agent to relay, naming exactly what it will write: one `discern.toml` at the
-repo root, a visible `discern/` folder for content you own, the documentation
-map, the agent files each coding agent reads, and a delimited `.gitignore`
-block. Everything authored is plain Markdown, and `discern uninstall` takes the
-wiring back out, so there's no lock-in to weigh.
+([ADR 0075](../_adr/0075-setup-staged-handshake.md)). The moment that matters is
+consent: before writing anything, discern serves a message for the agent to
+relay, naming exactly what it will write: one `discern.toml` at the repo root, a
+visible `discern/` folder for content you own, the documentation map, the agent
+files each coding agent reads, and a delimited `.gitignore` block. Everything
+authored is plain Markdown, and `discern uninstall` takes the wiring back out,
+so there's no lock-in to weigh.
 
 Answer in plain language — "yes, go ahead; set up Claude Code and Codex." The
 agent can't proceed until you've said yes
@@ -64,8 +64,8 @@ Two things remain for you:
 
 1. **Start a fresh agent session.** The MCP tools and session hooks setup wired
    load at session start, so the session that ran setup can't see them yet.
-2. **Review and land the `discern-setup` branch** like any other branch. Setup
-   is a diff you read, not a black box.
+2. **Review and land the `discern-setup` branch.** Setup is ordinary file
+   edits on a branch you can read, and it reviews like any other.
 
 ## 4. Ship a change through the gate
 
