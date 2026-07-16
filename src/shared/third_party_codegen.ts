@@ -30,8 +30,8 @@
  * gate when a dependency change lands without refreshed notices.
  */
 
-import { gzipSync } from "zlib";
-import { encodeBase64 } from "@std/encoding/base64";
+import { gunzipSync, gzipSync } from "zlib";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 
@@ -521,11 +521,52 @@ export interface ThirdPartyBundle {
   readonly components: readonly ThirdPartyComponent[];
 }
 
+const BUNDLE_EXPORT_RE =
+  /export\s+const\s+THIRD_PARTY_BUNDLE_B64\s*=\s*"([^"]+)"\s*;/;
+
+/**
+ * Read the canonical, uncompressed bytes represented by a generated bundle
+ * module. The gzip stream is storage, not source of truth: compressor versions
+ * and host metadata may encode the same payload differently.
+ */
+export function thirdPartyBundlePayload(moduleText: string): Uint8Array {
+  const encoded = moduleText.match(BUNDLE_EXPORT_RE)?.[1];
+  if (encoded === undefined) {
+    throw new Error(
+      "generated third-party bundle has no THIRD_PARTY_BUNDLE_B64 export",
+    );
+  }
+  try {
+    return new Uint8Array(gunzipSync(decodeBase64(encoded)));
+  } catch (error) {
+    throw new Error("generated third-party bundle is not valid gzip", {
+      cause: error,
+    });
+  }
+}
+
+/**
+ * Whether two generated modules represent the same canonical payload. Invalid
+ * input is never equivalent, so codegen replaces a corrupt committed artifact.
+ */
+export function sameThirdPartyBundlePayload(
+  left: string,
+  right: string,
+): boolean {
+  try {
+    const a = thirdPartyBundlePayload(left);
+    const b = thirdPartyBundlePayload(right);
+    return a.length === b.length && a.every((byte, index) => byte === b[index]);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Render the generated module that carries the notices into the binary. The
- * payload is gzipped JSON in base64: `node:zlib` writes no timestamp, so the
- * bytes are deterministic for a given Deno version, and a Deno upgrade that
- * changes them just asks for a codegen rerun via the drift guard.
+ * payload is gzipped JSON in base64. Codegen compares the uncompressed bytes
+ * and preserves an equivalent committed stream, because gzip metadata and
+ * compressor output may differ across Deno versions and operating systems.
  */
 function renderBundleModule(
   notices: string,

@@ -58,8 +58,10 @@ No human judgment sits between the dependency graph and the notices.
    from a generated bundle module compiled into the binary, so an install's
    notices always match its build. Codegen compresses the bundle — license text
    repeats the same few bodies — so the notices hold the `binary_size` ceiling
-   rather than raising it, and a drift test pins the bundle to the readable
-   `THIRD_PARTY_NOTICES`.
+   rather than raising it. The uncompressed JSON bytes are canonical; codegen
+   preserves any valid committed compressed stream that represents those bytes,
+   because compression metadata and output vary across Deno versions and hosts.
+   A drift test pins that payload to the readable `THIRD_PARTY_NOTICES`.
 4. **The notices credit the Deno runtime.** The binary also embeds the runtime.
    A fixed section credits the Deno authors (MIT) and points to Deno's own
    published license and notices rather than enumerating its Rust-crate closure.
@@ -80,5 +82,8 @@ No human judgment sits between the dependency graph and the notices.
 - Codegen now shells out to `deno info` and, only when a new JSR dependency
   appears, fetches its LICENSE from jsr.io; the committed cache keeps every
   other run — including the drift guard — offline and deterministic.
+- Re-running codegen under a different Deno compressor or operating system
+  leaves an equivalent committed bundle byte-for-byte untouched. Invalid
+  compressed data or changed canonical JSON still regenerates it.
 - A future dependency under a copyleft or otherwise surprising license surfaces
   in the regenerated diff at review time instead of slipping past unseen.

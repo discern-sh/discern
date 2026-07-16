@@ -5,12 +5,13 @@
  *
  * Three independent ties:
  *
- *  1. REGENERATION PARITY — the committed artifacts equal a fresh offline
- *     generation from the compile graph, so any dependency add/remove/bump that
- *     lands without `deno task codegen` fails the gate. `allowFetch: false`
- *     keeps the guard offline: a new JSR dependency whose license is not yet in
- *     the committed cache fails with a "run codegen" message rather than
- *     fetching.
+ *  1. REGENERATION PARITY — textual artifacts equal a fresh offline generation,
+ *     while the compressed bundle's canonical bytes equal it. Any dependency
+ *     add/remove/bump that lands without `deno task codegen` fails the gate,
+ *     but equivalent gzip streams do not drift by Deno version or host.
+ *     `allowFetch: false` keeps the guard offline: a new JSR dependency whose
+ *     license is not yet in the committed cache fails with a "run codegen"
+ *     message rather than fetching.
  *  2. CLOSURE CLOSEDNESS — checked against `deno.lock`, not the generator: for
  *     every credited npm package, every dependency its lock entry declares is
  *     credited too. A generator regression that silently drops part of the
@@ -24,12 +25,16 @@
  * — never weakening the assertion.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import { encodeBase64 } from "@std/encoding/base64";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
+import { gzipSync } from "zlib";
 import {
   generateThirdPartyArtifacts,
+  sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
+  thirdPartyBundlePayload,
 } from "../src/shared/third_party_codegen.ts";
 import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
@@ -40,6 +45,52 @@ const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 function committedComponents(): readonly ThirdPartyComponent[] {
   return licensesResult().data?.components ?? [];
 }
+
+/** A generated-module-shaped fixture with caller-controlled gzip encoding. */
+function bundleModule(payload: string, level: number): string {
+  const compressed = new Uint8Array(gzipSync(payload, { level }));
+  return `// unrelated generated wrapper
+export const THIRD_PARTY_BUNDLE_B64 =
+  "${encodeBase64(compressed)}";
+`;
+}
+
+Deno.test("bundle payload comparison ignores the gzip representation but rejects stale or invalid content", () => {
+  const payload = JSON.stringify({
+    notices: "repeatable notices ".repeat(200),
+    components: [{ name: "renamed-fixture", version: "1", registry: "test" }],
+  });
+  const fast = bundleModule(payload, 1);
+  const compact = bundleModule(payload, 9);
+  assertNotEquals(
+    fast,
+    compact,
+    "the future-sibling fixture must use genuinely different gzip bytes",
+  );
+  assert(
+    sameThirdPartyBundlePayload(fast, compact),
+    "equivalent canonical payloads must preserve the committed representation",
+  );
+  assertEquals(
+    new TextDecoder().decode(thirdPartyBundlePayload(fast)),
+    payload,
+  );
+
+  assert(
+    !sameThirdPartyBundlePayload(
+      fast,
+      bundleModule(`${payload} stale`, 9),
+    ),
+    "a stale payload must trigger regeneration",
+  );
+  assert(
+    !sameThirdPartyBundlePayload(
+      fast,
+      'export const THIRD_PARTY_BUNDLE_B64 = "not-gzip";\n',
+    ),
+    "an invalid compressed representation must trigger regeneration",
+  );
+});
 
 Deno.test("committed notices artifacts regenerate identically from the compile graph (run `deno task codegen`)", async () => {
   const fresh = await generateThirdPartyArtifacts({
@@ -52,11 +103,20 @@ Deno.test("committed notices artifacts regenerate identically from the compile g
     [THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache, fresh.jsrLicenseCacheJson],
   ] as const;
   for (const [rel, artifact] of expected) {
-    assertEquals(
-      await Deno.readTextFile(join(repoRoot, rel)),
-      artifact,
-      `${rel} is stale — run \`deno task codegen\` and commit the result`,
-    );
+    const committed = await Deno.readTextFile(join(repoRoot, rel));
+    if (rel === THIRD_PARTY_ARTIFACT_PATHS.bundle) {
+      assertEquals(
+        thirdPartyBundlePayload(committed),
+        thirdPartyBundlePayload(artifact),
+        `${rel}'s canonical payload is stale — run \`deno task codegen\` and commit the result`,
+      );
+    } else {
+      assertEquals(
+        committed,
+        artifact,
+        `${rel} is stale — run \`deno task codegen\` and commit the result`,
+      );
+    }
   }
 });
 
