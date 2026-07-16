@@ -89,11 +89,11 @@ freely.
 
 ### Reference material
 
-| Path                     | What's in it                                                                                                                                                                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [_adr/](_adr/)           | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Embedded in the binary and browsable with `discern help --adr` (hidden by default). |
-| [_internal/](_internal/) | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                 |
-| [_private/](_private/)   | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
+| Path           | What's in it                                                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. Embedded in the binary and browsable with `discern help --adr` (hidden by default). |
+| `_internal/`   | The documenter brief and per-subtree scope manifests for writing and refreshing this tree. Methodology, not user-facing; kept for reproducibility (and seeded into every install's own tree).                                                                 |
+| `_private/`    | discern-only material that never ships to users — the maintainer's notes, positioning, and research. Never embedded in a binary and never surfaced by `help`.                                                                                                 |
 
 How `discern help` curates these trees: the **user-relevant** numbered subtrees
 ship in every binary; `_adr/` is **internal but opt-in** (shipped, revealed only
@@ -105,7 +105,7 @@ allowlists in [`src/lib/paths.ts`](../../src/lib/paths.ts) decide it —
 `BUNDLED_PUBLIC_DOC_DIRS` (the user-relevant public trees) and
 `BUNDLED_INTERNAL_DOC_DIRS` (the ADRs) — so a tree ships only when named, a new
 private tree is safe the moment it is created, and a guard test pins it
-(`tests/docs_curation_test.ts`).
+(`tests/map_curation_test.ts`).
 
 ---
 
@@ -115,9 +115,8 @@ The tree is seeded once by `discern setup` at `[map].dir`, then grown
 subtree-by-subtree with the
 [`discern-document-subsystem`](../../templates/skills/discern-document-subsystem/SKILL.md)
 skill, which resolves the same configured root and follows the brief in
-[_internal/documenter-agent-brief.md](_internal/documenter-agent-brief.md). A
-single skeleton-and-orientation pass establishes the shared terminology and
-shape before any subtree is filled in.
+`_internal/documenter-agent-brief.md`. A single skeleton-and-orientation pass
+establishes the shared terminology and shape before any subtree is filled in.
 
 Because the tree is the source of truth, it must not drift from code. When you
 change something a doc describes — the architecture, the data model, a
