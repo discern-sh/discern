@@ -11,7 +11,6 @@
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { runGit } from "../shared/subprocess.ts";
-import { leadParagraph } from "./markdown.ts";
 import type { DocEntry, DocsTree } from "./docs.ts";
 
 /** Git-only freshness facts for one map region, jointly absent when unknown. */
@@ -147,10 +146,9 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
       entries[0];
     if (readme === undefined) continue;
     const title = readme.title;
-    const description = leadParagraph(
-      sources.get(readme.path) ?? "",
-      title,
-    );
+    // The model already derived the one-line description (frontmatter
+    // override, else lead paragraph) — reuse it, never re-derive.
+    const description = readme.description || title;
     const codePaths = await linkedCodePaths(tree, entries, sources);
     const freshness = await regionFreshness(tree, entries, codePaths);
     regions.push({

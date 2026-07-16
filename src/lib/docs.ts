@@ -12,6 +12,24 @@
  * It is pure discovery: it reads the filesystem and returns plain data. The
  * command layer decides how to present it (interactive list, rendered view,
  * JSON, raw).
+ *
+ * This module is also the DOCUMENT MODEL every publishing surface consumes —
+ * no renderer rediscovers, filters, orders, or titles documents on its own:
+ *
+ *  - {@link isPublicDoc} is the one page-level publication predicate.
+ *    `publish: false` in a doc's frontmatter is the SOLE page-level withhold,
+ *    honoured identically by every published surface (site, terminal help,
+ *    MCP help, exports, staging). Which SUBTREES a surface ships is a separate,
+ *    tier-level axis (`BUNDLED_PUBLIC_DOC_DIRS` in paths.ts).
+ *  - Frontmatter is metadata, not content: rendered surfaces strip it (its
+ *    values travel as structured fields on {@link DocEntry}). RAW editions
+ *    stay pristine by contract — `--raw`, and any surface serving a doc's
+ *    literal bytes, must return exactly the file's content, frontmatter and
+ *    ADR citations included, because their consumers are agents and tooling
+ *    that want full fidelity.
+ *  - ADR citations are collected per entry ({@link DocEntry.citedAdrs}) so
+ *    human-rendered surfaces can strip the inline groups (adr_citations.ts)
+ *    and still surface the decisions separately.
  */
 
 import { walk } from "@std/fs";
@@ -24,8 +42,9 @@ import {
   resolve,
   SEPARATOR,
 } from "@std/path";
-import { inlineToPlain, leadParagraph } from "./markdown.ts";
+import { inlineToPlain } from "./markdown.ts";
 import { parseFrontmatter } from "./frontmatter.ts";
+import { type AdrCitation, collectAdrCitations } from "./adr_citations.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
@@ -51,6 +70,12 @@ export interface DocEntry {
   publish: boolean;
   /** Explicit sibling ordering from frontmatter, when present. */
   order?: number | undefined;
+  /** Search synonyms from frontmatter (`aliases:`), `[]` when none. */
+  aliases: string[];
+  /** Historical absolute routes that redirect here (`redirect_from:`). */
+  redirectFrom: string[];
+  /** Decisions the doc cites, in citation order, for related-decision surfaces. */
+  citedAdrs: AdrCitation[];
 }
 
 /** An indexed tree of Markdown documents — the project map, or discern's own
@@ -122,6 +147,25 @@ export async function findProjectRoot(
   }
 }
 
+/**
+ * Whether one indexed doc belongs on published surfaces. `publish: false` in a
+ * doc's frontmatter is the SOLE page-level withhold (there is no second flag,
+ * list, or naming convention), and this predicate is the one place it is read:
+ * every surface that projects the tree to an audience — the site, terminal and
+ * MCP `help`, `--export public`, llms/search/sitemap derivations, binary
+ * help-staging — filters through here, so no surface can drift. Agent surfaces
+ * of the PROJECT map (`discern map`, the tree on disk) deliberately do not
+ * filter: agents keep everything.
+ */
+export function isPublicDoc(entry: Pick<DocEntry, "publish">): boolean {
+  return entry.publish;
+}
+
+/** The published subset of a tree, in unchanged reading order. */
+export function publicDocs(entries: readonly DocEntry[]): DocEntry[] {
+  return entries.filter(isPublicDoc);
+}
+
 /** The text of the first Markdown heading in `md`, flattened to plain text. */
 export function extractTitle(md: string): string | undefined {
   for (const raw of md.split(/\r?\n/)) {
@@ -133,6 +177,37 @@ export function extractTitle(md: string): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * First prose paragraph after the document's title heading, flattened to one
+ * plain line. The shared derivation behind every doc description — map-overview
+ * regions and per-leaf listings alike — so a doc's one-liner always reads the
+ * same wherever it surfaces. Co-located with {@link extractTitle}: the two are
+ * the model's only content-derived fields.
+ */
+export function leadParagraph(markdown: string, fallback: string): string {
+  const lines = markdown.split(/\r?\n/);
+  let sawTitle = false;
+  const paragraph: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!sawTitle && /^#{1,6}\s+/.test(line)) {
+      sawTitle = true;
+      continue;
+    }
+    if (!sawTitle || line === "") {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    if (/^(#{1,6}\s+|---+$|```|>)/.test(line)) {
+      if (paragraph.length > 0) break;
+      continue;
+    }
+    paragraph.push(line);
+  }
+  const plain = inlineToPlain(paragraph.join(" ")).trim();
+  return plain || fallback;
 }
 
 /** Turn a slug into a readable title when a doc has no heading of its own. */
@@ -251,12 +326,18 @@ export async function discoverDocs(opts: {
     let description = "";
     let publish = true;
     let order: number | undefined;
+    let aliases: string[] = [];
+    let redirectFrom: string[] = [];
+    let citedAdrs: AdrCitation[] = [];
     try {
       const { meta, body } = parseFrontmatter(await Deno.readTextFile(absPath));
       title = meta.title ?? extractTitle(body) ?? title;
       description = meta.description ?? leadParagraph(body, "");
       publish = meta.publish ?? true;
       order = meta.order;
+      aliases = meta.aliases ?? [];
+      redirectFrom = meta.redirect_from ?? [];
+      citedAdrs = collectAdrCitations(body);
     } catch {
       // An unreadable file keeps the humanised-slug fallback.
     }
@@ -271,6 +352,9 @@ export async function discoverDocs(opts: {
       description,
       publish,
       order,
+      aliases,
+      redirectFrom,
+      citedAdrs,
     });
   }
 

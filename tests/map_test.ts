@@ -21,6 +21,8 @@ import {
   filterDocsByGroups,
   formatDocsExport,
   groupDocs,
+  isPublicDoc,
+  publicDocs,
   resolveDoc,
 } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
@@ -62,6 +64,9 @@ function entry(path: string): DocEntry {
     title: filename,
     description: "",
     publish: true,
+    aliases: [],
+    redirectFrom: [],
+    citedAdrs: [],
   };
 }
 
@@ -230,11 +235,46 @@ Deno.test("discoverDocs derives descriptions and honours frontmatter overrides",
       ["README", "gamma", "alpha", "beta", "hidden"],
     );
 
-    // publish: false travels on the entry for publishing surfaces to honour.
+    // publish: false travels on the entry for publishing surfaces to honour,
+    // and isPublicDoc is the ONE predicate that reads it.
     const hidden = tree.entries.find((e) => e.slug === "hidden");
     assertExists(hidden);
     assertEquals(hidden.publish, false);
     assertEquals(hidden.title, "Hidden");
+    assertEquals(isPublicDoc(hidden), false);
+    assertEquals(publicDocs(tree.entries).includes(hidden), false);
+    assertEquals(publicDocs(tree.entries).includes(gamma), true);
+  });
+});
+
+Deno.test("discoverDocs carries aliases, redirects, and cited decisions on the entry", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/rich.md"),
+      "---\n" +
+        "aliases:\n  - files\n  - ownership\n" +
+        "redirect_from:\n  - /docs/old-home\n" +
+        "---\n" +
+        "# Rich\n\nCites a decision ([ADR 0001](../_adr/0001-first.md)).\n",
+    );
+
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+    const rich = tree.entries.find((e) => e.slug === "rich");
+    assertExists(rich);
+    assertEquals(rich.aliases, ["files", "ownership"]);
+    assertEquals(rich.redirectFrom, ["/docs/old-home"]);
+    assertEquals(rich.citedAdrs, [
+      { number: "0001", slug: "first", path: "../_adr/0001-first.md" },
+    ]);
+
+    // A plain doc gets honest empties, never undefined.
+    const alpha = tree.entries.find((e) => e.slug === "alpha");
+    assertExists(alpha);
+    assertEquals(alpha.aliases, []);
+    assertEquals(alpha.redirectFrom, []);
+    assertEquals(alpha.citedAdrs, []);
   });
 });
 
