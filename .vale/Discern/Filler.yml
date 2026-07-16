@@ -1,0 +1,9 @@
+# Padding that costs the writer nothing and charges the struggling reader
+# double (voice skill: banned words). The sentence stands alone without it.
+extends: existence
+message: "'%s' pads the sentence: delete it; the sentence stands alone."
+ignorecase: true
+level: warning
+tokens:
+  - simply
+  - obviously

@@ -1,0 +1,13 @@
+# Trailing modifier fragments strike a pose after the comma (voice skill:
+# banned moves).
+extends: existence
+message: "Trailing modifier fragment ('%s'): fold it into the sentence or cut it."
+ignorecase: true
+level: warning
+nonword: true
+tokens:
+  - ', every time[.,]'
+  - ', by design[.,]'
+  - ', at scale[.,]'
+  - ', full stop[.,]'
+  - ', no exceptions[.,]'

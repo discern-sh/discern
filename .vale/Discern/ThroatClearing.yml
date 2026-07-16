@@ -1,0 +1,11 @@
+# Throat-clearing before the fact (voice skill: banned words). Start with the
+# fact.
+extends: existence
+message: "'%s' is throat-clearing: start with the fact."
+ignorecase: true
+level: warning
+tokens:
+  - please note that
+  - it(?:'|’)s worth noting
+  - it is worth noting
+  - it should be noted

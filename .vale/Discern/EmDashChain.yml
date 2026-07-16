@@ -1,0 +1,8 @@
+# Two em dashes in one sentence is a chain (voice skill: banned moves). A
+# period, a colon, or parentheses handles what the second dash is doing.
+extends: occurrence
+message: "More than one em dash in this sentence: rebuild it with a period, colon, or parentheses."
+level: warning
+scope: sentence
+max: 1
+token: '—'

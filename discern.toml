@@ -385,6 +385,7 @@ run       = "deno task prose \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
   ".vale.ini",
+  ".vale/Discern/**",
   "scripts/prose.ts",
   "scripts/prose_lib.ts",
   "src/lib/frontmatter.ts",

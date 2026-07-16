@@ -1,0 +1,13 @@
+# The "not X, but Y" family — the strongest machine-written fingerprint (voice
+# skill: banned moves). Docs budget: one per page, and only when the
+# distinction is load-bearing; marketing budget: zero.
+extends: existence
+message: "Contrast-frame ('not X, but Y'): state the true half plainly, unless the distinction is genuinely load-bearing."
+ignorecase: true
+level: warning
+tokens:
+  - not [^.?!;:—\n]{1,45}, but
+  - isn(?:'|’)t [^.?!;:—\n]{1,45}[,;] it(?:'|’)s
+  - wasn(?:'|’)t [^.?!;:—\n]{1,45}[,;] it (?:was|is)
+  - was never the point
+  - not about [^.?!;:—\n]{1,45}[,;.] it(?:'|’)s about
