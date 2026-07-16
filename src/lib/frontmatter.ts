@@ -337,7 +337,9 @@ export function validateFrontmatter(md: string): string[] {
         issue(
           issues,
           key,
-          `unknown key — the schema allows exactly: ${DOC_META_KEYS.join(", ")}`,
+          `unknown key — the schema allows exactly: ${
+            DOC_META_KEYS.join(", ")
+          }`,
         );
         break;
     }
