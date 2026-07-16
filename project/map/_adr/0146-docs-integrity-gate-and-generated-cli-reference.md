@@ -75,10 +75,10 @@ the page title to the registry's own label.
 - External URLs stay ungated — network checks belong to the periodic
   verification stream, never a local gate dependency.
 - The leaf-density standard's corpus now follows the document model too: the
-  measurement admits pages through the publication predicate, so an
-  unpublished page (this reference, its stub README) counts toward neither
-  leaves nor words until it publishes. The metric was the last surface
-  deriving "public" by path alone; the limit itself is untouched.
+  measurement admits pages through the publication predicate, so an unpublished
+  page (this reference, its stub README) counts toward neither leaves nor words
+  until it publishes. The metric was the last surface deriving "public" by path
+  alone; the limit itself is untouched.
 - The ADR exemption means a retired spelling can survive in a dated record (e.g.
   `config set-slot` in [ADR 0005](0005-declarative-config.md)) — that is history
   working as intended, not rot.
