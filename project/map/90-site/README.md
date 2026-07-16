@@ -33,6 +33,7 @@ The routes, from the handler's exported `PAGES` table:
 | `/design-system-demo`  | the generated design-system experiment | the same HTML                            |
 | `/content-design-demo` | the generated long-form content atlas  | the same HTML                            |
 | `/docs/…`              | the rendered manual                    | the page's raw Markdown                  |
+| `/docs/decisions/…`    | project-history decision records       | the record's raw Markdown                |
 | `/llms.txt`            | —                                      | the plaintext edition plus a docs index, |
 |                        |                                        | for every reader                         |
 

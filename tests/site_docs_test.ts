@@ -8,15 +8,22 @@
  * exists to go stale.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { handler } from "../site/serve.ts";
 import {
   docsLlmsSection,
   type DocsPage,
   loadDocsSite,
+  projectDocsPages,
   rewriteLinks,
   sectionSlugOf,
 } from "../site/docs.ts";
+import type { DocEntry } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
@@ -30,6 +37,35 @@ const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };
 
 function get(path: string, headers: Record<string, string>): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
+}
+
+function fixtureEntry(
+  relToDocs: string,
+  section: string,
+  slug: string,
+): DocEntry {
+  return {
+    path: `map/${relToDocs}`,
+    absPath: `/fixture/map/${relToDocs}`,
+    relToDocs,
+    section,
+    slug,
+    title: slug,
+    description: "Fixture description.",
+    publish: true,
+    order: undefined,
+    aliases: [],
+    redirectFrom: [],
+    citedAdrs: [],
+  };
+}
+
+function htmlEsc(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 Deno.test("the published docs site covers exactly the bundled-public sections", async () => {
@@ -49,6 +85,90 @@ Deno.test("the published docs site covers exactly the bundled-public sections", 
       !/\/\d+-/.test(page.route),
       `route ${page.route} has no numeric tier prefix`,
     );
+  }
+});
+
+Deno.test("the nav exposes every published page in model reading order", async () => {
+  const site = await loadDocsSite();
+  const res = await get("/docs", BROWSER);
+  const html = await res.text();
+  const nav = /<nav class="docs-nav-scroll"[^>]*>([\s\S]*?)<\/nav>/.exec(html)
+    ?.[1] ?? "";
+  const childRoutes = [...nav.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
+    match[1] ?? ""
+  );
+  assertEquals(
+    childRoutes,
+    site.sections.flatMap((section) => section.pages.map((page) => page.route)),
+  );
+  assertEquals(
+    [...nav.matchAll(/>Overview<\/a>/g)].length,
+    site.sections.length,
+  );
+  const gate = site.sections.find((section) =>
+    section.dir === "20-quality-gate"
+  );
+  assertEquals(gate?.pages[1]?.entry.slug, "when-the-gate-fails");
+});
+
+Deno.test("the docs projection refuses orphan shapes", () => {
+  assertThrows(
+    () =>
+      projectDocsPages(
+        [fixtureEntry("loose.md", "", "loose")],
+        ["20-quality-gate"],
+      ),
+    Error,
+    "has no section",
+  );
+  assertThrows(
+    () =>
+      projectDocsPages(
+        [
+          fixtureEntry(
+            "20-quality-gate/leaf.md",
+            "20-quality-gate",
+            "leaf",
+          ),
+        ],
+        ["20-quality-gate"],
+      ),
+    Error,
+    "has no public README",
+  );
+});
+
+Deno.test("section landings derive their leaf index from model metadata", async () => {
+  const site = await loadDocsSite();
+  for (const section of site.sections) {
+    const res = await get(section.index.route, BROWSER);
+    const html = await res.text();
+    const generated = /<section class="docs-section-index"[\s\S]*?<\/section>/
+      .exec(html)?.[0] ?? "";
+    const leaves = section.pages.filter((page) => !page.isIndex);
+    assert(generated.length > 0, section.dir);
+    assertEquals(
+      [...generated.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
+        match[1] ?? ""
+      ),
+      leaves.map((page) => page.route),
+      section.dir,
+    );
+    for (const leaf of leaves) {
+      assertStringIncludes(
+        generated,
+        htmlEsc(leaf.entry.title),
+        leaf.entry.path,
+      );
+      assertStringIncludes(
+        generated,
+        htmlEsc(leaf.entry.description),
+        leaf.entry.path,
+      );
+    }
+    if (section.dir === "20-quality-gate") {
+      assert(!html.includes('href="#in-this-section"'));
+    }
   }
 });
 
@@ -126,6 +246,105 @@ Deno.test("the /docs index lists every section for both readers", async () => {
   assertEquals(await asSuffix.text(), md);
 });
 
+Deno.test("the decisions family renders every record as labeled project history", async () => {
+  const site = await loadDocsSite();
+  const indexRes = await get(site.decisions.route, BROWSER);
+  assertEquals(indexRes.status, 200);
+  const indexHtml = await indexRes.text();
+  assertStringIncludes(indexHtml, "Project history");
+  assertStringIncludes(indexHtml, "not current product guidance");
+
+  const superseded = site.decisions.pages.filter((page) => page.superseded);
+  assert(superseded.length > 0, "the history fixture includes retired records");
+  assertEquals(
+    [...indexHtml.matchAll(/class="docs-decision-status">Superseded/g)].length,
+    superseded.length,
+  );
+
+  for (const page of site.decisions.pages) {
+    assertStringIncludes(indexHtml, `href="${page.route}"`, page.entry.path);
+    const res = await get(page.route, BROWSER);
+    assertEquals(res.status, 200, page.route);
+    const html = await res.text();
+    assertStringIncludes(html, "Project history", page.route);
+    assertStringIncludes(html, "docs-decision-record", page.route);
+    assertEquals(
+      html.includes("Superseded record."),
+      page.superseded,
+      page.route,
+    );
+
+    const raw = await Deno.readTextFile(page.entry.absPath);
+    const textRes = await get(`${page.route}.md`, BROWSER);
+    assertEquals(await textRes.text(), raw, `${page.route}.md`);
+  }
+});
+
+Deno.test("decisions stay outside the sidebar and enter through the colophon", async () => {
+  const site = await loadDocsSite();
+  const res = await get("/docs", BROWSER);
+  const html = await res.text();
+  const sidebar = /<aside class="docs-nav"[\s\S]*?<\/aside>/.exec(html)?.[0] ??
+    "";
+  assert(!sidebar.includes(`href="${site.decisions.route}"`));
+  assertStringIncludes(
+    html,
+    `<a href="${site.decisions.route}">Project decisions</a>`,
+  );
+});
+
+Deno.test("ADR links rewrite to decision routes", async () => {
+  const site = await loadDocsSite();
+  const page = site.pages[0];
+  const active = site.decisions.pages.find((candidate) =>
+    !candidate.superseded
+  );
+  const superseded = site.decisions.pages.find((candidate) =>
+    candidate.superseded
+  );
+  assert(
+    page !== undefined && active !== undefined && superseded !== undefined,
+  );
+  assertEquals(
+    rewriteLinks(
+      `[record](../_adr/${active.entry.relToDocs})`,
+      page,
+      site,
+    ),
+    `[record](${active.route})`,
+  );
+  assertEquals(
+    rewriteLinks(
+      `[record](../_adr/${superseded.entry.relToDocs})`,
+      page,
+      site,
+    ),
+    `[record](${superseded.route})`,
+  );
+});
+
+Deno.test("related decisions render exactly the collected citation set", async () => {
+  const site = await loadDocsSite();
+  for (const page of site.pages) {
+    const res = await get(page.route, BROWSER);
+    const html = await res.text();
+    const links = [
+      ...html.matchAll(/class="docs-related-decision" href="([^"]+)"/g),
+    ]
+      .map((match) => match[1] ?? "");
+    assertEquals(links.length, page.entry.citedAdrs.length, page.entry.path);
+    assertEquals(
+      links,
+      page.entry.citedAdrs.map((citation) => {
+        const decision = site.decisions.byNumber.get(citation.number);
+        assert(decision !== undefined, citation.number);
+        return decision.route;
+      }),
+      page.entry.path,
+    );
+  }
+});
+
 Deno.test("unpublished tiers never surface under /docs", async () => {
   // The complement of the allowlist, read from disk so a new tier auto-enrols.
   for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.map)) {
@@ -156,6 +375,7 @@ Deno.test("every local link in every published page resolves — no dead ends", 
         // Site-absolute destinations must actually exist as routes.
         if (
           dest.startsWith("/docs/") &&
+          dest.replace(/#.*$/, "") !== site.decisions.route &&
           !site.byRoute.has(dest.replace(/#.*$/, ""))
         ) {
           failures.push(`${page.entry.path}: broken route ${dest}`);
@@ -177,6 +397,12 @@ Deno.test("the search index and llms.txt cover every published page", async () =
     pages: Array<{ route: string; title: string }>;
   };
   assertEquals(index.pages.map((p) => p.route), site.pages.map((p) => p.route));
+  for (const decision of site.decisions.pages) {
+    assert(
+      !index.pages.some((page) => page.route === decision.route),
+      decision.route,
+    );
+  }
 
   const llms = await get("/llms.txt", CURL);
   const text = await llms.text();
@@ -184,8 +410,19 @@ Deno.test("the search index and llms.txt cover every published page", async () =
   for (const page of site.pages) {
     assertStringIncludes(text, `https://discern.sh${page.route}`);
   }
+  assert(!text.includes(site.decisions.route));
   // The section is generated, not hand-kept.
   assertStringIncludes(docsLlmsSection(site), "DOCUMENTATION");
+});
+
+Deno.test("the sitemap source contains guidance and project-history routes", async () => {
+  const site = await loadDocsSite();
+  assertEquals(site.sitemapRoutes, [
+    "/docs",
+    ...site.pages.map((page) => page.route),
+    site.decisions.route,
+    ...site.decisions.pages.map((page) => page.route),
+  ]);
 });
 
 Deno.test("docs 404s answer in the reader's own format", async () => {

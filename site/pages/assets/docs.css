@@ -681,6 +681,128 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
   color: var(--discern-color-accent-600);
 }
 
+/* ── Derived page indexes and decision context ─────────────────────────── */
+
+.docs-section-index {
+  margin-top: var(--discern-space-12);
+  padding-top: var(--discern-space-2);
+  border-top: 1px solid var(--discern-color-border);
+}
+
+.docs-section-index ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--discern-space-4) var(--discern-space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-section-index li {
+  margin: 0;
+}
+
+.docs-section-index li > a {
+  font-family: var(--discern-font-ui);
+  font-feature-settings: var(--discern-font-features-ui);
+  font-size: var(--discern-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docs-related-decisions {
+  max-width: 50rem;
+  margin-top: var(--discern-space-10);
+  padding: var(--discern-space-5);
+  border: 1px solid var(--discern-color-border);
+  border-left: 3px solid var(--discern-color-accent-400);
+  border-radius: var(--discern-radius-md);
+  background: color-mix(in oklab, var(--discern-color-accent-100) 45%,
+    transparent);
+}
+
+.docs-related-decisions h2 {
+  margin: 0 0 var(--discern-space-3);
+  font-family: var(--discern-font-display);
+  font-size: var(--discern-font-size-display-sm);
+}
+
+.docs-related-decisions ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.docs-related-decisions li {
+  margin-top: var(--discern-space-2);
+}
+
+.docs-related-decisions a {
+  color: var(--discern-color-accent-700);
+  font-family: var(--discern-font-ui);
+  font-feature-settings: var(--discern-font-features-ui);
+  font-size: var(--discern-font-size-sm);
+  text-underline-offset: 3px;
+}
+
+.docs-history-label {
+  max-width: 50rem;
+  margin-bottom: var(--discern-space-8);
+  padding: var(--discern-space-4) var(--discern-space-5);
+  border: 1px solid var(--discern-color-border-strong);
+  border-radius: var(--discern-radius-md);
+  background: var(--discern-color-surface-sunken);
+}
+
+.docs-history-label p {
+  max-width: var(--discern-measure);
+  margin: var(--discern-space-2) 0 0;
+  color: var(--discern-color-ink-muted);
+  font: 400 var(--discern-font-size-sm)/1.6 var(--discern-font-ui);
+  font-feature-settings: var(--discern-font-features-ui);
+}
+
+.docs-history-label a {
+  color: var(--discern-color-accent-700);
+}
+
+.docs-history-status {
+  color: var(--discern-color-ink);
+}
+
+.docs-decision-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-decision-list li {
+  display: flex;
+  gap: var(--discern-space-3);
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  padding-block: var(--discern-space-3);
+  border-bottom: 1px solid var(--discern-color-border);
+}
+
+.docs-decision-list a {
+  font-family: var(--discern-font-ui);
+  font-feature-settings: var(--discern-font-features-ui);
+  font-size: var(--discern-font-size-sm);
+  text-decoration: none;
+}
+
+.docs-decision-status {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid var(--discern-color-border);
+  border-radius: var(--discern-radius-full);
+  color: var(--discern-color-ink-faint);
+  font: 600 0.625rem var(--discern-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ── Pager ─────────────────────────────────────────────────────────────── */
 
 .docs-pager {
@@ -771,6 +893,12 @@ a.docs-pager-cell:hover {
 
 .docs-colophon code {
   font-size: 0.9em;
+}
+
+.docs-colophon-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--discern-space-4);
 }
 
 /* ── The cover (/docs index) ───────────────────────────────────────────── */
