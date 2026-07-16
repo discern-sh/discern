@@ -1,75 +1,57 @@
 /**
- * Count public documentation leaves and words, then emit both as discern
+ * Count published documentation leaves and words, then emit both as discern
  * standard metrics.
  *
- * Public docs are Markdown files under the configured map with no
- * underscore-prefixed path segment, so _private, _internal, and _adr trees are
- * excluded. A leaf is a public Markdown page whose basename is not README.md;
- * README files are directory indexes, not leaves.
+ * The corpus follows the document model, never a private re-derivation: the
+ * shared reader indexes the map (underscore-prefixed subtrees — _private,
+ * _internal, _adr — excluded, as ever), and the one publication predicate
+ * (`publicDocs`) admits the published pages, so a `publish: false` page counts
+ * toward neither number — the standard budgets the PUBLISHED corpus, and an
+ * unpublished stub or generated draft is not yet part of it. A leaf is a
+ * published Markdown page whose basename is not README.md; README files are
+ * directory indexes, not leaves. Words measure prose: the frontmatter block is
+ * metadata, never content.
  */
 
-import {
-  basename,
-  dirname,
-  fromFileUrl,
-  join,
-  relative,
-  SEPARATOR,
-} from "@std/path";
+import { basename, dirname, fromFileUrl } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { discoverDocs, publicDocs } from "../src/lib/docs.ts";
 
 interface PublicDocMetrics {
   leaves: number;
   words: number;
 }
 
-function isMarkdown(path: string): boolean {
-  return path.endsWith(".md");
-}
-
-function hasPrivateSegment(path: string): boolean {
-  return path.split(SEPARATOR).some((part) => part.startsWith("_"));
-}
-
 function wordCount(text: string): number {
   return text.match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu)?.length ?? 0;
 }
 
-async function measurePublicDocs(docsDir: string): Promise<PublicDocMetrics> {
+async function measurePublicDocs(
+  repoRoot: string,
+  docsDir: string,
+): Promise<PublicDocMetrics> {
+  const tree = await discoverDocs({ cwd: repoRoot, dir: docsDir });
+  if (tree === undefined) {
+    throw new Error(`no documentation tree at ${docsDir}`);
+  }
   let leaves = 0;
   let words = 0;
-
-  async function walk(dir: string): Promise<void> {
-    for await (const entry of Deno.readDir(dir)) {
-      const path = join(dir, entry.name);
-      const rel = relative(docsDir, path);
-      if (hasPrivateSegment(rel)) continue;
-
-      if (entry.isDirectory) {
-        await walk(path);
-        continue;
-      }
-      if (!entry.isFile || !isMarkdown(entry.name)) continue;
-
-      // Words measure PROSE: the frontmatter block is metadata, not content.
-      const text = parseFrontmatter(await Deno.readTextFile(path)).body;
-      words += wordCount(text);
-      if (basename(entry.name) !== "README.md") {
-        leaves++;
-      }
+  for (const entry of publicDocs(tree.entries)) {
+    const { body } = parseFrontmatter(await Deno.readTextFile(entry.absPath));
+    words += wordCount(body);
+    if (basename(entry.absPath) !== "README.md") {
+      leaves++;
     }
   }
-
-  await walk(docsDir);
   return { leaves, words };
 }
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const docsDir = Deno.args[0] ??
   resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
-const metrics = await measurePublicDocs(docsDir);
+const metrics = await measurePublicDocs(repoRoot, docsDir);
 
 console.error(
   `${docsDir} public docs: ${metrics.leaves} leaves, ${metrics.words} words`,
