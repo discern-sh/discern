@@ -8,13 +8,19 @@ renderer rediscovers, filters, orders, or titles documents on its own.
 ## Discovery and the entry
 
 `discoverDocs` walks the configured tree and yields one `DocEntry` per leaf:
-paths, section, slug, a title from the first heading, a description from the
-lead paragraph (`extractTitle` and `leadParagraph` live beside the model — they
-are its only content-derived fields), plus the frontmatter-carried metadata:
-`publish`, `order`, `aliases`, `redirectFrom`, and `citedAdrs` (the decisions
-the page cites, collected by
+paths, section, slug, a title from the first heading, and a description from the
+lead paragraph (`extractTitle` and `leadParagraph` live beside the model). The
+model also carries `publish`, `order`, `aliases`, `redirectFrom`, and
+`citedAdrs` (the decisions the page cites, collected by
 [`src/lib/adr_citations.ts`](../../../src/lib/adr_citations.ts)).
 `map_overview.ts` reuses `DocEntry.description` rather than re-deriving it.
+
+Sibling reading order is README-first, then `DocEntry.order`. An explicit
+frontmatter `order` is authoritative; while a sibling has none, discovery fills
+it from the section README's authored table/list link order. Only direct sibling
+Markdown links count, so source links and cross-section "see also" lists cannot
+reorder a section. This makes the README's existing curation part of the model
+rather than something each renderer must rediscover.
 
 ## Frontmatter: lenient read, strict gate
 

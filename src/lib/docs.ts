@@ -68,7 +68,7 @@ export interface DocEntry {
   description: string;
   /** False when frontmatter withholds the doc from published surfaces. */
   publish: boolean;
-  /** Explicit sibling ordering from frontmatter, when present. */
+  /** Sibling order: explicit frontmatter first, otherwise README curation. */
   order?: number | undefined;
   /** Search synonyms from frontmatter (`aliases:`), `[]` when none. */
   aliases: string[];
@@ -87,6 +87,15 @@ export interface DocsTree {
   docsDir: string;
   /** Every `.md` file found, in reading order. */
   entries: DocEntry[];
+}
+
+/** One numbered Architecture Decision Record projected from a docs tree. */
+export interface AdrRecord {
+  entry: DocEntry;
+  /** The stable four-digit record number. */
+  number: string;
+  /** True when the record lives under the ADR archive. */
+  superseded: boolean;
 }
 
 /** One top-level section offered by the interactive export picker. */
@@ -166,6 +175,30 @@ export function publicDocs(entries: readonly DocEntry[]): DocEntry[] {
   return entries.filter(isPublicDoc);
 }
 
+/**
+ * Project numbered ADR files from a discovered ADR tree, preserving the
+ * document model's reading order. README and the 0000 authoring template do
+ * not match the record shape, so callers never maintain a second exclusion
+ * list. The directory is the canonical set: a new `NNNN-*.md` file enrols
+ * automatically, including records retained under `_superseded/`.
+ */
+export function adrRecords(entries: readonly DocEntry[]): AdrRecord[] {
+  const records: AdrRecord[] = [];
+  for (const entry of entries) {
+    const match = /^(?:(?:_superseded)\/)?(\d{4})-[^/]+\.md$/.exec(
+      entry.relToDocs,
+    );
+    const number = match?.[1];
+    if (number === undefined || number === "0000") continue;
+    records.push({
+      entry,
+      number,
+      superseded: entry.relToDocs.startsWith("_superseded/"),
+    });
+  }
+  return records;
+}
+
 /** One surface enrolled with the publication predicate. */
 export interface PublicDocSurface {
   name: string;
@@ -188,9 +221,9 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
   {
     name: "site",
     source: "site/docs.ts",
-    via: "buildDocsSite filters pages through isPublicDoc; the search index, " +
-      "llms.txt, the sitemap, and the raw .md editions all derive from " +
-      "those pages",
+    via: "buildDocsSite filters guidance through isPublicDoc and decision " +
+      "records through publicDocs; search and llms derive from guidance, " +
+      "while the sitemap and raw .md editions derive from both families",
   },
   {
     name: "help",
@@ -343,6 +376,58 @@ function sortKey(relPath: string, order?: number): string {
     .join("/");
 }
 
+/**
+ * Fill missing sibling orders from the section README's authored link order.
+ * `order:` remains authoritative; this fallback preserves the curation already
+ * encoded in README tables/lists until (or unless) a leaf states it explicitly.
+ * Only direct sibling Markdown links count, so source links and cross-section
+ * "see also" lists cannot influence the section reading order.
+ */
+function applyReadmeCuration(
+  entries: readonly DocEntry[],
+  bodies: ReadonlyMap<string, string>,
+): void {
+  const byRel = new Map(entries.map((entry) => [entry.relToDocs, entry]));
+  for (const readme of entries) {
+    if (readme.slug.toLowerCase() !== "readme") continue;
+    const body = bodies.get(readme.relToDocs);
+    if (body === undefined) continue;
+    const parent = dirname(readme.relToDocs);
+    const dir = parent === "." ? "" : parent;
+    const seen = new Set<string>();
+    let position = 0;
+    let afterHeading = false;
+    for (const line of body.split("\n")) {
+      if (/^##\s+/.test(line)) {
+        afterHeading = true;
+        continue;
+      }
+      if (line.trim() === "") continue;
+      const structured = /^\s*(?:\||-\s+)/.test(line);
+      const headingLead = afterHeading && /^\s*\[/.test(line);
+      afterHeading = false;
+      if (!structured && !headingLead) continue;
+      for (const match of line.matchAll(/\]\(([^()\s]+)\)/g)) {
+        const dest = (match[1] ?? "").replace(/#.*$/, "");
+        if (!dest.toLowerCase().endsWith(".md")) continue;
+        const targetRel = join(dir, dest).replaceAll(SEPARATOR, "/");
+        const target = byRel.get(targetRel);
+        if (
+          target === undefined ||
+          target.slug.toLowerCase() === "readme" ||
+          dirname(target.relToDocs) !== (dir || ".") ||
+          seen.has(target.relToDocs)
+        ) {
+          continue;
+        }
+        seen.add(target.relToDocs);
+        position += 1;
+        target.order ??= position * 10;
+      }
+    }
+  }
+}
+
 /** Resolve which directory to index, honouring an explicit `dir` override. */
 async function resolveDocsDir(
   cwd: string,
@@ -405,6 +490,7 @@ export async function discoverDocs(opts: {
   if (!resolved) return undefined;
   const { docsDir, root } = resolved;
   const entries: DocEntry[] = [];
+  const bodies = new Map<string, string>();
 
   for await (
     const entry of walk(docsDir, { exts: [".md"], includeDirs: false })
@@ -436,6 +522,7 @@ export async function discoverDocs(opts: {
     let citedAdrs: AdrCitation[] = [];
     try {
       const { meta, body } = parseFrontmatter(await Deno.readTextFile(absPath));
+      bodies.set(relToDocs, body);
       title = meta.title ?? extractTitle(body) ?? title;
       description = meta.description ?? leadParagraph(body, "");
       publish = meta.publish ?? true;
@@ -463,6 +550,7 @@ export async function discoverDocs(opts: {
     });
   }
 
+  applyReadmeCuration(entries, bodies);
   entries.sort((a, b) => {
     const ka = sortKey(a.relToDocs, a.order);
     const kb = sortKey(b.relToDocs, b.order);
