@@ -814,31 +814,58 @@ function inlineToHtml(text: string): string {
   return parseInline(text).map(segToHtml).join("");
 }
 
-/** Close the innermost `count` open lists. */
-function closeLists(open: string[], out: string[], count: number): void {
-  for (let n = 0; n < count; n += 1) {
-    const tag = open.pop();
-    if (tag !== undefined) out.push(`</${tag}>`);
+interface HtmlListNode {
+  marker: string;
+  text: string;
+  children: HtmlListNode[];
+}
+
+function htmlListTag(item: Pick<HtmlListNode, "marker">): "ul" | "ol" {
+  return item.marker === "•" ? "ul" : "ol";
+}
+
+function renderHtmlListNodes(nodes: HtmlListNode[], out: string[]): void {
+  let index = 0;
+  while (index < nodes.length) {
+    const first = nodes[index];
+    if (first === undefined) break;
+    const tag = htmlListTag(first);
+    out.push(`<${tag}>`);
+    while (index < nodes.length) {
+      const node = nodes[index];
+      if (node === undefined || htmlListTag(node) !== tag) break;
+      if (node.children.length === 0) {
+        out.push(`<li>${inlineToHtml(node.text)}</li>`);
+      } else {
+        out.push(`<li>${inlineToHtml(node.text)}`);
+        renderHtmlListNodes(node.children, out);
+        out.push("</li>");
+      }
+      index++;
+    }
+    out.push(`</${tag}>`);
   }
 }
 
 function listToHtml(items: ListItem[], out: string[]): void {
-  const open: string[] = [];
-  let depth = -1;
+  const roots: HtmlListNode[] = [];
+  const ancestors: HtmlListNode[] = [];
   for (const item of items) {
-    if (item.depth > depth) {
-      for (let d = depth; d < item.depth; d += 1) {
-        const tag = item.marker === "•" ? "ul" : "ol";
-        out.push(`<${tag}>`);
-        open.push(tag);
-      }
-    } else if (item.depth < depth) {
-      closeLists(open, out, depth - item.depth);
+    const node: HtmlListNode = {
+      marker: item.marker,
+      text: item.text,
+      children: [],
+    };
+    const depth = Math.min(item.depth, ancestors.length);
+    if (depth === 0) {
+      roots.push(node);
+    } else {
+      ancestors[depth - 1]?.children.push(node);
     }
-    depth = item.depth;
-    out.push(`<li>${inlineToHtml(item.text)}</li>`);
+    ancestors[depth] = node;
+    ancestors.length = depth + 1;
   }
-  closeLists(open, out, open.length);
+  renderHtmlListNodes(roots, out);
 }
 
 function tableToHtml(rows: string[][], out: string[]): void {

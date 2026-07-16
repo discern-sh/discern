@@ -1,0 +1,25 @@
+# Adjectives and slogans that dodge "compared to what?" — replace with the
+# sourced fact that earned them, or nothing (voice skill: banned words).
+extends: existence
+message: "'%s' is hype vocabulary: state the sourced fact that earned it, or cut it."
+ignorecase: true
+level: warning
+tokens:
+  - powerful
+  - robust
+  - seamless(?:ly)?
+  - elegant(?:ly)?
+  - blazing(?:ly)?
+  - effortless(?:ly)?
+  - magical(?:ly)?
+  - delightful(?:ly)?
+  - beautiful(?:ly)?
+  - supercharg(?:e[sd]?|ing)
+  - game.chang(?:er|ing)
+  - unlocks?
+  - empowers?
+  - vibes
+  - just works
+  - ship faster
+  - ship with confidence
+  - ship at scale

@@ -1,21 +1,71 @@
-/* discern.sh/docs — the manual's behaviors: theme, drawer, search palette,
-   contents-rail scroll spy, and prose enhancements. Plain script, no
-   dependencies, no network beyond /docs/index.json. */
+/* discern.sh/docs — theme, modal navigation/search, contents scroll spy, and
+   prose enhancements. Plain local modules, no third-party dependencies, no
+   network beyond the one-way fetch of /docs/index.json. */
+import { searchPages } from "./search.js";
+
 (() => {
   "use strict";
 
   const doc = document;
   const root = doc.documentElement;
-  const $ = (sel, scope = doc) => scope.querySelector(sel);
-  const $$ = (sel, scope = doc) => Array.from(scope.querySelectorAll(sel));
+  root.classList.add("docs-js");
+  const $ = (selector, scope = doc) => scope.querySelector(selector);
+  const $$ = (selector, scope = doc) =>
+    Array.from(scope.querySelectorAll(selector));
+  const focusableSelector = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(",");
+
+  const canFocus = (value) =>
+    value && typeof value.focus === "function" && value.isConnected;
+  const focusablesIn = (container) =>
+    $$(focusableSelector, container).filter((element) =>
+      !element.closest("[hidden]") && !element.inert
+    );
+  const setInert = (elements, inert) => {
+    for (const element of elements.filter(Boolean)) element.inert = inert;
+  };
+  const restoreFocus = (element) => {
+    if (canFocus(element)) element.focus();
+  };
+  const trapFocus = (event, elements) => {
+    if (event.key !== "Tab" || elements.length === 0) return;
+    const first = elements[0];
+    const last = elements[elements.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && doc.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && doc.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   // ── Theme ────────────────────────────────────────────────────────────────
 
-  $("[data-theme-toggle]")?.addEventListener("click", () => {
+  const themeToggle = $("[data-theme-toggle]");
+  const syncThemeControl = () => {
+    if (!themeToggle) return;
+    const dark = root.getAttribute("data-discern-theme") === "dark";
+    themeToggle.setAttribute("aria-pressed", String(dark));
+    themeToggle.setAttribute(
+      "aria-label",
+      dark ? "Use light theme" : "Use dark theme",
+    );
+  };
+  syncThemeControl();
+  themeToggle?.addEventListener("click", () => {
     const next = root.getAttribute("data-discern-theme") === "dark"
       ? "light"
       : "dark";
     root.setAttribute("data-discern-theme", next);
+    syncThemeControl();
     try {
       localStorage.setItem("discern-theme", next);
     } catch {
@@ -28,17 +78,54 @@
   const nav = $("#docs-nav");
   const drawerVeil = $("[data-drawer-close]");
   const burger = $("[data-drawer-toggle]");
+  const drawerMedia = matchMedia("(max-width: 64em)");
+  const drawerBackground = [
+    $(".docs-skip"),
+    ...$$(".docs-top > :not([data-drawer-toggle])"),
+    $(".docs-main"),
+    $(".docs-rail"),
+  ];
+  let drawerOpen = false;
+  let drawerReturnFocus = null;
 
-  const setDrawer = (open) => {
-    nav?.classList.toggle("is-open", open);
-    if (drawerVeil) drawerVeil.hidden = !open;
-    burger?.setAttribute("aria-expanded", String(open));
+  const focusFirstInDrawer = () => {
+    const first = nav ? focusablesIn(nav)[0] : null;
+    if (first) first.focus();
   };
 
-  burger?.addEventListener("click", () => {
-    setDrawer(!nav?.classList.contains("is-open"));
-  });
+  const setDrawer = (open, shouldRestore = true) => {
+    if (!nav || !burger || !drawerMedia.matches && open) return;
+    drawerOpen = open;
+    nav.classList.toggle("is-open", open);
+    if (drawerVeil) drawerVeil.hidden = !open;
+    burger.setAttribute("aria-expanded", String(open));
+    burger.setAttribute(
+      "aria-label",
+      open ? "Close navigation" : "Open navigation",
+    );
+    setInert(drawerBackground, open);
+    doc.body.classList.toggle("docs-no-scroll", open);
+
+    if (open) {
+      drawerReturnFocus = burger;
+      nav.setAttribute("role", "dialog");
+      nav.setAttribute("aria-modal", "true");
+      nav.setAttribute("aria-label", "Documentation navigation");
+      queueMicrotask(focusFirstInDrawer);
+    } else {
+      nav.removeAttribute("role");
+      nav.removeAttribute("aria-modal");
+      nav.removeAttribute("aria-label");
+      if (shouldRestore) restoreFocus(drawerReturnFocus ?? burger);
+      drawerReturnFocus = null;
+    }
+  };
+
+  burger?.addEventListener("click", () => setDrawer(!drawerOpen));
   drawerVeil?.addEventListener("click", () => setDrawer(false));
+  drawerMedia.addEventListener("change", (event) => {
+    if (!event.matches && drawerOpen) setDrawer(false, false);
+  });
 
   // ── Prose enhancements ───────────────────────────────────────────────────
 
@@ -46,18 +133,19 @@
 
   if (article) {
     for (const heading of $$(":is(h2, h3, h4)[id]", article)) {
+      const label = (heading.textContent ?? "").trim();
+      const group = doc.createElement("div");
+      group.className = "docs-heading-row";
       const anchor = doc.createElement("a");
       anchor.className = "docs-anchor";
       anchor.href = `#${heading.id}`;
       anchor.textContent = "§";
-      anchor.setAttribute(
-        "aria-label",
-        `Link to “${(heading.textContent ?? "").trim()}”`,
-      );
-      heading.append(anchor);
+      anchor.setAttribute("aria-label", `Link to “${label}”`);
+      heading.before(group);
+      group.append(heading, anchor);
     }
 
-    for (const pre of $$("pre", article)) {
+    for (const pre of $$(`pre`, article)) {
       const code = pre.querySelector("code");
       const lang = /language-([\w-]+)/.exec(code?.className ?? "")?.[1];
       if (lang) pre.dataset.lang = lang;
@@ -66,20 +154,40 @@
       copy.type = "button";
       copy.className = "docs-copy";
       copy.textContent = "copy";
+      copy.setAttribute("aria-label", "Copy code");
+      copy.setAttribute("aria-live", "polite");
+      let resetTimer = null;
+
+      const setCopyState = (text, label, className = "") => {
+        copy.textContent = text;
+        copy.setAttribute("aria-label", label);
+        copy.classList.toggle("is-copied", className === "is-copied");
+        copy.classList.toggle(
+          "is-copy-failed",
+          className === "is-copy-failed",
+        );
+      };
+      const resetCopy = () => setCopyState("copy", "Copy code");
+
       copy.addEventListener("click", async () => {
+        if (resetTimer !== null) clearTimeout(resetTimer);
+        setCopyState("copying…", "Copying code");
         try {
-          await navigator.clipboard.writeText(
-            (code ?? pre).innerText.trimEnd(),
-          );
-          copy.textContent = "copied ✓";
-          copy.classList.add("is-copied");
-          setTimeout(() => {
-            copy.textContent = "copy";
-            copy.classList.remove("is-copied");
-          }, 1600);
+          if (!navigator.clipboard) throw new Error("clipboard unavailable");
+          await Promise.race([
+            navigator.clipboard.writeText((code ?? pre).innerText.trimEnd()),
+            new Promise((_, reject) => {
+              setTimeout(
+                () => reject(new Error("clipboard timed out")),
+                1000,
+              );
+            }),
+          ]);
+          setCopyState("copied ✓", "Code copied", "is-copied");
         } catch {
-          /* clipboard unavailable */
+          setCopyState("copy failed", "Copy failed", "is-copy-failed");
         }
+        resetTimer = setTimeout(resetCopy, 2000);
       });
       pre.append(copy);
     }
@@ -97,10 +205,12 @@
   const tocLinks = $$(".docs-toc a");
   if (article && tocLinks.length > 0 && "IntersectionObserver" in globalThis) {
     const byId = new Map(
-      tocLinks.map((a) => [decodeURIComponent(a.hash.slice(1)), a]),
+      tocLinks.map((
+        anchor,
+      ) => [decodeURIComponent(anchor.hash.slice(1)), anchor]),
     );
     const headings = $$(":is(h2, h3)[id]", article)
-      .filter((h) => byId.has(h.id));
+      .filter((heading) => byId.has(heading.id));
     let active = null;
 
     const mark = (id) => {
@@ -117,7 +227,7 @@
         if (entry.isIntersecting) visible.add(entry.target);
         else visible.delete(entry.target);
       }
-      const top = headings.find((h) => visible.has(h));
+      const top = headings.find((heading) => visible.has(heading));
       if (top) mark(top.id);
     }, { rootMargin: "-56px 0px -60% 0px" });
 
@@ -127,116 +237,148 @@
   // ── Search palette ───────────────────────────────────────────────────────
 
   const palette = $("[data-search]");
+  const panel = $(".docs-search-panel");
   const input = $("[data-search-input]");
   const list = $("[data-search-results]");
+  const empty = $("[data-search-empty]");
+  const status = $("[data-search-status]");
 
-  if (palette && input && list) {
+  if (palette && panel && input && list && empty && status) {
     let pages = null;
+    let loadState = "idle";
     let results = [];
     let selected = 0;
+    let searchReturnFocus = null;
+    const modalBackground = Array.from(doc.body.children).filter((element) =>
+      element !== palette && element.tagName !== "SCRIPT"
+    );
+
+    const syncSelection = () => {
+      const options = $$("[role=option]", list);
+      for (const [index, option] of options.entries()) {
+        option.setAttribute("aria-selected", String(index === selected));
+      }
+      const active = options[selected];
+      if (active) input.setAttribute("aria-activedescendant", active.id);
+      else input.removeAttribute("aria-activedescendant");
+    };
+
+    const resultHref = ({ page, heading }) =>
+      heading ? `${page.route}#${heading.id}` : page.route;
+
+    const render = () => {
+      list.textContent = "";
+      empty.hidden = true;
+      input.removeAttribute("aria-activedescendant");
+      const query = input.value.trim();
+      if (query === "") {
+        status.textContent = "";
+        return;
+      }
+      if (loadState === "idle" || loadState === "loading") {
+        empty.textContent = "Loading the search index…";
+        empty.hidden = false;
+        status.textContent = "Loading search results";
+        return;
+      }
+      if (loadState === "error") {
+        empty.textContent =
+          "Search is unavailable. Use the documentation navigation or /docs index.";
+        empty.hidden = false;
+        status.textContent = "Search is unavailable";
+        return;
+      }
+      if (results.length === 0) {
+        empty.textContent =
+          "No results. Try a command, config key, or exact error message.";
+        empty.hidden = false;
+        status.textContent = `No results for ${query}`;
+        return;
+      }
+
+      results.forEach(({ page, heading, snippet }, index) => {
+        const item = doc.createElement("li");
+        item.id = `docs-search-option-${index}`;
+        item.className = "docs-search-option";
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(index === selected));
+        const title = doc.createElement("span");
+        title.className = "docs-search-title";
+        title.textContent = heading && heading.text !== page.title
+          ? `${page.title} › ${heading.text}`
+          : page.title;
+        const context = doc.createElement("span");
+        context.className = "docs-search-snippet";
+        context.textContent = snippet;
+        const path = doc.createElement("span");
+        path.className = "docs-search-path";
+        path.textContent = `${page.section.toLowerCase()} ${page.route}`;
+        item.append(title, context, path);
+        item.addEventListener("mouseenter", () => {
+          selected = index;
+          syncSelection();
+        });
+        item.addEventListener("click", () => {
+          location.href = resultHref({ page, heading });
+        });
+        list.append(item);
+      });
+      syncSelection();
+      status.textContent = `${results.length} search result${
+        results.length === 1 ? "" : "s"
+      }`;
+    };
+
+    const update = () => {
+      results = pages ? searchPages(pages, input.value) : [];
+      selected = 0;
+      render();
+    };
 
     const load = async () => {
-      if (pages) return;
+      if (loadState !== "idle") return;
+      loadState = "loading";
+      list.setAttribute("aria-busy", "true");
+      update();
       try {
-        const res = await fetch("/docs/index.json");
-        pages = (await res.json()).pages;
+        const response = await fetch("/docs/index.json");
+        if (!response.ok) throw new Error("search index unavailable");
+        pages = (await response.json()).pages;
+        loadState = "ready";
       } catch {
         pages = [];
+        loadState = "error";
       }
+      list.removeAttribute("aria-busy");
       update();
     };
 
-    const open = () => {
+    const openSearch = (trigger = null) => {
+      if (!palette.hidden) return;
+      if (drawerOpen) {
+        setDrawer(false, false);
+        trigger = burger;
+      }
+      searchReturnFocus = canFocus(trigger) ? trigger : $("[data-search-open]");
       palette.hidden = false;
+      setInert(modalBackground, true);
       doc.body.classList.add("docs-no-scroll");
+      input.setAttribute("aria-expanded", "true");
       input.value = "";
       update();
       input.focus();
       load();
     };
 
-    const close = () => {
+    const closeSearch = (shouldRestore = true) => {
+      if (palette.hidden) return;
       palette.hidden = true;
+      setInert(modalBackground, false);
       doc.body.classList.remove("docs-no-scroll");
-    };
-
-    const search = (query) => {
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-      if (terms.length === 0 || !pages) return [];
-      const scored = [];
-      for (const page of pages) {
-        const title = page.title.toLowerCase();
-        const body = `${page.section} ${page.description}`.toLowerCase();
-        let score = 0;
-        let heading = null;
-        for (const term of terms) {
-          let hit = 0;
-          if (title.includes(term)) hit = 30;
-          const inHeading = page.headings.find((h) =>
-            h.text.toLowerCase().includes(term)
-          );
-          if (inHeading) {
-            hit = Math.max(hit, 12);
-            heading ??= inHeading;
-          }
-          if (body.includes(term)) hit = Math.max(hit, 6);
-          if (hit === 0) {
-            score = 0;
-            break;
-          }
-          score += hit;
-        }
-        if (score > 0) scored.push({ page, heading, score });
-      }
-      return scored.sort((a, b) => b.score - a.score).slice(0, 12);
-    };
-
-    const render = () => {
-      list.textContent = "";
-      if (results.length === 0) {
-        if (input.value.trim() !== "") {
-          const empty = doc.createElement("li");
-          empty.className = "docs-search-empty";
-          empty.textContent = pages
-            ? "Nothing in the manual matches."
-            : "Loading the index…";
-          list.append(empty);
-        }
-        return;
-      }
-      results.forEach(({ page, heading }, i) => {
-        const item = doc.createElement("li");
-        if (i === selected) item.className = "is-selected";
-        const link = doc.createElement("a");
-        link.href = heading && !page.title.toLowerCase().includes(
-            input.value.trim().toLowerCase(),
-          )
-          ? `${page.route}#${heading.id}`
-          : page.route;
-        const title = doc.createElement("span");
-        title.className = "docs-search-title";
-        title.textContent = heading && heading.text !== page.title
-          ? `${page.title} › ${heading.text}`
-          : page.title;
-        const path = doc.createElement("span");
-        path.className = "docs-search-path";
-        path.textContent = `${page.section.toLowerCase()} ${page.route}`;
-        link.append(title, path);
-        item.append(link);
-        item.addEventListener("mousemove", () => {
-          if (selected !== i) {
-            selected = i;
-            render();
-          }
-        });
-        list.append(item);
-      });
-    };
-
-    const update = () => {
-      results = search(input.value);
-      selected = 0;
-      render();
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      if (shouldRestore) restoreFocus(searchReturnFocus);
+      searchReturnFocus = null;
     };
 
     input.addEventListener("input", update);
@@ -246,34 +388,56 @@
         if (results.length === 0) return;
         const step = event.key === "ArrowDown" ? 1 : -1;
         selected = (selected + step + results.length) % results.length;
-        render();
-        list.querySelector("li.is-selected")?.scrollIntoView({
+        syncSelection();
+        list.querySelector('[aria-selected="true"]')?.scrollIntoView({
           block: "nearest",
         });
       } else if (event.key === "Enter") {
-        const target = list.querySelector("li.is-selected a");
-        if (target) location.href = target.href;
+        const result = results[selected];
+        if (result) location.href = resultHref(result);
       }
     });
 
     for (const trigger of $$("[data-search-open]")) {
-      trigger.addEventListener("click", open);
+      trigger.addEventListener("click", (event) => {
+        openSearch(event.currentTarget);
+      });
     }
-    $("[data-search-close]")?.addEventListener("click", close);
+    for (const closer of $$("[data-search-close]")) {
+      closer.addEventListener("click", () => closeSearch());
+    }
 
     doc.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        if (palette.hidden) open();
-        else close();
-      } else if (event.key === "Escape" && !palette.hidden) {
-        close();
-      } else if (
-        event.key === "/" && palette.hidden &&
+        if (palette.hidden) openSearch(doc.activeElement);
+        else closeSearch();
+        return;
+      }
+      if (!palette.hidden) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSearch();
+        } else {
+          trapFocus(event, focusablesIn(panel));
+        }
+        return;
+      }
+      if (drawerOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setDrawer(false);
+        } else {
+          trapFocus(event, [burger, ...focusablesIn(nav)].filter(Boolean));
+        }
+        return;
+      }
+      if (
+        event.key === "/" &&
         !/^(input|textarea|select)$/i.test(doc.activeElement?.tagName ?? "")
       ) {
         event.preventDefault();
-        open();
+        openSearch(doc.activeElement);
       }
     });
   }

@@ -1,0 +1,21 @@
+# Closing recap sections restate the page the reader just read (voice skill:
+# banned moves). Banned under ~800 words; on longer pages prefer one plain
+# next-step sentence.
+extends: existence
+message: "'%s' heads a recap section: end when the reader has what they need."
+ignorecase: true
+level: warning
+scope: heading
+tokens:
+  - ^in summary
+  - ^summary
+  - ^to recap
+  - ^recap
+  - ^wrapping up
+  - ^in closing
+  - ^in conclusion
+  - ^conclusion
+  - ^key takeaways
+  - ^final thoughts
+  - ^the short version
+  - ^tl;dr

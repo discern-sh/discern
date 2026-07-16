@@ -1,3 +1,7 @@
+---
+order: 40
+---
+
 # FAQ & troubleshooting
 
 _Common questions, and the first thing to run when something looks wrong._
@@ -146,8 +150,8 @@ removes the `.gitignore` block. Preview it first with
 It keeps your content: `discern.toml` and the whole `discern/` folder stay, as
 plain Markdown at paths you chose — worth keeping with or without the tool.
 Removing the binary itself is a separate step: delete the file `which discern`
-reports. [What discern writes](what-discern-writes.md) is the full footprint,
-with removal covered end to end.
+reports. [Files & ownership](artifact-ownership.md) is the full footprint, with
+removal covered end to end.
 
 ## Where do I report a bug?
 
@@ -158,8 +162,8 @@ a public issue.
 
 ## See also
 
-- [What discern writes to your repo](what-discern-writes.md) — the footprint and
-  how to remove it.
+- [Files & ownership](artifact-ownership.md) — the footprint and how to remove
+  it.
 - [The walkthrough](walkthrough.md) — one end-to-end session, start to finish.
 - [When the gate fails](../20-quality-gate/when-the-gate-fails.md) — reading and
   fixing a red `discern done`.

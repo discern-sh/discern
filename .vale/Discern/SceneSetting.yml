@@ -1,0 +1,9 @@
+# Scene-setting clichés (voice skill: banned moves).
+extends: existence
+message: "'%s' is a scene-setting cliché: start with the fact."
+ignorecase: true
+level: warning
+tokens:
+  - it(?:'|’)s 20\d\d
+  - in a world where
+  - we(?:'|’)ve all been there

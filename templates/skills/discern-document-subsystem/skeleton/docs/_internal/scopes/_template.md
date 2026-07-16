@@ -17,11 +17,13 @@ its boundaries are (what the neighbouring subtrees own instead). -->
 ## Files to produce
 
 <!-- Every .md file the agent must write, with a one-line topic each. The README
-is always first. Keep the set small enough to stay within the length budget. -->
+is always first. Note any frontmatter a page must carry beyond the brief's
+baseline (a specific `order`, `publish: false`, a `redirect_from` claim). Keep
+the set small enough to stay within the length budget. -->
 
 | File | Topic |
 |---|---|
-| `README.md` | Public-facing ~250-word overview: what this subtree covers, and the reading order through the leaves. |
+| `README.md` | Public-facing 200–350-word overview: what this subtree covers, and the reading order through the leaves. |
 | `<leaf>.md` | _Topic._ |
 
 ## Source files to read
@@ -59,4 +61,4 @@ document. This is what keeps parallel documenters from colliding. -->
 <!-- If this subtree is unusually large or small, say how to group or split so the
 agent does not over- or under-document. Otherwise "Standard budget applies." -->
 
-Standard budget applies (200–300 words per README, 400–800 per leaf — hard ceiling).
+Standard budget applies (200–350 words per README, 400–800 per leaf — hard ceiling).

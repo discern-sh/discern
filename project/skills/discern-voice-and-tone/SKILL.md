@@ -1,7 +1,7 @@
 ---
 name: discern-voice-and-tone
 description:
-  House voice for everything a user or visitor might read in discern — README, documentation, guides, error messages, CLI help and output, UI microcopy, empty states, landing and feature pages, taglines, launch posts, and user-facing release notes. Use whenever writing, editing, or reviewing public-facing prose of any length, even a single error string, button label, or example value, and even if the task doesn't mention voice, tone, or style. Out of scope: code comments, ADRs, and internal docs. Canonical technical terms are never renamed for style. This is an internal skill for the discern repo itself.
+  House voice for everything a user or visitor might read in discern — README, the documentation map (the public docs on the site, in `discern help`, and over MCP), guides, error messages, CLI help and output, UI microcopy, empty states, landing and feature pages, taglines, launch posts, and user-facing release notes. Use whenever writing, editing, or reviewing user-facing prose of any length, even a single error string, button label, or example value, and even if the task doesn't mention voice, tone, or style. Out of scope: code comments, commit messages, ADRs (dated records), and `_private/` notes. For map pages, the documenter brief owns structure, facts, and lengths; this skill owns register. Canonical technical terms are never renamed for style. This is an internal skill for the discern repo itself.
 ---
 
 # discern: voice and tone
@@ -31,6 +31,27 @@ default; it's the second failure mode.
 
 When editing copy that predates this guide, bring it up to this standard rather
 than matching the old tone around it.
+
+## Scope and governance
+
+**The map is in scope.** The documentation tree at `project/map/` is the public
+docs — the same pages render on the site, in `discern help`, and over MCP — so
+every published page holds this voice. Not in scope: `_adr/` (dated decision
+records — fix a dead link, never re-tone), `_private/` (unshipped), code
+comments, and commit messages. `_internal/` methodology docs follow the docs
+register too; they just ship to no reader, so judge them loosely.
+
+**One hierarchy governs map pages.** The
+[documenter brief](../../map/_internal/documenter-agent-brief.md) owns
+_structure_: which pages exist, each page's one job, its section shapes, its
+facts, and its length budget. This skill owns _register_: how the prose sounds
+inside those structures. A question about shape or size is answered by the
+brief; a question about word choice, stance, or temperature is answered here.
+
+That resolves the section-README collision the two documents used to have: a
+section `README.md` takes the brief's structure (the word budget, the closing
+leaf table) and this skill's overview register — precision high, conviction
+present, warmth present, delight at most one, and zero is fine.
 
 ## 1. Precision — say the true, specific thing
 
@@ -160,13 +181,16 @@ cared for.
 
 Delight is the only layer with hard rules:
 
-- **Budget: one per page**, screen, or document section. Zero is fine. Two, if
-  both are genuinely funny, is the absolute ceiling; if more compete, keep the
-  best and cut the rest.
+- **Budget: one per page**, screen, or document section — a ceiling, never a
+  quota. Zero is fine. Two, if both are genuinely funny, is the absolute
+  ceiling; if more compete, keep the best and cut the rest. An aphorism spends
+  this budget too — see the banned moves.
 - **Placement: only where the reader has cognitive slack** — intros, examples,
   empty states, success moments, footers, FAQs. Never in reference tables,
   install steps, security docs, or anywhere someone lands mid-crisis.
-- **Never in error messages.** A stressed reader reads a joke as mockery.
+- **Zero personality in reference, troubleshooting, and error material.** Those
+  readers came to look something up or to get unstuck. The budget there is zero;
+  characterful example values are the one sanctioned outlet in reference pages.
 - **Zero cost.** The sentence must still work for a reader the joke misses
   entirely. If removing the playful line removes information, the line is doing
   a job it shouldn't have.
@@ -201,20 +225,61 @@ spec sheet. Fix the message before polishing the voice.
 
 The four layers are always on; what shifts per surface is the mix.
 
-### READMEs and documentation
+| Surface                            | Precision | Conviction               | Warmth  | Delight        |
+| ---------------------------------- | --------- | ------------------------ | ------- | -------------- |
+| Landing page, launch posts         | high      | maximum                  | high    | ≤ 1, earned    |
+| Docs overviews and section READMEs | high      | present                  | present | ≤ 1, zero fine |
+| Guides, quickstarts, walkthroughs  | high      | one recommended path     | leads   | ≤ 1, zero fine |
+| Reference                          | maximum   | named defaults only      | plain   | 0              |
+| Troubleshooting                    | maximum   | one fix first            | calm    | 0              |
+| Errors, CLI output, `--help`       | maximum   | one fix, not five maybes | calm    | 0              |
 
-The README opening carries the whole voice. First sentence: what the thing is,
-concretely (precision). Second: what it believes (conviction). A real, runnable
-example lands within the first screen; code is the most honest screenshot.
+### The docs register
 
-- Reference pages run precision at maximum and delight near zero; characterful
-  example values are the only sanctioned outlet. Conviction still shows up as
-  defaults: any option with three choices names the recommended one.
-- Guides and tutorials lead with warmth. Anticipate the stumble ("if you see
-  `EACCES` here, run…"); that's warmth expressed as precision.
-- Canonical terminology always wins over style. Where this guide's preferences
-  collide with discern's documentation conventions, the documentation
-  conventions win.
+Map pages carry the docs mix above, plus these rules. The documenter brief
+assigns each page's job and budget; these govern how the page sounds.
+
+1. **Answer first.** The opening paragraph does the page's job in miniature —
+   what this is, or what to do. No wind-up, no staged reveal.
+2. **One primary job per page.** Material serving a different job moves to the
+   page that owns it.
+3. **Literal, task-shaped headings.** A heading states what the section contains
+   ("Install the binary"), never strains to be quotable.
+4. **Short paragraphs**, one idea each. Address the reader as "you"; write steps
+   in the imperative.
+5. **Term discipline.** The glossary is the authority. Introduce a term once,
+   then use it identically; synonym rotation reads as new concepts.
+6. **Prerequisites, risks, and limitations come early** — before the reader has
+   invested, not after.
+7. **Code grounding lives in tables.** Source paths, symbol names, and test
+   names belong in "Where it lives in code" tables and "Current state & gotchas"
+   sections — never woven through running prose.
+8. **ADR citations take the strippable form**: a parenthetical group of linked
+   citations at clause end, e.g. `([ADR 0141](../_adr/0141-….md))`. The sentence
+   must read correctly with the citation deleted — a citation never carries the
+   grammar. Cite as liberally as reasoning requires; render-time stripping keeps
+   human pages clean.
+9. **End when the reader has what they need.** No closing recap on a page under
+   ~800 words. On a genuinely long page, one plain sentence of "next steps"
+   beats a summary section restating what the reader just read.
+10. **Every example is minimal, realistic, copyable, and verified** against the
+    live tree before it ships.
+
+**Page budgets** (the documenter brief binds where it's stricter):
+
+| Page type                 | Budget                                    |
+| ------------------------- | ----------------------------------------- |
+| Section overview / README | 200–350 words                             |
+| Quickstart                | 600–1,000 words                           |
+| Guide / concept page      | 500–900 words (subsystem leaves: 400–800) |
+| Troubleshooting           | 300–700 words                             |
+| Reference                 | unbudgeted — scannable beats short        |
+
+**The reference corpus.** Three pages define what this register reads like at
+its best; calibrate against them before writing, and hold new pages to their
+standard: the [docs landing page](../../map/README.md), the
+[quickstart](../../map/10-installer/quickstart.md), and
+[Files & ownership](../../map/10-installer/artifact-ownership.md).
 
 ### Errors, CLI, and UI text
 
@@ -263,42 +328,55 @@ and every claim should be demonstrable, ideally right there on the page.
 
 These patterns are the fingerprints of machine-written copy. Readers have
 learned to recognize them, and each one costs human trust and attention. Treat
-them as hard failures in user-facing prose.
+them as hard failures in user-facing prose. The mechanically checkable subset is
+mirrored as lint — see "Enforcement" below.
 
 1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," "X was never the
    point. Y is."
    - Rejected: "It doesn't write your code. It judges it."
    - Fix: state the true half plainly. "discern uses no LLM. Your agent uses
      discern."
-   - Hard limit for marketing pages: zero. This is the strongest fingerprint of
-     the lot. (A contrast distinguishing two real glossary terms in docs is
-     allowed when it improves precision.)
-2. **Attitude fragments:** fragments that strike a pose rather than state a
+   - Budgets: marketing pages zero — this is the strongest fingerprint of the
+     lot. Docs: only when the distinction is load-bearing (two real glossary
+     terms genuinely confused with each other), at most one per page.
+2. **Aphoristic antithesis:** the epigram cadence — short mirrored clauses
+   striking a pose ("Agents forget. The repo remembers."). One can earn its
+   place; it spends the page's delight budget. The tic is reaching for it
+   several times per page, which turns documentation into a keynote.
+3. **Self-narration:** announcing importance instead of stating the point —
+   "this is the crux," "here's the key insight," "the heart of the matter."
+   Budget: zero. If the point matters, say the point; the reader decides what's
+   crucial.
+4. **Closing recaps:** a "Summary" / "The short version" section restating the
+   page. Banned on pages under ~800 words; on longer pages prefer one plain
+   next-step sentence.
+5. **Attitude fragments:** fragments that strike a pose rather than state a
    spec.
    - Rejected: "Not vibes. A verdict."
    - Allowed: spec fragments listing facts. "Any stack. Any coding agent. No API
      key."
-3. **Echo-intensifiers:** repeating a word with an intensifier. Rejected: "Green
+6. **Echo-intensifiers:** repeating a word with an intensifier. Rejected: "Green
    means done. Actually done."
-4. **Trailing modifier fragments:** ", every time," ", by design," ", at scale."
-5. **Em-dash splices.** Never split with an em dash what a period or colon can
-   handle. Marketing pages get one em dash at most, and only when genuinely
+7. **Trailing modifier fragments:** ", every time," ", by design," ", at scale."
+8. **Em-dash splices.** Never split with an em dash what a period or colon can
+   handle. Two em dashes in one sentence is a chain: rebuild the sentence.
+   Marketing pages get one em dash at most, and only when genuinely
    irreplaceable.
-6. **T-shirt headers:** headers straining to be quotable. A header states what
+9. **T-shirt headers:** headers straining to be quotable. A header states what
    the section contains or the fact it establishes.
-7. **Rhetorical suspense:** "Sound familiar?" "The catch?" Manufactured suspense
-   is a tell. A direct question that routes the reader ("Want checks enforced?")
-   is fine; a question posed only to answer itself is not.
-8. **Scene-setting clichés:** "It's 2026," "In a world where," "We've all been
-   there."
-9. **Manufactured texture:** invented relatable details. If the detail did not
-   happen, do not write it.
-10. **Typographic applause:** italics or bold used to inject drama. If a
+10. **Rhetorical suspense:** "Sound familiar?" "The catch?" Manufactured
+    suspense is a tell. A direct question that routes the reader ("Want checks
+    enforced?") is fine; a question posed only to answer itself is not.
+11. **Scene-setting clichés:** "It's 2026," "In a world where," "We've all been
+    there."
+12. **Manufactured texture:** invented relatable details. If the detail did not
+    happen, do not write it.
+13. **Typographic applause:** italics or bold used to inject drama. If a
     sentence needs styling to land, rebuild the sentence. Bold is for
     scannability.
-11. **Reader-flattery via superiority:** complimenting the reader by implying
+14. **Reader-flattery via superiority:** complimenting the reader by implying
     others are inferior. Respect the reader; never recruit them into a club.
-12. **Repeated anthropomorphism:** see the personification rule under Delight.
+15. **Repeated anthropomorphism:** see the personification rule under Delight.
     One per page at most, prefer zero.
 
 ## Banned words
@@ -318,6 +396,21 @@ the thousand variants not listed here.
 | Passive-voice fault-dodging ("an error was encountered")                                                   | Hides the actor and dodges the blame                                           | "We couldn't…" / "`discern.toml` is missing"       |
 | Exclamation points                                                                                         | Unearned enthusiasm reads as sales                                             | A period. Budget: about one per document, if that. |
 | Emoji in prose                                                                                             | Outsources tone the words should carry                                         | Words that carry the tone                          |
+
+## Enforcement
+
+The mechanical tells are encoded as a Vale style at
+[`.vale/Discern/`](../../../.vale/Discern/), which lints every map page in the
+gate: banned words and phrases, contrast-frames, self-narration, recap headings,
+em-dash chains, and the rest, at warning severity.
+`tests/voice_vale_parity_test.ts` keeps this file's banned-words table and that
+style from drifting apart — add a word here and the gate fails until the style
+knows it too.
+
+The lint is the tripwire, not the law. It catches the checkable subset;
+register, budgets, and judgment stay with the writer, and a page can pass every
+rule and still fail this skill. Review against the reference corpus, not just
+the lint output.
 
 ## discern lexicon
 
@@ -386,15 +479,19 @@ top, and present only copy that comes through clean.
 5. **What do we believe?** The piece makes at least one clear recommendation or
    takes one stance. (Reference tables are exempt.)
 6. **Read it aloud.** Every sentence is one you'd say to a colleague you like.
-7. **Count the tells.** Contrast-frames on a marketing page: zero. Em dashes:
-   one at most. Scan the banned moves and the banned words.
-8. **Count the winks.** One per page, none in errors, personification at most
-   once.
-9. **Temperature, both directions.** Find the most excited sentence in the
-   draft; cool it down or cut it. Then check for a pulse: the contractions, the
-   direct "you," and the page's one wink should have survived the editing. If
-   the passes stripped all of those out, you overcorrected — restore the warmth
-   without restoring the hype.
+7. **Count the tells.** Contrast-frames on a marketing page: zero; on a docs
+   page: one, load-bearing, at most. Em dashes: never two in a sentence. Scan
+   the banned moves and the banned words.
+8. **Count the winks.** One per page, none in reference, troubleshooting, or
+   errors; personification at most once.
+9. **Docs pages only: the shape.** The first paragraph does the job; headings
+   are literal; the word count sits inside the page-type budget; citations strip
+   cleanly; the page ends when the job is done.
+10. **Temperature, both directions.** Find the most excited sentence in the
+    draft; cool it down or cut it. Then check for a pulse: the contractions, the
+    direct "you," and the page's one wink should have survived the editing. If
+    the passes stripped all of those out, you overcorrected — restore the warmth
+    without restoring the hype.
 
 ## Worked example
 

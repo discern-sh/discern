@@ -14,11 +14,13 @@
 /.scratch/
 
 # Vale: ignore the synced style packages (`vale sync` writes Microsoft/,
-# proselint/ here), but track the authored config — the project vocabulary
-# under .vale/config/ is source, not a download. The `/*` + `!` re-include is
-# required because git can't un-ignore a path under a wholesale-ignored dir.
+# proselint/ here), but track the authored sources — the project vocabulary
+# under .vale/config/ and the house-voice style under .vale/Discern/ are
+# source, not downloads. The `/*` + `!` re-include is required because git
+# can't un-ignore a path under a wholesale-ignored dir.
 /.vale/*
 !/.vale/config/
+!/.vale/Discern/
 
 # Local clean-room setup eval transcripts. They contain machine paths and agent
 # output, so they must never be committed.

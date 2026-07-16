@@ -1,0 +1,9 @@
+# Announcing the emotion instead of the thing (voice skill: banned words).
+extends: existence
+message: "'%s' announces the emotion instead of the thing: say the thing."
+ignorecase: true
+level: warning
+tokens:
+  - (?:we(?:'|’)re )?excited to (?:announce|share)
+  - (?:we(?:'|’)re )?thrilled to (?:announce|share)
+  - proud to announce

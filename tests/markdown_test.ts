@@ -66,6 +66,18 @@ Deno.test("nested list items are indented under their parent", () => {
   assertStringIncludes(out, "  • child");
 });
 
+Deno.test("HTML nested lists keep every child list inside its parent item", () => {
+  const rendered = renderMarkdownHtml(
+    "- alpha\n  - fresh sibling\n  1. ordered sibling\n- omega",
+  );
+  assertEquals(
+    rendered.html,
+    "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
+      "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
+      "<li>omega</li>\n</ul>",
+  );
+});
+
 Deno.test("fenced code blocks keep their fences in plain mode", () => {
   assertEquals(plain("```sh\necho hi\n```"), "```sh\necho hi\n```");
 });

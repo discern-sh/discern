@@ -1,0 +1,14 @@
+# Announcing importance instead of stating the point (voice skill: banned
+# moves). If the point matters, say the point; the reader decides what's
+# crucial.
+extends: existence
+message: "'%s' narrates importance instead of stating the point: say the point."
+ignorecase: true
+level: warning
+tokens:
+  - the crux
+  - the key insight
+  - the heart of the matter
+  - here(?:'|’)s the thing
+  - the real magic
+  - the punchline is

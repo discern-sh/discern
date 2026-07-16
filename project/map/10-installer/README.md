@@ -99,32 +99,28 @@ those agents' seed files, never reverting to the built-in default pair. And
 the `[meta].bootstrapped` marker is only ever written after every check that
 could reject the run has passed.
 
-## Config reference
-
-[`config-reference.md`](config-reference.md) documents every `discern.toml`
-section, key, type, and default. It is **generated** from the one canonical
-config schema
-([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
-`deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)) — so the
-reference, the editor [JSON Schema](../../../schema/discern-config.schema.json),
-and the rules the engine enforces all come from one source and cannot drift.
-Edit the schema, not the generated files.
-
 ## Guides
 
+- [quickstart.md](quickstart.md) — install → setup → your first green gate, in
+  four steps.
 - [walkthrough.md](walkthrough.md) — one honest session end to end: install →
   the setup conversation → shipping a first change → `done` → `accept`.
-- [what-discern-writes.md](what-discern-writes.md) — the whole footprint (what
-  discern creates, merges into, and keeps), what runs on your machine, and how
-  `discern uninstall` removes it.
-- [artifact-ownership.md](artifact-ownership.md) — the per-kind posture behind
-  the managed `.gitignore` block: compiled guidance tracked, materialized and
-  machine-local artifacts ignored.
+- [artifact-ownership.md](artifact-ownership.md) — Files & ownership: the whole
+  footprint (what discern creates, merges into, and keeps), each file's git
+  posture, what runs on your machine, and how `discern uninstall` removes it.
 - [faq.md](faq.md) — common questions and troubleshooting, fronted by
   `discern doctor`.
 
 ## Reference
 
+- [config-reference.md](config-reference.md) — every `discern.toml` section,
+  key, type, and default. **Generated** from the one canonical config schema
+  ([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
+  `deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)), so the
+  reference, the editor
+  [JSON Schema](../../../schema/discern-config.schema.json), and the rules the
+  engine enforces come from one source and cannot drift. Edit the schema, not
+  the generated file.
 - [migrations.md](migrations.md) — the versioned Migration chain, the Schema
   version, and the idempotency contract.
 - [config-access.md](../50-engine-internals/config-access.md) — the typed

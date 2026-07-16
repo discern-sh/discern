@@ -1,3 +1,7 @@
+---
+order: 20
+---
+
 # A walkthrough — one session, start to finish
 
 _What actually happens when you install discern, set it up through your coding
@@ -101,12 +105,12 @@ removes the worktree. The change is on `main`; the workspace is gone.
 `discern uninstall --dry-run` shows you exactly what removal would touch;
 `discern uninstall` does it — removing the generated files and the wiring,
 keeping your `discern.toml` and everything in `discern/`. See
-[what discern writes](what-discern-writes.md) for the full footprint.
+[Files & ownership](artifact-ownership.md) for the full footprint.
 
 ## See also
 
-- [What discern writes to your repo](what-discern-writes.md) — the footprint in
-  full.
+- [Files & ownership](artifact-ownership.md) — the footprint in full, and who
+  owns each file.
 - [FAQ & troubleshooting](faq.md) — when a step doesn't go as above.
 - [The quality gate](../20-quality-gate/README.md) — what `discern done`
   actually runs.

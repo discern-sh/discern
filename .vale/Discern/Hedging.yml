@@ -1,0 +1,11 @@
+# A stack of hedges where the reader came for a recommendation (voice skill:
+# banned words). Say "Do X," or "Do X unless Y."
+extends: existence
+message: "'%s' hedges a recommendation: say 'Do X', or 'Do X unless Y'."
+ignorecase: true
+level: warning
+tokens:
+  - you may want to consider
+  - you might want to consider
+  - you may wish to
+  - it may be worth considering

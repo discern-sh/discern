@@ -40,7 +40,7 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 
 Your subtree serves a layered audience:
 
-- **`README.md` in your subtree** — newcomers and visitors. ~250 words, plain language, no internal jargon. The canonical capitalised nouns from `concepts.md` are fine. End with a table of the leaves, one line each.
+- **`README.md` in your subtree** — newcomers and visitors. 200–350 words, plain language, no internal jargon. The canonical capitalised nouns from `concepts.md` are fine. End with a table of the leaves, one line each.
 - **Child docs (leaves)** — future-you (a memory aid) and AI agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
 
 If your subtree's audience contract differs (e.g. an existing plain-English deep-dive the project values), your scope manifest will say so.
@@ -50,6 +50,12 @@ If your subtree's audience contract differs (e.g. an existing plain-English deep
 ## Per-doc template
 
 ```markdown
+---
+title: Short label            # only when the H1 runs long
+description: One-line summary for search results and section tables.
+order: NN
+---
+
 # Title
 
 *One-line summary.*
@@ -96,6 +102,36 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 ---
 
+## Frontmatter
+
+Frontmatter is metadata the documentation tooling reads; it is not content, and
+rendered surfaces strip the block. Only flat `key: value` scalars and `- item`
+lists parse. The keys:
+
+| Key             | Rule                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `title`         | Short label for navigation and listings — max 48 chars. Only when the H1 runs long.         |
+| `description`   | 50–160 chars. Fronts search results and section tables; say what the page does, no padding. |
+| `order`         | Non-negative integer; unique among published siblings; leave gaps of 10.                    |
+| `publish`       | `false` withholds the page from every published surface. The sole page-level withhold.      |
+| `redirect_from` | Absolute historical routes this page answers for, where a published site serves the tree.   |
+| `aliases`       | Search synonyms: renamed terms, CLI spellings.                                              |
+
+The H1 stays the long-form canonical title on the page; the first substantive
+paragraph stays the canonical summary unless `description` overrides it.
+
+## Decision-record citations
+
+Cite the decision records under `_adr/` as liberally as reasoning requires —
+citation density serves the agents who read this tree. Every citation in prose
+takes one strippable form: a parenthetical group of linked citations at clause
+end, e.g. `([ADR NNNN](../_adr/NNNN-slug.md))`, comma-separated when a clause
+cites several records. The invariant: **the sentence reads correctly with the
+citation deleted** — a citation is never the grammatical subject. Where a
+record is itself the topic, name the topic in words and cite at the end.
+
+---
+
 ## Hard rules
 
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
@@ -107,7 +143,7 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 6. **Glossary additions go in your summary, not your leaves.** If you find a term that ought to be glossary-defined, list it in your summary; do not append a glossary section to a leaf.
 7. **Document scope overlap; do not silently expand.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
 8. **Length budget.**
-   - 200–300 words per README.
+   - 200–350 words per README.
    - 400–800 words per leaf — a **hard ceiling**, not a target.
    - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Do not silently overrun.
 9. **No code samples unless they clarify what a path cannot.** A `[file](path)` link is almost always enough. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
@@ -128,7 +164,8 @@ If any of those break, the doc is too thin or too thick.
 ## Deliverable
 
 1. Write every `.md` file listed in your scope manifest. Each replaces its existing stub.
-2. Return a short summary covering:
+2. Give every page frontmatter that follows the table above (at minimum `description`, and `order` for published siblings).
+3. Return a short summary covering:
    - **What you covered** — one bullet per leaf, with its headline claim.
    - **TODO/FIXME notes** — quote any in-code comments you preserved under "Current state & gotchas".
    - **Glossary additions/refinements** — terms that ought to be defined or sharpened in the glossary.

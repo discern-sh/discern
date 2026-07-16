@@ -1,0 +1,23 @@
+# Vendor-speak a friend would never say across the table (voice skill: banned
+# words). Substitution so the fix rides along with the finding.
+extends: substitution
+message: "Vendor-speak: use '%s' instead of '%s'."
+ignorecase: true
+level: warning
+action:
+  name: replace
+swap:
+  leverage: use
+  leverages: uses
+  leveraged: used
+  leveraging: using
+  utilize: use
+  utilizes: uses
+  utilized: used
+  utilizing: using
+  facilitate: help
+  facilitates: helps
+  facilitated: helped
+  facilitating: helping
+  enables you to: lets you
+  prior to: before

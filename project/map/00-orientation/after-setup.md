@@ -76,14 +76,14 @@ One config file and one folder are yours. A marked block in a few shared files
 is discern's to keep current. Everything generated is rebuilt on demand — the
 agent files committed so every agent reads them, the skills kept out of your
 history. Nothing is hidden, and none of it is permanent —
-[what discern writes](../10-installer/what-discern-writes.md) is the full
+[Files & ownership](../10-installer/artifact-ownership.md) is the full
 footprint, and `discern uninstall` takes it all back out.
 
 ## See also
 
 - [The walkthrough](../10-installer/walkthrough.md) — the setup session that
   produced this diff.
-- [What discern writes to your repo](../10-installer/what-discern-writes.md) —
-  the complete footprint and how to remove it.
+- [Files & ownership](../10-installer/artifact-ownership.md) — the complete
+  footprint and how to remove it.
 - [Trust & your data](trust-and-data.md) — what runs on your machine, and what
   never does.
