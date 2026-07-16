@@ -82,7 +82,9 @@ Deno.test("every fenced `discern …` example in the current map validates again
       const reason = validateFencedCommand(command, model, extraVerbs);
       if (reason !== undefined) {
         failures.push(
-          `${relative(REPO_ROOT, entry.absPath)}:${line} \`${command}\` — ${reason}`,
+          `${
+            relative(REPO_ROOT, entry.absPath)
+          }:${line} \`${command}\` — ${reason}`,
         );
       }
     }

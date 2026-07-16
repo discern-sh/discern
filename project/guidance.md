@@ -177,8 +177,8 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   substance: fenced `discern …` examples against the live verb/flag registry,
   intra-map links and heading anchors against the shared renderer, and the
   published tiers against the `_internal`/`_private` audience boundary — so
-  quote real commands and real paths, and expect a rename to fail the docs
-  until they follow.
+  quote real commands and real paths, and expect a rename to fail the docs until
+  they follow.
 - Keep commits **atomic**: one logical change per commit, step by step.
 - **Commit messages** must start with a **subject** - one imperative line
   summarizing the change (e.g. "Add retry to upload path"), no trailing period;

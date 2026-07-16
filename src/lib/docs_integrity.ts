@@ -151,7 +151,7 @@ function isTerminator(token: string): boolean {
 function acceptedFlags(node: CliCommand, isRoot: boolean): Set<string> {
   const flags = new Set(node.options.flatMap((o) => o.flags));
   for (const f of IMPLICIT_COMMAND_FLAGS) flags.add(f);
-  if (isRoot) for (const f of IMPLICIT_ROOT_FLAGS) flags.add(f);
+  if (isRoot) { for (const f of IMPLICIT_ROOT_FLAGS) flags.add(f); }
   return flags;
 }
 
