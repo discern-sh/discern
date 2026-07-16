@@ -18,6 +18,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.              |
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
+| [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.      |
 | [`site/pages/`](../../../site/pages/)                     | Hand-authored editions and ignored build output served by the handler.    |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles. |
 | [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
@@ -35,6 +36,9 @@ The routes, from the handler's exported `PAGES` table:
 | `/docs/…`              | the rendered manual                    | the page's raw Markdown                  |
 | `/llms.txt`            | —                                      | the plaintext edition plus a docs index, |
 |                        |                                        | for every reader                         |
+| `/llms-full.txt`       | —                                      | the complete public Markdown projection  |
+| `/sitemap.xml`         | —                                      | canonical HTML URLs from the route model |
+| `/robots.txt`          | —                                      | crawler policy plus the sitemap address  |
 
 ## Reader negotiation
 
@@ -44,6 +48,32 @@ that omit `text/html` and either match a known text tool (curl, wget, and
 friends) or explicitly ask for `text/plain`. So `curl discern.sh` prints the
 agent's manual, and the same URL in a browser renders the illustrated edition.
 Negotiated responses carry `Vary: Accept, User-Agent`.
+
+## URL and response contract
+
+Production's canonical origin is `https://discern.sh`; page URLs have no
+trailing slash. HTTP, `www`, `.html`, trailing-slash, and `index.html` variants
+resolve with a 308 before routing, and a historical redirect is folded into the
+same hop. Destination pages own `redirect_from`; section-level moves live in
+`STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry
+refuses dead targets, collisions, chains, and loops
+([ADR 0142](../_adr/0142-canonical-site-urls-and-one-hop-redirects.md)).
+
+Every successful HTML response receives a canonical link, bounded description,
+Open Graph and Twitter fields, and the static branded card. Docs pages add a
+`BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit
+Markdown responses point at their HTML canonical and carry `noindex, follow`.
+
+Every response, including assets, redirects, and errors, carries the same
+security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer,
+permissions restrictions, and framing denial. The handler adds a nonce to inline
+theme bootstraps; third-party resource origins are not admitted.
+
+Unknown routes return 404. A 410 is used only for a deliberately retired public
+URL with no replacement, entered as an explicit tombstone. Missing files never
+imply 410, and there are no tombstones before launch. When a published heading
+is renamed, keep its old fragment as an explicit alias anchor in the page;
+fragments do not reach this handler.
 
 ## Guards
 
@@ -63,6 +93,12 @@ package manifest and Discern's selection table.
 [`tests/site_development_test.ts`](../../../tests/site_development_test.ts)
 guards loopback-only development servers, the browser-facing localhost URL, and
 the source boundary used by watch mode.
+[`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the
+live route set and pins canonical redirects, redirect-registry safety, sitemap
+parity, metadata, machine-edition headers, llms-full, and every security-header
+response class.
+[`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts)
+keeps the sole production deploy inside the release-tag workflow.
 
 ## Operating it
 
@@ -71,11 +107,12 @@ to production.
 
 ## Current state & gotchas
 
-- Three older pages load Tailwind from a CDN and fonts from Google Fonts.
-  [`project/TODO.md`](../../TODO.md) tracks self-hosting both before launch.
-  This applies to `/agents`, `/start`, and `/careers`; `/` and both composition
-  atlases use compiled CSS and self-hosted assets with no third-party runtime
-  request.
+- Three older pages still name Tailwind's CDN and Google Fonts in their source.
+  The production CSP admits neither origin, so no visitor request reaches them;
+  their remote Tailwind compilation and fonts are consequently unavailable.
+  [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled
+  assets as a separate launch blocker. `/` and both composition atlases already
+  use compiled CSS and self-hosted assets.
 - `mockups/landing/` is the design archive. The homepage replaced in July 2026
   remains there as `previous-homepage-2026-07-16.html`; archived pages are never
   served or kept in sync with the live edition.

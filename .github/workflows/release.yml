@@ -81,3 +81,45 @@ jobs:
         with:
           files: dist/discern-*
           fail_on_unmatched_files: true
+
+  deploy-site:
+    name: deploy discern.sh from release tag
+    needs: release
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+    steps:
+      # The workflow has only a v* tag trigger, and this explicit ref keeps the
+      # deploy input auditable if checkout ever changes its event defaults.
+      - name: Check out the release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      - name: Verify the tag names this package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          deno eval 'const config = JSON.parse(await
+          Deno.readTextFile("deno.json")); const tag =
+          Deno.env.get("RELEASE_TAG"); if (tag !== "v" + config.version) throw
+          new Error(`release tag ${tag} does not match v${config.version}`);'
+
+      - name: Build the exact site revision
+        run: deno task site:build
+
+      # The production app is created as a local-source app (not linked to the
+      # repository's default branch), so this is its only production trigger.
+      # deno.json supplies the remote build and runtime configuration.
+      - name: Deploy the tag to production
+        run: >-
+          deno deploy --org "${{ vars.DENO_DEPLOY_ORG }}"
+          --app "${{ vars.DENO_DEPLOY_APP }}" --prod

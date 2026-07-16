@@ -15,7 +15,25 @@
  * file.
  */
 
-import { docsLlmsSection, loadDocsSite, serveDocs } from "./docs.ts";
+import {
+  docsLlmsSection,
+  type DocsSite,
+  loadDocsSite,
+  serveDocs,
+} from "./docs.ts";
+import {
+  applySecurityHeaders,
+  buildSiteRedirectTable,
+  canonicalUrl,
+  decorateHtmlPage,
+  docsLlmsFullText,
+  responseNonce,
+  robotsTxt,
+  SITE_ORIGIN,
+  sitemapXml,
+  type SiteRedirectTable,
+  STATIC_REDIRECTS,
+} from "./seo.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 
@@ -43,6 +61,7 @@ export const TEXT_EDITION = "text/discern.txt";
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".html": "text/html; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -87,9 +106,22 @@ async function serveFile(
  * /llms.txt: the handwritten DISCERN(1) edition, with the docs index appended
  * from the same tree the /docs section renders — one listing, never hand-kept.
  */
-async function llmsTxt(): Promise<Response> {
+async function llmsTxt(site: DocsSite): Promise<Response> {
   const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
-  const docs = docsLlmsSection(await loadDocsSite());
+  const docs = docsLlmsSection(site);
+  return new Response(`${base.trimEnd()}\n\n${docs}`, {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=300",
+    },
+  });
+}
+
+/** /llms-full.txt: the complete public projection, with citations retained. */
+async function llmsFullTxt(site: DocsSite): Promise<Response> {
+  const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
+  const docs = await docsLlmsFullText(site);
   return new Response(`${base.trimEnd()}\n\n${docs}`, {
     status: 200,
     headers: {
@@ -121,8 +153,8 @@ function notFound(asText: boolean): Response {
   });
 }
 
-/** Normalize a request path: strip trailing slashes, collapse /index.html, reject traversal. */
-function normalize(pathname: string): string | null {
+/** Decode a request path for routing and reject traversal. */
+function decodePath(pathname: string): string | null {
   let path: string;
   try {
     path = decodeURIComponent(pathname);
@@ -130,26 +162,113 @@ function normalize(pathname: string): string | null {
     return null;
   }
   if (path.includes("..") || path.includes("\0")) return null;
-  if (path.endsWith("/index.html")) path = path.slice(0, -"index.html".length);
-  while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
   return path;
 }
 
-export async function handler(req: Request): Promise<Response> {
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    return new Response("405 — method not allowed\n", {
-      status: 405,
+export interface SiteRouting {
+  site: DocsSite;
+  liveRoutes: readonly string[];
+  redirects: SiteRedirectTable;
+}
+
+let routingPromise: Promise<SiteRouting> | undefined;
+
+/** The HTML route set. Published docs already passed through isPublicDoc. */
+export function liveHtmlRoutes(site: DocsSite): string[] {
+  return [
+    ...Object.keys(PAGES),
+    "/docs",
+    ...site.pages.map((page) => page.route),
+  ];
+}
+
+async function loadSiteRouting(): Promise<SiteRouting> {
+  const site = await loadDocsSite();
+  const liveRoutes = liveHtmlRoutes(site);
+  const redirects = buildSiteRedirectTable(
+    liveRoutes,
+    site.pages,
+    STATIC_REDIRECTS,
+  );
+  if (redirects.issues.length > 0) {
+    throw new Error(`unsafe site redirects:\n${redirects.issues.join("\n")}`);
+  }
+  return { site, liveRoutes, redirects };
+}
+
+function siteRouting(): Promise<SiteRouting> {
+  routingPromise ??= loadSiteRouting();
+  return routingPromise;
+}
+
+/** Collapse every canonical variant before consulting the redirect registry. */
+function canonicalPathVariant(
+  path: string,
+  addressable: ReadonlySet<string>,
+): string {
+  let value = path;
+  if (value.endsWith("/index.html")) {
+    value = value.slice(0, -"/index.html".length) || "/";
+  }
+  while (value.length > 1 && value.endsWith("/")) {
+    value = value.slice(0, -1);
+  }
+  if (value.endsWith(".html")) {
+    const extensionless = value.slice(0, -".html".length) || "/";
+    if (addressable.has(extensionless)) value = extensionless;
+  }
+  return value;
+}
+
+function redirectLocation(url: URL, path: string): string {
+  const productionHost = url.hostname === "discern.sh" ||
+    url.hostname === "www.discern.sh";
+  const origin = productionHost ? SITE_ORIGIN : url.origin;
+  const destination = new URL(path, origin);
+  destination.search = url.search;
+  return destination.href;
+}
+
+function needsDomainRedirect(url: URL): boolean {
+  return url.hostname === "www.discern.sh" ||
+    (url.hostname === "discern.sh" && url.protocol !== "https:");
+}
+
+function permanentRedirect(location: string): Response {
+  return new Response(null, {
+    status: 308,
+    headers: {
+      location,
+      "cache-control": "public, max-age=86400",
+    },
+  });
+}
+
+async function routeResponse(
+  req: Request,
+  path: string,
+  routing: SiteRouting,
+): Promise<Response> {
+  if (path === "/llms.txt") return await llmsTxt(routing.site);
+  if (path === "/llms-full.txt") return await llmsFullTxt(routing.site);
+  if (path === "/sitemap.xml") {
+    return new Response(sitemapXml(routing.liveRoutes), {
+      status: 200,
       headers: {
-        allow: "GET, HEAD",
-        "content-type": "text/plain; charset=utf-8",
+        "content-type": "application/xml; charset=utf-8",
+        "cache-control": "public, max-age=300",
       },
     });
   }
-
-  const path = normalize(new URL(req.url).pathname);
-  if (path === null) return notFound(wantsText(req));
-
-  if (path === "/llms.txt") return await llmsTxt();
+  if (path === "/robots.txt") {
+    return new Response(robotsTxt(), {
+      status: 200,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  }
 
   if (path === "/docs" || path === "/docs.md" || path.startsWith("/docs/")) {
     return await serveDocs(path, wantsText(req));
@@ -166,12 +285,124 @@ export async function handler(req: Request): Promise<Response> {
     return await serveFile(route.page);
   }
 
-  // Static fallback for assets under pages/ (fonts, images, receipt.json, …).
-  try {
-    return await serveFile(`pages${path}`);
-  } catch {
-    return notFound(wantsText(req));
+  // Only the declared asset subtree is a static fallback. Raw page filenames
+  // never become a second public URL for an HTML page.
+  if (path.startsWith("/assets/")) {
+    try {
+      return await serveFile(`pages${path}`);
+    } catch {
+      return notFound(wantsText(req));
+    }
   }
+  return notFound(wantsText(req));
+}
+
+async function finalizeResponse(
+  response: Response,
+  path: string,
+  nonce: string,
+  headOnly: boolean,
+): Promise<Response> {
+  const headers = new Headers(response.headers);
+  const contentType = headers.get("content-type") ?? "";
+  let body: BodyInit | null = headOnly ? null : response.body;
+
+  if (response.status === 200 && contentType.includes("text/html")) {
+    headers.set("link", `<${canonicalUrl(path)}>; rel="canonical"`);
+    if (!headOnly) {
+      body = decorateHtmlPage(await response.text(), path, nonce);
+      headers.delete("content-length");
+    }
+  } else if (
+    response.status === 200 && path.endsWith(".md") &&
+    contentType.includes("text/markdown")
+  ) {
+    headers.set(
+      "link",
+      `<${canonicalUrl(path.slice(0, -".md".length))}>; rel="canonical"`,
+    );
+    headers.set("x-robots-tag", "noindex, follow");
+  }
+  applySecurityHeaders(headers, nonce);
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+/**
+ * The production handler. Tests may supply a routing fixture so a synthetic
+ * redirect_from claim can exercise the exact serving path without mutating the
+ * live map.
+ */
+async function handleRequest(
+  req: Request,
+  routingFixture?: SiteRouting,
+): Promise<Response> {
+  const nonce = responseNonce();
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return await finalizeResponse(
+      new Response("405 — method not allowed\n", {
+        status: 405,
+        headers: {
+          allow: "GET, HEAD",
+          "content-type": "text/plain; charset=utf-8",
+        },
+      }),
+      new URL(req.url).pathname,
+      nonce,
+      false,
+    );
+  }
+
+  const url = new URL(req.url);
+  const decoded = decodePath(url.pathname);
+  if (decoded === null) {
+    return await finalizeResponse(
+      notFound(wantsText(req)),
+      url.pathname,
+      nonce,
+      req.method === "HEAD",
+    );
+  }
+  const routing = routingFixture ?? await siteRouting();
+  const addressable = new Set([
+    ...routing.liveRoutes,
+    ...routing.redirects.redirects.keys(),
+  ]);
+  const variant = canonicalPathVariant(decoded, addressable);
+  const target = routing.redirects.redirects.get(variant) ?? variant;
+  if (
+    target !== decoded || needsDomainRedirect(url)
+  ) {
+    return await finalizeResponse(
+      permanentRedirect(redirectLocation(url, target)),
+      target,
+      nonce,
+      true,
+    );
+  }
+
+  return await finalizeResponse(
+    await routeResponse(req, target, routing),
+    target,
+    nonce,
+    req.method === "HEAD",
+  );
+}
+
+/** The one-argument fetch handler used by local and production servers. */
+export function handler(req: Request): Promise<Response> {
+  return handleRequest(req);
+}
+
+/** Exercise the real handler with a synthetic redirect registry in tests. */
+export function handlerWithRouting(
+  req: Request,
+  routing: SiteRouting,
+): Promise<Response> {
+  return handleRequest(req, routing);
 }
 
 export default { fetch: handler };

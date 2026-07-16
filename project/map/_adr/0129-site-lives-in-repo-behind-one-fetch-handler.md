@@ -2,6 +2,11 @@
 
 **Status**: accepted
 
+**Release alignment amendment**:
+[ADR 0143](0143-production-site-deploys-only-from-release-tags.md) changes the
+production cadence from default-branch deploys to release-tag-only deploys. This
+ADR's in-repo, one-handler hosting decision remains active.
+
 ## Context
 
 discern.sh needs public pages before launch. The domain exists; no hosting does.

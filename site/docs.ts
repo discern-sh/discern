@@ -477,7 +477,7 @@ export function docsShell(
   rendered: RenderedDoc,
 ): string {
   return shellFrame(site, {
-    htmlTitle: `${page.entry.title} · discern docs`,
+    htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
     current: page,
     mainHtml: `<article class="doc-body">
@@ -522,7 +522,7 @@ export function docsIndexShell(site: DocsSite): string {
   ${colophonHtml(null)}`;
 
   return shellFrame(site, {
-    htmlTitle: "The manual · discern",
+    htmlTitle: "Documentation · discern.sh docs",
     description:
       "The discern manual — the same documentation `discern help` serves.",
     current: null,
