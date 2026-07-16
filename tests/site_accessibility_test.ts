@@ -59,7 +59,13 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
 Deno.test("representative built docs pages have no serious or critical WCAG 2.2 AA findings", async () => {
   const site = await loadDocsSite();
   const leaf = site.pages.find((page) => !page.isIndex);
-  const routes = ["/docs", leaf?.route].filter(
+  const decision = site.decisions.pages[0];
+  const routes = [
+    "/docs",
+    leaf?.route,
+    site.decisions.route,
+    decision?.route,
+  ].filter(
     (route): route is string => route !== undefined,
   );
   const findings = (
