@@ -1,0 +1,20 @@
+# Emphasis and sincerity seasoning (voice skill: banned words). Each of these
+# adds intensity where a fact should be: singular emphasis ("the one file"),
+# scope emphasis ("the whole tree"), drama adverbs ("silently", "quietly",
+# "deliberately", "exactly"), sincerity-signaling ("honestly"), and the pet
+# metaphor "rides along". Warning severity while the corpus backlog exists;
+# the wave-3 sweep retires the backlog and promotes the survivors to error.
+extends: existence
+message: "'%s' is seasoning, not information: cut it, or replace it with the fact."
+ignorecase: true
+level: warning
+nonword: true
+tokens:
+  - '\bthe\s+one\s+[\w-]+'
+  - '\bthe\s+whole\s+[\w-]+'
+  - '\bsilently\b'
+  - '\bquietly\b'
+  - '\bdeliberate(?:ly)?\b'
+  - '\bhonest(?:y|ly)?\b'
+  - '\bexactly\b'
+  - '\brides?\s+along\b'

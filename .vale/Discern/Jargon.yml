@@ -11,3 +11,4 @@ action:
 swap:
   postures?: tracked or ignored
   the\s+shapes?\s+of: how it fits together
+  load-bearing: doing real work
