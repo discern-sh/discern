@@ -778,12 +778,18 @@ function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/** GitHub-style heading slug: lowercase, punctuation dropped, spaces dashed. */
+/** GitHub-compatible heading slug: lowercase; drop punctuation (underscores
+ * and hyphens survive); EVERY whitespace character becomes one dash, runs
+ * uncollapsed — so "Files & dirs" is `files--dirs`, exactly the anchor GitHub
+ * mints for the same heading. Authors write anchors against that de-facto
+ * algorithm, and the tree is read on GitHub as well as through this renderer,
+ * so the two must agree; the map's link-integrity guard validates fragments
+ * against these ids. */
 function slugify(text: string, taken: Set<string>): string {
   const base = text.toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .trim()
-    .replace(/\s+/g, "-") || "section";
+    .replace(/\s/g, "-") || "section";
   let slug = base;
   for (let n = 1; taken.has(slug); n += 1) slug = `${base}-${n}`;
   taken.add(slug);

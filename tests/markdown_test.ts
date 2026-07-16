@@ -8,7 +8,11 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { inlineToPlain, renderMarkdown } from "../src/lib/markdown.ts";
+import {
+  inlineToPlain,
+  renderMarkdown,
+  renderMarkdownHtml,
+} from "../src/lib/markdown.ts";
 
 const plain = (md: string, width = 80) =>
   renderMarkdown(md, { width, color: false });
@@ -267,4 +271,28 @@ Deno.test("fenced code blocks render a bordered box in colour mode", () => {
   assertStringIncludes(noLang, "│ ");
   assertStringIncludes(noLang, "plain");
   assertStringIncludes(noLang, "└─");
+});
+
+Deno.test("HTML heading ids match GitHub's anchor algorithm", () => {
+  // Authors write `#fragment` links against GitHub's de-facto slugs, and the
+  // same tree is browsed on GitHub and through this renderer — the two must
+  // mint identical anchors or one surface's links die. Punctuation drops
+  // (underscores and hyphens survive), and every whitespace character becomes
+  // its own dash: dropped punctuation between words leaves a double dash.
+  const { headings } = renderMarkdownHtml(
+    [
+      "# Your files / Yours",
+      "## Bookkeeping & integration",
+      "## public_doc_leaf_density",
+      "## Repeat",
+      "## Repeat",
+    ].join("\n"),
+  );
+  assertEquals(headings.map((h) => h.id), [
+    "your-files--yours",
+    "bookkeeping--integration",
+    "public_doc_leaf_density",
+    "repeat",
+    "repeat-1",
+  ]);
 });

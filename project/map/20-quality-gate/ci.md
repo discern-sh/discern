@@ -173,7 +173,7 @@ Two ways to close the remaining gap:
   above) to the environment's setup, so the binary is present. `discern refresh`
   can then materialize the skills and the MCP server can run — but keep the
   refresh in the environment's own setup, not in the gate job, for the reason in
-  [What to customize](#what-to-customize).
+  [The two values to customize](#the-two-values-to-customize).
 - **Rely on the gate in CI.** For the gate specifically, the workflow above
   installs discern and runs `discern done` on every pull request, so a change
   that originates in a cloud environment is still held to the same bar before it
