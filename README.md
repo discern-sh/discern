@@ -1,4 +1,4 @@
-# discern
+# ◮ discern
 
 **Code got cheap. Judgment didn't.**
 
