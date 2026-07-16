@@ -1,9 +1,0 @@
-@layer discern.components {
-  .discern-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%,
-      var(--discern-grid-min,
-      14rem)), 1fr));
-    gap: var(--discern-grid-gap, var(--discern-space-5));
-  }
-}

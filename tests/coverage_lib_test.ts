@@ -3,8 +3,8 @@
  *
  * Guard for the class of defect where a path filter matches by substring
  * instead of anchored prefix: a bare `/src/` also sweeps in dependency and
- * workspace files (a `src/` directory inside `node_modules`, the site
- * workspace's `site/design-system/src/`), so code outside the measured tree
+ * workspace files (a `src/` directory inside `node_modules` or a nested
+ * package), so code outside the measured tree
  * moves the number the standard holds. The vectors below pin the anchored
  * definition from every direction a lookalike path can approach it.
  */
@@ -24,7 +24,7 @@ const LCOV = [
   record(`${ROOT}/src/engine/dispatch.ts`, 10, 9),
   record(`${ROOT}/src/shared/config.ts`, 10, 8),
   // A workspace member with its own src/ segment — not the repo's src/.
-  record(`${ROOT}/site/design-system/src/components/button.tsx`, 10, 1),
+  record(`${ROOT}/packages/example/src/components/button.tsx`, 10, 1),
   // Dependency source shipped with a src/ directory.
   record(
     `${ROOT}/node_modules/.deno/zod@4.4.3/node_modules/zod/src/index.ts`,

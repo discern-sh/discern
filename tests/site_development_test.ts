@@ -1,7 +1,7 @@
 /** Development-server contracts: local URLs stay browser-usable and watch mode
  * rebuilds from the complete authored site-input boundary. */
 
-import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
   DEFAULT_SITE_DEV_PORT,
@@ -13,12 +13,10 @@ import {
   SITE_DEV_BROWSER_HOST,
 } from "../site/dev.ts";
 import {
-  SITE_BUILD_EVENT_IGNORES,
   SITE_BUILD_INPUTS,
   siteBuildEventNeedsRebuild,
   siteBuildInputPaths,
 } from "../site/build_inputs.ts";
-import { styleguideFilePath } from "../site/design-system/scripts/serve.ts";
 import { handler } from "../site/serve.ts";
 import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
 
@@ -116,25 +114,18 @@ Deno.test("watched build inputs never contain generated outputs", () => {
   );
   const outputs = [
     ...GENERATED_SITE_OUTPUTS.map((path) => `site/${path}`),
-    ...SITE_BUILD_EVENT_IGNORES,
   ];
   assertEquals(
     unignoredWatchedBuildOutputOverlaps(
       SITE_BUILD_INPUTS,
       outputs,
-      SITE_BUILD_EVENT_IGNORES,
+      [],
     ),
     [],
   );
   assertEquals(
     siteBuildEventNeedsRebuild([
-      join(REPO, "site/design-system/styleguide/generated/registry.ts"),
-    ]),
-    false,
-  );
-  assertEquals(
-    siteBuildEventNeedsRebuild([
-      join(REPO, "site/design-system/styleguide/app.tsx"),
+      join(REPO, "site/design_system.ts"),
     ]),
     true,
   );
@@ -175,59 +166,15 @@ Deno.test("the site development port prefers an override, then worktree identity
   );
 });
 
-Deno.test("the local site runner builds and mounts the complete styleguide", async () => {
-  assertEquals(LOCAL_SITE_BUILD_TASKS, ["site:build", "design-system:build"]);
-  assertEquals(
-    styleguideFilePath("/style-guide/dist/styleguide.js"),
-    "./dist/styleguide.js",
-  );
-  assertEquals(
-    styleguideFilePath("/style-guide/src/components/core/button/button.tsx"),
-    "./src/components/core/button/button.tsx",
-  );
-  assertEquals(
-    styleguideFilePath("/style-guide/assets/fonts.css"),
-    "./assets/fonts.css",
-  );
-  assertEquals(
-    styleguideFilePath("/style-guide/styleguide.css"),
-    "./styleguide/styleguide.css",
-  );
-
-  const response = await localHandler(
-    new Request("http://localhost/style-guide/"),
-  );
-  assertEquals(response.status, 200);
-  assertStringIncludes(await response.text(), "Discern design system");
-
-  const fonts = await localHandler(
-    new Request("http://localhost/style-guide/assets/fonts.css"),
-  );
-  assertEquals(fonts.status, 200);
-  assertStringIncludes(fonts.headers.get("content-type") ?? "", "text/css");
-
-  const redirect = await localHandler(
-    new Request("http://localhost/style-guide"),
-  );
-  assertEquals(redirect.status, 307);
-  assertEquals(
-    redirect.headers.get("location"),
-    "http://localhost/style-guide/",
-  );
-
-  const legacy = await localHandler(
-    new Request("http://localhost/styleguide/#component-button"),
-  );
-  assertEquals(legacy.status, 307);
-  assertEquals(
-    legacy.headers.get("location"),
-    "http://localhost/style-guide/#component-button",
-  );
-
-  const production = await handler(
-    new Request("http://localhost/style-guide/"),
-  );
-  assertEquals(production.status, 404);
+Deno.test("the local runner builds only the consumer site and adds no catalogue routes", async () => {
+  assertEquals(LOCAL_SITE_BUILD_TASKS, ["site:build"]);
+  for (const route of ["/style-guide/", "/styleguide/"]) {
+    const local = await localHandler(new Request(`http://localhost${route}`));
+    const production = await handler(new Request(`http://localhost${route}`));
+    assertEquals(local.status, 404, route);
+    assertEquals(local.status, production.status, route);
+    assertEquals(await local.text(), await production.text(), route);
+  }
 });
 
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {

@@ -14,11 +14,11 @@ Everything lives under [`site/`](../../../site/):
 | [`site/serve.ts`](../../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
-| [`site/build.ts`](../../../site/build.ts)                 | Deterministically builds the design-system runtime and static demo pages. |
-| [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The authored input boundary that automatically triggers a watched build.  |
+| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package runtimes and the static composition pages.         |
+| [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.              |
+| [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/pages/`](../../../site/pages/)                     | Hand-authored editions and ignored build output served by the handler.    |
-| [`site/design-system/`](../../../site/design-system/)     | Typed tokens, components, CSS, metadata, examples, and local catalogue.   |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles. |
 | [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
 
@@ -56,10 +56,10 @@ file fails the gate.
 the docs section by iterating the discovered tree — rendering, negotiation,
 search-index and llms.txt coverage, and link integrity all auto-enrol a new map
 leaf.
-[`site/design-system/tests/design_system_test.ts`](../../../site/design-system/tests/design_system_test.ts)
-guards the ignored/untracked output boundary, rebuilds the design-system
-runtime, and checks local-only assets, component enrolment, fonts, and the
-static demo.
+[`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts)
+drives the ignored-output, exact-dependency, bundle selection, local asset,
+licence, component-enrolment, and static-runtime guards from the published
+package manifest and Discern's selection table.
 [`tests/site_development_test.ts`](../../../tests/site_development_test.ts)
 guards loopback-only development servers, the browser-facing localhost URL, and
 the source boundary used by watch mode.
@@ -82,7 +82,5 @@ to production.
   `site/page-src/`; `deno task site:build` owns ignored HTML and design-system
   assets under `site/pages/`, and Deno Deploy runs that task before starting the
   handler.
-- [the-design-system.md](the-design-system.md) records the source, build,
-  catalogue, and page-migration boundaries.
-- [component-catalogue.md](component-catalogue.md) records reusable component
-  roles that consuming pages preserve.
+- [the-design-system.md](the-design-system.md) records the external dependency,
+  thin integration, bundle, and page-composition boundaries.

@@ -7,7 +7,6 @@ import {
   siteBuildInputPaths,
 } from "./build_inputs.ts";
 import { handler } from "./serve.ts";
-import styleguideServer from "./design-system/scripts/serve.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { fromFileUrl, join } from "@std/path";
 
@@ -18,10 +17,7 @@ const WATCH_DEBOUNCE_MS = 100;
 export const SITE_DEV_BIND_HOST = "127.0.0.1";
 export const SITE_DEV_BROWSER_HOST = "localhost";
 export const DEFAULT_SITE_DEV_PORT = 4507;
-export const LOCAL_SITE_BUILD_TASKS = [
-  "site:build",
-  "design-system:build",
-] as const;
+export const LOCAL_SITE_BUILD_TASKS = ["site:build"] as const;
 
 /** Parse an optional local port override without silently accepting garbage. */
 export function parseSiteDevPort(value: string | undefined): number {
@@ -71,19 +67,8 @@ async function runSiteBuild(): Promise<boolean> {
   return true;
 }
 
-/** Add the local catalogue without exposing it through the production handler. */
+/** Local development serves the same route surface as production. */
 export async function localHandler(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  if (path === "/styleguide" || path.startsWith("/styleguide/")) {
-    url.pathname = path === "/styleguide"
-      ? "/style-guide/"
-      : path.replace(/^\/styleguide\//, "/style-guide/");
-    return Response.redirect(url, 307);
-  }
-  if (path === "/style-guide" || path.startsWith("/style-guide/")) {
-    return await styleguideServer.fetch(request);
-  }
   return await handler(request);
 }
 
@@ -127,7 +112,7 @@ async function watchSiteBuildInputs(): Promise<never> {
     }
   };
 
-  console.log("Watching authored site and design-system inputs...");
+  console.log("Watching authored site inputs...");
   for await (const event of watcher) {
     if (event.kind === "access" || !siteBuildEventNeedsRebuild(event.paths)) {
       continue;

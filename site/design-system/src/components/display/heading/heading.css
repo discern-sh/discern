@@ -1,9 +1,0 @@
-@layer discern.components {
-  .discern-heading__accent {
-    color: var(--discern-color-accent-600);
-    font-style: italic;
-  }
-  [data-discern-theme="dark"] .discern-heading__accent {
-    color: var(--discern-color-accent-500);
-  }
-}

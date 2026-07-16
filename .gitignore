@@ -24,9 +24,9 @@
 # output, so they must never be committed.
 /scripts/setup-eval/results/
 
-# Public design-system artifacts are produced by `deno task site:build` locally
-# and by Deno Deploy's configured build step. Sources live under
-# `site/design-system/` and `site/page-src/`; build products never enter Git.
+# Public design-system artifacts are emitted from the exact package release by
+# `deno task site:build`. Discern's selections and compositions live in
+# `site/design_system.ts` and `site/page-src/`; build products never enter Git.
 /site/pages/design-system-demo.html
 /site/pages/content-design-demo.html
 /site/pages/assets/design-system/

@@ -35,10 +35,11 @@ files), so no reference dead-ends.
 
 The browser shell is a design-system consumer: the server renders semantic HTML
 on the documented `.discern-*` classes, loading the generated tokens and
-component styles plus the self-hosted fonts from `/assets/design-system/`.
-Page-specific composition lives in `site/pages/assets/docs.css` and behaviour in
-`site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial
-rule treatment with a centred `◮`, the first use of discern's intended mark.
+component styles plus the self-hosted fonts from the minimal
+`/assets/design-system/docs/` bundle. Page-specific composition lives in
+`site/pages/assets/docs.css` and behaviour in `site/pages/assets/docs.js`.
+Rendered Markdown thematic breaks use the editorial rule treatment with a
+centred `◮`, the first use of discern's intended mark.
 
 ## Reader negotiation
 

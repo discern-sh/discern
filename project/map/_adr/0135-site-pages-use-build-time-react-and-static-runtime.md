@@ -48,8 +48,8 @@ not a second review surface containing their derivations.
 
 The generic React component catalogue belongs to the package repository.
 Stateful React behaviour is not assumed to survive static rendering: public
-pages use static-safe components and page-owned progressive enhancement unless
-a later decision explicitly introduces a browser runtime.
+pages use static-safe components and page-owned progressive enhancement unless a
+later decision explicitly introduces a browser runtime.
 
 The first consumer is `/design-system-demo`. The four existing experimental
 pages remain unchanged until a replacement edition is ready to be compared and

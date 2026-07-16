@@ -1,5 +1,5 @@
 /** Authored inputs whose changes require the generated public site to rebuild. */
-import { fromFileUrl, join, SEPARATOR } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 
 export const SITE_BUILD_INPUTS = [
   "deno.json",
@@ -8,8 +8,6 @@ export const SITE_BUILD_INPUTS = [
   "site/design_system.ts",
   "site/page-src",
 ] as const;
-
-export const SITE_BUILD_EVENT_IGNORES: readonly string[] = [];
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -20,13 +18,5 @@ export function siteBuildInputPaths(): string[] {
 
 /** Whether a filesystem event contains at least one authored-input change. */
 export function siteBuildEventNeedsRebuild(paths: readonly string[]): boolean {
-  const ignored = SITE_BUILD_EVENT_IGNORES.map((path) => {
-    const absolute = join(REPO_ROOT, path);
-    return absolute.endsWith(SEPARATOR) ? absolute.slice(0, -1) : absolute;
-  });
-  return paths.some((path) =>
-    !ignored.some((root) =>
-      path === root || path.startsWith(`${root}${SEPARATOR}`)
-    )
-  );
+  return paths.length > 0;
 }

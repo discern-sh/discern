@@ -20,14 +20,11 @@ loopback-only `http://localhost:4507/` in the main checkout. In a discern
 worktree both tasks discover its deterministic identity port automatically, so
 concurrent previews do not collide; an explicit `PORT` still wins. The `watch`
 task does the same initial build, then rebuilds in a fresh Deno process when
-page sources, design-system sources or assets, or build configuration changes. A
-failed watched rebuild is reported and the watcher remains ready for the
-correcting edit.
-
-The same local server exposes the complete component catalogue at
-`/style-guide/`. It is mounted only by `site/dev.ts`; the production handler
-does not publish the catalogue. The former `/styleguide/` path redirects to the
-new hyphenated route and preserves any component fragment.
+page sources, the site-owned design-system selection, or build configuration
+changes. A failed watched rebuild is reported and the watcher remains ready for
+the correcting edit. Local and production expose the same route surface; the
+generic component catalogue lives in the design-system package repository and is
+not mounted by Discern.
 
 Deno Deploy runs the same build task before it starts the handler through a
 `Deno.serve` entrypoint, [`site/main.ts`](../../../site/main.ts) — because the

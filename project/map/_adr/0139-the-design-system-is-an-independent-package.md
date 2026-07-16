@@ -89,9 +89,9 @@ package.
   loading the complete catalogue runtime. The package maintains a dependency
   graph, manifest schema, and clean-room consumer fixtures; publication adds
   SemVer discipline and migration notes.
-- Discern's site build depends on an exact package release. A
-  package defect is fixed and released in the package repository, then consumed
-  as a new exact version; it is not patched by copying source back into Discern.
+- Discern's site build depends on an exact package release. A package defect is
+  fixed and released in the package repository, then consumed as a new exact
+  version; it is not patched by copying source back into Discern.
 - Releases require coordination across two repositories and cannot be made
   atomic. Publishing first and cutting over second supplies the rollback seam.
 - JSR's code-oriented module model makes the CSS/font/texture build interface a

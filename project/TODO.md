@@ -176,8 +176,8 @@ _Product positioning, messaging, and launch/content tasks._
       precompile its `@theme` block), then drop both third-party origins. Say so
       on the page — "view source: no third-party requests" is on-brand.
       Evidence: the four named `site/pages/*.html` files (fonts.googleapis.com,
-      cdn.jsdelivr.net); `site/page-src/` and `site/design-system/` (the
-      local-asset replacement path).
+      cdn.jsdelivr.net); `site/page-src/` and the selected published runtime in
+      `site/design_system.ts` (the local-asset replacement path).
 - [ ] **Site launch blocker: make `brew install discern` real.** All four site
       pages and the plaintext edition lead with it. Stand up the tap (or switch
       the copy to the install path that will exist at launch) before the pages

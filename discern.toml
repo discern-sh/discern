@@ -111,7 +111,7 @@ dir = "project/skills"
 
 [capabilities]
 format    = "deno fmt"
-build     = ["deno task codegen", "deno task design-system:build"]
+build     = "deno task codegen"
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
@@ -170,18 +170,6 @@ neutral = true
 
 # The public site (discern.sh): static editions plus the fetch handler that
 # serves them. Run it locally with `deno task site`.
-[scopes.design_system]
-paths = [
-  "site/design-system/**",
-  "site/page-src/**",
-  "site/build.ts",
-  "site/pages/design-system-demo.html",
-  "site/pages/assets/design-system/**",
-]
-previewable = true
-gate        = "deno task design-system:verify"
-timeout     = 120
-
 [scopes.site]
 paths       = ["site/**"]
 previewable = true

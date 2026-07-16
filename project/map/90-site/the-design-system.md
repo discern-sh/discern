@@ -20,8 +20,8 @@ not consumer APIs.
 
 If Discern finds a package defect, the fix is released from the package
 repository and consumed here as a new exact version. Discern never patches a
-copy of package source. The temporary minimum-age exception in `deno.json`
-names this exact package because the cut-over happened during Deno's registry
+copy of package source. The temporary minimum-age exception in `deno.json` names
+this exact package because the cut-over happened during Deno's registry
 cooldown; every other dependency remains subject to the normal age policy.
 
 ## Site-owned integration
@@ -29,10 +29,10 @@ cooldown; every other dependency remains subject to the normal age policy.
 [`site/design_system.ts`](../../../site/design_system.ts) is the complete thin
 integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
 
-| Bundle         | Routes                                              | Selection                                      | Optional assets |
-| -------------- | --------------------------------------------------- | ---------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants                         | Five shell components                          | fonts           |
-| `compositions` | `/design-system-demo`, `/content-design-demo`       | Marketing, Editorial, and shared display parts | fonts and grain |
+| Bundle         | Routes                                        | Selection                                      | Optional assets |
+| -------------- | --------------------------------------------- | ---------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants                   | Five shell components                          | fonts           |
+| `compositions` | `/design-system-demo`, `/content-design-demo` | Marketing, Editorial, and shared display parts | fonts and grain |
 
 The table also owns the Discern theme choice and emitted public directories.
 [`site/build.ts`](../../../site/build.ts) passes each selection to the public
@@ -40,12 +40,11 @@ The table also owns the Discern theme choice and emitted public directories.
 writes deterministic CSS, a manifest, and only the requested assets. Discern
 does not copy the package manifest, tokens, dependency graph, CSS, or adapters.
 
-The docs shell loads its smaller bundle from
-`/assets/design-system/docs/`. The two retained product-composition atlases load
-the full selected bundle from `/assets/design-system/compositions/`. Fonts are
-an explicit choice for both. Grain is selected only for the compositions; docs
-neither emit nor load it. Generated output stays ignored beneath
-`site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`. The
+two retained product-composition atlases load the full selected bundle from
+`/assets/design-system/compositions/`. Fonts are an explicit choice for both.
+Grain is selected only for the compositions; docs neither emit nor load it.
+Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 ## Static production, typed authoring
 
@@ -62,15 +61,15 @@ Discern; none moves into the reusable package.
 
 ## Retained compositions
 
-`/design-system-demo` is Discern's Marketing composition atlas. It exercises
-the complete published Marketing group with real product copy and artwork.
+`/design-system-demo` is Discern's Marketing composition atlas. It exercises the
+complete published Marketing group with real product copy and artwork.
 `/content-design-demo` does the same for the Editorial group and a long-form
-reading experience. They remain because they compare possible discern.sh
-landing and content compositions, not because Discern owns the generic package
+reading experience. They remain because they compare possible discern.sh landing
+and content compositions, not because Discern owns the generic package
 catalogue.
 
-The generic component catalogue, examples, component implementation, assets,
-and package tooling live only in the package repository. Discern does not mount
+The generic component catalogue, examples, component implementation, assets, and
+package tooling live only in the package repository. Discern does not mount
 `/style-guide/` in development or production.
 
 ## Consumer guards
@@ -82,8 +81,8 @@ reads the public `packageManifest` and the site selection table. It guards:
   internal or registry-path reach-through;
 - each bundle's requested selection and package-resolved dependency closure;
 - exclusion of Marketing and Editorial CSS and grain from the docs bundle;
-- route-to-bundle coverage, local assets, media types, integrity, font
-  licences, and the absence of a React browser runtime;
+- route-to-bundle coverage, local assets, media types, integrity, font licences,
+  and the absence of a React browser runtime;
 - complete Marketing and Editorial composition coverage from the package
   manifest; and
 - the rule that consumer styles may compose package classes but never target a

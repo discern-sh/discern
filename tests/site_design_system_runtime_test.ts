@@ -135,7 +135,7 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   assert("@discern-sh/design-system@0.1.1" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
-    /\.[cm]?[jt]sx?$/.test(path) && !path.includes("/site/design-system/")
+    /\.[cm]?[jt]sx?$/.test(path)
   );
   const forbidden = [
     "site/design-system",
@@ -285,7 +285,6 @@ Deno.test("consumer CSS never targets a package-manifest-owned class", async () 
     const repoPath = relative(ROOT, path);
     if (
       !path.endsWith(".css") ||
-      repoPath.startsWith("site/design-system/") ||
       repoPath.startsWith("site/pages/assets/design-system/")
     ) continue;
     for (

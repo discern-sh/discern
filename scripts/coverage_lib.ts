@@ -4,8 +4,8 @@
  *
  * The filter anchors each record's `SF:` path to `<repoRoot>/src/`. Anchoring
  * matters: a bare `/src/` substring also matches dependency and workspace
- * files (a `src/` directory inside `node_modules`, the site workspace's
- * `site/design-system/src/`), letting code outside the measured tree drag the
+ * files (a `src/` directory inside `node_modules` or a nested package), letting
+ * code outside the measured tree drag the
  * engine's number around. Extracted as a module so that definition is tested
  * and single-sourced — the metric and the operator table both derive from
  * this one parse.

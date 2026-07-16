@@ -52,9 +52,6 @@
     "check": "deno check",
     "gate": "deno task dev done",
     "site:build": "deno run --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
-    "design-system:check": "deno task --config site/design-system/deno.json --cwd site/design-system check",
-    "design-system:build": "deno task --config site/design-system/deno.json --cwd site/design-system build",
-    "design-system:verify": "deno task --config site/design-system/deno.json --cwd site/design-system verify",
     "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts",
     "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch"
   },
@@ -91,10 +88,6 @@
       "CLAUDE.md",
       "discern.toml",
       "dist/",
-      "site/design-system/dist/",
-      "site/design-system/node_modules/",
-      "site/design-system/src/generated/",
-      "site/design-system/styleguide/generated/",
       "project/map/10-installer/config-reference.md",
       "GEMINI.md",
       "PLAN.md",
@@ -131,9 +124,6 @@
       ".discern-help-docs/",
       "dist/",
       "site/build.ts",
-      "site/design-system/",
-      "site/design-system/node_modules/",
-      "site/design-system/styleguide/generated/",
       "site/page-src/",
       "templates/",
       "tests/fixtures/"
@@ -144,9 +134,6 @@
       ".claude/",
       ".discern-help-docs/",
       "dist/",
-      "site/design-system/dist/",
-      "site/design-system/node_modules/",
-      "site/design-system/styleguide/generated/",
       "templates/",
       "tests/fixtures/"
     ]
