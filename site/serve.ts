@@ -177,8 +177,7 @@ let routingPromise: Promise<SiteRouting> | undefined;
 export function liveHtmlRoutes(site: DocsSite): string[] {
   return [
     ...Object.keys(PAGES),
-    "/docs",
-    ...site.pages.map((page) => page.route),
+    ...site.sitemapRoutes,
   ];
 }
 
@@ -187,7 +186,7 @@ async function loadSiteRouting(): Promise<SiteRouting> {
   const liveRoutes = liveHtmlRoutes(site);
   const redirects = buildSiteRedirectTable(
     liveRoutes,
-    site.pages,
+    [...site.pages, ...site.decisions.pages],
     STATIC_REDIRECTS,
   );
   if (redirects.issues.length > 0) {

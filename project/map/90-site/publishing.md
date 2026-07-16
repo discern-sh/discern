@@ -38,7 +38,7 @@ The handler folds HTTP and `www.discern.sh` onto `https://discern.sh` with a
 both apex and `www` as custom domains in Deno Deploy, provision TLS for both,
 and create every DNS record Deploy supplies. URL-path variants and historical
 routes are then resolved by the same handler in one hop
-([ADR 0143](../_adr/0143-canonical-site-urls-and-one-hop-redirects.md)).
+([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
 
 An unknown path is a 404: the server has no evidence that it used to exist. Use
 410 only for a known public URL deliberately removed without a replacement,
@@ -93,7 +93,7 @@ One-time setup, using the console at <https://console.deno.com> and the
 
 Production is published only by
 [`.github/workflows/release.yml`](../../../.github/workflows/release.yml)
-([ADR 0144](../_adr/0144-production-site-deploys-only-from-release-tags.md)).
+([ADR 0145](../_adr/0145-production-site-deploys-only-from-release-tags.md)).
 Pushing a `v*` tag builds and publishes the binaries first. The dependent site
 job checks out the exact tag, refuses a tag/version mismatch, runs the site
 build, then sends that source snapshot to `deno deploy --prod`. Re-run that

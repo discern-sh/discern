@@ -34,6 +34,7 @@ The routes, from the handler's exported `PAGES` table:
 | `/design-system-demo`  | the generated design-system experiment | the same HTML                            |
 | `/content-design-demo` | the generated long-form content atlas  | the same HTML                            |
 | `/docs/…`              | the rendered manual                    | the page's raw Markdown                  |
+| `/docs/decisions/…`    | project-history decision records       | the record's raw Markdown                |
 | `/llms.txt`            | —                                      | the plaintext edition plus a docs index, |
 |                        |                                        | for every reader                         |
 | `/llms-full.txt`       | —                                      | the complete public Markdown projection  |
@@ -57,7 +58,7 @@ resolve with a 308 before routing, and a historical redirect is folded into the
 same hop. Destination pages own `redirect_from`; section-level moves live in
 `STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry
 refuses dead targets, collisions, chains, and loops
-([ADR 0143](../_adr/0143-canonical-site-urls-and-one-hop-redirects.md)).
+([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
 
 Every successful HTML response receives a canonical link, bounded description,
 Open Graph and Twitter fields, and the static branded card. Docs pages add a

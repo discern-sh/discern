@@ -1,4 +1,4 @@
-# ADR 0144: The production site deploys only from release tags
+# ADR 0145: The production site deploys only from release tags
 
 **Status**: accepted
 

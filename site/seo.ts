@@ -202,14 +202,17 @@ export function decorateHtmlPage(
   route: string,
   nonce: string,
 ): string {
-  const title = pageTitle(html);
+  const sourceTitle = pageTitle(html);
   const sourceDescription = pageDescription(html);
-  if (title === undefined || title.length === 0) {
+  if (sourceTitle === undefined || sourceTitle.length === 0) {
     throw new Error(`HTML route ${route} has no title`);
   }
   if (sourceDescription === undefined || sourceDescription.length === 0) {
     throw new Error(`HTML route ${route} has no description`);
   }
+  const title = sourceTitle.endsWith(" · discern.sh docs")
+    ? sourceTitle
+    : `${sourceTitle} · discern.sh docs`;
   const description = boundedDescription(title, sourceDescription);
   // Resource tags are active requests, unlike ordinary outbound anchors.
   // Legacy editions still name remote CSS/font/runtime providers in source;
@@ -220,6 +223,10 @@ export function decorateHtmlPage(
       /<script\b[^>]*src=["']https?:\/\/[^>]*>\s*<\/script>\s*/gi,
       "",
     );
+  output = output.replace(
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${htmlEscape(title)}</title>`,
+  );
   output = output.replace(
     /<meta\s+[^>]*name=["']description["'][^>]*>/i,
     `<meta name="description" content="${htmlEscape(description)}" />`,

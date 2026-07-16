@@ -44,16 +44,28 @@ function attr(
 }
 
 function titleOf(html: string): string {
-  return (/<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "")
-    .replaceAll("&amp;", "&");
+  return decodeHtml(
+    /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "",
+  );
 }
 
 function descriptionOf(html: string): string {
-  return attr(
-    html,
-    /<meta\s+[^>]*name=["']description["'][^>]*>/i,
-    "content",
-  ) ?? "";
+  return decodeHtml(
+    attr(
+      html,
+      /<meta\s+[^>]*name=["']description["'][^>]*>/i,
+      "content",
+    ) ?? "",
+  );
+}
+
+function decodeHtml(value: string): string {
+  return value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'");
 }
 
 function canonicalOf(html: string): string {
@@ -195,6 +207,13 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     `${page.entry.title} · discern.sh docs`,
   ]));
   docsTitles.set("/docs", "Documentation · discern.sh docs");
+  docsTitles.set(
+    site.decisions.route,
+    "Project decisions · discern.sh docs",
+  );
+  for (const page of site.decisions.pages) {
+    docsTitles.set(page.route, `${page.entry.title} · discern.sh docs`);
+  }
   const routes = liveHtmlRoutes(site);
   const seenTitles = new Set<string>();
 
@@ -214,6 +233,10 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     const title = titleOf(html);
     const description = descriptionOf(html);
     assert(title.length > 0, `${route} has a title`);
+    assert(
+      title.endsWith(" · discern.sh docs"),
+      `${route} follows the site title template`,
+    );
     assert(!seenTitles.has(title), `${route} has unique title ${title}`);
     seenTitles.add(title);
     const expectedDocsTitle = docsTitles.get(route);
@@ -253,7 +276,7 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
 
 Deno.test("every explicit Markdown edition declares its HTML canonical and noindex policy", async () => {
   const site = await loadDocsSite();
-  for (const route of ["/docs", ...site.pages.map((page) => page.route)]) {
+  for (const route of site.sitemapRoutes) {
     const response = await request(`${route}.md`);
     assertEquals(response.status, 200, route);
     assertEquals(

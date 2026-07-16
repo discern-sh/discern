@@ -3,7 +3,7 @@
 **Status**: accepted
 
 **Release alignment amendment**:
-[ADR 0144](0144-production-site-deploys-only-from-release-tags.md) changes the
+[ADR 0145](0145-production-site-deploys-only-from-release-tags.md) changes the
 production cadence from default-branch deploys to release-tag-only deploys. This
 ADR's in-repo, one-handler hosting decision remains active.
 
