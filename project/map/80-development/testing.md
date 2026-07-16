@@ -65,6 +65,13 @@ alone but fails in the full run" trap is exactly this failure).
   Each engine verb is exercised by a subprocess test that actually runs it
   through `runAgent`, so a new verb needs a test in `tests/engine_*` that drives
   it end to end.
+- **The map is gated like code.** `tests/map_integrity_test.ts` validates every
+  fenced `discern …` example against the live verb/flag registry, every
+  intra-map link and heading anchor against the shared renderer, and the
+  published tiers' audience boundary; `tests/cli_reference_codegen_test.ts`
+  holds the generated CLI reference to the registry. Writing docs? Quote real
+  commands and real paths — the gate checks them
+  ([ADR 0142](../_adr/0142-docs-integrity-gate-and-generated-cli-reference.md)).
 
 ## Coverage
 
