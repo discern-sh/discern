@@ -1,3 +1,7 @@
+---
+order: 20
+---
+
 # A walkthrough — one session, start to finish
 
 _What actually happens when you install discern, set it up through your coding

@@ -14,8 +14,8 @@ aliases:
 
 # Files & ownership
 
-_Every file discern creates or merges into, who owns each, its git posture,
-and the one command that removes the wiring._
+_Every file discern creates or merges into, who owns each, its git posture, and
+the one command that removes the wiring._
 
 discern writes one committed root file, one visible namespace, the agent files
 each vendor requires, and a short list of shims. A test fails the moment any
@@ -40,9 +40,9 @@ never rewrites these files.
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |
 | `discern/brief.md`    | The project brief captured at setup.                   |
 
-Each path is configurable (`[map].dir` can name any directory), and the map
-is discern's own tree: setup never points it at documentation you curate
-yourself ([ADR 0131](../_adr/0131-setup-never-adopts-existing-docs.md)).
+Each path is configurable (`[map].dir` can name any directory), and the map is
+discern's own tree: setup never points it at documentation you curate yourself
+([ADR 0131](../_adr/0131-setup-never-adopts-existing-docs.md)).
 
 ## Co-managed: tracked files discern shares with you
 
@@ -50,10 +50,11 @@ discern owns a delimited region of each and leaves the rest alone.
 
 - **`discern.toml`** — the one root file, your configuration. discern restores
   missing fixed sections and keys and replaces clean ruled banners from the
-  current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md));
-  it never touches values you set or comments outside those delimiters.
-- **The `.gitignore` block** — one `# --- discern ---` block listing the
-  ignored artifact kinds below. Your own rules outside the block are untouched.
+  current template
+  ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it never
+  touches values you set or comments outside those delimiters.
+- **The `.gitignore` block** — one `# --- discern ---` block listing the ignored
+  artifact kinds below. Your own rules outside the block are untouched.
 - **The per-agent integration files** — for each coding agent you configure,
   discern merges its MCP server, session hooks, and a couple of permission
   defaults into that agent's own config files (`.mcp.json`,
@@ -92,9 +93,9 @@ ignored and rebuild wherever the binary runs; the
 the binary sees.
 
 **Prefer the old untracked posture?** Ignore the compiled files in your own
-`.gitignore` rules, outside the managed block. The gate tolerates a missing
-copy and nothing nags. On `discern upgrade`, an older, wider block reconciles
-down to the enumerated form
+`.gitignore` rules, outside the managed block. The gate tolerates a missing copy
+and nothing nags. On `discern upgrade`, an older, wider block reconciles down to
+the enumerated form
 ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)); the compiled
 files then show as untracked and `discern status` recommends the one-time
 commit. discern never runs `git add` on your behalf.
@@ -102,9 +103,9 @@ commit. discern never runs `git add` on your behalf.
 ## What runs on your machine
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts`
-block: it runs the commands you configure. The gate runs exactly the commands
-in your `discern.toml`; a scope gate or a standard runs the command you wrote
-for it; a project script is your own executable. Read-only verbs (`status`,
+block: it runs the commands you configure. The gate runs exactly the commands in
+your `discern.toml`; a scope gate or a standard runs the command you wrote for
+it; a project script is your own executable. Read-only verbs (`status`,
 `doctor`, the docs browsers) never run any of them. discern makes zero network
 calls and ships no telemetry; getting a newer discern is a deliberate act
 (re-running your installer), never an automatic update.
@@ -112,9 +113,9 @@ calls and ships no telemetry; getting a newer discern is a deliberate act
 ## Removing it all
 
 `discern uninstall` removes the generated agent files and materialized skills,
-strips discern's entries from the co-managed files, and removes the
-`.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)).
-Preview with `discern uninstall --dry-run`.
+strips discern's entries from the co-managed files, and removes the `.gitignore`
+block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview
+with `discern uninstall --dry-run`.
 
 It keeps your content: `discern.toml` and the whole `discern/` namespace stay —
 plain files, valuable without the tool. If it can't resolve its bundled
@@ -127,12 +128,12 @@ The binary itself is one file on your `PATH`, removed by hand — the file
 
 ## Where it lives in code
 
-| Concept                            | File                                                                             |
-| ---------------------------------- | -------------------------------------------------------------------------------- |
-| Artifact kinds and postures        | [`src/lib/providers.ts`](../../../src/lib/providers.ts) (`agentArtifactPosture`) |
-| The write-surface guard            | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
-| The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)              |
-| Uninstall                          | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                |
+| Concept                        | File                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| Artifact kinds and postures    | [`src/lib/providers.ts`](../../../src/lib/providers.ts) (`agentArtifactPosture`)  |
+| The write-surface guard        | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
+| The managed `.gitignore` block | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)               |
+| Uninstall                      | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                 |
 
 ## See also
 

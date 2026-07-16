@@ -39,10 +39,9 @@ tics, the delight ceiling. Write to both; when a question is about shape or
 size, this brief answers it, and when it is about word choice, stance, or
 temperature, the skill answers it.
 
-The map is public documentation: the published tiers render on the docs site,
-in `discern help`, and over MCP. Three approved pages are the reference corpus
-for what a finished page reads like — the
-[docs landing page](../README.md), the
+The map is public documentation: the published tiers render on the docs site, in
+`discern help`, and over MCP. Three approved pages are the reference corpus for
+what a finished page reads like — the [docs landing page](../README.md), the
 [quickstart](../10-installer/quickstart.md), and
 [Files & ownership](../10-installer/artifact-ownership.md). Calibrate against
 them, not against older neighbours.
@@ -58,8 +57,8 @@ them, not against older neighbours.
 3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to
    entries here; do **not** redefine terms in your leaves.
 4. **The [voice skill](../../skills/discern-voice-and-tone/SKILL.md)** — the
-   register your pages hold, and the banned moves the gate's prose lint
-   watches for.
+   register your pages hold, and the banned moves the gate's prose lint watches
+   for.
 5. **Your scope manifest** at `map/_internal/scopes/{your-subtree}.md`. It lists
    the source files to read, the area you own, and known integration points /
    overlap warnings.
@@ -73,8 +72,8 @@ them, not against older neighbours.
 
 Your subtree serves a layered audience:
 
-- **`README.md` in your subtree** — newcomers and visitors. 200–350 words,
-  plain language, no internal jargon. The canonical capitalised nouns from
+- **`README.md` in your subtree** — newcomers and visitors. 200–350 words, plain
+  language, no internal jargon. The canonical capitalised nouns from
   `concepts.md` are fine. End with a table of the leaves, one line each.
 - **Child docs (leaves)** — users of discern reading the published docs, plus
   future-you and the AI agents grounding a change. 400–800 words each. Precise,
@@ -97,7 +96,7 @@ code subsystem, and remains the default for leaves in a numbered subtree.
 
 ```markdown
 ---
-title: Short label            # only when the H1 runs long
+title: Short label # only when the H1 runs long
 description: One-line summary for search results and section tables.
 order: NN
 ---
@@ -150,33 +149,35 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 ## Frontmatter
 
-Every published page carries frontmatter; the gate validates it against a
-closed schema ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)),
+Every published page carries frontmatter; the gate validates it against a closed
+schema
+([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)),
 so an unknown key or out-of-shape value fails `discern done` rather than
 vanishing. The keys:
 
-| Key             | Rule                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| `title`         | Short label for nav, breadcrumb, and `<title>` — max 48 chars. Only when the H1 runs long.       |
-| `description`   | 50–160 chars. Fronts search results and section tables; say what the page does, no padding.      |
-| `order`         | Non-negative integer; unique among published siblings; leave gaps of 10.                         |
-| `publish`       | `false` withholds the page from every published surface. The sole page-level withhold.           |
-| `redirect_from` | Absolute historical routes this page now answers for (`/docs/...`, no trailing slash).           |
-| `aliases`       | Search synonyms: renamed terms, CLI spellings.                                                   |
+| Key             | Rule                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `title`         | Short label for nav, breadcrumb, and `<title>` — max 48 chars. Only when the H1 runs long.  |
+| `description`   | 50–160 chars. Fronts search results and section tables; say what the page does, no padding. |
+| `order`         | Non-negative integer; unique among published siblings; leave gaps of 10.                    |
+| `publish`       | `false` withholds the page from every published surface. The sole page-level withhold.      |
+| `redirect_from` | Absolute historical routes this page now answers for (`/docs/...`, no trailing slash).      |
+| `aliases`       | Search synonyms: renamed terms, CLI spellings.                                              |
 
-Frontmatter is metadata, not content: rendered surfaces strip the block, and
-the H1 stays the long-form canonical title on the page. Only flat `key: value`
+Frontmatter is metadata, not content: rendered surfaces strip the block, and the
+H1 stays the long-form canonical title on the page. Only flat `key: value`
 scalars and `- item` lists parse.
 
 ## ADR citations
 
-Cite decision records as liberally as reasoning requires — density is handled
-at render time, not by you ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)).
-Every citation in a published tier takes the one strippable form: a
-parenthetical group of linked citations at clause end, e.g.
-`([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several.
-The invariant the gate enforces: **the sentence reads correctly with the
-citation deleted** — a citation is never the grammatical subject.
+Cite decision records as liberally as reasoning requires — density is handled at
+render time, not by you
+([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). Every citation in a
+published tier takes the one strippable form: a parenthetical group of linked
+citations at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated
+when a clause cites several. The invariant the gate enforces: **the sentence
+reads correctly with the citation deleted** — a citation is never the
+grammatical subject.
 
 ---
 

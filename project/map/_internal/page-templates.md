@@ -29,8 +29,8 @@ _One-line summary._
 What this is and why it exists, in 2–3 short paragraphs a newcomer can read in
 60 seconds. Name the one or two ideas worth understanding before the leaves.
 
-| Read next    | What's in it   |
-| ------------ | -------------- |
+| Read next      | What's in it   |
+| -------------- | -------------- |
 | [<leaf>](x.md) | One line each. |
 ```
 
@@ -69,10 +69,10 @@ You now have <the outcome>. Next: [<the deeper page>](x.md).
 
 ## Guide / concept — 500–900 words
 
-Explains one mechanism or workflow: what it is, how it works, when to use it
-and when not to. Subsystem leaves are this shape specialised for code (the
-brief's per-doc template, 400–800 hard ceiling) — with "Where it lives in
-code" and "Current state & gotchas" carrying every file path and footgun.
+Explains one mechanism or workflow: what it is, how it works, when to use it and
+when not to. Subsystem leaves are this shape specialised for code (the brief's
+per-doc template, 400–800 hard ceiling) — with "Where it lives in code" and
+"Current state & gotchas" carrying every file path and footgun.
 
 ```markdown
 ---
@@ -147,6 +147,6 @@ _Match your symptom to a heading; each gives the cause and the fix._
 
 ## `<the error text or symptom>`
 
-What happened and why, in a sentence. Then the fix, imperative, fenced if it's
-a command. Escape hatch last, if one exists.
+What happened and why, in a sentence. Then the fix, imperative, fenced if it's a
+command. Escape hatch last, if one exists.
 ```

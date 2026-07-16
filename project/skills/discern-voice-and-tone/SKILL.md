@@ -243,22 +243,22 @@ assigns each page's job and budget; these govern how the page sounds.
    what this is, or what to do. No wind-up, no staged reveal.
 2. **One primary job per page.** Material serving a different job moves to the
    page that owns it.
-3. **Literal, task-shaped headings.** A heading states what the section
-   contains ("Install the binary"), never strains to be quotable.
-4. **Short paragraphs**, one idea each. Address the reader as "you"; write
-   steps in the imperative.
+3. **Literal, task-shaped headings.** A heading states what the section contains
+   ("Install the binary"), never strains to be quotable.
+4. **Short paragraphs**, one idea each. Address the reader as "you"; write steps
+   in the imperative.
 5. **Term discipline.** The glossary is the authority. Introduce a term once,
    then use it identically; synonym rotation reads as new concepts.
 6. **Prerequisites, risks, and limitations come early** — before the reader has
    invested, not after.
 7. **Code grounding lives in tables.** Source paths, symbol names, and test
-   names belong in "Where it lives in code" tables and "Current state &
-   gotchas" sections — never woven through running prose.
+   names belong in "Where it lives in code" tables and "Current state & gotchas"
+   sections — never woven through running prose.
 8. **ADR citations take the strippable form**: a parenthetical group of linked
-   citations at clause end, e.g. `([ADR 0141](../_adr/0141-….md))`. The
-   sentence must read correctly with the citation deleted — a citation never
-   carries the grammar. Cite as liberally as reasoning requires; render-time
-   stripping keeps human pages clean.
+   citations at clause end, e.g. `([ADR 0141](../_adr/0141-….md))`. The sentence
+   must read correctly with the citation deleted — a citation never carries the
+   grammar. Cite as liberally as reasoning requires; render-time stripping keeps
+   human pages clean.
 9. **End when the reader has what they need.** No closing recap on a page under
    ~800 words. On a genuinely long page, one plain sentence of "next steps"
    beats a summary section restating what the reader just read.
@@ -401,8 +401,8 @@ the thousand variants not listed here.
 
 The mechanical tells are encoded as a Vale style at
 [`.vale/Discern/`](../../../.vale/Discern/), which lints every map page in the
-gate: banned words and phrases, contrast-frames, self-narration, recap
-headings, em-dash chains, and the rest, at warning severity.
+gate: banned words and phrases, contrast-frames, self-narration, recap headings,
+em-dash chains, and the rest, at warning severity.
 `tests/voice_vale_parity_test.ts` keeps this file's banned-words table and that
 style from drifting apart — add a word here and the gate fails until the style
 knows it too.
@@ -485,13 +485,13 @@ top, and present only copy that comes through clean.
 8. **Count the winks.** One per page, none in reference, troubleshooting, or
    errors; personification at most once.
 9. **Docs pages only: the shape.** The first paragraph does the job; headings
-   are literal; the word count sits inside the page-type budget; citations
-   strip cleanly; the page ends when the job is done.
+   are literal; the word count sits inside the page-type budget; citations strip
+   cleanly; the page ends when the job is done.
 10. **Temperature, both directions.** Find the most excited sentence in the
-    draft; cool it down or cut it. Then check for a pulse: the contractions,
-    the direct "you," and the page's one wink should have survived the editing.
-    If the passes stripped all of those out, you overcorrected — restore the
-    warmth without restoring the hype.
+    draft; cool it down or cut it. Then check for a pulse: the contractions, the
+    direct "you," and the page's one wink should have survived the editing. If
+    the passes stripped all of those out, you overcorrected — restore the warmth
+    without restoring the hype.
 
 ## Worked example
 

@@ -1,3 +1,7 @@
+---
+order: 60
+---
+
 # Migrations
 
 _The versioned chain that evolves an install's shape, one idempotent step at a

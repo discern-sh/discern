@@ -9,17 +9,16 @@ aliases:
 
 # The discern documentation
 
-_The manual for discern: the same pages on discern.sh, in `discern help`, and
-in your coding agent's MCP tools._
+_The manual for discern: the same pages on discern.sh, in `discern help`, and in
+your coding agent's MCP tools._
 
-discern is documented once. This tree renders on the site, in your terminal,
-and over MCP, and it describes only what exists in code today — present tense,
-no "will eventually." When a change alters something these pages describe, the
-docs change in the same commit; a stale page is treated as a defect, not a
-chore.
+discern is documented once. This tree renders on the site, in your terminal, and
+over MCP, and it describes only what exists in code today — present tense, no
+"will eventually." When a change alters something these pages describe, the docs
+change in the same commit; a stale page is treated as a defect, not a chore.
 
-New here? Start with [orientation](00-orientation/): the concepts, the
-glossary, and the shape of the system. Then follow the reading order below.
+New here? Start with [orientation](00-orientation/): the concepts, the glossary,
+and the shape of the system. Then follow the reading order below.
 
 ## The sections
 
@@ -36,19 +35,18 @@ Three more trees serve contributors rather than users and stay out of
 `discern help` ([ADR 0039](_adr/0039-bundled-help-docs.md)):
 [50-engine-internals/](50-engine-internals/) documents the TypeScript engine,
 [80-development/](80-development/) covers working on discern itself, and
-[90-site/](90-site/) covers discern.sh. The records under [_adr/](_adr/) are
-the project's decision history, published on the site's decisions pages and
-never embedded in customer binaries
+[90-site/](90-site/) covers discern.sh. The records under [_adr/](_adr/) are the
+project's decision history, published on the site's decisions pages and never
+embedded in customer binaries
 ([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
 ## Browsing from the terminal
 
 `discern help` serves these pages inside any project discern is installed in —
 `discern help` for the index, `discern help config-reference` for one page,
-`--list` / `--json` / `--raw` for scripts. `discern map` is a different verb
-for a different tree: it opens the documentation map agents maintain for _your_
-project's code, never this manual
-([ADR 0120](_adr/0120-launch-verb-canon.md)).
+`--list` / `--json` / `--raw` for scripts. `discern map` is a different verb for
+a different tree: it opens the documentation map agents maintain for _your_
+project's code, never this manual ([ADR 0120](_adr/0120-launch-verb-canon.md)).
 
 ## Who writes this
 

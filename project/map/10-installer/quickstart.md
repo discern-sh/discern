@@ -34,13 +34,13 @@ In your project, tell your agent:
 > Set this project up with discern.
 
 The agent runs `discern`, and discern walks it through a staged setup
-([ADR 0075](../_adr/0075-setup-pages-and-per-step-proof.md)). The moment that
+([ADR 0075](../_adr/0075-setup-staged-handshake.md)). The moment that
 matters is consent: before writing anything, discern serves a message for the
-agent to relay, naming exactly what it will write: one `discern.toml` at
-the repo root, a visible `discern/` folder for content you own, the
-documentation map, the agent files each coding agent reads, and a delimited
-`.gitignore` block. Everything authored is plain Markdown, and
-`discern uninstall` takes the wiring back out, so there's no lock-in to weigh.
+agent to relay, naming exactly what it will write: one `discern.toml` at the
+repo root, a visible `discern/` folder for content you own, the documentation
+map, the agent files each coding agent reads, and a delimited `.gitignore`
+block. Everything authored is plain Markdown, and `discern uninstall` takes the
+wiring back out, so there's no lock-in to weigh.
 
 Answer in plain language — "yes, go ahead; set up Claude Code and Codex." The
 agent can't proceed until you've said yes
@@ -56,8 +56,8 @@ guidance and the first docs under that live gate.
 When the scaffold is ready, the agent runs `discern setup done`. This is a
 proof, not a rubber stamp: discern refreshes the generated files, runs
 `discern doctor`, runs the full gate, and then runs the gate _again_ in a
-throwaway worktree copy — so a project that would break in an isolated
-workspace can't complete setup silently
+throwaway worktree copy — so a project that would break in an isolated workspace
+can't complete setup silently
 ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 Two things remain for you:
@@ -71,8 +71,8 @@ Two things remain for you:
 
 In the fresh session, ask for a small, real change. Watch for four moments:
 
-1. The agent runs `discern start` and gets an isolated worktree on an
-   `agent/…` branch — your checkout stays clean.
+1. The agent runs `discern start` and gets an isolated worktree on an `agent/…`
+   branch — your checkout stays clean.
 2. It makes the change there, like any other work.
 3. It runs `discern done`. The gate formats, builds, lints, and tests the whole
    tree; a failure hands the agent the exact failing command and its output, so

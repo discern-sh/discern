@@ -6,8 +6,8 @@ ignorecase: true
 level: warning
 nonword: true
 tokens:
-  - ', every time[.,]'
-  - ', by design[.,]'
-  - ', at scale[.,]'
-  - ', full stop[.,]'
-  - ', no exceptions[.,]'
+  - ", every time[.,]"
+  - ", by design[.,]"
+  - ", at scale[.,]"
+  - ", full stop[.,]"
+  - ", no exceptions[.,]"

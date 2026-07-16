@@ -5,4 +5,4 @@ message: "More than one em dash in this sentence: rebuild it with a period, colo
 level: warning
 scope: sentence
 max: 1
-token: '—'
+token: "—"
