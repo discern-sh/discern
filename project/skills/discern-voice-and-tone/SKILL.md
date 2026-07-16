@@ -240,7 +240,10 @@ Map pages carry the docs mix above, plus these rules. The documenter brief
 assigns each page's job and budget; these govern how the page sounds.
 
 1. **Answer first.** The opening paragraph does the page's job in miniature —
-   what this is, or what to do. No wind-up, no staged reveal.
+   what this is, or what to do. No wind-up, no staged reveal. And answer the
+   _reader's_ question, not the project's: a landing or overview page orients a
+   newcomer — what this is, where to start — before any account of how the docs
+   are produced or maintained.
 2. **One primary job per page.** Material serving a different job moves to the
    page that owns it.
 3. **Literal, task-shaped headings.** A heading states what the section contains
@@ -264,6 +267,11 @@ assigns each page's job and budget; these govern how the page sounds.
    beats a summary section restating what the reader just read.
 10. **Every example is minimal, realistic, copyable, and verified** against the
     live tree before it ships.
+11. **Spend absolutes where they're load-bearing.** "never," "always," and
+    "exactly" state guarantees, and the docs trade on them — but a page that
+    re-negates in every paragraph flattens its real guarantees into cadence.
+    Keep the absolute where the guarantee is the fact; cut it where it's there
+    for the beat.
 
 **Page budgets** (the documenter brief binds where it's stricter):
 
@@ -332,7 +340,8 @@ them as hard failures in user-facing prose. The mechanically checkable subset is
 mirrored as lint — see "Enforcement" below.
 
 1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," "X was never the
-   point. Y is."
+   point. Y is" — and the reversed form, "X, not Y." / "X, never Y." ("a defect,
+   not a chore"; "a decision you make, never an automatic one").
    - Rejected: "It doesn't write your code. It judges it."
    - Fix: state the true half plainly. "discern uses no LLM. Your agent uses
      discern."
@@ -342,9 +351,14 @@ mirrored as lint — see "Enforcement" below.
 2. **Aphoristic antithesis:** the epigram cadence — short mirrored clauses
    striking a pose ("Agents forget. The repo remembers."). One can earn its
    place; it spends the page's delight budget. The tic is reaching for it
-   several times per page, which turns documentation into a keynote.
+   several times per page, which turns documentation into a keynote. The mundane
+   form counts too: two half-clauses sharing one verb for rhythm — "Install
+   takes about a minute; setup a few more." State the fact once, plainly:
+   "Installation and setup only takes a few minutes."
 3. **Self-narration:** announcing importance instead of stating the point —
-   "this is the crux," "here's the key insight," "the heart of the matter."
+   "this is the crux," "here's the key insight," "the heart of the matter," and
+   the colon-pivot opener that pre-announces its own sentence: "The moment that
+   matters is consent: before writing anything…" (start at the consent part).
    Budget: zero. If the point matters, say the point; the reader decides what's
    crucial.
 4. **Closing recaps:** a "Summary" / "The short version" section restating the
@@ -378,6 +392,12 @@ mirrored as lint — see "Enforcement" below.
     others are inferior. Respect the reader; never recruit them into a club.
 15. **Repeated anthropomorphism:** see the personification rule under Delight.
     One per page at most, prefer zero.
+16. **Counting the set out loud:** "Watch for four moments," "Two things
+    remain," "one of three ownership kinds." The spelled-out count duplicates
+    the list it introduces, so the sentence silently lies the day the set grows
+    — counted sets are a standing source of doc drift. Let the list carry the
+    count ("Watch what the agent does:"), or name the members. A number is
+    welcome when the number itself is the fact ("one file: `discern.toml`").
 
 ## Banned words
 
@@ -392,6 +412,8 @@ the thousand variants not listed here.
 | "leverage," "utilize," "enables you to," "facilitate"                                                      | Vendor-speak; a friend would say "use"                                         | The plain verb                                     |
 | "We're excited/thrilled to announce"                                                                       | Announces the emotion instead of the thing                                     | Say the thing                                      |
 | "Please note that," "It's worth noting"                                                                    | Throat-clearing                                                                | Start with the fact                                |
+| "posture"                                                                                                  | Gym vocabulary for file state; readers picture ergonomics                      | "tracked or ignored," "how git treats it"          |
+| "the shape of"                                                                                             | Geometry vocabulary for architecture; names no actual thing                    | "how X fits together," or name the parts           |
 | "You may want to consider"                                                                                 | A stack of hedges where the reader came for a recommendation                   | "Do X," or "Do X unless Y"                         |
 | Passive-voice fault-dodging ("an error was encountered")                                                   | Hides the actor and dodges the blame                                           | "We couldn't…" / "`discern.toml` is missing"       |
 | Exclamation points                                                                                         | Unearned enthusiasm reads as sales                                             | A period. Budget: about one per document, if that. |
@@ -401,8 +423,13 @@ the thousand variants not listed here.
 
 The mechanical tells are encoded as a Vale style at
 [`.vale/Discern/`](../../../.vale/Discern/), which lints every map page in the
-gate: banned words and phrases, contrast-frames, self-narration, recap headings,
-em-dash chains, and the rest, at warning severity.
+gate. Severity follows legitimacy: a pattern with zero legitimate uses
+(self-narration, recap headings, hedging, vendor-speak, banned jargon) is an
+**error** — `discern prepare` and `discern done` block it and name the file and
+line. A pattern that needs your judgment (contrast-frames, em-dash chains,
+counted sets) is a **warning**, and the gate stays quiet about warnings — so run
+the page-level loop yourself, `discern script prose-page <page…>`, and hold new
+or rewritten pages to the reference corpus's bar: zero Discern alerts.
 `tests/voice_vale_parity_test.ts` keeps this file's banned-words table and that
 style from drifting apart — add a word here and the gate fails until the style
 knows it too.

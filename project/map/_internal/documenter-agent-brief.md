@@ -212,9 +212,13 @@ grammatical subject.
    link is almost always enough. Reserve code blocks for a small grammar (a
    config shape) or a genuinely tricky interface.
 10. **Register belongs to the voice skill.** Hold its docs-surface mix — plain,
-    precise, convinced — and its banned moves; the gate's prose lint warns on
-    the mechanical tells. Delight is a ceiling of one per page and zero in
-    reference and troubleshooting material.
+    precise, convinced — and its banned moves. The gate's prose lint blocks the
+    zero-legitimate-use tells outright and holds the judgment-tier ones as
+    warnings the gate stays quiet about, so before handing off, run
+    `discern script prose-page <page…>` on every page you wrote or rewrote: the
+    bar is zero Discern alerts, the same bar the reference corpus measures.
+    Delight is a ceiling of one per page and zero in reference and
+    troubleshooting material.
 
 ---
 
