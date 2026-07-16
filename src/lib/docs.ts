@@ -89,7 +89,7 @@ export interface DocsTree {
   entries: DocEntry[];
 }
 
-/** One numbered Architecture Decision Record projected from a docs tree. */
+/** One numbered Architecture Decision Record projected from the map. */
 export interface AdrRecord {
   entry: DocEntry;
   /** The stable four-digit record number. */
