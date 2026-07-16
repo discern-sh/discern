@@ -534,7 +534,7 @@ Usage: `discern help [target] [options]`
 | --- | --- |
 | `--raw` | Print a doc's pristine Markdown source instead of rendering it. |
 | `--list` | Print a plain table of contents and exit (never interactive). |
-| `--adr` | Also surface discern's Architecture Decision Records (hidden by default). |
+| `--adr` | Browse decision records in a source checkout, or show their public location. |
 | `--no-pager` | Don't page rendered output through $PAGER. |
 | `--width <cols>` | Wrap width for rendered output. |
 | `--export <scope>` | Concatenate Markdown to stdout: public. |
