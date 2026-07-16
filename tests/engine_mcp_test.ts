@@ -26,6 +26,7 @@ import {
 } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { withTempDir } from "./helpers.ts";
+import { stageBundledDocs } from "../scripts/build.ts";
 import {
   addWorktree,
   DENO_JSON,
@@ -140,11 +141,14 @@ class McpClient {
   }
 }
 
-async function spawnMcp(dir: string): Promise<McpClient> {
+async function spawnMcp(
+  dir: string,
+  extraEnv: Record<string, string> = {},
+): Promise<McpClient> {
   const child = new Deno.Command("deno", {
     args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, "mcp"],
     cwd: dir,
-    env: await engineEnv(),
+    env: { ...await engineEnv(), ...extraEnv },
     stdin: "piped",
     stdout: "piped",
     stderr: "null",
@@ -910,6 +914,71 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     assertEquals(
       miss.result.structuredContent.data.suggestions[0].slug,
       "config-reference",
+    );
+
+    assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: help tool and resources serve exactly the staged public set", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const source = join(dir, "source-map");
+    const files: Record<string, string> = {
+      "README.md": "# Public front door\n",
+      "00-orientation/README.md": "# Orientation\n",
+      "00-orientation/guide.md": "# Public guide\n\nVisible.\n",
+      "00-orientation/withheld.md": "---\npublish: false\n---\n# Withheld\n",
+      "_adr/0001-internal.md": "# Internal decision\n",
+    };
+    for (const [rel, content] of Object.entries(files)) {
+      const path = join(source, rel);
+      await Deno.mkdir(join(path, ".."), { recursive: true });
+      await Deno.writeTextFile(path, content);
+    }
+    const staged = join(dir, "staged-help");
+    const copied = await stageBundledDocs(source, staged);
+    const expectedPaths = copied.map((rel) => `staged-help/${rel}`);
+
+    const mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await mcp.recv();
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "discern_help", arguments: {} },
+    });
+    const tool = await mcp.recv();
+    const toolPaths = tool.result.structuredContent.data.docs.map(
+      (doc: { path: string }) => doc.path,
+    );
+    assertEquals(toolPaths, expectedPaths);
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "resources/read",
+      params: { uri: "discern://help" },
+    });
+    const resource = await mcp.recv();
+    const resourcePaths = JSON.parse(resource.result.contents[0].text).docs.map(
+      (doc: { path: string }) => doc.path,
+    );
+    assertEquals(resourcePaths, expectedPaths);
+    assert(
+      resourcePaths.every((path: string) =>
+        !path.includes("withheld") && !path.includes("_adr")
+      ),
+      "MCP help must expose neither withheld pages nor internal records",
     );
 
     assertEquals(await mcp.close(), 0);

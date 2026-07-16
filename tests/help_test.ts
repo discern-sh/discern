@@ -16,6 +16,7 @@ import {
   COMMAND_SYNONYM_SUGGESTIONS,
   RETIRED_COMMAND_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
+import { stageBundledDocs } from "../scripts/build.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
@@ -44,11 +45,11 @@ async function makeHelpFixture(
   const help = join(dir, "helpdocs");
   const files: Record<string, string> = {
     "README.md": "# discern documentation\n\nWelcome.\n",
-    "00-intro/README.md": "# Intro\n",
-    "00-intro/concepts.md": "# Concepts at a glance\n\n" +
+    "00-orientation/README.md": "# Intro\n",
+    "00-orientation/concepts.md": "# Concepts at a glance\n\n" +
       "The concepts body, decided early ([ADR 0001](../_adr/0001-first.md)).\n",
-    "00-intro/glossary.md": "# Glossary\n",
-    "00-intro/hidden.md":
+    "00-orientation/glossary.md": "# Glossary\n",
+    "00-orientation/hidden.md":
       "---\npublish: false\n---\n# Hidden draft\n\nWithheld.\n",
     "_adr/0001-first.md": "# ADR 0001: First\n",
     "_internal/brief.md": "# Documenter brief\n",
@@ -184,7 +185,7 @@ Deno.test("help --list prints a grouped TOC titled `discern help`", async () => 
     );
     assertEquals(code, 0);
     assertStringIncludes(stdout, "discern help");
-    assertStringIncludes(stdout, "00-intro/");
+    assertStringIncludes(stdout, "00-orientation/");
     assertStringIncludes(stdout, "Concepts at a glance");
   });
 });
@@ -221,14 +222,17 @@ Deno.test("help <near miss> --json suggests valid doc targets", async () => {
     assertEquals(res.error, "not_found");
     assertStringIncludes(res.message, "Closest match");
     assertEquals(res.data.suggestions[0].slug, "concepts");
-    assertEquals(res.data.suggestions[0].path, "helpdocs/00-intro/concepts.md");
+    assertEquals(
+      res.data.suggestions[0].path,
+      "helpdocs/00-orientation/concepts.md",
+    );
   });
 });
 
 Deno.test("help <ambiguous> --json reports ambiguous with candidates", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);
-    // README exists at the root and under 00-intro/ → a bare "README" is ambiguous.
+    // README exists at the root and under 00-orientation/ → a bare "README" is ambiguous.
     const { code, stdout } = await runCli(
       ["help", "README", "--json"],
       dir,
@@ -320,6 +324,35 @@ Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_private", asy
     );
     assertEquals(withoutAdr.code, 1);
     assertEquals(JSON.parse(withoutAdr.stdout).error, "not_found");
+  });
+});
+
+Deno.test("installed help --adr points to the public decision archive", async () => {
+  await withTempDir(async (dir) => {
+    const source = await makeHelpFixture(dir);
+    const staged = join(dir, "staged-help");
+    await stageBundledDocs(source, staged);
+
+    const json = await runCli(
+      ["help", "--adr", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: staged },
+    );
+    assertEquals(json.code, 0);
+    const result = JSON.parse(json.stdout);
+    assertEquals(result.ok, true);
+    assertEquals(result.verb, "help");
+    assertStringIncludes(result.message, "not bundled with installed binaries");
+    assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
+    assert(!result.message.includes("0001-first"));
+
+    const human = await runCli(
+      ["help", "--adr"],
+      dir,
+      { DISCERN_DOCS_DIR: staged },
+    );
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stdout, "https://discern.sh/docs/decisions");
   });
 });
 
@@ -431,6 +464,15 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
     ),
     "the dogfood index must exclude discern's own internal subtrees",
   );
+
+  const decision = await runCli(
+    ["help", "--adr", "0141-adr-citations-strip-at-render", "--json"],
+    REPO_ROOT,
+  );
+  assertEquals(decision.code, 0);
+  const dres = JSON.parse(decision.stdout);
+  assertEquals(dres.ok, true);
+  assertEquals(dres.data.doc.slug, "0141-adr-citations-strip-at-render");
 });
 
 // ── `help <verb>` fallthrough ────────────────────────────────────────────────

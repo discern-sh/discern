@@ -203,6 +203,11 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
     source: "src/commands/docs.ts",
     via: "exportDocs filters the public scope through publicDocs",
   },
+  {
+    name: "help-staging",
+    source: "scripts/build.ts",
+    via: "stageBundledDocs copies only entries admitted by isPublicDoc",
+  },
 ];
 
 /**
@@ -210,13 +215,7 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
  * The parity guard asserts these do NOT yet consume the predicate — the day
  * one does, it must move to {@link PUBLIC_DOC_SURFACES} or the guard fails.
  */
-export const PUBLIC_DOC_SURFACES_PENDING: readonly PublicDocSurface[] = [
-  {
-    name: "help-staging",
-    source: "scripts/build.ts",
-    via: "the binary embed stages only published docs (brief 1G wires it)",
-  },
-];
+export const PUBLIC_DOC_SURFACES_PENDING: readonly PublicDocSurface[] = [];
 
 /** One page a redirect registry is built over: its live route and the
  * retired routes its frontmatter claims (`redirect_from:`). */
