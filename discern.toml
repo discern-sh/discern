@@ -129,10 +129,11 @@ smoke     = "deno task dev --version"
 
 # `prose` lints the map with Vale at the check stage — error-severity findings block
 # the gate; the advisory tiers (warnings, suggestions) are held by the
-# [standards.prose] ceiling instead.
+# [standards.prose] ceiling instead. The wrapper stages a frontmatter-blanked
+# mirror first (scripts/prose_lib.ts): Vale measures prose, never metadata.
 [checks.prose]
 stage    = "check"
-run      = "vale --minAlertLevel error \"${map.dir}\""
+run      = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts \"${map.dir}\""
 provides = "docs prose lint (Vale; error-severity findings block the gate)"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -381,7 +382,13 @@ per       = { words = "${map.dir}**" }
 scale     = 1000
 limit     = 14.27
 run       = "deno task prose \"${map.dir}\""
-inputs    = ["${map.dir}**", ".vale.ini", "scripts/prose.ts"]
+inputs    = [
+  "${map.dir}**",
+  ".vale.ini",
+  "scripts/prose.ts",
+  "scripts/prose_lib.ts",
+  "src/lib/frontmatter.ts",
+]
 
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
@@ -429,7 +436,11 @@ per       = "public_doc_words"
 scale     = 10000
 limit     = 7.58
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
-inputs    = ["${map.dir}**", "scripts/public_doc_density.ts"]
+inputs    = [
+  "${map.dir}**",
+  "scripts/public_doc_density.ts",
+  "src/lib/frontmatter.ts",
+]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate] — ergonomics for the parallel gate stages (and scope gates). These

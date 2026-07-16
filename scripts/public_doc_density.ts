@@ -18,6 +18,7 @@ import {
 } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 
 interface PublicDocMetrics {
   leaves: number;
@@ -52,7 +53,8 @@ async function measurePublicDocs(docsDir: string): Promise<PublicDocMetrics> {
       }
       if (!entry.isFile || !isMarkdown(entry.name)) continue;
 
-      const text = await Deno.readTextFile(path);
+      // Words measure PROSE: the frontmatter block is metadata, not content.
+      const text = parseFrontmatter(await Deno.readTextFile(path)).body;
       words += wordCount(text);
       if (basename(entry.name) !== "README.md") {
         leaves++;

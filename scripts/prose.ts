@@ -23,6 +23,7 @@
 import { dirname, fromFileUrl } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
+import { stageProseInput } from "./prose_lib.ts";
 
 interface Alert {
   Severity: string;
@@ -34,11 +35,15 @@ interface Alert {
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const docsDir = Deno.args[0] ??
   resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+// Measure PROSE, not metadata: Vale reads a staged mirror with frontmatter
+// blanked (scripts/prose_lib.ts) so a metadata block never counts as an alert.
+const stage = await stageProseInput(docsDir);
 const run = await new Deno.Command("vale", {
-  args: ["--output=JSON", docsDir],
+  args: ["--output=JSON", stage],
   stdout: "piped",
   stderr: "piped",
 }).output();
+await Deno.remove(stage, { recursive: true }).catch(() => {});
 
 const stdout = new TextDecoder().decode(run.stdout);
 let report: Record<string, Alert[]>;
