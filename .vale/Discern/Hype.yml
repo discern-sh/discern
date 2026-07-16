@@ -3,7 +3,7 @@
 extends: existence
 message: "'%s' is hype vocabulary: state the sourced fact that earned it, or cut it."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - powerful
   - robust

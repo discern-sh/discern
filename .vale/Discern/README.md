@@ -14,11 +14,15 @@ Two rules of the pairing:
   two surfaces move together. The style may encode _more_ than the table (the
   skill's banned _moves_, e.g. contrast-frames); the table may never encode more
   than the style.
-- **Severity policy: nothing here is an error.** Error-severity findings block
-  the gate (`[checks.prose]`), and semantic voice judgment stays with the writer
-  — a page can pass every rule here and still fail the skill. These rules warn
-  (`suggestion` for the highest-noise words) so the density standard tracks them
-  while humans keep the verdict.
+- **Severity policy: split by legitimacy.** A rule whose pattern has zero
+  legitimate uses (self-narration, recap headings, hedging stacks, vendor-speak,
+  banned jargon) is an `error`: `[checks.prose]` blocks the gate and the
+  diagnostic names the file and line. A rule that needs the writer's judgment
+  (contrast-frames carry a one-per-page budget, em-dash chains need a rebuild,
+  a counted set is occasionally the fact) stays a `warning` — tracked by the
+  density standard and surfaced on demand by `discern script prose-page`.
+  Semantic voice judgment stays with the writer: a page can pass every rule
+  here and still fail the skill.
 
 Scope: the map's published and `_internal` tiers. `_adr/` is exempt in
 `.vale.ini` — decision records are dated documents, never re-toned — and

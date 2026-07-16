@@ -3,7 +3,7 @@
 extends: existence
 message: "Manufactured suspense ('%s'): state the point instead of teasing it."
 ignorecase: true
-level: warning
+level: error
 nonword: true
 tokens:
   - '\bsound familiar\?'

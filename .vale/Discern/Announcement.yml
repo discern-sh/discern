@@ -2,7 +2,7 @@
 extends: existence
 message: "'%s' announces the emotion instead of the thing: say the thing."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - (?:we(?:'|’)re )?excited to (?:announce|share)
   - (?:we(?:'|’)re )?thrilled to (?:announce|share)

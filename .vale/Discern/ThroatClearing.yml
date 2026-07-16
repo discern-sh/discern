@@ -3,7 +3,7 @@
 extends: existence
 message: "'%s' is throat-clearing: start with the fact."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - please note that
   - it(?:'|’)s worth noting

@@ -3,7 +3,7 @@
 extends: existence
 message: "'%s' hedges a recommendation: say 'Do X', or 'Do X unless Y'."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - you may want to consider
   - you might want to consider

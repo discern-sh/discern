@@ -1,0 +1,11 @@
+# The appositive contrast-frame — "X, not Y." / "X, never Y." — the reversed
+# twin of ContrastFrame's "not X, but Y" (voice skill: banned moves). Same
+# budget: docs one per page and only when load-bearing; marketing zero.
+extends: existence
+message: "Reversed contrast-frame ('%s'): state the true half plainly, unless the distinction is genuinely load-bearing."
+ignorecase: true
+level: warning
+nonword: true
+tokens:
+  - ',\s+not [^.?!;:—]{1,45}[.?!:;]'
+  - ',\s+never [^.?!;:—]{1,45}[.?!:;]'

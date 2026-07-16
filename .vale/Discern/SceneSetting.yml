@@ -2,7 +2,7 @@
 extends: existence
 message: "'%s' is a scene-setting cliché: start with the fact."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - it(?:'|’)s 20\d\d
   - in a world where

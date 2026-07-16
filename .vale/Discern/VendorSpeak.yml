@@ -3,7 +3,7 @@
 extends: substitution
 message: "Vendor-speak: use '%s' instead of '%s'."
 ignorecase: true
-level: warning
+level: error
 action:
   name: replace
 swap:

@@ -4,7 +4,7 @@
 extends: existence
 message: "'%s' heads a recap section: end when the reader has what they need."
 ignorecase: true
-level: warning
+level: error
 scope: heading
 tokens:
   - ^in summary

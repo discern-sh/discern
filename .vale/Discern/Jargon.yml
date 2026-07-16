@@ -1,0 +1,13 @@
+# Abstraction words the owner has banned: gym vocabulary for file state,
+# geometry vocabulary for architecture (voice skill: banned words). Zero
+# legitimate prose uses — a code identifier belongs in backticks, which Vale
+# never lints — so these block the gate.
+extends: substitution
+message: "House-banned abstraction: use '%s' instead of '%s'."
+ignorecase: true
+level: error
+action:
+  name: replace
+swap:
+  postures?: tracked or ignored
+  the shapes? of: how it fits together
