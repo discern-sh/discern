@@ -94,6 +94,9 @@ Deno.test("canonical path and production-domain variants redirect once with 308"
     assertEquals(response.status, 308, path);
     assertEquals(response.headers.get("location"), location, path);
   }
+  for (const path of ["/never-existed/", "/never-existed/index.html"]) {
+    assertEquals((await request(path)).status, 404, path);
+  }
 
   const query = await request("/docs/?from=old");
   assertEquals(query.status, 308);

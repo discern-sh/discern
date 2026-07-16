@@ -205,6 +205,7 @@ function canonicalPathVariant(
   path: string,
   addressable: ReadonlySet<string>,
 ): string {
+  const original = path;
   let value = path;
   if (value.endsWith("/index.html")) {
     value = value.slice(0, -"/index.html".length) || "/";
@@ -216,7 +217,7 @@ function canonicalPathVariant(
     const extensionless = value.slice(0, -".html".length) || "/";
     if (addressable.has(extensionless)) value = extensionless;
   }
-  return value;
+  return addressable.has(value) ? value : original;
 }
 
 function redirectLocation(url: URL, path: string): string {
