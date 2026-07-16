@@ -147,7 +147,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0139 — The design system is an independently versioned package](0139-the-design-system-is-an-independent-package.md)
 - [0140 — Frontmatter is a gate-validated schema and `publish: false` is the sole page-level withhold](0140-validated-frontmatter-and-the-publish-predicate.md)
 - [0141 — ADR citations take one strippable form and strip at render time](0141-adr-citations-strip-at-render.md)
-- [0142 — The gate validates the map's substance, and the CLI reference is generated](0142-docs-integrity-gate-and-generated-cli-reference.md)
+- [0144 — The gate validates the map's substance, and the CLI reference is generated](0144-docs-integrity-gate-and-generated-cli-reference.md)
 
 ## Superseded and consolidated ADRs
 

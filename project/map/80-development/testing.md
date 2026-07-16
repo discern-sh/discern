@@ -71,7 +71,7 @@ alone but fails in the full run" trap is exactly this failure).
   published tiers' audience boundary; `tests/cli_reference_codegen_test.ts`
   holds the generated CLI reference to the registry. Writing docs? Quote real
   commands and real paths — the gate checks them
-  ([ADR 0142](../_adr/0142-docs-integrity-gate-and-generated-cli-reference.md)).
+  ([ADR 0144](../_adr/0144-docs-integrity-gate-and-generated-cli-reference.md)).
 
 ## Coverage
 
