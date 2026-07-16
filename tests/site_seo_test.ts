@@ -242,6 +242,7 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     }
     if (route === "/docs" || route.startsWith("/docs/")) {
       assertStringIncludes(html, '"@type":"BreadcrumbList"', route);
+      assert(!html.includes('"name":"Documentation · discern.sh docs"'));
     }
   }
 

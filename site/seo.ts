@@ -119,6 +119,10 @@ function routeLabel(segment: string): string {
   return segment.replaceAll("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function breadcrumbTitle(title: string): string {
+  return title.replace(/ · discern\.sh docs$/, "");
+}
+
 function structuredData(
   route: string,
   title: string,
@@ -153,7 +157,9 @@ function structuredData(
     elements.push({
       "@type": "ListItem",
       position: index + 2,
-      name: index === segments.length - 1 ? title : routeLabel(segment),
+      name: index === segments.length - 1
+        ? breadcrumbTitle(title)
+        : routeLabel(segment),
       item: canonicalUrl(path),
     });
   }
