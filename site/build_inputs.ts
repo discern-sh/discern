@@ -5,18 +5,11 @@ export const SITE_BUILD_INPUTS = [
   "deno.json",
   "deno.lock",
   "site/build.ts",
-  "site/design-system/deno.json",
-  "site/design-system/assets",
-  "site/design-system/scripts",
-  "site/design-system/src",
-  "site/design-system/styleguide",
+  "site/design_system.ts",
   "site/page-src",
 ] as const;
 
-export const SITE_BUILD_EVENT_IGNORES = [
-  "site/design-system/dist/",
-  "site/design-system/styleguide/generated/",
-] as const;
+export const SITE_BUILD_EVENT_IGNORES: readonly string[] = [];
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 

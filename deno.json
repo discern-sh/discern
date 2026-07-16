@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "exports": "./src/main.ts",
   "license": "Apache-2.0",
-  "workspace": ["./site/design-system"],
+  "minimumDependencyAge": {
+    "age": "P1D",
+    "exclude": ["jsr:@discern-sh/design-system"]
+  },
   "deploy": {
     "build": "deno task site:build",
     "runtime": {
@@ -48,7 +51,7 @@
     "setup-eval:run": "deno run --allow-read --allow-write --allow-env --allow-run scripts/setup-eval/run-agent.ts",
     "check": "deno check",
     "gate": "deno task dev done",
-    "site:build": "deno run --config site/design-system/deno.json --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
+    "site:build": "deno run --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
     "design-system:check": "deno task --config site/design-system/deno.json --cwd site/design-system check",
     "design-system:build": "deno task --config site/design-system/deno.json --cwd site/design-system build",
     "design-system:verify": "deno task --config site/design-system/deno.json --cwd site/design-system verify",
@@ -76,12 +79,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "./site/design-system/src/mod.ts",
-    "discern-design-system/manifest": "./site/design-system/src/manifest.ts",
-    "discern-design-system/react": "./site/design-system/src/react.ts",
-    "discern-design-system/runtime": "./site/design-system/src/runtime.ts",
-    "discern-design-system/theme/discern": "./site/design-system/src/theme/discern.ts",
-    "discern-design-system/tokens": "./site/design-system/src/tokens/tokens.ts"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.1.1"
   },
   "fmt": {
     "exclude": [

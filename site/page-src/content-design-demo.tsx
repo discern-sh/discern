@@ -21,6 +21,7 @@ import {
 } from "discern-design-system/react";
 import type { DemoStats } from "./design-system-demo.tsx";
 import { THEME_BOOTSTRAP } from "./design-system-demo.tsx";
+import { designSystemAssetPath } from "../design_system.ts";
 
 const LISTING = `# The project owns the definition of done.
 [capabilities]
@@ -123,7 +124,9 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
         notice={
           <span>
             Content atlas · 12 reusable editorial patterns ·{" "}
-            <a href="/style-guide/">inspect the complete system</a>
+            <a href="https://github.com/discern-sh/design-system">
+              inspect the published system
+            </a>
           </span>
         }
         actions={
@@ -488,7 +491,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
                   responsive treatments.
                 </p>
               ),
-              href: "/style-guide/#group-editorial",
+              href: "https://github.com/discern-sh/design-system",
               meta: `${stats.components} components`,
             },
           ]}
@@ -506,8 +509,11 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
           }
           actions={
             <>
-              <Button href="/style-guide/" size="lg">
-                Explore the components
+              <Button
+                href="https://github.com/discern-sh/design-system"
+                size="lg"
+              >
+                Explore the published system
               </Button>
               <Button href="/design-system-demo" size="lg" variant="secondary">
                 View marketing blocks
@@ -540,7 +546,10 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
           {
             title: "Design",
             links: [
-              { label: "Component catalogue", href: "/style-guide/" },
+              {
+                label: "Design system",
+                href: "https://github.com/discern-sh/design-system",
+              },
               { label: "Marketing atlas", href: "/design-system-demo" },
               { label: "Content atlas", href: "/content-design-demo" },
             ],
@@ -575,10 +584,18 @@ export function renderContentDesignDemo(stats: DemoStats): string {
 <meta name="theme-color" content="#F7F5F8" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232B2635'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237D5BE7' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <script>${THEME_BOOTSTRAP}</script>
-<link rel="stylesheet" href="/assets/design-system/fonts.css" />
-<link rel="stylesheet" href="/assets/design-system/discern.css" />
-<link rel="stylesheet" href="/assets/design-system/content-demo.css" />
-<script defer src="/assets/design-system/demo.js"></script>
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "fonts.css")
+  }" />
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "discern.css")
+  }" />
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "content-demo.css")
+  }" />
+<script defer src="${
+    designSystemAssetPath("compositions", "demo.js")
+  }"></script>
 </head>
 <body data-discern-root>
 ${body}

@@ -20,6 +20,7 @@ import {
   Terminal,
   Testimonial,
 } from "discern-design-system/react";
+import { designSystemAssetPath } from "../design_system.ts";
 
 export interface DemoStats {
   readonly components: number;
@@ -330,8 +331,10 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
         notice={
           <span>
             Block atlas · 14 reusable marketing sections ·{" "}
-            <a href="/style-guide/">inspect every component</a> ·{" "}
-            <a href="/content-design-demo">open the content atlas</a>
+            <a href="https://github.com/discern-sh/design-system">
+              inspect the published system
+            </a>{" "}
+            · <a href="/content-design-demo">open the content atlas</a>
           </span>
         }
         actions={
@@ -890,7 +893,10 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
             title: "Learn",
             links: [
               { label: "Documentation", href: "/docs" },
-              { label: "Design system", href: "/style-guide/" },
+              {
+                label: "Design system",
+                href: "https://github.com/discern-sh/design-system",
+              },
               { label: "Content atlas", href: "/content-design-demo" },
               { label: "Plain-text edition", href: "/llms.txt" },
             ],
@@ -928,11 +934,21 @@ export function renderDesignSystemDemo(stats: DemoStats): string {
 <meta name="theme-color" content="#F7F5F8" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232B2635'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237D5BE7' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <script>${THEME_BOOTSTRAP}</script>
-<link rel="stylesheet" href="/assets/design-system/fonts.css" />
-<link rel="stylesheet" href="/assets/design-system/discern.css" />
-<link rel="stylesheet" href="/assets/design-system/grain.css" />
-<link rel="stylesheet" href="/assets/design-system/demo.css" />
-<script defer src="/assets/design-system/demo.js"></script>
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "fonts.css")
+  }" />
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "discern.css")
+  }" />
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "grain.css")
+  }" />
+<link rel="stylesheet" href="${
+    designSystemAssetPath("compositions", "demo.css")
+  }" />
+<script defer src="${
+    designSystemAssetPath("compositions", "demo.js")
+  }"></script>
 </head>
 <body data-discern-root>
 ${body}

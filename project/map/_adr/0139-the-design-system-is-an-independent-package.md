@@ -58,13 +58,19 @@ output, a manifest, optional assets, themes, and isolated tests. Discern
 consumes those entrypoints rather than an internal build script.
 
 External ownership is real as of 2026-07-16: the package's subtree history lives
-at [discern-sh/design-system](https://github.com/discern-sh/design-system), and
-`0.1.0` is immutable on JSR as `@discern-sh/design-system`, published through
-the repository's trusted-publishing release gate. One registry constraint shaped
-the module contract: JSR rejects text import attributes when it builds the
-publish graph, so stylesheets embed into generated modules beside the fonts and
-textures. Discern keeps consuming its in-repo subtree until 3A cuts over to the
-published version.
+at [discern-sh/design-system](https://github.com/discern-sh/design-system).
+Discern pins the follow-up release exactly as
+`jsr:@discern-sh/design-system@0.1.1` in its root configuration and lockfile.
+The root, `./runtime`, and `./react` exports are its only package seams. Deno's
+minimum-dependency-age exception names this package explicitly while that exact
+release is inside the registry cooldown; it does not relax the policy for other
+dependencies.
+
+One registry constraint shaped the module contract: JSR rejects text import
+attributes when it builds the publish graph, so stylesheets embed into generated
+modules beside the fonts and textures. Discern emits selected local runtime
+bundles through the public API and no longer consumes the former in-repository
+package.
 
 ## Consequences
 
@@ -83,7 +89,7 @@ published version.
   loading the complete catalogue runtime. The package maintains a dependency
   graph, manifest schema, and clean-room consumer fixtures; publication adds
   SemVer discipline and migration notes.
-- After cut-over, Discern's site build will depend on a package release. A
+- Discern's site build depends on an exact package release. A
   package defect is fixed and released in the package repository, then consumed
   as a new exact version; it is not patched by copying source back into Discern.
 - Releases require coordination across two repositories and cannot be made

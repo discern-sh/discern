@@ -1,145 +1,109 @@
-# The site design system
+# The published design-system dependency
 
-The design system is the long-term visual foundation for discern.sh. It can
-evolve beside the original self-contained HTML experiments, and a page adopts it
-only when its own generated edition is ready to replace the old route.
+Discern consumes `@discern-sh/design-system` from JSR as an exact, immutable
+dependency. The package is authored and released from
+[discern-sh/design-system](https://github.com/discern-sh/design-system); this
+repository owns only the discern.sh integration and product compositions.
 
-`site/design-system/` remains live during the
-[external-package migration](../_adr/0139-the-design-system-is-an-independent-package.md).
+## Dependency boundary
 
-## Ownership boundaries
+The root `deno.json` exposes one stable alias:
 
-| Tree                                                  | Owns                                                                                                                                       |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`site/design-system/`](../../../site/design-system/) | Package entrypoints, tokens, scoped CSS, components, metadata, examples, optional assets, runtime emitter, tests, and the local catalogue. |
-| [`site/page-src/`](../../../site/page-src/)           | Page composition, product copy, consumer styles, and small progressive enhancements.                                                       |
-| [`site/pages/`](../../../site/pages/)                 | Hand-authored legacy editions plus ignored selected runtime output created before local serving or deployment.                             |
+```json
+"discern-design-system": "jsr:@discern-sh/design-system@0.1.1"
+```
 
-Product copy never enters the component library. Conversely, page sources use
-the library's tokens and components rather than reproducing their markup or
-visual values. That boundary keeps a reusable system on one side and a specific
-site on the other.
+Imports use only that package root and its documented `./runtime` and `./react`
+exports. `deno.lock` records the same release. Source trees, registry URLs,
+cache internals, distribution files, workspace links, and sibling checkouts are
+not consumer APIs.
+
+If Discern finds a package defect, the fix is released from the package
+repository and consumed here as a new exact version. Discern never patches a
+copy of package source. The temporary minimum-age exception in `deno.json`
+names this exact package because the cut-over happened during Deno's registry
+cooldown; every other dependency remains subject to the normal age policy.
+
+## Site-owned integration
+
+[`site/design_system.ts`](../../../site/design_system.ts) is the complete thin
+integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
+
+| Bundle         | Routes                                              | Selection                                      | Optional assets |
+| -------------- | --------------------------------------------------- | ---------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants                         | Five shell components                          | fonts           |
+| `compositions` | `/design-system-demo`, `/content-design-demo`       | Marketing, Editorial, and shared display parts | fonts and grain |
+
+The table also owns the Discern theme choice and emitted public directories.
+[`site/build.ts`](../../../site/build.ts) passes each selection to the public
+`./runtime` emitter. The package resolves transitive component dependencies and
+writes deterministic CSS, a manifest, and only the requested assets. Discern
+does not copy the package manifest, tokens, dependency graph, CSS, or adapters.
+
+The docs shell loads its smaller bundle from
+`/assets/design-system/docs/`. The two retained product-composition atlases load
+the full selected bundle from `/assets/design-system/compositions/`. Fonts are
+an explicit choice for both. Grain is selected only for the compositions; docs
+neither emit nor load it. Generated output stays ignored beneath
+`site/pages/assets/design-system/`.
 
 ## Static production, typed authoring
 
-Page authors compose typed React adapters.
-[`site/build.ts`](../../../site/build.ts) imports the package's public
-`./runtime` and `./react` entrypoints, renders the adapters with
-`renderToStaticMarkup`, and writes two demos with selected local assets. Output
-is ignored and rebuilt locally and by Deno Deploy. React remains build-only: the
-browser receives no React bundle or hydration.
+Page authors compose the package's typed React adapters in
+[`site/page-src/`](../../../site/page-src/). The build renders them with
+`renderToStaticMarkup` and writes static HTML. React remains an authoring tool:
+the browser receives no React bundle, hydration, or client framework
+([ADR 0135](../_adr/0135-site-pages-use-build-time-react-and-static-runtime.md)).
 
-The distinction matters for interactive components. Layout and display
-components render completely as static HTML. React adapters that own state or
-event behaviour — tabs, dialog boxes, toasts — belong in the local catalogue but
-do not become interactive merely by static rendering. A public page either uses
-a native browser primitive or adds a small, page-owned progressive enhancement;
-shipping a client framework is a separate architecture decision.
+Layout and display components render completely as semantic HTML. Any browser
+behaviour is a small page-owned progressive enhancement. Product copy, routes,
+commands, bespoke artwork, docs rendering, and composition CSS remain in
+Discern; none moves into the reusable package.
 
-## Build and catalogue
+## Retained compositions
+
+`/design-system-demo` is Discern's Marketing composition atlas. It exercises
+the complete published Marketing group with real product copy and artwork.
+`/content-design-demo` does the same for the Editorial group and a long-form
+reading experience. They remain because they compare possible discern.sh
+landing and content compositions, not because Discern owns the generic package
+catalogue.
+
+The generic component catalogue, examples, component implementation, assets,
+and package tooling live only in the package repository. Discern does not mount
+`/style-guide/` in development or production.
+
+## Consumer guards
+
+[`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts)
+reads the public `packageManifest` and the site selection table. It guards:
+
+- the exact config and lockfile coordinate, public imports, and absence of
+  internal or registry-path reach-through;
+- each bundle's requested selection and package-resolved dependency closure;
+- exclusion of Marketing and Editorial CSS and grain from the docs bundle;
+- route-to-bundle coverage, local assets, media types, integrity, font
+  licences, and the absence of a React browser runtime;
+- complete Marketing and Editorial composition coverage from the package
+  manifest; and
+- the rule that consumer styles may compose package classes but never target a
+  component-owned `.discern-*` selector.
+
+New package components and classes auto-enrol through the published manifest;
+new site selections and routes auto-enrol through `DESIGN_SYSTEM_BUNDLES`.
+
+## Build and theme
 
 ```sh
-deno task site:build             # static public demo + runtime CSS
-deno task design-system:build    # local component catalogue bundle
-deno task design-system:verify   # subsystem check, build, and tests
-deno task site                   # build, then serve on main/worktree port
-deno task watch                  # serve and rebuild when authored inputs change
+deno task site:build   # emit both selected runtimes and static compositions
+deno task site         # build, then serve on the worktree's loopback port
+deno task watch        # rebuild when site-owned inputs change
 ```
 
-The root watcher serves the catalogue at `/style-guide/` beside the public demo.
-The package `serve` task still runs the catalogue alone.
-
-Each discovered `*.meta.ts` folder must also contain implementation, CSS,
-examples, and `mod.ts`. That set generates the runtime registry, dependency
-graph, React exports, and catalogue registry; group order comes from
-`componentGroups`.
-
-The package README documents imports, themes, semantic HTML, React, runtime, and
-assets. Emitted manifests record component-owned classes, so Discern's consumer
-guard need not scan package source.
-
-`site/design-system/` is a Deno workspace member. The repository-wide
-`deno check` therefore includes it with its JSX and React dependency contract,
-while its scoped gate owns the catalogue build and subsystem tests.
-
-The deterministic runtime contains selected, dependency-ordered CSS, a versioned
-manifest, and requested assets. The manifest carries selection, ownership,
-tokens, output, media-type, byte, and integrity facts. The catalogue selects
-`all`; Discern selects its two page groups and shared docs components.
-
-Core uses system font fallbacks and copies no assets. `fonts` includes provider
-CSS, stable WOFF2 names, and licences; `grain` includes its CSS and texture.
-Neither selection implies the other or a hidden component dependency.
-
-Typography keeps body and interface roles separate even when they share a face.
-Both currently resolve to the one bundled Inter font, while interface rules
-additionally consume the central `--discern-font-features-ui` OpenType set.
-Crimson Pro remains the display face and JetBrains Mono the code face. A guard
-scans every tracked site stylesheet so any rule selecting `--discern-font-ui`
-must also select the interface feature set. The same subsystem guard derives the
-`--discern-font-size-xs` value and rejects smaller literal `rem` type in
-components, the two demos, or the catalogue. Compact UI therefore has one
-readable floor rather than a collection of local fine-print sizes.
-
-Component-specific typography, framing, depth, and separation roles live in
-[component-catalogue.md](component-catalogue.md).
-
-## Landing-page blocks
-
-The `Marketing` group turns the primitives into reusable page-scale sections:
-page chrome, heroes, trust and audience bands, feature stories, workflows,
-proof, comparisons, customer evidence, questions, and closing actions. The
-blocks own responsive geometry and semantic structure. Product copy, routes,
-commands, and bespoke artwork stay in `site/page-src/` and enter through typed
-props and slots.
-
-`/design-system-demo` is the composition atlas for this group. A test derives
-the Marketing set from component metadata and requires every member's root class
-in the rendered demo. A new block therefore enters the generated style guide
-automatically and makes the gate demand a demo composition before the reusable
-set and its showcase can drift apart.
-
-## Long-form editorial blocks
-
-The `Editorial` group provides a second page-scale vocabulary for premium
-content: article openings, a responsive reading shell, contents navigation,
-prose, summary points, quotations, contextual notes, source listings, data
-figures, chronologies, footnotes, and related reading. These blocks keep
-headings, articles, navigation, figures, quotations, code, ordered sequences,
-and notes as native document semantics while giving them a shared publication
-rhythm.
-
-`/content-design-demo` is the composition atlas for this group. Its authored
-source and product-specific artwork live in `site/page-src/`; the generated HTML
-and `content-demo.css` asset remain ignored under `site/pages/`. A structural
-guard discovers every Editorial metadata entry and requires its root class in
-the content demo. The style guide and both composition atlases therefore enrol
-new members from the same component source of truth. Editorial component source
-is also forbidden from depending on the page-owned `editorial-demo-*` namespace;
-those classes frame the edition and its bespoke cover artwork only.
-
-## Theme fidelity
-
-The numbered accent ramp names roles, not fixed lightness. In light mode,
-`accent-100` is the palest tint and `accent-800` is the deepest text; dark mode
-remaps the same roles so `accent-100` remains the quietest background and
-`accent-800` remains the strongest text. Components never compensate for a
-light-only palette locally. The subsystem test discovers every numbered colour
-ramp and rejects fixed members or a dark ramp whose roles do not invert.
-
-Inverse surfaces are the deliberate exception to theme-relative lightness.
-`--discern-color-inverse-surface` remains dark and `--discern-color-inverse-ink`
-remains light in either theme, so contrast bands, hover hints, and skip links do
-not swap their visual polarity when the page theme changes. A source-wide guard
-rejects using the ordinary ink role as a background or the canvas role as text.
-
-Semantic roles are separate from the blue `./theme/discern` preset. A green
-fixture changes only public tokens, retains component CSS, and distinguishes
-success from brand actions. Tests cover contrast, state separation, reduced
-motion, and forced-colour focus; rendered context remains a manual check.
-
-The grain wash is the one optional textured colour flourish. Its core utility
-owns the texture-free gradient geometry, while the selected `grain.css` provider
-adds the local texture. Pages use it at most once, normally for the hero.
-Alternating content bands use semantic canvas, raised surface, and sunken
-surface roles rather than page-local greys.
+The package's `discern` theme preserves the semantic colour, type, spacing,
+focus, motion, and surface roles established during the prototype. Crimson Pro
+is the display face, Inter serves body and interface roles, and JetBrains Mono
+serves code. All font binaries and SIL Open Font License texts are copied from
+the selected package asset pack into local generated output. The optional grain
+provider adds one local texture to the composition bundle; it is never a remote
+browser dependency.

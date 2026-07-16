@@ -29,25 +29,27 @@ repository content.
 
 ## Decision
 
-The authored design system lives at `site/design-system/`. It owns only neutral
-visual foundations and components. Product-specific page composition lives at
-`site/page-src/`.
+The authored design system lives in the independently released
+`@discern-sh/design-system` package. Discern's exact package selection and
+product-specific page composition live in `site/design_system.ts` and
+`site/page-src/` respectively.
 
 Pages use the typed React adapters at build time. `site/build.ts` renders page
-sources to static HTML, builds deterministic framework-neutral CSS and assets,
-and writes ignored artifacts under `site/pages/`. Authored font binaries and
-licences live under `site/page-src/assets/`; the build copies them into the
-public tree alongside the generated files.
+sources to static HTML, asks the package's public runtime emitter for
+deterministic framework-neutral CSS and selected assets, and writes ignored
+artifacts under `site/pages/`. Font binaries, licences, and the optional grain
+texture come from the exact package release and are emitted into local public
+output.
 
 Deno Deploy runs `deno task site:build` before starting the dynamic
 `site/main.ts` entrypoint. A failed frontend build fails the deployment before
 the revision receives traffic. Git contains the inputs and the build contract,
 not a second review surface containing their derivations.
 
-The React component catalogue remains a local development surface. Stateful
-React behaviour is not assumed to survive static rendering: public pages use
-static-safe components and page-owned progressive enhancement unless a later
-decision explicitly introduces a browser runtime.
+The generic React component catalogue belongs to the package repository.
+Stateful React behaviour is not assumed to survive static rendering: public
+pages use static-safe components and page-owned progressive enhancement unless
+a later decision explicitly introduces a browser runtime.
 
 The first consumer is `/design-system-demo`. The four existing experimental
 pages remain unchanged until a replacement edition is ready to be compared and

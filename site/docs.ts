@@ -20,6 +20,7 @@ import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
+import { designSystemAssetPath } from "./design_system.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -378,8 +379,8 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   if (dark) document.documentElement.setAttribute("data-discern-theme", "dark");
 })();
 </script>
-<link rel="stylesheet" href="/assets/design-system/fonts.css" />
-<link rel="stylesheet" href="/assets/design-system/discern.css" />
+<link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
+<link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
 <link rel="stylesheet" href="/assets/docs.css" />
 <script defer src="/assets/docs.js"></script>
 </head>
@@ -396,14 +397,14 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     class="docs-brand-docs discern-mono" href="/docs">/docs</a>
   <span class="docs-top-spacer"></span>
   <button class="docs-search-btn" type="button" data-search-open>
-    <span class="discern-icon">${ICONS.search}</span>
+    <span class="discern-icon docs-search-icon">${ICONS.search}</span>
     <span class="docs-search-btn-word">Search the manual</span>
     <kbd class="discern-mono">⌘K</kbd>
   </button>
   <button class="discern-icon-button docs-theme" type="button"
     aria-label="Toggle color theme" data-theme-toggle>
-    <span class="discern-icon docs-theme-sun">${ICONS.sun}</span>
-    <span class="discern-icon docs-theme-moon">${ICONS.moon}</span>
+    <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
+    <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
   </button>
 </header>
 <div class="docs-shell">

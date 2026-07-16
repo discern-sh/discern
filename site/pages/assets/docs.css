@@ -140,7 +140,7 @@ body {
   color: var(--discern-color-ink);
 }
 
-.docs-search-btn .discern-icon {
+.docs-search-icon {
   font-size: 0.875rem;
 }
 
@@ -154,7 +154,7 @@ body {
   font-weight: 600;
 }
 
-.docs-theme .discern-icon {
+.docs-theme-icon {
   font-size: 1rem;
 }
 
