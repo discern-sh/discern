@@ -17,6 +17,8 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
+import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
+import { buildCli } from "../src/main.ts";
 import {
   renderResultJsonSchema,
   renderResultTypesDts,
@@ -34,6 +36,10 @@ const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 const configReference = relative(
   repoRoot,
   join(mapDir, "10-installer", "config-reference.md"),
+);
+const cliReference = relative(
+  repoRoot,
+  join(mapDir, "70-reference", "cli-reference.md"),
 );
 
 type EquivalentText = (before: string, after: string) => boolean;
@@ -63,6 +69,8 @@ async function write(
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
 await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(configReference, renderConfigReferenceDoc());
+console.log("Regenerating the CLI reference from the live command registry:");
+await write(cliReference, renderCliReferenceDoc(buildCli(false)));
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );

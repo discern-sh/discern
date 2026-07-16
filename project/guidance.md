@@ -165,9 +165,10 @@ Iterate on one suite with `deno task test tests/<name>_test.ts` (or
   rule, so fighting the linter just costs a `done` loop.
 - **Several artifacts and schemas are generated.** The `deno task codegen`
   command rewrites `project/map/10-installer/config-reference.md`,
-  `schema/*.json`, and `types/*.d.ts` automatically. The codegen command is
-  wired in to discern's own `[capabilities.build]` step (the `discern.toml`
-  template stays hand-authored — ADR 0005/0026).
+  `project/map/70-reference/cli-reference.md`, `schema/*.json`, and
+  `types/*.d.ts` automatically. The codegen command is wired in to discern's own
+  `[capabilities.build]` step (the `discern.toml` template stays hand-authored —
+  ADR 0005/0026).
 - **Keep `project/map/` current with the change.** The `project/map/` tree is
   the source of truth and must not drift from code — update the affected docs in
   the same commit. The configured map, guidance, skills, and ledger form a
