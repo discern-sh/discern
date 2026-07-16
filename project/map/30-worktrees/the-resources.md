@@ -10,10 +10,9 @@ provides the `create`/`destroy` commands. The engine never learns what the
 resource actually is — the seam is fully generic.
 
 `[worktree.db]` and `[worktree.dev_server]` are just two commented examples of
-this one generic mechanism (the generalization is recorded in
-[ADR 0025](../_adr/0025-worktree-resources.md)). The deterministic port
-(`[worktree].port`) is **not** a resource — it is derived identity and
-provisions nothing.
+this one generic mechanism ([ADR 0025](../_adr/0025-worktree-resources.md)). The
+deterministic port (`[worktree].port`) is **not** a resource — it is derived
+identity and provisions nothing.
 
 ## The config seam
 
@@ -136,7 +135,7 @@ entries up front, so only an unclean exit ever leaves an orphan for GC to find.
 > unique-per-live-Worktree identity, immune to symlink canonicalization and path
 > reuse. Keying on the path would risk leaking an orphan or destroying a live
 > resource when a path is reused or resolves differently for a live writer vs a
-> dead-dir GC. See [ADR 0025](../_adr/0025-worktree-resources.md).
+> dead-dir GC ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
 ## Drift
 
@@ -148,7 +147,7 @@ re-readiness is the project's responsibility.
 
 ## See also
 
-- [ADR 0025](../_adr/0025-worktree-resources.md) — the decision, the
-  GC/ownership model, and the breaking change + manual migration.
+- The decision, the GC/ownership model, and the breaking change + manual
+  migration ([ADR 0025](../_adr/0025-worktree-resources.md)).
 - The `[worktree.resources.<name>]` block in the seed
   [`discern.toml`](../../../templates/discern.toml.tmpl).

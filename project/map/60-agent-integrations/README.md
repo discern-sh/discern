@@ -29,5 +29,5 @@ agents should expect from that provider.
   produces `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and materialized skills.
 - [Worktrees](../30-worktrees/) - the linked-worktree workflow these
   integrations help agents inhabit.
-- [ADR 0031](../_adr/0031-typed-provider-integration.md) - the provider registry
-  decision.
+- The provider registry decision
+  ([ADR 0031](../_adr/0031-typed-provider-integration.md)).

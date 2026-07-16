@@ -41,16 +41,16 @@ config sections/keys, and leaves project-owned values alone; and the
 **Schema-version** [Migration](../00-orientation/glossary.md#migration) chain
 that evolves an install's shape, stamped into `[meta].schema_version` in
 `discern.toml` (the `5 → 6` step dissolved the old hidden `.discern/` directory
-into this one root file — [ADR 0020](../_adr/0020-dissolve-discern-dir.md) — and
+into this one root file ([ADR 0020](../_adr/0020-dissolve-discern-dir.md)), and
 the `14 → 15` step gathered the authored surface into the visible `discern/`
-[Namespace](../00-orientation/glossary.md#namespace) —
-[ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+[Namespace](../00-orientation/glossary.md#namespace)
+([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md))).
 `upgrade` validates the migrated config before stamping that schema, and refuses
 a config stamped by a newer binary rather than silently downgrading it
 ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). The
 config-scaffold reconciliation is separate from behaviour-changing migrations:
-it is additive and only-if-absent, and is recorded in
-[ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md).
+it is additive and only-if-absent
+([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)).
 
 Setup's documentation skeleton is also config-pointed. `[map].dir` defaults to
 `map/` — the [map](../00-orientation/glossary.md#map)'s own folder, colliding
@@ -104,8 +104,8 @@ could reject the run has passed.
 [`config-reference.md`](config-reference.md) documents every `discern.toml`
 section, key, type, and default. It is **generated** from the one canonical
 config schema
-([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts),
-[ADR 0026](../_adr/0026-typed-config-schema.md)) by `deno task codegen` — so the
+([`src/shared/config_schema.ts`](../../../src/shared/config_schema.ts)) by
+`deno task codegen` ([ADR 0026](../_adr/0026-typed-config-schema.md)) — so the
 reference, the editor [JSON Schema](../../../schema/discern-config.schema.json),
 and the rules the engine enforces all come from one source and cannot drift.
 Edit the schema, not the generated files.

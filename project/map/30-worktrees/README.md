@@ -17,7 +17,9 @@ git mechanics are generic; the resources are the only stack-specific part,
 declared as `[worktree.resources.<name>]` tables in `discern.toml`. A fresh
 install declares none, so a Worktree round is a clean no-op until a project
 wires one. The workflow is core — always wired, with no configuration attached;
-a session that never runs `start` simply never uses it (ADR 0011, ADR 0025,
+a session that never runs `start` simply never uses it
+([ADR 0011](../_adr/0011-adopt-worktree-workflow.md),
+[ADR 0025](../_adr/0025-worktree-resources.md),
 [ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 The lifecycle is driven by hooks in `.claude/settings.json`: `SessionStart` →
@@ -58,12 +60,12 @@ Uncommitted changes in the main checkout stay there (an advisory line says so).
 `start` refuses — in plain language, cleaning up anything partially created — a
 repo with no commits yet ("make your first commit first"), a `discern.toml` that
 is not at the git repository's root (a Worktree is a whole-repository checkout;
-the gate and analysis verbs still work under that nested shape —
-[ADR 0115](../_adr/0115-nested-root-verbs-work-or-refuse.md)), and an unknown or
-ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags the
-first two layouts before a `start` ever trips on them. It only ever _creates_ a
-Worktree to inhabit; it never adopts or prunes an existing one. When `main`
-advances under a long-running Worktree,
+the gate and analysis verbs still work under that nested shape
+([ADR 0115](../_adr/0115-nested-root-verbs-work-or-refuse.md))), and an unknown
+or ambiguous `--from` ref; `discern doctor`'s **repository shape** check flags
+the first two layouts before a `start` ever trips on them. It only ever
+_creates_ a Worktree to inhabit; it never adopts or prunes an existing one. When
+`main` advances under a long-running Worktree,
 [`update`](../../../src/engine/worktree/lifecycle.ts) brings it into the branch,
 re-materializes the agent files + skills, and re-runs `[worktree.setup].ensure`
 so a merge that changed a lockfile leaves the worktree's dependencies current —
@@ -101,7 +103,7 @@ moment (relay the receipt, then re-run with `--confirmed`) so the highest-stakes
 act never lands on a consent that lived only in an agent's own summary — the
 landing counterpart to `setup begin`'s scaffold attestation, sharing its
 `awaiting_consent` refusal slug
-([ADR 0134](../_adr/0134-accept-attests-consent.md), extending
+([ADR 0134](../_adr/0134-accept-attests-consent.md),
 [ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 Acceptance also refuses — naming the way back — when the main checkout is parked
 on a branch other than the trunk, and never silently switches it. After landing,
@@ -224,25 +226,24 @@ inspectable before they act.
 
 - [concepts.md](../00-orientation/concepts.md) — where Worktrees sit in the
   loop.
-- [ADR 0011](../_adr/0011-adopt-worktree-workflow.md) — why discern adopted this
-  workflow.
-- [ADR 0025](../_adr/0025-worktree-resources.md) — generalizing the
-  db/dev-server adapters into per-worktree resources with orphan GC.
-- [ADR 0052](../_adr/0052-worktree-sibling-placement.md) — placing Worktrees in
-  a configurable sibling directory instead of nested `.claude/worktrees`.
-- [ADR 0055](../_adr/0055-update-verb.md) — `update`, the third verb in the
-  worktree lifecycle: bring `main` into the branch and re-materialize in one
-  deterministic step.
-- [ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md) — `start`,
-  the verb that spawns a Worktree from the main checkout, and the
-  `discern status` guardrail that points an agent on the trunk at it.
-- [ADR 0059](../_adr/0059-worktree-setup-ensure.md) — `[worktree.setup].ensure`,
-  the convergent bucket that re-runs every pass (creation, session start,
-  update) to keep the worktree's environment current with the tree.
-- [ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md) — acceptance
-  refreshes the checkout it leaves behind.
-- [ADR 0110](../_adr/0110-the-landing-model.md) — the landing model: pull from
-  any ref (`start --from` / `update --from`), land only on the trunk.
-- [ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md) — bare
-  `discern` opens the operator's desk, the human's interactive surface over the
-  fleet.
+- Why discern adopted this workflow
+  ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
+- Generalizing the db/dev-server adapters into per-worktree resources with
+  orphan GC ([ADR 0025](../_adr/0025-worktree-resources.md)).
+- Placing Worktrees in a configurable sibling directory instead of nested
+  `.claude/worktrees` ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
+- `update`, the third verb in the worktree lifecycle: bring `main` into the
+  branch and re-materialize in one deterministic step
+  ([ADR 0055](../_adr/0055-update-verb.md)).
+- `start`, the verb that spawns a Worktree from the main checkout, and the
+  `discern status` guardrail that points an agent on the trunk at it
+  ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md)).
+- `[worktree.setup].ensure`, the convergent bucket that re-runs every pass
+  (creation, session start, update) to keep the worktree's environment current
+  with the tree ([ADR 0059](../_adr/0059-worktree-setup-ensure.md)).
+- Acceptance refreshes the checkout it leaves behind
+  ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md)).
+- The landing model: pull from any ref (`start --from` / `update --from`), land
+  only on the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)).
+- Bare `discern` opens the operator's desk, the human's interactive surface over
+  the fleet ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md)).

@@ -121,7 +121,7 @@ skills, MCP, and the session-start setup hook.
 
 ## See also
 
-- [ADR 0070](../_adr/0070-reuse-canonical-guidance.md) - why Copilot emits no
-  provider-specific guidance file.
-- [ADR 0074](../_adr/0074-co-owned-mcp-json.md) - why Claude Code and GitHub
-  Copilot co-own `.mcp.json`.
+- Why Copilot emits no provider-specific guidance file
+  ([ADR 0070](../_adr/0070-reuse-canonical-guidance.md)).
+- Why Claude Code and GitHub Copilot co-own `.mcp.json`
+  ([ADR 0074](../_adr/0074-co-owned-mcp-json.md)).

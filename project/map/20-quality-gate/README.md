@@ -87,14 +87,18 @@ The same envelope is served to agents natively over MCP by `discern mcp`.
 
 The supporting ideas: **Capabilities** are the six known commands (`format` /
 `build` / `lint` / `typecheck` / `test` / `smoke`) and a **Check** is custom
-gate work with an explicit Stage (ADR 0017); **Scopes** classify which part of
-the repo a change touches and **fail open** (an unknown path runs more gates,
+gate work with an explicit Stage
+([ADR 0017](../_adr/0017-capabilities-model.md)); **Scopes** classify which part
+of the repo a change touches and **fail open** (an unknown path runs more gates,
 never fewer), and a Scope can carry its own `gate` so a sub-component plugs in
-(ADR 0018); **Standards** hold never-loosen metric floors and ceilings — a raw
-value or, via `per`, a rate that doesn't rise just because the project grew —
-verified against the trunk and measured alongside the tests on every `done` run,
-with input-keyed replay so an untouched metric costs nothing (ADR 0003, ADR
-0057, ADR 0133).
+([ADR 0018](../_adr/0018-vocabulary-consolidation.md)); **Standards** hold
+never-loosen metric floors and ceilings — a raw value or, via `per`, a rate that
+doesn't rise just because the project grew — verified against the trunk and
+measured alongside the tests on every `done` run, with input-keyed replay so an
+untouched metric costs nothing
+([ADR 0003](../_adr/0003-named-metric-standards.md),
+[ADR 0057](../_adr/0057-rate-standards.md),
+[ADR 0133](../_adr/0133-standards-join-the-gate.md)).
 
 Alongside the gate sits the **[continuous-improvement coach](improvement.md)**:
 where `done` asks _did this change pass?_,
@@ -112,20 +116,21 @@ change with what?_ — mining git history for the files that move together and
 naming the sibling a change is likely missing. It is purely advisory and **never
 blocks** (it only ever adds `hints[]`), surfacing on demand or, behind
 `[coupling].in_gate`, at the tail of `done`. It is the discovery end of the
-canonical-set discipline (ADR 0051) that the gate's parity tests enforce
+canonical-set discipline ([ADR 0051](../_adr/0051-canonical-set-parity.md)) that
+the gate's parity tests enforce
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## In this section
 
-| Leaf                                               | What it covers                                                                                                                                                     |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern done`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                             |
-| [`standards.md`](standards.md)                     | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                     |
-| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface (ADR 0028, ADR 0041).  |
-| [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope (ADR 0114).                               |
-| [`ci.md`](ci.md)                                   | How to run `discern done` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary. |
-| [`improvement.md`](improvement.md)                 | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                   |
-| [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint (ADR 0084).                                |
+| Leaf                                               | What it covers                                                                                                                                                                                                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`when-the-gate-fails.md`](when-the-gate-fails.md) | Day-2 triage for a red `discern done`: reading the diagnostics, the common causes stage by stage, and what to hand back to your agent.                                                                                                                              |
+| [`standards.md`](standards.md)                     | Never-loosen floors and ceilings, raw counts versus `per` rates, the `DISCERN_METRIC` protocol, and what to do when one fires.                                                                                                                                      |
+| [`the-result-envelope.md`](the-result-envelope.md) | The `DiscernResult` envelope every verb returns, its `diagnostics[]`, the typed result schemas, and `discern mcp`'s self-describing surface ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md), [ADR 0041](../_adr/0041-self-describing-mcp-surface.md)). |
+| [`the-receipt.md`](the-receipt.md)                 | The compact review summary a green gate emits — what it contains, where it appears, and how it derives from the envelope ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).                                                                                  |
+| [`ci.md`](ci.md)                                   | How to run `discern done` on GitHub Actions so the gate protects `main` outside local runs, and what an ephemeral cloud-agent environment sees without the binary.                                                                                                  |
+| [`improvement.md`](improvement.md)                 | The continuous-improvement coach — what should get better next, versus the gate's did-this-pass.                                                                                                                                                                    |
+| [`coupling.md`](coupling.md)                       | The co-change advisory: the self-calibrating metric, the diff-aware/query/evidence modes, and the default-off gate hint ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).                                                                                  |
 
 ## See also
 

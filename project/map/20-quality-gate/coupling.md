@@ -9,8 +9,8 @@ none of the file that, by the project's own history, almost always moves with it
 and its test. The `coupling` verb reconstructs a senior's "I bet there's another
 one" instinct from data: it mines git history for files that change in the same
 commits and reports the ones a change is likely missing. It is the **discovery**
-layer that pairs with the **enforcement** discipline of
-[ADR 0051](../_adr/0051-canonical-set-parity.md) — and the two are kept
+layer that pairs with the canonical-set **enforcement** discipline
+([ADR 0051](../_adr/0051-canonical-set-parity.md)) — and the two are kept
 deliberately apart ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 It is **purely advisory**. It points at where to look and **never blocks** —
@@ -90,9 +90,9 @@ it is the product boundary between _asked-for exploration_ and _unsolicited
 interruption_.
 
 The model is **recomputed on demand**, bounded by the window — there is no cache
-in v1 (see [ADR 0084](../_adr/0084-co-change-coupling-advisory.md) for why a
-persisted store is deferred). When git can't answer, the advisory stays
-**silent** rather than failing into noise.
+in v1, and a persisted store is deferred
+([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). When git can't
+answer, the advisory stays **silent** rather than failing into noise.
 
 ## Configuration
 
@@ -131,16 +131,17 @@ A strong coupling is a finding, not a verdict. The advisory names one path back
 to enforcement — _"if this is an essential invariant, lock it with a forcing
 function (the
 [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)
-skill / ADR 0051)"_ — but the decision is yours: an **essential** invariant
-earns a forcing function, an **incidental** co-change earns nothing. Promoting a
-coupling to an enforced rule is always a separate, deliberate step
+skill)"_ ([ADR 0051](../_adr/0051-canonical-set-parity.md)) — but the decision
+is yours: an **essential** invariant earns a forcing function, an **incidental**
+co-change earns nothing. Promoting a coupling to an enforced rule is always a
+separate, deliberate step
 ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## See also
 
-- [ADR 0084](../_adr/0084-co-change-coupling-advisory.md) — why the advisory is
-  non-blocking and recomputed on demand.
-- [ADR 0051](../_adr/0051-canonical-set-parity.md) — the enforcement discipline
-  this feeds.
+- Why the advisory is non-blocking and recomputed on demand
+  ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
+- The enforcement discipline this feeds
+  ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 - [the-result-envelope.md](the-result-envelope.md) — the `hints[]` and `data`
   the verb returns.

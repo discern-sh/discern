@@ -31,7 +31,7 @@ Two commands read a documentation tree, and they read **different** ones:
   never exposes them).
 - **`discern map`** opens with an overview of **the host project's map** — the
   agent-maintained documentation tree at `[map].dir` (default `map/`, resolved
-  from the project root; [ADR 0120](_adr/0120-launch-verb-canon.md)). This repo
+  from the project root) ([ADR 0120](_adr/0120-launch-verb-canon.md)). This repo
   points it at `project/map/`. The overview derives one line per public
   top-level subtree from its `README.md`. Beside it, Git reports when those
   pages last changed and how many later commits touched specific tracked files

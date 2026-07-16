@@ -39,9 +39,8 @@ does—sit beside open improvement reviews. Those reviews cover questions such a
   the project grows?
 - are recurring workflows captured as executable, verifiable skills?
 
-This split preserves the decision in
-[ADR 0029](../_adr/0029-best-practices-audit.md): discern never claims a
-confident verdict it cannot prove.
+This split preserves the decision that discern never claims a confident verdict
+it cannot prove ([ADR 0029](../_adr/0029-best-practices-audit.md)).
 
 ## The next action
 
@@ -89,11 +88,9 @@ discern improvement --json              # the DiscernResult envelope
 discern improvement --min-score 70      # fail below a baseline-health floor
 ```
 
-The command was a hard rename from `audit`; there is no `audit` alias. `improve`
-is accepted only as a grammatical variant and normalizes silently to
-`improvement`. See
-[ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md) for the
-trade-off.
+The command was a hard rename from `audit`; there is no `audit` alias
+([ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md)). `improve` is
+accepted only as a grammatical variant and normalizes silently to `improvement`.
 
 ## Result envelope
 
@@ -145,9 +142,9 @@ apply the action, rerun the coach, and continue the improvement loop.
 
 ## See also
 
-- [ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md) — why the verb
-  is a hard rename and how next-action priority works.
-- [ADR 0029](../_adr/0029-best-practices-audit.md) — why deterministic and
-  subjective rules remain distinct.
-- [ADR 0057](../_adr/0057-rate-standards.md) — why growing-tree counts should be
-  normalized into rates.
+- Why the verb is a hard rename and how next-action priority works
+  ([ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md)).
+- Why deterministic and subjective rules remain distinct
+  ([ADR 0029](../_adr/0029-best-practices-audit.md)).
+- Why growing-tree counts should be normalized into rates
+  ([ADR 0057](../_adr/0057-rate-standards.md)).

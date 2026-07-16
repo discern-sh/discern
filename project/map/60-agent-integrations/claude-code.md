@@ -130,9 +130,10 @@ modelled agents that understands linked-worktree Git metadata automatically.
 
 ## See also
 
-- [ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md) - why the
-  worktree-hook payloads are parsed in the binary.
-- [ADR 0043](../_adr/0043-registry-derived-agent-parity.md) - why the provider
-  registry is the single source for agent files, skills, settings, and ignores.
-- [ADR 0074](../_adr/0074-co-owned-mcp-json.md) - why Claude Code and GitHub
-  Copilot co-own `.mcp.json`.
+- Why the worktree-hook payloads are parsed in the binary
+  ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)).
+- Why the provider registry is the single source for agent files, skills,
+  settings, and ignores
+  ([ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
+- Why Claude Code and GitHub Copilot co-own `.mcp.json`
+  ([ADR 0074](../_adr/0074-co-owned-mcp-json.md)).

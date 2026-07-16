@@ -264,7 +264,9 @@ refresh` compiles the agent files (`CLAUDE.md`, `AGENTS.md`,
 [the binary's](#the-binarys-files) to overwrite; the agent files are committed
 (so out-of-tool agents read them), the skills dirs ignored. The reviewable
 source is your `[guidance].sources`, and `discern done` flags a generated file
-that has drifted from its source (ADR 0034, ADR 0128).
+that has drifted from its source
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md),
+[ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
 ---
 
@@ -278,8 +280,8 @@ Terms for `discern done` and what it runs. Covered in depth under
 A configured project command for one known kind of work. Capabilities form a
 small, **closed** vocabulary declared flat under `[capabilities]` in
 `discern.toml`: `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` (a
-fast "does it boot?" check —
-[ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)). Each is a name
+fast "does it boot?" check)
+([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)). Each is a name
 mapped to a command (or a list run in order); the Engine **derives the gate
 [Stage](#stage)** from the name, so an author never writes a scheduling keyword.
 The set is closed — an unknown key is an error that points at a [Check](#check).

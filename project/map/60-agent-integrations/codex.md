@@ -189,5 +189,5 @@ whole parent directory.
 
 ## See also
 
-- [ADR 0082](../_adr/0082-codex-project-config-writable-root.md) - why discern
-  writes this narrow Codex project config and avoids broader sandbox control.
+- Why discern writes this narrow Codex project config and avoids broader sandbox
+  control ([ADR 0082](../_adr/0082-codex-project-config-writable-root.md)).

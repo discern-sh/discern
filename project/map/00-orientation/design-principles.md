@@ -75,7 +75,6 @@ capabilities, the source paths, the result kinds, the agent providers, …), eve
 satellite is **mechanically tied** to its one source — a compile-time total or a
 forcing-function test, so a new member auto-enrolls or fails the gate rather
 than drifting silently ([ADR 0051](../_adr/0051-canonical-set-parity.md),
-generalizing the agent-registry parity of
 [ADR 0043](../_adr/0043-registry-derived-agent-parity.md)). The configurable
 source paths are one such vocabulary: the
 [paths registry](../../../src/shared/paths_registry.ts) is the single home of
@@ -189,13 +188,11 @@ impossible by construction, rather than something a gate must _detect_.
 **How it shows up.** The `deno.json` `gate` task runs `discern done`, so the
 repo gates itself with the same engine it ships; there is no `selfcheck` or
 `shellcheck` Check, because there is no installed copy to compare against
-([ADR 0019](../_adr/0019-single-binary-ts-engine.md), superseding
-[ADR 0010](../_adr/_superseded/0010-self-host-the-harness.md)). The
-`tests/engine_*` suites scaffold a project into temp dirs and run the engine
-against them; CI runs the same gate. The repo adopts the map's root `map/`
-default while self-hosting its guidance, skills, and ledger on deliberately
-non-default paths. Sentinel-render and non-default-path tests make hard-coded
-defaults fail loudly
+([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The `tests/engine_*`
+suites scaffold a project into temp dirs and run the engine against them; CI
+runs the same gate. The repo adopts the map's root `map/` default while
+self-hosting its guidance, skills, and ledger on deliberately non-default paths.
+Sentinel-render and non-default-path tests make hard-coded defaults fail loudly
 ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ---
@@ -264,10 +261,11 @@ even when unused — the single subsystem that passes the test.
 ## 10. Structure over advice
 
 Everything structurally enforced happens reliably; everything merely advised
-degrades ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)
-proved this across vendors). When a behaviour matters, encode it as a gate
-stage, a check, a standard, a parity test, or a refusal with a teaching payload
-— never as a sentence hoping to be obeyed.
+degrades — proved across vendors
+([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)). When a
+behaviour matters, encode it as a gate stage, a check, a standard, a parity
+test, or a refusal with a teaching payload — never as a sentence hoping to be
+obeyed.
 
 **Why it matters.** discern's users are agents. An agent under context pressure
 drops advice first; it cannot drop a red gate.

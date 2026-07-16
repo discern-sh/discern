@@ -10,9 +10,9 @@ project's _real_ branch and drop content that is inert until configured,
 `discern refresh` renders each built-in section through a small, strict template
 engine
 ([`src/engine/guidance_template.ts`](../../../src/engine/guidance_template.ts))
-before concatenating them. The decision and its rationale are
-[ADR 0035](../_adr/0035-guidance-templating-engine.md); this page is the working
-reference.
+before concatenating them. The decision and its rationale are recorded
+([ADR 0035](../_adr/0035-guidance-templating-engine.md)); this page is the
+working reference.
 
 The same engine renders **bundled-skill markdown** at materialization (and at
 `skills eject`), against the same context, so a shipped skill's prose names the
@@ -89,6 +89,6 @@ shared `{{}}` delimiter never collides.
 
 ## See also
 
-- [ADR 0035](../_adr/0035-guidance-templating-engine.md) — the decision.
-- [ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md) — the currency
-  check the config-only context preserves.
+- The decision ([ADR 0035](../_adr/0035-guidance-templating-engine.md)).
+- The currency check the config-only context preserves
+  ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).

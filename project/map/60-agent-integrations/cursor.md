@@ -114,7 +114,7 @@ directory as stale.
 
 ## See also
 
-- [ADR 0070](../_adr/0070-reuse-canonical-guidance.md) - why Cursor emits no
-  provider-specific guidance file.
-- [ADR 0074](../_adr/0074-co-owned-mcp-json.md) - why Cursor shares the same
-  stdio MCP JSON writer shape as Claude Code and GitHub Copilot.
+- Why Cursor emits no provider-specific guidance file
+  ([ADR 0070](../_adr/0070-reuse-canonical-guidance.md)).
+- Why Cursor shares the same stdio MCP JSON writer shape as Claude Code and
+  GitHub Copilot ([ADR 0074](../_adr/0074-co-owned-mcp-json.md)).

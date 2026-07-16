@@ -21,12 +21,13 @@ agent's skills directory.
 The compiled files are
 [Generated](../00-orientation/glossary.md#generated-file): never hand-edited,
 always reproduced by re-running the verb, and committed by default so every
-agent — cloud included — reads them from a clone (ADR 0128) — the reviewable
-source is your `[guidance].sources`. `AGENTS.md` holds the full compiled body —
-the single on-disk source the mirrors point back at (the **canonical** file).
-Both `CLAUDE.md` and `GEMINI.md` **import** `AGENTS.md` via the `@`-include
-their CLIs share rather than duplicating it (so they can never drift);
-`AGENTS.md` is the canonical body precisely because Codex has no import
+agent — cloud included — reads them from a clone
+([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)) — the
+reviewable source is your `[guidance].sources`. `AGENTS.md` holds the full
+compiled body — the single on-disk source the mirrors point back at (the
+**canonical** file). Both `CLAUDE.md` and `GEMINI.md` **import** `AGENTS.md` via
+the `@`-include their CLIs share rather than duplicating it (so they can never
+drift); `AGENTS.md` is the canonical body precisely because Codex has no import
 directive to point with. Cursor and GitHub Copilot read `AGENTS.md` natively, so
 they add no duplicate provider-specific guidance file; when one of them is
 configured without Codex, `discern refresh` still emits the canonical
@@ -38,8 +39,8 @@ Driving several agents from one source is what keeps guidance provider-agnostic
 **config-aware** — each built-in section is rendered through a small
 [templating engine](the-templating-engine.md) so the generic shipped prose names
 your real branch and paths and omits content for anything you haven't configured
-(the standards section compiles in only when at least one standard is defined —
-[ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+(the standards section compiles in only when at least one standard is defined
+([ADR 0101](../_adr/0101-retire-the-features-toggles.md))).
 
 The Skills are the bundled built-ins (one directory per skill under
 [`templates/skills/`](../../../templates/skills/), every name carrying the
@@ -52,24 +53,23 @@ discipline shipped on by default
 into each configured agent's skills directory
 ([`.claude/skills/`](../../../.claude/skills/) for Claude Code, the cross-tool
 `.agents/skills/` for Codex, Gemini, Cursor, and GitHub Copilot — Claude Code
-does not read the shared dir;
-[ADR 0043](../_adr/0043-registry-derived-agent-parity.md)) — gitignored
+does not read the shared dir
+([ADR 0043](../_adr/0043-registry-derived-agent-parity.md))) — gitignored
 artifacts the binary re-publishes: built-ins **rendered** in (their markdown
 passes through the same [templating engine](the-templating-engine.md), so a
-shipped skill speaks your configured paths, never discern's defaults —
-[ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)), authored
+shipped skill speaks your configured paths, never discern's defaults
+([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md))), authored
 skills **symlinked**. The materialized skills are guarded by the **same currency
 check** as the compiled files, comparing against the _rendered_ source:
 `discern status` / `discern done` flag a skills dir that has drifted from the
 effective set, so a hand-edited copy — or a path reconfiguration awaiting
 `refresh` — is caught, not silent
-([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), extended to
-skills).
+([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 
 Everything agent-specific — each agent's instruction file, skills dir, MCP and
-worktree-hook surfaces — lives in ONE typed provider registry
-([`src/lib/providers.ts`](../../../src/lib/providers.ts);
-[ADR 0031](../_adr/0031-typed-provider-integration.md)), and the cross-cutting
+worktree-hook surfaces — lives in ONE typed provider registry,
+[`src/lib/providers.ts`](../../../src/lib/providers.ts)
+([ADR 0031](../_adr/0031-typed-provider-integration.md)), and the cross-cutting
 consumers (the seed `.gitignore`, the neutral scopes, the improvement coach's
 agent-file probe) all derive from it. A registry-driven parity test fails the
 build if a new agent isn't handled across every surface, so the integrations

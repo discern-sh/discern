@@ -5,8 +5,8 @@ travels with the repo; materialized and machine-local artifacts stay out of it._
 
 Every agent-facing artifact discern produces has one of three kinds, declared in
 the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts),
-`agentArtifactPosture()` —
-[ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)):
+`agentArtifactPosture()`)
+([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)):
 
 | Kind                   | Examples                              | Git posture |
 | ---------------------- | ------------------------------------- | ----------- |
@@ -51,5 +51,5 @@ runs `git add` on your behalf.
 ## See also
 
 - [what-discern-writes.md](what-discern-writes.md) — the whole footprint.
-- [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md) — the
-  decision record, with the per-vendor verification table.
+- The decision record, with the per-vendor verification table
+  ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).

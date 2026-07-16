@@ -61,5 +61,5 @@ layout, then re-run to prove the no-op.
 
 - [config-reference.md](config-reference.md) — every section and key the
   migrated config must validate against.
-- [ADR 0014](../_adr/0014-versioned-migration-system.md) — the migration
-  system's founding decision.
+- The migration system's founding decision
+  ([ADR 0014](../_adr/0014-versioned-migration-system.md)).

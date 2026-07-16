@@ -14,8 +14,8 @@ same tree, same result → same receipt, durations excepted — and **derived on
 from the result envelope**: "what ran" is read from the envelope's `steps[]`,
 the git facts are gathered once and carried structured in `data.receipt`
 (branch, trunk, commits, files, insertions, deletions), and the `markdown` is a
-rendering of those fields, never a second computation
-([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md); the one-object rule of
+rendering of those fields, never a second computation, per the one-object rule
+([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md),
 [ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 A dirty tree earns no receipt: the diff vs the trunk would describe a different
@@ -37,9 +37,10 @@ final commit.
   ask you to land.
 - **The marker.** The green run stores the markdown beside the validated sha in
   the per-worktree marker file (`discern-gate-receipt`, inside the git admin dir
-  — the vouch of [ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)),
-  so later verbs can surface the receipt without re-running the gate. Any new
-  commit, amend, or uncommitted edit silently invalidates it.
+  — the vouch that `accept` validates
+  ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md))), so later
+  verbs can surface the receipt without re-running the gate. Any new commit,
+  amend, or uncommitted edit silently invalidates it.
 - **`discern status`**, when the clean HEAD has a recorded pass, carries the
   stored markdown in `data.gate_receipt.receipt`, and its review-ready hint
   names the moment's two affordances: relay the receipt, and inspect the raw

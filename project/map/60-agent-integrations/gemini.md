@@ -100,7 +100,7 @@ registry.
 
 ## See also
 
-- [ADR 0043](../_adr/0043-registry-derived-agent-parity.md) - why `GEMINI.md` is
-  a pointer to `AGENTS.md`.
-- [ADR 0072](../_adr/0072-typed-mcp-status-forcing-function.md) - why MCP
-  coverage is explicit in the provider registry.
+- Why `GEMINI.md` is a pointer to `AGENTS.md`
+  ([ADR 0043](../_adr/0043-registry-derived-agent-parity.md)).
+- Why MCP coverage is explicit in the provider registry
+  ([ADR 0072](../_adr/0072-typed-mcp-status-forcing-function.md)).
