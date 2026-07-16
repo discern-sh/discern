@@ -1,4 +1,4 @@
-/* Progressive enhancement for the otherwise-static design-system demo. */
+/* Progressive enhancement for the otherwise-static homepage and Marketing atlas. */
 (() => {
   "use strict";
 

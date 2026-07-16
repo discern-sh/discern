@@ -26,7 +26,7 @@ The routes, from the handler's exported `PAGES` table:
 
 | Route                  | Page                                   | Text client receives                     |
 | ---------------------- | -------------------------------------- | ---------------------------------------- |
-| `/`                    | the engineers edition                  | the plaintext edition                    |
+| `/`                    | the generated design-system homepage   | the plaintext edition                    |
 | `/agents`              | the agent's manual                     | the plaintext edition                    |
 | `/start`               | the prompt-builders edition            | the same HTML                            |
 | `/careers`             | the careers page                       | the same HTML                            |
@@ -71,16 +71,18 @@ to production.
 
 ## Current state & gotchas
 
-- The pages load Tailwind from a CDN and fonts from Google Fonts.
+- Three older pages load Tailwind from a CDN and fonts from Google Fonts.
   [`project/TODO.md`](../../TODO.md) tracks self-hosting both before launch.
-  This applies to the four original experimental editions; `/design-system-demo`
-  uses compiled CSS and self-hosted fonts with no third-party runtime request.
-- `mockups/landing/` is the design archive. Pages are promoted from there into
-  `site/pages/` deliberately; the two are not synced.
-- The generated marketing and content demos are the exception to `site/pages/`
-  being hand-authored and self-contained. Their sources live in
-  `site/page-src/`; `deno task site:build` owns ignored HTML and design-system
-  assets under `site/pages/`, and Deno Deploy runs that task before starting the
-  handler.
+  This applies to `/agents`, `/start`, and `/careers`; `/` and both composition
+  atlases use compiled CSS and self-hosted assets with no third-party runtime
+  request.
+- `mockups/landing/` is the design archive. The homepage replaced in July 2026
+  remains there as `previous-homepage-2026-07-16.html`; archived pages are never
+  served or kept in sync with the live edition.
+- The generated homepage and two composition atlases are the exceptions to
+  `site/pages/` being hand-authored and self-contained. Their sources live in
+  `site/page-src/`; `deno task site:build` owns their ignored HTML and
+  design-system assets under `site/pages/`, and Deno Deploy runs that task
+  before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency,
   thin integration, bundle, and page-composition boundaries.

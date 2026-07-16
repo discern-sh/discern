@@ -15,7 +15,10 @@ import {
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
 import { renderContentDesignDemo } from "../site/page-src/content-design-demo.tsx";
-import { renderDesignSystemDemo } from "../site/page-src/design-system-demo.tsx";
+import {
+  renderDesignSystemDemo,
+  renderHomepage,
+} from "../site/page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
@@ -252,6 +255,10 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     tokens: runtime.publicTokenNames.length,
   };
   assertEquals(
+    await Deno.readTextFile(join(ROOT, "site/pages/index.html")),
+    await formatGeneratedText(renderHomepage(stats), "html"),
+  );
+  assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/design-system-demo.html")),
     await formatGeneratedText(renderDesignSystemDemo(stats), "html"),
   );
@@ -273,6 +280,31 @@ Deno.test("generated output is ignored and reproducible from its selections", as
         .readTextFile(join(ROOT, "site/page-src", source))}`,
     );
   }
+
+  const previousHomepage = await Deno.readTextFile(
+    join(ROOT, "mockups/landing/previous-homepage-2026-07-16.html"),
+  );
+  assertStringIncludes(previousHomepage, "Don't take your agent's word for it");
+});
+
+Deno.test("the public homepage is the static local-only Marketing composition", async () => {
+  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
+  const response = await handler(
+    new Request("https://discern.sh/", { headers: BROWSER }),
+  );
+  assertEquals(response.status, 200);
+  const html = await response.text();
+  assertStringIncludes(html, "discern · Software quality you can see");
+  assertStringIncludes(html, "static HTML · local assets · no tracking");
+  assert(
+    runtimeAssetReferences(html).every((path) => path.startsWith("/")),
+  );
+  assertEquals(
+    ["fonts.googleapis.com", "cdn.jsdelivr.net", "jsr.io", "react"].filter(
+      (origin) => html.includes(origin),
+    ),
+    [],
+  );
 });
 
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {

@@ -29,6 +29,7 @@
 # `site/design_system.ts` and `site/page-src/`; build products never enter Git.
 /site/pages/design-system-demo.html
 /site/pages/content-design-demo.html
+/site/pages/index.html
 /site/pages/assets/design-system/
 
 # --- discern ---

@@ -29,7 +29,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/design-system-demo", "/content-design-demo"],
+    routes: ["/", "/design-system-demo", "/content-design-demo"],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",

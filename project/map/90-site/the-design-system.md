@@ -29,10 +29,10 @@ cooldown; every other dependency remains subject to the normal age policy.
 [`site/design_system.ts`](../../../site/design_system.ts) is the complete thin
 integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
 
-| Bundle         | Routes                                        | Selection                                      | Optional assets |
-| -------------- | --------------------------------------------- | ---------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants                   | Five shell components                          | fonts           |
-| `compositions` | `/design-system-demo`, `/content-design-demo` | Marketing, Editorial, and shared display parts | fonts and grain |
+| Bundle         | Routes                                             | Selection                                      | Optional assets |
+| -------------- | -------------------------------------------------- | ---------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants                        | Five shell components                          | fonts           |
+| `compositions` | `/`, `/design-system-demo`, `/content-design-demo` | Marketing, Editorial, and shared display parts | fonts and grain |
 
 The table also owns the Discern theme choice and emitted public directories.
 [`site/build.ts`](../../../site/build.ts) passes each selection to the public
@@ -41,10 +41,11 @@ writes deterministic CSS, a manifest, and only the requested assets. Discern
 does not copy the package manifest, tokens, dependency graph, CSS, or adapters.
 
 The docs shell loads its smaller bundle from `/assets/design-system/docs/`. The
-two retained product-composition atlases load the full selected bundle from
-`/assets/design-system/compositions/`. Fonts are an explicit choice for both.
-Grain is selected only for the compositions; docs neither emit nor load it.
-Generated output stays ignored beneath `site/pages/assets/design-system/`.
+homepage and two retained product-composition atlases load the full selected
+bundle from `/assets/design-system/compositions/`. Fonts are an explicit choice
+for both. Grain is selected only for the compositions; docs neither emit nor
+load it. Generated output stays ignored beneath
+`site/pages/assets/design-system/`.
 
 ## Static production, typed authoring
 
@@ -61,12 +62,14 @@ Discern; none moves into the reusable package.
 
 ## Retained compositions
 
-`/design-system-demo` is Discern's Marketing composition atlas. It exercises the
-complete published Marketing group with real product copy and artwork.
-`/content-design-demo` does the same for the Editorial group and a long-form
-reading experience. They remain because they compare possible discern.sh landing
-and content compositions, not because Discern owns the generic package
-catalogue.
+The same complete Marketing composition is the public `/` homepage and remains
+available at `/design-system-demo` as an explicitly labelled atlas. It exercises
+the published Marketing group with real product copy and artwork. The previous
+homepage prototype is preserved under `mockups/landing/`, outside the served
+tree. `/content-design-demo` does the same for the Editorial group and a
+long-form reading experience. They remain because they compare possible
+discern.sh landing and content compositions, not because Discern owns the
+generic package catalogue.
 
 The generic component catalogue, examples, component implementation, assets, and
 package tooling live only in the package repository. Discern does not mount
@@ -94,7 +97,7 @@ new site selections and routes auto-enrol through `DESIGN_SYSTEM_BUNDLES`.
 ## Build and theme
 
 ```sh
-deno task site:build   # emit both selected runtimes and static compositions
+deno task site:build   # emit both runtimes, the homepage, and two atlases
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 ```

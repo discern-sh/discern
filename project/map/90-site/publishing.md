@@ -15,16 +15,16 @@ deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after buil
 ```
 
 The `site` task first runs `site:build`, which deterministically creates the
-ignored design-system demo HTML and assets, then serves the same handler on the
-loopback-only `http://localhost:4507/` in the main checkout. In a discern
-worktree both tasks discover its deterministic identity port automatically, so
-concurrent previews do not collide; an explicit `PORT` still wins. The `watch`
-task does the same initial build, then rebuilds in a fresh Deno process when
-page sources, the site-owned design-system selection, or build configuration
-changes. A failed watched rebuild is reported and the watcher remains ready for
-the correcting edit. Local and production expose the same route surface; the
-generic component catalogue lives in the design-system package repository and is
-not mounted by Discern.
+ignored design-system homepage, composition HTML, and assets, then serves the
+same handler on the loopback-only `http://localhost:4507/` in the main checkout.
+In a discern worktree both tasks discover its deterministic identity port
+automatically, so concurrent previews do not collide; an explicit `PORT` still
+wins. The `watch` task does the same initial build, then rebuilds in a fresh
+Deno process when page sources, the site-owned design-system selection, or build
+configuration changes. A failed watched rebuild is reported and the watcher
+remains ready for the correcting edit. Local and production expose the same
+route surface; the generic component catalogue lives in the design-system
+package repository and is not mounted by Discern.
 
 Deno Deploy runs the same build task before it starts the handler through a
 `Deno.serve` entrypoint, [`site/main.ts`](../../../site/main.ts) — because the
@@ -35,7 +35,7 @@ Check both readers:
 
 ```sh
 curl -s localhost:4507/           # prints the DISCERN(1) plaintext edition
-open http://localhost:4507/       # renders the engineers edition
+open http://localhost:4507/       # renders the generated design-system homepage
 ```
 
 ## Deploy to production (Deno Deploy)

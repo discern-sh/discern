@@ -14,7 +14,10 @@ import {
   type DesignSystemBundleName,
 } from "./design_system.ts";
 import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
-import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
+import {
+  renderDesignSystemDemo,
+  renderHomepage,
+} from "./page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
@@ -22,14 +25,16 @@ const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
+  "pages/index.html",
   "pages/design-system-demo.html",
   "pages/content-design-demo.html",
   "pages/assets/design-system/",
 ] as const;
 
-const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
-const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
-const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
+const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
+const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[3], SITE_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
@@ -78,6 +83,10 @@ export async function buildSite(): Promise<void> {
   await writeGeneratedCopy("content-design-demo.css", "content-demo.css");
   await writeGeneratedCopy("design-system-demo.js", "demo.js");
   await Deno.writeTextFile(
+    HOME_PAGE_OUTPUT,
+    await formatGeneratedText(renderHomepage(summary), "html"),
+  );
+  await Deno.writeTextFile(
     MARKETING_PAGE_OUTPUT,
     await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
   );
@@ -87,7 +96,7 @@ export async function buildSite(): Promise<void> {
   );
 
   console.log(
-    `Built two static design-system demos from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built the static homepage and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 
