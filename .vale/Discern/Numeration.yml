@@ -1,6 +1,6 @@
 # Counting a set out loud in prose (voice skill: banned moves). The spelled-out
-# count duplicates the list it introduces, so it silently lies the day the set
-# grows. Warning, not error: occasionally the number IS the fact.
+# count duplicates the list it introduces, so it is wrong the day the set
+# grows. Warning severity: occasionally the number IS the fact.
 extends: existence
 message: "Counted set ('%s'): the number drifts when the set changes — let the list carry the count, or name the members."
 ignorecase: true

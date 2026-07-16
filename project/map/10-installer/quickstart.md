@@ -24,7 +24,7 @@ calls once installed.
 curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 ```
 
-The install message ends with the whole handoff: tell your coding agent to run
+The install message ends with the handoff: tell your coding agent to run
 `discern`. There is nothing for you to configure by hand.
 
 ## 2. Ask your agent to set the project up
@@ -35,8 +35,8 @@ In your project, tell your agent:
 
 The agent runs `discern`, and discern walks it through a staged setup
 ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing anything,
-discern serves a consent message for the agent to relay, naming exactly what it
-will write: one `discern.toml` at the repo root, a visible `discern/` folder for
+discern serves a consent message for the agent to relay, naming what it will
+write: one `discern.toml` at the repo root, a visible `discern/` folder for
 content you own, the documentation map, the agent files each coding agent reads,
 and a delimited `.gitignore` block. Everything authored is plain Markdown, and
 `discern uninstall` takes the wiring back out.
@@ -57,7 +57,7 @@ commands.
 When the scaffold is ready, the agent runs `discern setup done`. discern
 refreshes the generated files, runs `discern doctor`, runs the full gate, and
 then runs the gate _again_ in a throwaway worktree copy — so a project that
-would break in an isolated workspace can't complete setup silently
+would break in an isolated workspace can't complete setup
 ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
 
 Then it's your turn:

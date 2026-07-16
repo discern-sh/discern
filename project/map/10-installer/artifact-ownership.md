@@ -15,7 +15,7 @@ aliases:
 # Files & ownership
 
 _Every file discern creates or merges into, who owns each, whether git tracks or
-ignores it, and the one command that removes the wiring._
+ignores it, and the command that removes the wiring._
 
 discern writes one committed root file, one visible namespace, the agent files
 each vendor requires, and a short list of shims. A test fails if any verb writes
@@ -48,7 +48,7 @@ discern's own tree: setup never points it at documentation you curate yourself
 
 discern owns a delimited region of each and leaves the rest alone.
 
-- **`discern.toml`** — the one root file, your configuration. discern restores
+- **`discern.toml`** — the root file, your configuration. discern restores
   missing fixed sections and keys and replaces clean ruled banners from the
   current template
   ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it never
@@ -103,12 +103,12 @@ commit. discern never runs `git add` on your behalf.
 ## What runs on your machine
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts`
-block: it runs the commands you configure. The gate runs exactly the commands in
-your `discern.toml`; a scope gate or a standard runs the command you wrote for
-it; a project script is your own executable. Read-only verbs (`status`,
-`doctor`, the docs browsers) never run any of them. discern makes zero network
-calls, ships no telemetry, and never updates itself — getting a newer discern
-means re-running your installer.
+block: it runs the commands you configure. The gate runs the commands in your
+`discern.toml`, and no others; a scope gate or a standard runs the command you
+wrote for it; a project script is your own executable. Read-only verbs
+(`status`, `doctor`, the docs browsers) never run any of them. discern makes
+zero network calls, ships no telemetry, and never updates itself — getting a
+newer discern means re-running your installer.
 
 ## Removing it all
 
@@ -117,13 +117,13 @@ strips discern's entries from the co-managed files, and removes the `.gitignore`
 block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview
 with `discern uninstall --dry-run`.
 
-It keeps your content: `discern.toml` and the whole `discern/` namespace stay.
-If it can't resolve its bundled templates, it leaves the template-seeded entries
-in a co-managed settings file rather than guess, and names each such file so you
-can finish by hand. It refuses while a worktree is in flight, and it is a
-CLI-only verb (no MCP tool exposes it), so an agent can't uninstall discern
-mid-session; that decision needs a person at the terminal. The binary itself is
-one file on your `PATH`, removed by hand — the file `which discern` reports.
+It keeps your content: `discern.toml` and the `discern/` namespace stay. If it
+can't resolve its bundled templates, it leaves the template-seeded entries in a
+co-managed settings file rather than guess, and names each such file so you can
+finish by hand. It refuses while a worktree is in flight, and it is a CLI-only
+verb (no MCP tool exposes it), so an agent can't uninstall discern mid-session;
+that decision needs a person at the terminal. The binary itself is one file on
+your `PATH`, removed by hand — the file `which discern` reports.
 
 ## Where it lives in code
 

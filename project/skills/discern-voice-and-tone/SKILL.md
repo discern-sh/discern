@@ -56,9 +56,9 @@ present, warmth present, delight at most one, and zero is fine.
 ## 1. Precision — say the true, specific thing
 
 The reader is smart. They're missing context, not capability. Writing that pads,
-hedges, or gushes wastes their time and quietly insults them; writing that hands
-them exact, verifiable facts respects them. Precision is also the trust engine
-for the other three layers. Opinions and jokes only land because the reader has
+hedges, or gushes wastes their time and insults them; writing that hands them
+exact, verifiable facts respects them. Precision is also the trust engine for
+the other three layers. Opinions and jokes only land because the reader has
 learned that every plain statement here is true.
 
 Do this:
@@ -106,7 +106,7 @@ says nothing about discern. Make it specific until it couldn't.
 
 discern exists because of a belief about how something should work. State that
 belief in short, declarative sentences and let it stand. A menu of equally
-weighted options outsources the decision to the reader, the one person in the
+weighted options outsources the decision to the reader, the only person in the
 room who hasn't spent months inside this problem. You have. Decide.
 
 Do this:
@@ -115,7 +115,7 @@ Do this:
   reason: "Use X. It's the default because Y. If you need Z, here's the escape
   hatch."
 - Kill reflexive hedging. "You may want to consider enabling" → "Enable." Keep a
-  hedge only for genuine uncertainty, and then be precise about exactly what's
+  hedge only for genuine uncertainty, and then be precise about what's
   uncertain.
 - Say what discern is _not_ for, early and cheerfully. Sending the wrong user to
   the right tool earns more trust than any feature list.
@@ -166,7 +166,7 @@ ensure the appropriate configuration has been established prior to
 initialization."
 
 **After:** "Want checks enforced? Add them to `discern.toml`, or ask your agent
-to do it for you. That's the whole setup."
+to do it for you. Nothing else to configure."
 
 The test: read it aloud. If you wouldn't say the sentence to a colleague you
 like, rewrite it until you would.
@@ -176,8 +176,8 @@ like, rewrite it until you would.
 About once per page, reward the reader's attention with a small moment of
 personality: an example with character instead of `foo` and `bar`, a wry line in
 a FAQ, an empty state with a smile in it, a 404 page someone clearly thought
-about. When applied selectively, it makes the whole project feel handmade and
-cared for.
+about. When applied selectively, it makes the project feel handmade and cared
+for.
 
 Delight is the only layer with hard rules:
 
@@ -190,7 +190,7 @@ Delight is the only layer with hard rules:
   install steps, security docs, or anywhere someone lands mid-crisis.
 - **Zero personality in reference, troubleshooting, and error material.** Those
   readers came to look something up or to get unstuck. The budget there is zero;
-  characterful example values are the one sanctioned outlet in reference pages.
+  characterful example values are the only sanctioned outlet in reference pages.
 - **Zero cost.** The sentence must still work for a reader the joke misses
   entirely. If removing the playful line removes information, the line is doing
   a job it shouldn't have.
@@ -267,11 +267,10 @@ assigns each page's job and budget; these govern how the page sounds.
    beats a summary section restating what the reader just read.
 10. **Every example is minimal, realistic, copyable, and verified** against the
     live tree before it ships.
-11. **Spend absolutes where they're load-bearing.** "never," "always," and
-    "exactly" state guarantees, and the docs trade on them — but a page that
-    re-negates in every paragraph flattens its real guarantees into cadence.
-    Keep the absolute where the guarantee is the fact; cut it where it's there
-    for the beat.
+11. **Spend absolutes on real guarantees.** "never" and "always" state
+    guarantees, and the docs trade on them — but a page that re-negates in every
+    paragraph flattens its real guarantees into cadence. Keep the absolute where
+    the guarantee is the fact; cut it where it's there for the beat.
 
 **Page budgets** (the documenter brief binds where it's stricter):
 
@@ -303,7 +302,7 @@ failed.
 - `--help` output is reference material: terse, parallel in structure, complete,
   no chat.
 - Buttons and labels say what they do: "Delete 3 files," not "Confirm."
-- Empty states are a sanctioned delight location, the one place a user arrives
+- Empty states are a sanctioned delight location, the only place a user arrives
   with nothing at stake.
 
 **Before:** "Error: Invalid configuration. Operation aborted."
@@ -346,7 +345,7 @@ mirrored as lint — see "Enforcement" below.
    - Fix: state the true half plainly. "discern uses no LLM. Your agent uses
      discern."
    - Budgets: marketing pages zero — this is the strongest fingerprint of the
-     lot. Docs: only when the distinction is load-bearing (two real glossary
+     lot. Docs: only when the distinction does real work (two real glossary
      terms genuinely confused with each other), at most one per page.
 2. **Aphoristic antithesis:** the epigram cadence — short mirrored clauses
    striking a pose ("Agents forget. The repo remembers."). One can earn its
@@ -394,8 +393,8 @@ mirrored as lint — see "Enforcement" below.
     One per page at most, prefer zero.
 16. **Counting the set out loud:** "Watch for four moments," "Two things
     remain," "one of three ownership kinds." The spelled-out count duplicates
-    the list it introduces, so the sentence silently lies the day the set grows
-    — counted sets are a standing source of doc drift. Let the list carry the
+    the list it introduces, so the sentence is wrong the day the set grows —
+    counted sets are a standing source of doc drift. Let the list carry the
     count ("Watch what the agent does:"), or name the members. A number is
     welcome when the number itself is the fact ("one file: `discern.toml`").
 
@@ -457,7 +456,7 @@ to say when agent-written work is done. Lead with the operational change:
 - quality limits can move only in the right direction;
 - setup is completed autonomously by an agent.
 
-The repo's rules are the hero. The agent is just the one who follows them.
+The repo's rules are the hero. The agent follows them.
 
 ### Canonical terms
 
@@ -507,8 +506,8 @@ top, and present only copy that comes through clean.
    takes one stance. (Reference tables are exempt.)
 6. **Read it aloud.** Every sentence is one you'd say to a colleague you like.
 7. **Count the tells.** Contrast-frames on a marketing page: zero; on a docs
-   page: one, load-bearing, at most. Em dashes: never two in a sentence. Scan
-   the banned moves and the banned words.
+   page: one at most, and only where the distinction does real work. Em dashes:
+   never two in a sentence. Scan the banned moves and the banned words.
 8. **Count the winks.** One per page, none in reference, troubleshooting, or
    errors; personification at most once.
 9. **Docs pages only: the shape.** The first paragraph does the job; headings
