@@ -28,6 +28,7 @@ import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { designSystemAssetPath } from "./design_system.ts";
+import { buildSearchIndex } from "./search.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -615,6 +616,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <link rel="icon" href="${FAVICON}" />
 <script>
 (function () {
+  document.documentElement.classList.add("docs-js");
   var stored = null;
   try { stored = localStorage.getItem("discern-theme"); } catch (_) { /* file:// quirks */ }
   var dark = stored === "dark" ||
@@ -625,13 +627,14 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
 <link rel="stylesheet" href="/assets/docs.css" />
-<script defer src="/assets/docs.js"></script>
+<script type="module" src="/assets/docs.js"></script>
 </head>
 <body>
 <a class="docs-skip" href="#doc">Skip to content</a>
 <header class="docs-top">
   <button class="discern-icon-button docs-burger" type="button"
-    aria-label="Open navigation" aria-expanded="false" data-drawer-toggle>
+    data-drawer-toggle aria-controls="docs-nav"
+    aria-label="Open navigation" aria-expanded="false">
     <span class="discern-icon">${ICONS.menu}</span>
   </button>
   <a class="docs-brand" href="/">
@@ -639,13 +642,14 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     <span class="docs-brand-word">discern</span></a><a
     class="docs-brand-docs discern-mono" href="/docs">/docs</a>
   <span class="docs-top-spacer"></span>
-  <button class="docs-search-btn" type="button" data-search-open>
+  <button class="docs-search-btn" type="button" data-search-open
+    aria-label="Search documentation">
     <span class="discern-icon docs-search-icon">${ICONS.search}</span>
     <span class="docs-search-btn-word">Search the manual</span>
     <kbd class="discern-mono">⌘K</kbd>
   </button>
   <button class="discern-icon-button docs-theme" type="button"
-    aria-label="Toggle color theme" data-theme-toggle>
+    aria-label="Use dark theme" aria-pressed="false" data-theme-toggle>
     <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
     <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
   </button>
@@ -671,16 +675,24 @@ ${navHtml(site, frame.current)}
 <div class="docs-search" data-search hidden>
   <div class="docs-search-veil" data-search-close></div>
   <div class="discern-window docs-search-panel" role="dialog" aria-modal="true"
-    aria-label="Search documentation">
+    aria-labelledby="docs-search-title">
     <div class="discern-window__bar">
       <span class="discern-window__dot"></span><span class="discern-window__dot"></span><span class="discern-window__dot"></span>
-      <span class="discern-window__title">search · discern.sh/docs</span>
+      <span class="discern-window__title" id="docs-search-title">search · discern.sh/docs</span>
+      <button class="discern-icon-button docs-search-close" type="button"
+        data-search-close aria-label="Close search"><span aria-hidden="true">×</span></button>
     </div>
     <div class="discern-window__body docs-search-body">
       <input class="docs-search-input discern-mono" type="search"
-        placeholder="Search the manual…" data-search-input
+        placeholder="Search the manual…" data-search-input role="combobox"
+        aria-label="Search documentation" aria-autocomplete="list"
+        aria-expanded="false" aria-controls="docs-search-results"
         autocomplete="off" spellcheck="false" />
-      <ul class="docs-search-results" data-search-results></ul>
+      <ul class="docs-search-results" id="docs-search-results" role="listbox"
+        aria-label="Search results" data-search-results></ul>
+      <div class="docs-search-empty" data-search-empty hidden></div>
+      <div class="docs-visually-hidden" role="status" aria-live="polite"
+        aria-atomic="true" data-search-status></div>
       <div class="docs-search-hint discern-mono">↑↓ choose · ↵ open · esc close</div>
     </div>
   </div>
@@ -765,7 +777,7 @@ export function docsShell(
   rendered: RenderedDoc,
 ): string {
   return shellFrame(site, {
-    htmlTitle: `${page.entry.title} · discern docs`,
+    htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
     current: page,
     breadcrumb: page,
@@ -813,7 +825,7 @@ export function docsIndexShell(site: DocsSite): string {
   ${colophonHtml(null)}`;
 
   return shellFrame(site, {
-    htmlTitle: "The manual · discern",
+    htmlTitle: "Documentation · discern.sh docs",
     description:
       "The discern manual — the same documentation `discern help` serves.",
     current: null,
@@ -864,7 +876,7 @@ export function decisionsIndexShell(site: DocsSite): string {
   </article>
   ${colophonHtml(null, "decisions")}`;
   return shellFrame(site, {
-    htmlTitle: "Project decisions · discern docs",
+    htmlTitle: "Project decisions · discern.sh docs",
     description:
       "Project-history records explaining the decisions behind discern.",
     current: null,
@@ -881,7 +893,7 @@ export function decisionShell(
   rendered: RenderedDoc,
 ): string {
   return shellFrame(site, {
-    htmlTitle: `${page.entry.title} · discern decisions`,
+    htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
     current: null,
     breadcrumb: page,
@@ -962,19 +974,14 @@ let searchIndexCache: string | undefined;
 
 async function searchIndexJson(site: DocsSite): Promise<string> {
   if (searchIndexCache !== undefined) return searchIndexCache;
-  const pages = [];
-  for (const page of site.pages) {
-    const { toc } = await renderDoc(page, site);
-    pages.push({
-      route: page.route,
-      title: page.entry.title,
-      section: site.sections.find((s) => s.slug === page.sectionSlug)?.title ??
-        "",
-      description: page.entry.description,
-      headings: toc.map((t) => ({ id: t.id, text: t.text })),
-    });
-  }
-  searchIndexCache = JSON.stringify({ pages });
+  const index = await buildSearchIndex(site.pages.map((page) => ({
+    route: page.route,
+    section: site.sections.find((section) =>
+      section.slug === page.sectionSlug
+    )?.title ?? "",
+    entry: page.entry,
+  })));
+  searchIndexCache = JSON.stringify(index);
   return searchIndexCache;
 }
 

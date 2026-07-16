@@ -149,6 +149,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0141 — ADR citations take one strippable form and strip at render time](0141-adr-citations-strip-at-render.md)
 - [0142 — Customer binaries carry only the public documentation projection](0142-customer-binaries-carry-only-public-docs.md)
 - [0143 — Decision records render on the web as project history outside product guidance](0143-decisions-on-the-web.md)
+- [0144 — Site URLs are canonical at the apex and redirects resolve in one hop](0144-canonical-site-urls-and-one-hop-redirects.md)
+- [0145 — The production site deploys only from release tags](0145-production-site-deploys-only-from-release-tags.md)
 
 ## Superseded and consolidated ADRs
 

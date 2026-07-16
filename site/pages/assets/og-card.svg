@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
+  viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">discern</title>
+  <desc id="desc">Software quality you can see.</desc>
+  <rect width="1200" height="630" fill="#22252c" />
+  <path d="M0 0h18v630H0z" fill="#c9f24e" />
+  <g transform="translate(940 190)">
+    <rect width="104" height="104" rx="25" fill="#c9f24e" />
+    <path d="m27 55 18 18 34-42" fill="none" stroke="#16130e" stroke-width="12"
+      stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+  <text x="86" y="340" fill="#f7f5f8"
+    font-family="ui-sans-serif, system-ui, sans-serif" font-size="112"
+    font-weight="750" letter-spacing="-4">discern</text>
+  <text x="90" y="450" fill="#c9cbd2"
+    font-family="ui-sans-serif, system-ui, sans-serif" font-size="42"
+    font-weight="500">Software quality you can see.</text>
+  <path d="M90 520h1020" stroke="#414550" stroke-width="2" />
+  <text x="90" y="575" fill="#9297a4"
+    font-family="ui-monospace, SFMono-Regular, monospace"
+    font-size="25">discern.sh  ·  for coding agents</text>
+</svg>
