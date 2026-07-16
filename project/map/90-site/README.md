@@ -14,7 +14,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/serve.ts`](../../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
-| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package runtimes and the static composition pages.         |
+| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static composition pages.          |
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.              |
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
@@ -85,4 +85,6 @@ to production.
   design-system assets under `site/pages/`, and Deno Deploy runs that task
   before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency,
-  thin integration, bundle, and page-composition boundaries.
+  thin integration, and bundle boundary.
+- [design-system-consumption.md](design-system-consumption.md) records static
+  page composition, retained atlases, build commands, and consumer guards.

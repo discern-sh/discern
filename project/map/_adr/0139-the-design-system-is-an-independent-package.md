@@ -63,8 +63,8 @@ Discern pins the follow-up release exactly as
 `jsr:@discern-sh/design-system@0.1.1` in its root configuration and lockfile.
 The root, `./runtime`, and `./react` exports are its only package seams. Deno's
 minimum-dependency-age exception names this package explicitly while that exact
-release is inside the registry cooldown; it does not relax the policy for other
-dependencies.
+release is inside the registry holding period; it does not relax the policy for
+other dependencies.
 
 One registry constraint shaped the module contract: JSR rejects text import
 attributes when it builds the publish graph, so stylesheets embed into generated
