@@ -752,15 +752,27 @@ export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
 // docs / help ──────────────────────────────────────────────────────────────
 
-/** One doc's record (no content). */
+/** One doc's record (no content). Frontmatter values travel as these
+ * structured fields — never inside rendered content — and appear only when
+ * they say something: `publish` only when false, the rest only when present. */
 const docRecordSchema = z.strictObject({
   path: z.string(),
   section: z.string(),
   slug: z.string(),
   title: z.string(),
   description: z.string(),
+  publish: z.boolean().optional(),
+  order: z.number().optional(),
+  aliases: z.array(z.string()).optional(),
 });
 export type DocRecord = z.infer<typeof docRecordSchema>;
+
+/** One decision a doc cites: its number, slug, and link destination. */
+const adrCitationSchema = z.strictObject({
+  number: z.string(),
+  slug: z.string(),
+  path: z.string(),
+});
 
 /** One top-level subtree in the no-argument project-map overview. */
 const mapRegionSchema = z.strictObject({
@@ -784,7 +796,10 @@ export const DocsDataSchema = z.strictObject({
   count: z.number().optional(),
   docs: z.array(docRecordSchema).optional(),
   regions: z.array(mapRegionSchema).optional(),
-  doc: docRecordSchema.extend({ content: z.string() }).optional(),
+  doc: docRecordSchema.extend({
+    content: z.string(),
+    cited_adrs: z.array(adrCitationSchema).optional(),
+  }).optional(),
   candidates: z.array(z.string()).optional(),
   suggestions: z.array(docRecordSchema).optional(),
 });

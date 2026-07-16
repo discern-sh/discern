@@ -1075,6 +1075,9 @@ export type DiscernMapResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
     }>;
     regions?: Array<{
       name: string;
@@ -1090,7 +1093,15 @@ export type DiscernMapResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
       content: string;
+      cited_adrs?: Array<{
+        number: string;
+        slug: string;
+        path: string;
+      }>;
     };
     candidates?: Array<string>;
     suggestions?: Array<{
@@ -1099,6 +1110,9 @@ export type DiscernMapResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
     }>;
   } | {
     issues: Array<{
@@ -1191,6 +1205,9 @@ export type DiscernHelpResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
     }>;
     regions?: Array<{
       name: string;
@@ -1206,7 +1223,15 @@ export type DiscernHelpResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
       content: string;
+      cited_adrs?: Array<{
+        number: string;
+        slug: string;
+        path: string;
+      }>;
     };
     candidates?: Array<string>;
     suggestions?: Array<{
@@ -1215,6 +1240,9 @@ export type DiscernHelpResult = {
       slug: string;
       title: string;
       description: string;
+      publish?: boolean;
+      order?: number;
+      aliases?: Array<string>;
     }>;
   } | {
     issues: Array<{

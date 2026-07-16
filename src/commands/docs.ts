@@ -42,9 +42,12 @@ import {
   filterDocsByGroups,
   formatDocsExport,
   groupDocs,
+  publicDocs,
   resolveDoc,
   suggestDocs,
 } from "../lib/docs.ts";
+import { parseFrontmatter } from "../lib/frontmatter.ts";
+import { stripAdrCitations } from "../lib/adr_citations.ts";
 import {
   BUNDLED_INTERNAL_DOC_DIRS,
   resolveBundledDocsDir,
@@ -144,6 +147,30 @@ function internalScope(
     : false;
 }
 
+/**
+ * Apply the verb's PAGE-level publication policy to a discovered tree. `help`
+ * is a published product manual: `isPublicDoc` withholds `publish: false`
+ * leaves from every help surface (browse, TOC, JSON/MCP, targets, export).
+ * `map` is the agents' own tree: agents keep everything.
+ */
+function verbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
+  return desc.verb === "help"
+    ? { ...tree, entries: publicDocs(tree.entries) }
+    : tree;
+}
+
+/**
+ * A doc's content as rendered surfaces consume it: frontmatter never reaches
+ * output (its values travel as structured fields), and `help` — prose humans
+ * read — additionally loses inline ADR citations. `map` content keeps its
+ * citations: its readers are agents, who navigate by them. RAW surfaces
+ * (`--raw`, `.md` editions) bypass this entirely — pristine bytes by contract.
+ */
+function renderableBody(desc: DocsVerb, content: string): string {
+  const { body } = parseFrontmatter(content);
+  return desc.verb === "help" ? stripAdrCitations(body) : body;
+}
+
 /** Options accepted by the `map` command (global flags folded in). */
 export interface DocsOptions {
   json: boolean;
@@ -168,7 +195,10 @@ export interface DocsOptions {
   output?: string | undefined;
 }
 
-/** The machine-readable record for one doc (sans content). */
+/** The machine-readable record for one doc (sans content). Frontmatter values
+ * travel here as structured fields — never inside `content` — and only when
+ * they say something: `publish` appears only when false (a `map` reader
+ * seeing what publishing withholds), the rest only when present. */
 function toRecord(e: DocEntry): DocRecord {
   return {
     path: e.path,
@@ -176,6 +206,9 @@ function toRecord(e: DocEntry): DocRecord {
     slug: e.slug,
     title: e.title,
     description: e.description,
+    ...(e.publish ? {} : { publish: false }),
+    ...(e.order !== undefined ? { order: e.order } : {}),
+    ...(e.aliases.length > 0 ? { aliases: e.aliases } : {}),
   };
 }
 
@@ -341,11 +374,12 @@ function docsHeader(
 
 /** The interactive browse loop: pick a doc, view it, repeat until quit. */
 async function browse(
-  verb: string,
+  desc: DocsVerb,
   tree: DocsTree,
   options: DocsOptions,
   cwd: string,
 ): Promise<number> {
+  const verb = desc.verb;
   const color = colourEnabled(options.noColor);
   const width = resolveWidth(options.width);
   const QUIT = "\x00quit";
@@ -382,7 +416,10 @@ async function browse(
     last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
-    const content = await Deno.readTextFile(entry.absPath);
+    const content = renderableBody(
+      desc,
+      await Deno.readTextFile(entry.absPath),
+    );
     await present(renderMarkdown(content, { width, color }), options.noPager);
   }
 }
@@ -473,15 +510,22 @@ async function exportDocs(
   cwd: string,
 ): Promise<number> {
   const resolved = await desc.resolveDir(options);
-  const tree = resolved.kind === "missing" ? undefined : await discoverDocs({
-    cwd,
-    dir: resolved.dir,
-    includeInternal: scope !== "public",
-  });
-  if (!tree) {
+  const discovered = resolved.kind === "missing"
+    ? undefined
+    : await discoverDocs({
+      cwd,
+      dir: resolved.dir,
+      includeInternal: scope !== "public",
+    });
+  if (!discovered) {
     log.error(desc.missingTree(options));
     return 1;
   }
+  // `--export public` is an explicitly-published projection for either verb;
+  // the wider scopes (`all`, `select`) keep everything, like the map itself.
+  const tree = scope === "public"
+    ? { ...discovered, entries: publicDocs(discovered.entries) }
+    : discovered;
 
   let outputPath: string | undefined;
   if (options.output) {
@@ -533,10 +577,12 @@ async function exportDocs(
 
   let markdown: string;
   try {
+    // Frontmatter is metadata, not content: an export concatenates document
+    // BODIES. (ADR citations stay — an export's consumers are agents.)
     const sources = await Promise.all(
       entries.map(async (entry) => ({
         entry,
-        content: await Deno.readTextFile(entry.absPath),
+        content: parseFrontmatter(await Deno.readTextFile(entry.absPath)).body,
       })),
     );
     markdown = formatDocsExport(sources);
@@ -585,11 +631,16 @@ async function treeResult(
   } = {},
 ): Promise<DiscernResult<DocsData>> {
   const resolved = await desc.resolveDir(opts);
-  const tree = resolved.kind === "missing" ? undefined : await discoverDocs({
-    cwd,
-    dir: resolved.dir,
-    includeInternal: opts.internal,
-  });
+  const discovered = resolved.kind === "missing"
+    ? undefined
+    : await discoverDocs({
+      cwd,
+      dir: resolved.dir,
+      includeInternal: opts.internal,
+    });
+  const tree = discovered === undefined
+    ? undefined
+    : verbTree(desc, discovered);
   if (!tree) {
     return {
       ok: false,
@@ -636,11 +687,24 @@ async function treeResult(
         } satisfies DocsData,
       };
     }
-    const content = await Deno.readTextFile(res.entry.absPath);
+    // Structured meta + stripped content: the frontmatter's values are on the
+    // record, never in `content`; a raw read is `--raw`'s job, not JSON's.
+    const content = renderableBody(
+      desc,
+      await Deno.readTextFile(res.entry.absPath),
+    );
     return {
       ok: true,
       verb: desc.verb,
-      data: { doc: { ...toRecord(res.entry), content } } satisfies DocsData,
+      data: {
+        doc: {
+          ...toRecord(res.entry),
+          content,
+          ...(res.entry.citedAdrs.length > 0
+            ? { cited_adrs: res.entry.citedAdrs }
+            : {}),
+        },
+      } satisfies DocsData,
     };
   }
 
@@ -678,13 +742,14 @@ export function helpResult(
 /** Resolve a `--target`, then render or raw-dump that single doc (human path;
  * `--json` goes through {@link treeResult}). */
 async function viewTarget(
-  verb: string,
+  desc: DocsVerb,
   tree: DocsTree,
   options: DocsOptions,
   log: Logger,
   cwd: string,
   target: string,
 ): Promise<number> {
+  const verb = desc.verb;
   const res = resolveDoc(tree, target, cwd);
 
   if (res.kind === "none") {
@@ -707,12 +772,13 @@ async function viewTarget(
 
   const content = await Deno.readTextFile(res.entry.absPath);
   if (options.raw) {
-    // Pristine source — exactly the file's bytes, no added newline.
+    // Pristine source — exactly the file's bytes, no added newline. The RAW
+    // contract: frontmatter and citations included, always.
     await Deno.stdout.write(new TextEncoder().encode(content));
     return 0;
   }
   const color = colourEnabled(options.noColor);
-  const rendered = renderMarkdown(content, {
+  const rendered = renderMarkdown(renderableBody(desc, content), {
     width: resolveWidth(options.width),
     color,
   });
@@ -801,9 +867,12 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   const resolved = await desc.resolveDir(options);
-  const tree = resolved.kind === "missing"
+  const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
+  const tree = discovered === undefined
+    ? undefined
+    : verbTree(desc, discovered);
   if (!tree) {
     log.error(desc.missingTree(options));
     return 1;
@@ -815,7 +884,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 1. A specific doc was named → render / raw-dump just that one.
   if (options.target !== undefined && options.target !== "") {
-    return await viewTarget(desc.verb, tree, options, log, cwd, options.target);
+    return await viewTarget(desc, tree, options, log, cwd, options.target);
   }
 
   // 2. `map` earns its name with a region overview before any drill-in. A pipe
@@ -834,7 +903,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   // 3. A real terminal and no `--list` → the interactive browser.
   if (interactive) {
-    return await browse(desc.verb, tree, options, cwd);
+    return await browse(desc, tree, options, cwd);
   }
 
   // 4. Otherwise (help off a TTY, or explicit `--list`) → a plain TOC.

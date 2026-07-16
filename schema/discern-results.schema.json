@@ -3708,6 +3708,18 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "publish": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "number"
+                      },
+                      "aliases": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
                     "required": [
@@ -3769,8 +3781,42 @@
                     "description": {
                       "type": "string"
                     },
+                    "publish": {
+                      "type": "boolean"
+                    },
+                    "order": {
+                      "type": "number"
+                    },
+                    "aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "content": {
                       "type": "string"
+                    },
+                    "cited_adrs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "number": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "number",
+                          "slug",
+                          "path"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -3807,6 +3853,18 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "publish": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "number"
+                      },
+                      "aliases": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
                     "required": [
@@ -4104,6 +4162,18 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "publish": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "number"
+                      },
+                      "aliases": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
                     "required": [
@@ -4165,8 +4235,42 @@
                     "description": {
                       "type": "string"
                     },
+                    "publish": {
+                      "type": "boolean"
+                    },
+                    "order": {
+                      "type": "number"
+                    },
+                    "aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "content": {
                       "type": "string"
+                    },
+                    "cited_adrs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "number": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "number",
+                          "slug",
+                          "path"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -4203,6 +4307,18 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "publish": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "number"
+                      },
+                      "aliases": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
                     "required": [

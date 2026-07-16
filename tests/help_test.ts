@@ -45,8 +45,11 @@ async function makeHelpFixture(
   const files: Record<string, string> = {
     "README.md": "# discern documentation\n\nWelcome.\n",
     "00-intro/README.md": "# Intro\n",
-    "00-intro/concepts.md": "# Concepts at a glance\n\nThe concepts body.\n",
+    "00-intro/concepts.md": "# Concepts at a glance\n\n" +
+      "The concepts body, decided early ([ADR 0001](../_adr/0001-first.md)).\n",
     "00-intro/glossary.md": "# Glossary\n",
+    "00-intro/hidden.md":
+      "---\npublish: false\n---\n# Hidden draft\n\nWithheld.\n",
     "_adr/0001-first.md": "# ADR 0001: First\n",
     "_internal/brief.md": "# Documenter brief\n",
     "_private/positioning.md": "# Positioning\n",
@@ -71,9 +74,14 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
     assertEquals(res.ok, true);
     assertEquals(res.verb, "help");
     assertEquals(res.data.map_dir, undefined);
-    // Exactly the 4 public docs of the fixture — and NOT the project's decoy.
+    // Exactly the 4 PUBLISHED docs of the fixture — not the project's decoy,
+    // and not the publish: false draft (help honours isPublicDoc).
     assertEquals(res.data.count, 4);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
+    assert(
+      !res.data.docs.some((d: { slug: string }) => d.slug === "hidden"),
+      "help must withhold publish: false docs",
+    );
     assert(
       !res.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
       "help must not surface the project's own docs/",
@@ -90,7 +98,7 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
   });
 });
 
-Deno.test("help <slug> --json returns the single doc with its content", async () => {
+Deno.test("help <slug> --json strips inline citations, keeps them as fields", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);
     const { code, stdout } = await runCli(
@@ -103,11 +111,20 @@ Deno.test("help <slug> --json returns the single doc with its content", async ()
     assertEquals(res.ok, true);
     assertEquals(res.verb, "help");
     assertEquals(res.data.doc.slug, "concepts");
-    assertStringIncludes(res.data.doc.content, "The concepts body.");
+    // Human-facing product docs: the inline citation group is stripped from
+    // content, and the clause still reads; the decision survives as a field.
+    assertStringIncludes(
+      res.data.doc.content,
+      "The concepts body, decided early.",
+    );
+    assert(!res.data.doc.content.includes("[ADR 0001]"));
+    assertEquals(res.data.doc.cited_adrs, [
+      { number: "0001", slug: "first", path: "../_adr/0001-first.md" },
+    ]);
   });
 });
 
-Deno.test("help <slug> --raw prints the pristine source", async () => {
+Deno.test("help <slug> --raw prints the pristine source, citations included", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);
     const { code, stdout } = await runCli(
@@ -116,7 +133,44 @@ Deno.test("help <slug> --raw prints the pristine source", async () => {
       { DISCERN_DOCS_DIR: help },
     );
     assertEquals(code, 0);
-    assertEquals(stdout, "# Concepts at a glance\n\nThe concepts body.\n");
+    assertEquals(
+      stdout,
+      "# Concepts at a glance\n\n" +
+        "The concepts body, decided early ([ADR 0001](../_adr/0001-first.md)).\n",
+    );
+  });
+});
+
+Deno.test("a publish: false doc is unreachable through every help surface", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+
+    // Not resolvable as a target...
+    const target = await runCli(
+      ["help", "hidden", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(target.code, 1);
+    assertEquals(JSON.parse(target.stdout).error, "not_found");
+
+    // ...absent from the TOC...
+    const list = await runCli(
+      ["help", "--list"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assert(!list.stdout.includes("Hidden draft"));
+
+    // ...and absent from an export.
+    const exported = await runCli(
+      ["help", "--export", "public"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(exported.code, 0);
+    assert(!exported.stdout.includes("hidden.md"));
+    assert(!exported.stdout.includes("Withheld."));
   });
 });
 

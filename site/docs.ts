@@ -15,10 +15,11 @@
  */
 
 import { fromFileUrl, relative } from "@std/path";
-import { discoverDocs, type DocEntry } from "../src/lib/docs.ts";
+import { discoverDocs, type DocEntry, isPublicDoc } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 
@@ -77,8 +78,10 @@ async function buildDocsSite(): Promise<DocsSite> {
   const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MAP_DIR });
   if (!tree) throw new Error("docs: no map tree found");
 
+  // Tier-level curation (which subtrees ship) composes with the model's ONE
+  // page-level predicate (publish: false is the sole page withhold).
   const published = tree.entries.filter((e) =>
-    BUNDLED_PUBLIC_DOC_DIRS.includes(e.section) && e.publish
+    BUNDLED_PUBLIC_DOC_DIRS.includes(e.section) && isPublicDoc(e)
   );
 
   const slugs = new Map<string, string>();
@@ -215,10 +218,12 @@ export function rewriteLinks(
 }
 
 /**
- * Render one page (cached): frontmatter stripped, links rewritten, then the
- * engine's own HTML emitter — the same parse `discern help` renders from, so
- * the site and the terminal can never disagree about a doc's content. No
- * rendering dependency exists to bloat the compiled binary.
+ * Render one page (cached): frontmatter stripped, inline ADR citations
+ * stripped (human-rendered prose; the raw `.md` edition keeps both), links
+ * rewritten, then the engine's own HTML emitter — the same parse
+ * `discern help` renders from, so the site and the terminal can never
+ * disagree about a doc's content. No rendering dependency exists to bloat
+ * the compiled binary.
  */
 export async function renderDoc(
   page: DocsPage,
@@ -230,7 +235,7 @@ export async function renderDoc(
   const raw = await Deno.readTextFile(page.entry.absPath);
   const { body } = parseFrontmatter(raw);
   const { html, headings } = renderMarkdownHtml(
-    rewriteLinks(body, page, site),
+    rewriteLinks(stripAdrCitations(body), page, site),
   );
   const toc: TocItem[] = headings
     .filter((h) => h.depth === 2 || h.depth === 3)

@@ -470,6 +470,87 @@ Deno.test("map <slug> --raw prints the pristine source", async () => {
   });
 });
 
+/** A frontmattered, citing leaf for the projection tests. */
+const RICH_DOC = "---\n" +
+  "title: Short label\n" +
+  "order: 1\n" +
+  "aliases:\n  - synonyms\n" +
+  "---\n" +
+  "# Rich doc\n\nDecided early ([ADR 0001](../_adr/0001-first.md)).\n";
+
+Deno.test("map projections: frontmatter never reaches content, agents keep everything", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(join(dir, "docs/00-intro/rich.md"), RICH_DOC);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/hidden.md"),
+      "---\npublish: false\n---\n# Hidden\n\nWithheld body.\n",
+    );
+
+    // JSON single doc: structured meta + stripped content — but citations
+    // STAY in map content (its readers are agents, who navigate by them).
+    const doc = await runCli(["map", "rich", "--json"], dir);
+    assertEquals(doc.code, 0);
+    const record = JSON.parse(doc.stdout).data.doc;
+    assertEquals(record.title, "Short label");
+    assertEquals(record.order, 1);
+    assertEquals(record.aliases, ["synonyms"]);
+    assert(!record.content.includes("---"), "no frontmatter in content");
+    assert(!record.content.includes("Short label"), "meta moved to fields");
+    assertStringIncludes(
+      record.content,
+      "([ADR 0001](../_adr/0001-first.md))",
+    );
+    assertEquals(record.cited_adrs, [
+      { number: "0001", slug: "first", path: "../_adr/0001-first.md" },
+    ]);
+
+    // --raw: the pristine bytes, frontmatter included.
+    const raw = await runCli(["map", "rich", "--raw"], dir);
+    assertEquals(raw.stdout, RICH_DOC);
+
+    // Terminal render (piped target view): no frontmatter shows.
+    const rendered = await runCli(["map", "rich", "--no-pager"], dir);
+    assertEquals(rendered.code, 0);
+    assert(!rendered.stdout.includes("Short label"));
+    assert(!rendered.stdout.includes("order:"));
+
+    // The index keeps the withheld doc — agents keep everything — and marks
+    // the withholding as a structured field.
+    const index = await runCli(["map", "--json"], dir);
+    const docs = JSON.parse(index.stdout).data.docs as Array<
+      { slug: string; publish?: boolean }
+    >;
+    const hidden = docs.find((d) => d.slug === "hidden");
+    assertExists(hidden);
+    assertEquals(hidden.publish, false);
+    assertEquals(docs.find((d) => d.slug === "rich")?.publish, undefined);
+  });
+});
+
+Deno.test("map --export honours the scope: public withholds, all keeps", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(join(dir, "docs/00-intro/rich.md"), RICH_DOC);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/hidden.md"),
+      "---\npublish: false\n---\n# Hidden\n\nWithheld body.\n",
+    );
+
+    const pub = await runCli(["map", "--export", "public"], dir);
+    assertEquals(pub.code, 0);
+    assert(!pub.stdout.includes("hidden.md"), "public export withholds");
+    assert(!pub.stdout.includes("publish: false"));
+    assert(!pub.stdout.includes("Short label"), "frontmatter never exports");
+    assertStringIncludes(pub.stdout, "# Rich doc");
+
+    const all = await runCli(["map", "--export", "all"], dir);
+    assertEquals(all.code, 0);
+    assertStringIncludes(all.stdout, "Withheld body.", "all keeps everything");
+    assert(!all.stdout.includes("publish: false"), "but still no frontmatter");
+  });
+});
+
 Deno.test("map --export public concatenates only user-facing docs", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
