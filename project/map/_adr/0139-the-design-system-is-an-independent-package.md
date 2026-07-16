@@ -57,9 +57,14 @@ The local package now has neutral and React entrypoints, selected runtime
 output, a manifest, optional assets, themes, and isolated tests. Discern
 consumes those entrypoints rather than an internal build script.
 
-External ownership remains pending: the coordinates are recorded, but 1A creates
-no repository, release, or immutable dependency. Discern owns the workspace
-subtree until 2A publishes it and 3A cuts over.
+External ownership is real as of 2026-07-16: the package's subtree history lives
+at [discern-sh/design-system](https://github.com/discern-sh/design-system), and
+`0.1.0` is immutable on JSR as `@discern-sh/design-system`, published through
+the repository's trusted-publishing release gate. One registry constraint shaped
+the module contract: JSR rejects text import attributes when it builds the
+publish graph, so stylesheets embed into generated modules beside the fonts and
+textures. Discern keeps consuming its in-repo subtree until 3A cuts over to the
+published version.
 
 ## Consequences
 
