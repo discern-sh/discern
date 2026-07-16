@@ -380,7 +380,7 @@ measure   = "on-demand"
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
-limit     = 14.27
+limit     = 12.87
 run       = "deno task prose \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
@@ -438,7 +438,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 7.58
+limit     = 7.75
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
