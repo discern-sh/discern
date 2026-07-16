@@ -166,6 +166,59 @@ export function publicDocs(entries: readonly DocEntry[]): DocEntry[] {
   return entries.filter(isPublicDoc);
 }
 
+/** One page a redirect registry is built over: its live route and the
+ * historical routes its frontmatter claims (`redirect_from:`). */
+export interface RedirectPage {
+  route: string;
+  redirectFrom: readonly string[];
+}
+
+/** A validated redirect table: source route → live target route. */
+export interface RedirectRegistry {
+  redirects: Map<string, string>;
+  /** Problems that would break serving; an empty list means the table is safe. */
+  issues: string[];
+}
+
+/**
+ * Build the redirect table from destination-owned `redirect_from` claims.
+ * Every target exists by construction (a source maps to the route of the page
+ * that declared it), and the two checks here make chains and cycles impossible
+ * rather than merely absent: a source may not BE a live route (so no redirect
+ * can point onward through another redirect's source), and no two pages may
+ * claim the same source. The serving layer can follow any entry in one hop.
+ */
+export function buildRedirectRegistry(
+  pages: readonly RedirectPage[],
+): RedirectRegistry {
+  const live = new Set(pages.map((p) => p.route));
+  const redirects = new Map<string, string>();
+  const claimedBy = new Map<string, string>();
+  const issues: string[] = [];
+  for (const page of pages) {
+    for (const source of page.redirectFrom) {
+      if (live.has(source)) {
+        issues.push(
+          `${page.route} claims redirect_from ${source}, which is a live ` +
+            "route — a page and a redirect cannot share an address",
+        );
+        continue;
+      }
+      const other = claimedBy.get(source);
+      if (other !== undefined && other !== page.route) {
+        issues.push(
+          `redirect_from ${source} is claimed by both ${other} and ` +
+            `${page.route} — one historical route cannot point two ways`,
+        );
+        continue;
+      }
+      claimedBy.set(source, page.route);
+      redirects.set(source, page.route);
+    }
+  }
+  return { redirects, issues };
+}
+
 /** The text of the first Markdown heading in `md`, flattened to plain text. */
 export function extractTitle(md: string): string | undefined {
   for (const raw of md.split(/\r?\n/)) {
