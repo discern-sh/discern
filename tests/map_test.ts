@@ -154,7 +154,7 @@ Deno.test("groupDocs creates ordered top-level picker groups", () => {
   );
 });
 
-Deno.test("frontmatter parses scalar overrides and passes non-blocks through", () => {
+Deno.test("frontmatter parses scalar and list overrides and passes non-blocks through", () => {
   // A well-formed block: every recognised key, plus an ignored unknown one.
   const parsed = parseFrontmatter(
     "---\n" +
@@ -162,6 +162,11 @@ Deno.test("frontmatter parses scalar overrides and passes non-blocks through", (
       'description: "One quoted line."\n' +
       "order: 2\n" +
       "publish: false\n" +
+      "redirect_from:\n" +
+      "  - /docs/installer/old-name\n" +
+      "aliases:\n" +
+      "  - files\n" +
+      '  - "ownership"\n' +
       "future_key: ignored\n" +
       "# a comment\n" +
       "---\n" +
@@ -172,14 +177,16 @@ Deno.test("frontmatter parses scalar overrides and passes non-blocks through", (
     description: "One quoted line.",
     order: 2,
     publish: false,
+    redirect_from: ["/docs/installer/old-name"],
+    aliases: ["files", "ownership"],
   });
   assertEquals(parsed.body, "# Heading\n\nBody.\n");
 
-  // Not frontmatter: an unclosed fence, a non-scalar line, no block at all.
+  // Not frontmatter: an unclosed fence, a nested map, no block at all.
   for (
     const doc of [
       "---\ntitle: Unclosed\n",
-      "---\nitems:\n  - nested\n---\nbody\n",
+      "---\nmetadata:\n  author: nested map\n---\nbody\n",
       "# Plain doc\n",
     ]
   ) {

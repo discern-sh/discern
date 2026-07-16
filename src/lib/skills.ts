@@ -35,6 +35,7 @@ import type { Logger } from "./log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { SkillListing, SkillsListData } from "../shared/result_schemas.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
+import { scanFrontmatterBlock } from "./frontmatter.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
 import { guidanceContext } from "../engine/guidance_render.ts";
 import {
@@ -98,25 +99,14 @@ export interface SkillFrontmatter {
   description: string;
 }
 
-/** Strip one layer of matching surrounding single or double quotes, if present. */
-function unquote(value: string): string {
-  if (value.length >= 2) {
-    const first = value[0];
-    if ((first === '"' || first === "'") && value[value.length - 1] === first) {
-      return value.slice(1, -1);
-    }
-  }
-  return value;
-}
-
 /**
  * Parse the leading frontmatter of a `SKILL.md` into its declared `name` and
- * `description`. A SKILL.md opens with a `---`-fenced block of flat `key: value`
- * lines — the shape every bundled and authored skill carries — and this is the ONE
- * place that block is read, so a guard and any future consumer agree by construction
- * (single source of truth). Deliberately tiny and dependency-free: keys match up to
- * the first colon; a value is the rest of its line, trimmed, with one layer of
- * surrounding quotes removed (single-line scalars only — the format skills use).
+ * `description`. A SKILL.md opens with the same `---`-fenced block map docs
+ * carry, read through the shared {@link scanFrontmatterBlock} scanner — ONE
+ * frontmatter parser for the whole system, so a guard and any future consumer
+ * agree by construction (single source of truth). Skills read TOLERANTLY:
+ * only the top-level `name`/`description` scalars matter, and anything else
+ * in the block (a nested `metadata:` map, a provider's extra keys) is ignored.
  *
  * Throws when the opening `---` fence is missing or unterminated — a structurally
  * broken file is a loud failure, never a silent empty parse. A well-fenced block that
@@ -124,34 +114,22 @@ function unquote(value: string): string {
  * the well-formedness guard then rejects with a precise, per-skill message.
  */
 export function parseSkillFrontmatter(text: string): SkillFrontmatter {
-  const lines = text.split(/\r?\n/);
-  if (lines[0]?.trim() !== "---") {
-    throw new Error("missing opening '---' frontmatter fence");
-  }
-  let end = -1;
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === "---") {
-      end = i;
-      break;
-    }
-  }
-  if (end === -1) {
-    throw new Error("unterminated frontmatter fence (no closing '---')");
+  const block = scanFrontmatterBlock(text);
+  if (block === undefined) {
+    throw new Error(
+      text.split(/\r?\n/, 1)[0]?.trim() === "---"
+        ? "unterminated frontmatter fence (no closing '---')"
+        : "missing opening '---' frontmatter fence",
+    );
   }
   let name = "";
   let description = "";
-  for (let i = 1; i < end; i++) {
-    const line = lines[i] ?? "";
-    const colon = line.indexOf(":");
-    if (colon === -1) {
-      continue;
-    }
-    const key = line.slice(0, colon).trim();
-    const value = unquote(line.slice(colon + 1).trim());
-    if (key === "name") {
-      name = value;
-    } else if (key === "description") {
-      description = value;
+  for (const field of block.fields) {
+    if (typeof field.value !== "string") continue;
+    if (field.key === "name") {
+      name = field.value;
+    } else if (field.key === "description") {
+      description = field.value;
     }
   }
   return { name, description };
