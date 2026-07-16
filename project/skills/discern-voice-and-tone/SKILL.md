@@ -272,7 +272,11 @@ assigns each page's job and budget; these govern how the page sounds.
     paragraph flattens its real guarantees into cadence. Keep the absolute where
     the guarantee is the fact; cut it where it's there for the beat.
 
-**Page budgets** (the documenter brief binds where it's stricter):
+**Page budgets** (the documenter brief binds where it's stricter). Treat each
+budget as a ceiling: the best page is the shortest one that does its job, and
+coming in far under budget is fine. A floor marks the length below which a page
+usually can't do its job. Hitting a ceiling means the page should split or shed
+material; compressing the prose to fit is the wrong move:
 
 | Page type                 | Budget                                    |
 | ------------------------- | ----------------------------------------- |
