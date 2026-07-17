@@ -1,3 +1,13 @@
+---
+title: Codex
+description: How discern wires guidance, skills, MCP, hooks, worktree setup, and Git rules for Codex.
+order: 20
+aliases:
+  - Codex
+  - OpenAI Codex
+  - codex cli
+---
+
 # Codex integration
 
 discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[guidance].agents`:
@@ -13,7 +23,7 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 
 ## Guidance and skills
 
-Codex reads `AGENTS.md` directly, so discern makes it the canonical compiled agent file. Claude Code and Gemini point back to that file rather than duplicating it. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`; edit the sources and run `discern refresh`, never edit `AGENTS.md` by hand.
+Codex reads `AGENTS.md` directly, so discern makes it the canonical compiled agent file. Claude Code and Gemini point back to that file rather than duplicating it. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Codex also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`.
 
@@ -119,7 +129,7 @@ Because Codex's shell stays put, it will drive the worktree explicitly by prefix
 
 If a Codex session starts inside a worktree and that worktree is later removed, Codex can block the next user message with "Current working directory missing". This is a Codex runtime limitation, not a discern MCP failure: `discern_accept` can successfully tear down the worktree and re-aim the long-lived MCP server at the main checkout, but the Codex chat process can still remember the deleted directory it originally opened. There is no in-chat recovery once Codex blocks the conversation; start a new Codex session from the main checkout instead.
 
-The default writable-root path includes the main checkout directory name. If a developer clones the same repository under a different folder name, run `discern refresh`; it updates `.codex/config.toml` to the local path convention. That update is expected; it keeps the grant narrow instead of widening it to the whole parent directory.
+The default writable-root path includes the main checkout directory name. If a developer clones the same repository under a different folder name, run `discern refresh`; it updates `.codex/config.toml` to the local path convention. That update is expected; it keeps the grant narrow instead of widening it to the parent directory.
 
 ## See also
 
