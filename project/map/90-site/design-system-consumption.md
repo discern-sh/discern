@@ -21,7 +21,7 @@ The generic component catalog, examples, component implementation, assets, and p
 - exclusion of Marketing and Editorial CSS and grain from the docs bundle;
 - route-to-bundle coverage, local assets, media types, integrity, font licenses, and the absence of a React browser runtime;
 - complete Marketing and Editorial composition coverage from the package manifest; and
-- the rule that consumer styles may compose package classes but never target a component-owned `.discern-*` selector.
+- the rule that consumer styles may compose package classes while leaving component-owned `.discern-*` selectors untouched.
 
 New package components and classes auto-enrol through the published manifest; new site selections and routes auto-enrol through `DESIGN_SYSTEM_BUNDLES`.
 
@@ -33,4 +33,4 @@ deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 ```
 
-The package's `discern` theme preserves the semantic color, type, spacing, focus, motion, and surface roles established during the prototype. Crimson Pro is the display face, Inter serves body and interface roles, and JetBrains Mono serves code. All font binaries and SIL Open Font License texts are copied from the selected package asset pack into local generated output. The optional grain provider adds one local texture to the composition bundle; it is never a remote browser dependency.
+The package's `discern` theme preserves the semantic color, type, spacing, focus, motion, and background roles established during the prototype. Crimson Pro is the display face, Inter serves body and interface roles, and JetBrains Mono serves code. All font binaries and SIL Open Font License texts are copied from the selected package asset pack into local generated output. The optional grain provider adds a bundled local texture to the composition bundle, with no remote browser dependency.

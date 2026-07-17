@@ -12,7 +12,7 @@ The root `deno.json` exposes one stable alias:
 
 Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. Source trees, registry URLs, cache internals, distribution files, workspace links, and sibling checkouts are not consumer APIs.
 
-If Discern finds a package defect, the fix is released from the package repository and consumed here as a new exact version. Discern never patches a copy of package source. The temporary minimum-age exception in `deno.json` names this exact package because the cut-over happened during Deno's registry holding period; every other dependency remains subject to the normal age policy.
+If Discern finds a package defect, the fix is released from the package repository and consumed here as a new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cut-over happened during Deno's registry holding period; every other dependency remains subject to the normal age policy.
 
 ## Site-owned integration
 

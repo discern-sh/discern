@@ -8,7 +8,7 @@ Everything lives under [`site/`](../../../site/):
 
 | Piece                                                     | Role                                                                      |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`site/serve.ts`](../../../site/serve.ts)                 | The one fetch handler: routes, reader negotiation, static fallback, 404s. |
+| [`site/serve.ts`](../../../site/serve.ts)                 | Fetch handler for routes, reader negotiation, static fallback, and 404s. |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
 | [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static composition pages.          |
@@ -80,7 +80,7 @@ Every successful HTML response receives a canonical link, bounded description, O
 
 Every response, including assets, redirects, and errors, carries the same security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer, permissions restrictions, and framing denial. The handler adds a nonce to inline theme bootstraps; third-party resource origins are not admitted.
 
-Unknown routes return 404. A 410 is used only for a deliberately retired public URL with no replacement, entered as an explicit tombstone. Missing files never imply 410, and there are no tombstones before launch. When a published heading is renamed, keep its old fragment as an explicit alias anchor in the page; fragments do not reach this handler.
+Unknown routes return 404. A 410 is reserved for a known public URL retired without a replacement and entered as an explicit tombstone. Missing files continue to return 404, and there are no tombstones before launch. When a published heading is renamed, keep its old fragment as an explicit alias anchor in the page; fragments do not reach this handler.
 
 ## Guards
 
@@ -93,7 +93,7 @@ Unknown routes return 404. A 410 is used only for a deliberately retired public 
 ## Current state & gotchas
 
 - Three older pages still name Tailwind's CDN and Google Fonts in their source. The production CSP admits neither origin, so no visitor request reaches them; their remote Tailwind compilation and fonts are consequently unavailable. [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled assets as a separate launch blocker. `/` and both composition atlases already use compiled CSS and self-hosted assets.
-- `mockups/landing/` is the design archive. The homepage replaced in July 2026 remains there as `previous-homepage-2026-07-16.html`; archived pages are never served or kept in sync with the live edition.
+- `mockups/landing/` is the design archive. The homepage replaced in July 2026 remains there as `previous-homepage-2026-07-16.html`; archived pages stay confined to the archive and preserve their historical content.
 - The generated homepage and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`; `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
 - [design-system-consumption.md](design-system-consumption.md) records static page composition, retained atlases, build commands, and consumer guards.

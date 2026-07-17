@@ -1,6 +1,6 @@
 # Publishing the site
 
-The site is one fetch handler plus static files; publishing it is running that handler somewhere public. Local and production run the same handler — [`site/serve.ts`](../../../site/serve.ts) — so what renders locally is what production serves.
+The site is one fetch handler plus static files; publishing it is running that handler somewhere public. Local and production both run [`site/serve.ts`](../../../site/serve.ts), so what renders locally is what production serves.
 
 ## Run it locally
 
@@ -19,7 +19,7 @@ Deno Deploy runs the same build task before it starts the handler through a `Den
 
 The handler folds HTTP and `www.discern.sh` onto `https://discern.sh` with a 308, but it can do so only after the request reaches the application. Attach both apex and `www` as custom domains in Deno Deploy, provision TLS for both, and create every DNS record Deploy supplies. URL-path variants and historical routes are then resolved by the same handler in one hop ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
 
-An unknown path is a 404: the server has no evidence that it used to exist. Use 410 only for a known public URL deliberately removed without a replacement, recorded in an explicit tombstone registry. Prefer a redirect whenever a live replacement exists. A renamed heading keeps an explicit old-ID anchor in its page because fragments are never sent in an HTTP request.
+An unknown path is a 404: the server has no evidence that it used to exist. Use 410 only for a known public URL removed without a replacement and recorded in an explicit tombstone registry. Prefer a redirect whenever a live replacement exists. A renamed heading keeps an explicit old-ID anchor in its page because HTTP requests omit fragments.
 
 Check both readers:
 
@@ -32,7 +32,7 @@ open http://localhost:4507/       # renders the generated design-system homepage
 
 > The old dashboard at `dash.deno.com` is **Deploy Classic**, which shuts down on **July 20, 2026**. Set the site up on the new Deno Deploy at <https://console.deno.com>. A fresh site skips straight to the steps below; the [migration guide](https://docs.deno.com/deploy/migration_guide/) is only needed to move a pre-existing Classic project.
 
-The production target is [Deno Deploy](https://console.deno.com): it runs the handler at the edge, with TLS and custom domains managed for you. The new platform runs an app's entrypoint with `deno run` and waits for it to start a server, so the entrypoint is [`site/main.ts`](../../../site/main.ts) — a one-line `Deno.serve` over the handler — not `site/serve.ts`, whose bare `{ fetch }` export never binds a port under `deno run`. Exercise the exact production path locally first:
+The production target is [Deno Deploy](https://console.deno.com): it runs the handler at the edge, with TLS and custom domains managed for you. The new platform runs an app's entrypoint with `deno run` and waits for it to start a server. The entrypoint is [`site/main.ts`](../../../site/main.ts), a one-line `Deno.serve` over the handler. The bare `{ fetch }` export in `site/serve.ts` binds no port under `deno run`. Exercise the production entrypoint locally first:
 
 ```sh
 deno task site:build
@@ -45,7 +45,7 @@ One-time setup, using the console at <https://console.deno.com> and the [`deno d
 2. Create a GitHub environment named `production`. Add environment variables `DENO_DEPLOY_ORG` and `DENO_DEPLOY_APP`, plus a secret `DENO_DEPLOY_TOKEN` containing a Deno Deploy organization token.
 3. Add both `discern.sh` and `www.discern.sh` under the organization's Domains. At the registrar, create the `_acme-challenge` and apex/`www` routing records the console lists. If DNS sits behind Cloudflare, keep the challenge record DNS-only or verification stalls. See the [domains reference](https://docs.deno.com/deploy/reference/domains/).
 
-Production is published only by [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) ([ADR 0145](../_adr/0145-production-site-deploys-only-from-release-tags.md)). Pushing a `v*` tag builds and publishes the binaries first. The dependent site job checks out the exact tag, refuses a tag/version mismatch, runs the site build, then sends that source snapshot to `deno deploy --prod`. Re-run that workflow for the same tag to recover a failed deployment; never deploy an arbitrary checkout manually.
+Production is published only by [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) ([ADR 0145](../_adr/0145-production-site-deploys-only-from-release-tags.md)). Pushing a `v*` tag builds and publishes the binaries first. The dependent site job checks out the exact tag, refuses a tag/version mismatch, runs the site build, then sends that source snapshot to `deno deploy --prod`. Re-run that workflow for the same tag to recover a failed deployment. Production deployments exclude arbitrary local checkouts.
 
 Before the first release, the setup can be exercised against a throwaway app:
 
@@ -63,7 +63,7 @@ curl -s -H "Accept: text/html" -A "Mozilla/5.0" https://discern.sh/ | head -2
 curl -sI https://www.discern.sh/docs/ | grep -Ei '^(HTTP|location:)'
 ```
 
-The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) assert the same behavior against the handler directly, so a failure here that the gate did not catch points at the hosting layer, not the code.
+The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) assert the same behavior against the handler directly. A failure here after those tests pass points at the hosting layer.
 
 ## Portability
 
