@@ -17,7 +17,7 @@ Agents use Model Context Protocol (MCP) tools and JSON results to operate their 
 
 ## Start a task
 
-`Start a task` is always present in the root menu, including when the fleet is empty. It asks for an optional name and runs the same lifecycle core as `discern start`: a name is normalised to the worktree id and branch, while a blank answer uses a random codename. The new worktree is created, set up, and ready before the desk continues.
+The root menu includes `Start a task` even when the fleet is empty. It asks for an optional name and runs the same lifecycle core as `discern start`: a name is normalised to the worktree id and branch, while a blank answer uses a random codename. The new worktree is created, set up, and ready before the desk continues.
 
 After creation, the desk opens the new row's action menu immediately. Jump into its shell or open a configured coding agent without finding and selecting the new branch first.
 
@@ -82,7 +82,7 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 
 ## Current state and gotchas
 
-- The first release of agent launching is CLI-only. Desktop-app integrations for Codex and Claude are a recorded follow-up: they need an official, lifecycle-safe handoff that remains honest when discern later accepts or drops the worktree.
+- The first release of agent launching is CLI-only. Desktop-app integrations for Codex and Claude are a recorded follow-up: they need an official, lifecycle-safe handoff whose status stays accurate when discern later accepts or drops the worktree.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
 - Broken or unreadable checkouts offer only drop. Without explicit force, drop refuses when discern cannot verify the work.

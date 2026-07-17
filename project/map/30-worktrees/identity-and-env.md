@@ -32,7 +32,7 @@ Run `discern identity` inside a linked worktree with one selector:
 
 The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured env files, then from git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity.
 
-`discern start` checks the port for collisions with live siblings and mints another id when needed. Port selection remains best-effort: the band never blocks creation when crowded, and simultaneous start processes have no cross-process lock. Record a different `DISCERN_WORKTREE_ID` if 2 live worktrees ever receive the same port.
+`discern start` checks the port for collisions with live siblings and mints another id when needed. Port selection remains best-effort: a crowded band does not block creation, and simultaneous start processes have no cross-process lock. Record a different `DISCERN_WORKTREE_ID` if 2 live worktrees ever receive the same port.
 
 ## Inherit selected env values
 

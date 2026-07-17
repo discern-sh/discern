@@ -34,7 +34,7 @@ Setup runs in this order:
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.     |
 | Agent files          | Rebuilds guidance and materializes skills in the new checkout.                    |
 
-`start` always creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
+`start` creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
 
 ## Bring the trunk into the branch
 
@@ -42,7 +42,7 @@ Run `discern update` before finishing. It merges the trunk into the current bran
 
 Update accepts a tracked-clean tree. Commit or stash tracked edits first. Untracked scratch files remain in place. On conflict, the command aborts the merge and leaves the tree unchanged. Resolve the merge by hand, commit it, then run `discern update` again. Even when there is nothing left to merge, the command rebuilds agent files, runs checkout-shared `[repository].ensure`, then runs worktree-only `[worktree.setup].ensure`. That convergence updates dependencies after a lockfile or setup change ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
-Choose the bucket by where a command is valid. Put dependency installation, code generation, and other operations safe in any checkout under `[repository].ensure`. Put commands that need `discern identity`, a worktree resource, a derived port, or another linked-worktree-only fact under `[worktree.setup].ensure`. Both lists are ordered and idempotent. `[worktree.setup].steps` remains one-shot scaffolding and never runs in the main checkout.
+Choose the bucket by where a command is valid. Put dependency installation, code generation, and other operations safe in any checkout under `[repository].ensure`. Put commands that need `discern identity`, a worktree resource, a derived port, or another linked-worktree-only fact under `[worktree.setup].ensure`. Both lists are ordered and idempotent. `[worktree.setup].steps` remains one-shot scaffolding that runs only in a linked worktree.
 
 ## Land the reviewed commit
 
@@ -52,11 +52,11 @@ Acceptance requires the latest trunk, a clean worktree, a tracked-clean main che
 
 On success, discern fast-forwards the trunk to that validated commit. Before cleanup, it refreshes the main checkout, runs every `[repository].ensure` command there, runs the configured `smoke` capability, and reports any tracked files those post-landing operations changed. It then destroys resources, removes the worktree, and deletes the merged branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance refuses and keeps this worktree intact for `update → done → accept`.
 
-The branch has already landed when checkout convergence begins, so these post-landing operations are deliberately non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` never run on the trunk.
+The branch has already landed when checkout convergence begins, so these post-landing operations are non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` run only in a linked worktree.
 
 ## Remove abandoned work
 
-From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and its branch. It refuses uncommitted or unlanded work unless a human passes `--force`. A git-locked worktree remains protected even with force. The command is CLI-only because one agent never discards another line of work.
+From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and its branch. It refuses uncommitted or unlanded work unless a human passes `--force`. A git-locked worktree remains protected even with force. The command is CLI-only because worktree ownership bars one agent from discarding another line of work.
 
 `discern worktree prune` is narrower housekeeping. After confirmation, it removes only clean, fully merged worktrees and branches, stale registrations, orphan directories, and orphaned resource records. It checks eligibility again immediately before removal.
 

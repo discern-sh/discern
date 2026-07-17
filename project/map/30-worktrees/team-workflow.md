@@ -74,5 +74,5 @@ Claude Code can create and remove worktrees through `WorktreeCreate` and `Worktr
 ## Current state and gotchas
 
 - The main checkout is the supervisory view. Make task changes only inside a worktree.
-- `discern status` only inspects state. It never creates, refreshes, or destroys a resource.
+- `discern status` only inspects state. It creates, refreshes, and destroys no resources.
 - The fleet's git-clean signal excludes ignored provider-local and generated files.
