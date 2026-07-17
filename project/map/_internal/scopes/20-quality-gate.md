@@ -8,16 +8,16 @@ This subtree documents the public quality-gate workflow: fixing a failed run, th
 
 ## Files to produce
 
-| File | Topic |
-| --- | --- |
-| `README.md` | Public-facing 200–350-word overview, led by the route from a red gate to its fix. |
-| `when-the-gate-fails.md` | Troubleshooting page for diagnostics and common failure classes; `order: 10`. |
-| `standards.md` | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
-| `the-receipt.md` | Guide to the review receipt and the exact-tree identity it records; `order: 30`. |
-| `strand-detection.md` | Concept page for tracked output left by a gate stage; `order: 40`. |
-| `ci.md` | Guide to enforcing `discern done` with GitHub Actions; `order: 50`. |
-| `improvement.md` | Concept and command guide for the continuous-improvement coach; `order: 60`. |
-| `coupling.md` | Concept and command guide for the co-change advisory; `order: 70`. |
+| File                     | Topic                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `README.md`              | Public-facing 200–350-word overview, led by the route from a red gate to its fix.          |
+| `when-the-gate-fails.md` | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
+| `standards.md`           | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
+| `the-receipt.md`         | Guide to the review receipt and the exact-tree identity it records; `order: 30`.           |
+| `strand-detection.md`    | Concept page for tracked output left by a gate stage; `order: 40`.                         |
+| `ci.md`                  | Guide to enforcing `discern done` with GitHub Actions; `order: 50`.                        |
+| `improvement.md`         | Concept and command guide for the continuous-improvement coach; `order: 60`.               |
+| `coupling.md`            | Concept and command guide for the co-change advisory; `order: 70`.                         |
 
 ## Source files to read
 
@@ -46,7 +46,7 @@ This subtree documents the public quality-gate workflow: fixing a failed run, th
 ## Known overlaps / handoffs
 
 - **`../50-engine-internals/`** owns Zod schemas, generated result contracts, MCP adapters, and other envelope implementation details. The public section links to the reference contract.
-- **`../70-reference/`** owns the public CLI, configuration, MCP tool, and result-field contracts. Links to `mcp-and-results.md` are forward links until workstream 2G lands.
+- **`../70-reference/`** owns the public CLI, configuration, MCP tool, and result-field contracts. Links to `mcp-and-results.md` are forward links until 2G lands.
 - **`../30-worktrees/`** owns the wider worktree lifecycle. This section describes only how receipt validation affects a gate handoff.
 
 ## Length-budget note
