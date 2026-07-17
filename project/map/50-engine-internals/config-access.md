@@ -25,4 +25,4 @@ Two rules keep a programmatic write from ever leaving a config the next read rej
 ## See also
 
 - [config-reference.md](../10-getting-started/config-reference.md) — every section, key, type, and default (generated).
-- [the-templating-engine.md](../40-agent-guidance/the-templating-engine.md) — how rendered guidance and skills consume the same resolved config.
+- [the-templating-engine.md](the-templating-engine.md) — how rendered guidance and skills consume the same resolved config.

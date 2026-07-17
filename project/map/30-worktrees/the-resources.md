@@ -1,95 +1,82 @@
+---
+title: Per-worktree resources
+description: Configure external resources that discern creates, reuses, destroys, and reclaims with each worktree.
+order: 20
+aliases:
+  - worktree resources
+  - resource lifecycle
+  - resource garbage collection
+  - worktree database
+---
+
 # Per-worktree resources
 
-_External things that must exist for exactly the life of a Worktree — and get reclaimed when one leaks._
+_Give each worktree the external state it needs, then remove that state when the worktree goes away._
 
-A **resource** is something outside git that a Worktree needs in isolation: a database, an emulator/device/VM, a container, a queue, a bucket, a namespace. discern provides the orchestration and the garbage collection; the project provides the `create`/`destroy` commands. The engine never learns what the resource actually is — the seam is fully generic.
+A resource is an external thing a worktree needs in isolation: a database, emulator, container, queue, bucket, or namespace. discern runs the lifecycle. The project supplies the commands. A fresh installation declares no resources, so worktree creation remains stack-neutral ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
-`[worktree.db]` and `[worktree.dev_server]` are just two commented examples of this one generic mechanism ([ADR 0025](../_adr/0025-worktree-resources.md)). The deterministic port (`[worktree].port`) is **not** a resource — it is derived identity and provisions nothing.
+The deterministic development port belongs to [identity](identity-and-env.md). It names a port and provisions nothing.
 
-## The config seam
+## Configure a resource
+
+Declare resources in `discern.toml` in dependency order:
 
 ```toml
-[worktree.resources.<name>]
-create  = "..."   # run once at setup; author idempotent (empty = no-op)
-destroy = "..."   # run once at teardown  (empty = nothing to tear down / GC)
-ensure  = "..."   # optional: idempotent re-readiness, run at session start
-required = true   # optional: a failed create aborts setup (default true)
-retries  = 0      # optional: retry create/destroy on a non-zero exit (default 0)
-gc       = true   # optional: may orphan-prune reclaim it? (default true)
+[worktree.resources.db]
+create = "createdb -T @project_slug@_template @db@"
+destroy = "dropdb --if-exists @db@"
+ensure = "pg_isready -d @db@"
+required = true
+retries = 0
+gc = true
 ```
 
-Resources are **created top-to-bottom and destroyed bottom-to-top** (document order at create, reversed at destroy), so a dependency declared first is torn down last. Commands run via `sh -c` after `@…@` token expansion; an empty command is a clean no-op. A `required` create that fails aborts setup loudly (the default); `required = false` warns and continues.
+| Key        | Default | Behavior                                                 |
+| ---------- | ------- | -------------------------------------------------------- |
+| `create`   | `""`    | Runs once during first setup.                            |
+| `destroy`  | `""`    | Runs during teardown or orphan cleanup.                  |
+| `ensure`   | `""`    | Reconciles readiness on session start.                   |
+| `required` | `true`  | Aborts first setup when creation fails.                  |
+| `retries`  | `0`     | Retries failed create and destroy commands, capped at 5. |
+| `gc`       | `true`  | Lets `worktree prune` reclaim an orphan.                 |
 
-## The lifecycle
+Commands run through `sh -c` after token expansion. discern creates resources from top to bottom and destroys them in reverse order. A dependency declared first remains available until discern removes its dependents.
 
-| Phase                                           | What happens                                                                                                                                                                |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern worktree setup`                        | **setup** — creates each resource (a ledger entry is written first, so a crash mid-create is GC-able), then records its handle into the env files (`[worktree].env_files`). |
-| `discern worktree setup` re-run / re-fired hook | **re-ready, never re-create** — an already-configured worktree skips resource `create` and the setup steps, running each resource's `ensure` instead. Setup is idempotent.  |
-| any later command                               | **reuse** — the resource persists for the whole Worktree; nothing re-creates it. Pay an expensive readiness cost once, never per-invocation.                                |
-| `discern worktree teardown` / `drop` / `accept` | **destroy** — runs each resource's destroy in reverse order (best-effort), then clears its ledger entry. A clean exit leaves no orphan.                                     |
-| `discern worktree prune`                        | **garbage-collect** — reclaims the resources of any Worktree that vanished WITHOUT a clean teardown (hard kill, `rm -rf`, crash).                                           |
+## Follow the resource lifecycle
 
-Teardown is **best-effort and idempotent**: a failure is logged and never strands a Worktree (a later prune is the backstop), and a destroy that runs when the resource is already gone must be a clean no-op — author it that way. Author `destroy` to be **cwd-independent**, too: at teardown it runs from the Worktree, but at GC it runs from the **main checkout** (the Worktree is gone), so use `@…@` handles or absolute paths — never a relative path like `./cache`.
+| Worktree phase                | Resource behavior                                            |
+| ----------------------------- | ------------------------------------------------------------ |
+| First setup                   | Writes a ledger entry, then runs `create`.                   |
+| Repeated setup                | Skips `create`; the ledger entry proves it already ran.      |
+| Session start                 | Runs `ensure` when configured.                               |
+| Normal work                   | Reuses the same resource handle.                             |
+| `accept`, `drop`, or teardown | Runs the frozen `destroy` command in reverse order.          |
+| `worktree prune`              | Reclaims recorded resources whose worktree is provably gone. |
 
-## Identity, ownership, and namespacing
+discern writes the ledger entry before `create`. That intent record makes a crash during provisioning visible to garbage collection. discern reports a non-required creation failure and continues setup. A required failure stops setup with the command to fix.
 
-A resource's **handle** is its deterministic, project-namespaced name:
+Teardown is best-effort. A failed `destroy` leaves its ledger entry in place so a later prune can retry. Use `gc = false` for data-loss-sensitive resources that only explicit teardown may remove.
 
-```
-resourceForId(slug, id, name) = "<slug>-<id>-<name>"   (sanitized to [a-z0-9-])
-```
+## Understand the ledger
 
-It is:
+The ledger stores one JSON file per worktree and resource under `<git-common-dir>/discern/resources/`. Git worktrees share that directory, while separate repositories do not. Each entry records the git worktree key, canonical path, resource handle, retry budget, and fully expanded destroy command.
 
-- **deterministic** — the same Worktree + resource always resolves the same handle;
-- **unique** — across Worktrees (the id) and across resources (the name);
-- **namespaced by project** — the slug prefix means two projects' Worktrees on the same host can never collide on a handle;
-- **shell/CLI/resource-name-safe** — sanitized, unclamped (a resource that needs a length-bounded DNS label can use `@site@` instead).
+Garbage collection acts only on entries in this project's ledger. It keeps live git keys and paths, handles owned by live worktrees, entries with `gc = false`, and commands with unresolved tokens. Before each destroy, it checks live state and the ledger entry again. A concurrent worktree cannot lose a newly recycled handle to an older orphan record.
 
-These tokens are available to every resource command, expanded per-Worktree at run time:
+`discern worktree prune --dry-run` shows the candidates without destroying them. The apply path consumes that plan and rechecks every candidate immediately before the irreversible step ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 
-| Token            | Value                                         | Read it with                 |
-| ---------------- | --------------------------------------------- | ---------------------------- |
-| `@resource@`     | this resource's handle (`<slug>-<id>-<name>`) | `identity --resource <name>` |
-| `@worktree@`     | the Worktree's base handle (`<slug>-<id>`)    | `identity --worktree`        |
-| `@db@`           | a database-name-safe identity (underscores)   | `identity --db`              |
-| `@site@`         | a DNS-safe site/host name                     | `identity --site`            |
-| `@port@`         | the deterministic dev-server port             | `identity --port`            |
-| `@project_slug@` | the project slug                              | `config get project.slug`    |
-| `@dir@`          | the Worktree root (absolute)                  | —                            |
+## Where it lives in code
 
-`@resource@` is bound to the resource whose command is running; it is empty in `[worktree.setup].steps` (which run outside any single resource — use `@worktree@`/`@db@`/`@site@` there). The seeded `db` example uses `@db@` and `dev_server` uses `@site@`, because those shapes (underscore-safe, DNS-safe) are what a database engine and a vhost actually require.
+| Responsibility                                 | Source                                                                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Resource specs, ledger, and garbage collection | [`src/engine/worktree/resources.ts`](../../../src/engine/worktree/resources.ts)               |
+| Lifecycle orchestration                        | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)               |
+| Token expansion                                | [`src/engine/worktree/tokens.ts`](../../../src/engine/worktree/tokens.ts)                     |
+| Resource behavior tests                        | [`tests/engine_worktree_resources_test.ts`](../../../tests/engine_worktree_resources_test.ts) |
 
-## Runtime discovery (for your own tooling)
+## Current state and gotchas
 
-A project's gate, scripts, or app — running **later, in a separate process** inside the Worktree — discover a resource's handle two ways, both equal to what `create` used:
-
-1. **Query:** `discern identity --resource <name>` (and `--resources` to list every declared resource as `name=handle` lines).
-2. **Env:** the Worktree's env files (`[worktree].env_files`, default `[".env", ".env.local"]`) carry `DISCERN_RESOURCE_<NAME>` (uppercased, non-alphanumerics → `_`) and `DISCERN_WORKTREE`, written at setup when one of those files exists.
-
-Either way, a project's tooling addresses its OWN isolated resource instead of guessing from a shared global pool.
-
-## The ledger and orphan garbage-collection
-
-discern records every resource it creates as one JSON file per (Worktree, resource) under **`<git-common-dir>/discern/resources/`** — inside the shared `.git` admin area. That location is deliberate: it is shared across a repo's Worktrees (they share the common git dir), it survives an individual Worktree's removal, it is per-project (each repo has its own `.git`), and it is untracked by git. The entry records the project, the Worktree's git key, the resource handle, and the **frozen, fully-expanded destroy command** — everything GC needs once the Worktree is gone and its identity can no longer be re-derived.
-
-`worktree prune` reconciles the ledger against the live Worktrees and runs `destroy` for any entry whose Worktree has vanished. GC is **conservative by construction** — it only ever runs a destroy command that is IN this project's ledger, and it keeps (never reclaims) an entry that is any of:
-
-- still live — its git key is present, or its path is still a registered Worktree;
-- a **recycled handle** — a live Worktree currently owns the same handle;
-- `gc = false` — opted out of GC (teardown-only; use this for data-loss-sensitive resources you only ever want torn down explicitly);
-- carrying an unresolved `@token@` in its frozen destroy command (refused, never half-run).
-
-Deletion is compare-and-swap, and `worktree prune --dry-run` reports exactly what it _would_ reclaim without acting. A clean `accept`/`teardown` clears entries up front, so only an unclean exit ever leaves an orphan for GC to find.
-
-> **Why keyed on the git admin-dir basename, not the path?** git's admin-dir basename (`<common>/worktrees/<key>`) is git's own stable, unique-per-live-Worktree identity, immune to symlink canonicalization and path reuse. Keying on the path would risk leaking an orphan or destroying a live resource when a path is reused or resolves differently for a live writer vs a dead-dir GC ([ADR 0025](../_adr/0025-worktree-resources.md)).
-
-## Drift
-
-A worktree-lifetime resource can die out-of-band — a host reboot stops a running emulator. Declare an `ensure` command to reconcile it: `worktree ensure` (the session-start hook) runs each resource's `ensure` when the Worktree is already set up. `ensure` must be idempotent. If a resource declares no `ensure`, re-readiness is the project's responsibility.
-
-## See also
-
-- The decision, the GC/ownership model, and the breaking change + manual migration ([ADR 0025](../_adr/0025-worktree-resources.md)).
-- The `[worktree.resources.<name>]` block in the seed [`discern.toml`](../../../templates/discern.toml.tmpl).
+- Make `create`, `destroy`, and `ensure` idempotent. `ensure` runs routinely, and a failed destroy remains eligible for another attempt.
+- Make `destroy` independent of the current directory. Orphan cleanup runs it from the main checkout after the worktree directory has disappeared.
+- Use identity tokens or absolute paths in `destroy`; a relative path such as `./cache` points somewhere else during orphan cleanup.
+- `@resource@` exists only inside that resource's commands. Use `@worktree@`, `@db@`, `@site@`, or `@port@` in `[worktree.setup]`.

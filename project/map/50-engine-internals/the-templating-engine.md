@@ -1,3 +1,12 @@
+---
+title: Guidance template engine
+description: The strict config-only renderer for bundled guidance and bundled-skill Markdown.
+order: 50
+aliases:
+  - guidance templates
+  - template engine
+---
+
 # The guidance templating engine
 
 _How discern's **built-in** guidance sections and **bundled** skills are rendered against a project's config before they are compiled or materialized._

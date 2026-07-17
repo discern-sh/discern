@@ -1,38 +1,78 @@
-# Working with a team
+---
+title: Parallel and team work
+description: How people and agents share a repository while each change stays in its own worktree and branch.
+order: 40
+aliases:
+  - team workflow
+  - parallel agents
+  - worktree fleet
+  - multi-repo work
+---
 
-_What a collaborator who clones your repo sees — with or without discern — and how a human works alongside agent worktrees without stepping on them._
+# Parallel and team work
 
-discern installs into one repository, and its footprint travels in git like any other file. A teammate who clones the repo gets a working project whether or not they have discern.
+_Give every task its own worktree, and use the main checkout to supervise the fleet._
 
-## A teammate without discern
+One worktree represents one occupied line of work. It belongs to the agent or person handling that task until it lands or its owner discards it. Never adopt another worktree because it looks idle or clean. Git state says nothing about ownership.
 
-The code is just code. `discern.toml`, the `discern/` folder, and your agents' config files are all committed, so a fresh clone builds, runs, and tests exactly as it would if discern had never been involved — discern adds configuration and text, never a runtime dependency.
+## Survey concurrent work
 
-The compiled agent files (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`) are committed, so a teammate's coding agent — and any cloud agent working from a bare clone — reads the same guidance yours does, no binary required. What a plain clone is missing is only what needs the binary to exist:
+Run `discern status` from the main checkout for the fleet view. It reports each worktree's branch, path, id, port, git cleanliness, distance from the trunk, and last activity. From inside a worktree, pass `--all` for the same survey or keep the default local view.
 
-- the materialized skills (`.claude/skills/`, `.agents/skills/`), rebuilt by `discern refresh`;
-- the `discern_*` MCP tools, which need the discern binary to run.
+The survey preserves unknown states instead of guessing:
 
-The reviewable source stays your `discern/guidance.md`; the gate's currency check keeps the committed copies from drifting. (The [CI page](../20-quality-gate/ci.md) tells the same story for cloud-agent environments.)
+| State                                          | What status reports                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------- |
+| Tracked or untracked non-ignored files changed | `clean: false` with the changed-file count.                            |
+| Checkout has no project config                 | `broken`, with the `worktree drop` recovery.                           |
+| Git cannot read a checkout                     | Sets `git_unavailable`. Clean and ahead values stay absent.            |
+| Work remains idle for 7 days                   | A hint to resume or drop the stale worktree.                           |
+| `agent/*` branch has no worktree               | `unlanded_branches`, with `start --from` and `update --from` recovery. |
+| Local trunk is missing                         | Ahead remains `null` because discern cannot compare it.                |
 
-## The one-minute path to full function
+If the tools point at a pristine worktree while the main checkout accumulates changes, `status` and `done` warn about silent divergence. Move file operations into the worktree and pass its absolute path to Model Context Protocol (MCP) tools. That warning catches the common failure where editing and validation happen in different trees.
 
-For a teammate who wants the whole discern workflow, not just the code:
+## Compose work below the trunk
 
-1. **Install the discern binary** — the same one-line install from the project's install page.
-2. **Run `discern refresh`** — it rebuilds the agent files and materializes the skills from the sources already in the repo. There's no setup or consent step to repeat; the project is already configured, and that configuration is committed.
-3. **Start a fresh agent session** — the MCP tools and session hooks load when an agent session starts, so a new session picks them up. A few agents (Codex, Gemini, Cursor, the Copilot CLI) also need you to trust the folder once; `discern doctor` names the exact step for each.
+The trunk is the single landing target. Build dependent phases by pulling branches into worktrees:
 
-The clone now has the same gate, worktrees, and skills you do.
+- `discern start --from <ref>` creates a new worktree from any branch, tag, or commit.
+- `discern update --from <ref>` merges any ref into an existing worktree.
+- `discern accept --confirmed` lands only the finished whole on the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
-## Humans and agent worktrees, side by side
+This pull-side composition keeps half-finished phases away from the shared landing branch. Concurrent accepts are safe: if another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.
 
-When an agent works, it does so in its own isolated worktree — a sibling folder `<repo>.worktrees/<name>` on its own `agent/…` branch (see [the worktree workflow](README.md)). You keep working in the main checkout. The two never collide, because each worktree has its own branch, its own dev-server port, and its own [resources](the-resources.md).
+## Work across repositories
 
-From the main checkout, `discern status` surveys the whole fleet — every worktree in flight, its branch, and how far ahead of or behind `main` it sits — so you see what your agents are doing without opening each folder. When a change is ready, `discern accept` lands its branch and removes the worktree. A worktree is one line of work: you never adopt someone else's, and a clean one isn't a free one to claim.
+The MCP `discern_start` tool accepts an absolute `path` inside any discern project on disk. It creates the worktree from that project's trunk and re-aims later discern tools at the new root. Pass `path` to later tools when the client cannot change its own working directory ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)).
 
-## See also
+Each repository keeps its own config, worktree root, resource ledger, and trunk. Cross-project starts share an agent session while retaining separate project state.
 
-- [The worktree workflow](README.md) — the lifecycle these isolated checkouts follow.
-- [Per-worktree resources](the-resources.md) — how each worktree gets its own database, port, or other external thing.
-- [CI and cloud agents](../20-quality-gate/ci.md) — the gate as shared policy, and what ephemeral environments see.
+## Bring a teammate into the workflow
+
+A clone works without the discern binary. `discern.toml`, the authored namespace, provider settings, and compiled agent files travel in git. The application still builds and tests through its ordinary commands, and coding agents read the committed guidance.
+
+Without the binary, the clone lacks materialized skills and the `discern_*` MCP tools. To add them:
+
+1. Install discern.
+2. Run `discern refresh` in the clone.
+3. Start a fresh agent session so MCP tools and hooks load.
+
+Some agents also require folder trust. `discern doctor` names the provider-specific step.
+
+Claude Code can create and remove worktrees through `WorktreeCreate` and `WorktreeRemove` hooks. The binary parses the hook JSON itself, with no `jq` dependency, and calls the same create, setup, and teardown cores as `discern start`. After setup, hook-created worktrees also branch from the trunk. Its session-start hook reruns resource and setup convergence ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). Other agents use the shared lifecycle verbs directly.
+
+## Where it lives in code
+
+| Responsibility                  | Source                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| Fleet status and recovery hints | [`src/engine/status/status.ts`](../../../src/engine/status/status.ts)             |
+| Cross-project MCP routing       | [`src/engine/mcp/server.ts`](../../../src/engine/mcp/server.ts)                   |
+| Claude Code hook adapter        | [`src/lib/worktree_hooks.ts`](../../../src/lib/worktree_hooks.ts)                 |
+| Status truth tests              | [`tests/engine_status_truth_test.ts`](../../../tests/engine_status_truth_test.ts) |
+
+## Current state and gotchas
+
+- The main checkout is the supervisory view. Make task changes only inside a worktree.
+- `discern status` only inspects state. It never creates, refreshes, or destroys a resource.
+- The fleet's git-clean signal excludes ignored provider-local and generated files.

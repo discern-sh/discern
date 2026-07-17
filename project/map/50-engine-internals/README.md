@@ -20,6 +20,7 @@ This tree is contributor-facing — internals for people working ON discern — 
 - [migrations.md](migrations.md) — the idempotent schema-migration chain, its write contract, and convergence coverage.
 - [the-document-model.md](the-document-model.md) — the one validated model behind every docs surface: discovery, the strict frontmatter schema, the `isPublicDoc` predicate, citation stripping, and the redirect registry.
 - [the-result-envelope.md](the-result-envelope.md) — the shared result vocabulary, strict Zod schemas, generated consumer contracts, and MCP adapters.
+- [the-templating-engine.md](the-templating-engine.md) — the strict config-only renderer for bundled guidance and bundled-skill Markdown.
 
 ## See also
 

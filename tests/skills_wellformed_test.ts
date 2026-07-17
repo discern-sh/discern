@@ -58,20 +58,23 @@ Deno.test("bundled skills: every one is well-formed (frontmatter name === direct
   }
 });
 
-Deno.test("bundled skills: the install-surface doc's table lists every one", async () => {
-  // The bundled-skills table in the configured map is
-  // hand-authored prose with no compiler behind it, so a newly added skill can
-  // silently ship undocumented (it happened: the table once lacked a skill the
-  // binary bundled). Iterate the SAME canonical set the materializer drives off,
-  // so a new skill auto-enrols here and the doc must name it or the gate fails.
-  const doc = await Deno.readTextFile(
-    join(REPO_AUTHORED_PATHS.map, "80-development", "install-surface.md"),
-  );
+Deno.test("bundled skills: every catalog table lists every one", async () => {
+  // These tables are hand-authored prose with no compiler behind them, so a newly
+  // added skill can silently ship undocumented. Iterate the SAME canonical set the
+  // materializer drives off, so a new skill auto-enrols here and every public or
+  // contributor catalog must name it or the gate fails.
   const names = await bundledSkillNames();
-  const missing = names.filter((name) => !doc.includes(`\`${name}\``));
-  assertEquals(
-    missing,
-    [],
-    `${REPO_AUTHORED_PATHS.mapRel}/80-development/install-surface.md's bundled-skills table must name every bundled skill`,
-  );
+  const catalogs = [
+    join(REPO_AUTHORED_PATHS.map, "45-skills", "bundled-skills.md"),
+    join(REPO_AUTHORED_PATHS.map, "80-development", "install-surface.md"),
+  ];
+  for (const catalog of catalogs) {
+    const doc = await Deno.readTextFile(catalog);
+    const missing = names.filter((name) => !doc.includes(`\`${name}\``));
+    assertEquals(
+      missing,
+      [],
+      `${catalog}'s bundled-skills table must name every bundled skill`,
+    );
+  }
 });
