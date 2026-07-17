@@ -1,28 +1,24 @@
+---
+description: What discern is, why it's shaped this way, and where to go next — read this section first.
+---
+
 # Orientation
 
-How discern fits together, in plain English. Read this tier once and the rest of the documentation tree slots into place.
+_Start here: the mental model, the principles behind it, and the glossary the rest of the manual leans on._
 
-Orientation is deliberately small and stable. The subsystem subtrees go deep on mechanism; this tier exists so you understand _what the pieces are_ and _why the system is shaped the way it is_ before you read how any one piece works.
+discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. This section tells that story once, in plain English, before any section goes deep on mechanism. Read [concepts](concepts.md) and the rest of the manual slots into place.
 
----
+The questions evaluators ask next each have a page. [Design principles](design-principles.md) explains why the system is shaped the way it is — rules held by tests in discern's own gate, from stack-neutrality to the provable footprint. [Trust & your data](trust-and-data.md) covers what runs on your machine: no network calls, no telemetry, and no commands beyond the ones you wrote yourself.
 
-## What's in here
+Fresh from setup? [What setup added to your repo](after-setup.md) walks the diff file by file. And every term the manual uses is defined once, in the [glossary](glossary.md), then used identically everywhere.
 
-| Read this                                    | If you want to…                                                                           |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [after-setup.md](after-setup.md)             | See what setup just added to your repo, and which files are yours to edit.                |
-| [trust-and-data.md](trust-and-data.md)       | Know what runs on your machine — no network, a small footprint, what discern won't touch. |
-| [concepts.md](concepts.md)                   | Understand the moving parts at a glance — a short narrative tour of the system.           |
-| [system-map.md](system-map.md)               | See the architecture as one picture (ASCII).                                              |
-| [glossary.md](glossary.md)                   | Look up a specific term. The canonical names live here.                                   |
-| [design-principles.md](design-principles.md) | Understand why the system is shaped the way it is — the hard rules every change respects. |
+| Read next                                    | What's in it                                                               |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, guidance, ownership.    |
+| [design-principles.md](design-principles.md) | Why discern is shaped this way — each rule observable in your repo.        |
+| [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only.   |
+| [after-setup.md](after-setup.md)             | Every file setup added or touched, and which ones are yours to edit.       |
+| [system-map.md](system-map.md)               | The architecture as one picture.                                           |
+| [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                         |
 
-Once you've read these, return to the [docs front page](../README.md) and pick a subsystem subtree to drill into.
-
----
-
-## How the orientation tier relates to the rest
-
-- **concepts.md** is the narrative; **glossary.md** is the dictionary; **system-map.md** is the picture. They describe the same system at three altitudes.
-- **design-principles.md** is the constitution. When a subsystem doc explains _why_ a thing is done a certain way, it usually traces back to a principle here — and any deliberate exception to a principle is recorded as an ADR in [`../_adr/`](../_adr/).
-- The capitalised canonical nouns defined in the glossary are used verbatim everywhere else in the tree. Synonyms are not introduced.
+Done here? Head back to the [manual's front page](../README.md) and pick the section your task needs.
