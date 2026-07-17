@@ -1,22 +1,30 @@
 /**
- * Architectural guard for what `discern help` ships. The curation rule —
- * "the binary stages exactly the published leaves in its public subtree
- * allowlist" — is the property that keeps unpublished pages and every internal
- * tree out of customer binaries. These tests pin the actual build seam to the
- * document model's one page-level predicate, so a new page cannot ship or be
- * withheld by accident.
+ * Architectural guard for what `discern help` ships. Every numbered manual
+ * section must be classified in the total registry, and every public projection
+ * must agree with its public subset. These tests also pin the actual build seam
+ * to the document model's page-level predicate, so a new section or page cannot
+ * ship or be withheld by accident.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { exists } from "@std/fs";
-import { join } from "@std/path";
+import { dirname, join, SEPARATOR } from "@std/path";
 import {
   BUNDLED_PUBLIC_DOC_DIRS,
   HELP_ADR_DOC_DIR,
   isBundledDocEntry,
+  MANUAL_SECTION_REGISTRY,
+  type ManualSectionRegistration,
 } from "../src/lib/paths.ts";
-import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
+import {
+  discoverDocs,
+  type DocEntry,
+  isPublicDoc,
+  structuredLinkDestinations,
+} from "../src/lib/docs.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
+import { loadDocsSite } from "../site/docs.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
@@ -29,24 +37,123 @@ async function topLevelDocEntries(): Promise<string[]> {
   return names.sort();
 }
 
-Deno.test("isBundledDocEntry admits public help tiers and no internal tree", () => {
-  assert(isBundledDocEntry("00-orientation"));
+/** Every numbered map directory, independent of its current registry name. */
+async function numberedSectionDirs(): Promise<string[]> {
+  const dirs: string[] = [];
+  for await (const entry of Deno.readDir(MAP_DIR)) {
+    if (entry.isDirectory && /^\d\d-/.test(entry.name)) dirs.push(entry.name);
+  }
+  return dirs.sort();
+}
+
+/** The public section rows authored under the manual's `The sections` H2. */
+async function manualIndexSectionDirs(): Promise<string[]> {
+  const markdown = await Deno.readTextFile(join(MAP_DIR, "README.md"));
+  const lines = markdown.split("\n");
+  const start = lines.findIndex((line) => line.trim() === "## The sections");
+  assert(start >= 0, "the manual index has a `The sections` heading");
+  const nextHeading = lines.findIndex((line, index) =>
+    index > start && /^##\s+/.test(line)
+  );
+  const section = lines.slice(
+    start + 1,
+    nextHeading < 0 ? undefined : nextHeading,
+  )
+    .join("\n");
+  return structuredLinkDestinations(section)
+    .map((destination) => destination.replace(/#.*$/, ""))
+    .filter((destination) => /^\d\d-[^/]+\/$/.test(destination))
+    .map((destination) => destination.slice(0, -1));
+}
+
+interface SectionProjectionSnapshot {
+  registrations: readonly ManualSectionRegistration[];
+  numberedDirs: readonly string[];
+  manualDirs: readonly string[];
+  bundledDirs: readonly string[];
+  helpDirs: readonly string[];
+  siteDirs: readonly string[];
+}
+
+/** Report every edge that disagrees with the registry's public subset. */
+function sectionProjectionIssues(
+  snapshot: SectionProjectionSnapshot,
+): string[] {
+  const registered = snapshot.registrations.map((section) => section.dir);
+  const publicDirs = snapshot.registrations
+    .filter((section) => section.audience === "public")
+    .map((section) => section.dir);
+  const comparisons: Array<
+    [label: string, actual: readonly string[], expected: readonly string[]]
+  > = [
+    ["numbered map sections", snapshot.numberedDirs, registered],
+    ["bundled public sections", snapshot.bundledDirs, publicDirs],
+    ["manual index sections", snapshot.manualDirs, publicDirs],
+    ["help projection sections", snapshot.helpDirs, publicDirs],
+    ["site model sections", snapshot.siteDirs, publicDirs],
+  ];
+  return comparisons.flatMap(([label, actual, expected]) =>
+    JSON.stringify(actual) === JSON.stringify(expected) ? [] : [
+      `${label}: expected ${JSON.stringify(expected)}, got ${
+        JSON.stringify(actual)
+      }`,
+    ]
+  );
+}
+
+/** Resolve the README's structured direct-sibling links in authored order. */
+async function curatedSiblingPaths(
+  readme: DocEntry,
+  sectionEntries: readonly DocEntry[],
+): Promise<string[]> {
+  const markdown = await Deno.readTextFile(readme.absPath);
+  const byRel = new Map(
+    sectionEntries.map((entry) => [entry.relToDocs, entry]),
+  );
+  const dir = dirname(readme.relToDocs);
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const authoredDest of structuredLinkDestinations(markdown)) {
+    const dest = authoredDest.replace(/#.*$/, "");
+    if (!dest.toLowerCase().endsWith(".md")) continue;
+    const targetRel = join(dir, dest).replaceAll(SEPARATOR, "/");
+    const target = byRel.get(targetRel);
+    if (
+      target === undefined ||
+      target.slug.toLowerCase() === "readme" ||
+      dirname(target.relToDocs) !== dir ||
+      seen.has(target.relToDocs)
+    ) {
+      continue;
+    }
+    seen.add(target.relToDocs);
+    paths.push(target.relToDocs);
+  }
+  return paths;
+}
+
+Deno.test("isBundledDocEntry follows the total section registry", () => {
   assert(isBundledDocEntry("README.md"));
   assertEquals(isBundledDocEntry(HELP_ADR_DOC_DIR), false);
   assertEquals(isBundledDocEntry("_internal"), false);
   assertEquals(isBundledDocEntry("_private"), false);
   assertEquals(isBundledDocEntry("_anything-new"), false);
-  assertEquals(isBundledDocEntry("50-engine-internals"), false);
-  assertEquals(isBundledDocEntry("80-development"), false);
-  for (const allowed of BUNDLED_PUBLIC_DOC_DIRS) {
-    assert(isBundledDocEntry(allowed), `${allowed} should be bundled`);
+  for (const section of MANUAL_SECTION_REGISTRY) {
+    assertEquals(
+      isBundledDocEntry(section.dir),
+      section.audience === "public",
+      `${section.dir} follows its registered audience`,
+    );
   }
 });
 
-Deno.test("the real configured map admits only public help tiers", async () => {
+Deno.test("every numbered section and public projection agrees", async () => {
   const names = await topLevelDocEntries();
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
+  const numbered = await numberedSectionDirs();
+  const helpDirs = numbered.filter(isBundledDocEntry);
+  const site = await loadDocsSite();
 
   assertEquals(internalEmbedded, []);
   assert(
@@ -55,19 +162,17 @@ Deno.test("the real configured map admits only public help tiers", async () => {
   );
   assert(!embedded.includes("_private"), "_private must never be embedded");
   assert(!embedded.includes("_internal"), "_internal must never be embedded");
-
-  // Every allowlisted public tree ships; the contributor/engine-internals trees
-  // never do (a user's binary is for operating the harness, not building it).
-  for (const dir of BUNDLED_PUBLIC_DOC_DIRS) {
-    assert(embedded.includes(dir), `${dir} should be embedded`);
-  }
-  assert(
-    !embedded.includes("50-engine-internals"),
-    "engine-internals must not ship in a customer binary",
-  );
-  assert(
-    !embedded.includes("80-development"),
-    "the development tree must not ship in a user binary",
+  assertEquals(
+    sectionProjectionIssues({
+      registrations: MANUAL_SECTION_REGISTRY,
+      numberedDirs: numbered,
+      manualDirs: await manualIndexSectionDirs(),
+      bundledDirs: BUNDLED_PUBLIC_DOC_DIRS,
+      helpDirs,
+      siteDirs: site.sections.map((section) => section.dir),
+    }),
+    [],
+    "classify every numbered section and keep every public projection in registry order",
   );
 
   for (const name of names) {
@@ -79,6 +184,102 @@ Deno.test("the real configured map admits only public help tiers", async () => {
         `number it to ship it, or prefix it with _ to keep it private`,
     );
   }
+});
+
+Deno.test("the section projection guard catches fresh-named omissions", () => {
+  const base: readonly ManualSectionRegistration[] = [
+    { dir: "11-foundations", audience: "public" },
+    { dir: "90-maintainers", audience: "contributor" },
+  ];
+  const unclassified = sectionProjectionIssues({
+    registrations: base,
+    numberedDirs: ["11-foundations", "55-observability", "90-maintainers"],
+    manualDirs: ["11-foundations"],
+    bundledDirs: ["11-foundations"],
+    helpDirs: ["11-foundations"],
+    siteDirs: ["11-foundations"],
+  });
+  assert(
+    unclassified.some((issue) => issue.startsWith("numbered map sections:")),
+    unclassified.join("\n"),
+  );
+
+  const registered: readonly ManualSectionRegistration[] = [
+    ...base.slice(0, 1),
+    { dir: "55-observability", audience: "public" },
+    ...base.slice(1),
+  ];
+  const missingIndex = sectionProjectionIssues({
+    registrations: registered,
+    numberedDirs: ["11-foundations", "55-observability", "90-maintainers"],
+    manualDirs: ["11-foundations"],
+    bundledDirs: ["11-foundations", "55-observability"],
+    helpDirs: ["11-foundations", "55-observability"],
+    siteDirs: ["11-foundations", "55-observability"],
+  });
+  assertEquals(missingIndex.length, 1);
+  assert(missingIndex[0]?.startsWith("manual index sections:"));
+});
+
+Deno.test("public section metadata, curation, and model order agree", async () => {
+  const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MAP_DIR });
+  assert(tree, "the configured map exists");
+  const issues: string[] = [];
+  for (const dir of BUNDLED_PUBLIC_DOC_DIRS) {
+    const sectionEntries = tree.entries.filter((entry) =>
+      entry.section === dir
+    );
+    const publicEntries = sectionEntries.filter(isPublicDoc);
+    const indexes = publicEntries.filter((entry) =>
+      entry.slug.toLowerCase() === "readme"
+    );
+    if (indexes.length !== 1) {
+      issues.push(`${dir}: expected one public README, got ${indexes.length}`);
+      continue;
+    }
+    const readme = indexes[0];
+    assert(readme !== undefined);
+    const leaves = publicEntries.filter((entry) => entry !== readme);
+    let previousOrder = 0;
+    for (const entry of publicEntries) {
+      const { meta } = parseFrontmatter(await Deno.readTextFile(entry.absPath));
+      if (meta.description === undefined) {
+        issues.push(`${entry.relToDocs}: missing explicit description`);
+      }
+      if (meta.aliases === undefined || meta.aliases.length === 0) {
+        issues.push(`${entry.relToDocs}: missing explicit aliases`);
+      }
+      if (entry !== readme) {
+        if (meta.order === undefined) {
+          issues.push(`${entry.relToDocs}: missing explicit order`);
+        } else if (meta.order % 10 !== 0) {
+          issues.push(
+            `${entry.relToDocs}: order ${meta.order}; expected a multiple of 10`,
+          );
+        } else if (meta.order <= previousOrder) {
+          issues.push(
+            `${entry.relToDocs}: order ${meta.order}; expected greater than ${previousOrder}`,
+          );
+        } else {
+          previousOrder = meta.order;
+        }
+      }
+    }
+    const curated = await curatedSiblingPaths(readme, sectionEntries);
+    const ordered = leaves.map((entry) => entry.relToDocs);
+    if (JSON.stringify(curated) !== JSON.stringify(ordered)) {
+      issues.push(
+        `${dir}: README links ${JSON.stringify(curated)}; model order ${
+          JSON.stringify(ordered)
+        }`,
+      );
+    }
+  }
+  assertEquals(
+    issues,
+    [],
+    "public READMEs, explicit metadata, leaf order, and model order must agree",
+  );
 });
 
 Deno.test("the staged file set equals the public projection", async () => {
