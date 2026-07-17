@@ -71,20 +71,22 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
 
 Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    `${REPO_AUTHORED_PATHS.map}/10-getting-started/config-reference.md`,
+    `${REPO_AUTHORED_PATHS.map}/70-reference/config-reference.md`,
   );
   assertEquals(
     committed,
     renderConfigReferenceDoc(),
-    `${REPO_AUTHORED_PATHS.mapRel}/10-getting-started/config-reference.md is stale — run \`deno task codegen\``,
+    `${REPO_AUTHORED_PATHS.mapRel}/70-reference/config-reference.md is stale — run \`deno task codegen\``,
   );
 });
 
 Deno.test("the generated config reference carries the section's full frontmatter", () => {
   const doc = renderConfigReferenceDoc();
   assertStringIncludes(doc, "title: Config reference");
-  assertStringIncludes(doc, "order: 70");
+  assertStringIncludes(doc, "order: 20");
+  assertStringIncludes(doc, "publish: true");
   assertStringIncludes(doc, "  - discern.toml");
+  assertStringIncludes(doc, "  - worktree.resources.<name>.create");
 });
 
 Deno.test("the docs reference documents every section, with its describe() prose", () => {

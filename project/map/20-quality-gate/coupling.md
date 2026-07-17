@@ -59,6 +59,8 @@ The default is `false`. Automatic gate hints use a stricter evidence threshold a
 
 A repeated relationship asks you to inspect the pair. When the files express one essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
+The subsystem is core and costs nothing until invoked — read-only, self-calibrating, on demand; `in_gate` is its one cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
+
 The result fields and Model Context Protocol arguments are in [MCP tools and results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code

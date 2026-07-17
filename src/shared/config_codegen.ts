@@ -159,6 +159,36 @@ function renderSection(
   return out.join("\n");
 }
 
+/** Search aliases for every section and key in the live config schema. Named
+ * tables keep their documented `<name>` placeholder, so a query such as
+ * `checks.<name>.run` reaches the reference without a hand-maintained synonym
+ * list. */
+function configSearchAliases(schema: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const walk = (node: Record<string, unknown>, prefix: string): void => {
+    const props = isObject(node.properties) ? node.properties : undefined;
+    if (props !== undefined) {
+      for (const [key, child] of Object.entries(props)) {
+        if (!isObject(child)) continue;
+        const path = prefix === "" ? key : `${prefix}.${key}`;
+        out.push(path);
+        if (isContainer(child)) walk(child, path);
+      }
+      return;
+    }
+    const valueShape = isObject(node.additionalProperties)
+      ? node.additionalProperties
+      : undefined;
+    if (valueShape !== undefined) {
+      const path = `${prefix}.<name>`;
+      out.push(path);
+      walk(valueShape, path);
+    }
+  };
+  walk(schema, "");
+  return out;
+}
+
 /**
  * Render the docs config-reference page from the LIVE `discern.toml` schema:
  * every section, key, type, default, and description, straight from the canonical
@@ -171,15 +201,20 @@ export function renderConfigReferenceDoc(): string {
     unknown
   >;
   const props = isObject(root.properties) ? root.properties : {};
+  const aliases = [
+    "configuration",
+    "discern.toml",
+    "config",
+    ...configSearchAliases(root),
+  ];
   const out: string[] = [
     "---",
     "title: Config reference",
     "description: Every discern.toml section, key, type, and default generated from the schema the binary enforces.",
-    "order: 70",
+    "order: 20",
+    "publish: true",
     "aliases:",
-    "  - configuration",
-    "  - discern.toml",
-    "  - config",
+    ...aliases.map((alias) => `  - ${alias}`),
     "---",
     "",
     DOCS_BANNER,

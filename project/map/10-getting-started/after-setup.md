@@ -13,7 +13,7 @@ aliases:
 
 _Setup works on a `discern-setup` branch. This guide tells you what each part of that branch is for and who edits it._
 
-Review the branch before landing it. The paths depend on the coding agents you selected and any locations you configured, but every written file belongs to one of the groups below. For the exhaustive inventory and uninstall behavior, use [Files & ownership](artifact-ownership.md).
+Review the branch before landing it. The paths depend on the coding agents you selected and any locations you configured, but every written file belongs to one of the groups below. For the exhaustive inventory and uninstall behavior, use [Files & ownership](../70-reference/artifact-ownership.md).
 
 ## Files you edit
 

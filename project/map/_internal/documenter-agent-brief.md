@@ -16,11 +16,17 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 
 ---
 
+## Maintaining the map
+
+Treat documentation as part of the change. Every page describes what exists in code today. When a change alters documented behavior, update its page in the same commit. The gate treats a stale page as a defect. Define terminology once in the [glossary](../00-orientation/glossary.md) and use it identically everywhere. Ground claims with links to the source files they describe.
+
+---
+
 ## Who owns what
 
 This brief owns **structure**: which pages exist, each page's one job, its section shapes, its facts, and its length budgets. The [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns **register**: how the prose sounds inside those structures — the docs-surface mix, the banned tics, the delight ceiling. Write to both; when a question is about shape or size, this brief answers it, and when it is about word choice, stance, or temperature, the skill answers it.
 
-The map is public documentation: the published tiers render on the docs site, in `discern help`, and over MCP. Three approved pages are the reference corpus for what a finished page reads like — the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../10-getting-started/artifact-ownership.md). Calibrate against them, not against older neighbours.
+The map is public documentation: the published tiers render on the docs site, in `discern help`, and over MCP. Three approved pages are the reference corpus for what a finished page reads like — the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against them, not against older neighbours.
 
 ---
 

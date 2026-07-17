@@ -1,3 +1,13 @@
+---
+title: Cursor
+description: How discern wires shared guidance and skills, MCP, hooks, and workspace trust for Cursor.
+order: 40
+aliases:
+  - Cursor
+  - Cursor CLI
+  - cursor-agent
+---
+
 # Cursor integration
 
 discern's Cursor integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when Cursor is enabled in `[guidance].agents`:
@@ -26,7 +36,7 @@ If the project already lists other agents, include `cursor` in that same array. 
 
 Cursor reads `AGENTS.md` natively at the repository root, so discern models it as reuse-canonical. It does not emit a Cursor-specific guidance file and does not write an import pointer. Cursor reads the same canonical `AGENTS.md` emitted by the canonical provider, normally Codex, and imported by Claude Code / Gemini.
 
-`AGENTS.md` is generated from discern's built-in guidance plus the project's `[guidance].sources`; edit the sources and run `discern refresh`, never edit `AGENTS.md` by hand.
+`AGENTS.md` is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Cursor also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. The same directory is shared with Codex, Gemini, and GitHub Copilot.
 

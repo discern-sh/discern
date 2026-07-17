@@ -1,3 +1,13 @@
+---
+title: GitHub Copilot
+description: How discern wires shared guidance and skills, MCP, hooks, and folder trust for GitHub Copilot.
+order: 50
+aliases:
+  - GitHub Copilot
+  - Copilot
+  - GitHub Copilot CLI
+---
+
 # GitHub Copilot integration
 
 discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[guidance].agents`:
@@ -26,7 +36,7 @@ If the project already lists other agents, include `copilot` in that same array.
 
 The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so discern models it as reuse-canonical. It does not emit a Copilot-specific guidance file and does not write an import pointer. Copilot reads the same canonical `AGENTS.md` emitted by the canonical provider, normally Codex, and imported by Claude Code / Gemini.
 
-`AGENTS.md` is generated from discern's built-in guidance plus the project's `[guidance].sources`; edit the sources and run `discern refresh`, never edit `AGENTS.md` by hand.
+`AGENTS.md` is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. The same directory is shared with Codex, Gemini, and Cursor.
 

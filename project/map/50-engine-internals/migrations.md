@@ -32,5 +32,5 @@ A schema bump happens only when an installed project needs a change to stay corr
 
 ## See also
 
-- [config-reference.md](../10-getting-started/config-reference.md) — every section and key the migrated config must validate against.
+- [config-reference.md](../70-reference/config-reference.md) — every section and key the migrated config must validate against.
 - The migration system's founding decision ([ADR 0014](../_adr/0014-versioned-migration-system.md)).

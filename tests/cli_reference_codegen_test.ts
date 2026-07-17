@@ -100,13 +100,19 @@ Deno.test("the reference documents every visible flag of every visible command",
   }
 });
 
-Deno.test("the generated reference carries valid frontmatter and stays unpublished until authored", () => {
-  // The page must satisfy the map's strict metadata schema like any other doc…
+Deno.test("the generated reference carries valid published frontmatter and searchable command aliases", () => {
   assertEquals(validateFrontmatter(rendered), []);
-  // …and stays withheld from every published surface until the reference tier
-  // is authored and published — flipping this is a deliberate generator edit,
-  // not a side effect.
-  assertStringIncludes(rendered.split("\n---\n")[0] ?? "", "publish: false");
+  const frontmatter = rendered.split("\n---\n")[0] ?? "";
+  assertStringIncludes(frontmatter, "order: 10");
+  assertStringIncludes(frontmatter, "publish: true");
+  for (const node of walkCliCommands(model)) {
+    if (node.hidden || node.path.length === 0) continue;
+    assertStringIncludes(
+      frontmatter,
+      `  - discern ${node.path.join(" ")}`,
+      `the CLI reference is missing a search alias for ${node.path.join(" ")}`,
+    );
+  }
 });
 
 Deno.test("the committed reference declares its generated provenance", async () => {
