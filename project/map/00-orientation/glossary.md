@@ -113,7 +113,7 @@ A named region of the repository, declared as `[scopes.<name>]` with path globs 
 
 ### Skill
 
-A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `[skills].exclude` drops named ones. Covered in [agent guidance](../40-agent-guidance/).
+A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).
 
 ### Stage
 
