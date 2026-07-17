@@ -1,6 +1,6 @@
 ---
 title: The discern manual
-description: The public manual agents maintain under discern's own gate: quality checks, worktrees, guidance, skills, and reference.
+description: "The public manual agents maintain under discern's own gate, covering quality checks, worktrees, guidance, skills, and reference."
 aliases:
   - docs
   - documentation
@@ -15,15 +15,15 @@ discern gives a repository one quality gate, an isolated worktree per change, an
 
 ## The sections
 
-| Section                                          | What's in it                                                                        |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| [00-orientation/](00-orientation/)               | How discern fits together, in plain English: concepts, glossary, design principles. |
-| [10-getting-started/](10-getting-started/)       | Install, setup, a first gated change, troubleshooting, and upgrades.                |
-| [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.     |
-| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.        |
+| Section                                          | What's in it                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| [00-orientation/](00-orientation/)               | How discern fits together, in plain English: concepts, glossary, design principles.  |
+| [10-getting-started/](10-getting-started/)       | Install, setup, a first gated change, troubleshooting, and upgrades.                 |
+| [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.      |
+| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.         |
 | [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once and compiled into every agent file.                           |
 | [45-skills/](45-skills/)                         | Bundled and project-authored playbooks that agents load when the work calls for one. |
-| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.       |
+| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.        |
 
 Contributors can go deeper in [engine internals](50-engine-internals/), [development](80-development/), and [site](90-site/). [Project decisions](_adr/) record the choices behind discern. They are history, outside the manual and customer binaries ([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
