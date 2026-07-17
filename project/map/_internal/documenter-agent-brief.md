@@ -24,9 +24,9 @@ Treat documentation as part of the change. Every page describes what exists in c
 
 ## Who owns what
 
-This brief owns **structure**: which pages exist, each page's one job, its section shapes, its facts, and its length budgets. The [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns **register**: how the prose sounds inside those structures — the docs-surface mix, the banned tics, the delight ceiling. Write to both; when a question is about shape or size, this brief answers it, and when it is about word choice, stance, or temperature, the skill answers it.
+This brief owns **structure**: which pages exist, each page's job, its section shapes, its facts, and its length budgets. The [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns **register**: how the prose sounds inside those structures, including the docs register mix, banned tics, and delight ceiling. Write to both; this brief answers questions about shape or size, and the skill answers questions about word choice, stance, or temperature.
 
-The map is public documentation: the published tiers render on the docs site, in `discern help`, and over MCP. Three approved pages are the reference corpus for what a finished page reads like — the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against them, not against older neighbours.
+The map is public documentation: the published tiers render on the docs site, in `discern help`, and over MCP. The reference corpus for a finished page comprises the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against this corpus.
 
 ---
 
@@ -54,7 +54,7 @@ If your subtree's audience contract differs (e.g. an existing plain-English deep
 
 ## Page shapes
 
-[`page-templates.md`](page-templates.md) holds the five page-type skeletons — overview, quickstart, guide, reference, troubleshooting — with the budget and register mix each carries. Pick the shape that matches the page's one job; the subsystem-leaf template below is the guide shape specialised for documenting a code subsystem, and remains the default for leaves in a numbered subtree.
+[`page-templates.md`](page-templates.md) holds skeletons for overview, quickstart, guide, reference, and troubleshooting pages. Each carries its budget and register mix. Pick the shape that matches the page's job; the subsystem-leaf template below is the guide shape specialised for documenting a code subsystem and remains the default for leaves in a numbered subtree.
 
 ## Per-doc template (subsystem leaf)
 
@@ -98,7 +98,7 @@ The knobs that tune this behaviour, one line each. Only those your subtree owns.
 
 ## Current state & gotchas
 
-Things a future reader would be surprised to learn. Quote any TODO/FIXME/HACK comments verbatim. Note half-built features, recently-changed code, reserved or dead config, and known footguns. This section is high-value-per-word; do not skip it just because the happy path is well covered.
+Things a future reader would be surprised to learn. Quote any TODO/FIXME/HACK comments verbatim. Note half-built features, recently changed code, reserved or dead config, and known traps. This section is high-value-per-word; include it even when the routine workflow is well covered.
 ```
 
 Skip sections that do not apply to a given leaf. Do not invent sections.
@@ -114,15 +114,15 @@ Every published page carries frontmatter; the gate validates it against a closed
 | `title`         | Short label for nav, breadcrumb, and `<title>` — max 48 chars. Only when the H1 runs long.  |
 | `description`   | 50–160 chars. Fronts search results and section tables; say what the page does, no padding. |
 | `order`         | Non-negative integer; unique among published siblings; leave gaps of 10.                    |
-| `publish`       | `false` withholds the page from every published surface. The sole page-level withhold.      |
+| `publish`       | `false` withholds the page from every published output. The sole page-level withhold.       |
 | `redirect_from` | Absolute historical routes this page now answers for (`/docs/...`, no trailing slash).      |
 | `aliases`       | Search synonyms: renamed terms, CLI spellings.                                              |
 
-Frontmatter is metadata, not content: rendered surfaces strip the block, and the H1 stays the long-form canonical title on the page. Only flat `key: value` scalars and `- item` lists parse.
+Frontmatter provides metadata. Rendered pages strip the block, and the H1 stays the long-form canonical title on the page. Only flat `key: value` scalars and `- item` lists parse.
 
 ## ADR citations
 
-Cite decision records as liberally as reasoning requires — density is handled at render time, not by you ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). Every citation in a published tier takes the one strippable form: a parenthetical group of linked citations at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The invariant the gate enforces: **the sentence reads correctly with the citation deleted** — a citation is never the grammatical subject.
+Cite decision records as freely as the reasoning requires; rendering handles their visible density ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). In a published tier, put linked citations in a parenthetical group at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The gate requires the sentence to remain correct after deleting the citation, which excludes a citation from the grammatical-subject position.
 
 ---
 
@@ -131,16 +131,16 @@ Cite decision records as liberally as reasoning requires — density is handled 
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
 2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
 3. **No modal verbs about the system.** Banned: `should`, `would`, `could`, `will eventually`, `is intended to`. Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Never a leading `map/` — you are inside `map/`.
+4. **Cross-link with relative paths.** Omit a leading `map/` because you are already inside `map/`.
 5. **Cross-link within your subtree liberally; do not link across subtrees.** Inter-subtree links are added in a later polish pass by the orchestrator.
-6. **Glossary additions go in your summary, not your leaves.** If you find a term that ought to be glossary-defined, list it in your summary; do not append a glossary section to a leaf.
-7. **Document scope overlap; do not silently expand.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
+6. **Put glossary additions in your summary.** If you find a term that ought to be glossary-defined, list it in your summary and leave the leaf's section set unchanged.
+7. **Report scope overlap before expanding.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
 8. **Length budget.**
    - 200–350 words per README.
-   - 400–800 words per leaf — a **hard ceiling**, not a target. (Other page shapes carry their own budgets — see [`page-templates.md`](page-templates.md).)
-   - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Do not silently overrun.
-9. **No code samples unless they clarify what a path cannot.** A `[file](path)` link is almost always enough. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
-10. **Register belongs to the voice skill.** Hold its docs-surface mix — plain, precise, convinced — and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and holds the judgment-tier ones as warnings the gate stays quiet about, so before handing off, run `discern script prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures. Delight is a ceiling of one per page and zero in reference and troubleshooting material.
+   - 400–800 words per leaf, with 800 as a **hard ceiling**. Other page shapes carry their own budgets; see [`page-templates.md`](page-templates.md).
+   - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Report any overrun.
+9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
+10. **Register belongs to the voice skill.** Hold its docs register mix — plain, precise, convinced — and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern script prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures. Delight is a ceiling of one per page and zero in reference and troubleshooting material.
 
 ---
 

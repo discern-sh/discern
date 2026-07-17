@@ -3,7 +3,7 @@
 <!--
   Copy this file to `docs/_internal/scopes/<NN-subsystem>.md` — one per subtree —
   and fill each section. It is the per-subtree complement to the constant
-  documenter brief: it names exactly what THIS agent reads, owns, and produces.
+  documenter brief: it names what THIS agent reads, owns, and produces.
   Delete these comments as you go.
 -->
 
@@ -16,8 +16,8 @@ its boundaries are (what the neighbouring subtrees own instead). -->
 
 ## Files to produce
 
-<!-- Every .md file the agent must write, with a one-line topic each. The README
-is always first. Name the page shape (overview / quickstart / guide / reference /
+<!-- Every .md file the agent must write, with a one-line topic each. Put the README
+first. Name the page shape (overview / quickstart / guide / reference /
 troubleshooting — see page-templates.md) where it isn't the default subsystem
 leaf, and any frontmatter the page must carry beyond the brief's baseline
 (a specific `order`, `publish: false`, a `redirect_from` claim). Keep the set
@@ -56,7 +56,7 @@ None.
 name it, say which subtree owns it, and instruct the agent to link rather than
 document. This is what keeps parallel documenters from colliding. -->
 
-- **`../NN-other/`** owns _X_. Describe the surface; do not describe _X_'s internals — link to it.
+- **`../NN-other/`** owns _X_. Describe the boundary and link to that subtree for _X_'s internals.
 
 ## Length-budget note
 

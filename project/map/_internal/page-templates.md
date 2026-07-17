@@ -1,6 +1,6 @@
 # Page-type templates
 
-The five page shapes for the map's published tiers. The [documenter brief](documenter-agent-brief.md) assigns each page's job and owns these structures; the [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns how the prose sounds inside them. Pick the shape by the page's one job — a page trying to be two shapes is two pages.
+These page shapes cover the map's published tiers: overview, quickstart, guide, reference, and troubleshooting. The [documenter brief](documenter-agent-brief.md) assigns each page's job and owns these structures; the [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns how the prose sounds inside them. Pick the shape by the page's primary job. A page serving two jobs becomes two pages.
 
 Every skeleton below shows the full frontmatter a page of that shape typically carries; drop keys the page doesn't need (the brief's frontmatter table has the rules). Word budgets count body prose; frontmatter and code fences are free.
 
@@ -26,7 +26,7 @@ What this is and why it exists, in 2–3 short paragraphs a newcomer can read in
 
 ## Quickstart — 600–1,000 words
 
-Task-shaped: the reader arrives wanting the outcome, not the theory. State the goal and the prerequisites first, then numbered steps, each with the exact command and what the reader sees when it worked. End at the outcome plus one "where next" line.
+Task-shaped: begin with the reader's desired outcome. State the goal and prerequisites first, then numbered steps, each with the exact command and the visible success result. End at the outcome plus one "where next" line.
 
 ```markdown
 ---
@@ -55,7 +55,7 @@ You now have <the outcome>. Next: [<the deeper page>](x.md).
 
 ## Guide / concept — 500–900 words
 
-Explains one mechanism or workflow: what it is, how it works, when to use it and when not to. Subsystem leaves are this shape specialised for code (the brief's per-doc template, 400–800 hard ceiling) — with "Where it lives in code" and "Current state & gotchas" carrying every file path and footgun.
+Explains one mechanism or workflow: what it is, how it works, when to use it, and when to choose an alternative. Subsystem leaves specialise this shape for code (the brief's per-doc template, 400–800 hard ceiling). "Where it lives in code" and "Current state & gotchas" carry every file path and known trap.
 
 ```markdown
 ---
@@ -71,7 +71,7 @@ What it is and the problem it solves — the answer first, then the mechanism.
 
 ## How it works
 
-Steps or short prose. File paths live in the table below, never mid-sentence.
+Steps or short prose. Keep file paths in the table below.
 
 ## When to use it (and when not)
 
@@ -84,23 +84,23 @@ One recommendation, plus the escape hatch.
 
 ## Current state & gotchas
 
-The surprises: half-built corners, footguns, deliberate limitations.
+The surprises: half-built corners, known traps, and stated limitations.
 ```
 
 ## Reference — unbudgeted, scannable
 
-Complete and exact: every key, flag, value, default, and limit — in tables and definition lists, not prose. Zero personality; characterful example values are the one sanctioned outlet. Conviction survives only as named defaults.
+Cover every key, flag, value, default, and limit in tables and definition lists. Use zero personality except in characterful example values. Conviction survives only as named defaults.
 
 ```markdown
 ---
 title: <Short label>
-description: Every <key/flag/field> of <the surface>, with defaults.
+description: Every <key/flag/field> of <the subject>, with defaults.
 order: 30
 aliases:
   - <cli spelling>
 ---
 
-# <The surface> reference
+# <The subject> reference
 
 _What this page enumerates, in one line._
 
@@ -116,11 +116,11 @@ Symptom-first: headings quote what the reader is looking at, entries give the ca
 
 ```markdown
 ---
-description: The failures <surface> can hit, and the fix for each.
+description: The failures <subject> can hit, and the fix for each.
 order: 40
 ---
 
-# When <the surface> fails
+# When <the subject> fails
 
 _Match your symptom to a heading; each gives the cause and the fix._
 

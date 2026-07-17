@@ -4,7 +4,7 @@ Read [`project/map/_internal/documenter-agent-brief.md`](../documenter-agent-bri
 
 ## What this subtree documents
 
-The public lookup surface for discern's commands, configuration, MCP results, written files, supported platforms, prerequisites, and worktree identity values. The neighboring guides explain workflows; this tier states the contracts readers need to verify them.
+The public reference tier for discern's commands, configuration, MCP results, written files, supported platforms, prerequisites, and worktree identity values. The neighboring guides explain workflows; this tier states the contracts readers need to verify them.
 
 ## Files to produce
 
@@ -21,7 +21,7 @@ The public lookup surface for discern's commands, configuration, MCP results, wr
 
 - `src/shared/cli_reference_codegen.ts`, `src/shared/config_codegen.ts`, and `scripts/codegen.ts` (generated references)
 - `tests/cli_reference_codegen_test.ts` and `tests/config_codegen_test.ts` (generated-output guards)
-- `src/engine/mcp/server.ts`, `src/shared/result.ts`, and `src/shared/result_contracts.ts` (public MCP/result surface)
+- `src/engine/mcp/server.ts`, `src/shared/result.ts`, and `src/shared/result_contracts.ts` (public MCP/result interface)
 - `schema/discern-results.schema.json` and `types/discern-json.d.ts` (published result contracts)
 - `install.sh`, `scripts/build.ts`, and `src/commands/doctor.ts` (platforms and prerequisites)
 - `src/shared/env.ts`, `src/engine/worktree/identity.ts`, `src/engine/worktree/tokens.ts`, and `src/engine/worktree/resources.ts` (environment and identity contract)
