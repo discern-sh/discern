@@ -376,6 +376,32 @@ function sortKey(relPath: string, order?: number): string {
 }
 
 /**
+ * Collect link destinations from structured Markdown lines: table rows, list
+ * items, and a link-led line immediately following an H2. README curation and
+ * the corpus-parity guard share this grammar so a new table shape cannot join
+ * one projection without joining the other.
+ */
+export function structuredLinkDestinations(markdown: string): string[] {
+  const destinations: string[] = [];
+  let afterHeading = false;
+  for (const line of markdown.split("\n")) {
+    if (/^##\s+/.test(line)) {
+      afterHeading = true;
+      continue;
+    }
+    if (line.trim() === "") continue;
+    const structured = /^\s*(?:\||-\s+)/.test(line);
+    const headingLead = afterHeading && /^\s*\[/.test(line);
+    afterHeading = false;
+    if (!structured && !headingLead) continue;
+    for (const match of line.matchAll(/\]\(([^()\s]+)\)/g)) {
+      destinations.push(match[1] ?? "");
+    }
+  }
+  return destinations;
+}
+
+/**
  * Fill missing sibling orders from the section README's authored link order.
  * `order:` remains authoritative; this fallback preserves the curation already
  * encoded in README tables/lists until (or unless) a leaf states it explicitly.
@@ -395,34 +421,22 @@ function applyReadmeCuration(
     const dir = parent === "." ? "" : parent;
     const seen = new Set<string>();
     let position = 0;
-    let afterHeading = false;
-    for (const line of body.split("\n")) {
-      if (/^##\s+/.test(line)) {
-        afterHeading = true;
+    for (const authoredDest of structuredLinkDestinations(body)) {
+      const dest = authoredDest.replace(/#.*$/, "");
+      if (!dest.toLowerCase().endsWith(".md")) continue;
+      const targetRel = join(dir, dest).replaceAll(SEPARATOR, "/");
+      const target = byRel.get(targetRel);
+      if (
+        target === undefined ||
+        target.slug.toLowerCase() === "readme" ||
+        dirname(target.relToDocs) !== (dir || ".") ||
+        seen.has(target.relToDocs)
+      ) {
         continue;
       }
-      if (line.trim() === "") continue;
-      const structured = /^\s*(?:\||-\s+)/.test(line);
-      const headingLead = afterHeading && /^\s*\[/.test(line);
-      afterHeading = false;
-      if (!structured && !headingLead) continue;
-      for (const match of line.matchAll(/\]\(([^()\s]+)\)/g)) {
-        const dest = (match[1] ?? "").replace(/#.*$/, "");
-        if (!dest.toLowerCase().endsWith(".md")) continue;
-        const targetRel = join(dir, dest).replaceAll(SEPARATOR, "/");
-        const target = byRel.get(targetRel);
-        if (
-          target === undefined ||
-          target.slug.toLowerCase() === "readme" ||
-          dirname(target.relToDocs) !== (dir || ".") ||
-          seen.has(target.relToDocs)
-        ) {
-          continue;
-        }
-        seen.add(target.relToDocs);
-        position += 1;
-        target.order ??= position * 10;
-      }
+      seen.add(target.relToDocs);
+      position += 1;
+      target.order ??= position * 10;
     }
   }
 }

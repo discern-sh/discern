@@ -231,25 +231,41 @@ export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
 /** The source-checkout decision-record directory that `help --adr` can browse. */
 export const HELP_ADR_DOC_DIR = "_adr";
 
+/** The audience assigned to one numbered section of discern's own manual. */
+export type ManualSectionAudience = "public" | "contributor";
+
+/** One numbered manual section and the audience its projection serves. */
+export interface ManualSectionRegistration {
+  readonly dir: string;
+  readonly audience: ManualSectionAudience;
+}
+
 /**
- * The public docs subtrees a customer binary ships for `discern help` — the
- * user-relevant trees, ALLOWLISTED so a contributor/engine-internals tree never
- * leaks into every user's binary. `50-engine-internals` and `80-development` are
- * for people working ON discern (the dispatcher's internals, the Deno tasks, the
- * install surface), not people using it, so they are deliberately absent: a user
- * browsing `discern help` should see how to operate discern, not how it is
- * built. The one list the embed and the curation guard test read.
+ * Every numbered section in discern's own manual, in reading order. This is a
+ * TOTAL registry: a new numbered directory must join it as public or
+ * contributor-facing, so default-deny publication cannot silently hide a new
+ * public section. The curation guard ties the registry to the directory tree,
+ * manual index, bundled help, and site navigation.
  */
-export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
-  "00-orientation",
-  "10-getting-started",
-  "20-quality-gate",
-  "30-worktrees",
-  "40-agent-guidance",
-  "45-skills",
-  "60-agent-integrations",
-  "70-reference",
+export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
+  { dir: "00-orientation", audience: "public" },
+  { dir: "10-getting-started", audience: "public" },
+  { dir: "20-quality-gate", audience: "public" },
+  { dir: "30-worktrees", audience: "public" },
+  { dir: "40-agent-guidance", audience: "public" },
+  { dir: "45-skills", audience: "public" },
+  { dir: "50-engine-internals", audience: "contributor" },
+  { dir: "60-agent-integrations", audience: "public" },
+  { dir: "70-reference", audience: "public" },
+  { dir: "80-development", audience: "contributor" },
+  { dir: "90-site", audience: "contributor" },
 ];
+
+/** The public subset a customer binary ships for `discern help`. */
+export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] =
+  MANUAL_SECTION_REGISTRY
+    .filter((section) => section.audience === "public")
+    .map((section) => section.dir);
 
 /**
  * Whether a top-level project-map entry belongs to the binary's public help
