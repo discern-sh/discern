@@ -13,11 +13,11 @@ _How discern's **built-in** guidance sections and **bundled** skills are rendere
 
 discern's built-in sections ([`templates/guidance/*.md`](../../../templates/guidance/)) are the distribution source carried by every binary. To let that generic prose name a project's _real_ paths and branches and drop content that is inert until configured, `discern refresh` renders each built-in section through a small, strict template engine ([`src/engine/guidance_template.ts`](../../../src/engine/guidance_template.ts)) before concatenating them. The decision and its rationale are recorded ([ADR 0035](../_adr/0035-guidance-templating-engine.md)); this page is the working reference.
 
-The same engine renders **bundled-skill markdown** at materialization (and at `skills eject`), against the same context, so a shipped skill's prose names the project's configured paths — `{{map_dir}}`, `{{todo_path}}` — never discern's defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A sentinel-render test and a source-literal ban keep any hard-coded default a gate failure.
+The same engine renders **bundled-skill markdown** at materialization and at `skills eject`. It uses the same context, so a shipped skill's prose names the project's configured paths through `{{map_dir}}` and `{{todo_path}}` instead of discern's defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A sentinel-render test and a source-literal ban keep any hard-coded default a gate failure.
 
 ## Syntax
 
-Deliberately minimal — no loops, no expressions, no library:
+The syntax is minimal: no loops, expressions, or library.
 
 | Form                            | Effect                                     |
 | ------------------------------- | ------------------------------------------ |
@@ -53,13 +53,13 @@ Every variable and predicate is built by `guidanceContext(config)` in [`guidance
 
 ## Strictness
 
-The context is a closed set, so a typo fails loudly rather than shipping blank: an unknown `{{var}}` or `{{#if pred}}` — **anywhere in the template, including a branch that won't be taken** — throws `GuidanceTemplateError`, as does a malformed or unbalanced tag. Validation walks the whole tree before any output, so a bad name can't lurk in a branch only some project's config takes.
+The context is a closed set, so a typo fails loudly rather than shipping blank. An unknown `{{var}}` or `{{#if pred}}` throws `GuidanceTemplateError` anywhere in the template, including a branch that will not be taken. A malformed or unbalanced tag does the same. Validation walks every branch before producing output, so a bad name cannot lurk in a branch selected by only some projects.
 
-## Boundary — discern's own shipped surfaces only
+## Boundary: discern's own shipped content
 
-Only content discern ships is templated: the built-in sections and bundled-skill markdown. The user's `[guidance].sources` are appended **verbatim**, and authored skills are symlinked untouched — a project's own markdown may legitimately contain `{{…}}` and is never interpreted.
+Only content discern ships is templated: the built-in sections and bundled-skill markdown. The user's `[guidance].sources` are appended **verbatim**, and authored skills are symlinked untouched. A project's own markdown may legitimately contain `{{…}}`; the renderer leaves it uninterpreted.
 
-This engine is also distinct from the scaffold templater ([`src/lib/template.ts`](../../../src/lib/template.ts)), which substitutes `{{token}}` in `.tmpl` _seed_ files at `setup` time, over a different token set, and leaves an unknown token verbatim (drift is reported, not fatal). The two never process the same files (the scaffold skips `templates/guidance/`), so the shared `{{}}` delimiter never collides.
+This engine is distinct from the scaffold templater ([`src/lib/template.ts`](../../../src/lib/template.ts)). That templater substitutes `{{token}}` in `.tmpl` _seed_ files at `setup` time over a different token set and leaves an unknown token verbatim; drift is reported without failing. The scaffold skips `templates/guidance/`, so the engines process disjoint file sets and can share the `{{}}` delimiter.
 
 ## See also
 

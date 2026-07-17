@@ -13,7 +13,7 @@ aliases:
 
 _Every verb builds one result object; types, runtime validation, generated contracts, and protocol adapters all converge on it._
 
-The result system has 3 layers in [`result.ts`](../../../src/shared/result.ts): plan steps describe intended work, step results record what happened, and `Diagnostic` plus `DiscernResult<TData>` carry failures and verb-specific data. Human output, `--json`, and the Model Context Protocol (MCP) render the same object rather than recomputing an outcome for each surface ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+The result system has 3 layers in [`result.ts`](../../../src/shared/result.ts): plan steps describe intended work, step results record what happened, and `Diagnostic` plus `DiscernResult<TData>` carry failures and verb-specific data. Human output, `--json`, and the Model Context Protocol (MCP) render the same object rather than recomputing an outcome for each format ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 ## The serialized envelope
 

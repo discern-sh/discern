@@ -23,9 +23,9 @@ A [Migration](../00-orientation/glossary.md#migration) brings an install from [S
 
 ## Reading the chain
 
-The full step history is the doc comment on `SCHEMA_VERSION` in [`version.ts`](../../../src/lib/version.ts) — the single home of both the number and its story. Recent steps show the range of what a step can do:
+The full step history is the doc comment on `SCHEMA_VERSION` in [`version.ts`](../../../src/lib/version.ts), the single home of both the number and its history. Recent steps show the range of what a step can do:
 
-- **`14 → 15`** consolidates the authored surface under the visible `discern/` [Namespace](../00-orientation/glossary.md#namespace): each source whose config key still pointed at its pre-namespace default (the guidance seed, the map, authored skills, the then-named Recipes, the ledger, the brief) moves from its `legacyPath` to its `defaultPath` — both read from the [paths registry](../../../src/shared/paths_registry.ts), so the step enumerates no path of its own — while a user-pointed path is left alone ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+- **`14 → 15`** consolidates authored files under the visible `discern/` [Namespace](../00-orientation/glossary.md#namespace). Each source whose config key still pointed at its pre-namespace default (the guidance seed, map, authored skills, then-named Recipes, ledger, and brief) moves from its `legacyPath` to its `defaultPath`. Both paths come from the [paths registry](../../../src/shared/paths_registry.ts), so the step enumerates no path of its own and leaves a user-pointed path alone ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 - **`15 → 16`** retires the `[features]` table and the duplicate `[worktree].enabled` key, noting any non-default value it discards ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
 A schema bump happens only when an installed project needs a change to stay correct, so most releases leave the number untouched. Coverage for the chain lives in [`tests/upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) and its convergence sibling — each step is exercised against a scaffolded legacy layout, then re-run to prove the no-op.

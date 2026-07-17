@@ -1,6 +1,6 @@
 # The document model
 
-One validated model in [`src/lib/docs.ts`](../../../src/lib/docs.ts) backs every surface that reads a documentation tree — `discern map`, `discern help` (terminal and MCP), exports, the docs site, and its search/llms derivations. No renderer rediscovers, filters, orders, or titles documents on its own.
+One validated model in [`src/lib/docs.ts`](../../../src/lib/docs.ts) backs every reader of a documentation tree: `discern map`, `discern help` (terminal and MCP), exports, the docs site, and its search/llms derivations. No renderer rediscovers, filters, orders, or titles documents on its own.
 
 ## Discovery and the entry
 
@@ -10,14 +10,14 @@ Sibling reading order is README-first, then `DocEntry.order`. An explicit frontm
 
 ## Frontmatter: lenient read, strict gate
 
-[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the ONE fenced-block scanner (`SKILL.md` identity blocks read it too) and two policies over it ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)):
+[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the shared fenced-block scanner (`SKILL.md` identity blocks read it too) and two policies over it ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)):
 
 - `parseFrontmatter` reads leniently — unknown keys and out-of-shape values are ignored, so no reader can lose a document to a metadata mistake;
 - `validateFrontmatter` applies the strict, closed schema (`title` with its short-label ceiling, `description` bounds, integer `order`, boolean `publish`, `redirect_from` as absolute canonical routes, `aliases`), and [`tests/map_frontmatter_test.ts`](../../../tests/map_frontmatter_test.ts) walks the live map so any violation fails the gate.
 
 ## The publication predicate
 
-`isPublicDoc(entry)` is the sole page-level publication test: `publish: false` withholds a page from every published surface identically, while agent surfaces of the project map (`discern map`, the tree on disk) keep everything. `PUBLIC_DOC_SURFACES` is the projection matrix in code; [`tests/public_doc_parity_test.ts`](../../../tests/public_doc_parity_test.ts) forces every enrolled surface onto the predicate and bans hand-rolled `.publish` filtering anywhere else. Tier-level curation is a separate axis. `MANUAL_SECTION_REGISTRY` in [`src/lib/paths.ts`](../../../src/lib/paths.ts) classifies every numbered section, and `BUNDLED_PUBLIC_DOC_DIRS` selects its public entries. Binary help staging walks the indexed leaves and applies both axes, so the compiled resource contains exactly the published pages in the product-help tiers and no internal tree ([ADR 0142](../_adr/0142-customer-binaries-carry-only-public-docs.md)).
+`isPublicDoc(entry)` is the sole page-level publication test: `publish: false` withholds a page from every published surface identically, while agent surfaces of the project map (`discern map`, the tree on disk) keep everything. `PUBLIC_DOC_SURFACES` is the projection matrix in code; [`tests/public_doc_parity_test.ts`](../../../tests/public_doc_parity_test.ts) forces every enrolled surface onto the predicate and bans hand-rolled `.publish` filtering anywhere else. Tier-level curation is a separate axis. `MANUAL_SECTION_REGISTRY` in [`src/lib/paths.ts`](../../../src/lib/paths.ts) classifies every numbered section, and `BUNDLED_PUBLIC_DOC_DIRS` selects its public entries. Binary help staging walks the indexed leaves and applies both axes, so the compiled resource contains the published pages in the product-help tiers and no internal tree ([ADR 0142](../_adr/0142-customer-binaries-carry-only-public-docs.md)).
 
 ## Projections
 
