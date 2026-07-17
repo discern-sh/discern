@@ -79,6 +79,30 @@ Deno.test("every known agent declares at least one detection binary (match-any)"
   }
 });
 
+Deno.test("every known agent declares one open and at most one continue CLI action", () => {
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider for ${name}`);
+    const kinds = provider.cli.actions.map((action) => action.kind);
+    assertEquals(
+      new Set(kinds).size,
+      kinds.length,
+      `${name}: duplicate desk CLI action kind`,
+    );
+    assert(
+      kinds.includes("open"),
+      `${name}: desk CLI integration must provide a fresh-session action`,
+    );
+    for (const action of provider.cli.actions) {
+      assert(action.label.trim().length > 0, `${name}: empty CLI action label`);
+      assert(
+        action.args.every((arg) => arg.length > 0),
+        `${name}: CLI argv must not contain empty arguments`,
+      );
+    }
+  }
+});
+
 Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
   const guidanceFiles = allGuidanceFilePaths();
   const skillsDirs = allSkillsDirs();

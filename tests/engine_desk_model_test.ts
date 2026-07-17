@@ -6,12 +6,16 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { configSchema } from "../src/shared/config_schema.ts";
 import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
 import type { ProjectScript } from "../src/engine/project_scripts.ts";
+import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
 import {
+  buildAgentLaunches,
   buildDeskRows,
   classifyBucket,
   type DeskAction,
+  type DeskAgentLaunch,
   type DeskBucket,
   legalActions,
   rowSummary,
@@ -117,6 +121,7 @@ const ACTION_CASES: ReadonlyArray<{
   name: string;
   entry: StatusFleetEntry;
   scripts?: readonly ProjectScript[];
+  agentLaunches?: readonly DeskAgentLaunch[];
   expect: readonly DeskAction[];
 }> = [
   {
@@ -141,6 +146,20 @@ const ACTION_CASES: ReadonlyArray<{
     expect: ["accept", "script", "jump", "inspect", "drop"],
   },
   {
+    name: "configured agent available on PATH → agent launcher before jump",
+    entry: entry({ ahead: 2 }),
+    agentLaunches: [{
+      id: "codex:open",
+      agent: "codex",
+      providerLabel: "Codex",
+      binary: "codex",
+      kind: "open",
+      label: "Open in Codex",
+      args: [],
+    }],
+    expect: ["accept", "agent", "jump", "inspect", "drop"],
+  },
+  {
     name: "dirty and behind → update offered, accept not",
     entry: entry({ clean: false, changed_files: 1, behind: 4 }),
     expect: ["update", "jump", "inspect", "drop"],
@@ -156,9 +175,18 @@ const ACTION_CASES: ReadonlyArray<{
     expect: ["jump", "inspect", "drop"],
   },
   {
-    name: "broken with scripts present → still drop only",
+    name: "broken with scripts and agents present → still drop only",
     entry: entry({ broken: true }),
     scripts: [{ name: "unsafe" }],
+    agentLaunches: [{
+      id: "codex:open",
+      agent: "codex",
+      providerLabel: "Codex",
+      binary: "codex",
+      kind: "open",
+      label: "Open in Codex",
+      args: [],
+    }],
     expect: ["drop"],
   },
 ];
@@ -166,7 +194,7 @@ const ACTION_CASES: ReadonlyArray<{
 Deno.test("legalActions: the legality table", () => {
   for (const c of ACTION_CASES) {
     assertEquals(
-      [...legalActions(c.entry, c.scripts ?? [])],
+      [...legalActions(c.entry, c.scripts ?? [], c.agentLaunches ?? [])],
       [...c.expect],
       c.name,
     );
@@ -218,6 +246,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     [stale, main, readyOld, flying, readyNew],
     receipts,
     scripts,
+    new Map(),
     NOW,
   );
 
@@ -238,11 +267,53 @@ Deno.test("buildDeskRows: a path absent from the receipt map is never treated as
     [entry({ ahead: 5, path: "/p/unvouched" })],
     new Map(),
     new Map(),
+    new Map(),
     NOW,
   );
   assertEquals(rows.length, 1);
   assertEquals(rows[0]?.receiptHonored, false);
   assertEquals(rows[0]?.bucket, "in_flight");
+});
+
+// ── configured agent × live PATH intersection ────────────────────────────────
+
+Deno.test("buildAgentLaunches: configured order wins and detected-only agents stay hidden", () => {
+  const config = configSchema.parse({
+    project: { slug: "demo", main_branch: "main" },
+    guidance: { agents: ["gemini", "claude_code", "codex"] },
+  });
+  const detected = [
+    { name: "claude_code", binary: "claude" },
+    { name: "gemini", binary: "gemini" },
+    { name: "cursor", binary: "cursor-agent" },
+  ] satisfies readonly DetectedAgentBinary[];
+
+  const launches = buildAgentLaunches(config, detected);
+  assertEquals(
+    launches.map((launch) => launch.id),
+    [
+      "gemini:open",
+      "gemini:continue",
+      "claude_code:open",
+      "claude_code:continue",
+    ],
+  );
+  assertEquals(
+    launches.map((launch) => launch.binary),
+    ["gemini", "gemini", "claude", "claude"],
+  );
+  assertEquals(launches[1]?.args, ["--resume", "latest"]);
+});
+
+Deno.test("buildAgentLaunches: an explicitly empty agent set stays empty", () => {
+  const config = configSchema.parse({
+    project: { slug: "demo", main_branch: "main" },
+    guidance: { agents: [] },
+  });
+  assertEquals(
+    buildAgentLaunches(config, [{ name: "codex", binary: "codex" }]),
+    [],
+  );
 });
 
 // ── the row summary strings ────────────────────────────────────────────────────

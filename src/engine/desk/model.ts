@@ -9,7 +9,14 @@
  * can pin the whole classification table.
  */
 
+import {
+  type DiscernConfig,
+  resolveConfiguredAgents,
+} from "../../shared/config_schema.ts";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
+import type { AgentName } from "../../lib/config.ts";
+import { providerFor } from "../../lib/providers.ts";
 import type { ProjectScript } from "../project_scripts.ts";
 import {
   idleDaysOf,
@@ -26,11 +33,23 @@ export const DESK_ACTIONS = [
   "accept",
   "update",
   "script",
+  "agent",
   "jump",
   "inspect",
   "drop",
 ] as const;
 export type DeskAction = (typeof DESK_ACTIONS)[number];
+
+/** One provider-owned command the desk can launch in a selected worktree. */
+export interface DeskAgentLaunch {
+  readonly id: string;
+  readonly agent: AgentName;
+  readonly providerLabel: string;
+  readonly binary: string;
+  readonly kind: "open" | "continue";
+  readonly label: string;
+  readonly args: readonly string[];
+}
 
 /** One selectable effort on the desk: a non-main fleet entry, classified. */
 export interface DeskRow {
@@ -39,6 +58,8 @@ export interface DeskRow {
   readonly receiptHonored: boolean;
   /** Executable Project Scripts discovered through this worktree's config. */
   readonly scripts: readonly ProjectScript[];
+  /** Configured agents whose declared CLI binary is currently on PATH. */
+  readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly bucket: DeskBucket;
   /** The actions legal for this row's state, in menu order. */
   readonly actions: readonly DeskAction[];
@@ -100,6 +121,7 @@ export function classifyBucket(
 export function legalActions(
   entry: StatusFleetEntry,
   scripts: readonly ProjectScript[],
+  agentLaunches: readonly DeskAgentLaunch[],
 ): readonly DeskAction[] {
   if (isUnhealthy(entry)) {
     // The checkout can't be trusted (or entered): discarding is the only move
@@ -117,8 +139,48 @@ export function legalActions(
   if (scripts.length > 0) {
     actions.push("script");
   }
+  if (agentLaunches.length > 0) {
+    actions.push("agent");
+  }
   actions.push("jump", "inspect", "drop");
   return actions;
+}
+
+/**
+ * Derive the agent commands available in one checkout. Committed configuration
+ * decides which providers belong to the project; the live PATH scan decides
+ * which of those can be launched now. Provider order follows the config and
+ * action order follows the registry, with no runtime fallback to detected-only
+ * agents.
+ */
+export function buildAgentLaunches(
+  config: DiscernConfig,
+  detected: readonly DetectedAgentBinary[],
+): DeskAgentLaunch[] {
+  const detectedByName = new Map(detected.map((item) => [item.name, item]));
+  const launches: DeskAgentLaunch[] = [];
+  for (const configuredAgent of resolveConfiguredAgents(config)) {
+    const provider = providerFor(configuredAgent);
+    if (provider === undefined) {
+      continue;
+    }
+    const found = detectedByName.get(provider.name);
+    if (found === undefined) {
+      continue;
+    }
+    for (const action of provider.cli.actions) {
+      launches.push({
+        id: `${provider.name}:${action.kind}`,
+        agent: provider.name,
+        providerLabel: provider.label,
+        binary: found.binary,
+        kind: action.kind,
+        label: action.label,
+        args: action.args,
+      });
+    }
+  }
+  return launches;
 }
 
 /** The plain-text state summary rendered beside a row's branch name. */
@@ -171,6 +233,7 @@ export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
   receiptHonoredByPath: ReadonlyMap<string, boolean>,
   scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
+  agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
   nowMs: number,
 ): DeskRow[] {
   const rows = fleet
@@ -178,12 +241,14 @@ export function buildDeskRows(
     .map((entry): DeskRow => {
       const receiptHonored = receiptHonoredByPath.get(entry.path) ?? false;
       const scripts = scriptsByPath.get(entry.path) ?? [];
+      const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
       return {
         entry,
         receiptHonored,
         scripts,
+        agentLaunches,
         bucket: classifyBucket(entry, receiptHonored, nowMs),
-        actions: legalActions(entry, scripts),
+        actions: legalActions(entry, scripts, agentLaunches),
         summary: rowSummary(entry, receiptHonored, nowMs),
       };
     });

@@ -1,5 +1,5 @@
 /**
- * `desk` — the operator's interactive surface over the worktree fleet
+ * `desk` — the operator's interactive ingress and surface over the worktree fleet
  * (ADR 0119). Bare `discern`, post-setup on an interactive terminal, opens it;
  * `discern desk` is the named form the guards and docs see.
  *
@@ -21,7 +21,12 @@ import { basename } from "@std/path";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import type { StatusData } from "../../shared/result_schemas.ts";
+import type { StartData, StatusData } from "../../shared/result_schemas.ts";
+import {
+  detectAgentBinariesOnPath,
+  type DetectedAgentBinary,
+} from "../../lib/detect_agents.ts";
+import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import {
   canPrompt,
   confirmationPrompt,
@@ -37,6 +42,7 @@ import {
   IdentityError,
   type LifecycleContext,
   lifecycleContext,
+  startResult,
   update,
   worktreeDrop,
   WorktreeGitError,
@@ -51,9 +57,11 @@ import {
 } from "../project_scripts.ts";
 import {
   bucketTitle,
+  buildAgentLaunches,
   buildDeskRows,
   DESK_BUCKETS,
   type DeskAction,
+  type DeskAgentLaunch,
   type DeskRow,
 } from "./model.ts";
 
@@ -61,6 +69,7 @@ import {
 const REFRESH = "\x00refresh";
 const QUIT = "\x00quit";
 const BACK = "\x00back";
+const START_TASK = "\x00start-task";
 
 /** Flags accepted by `desk`. */
 export interface DeskOptions {
@@ -110,7 +119,16 @@ export interface DeskRuntime {
     args: string[],
     cwd: string,
   ): DeskMaybePromise<{ success: boolean; stdout: string; stderr: string }>;
-  shell(command: string, cwd: string): DeskMaybePromise<void>;
+  interactive(
+    command: string,
+    args: readonly string[],
+    cwd: string,
+  ): DeskMaybePromise<number>;
+  detectAgents(): DeskMaybePromise<readonly DetectedAgentBinary[]>;
+  start(
+    ctx: LifecycleContext,
+    opts: { worktreeRoot: string; name?: string },
+  ): DeskMaybePromise<StartData>;
   scripts(root: string): DeskMaybePromise<readonly ProjectScript[]>;
   runScript(root: string, name: string): DeskMaybePromise<number>;
   now(): number;
@@ -119,6 +137,18 @@ export interface DeskRuntime {
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
 function echoCommand(out: Out, command: string): void {
   out.raw(`${out.c.dim}→ ${command}${out.c.reset}\n`);
+}
+
+/** Quote one argv word for display only. Execution never passes through a
+ * shell; this makes the echoed CLI equivalent safe to copy and paste. */
+function shellWord(word: string): string {
+  return /^[A-Za-z0-9_./:@%+=,-]+$/.test(word)
+    ? word
+    : `'${word.replaceAll("'", `'\\''`)}'`;
+}
+
+function displayedCommand(command: string, args: readonly string[]): string {
+  return [command, ...args].map(shellWord).join(" ");
 }
 
 /** Clear the screen and home the cursor: the desk redraws its whole board on
@@ -175,14 +205,26 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   update: (ctx, opts) => update(ctx, opts),
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
   git: (args, cwd) => runGit(args, { cwd }),
-  shell: async (command, cwd) => {
+  interactive: async (command, args, cwd) => {
     const child = new Deno.Command(command, {
+      args: [...args],
       cwd,
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
     }).spawn();
-    await child.status;
+    return (await child.status).code;
+  },
+  detectAgents: () => detectAgentBinariesOnPath(),
+  start: async (ctx, opts) => {
+    const result = await startResult(ctx, {
+      worktreeRoot: opts.worktreeRoot,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+    });
+    if (result.data === undefined) {
+      throw new Error(result.message ?? "discern start returned no worktree");
+    }
+    return result.data;
   },
   scripts: async (root) => {
     try {
@@ -213,6 +255,20 @@ async function printGitRead(
   out.raw(body === "" ? `${out.c.dim}(none)${out.c.reset}\n` : `${body}\n`);
 }
 
+/** A branch-local config can be malformed while the fleet row remains Git-
+ * healthy. That makes provider launch availability unknowable, so hide the
+ * action instead of falling back to the main checkout's agent set. */
+async function loadWorktreeConfig(
+  path: string,
+  runtime: DeskRuntime,
+): Promise<DiscernConfig | undefined> {
+  try {
+    return await runtime.loadConfig(path);
+  } catch {
+    return undefined;
+  }
+}
+
 /** The human label for a row action in the menu. */
 function actionLabel(action: DeskAction, trunk: string): string {
   switch (action) {
@@ -222,6 +278,8 @@ function actionLabel(action: DeskAction, trunk: string): string {
       return `Update — bring ${trunk} into this branch`;
     case "script":
       return "Run Script — choose a Project Script in this worktree";
+    case "agent":
+      return "Open with agent — start or continue a configured CLI";
     case "jump":
       return "Jump in — open a shell inside the worktree";
     case "inspect":
@@ -229,6 +287,33 @@ function actionLabel(action: DeskAction, trunk: string): string {
     case "drop":
       return "Drop — discard the worktree and its branch";
   }
+}
+
+/** Pick one of the configured, PATH-available agent entry points. */
+async function pickAgentLaunch(
+  row: DeskRow,
+  runtime: DeskRuntime,
+): Promise<DeskAgentLaunch | undefined> {
+  const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
+    ...row.agentLaunches.map((launch) => ({
+      name: launch.label,
+      value: launch.id,
+    })),
+    Select.separator("─────"),
+    { name: "Back", value: BACK },
+  ];
+  let id: string;
+  try {
+    id = await runtime.select({
+      message: `Open an agent in ${row.entry.branch}`,
+      options,
+    });
+  } catch {
+    return undefined;
+  }
+  return id === BACK
+    ? undefined
+    : row.agentLaunches.find((launch) => launch.id === id);
 }
 
 /** Pick one of a row's worktree-local Project Scripts. */
@@ -319,12 +404,13 @@ async function pickRow(
     }
   }
   options.push(Select.separator(dim("─────")));
+  options.push({ name: "Start a task", value: START_TASK });
   options.push({ name: dim("Refresh"), value: REFRESH });
   options.push({ name: dim("Quit"), value: QUIT });
   try {
     return await runtime.select({
       message: rows.length === 0
-        ? "No efforts in flight — nothing needs a decision"
+        ? "No efforts in flight — start a task or quit"
         : "Pick an effort  ·  type to filter",
       options,
       search: true,
@@ -335,6 +421,36 @@ async function pickRow(
     // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
     return QUIT;
   }
+}
+
+/** Prompt for an optional task name and create it through the same core as
+ * `discern start`. Returns the new path so the next board pass can open its
+ * action menu immediately. */
+async function startTask(
+  out: Out,
+  root: string,
+  config: DiscernConfig,
+  runtime: DeskRuntime,
+): Promise<string | undefined> {
+  let answer: string;
+  try {
+    answer = await runtime.input(
+      "Task name (optional — leave blank for a random codename)",
+    );
+  } catch {
+    return undefined;
+  }
+  const name = answer.trim();
+  echoCommand(
+    out,
+    name === "" ? "discern start" : `discern start --name=${shellWord(name)}`,
+  );
+  const ctx = await runtime.lifecycle(root);
+  const started = await runtime.start(ctx, {
+    worktreeRoot: resolveWorktreeRoot(root, config),
+    ...(name !== "" ? { name } : {}),
+  });
+  return started.path;
 }
 
 /**
@@ -439,11 +555,49 @@ async function dispatchAction(
       // A Project Script can change project or Git state, so always re-survey.
       return true;
     }
+    case "agent": {
+      const launch = await pickAgentLaunch(row, runtime);
+      if (launch === undefined) {
+        return false;
+      }
+      echoCommand(
+        out,
+        `${
+          displayedCommand(launch.binary, launch.args)
+        }  (cwd: ${row.entry.path})`,
+      );
+      out.info(`Exit ${launch.providerLabel} to return to the desk.`);
+      let code: number;
+      try {
+        code = await runtime.interactive(
+          launch.binary,
+          launch.args,
+          row.entry.path,
+        );
+      } catch (error) {
+        out.warn(
+          `Could not launch ${launch.label}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        await runtime.pause(out);
+        return true;
+      }
+      if (code !== 0) {
+        out.warn(`${launch.label} exited with status ${code}.`);
+        await runtime.pause(out);
+      }
+      return true;
+    }
     case "jump": {
       const shell = Deno.env.get("SHELL") ?? "/bin/sh";
       echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
       out.info("Exit the shell to return to the desk.");
-      await runtime.shell(shell, row.entry.path);
+      const code = await runtime.interactive(shell, [], row.entry.path);
+      if (code !== 0) {
+        out.warn(`Shell exited with status ${code}.`);
+        await runtime.pause(out);
+      }
       return true;
     }
     case "inspect": {
@@ -587,37 +741,66 @@ export async function runDesk(
   }
 
   let data: StatusData = first.data;
+  let focusPath: string | undefined;
   while (true) {
     clearBoard(out);
     const fleet = data.fleet ?? [];
     const receiptByPath = new Map<string, boolean>();
     const scriptsByPath = new Map<string, readonly ProjectScript[]>();
+    const agentLaunchesByPath = new Map<
+      string,
+      readonly DeskAgentLaunch[]
+    >();
+    const detectedAgents = await runtime.detectAgents();
     for (const entry of fleet) {
       if (
         !entry.is_main && entry.broken !== true &&
         entry.git_unavailable !== true
       ) {
-        const [receiptHonored, scripts] = await Promise.all([
+        const [receiptHonored, scripts, worktreeConfig] = await Promise.all([
           runtime.receiptHonored(entry.path),
           runtime.scripts(entry.path),
+          loadWorktreeConfig(entry.path, runtime),
         ]);
         receiptByPath.set(entry.path, receiptHonored);
         scriptsByPath.set(entry.path, scripts);
+        agentLaunchesByPath.set(
+          entry.path,
+          worktreeConfig === undefined
+            ? []
+            : buildAgentLaunches(worktreeConfig, detectedAgents),
+        );
       }
     }
     const rows = buildDeskRows(
       fleet,
       receiptByPath,
       scriptsByPath,
+      agentLaunchesByPath,
       runtime.now(),
     );
     renderHeader(out, config, root, data);
 
-    const choice = await pickRow(rows, out, runtime);
+    const focused = focusPath === undefined
+      ? undefined
+      : rows.find((row) => row.entry.path === focusPath);
+    focusPath = undefined;
+    const choice = focused?.entry.path ?? await pickRow(rows, out, runtime);
     if (choice === QUIT) {
       return 0;
     }
-    if (choice !== REFRESH) {
+    if (choice === START_TASK) {
+      try {
+        focusPath = await startTask(out, root, config, runtime);
+      } catch (e) {
+        if (e instanceof WorktreeGitError || e instanceof IdentityError) {
+          out.error(e.message);
+          await runtime.pause(out);
+        } else {
+          throw e;
+        }
+      }
+    } else if (choice !== REFRESH) {
       const row = rows.find((r) => r.entry.path === choice);
       if (row !== undefined) {
         await actOn(out, root, config, row, runtime);

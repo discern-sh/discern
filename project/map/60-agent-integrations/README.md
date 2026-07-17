@@ -10,7 +10,7 @@ aliases:
 
 _Provider-specific files, trust gates, and daily gotchas for each coding agent discern knows how to wire._
 
-discern keeps provider-specific behavior in one typed registry: [`src/lib/providers.ts`](../../../src/lib/providers.ts). That registry names each agent's instruction file, skills directory, MCP config target, hook surface, trust gate, and any app-managed worktree lifecycle file. `discern setup`, `discern refresh`, and `discern upgrade` use the registry to re-establish the integration artifacts idempotently.
+discern keeps provider-specific behavior in one typed registry: [`src/lib/providers.ts`](../../../src/lib/providers.ts). That registry names each agent's instruction file, skills directory, MCP config target, hook surface, trust gate, interactive CLI actions, and any app-managed worktree lifecycle file. `discern setup`, `discern refresh`, and `discern upgrade` use the registry to re-establish the integration artifacts idempotently; [the desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
 
 This section is the human-readable companion to that registry. Each provider page names the exact files discern writes or co-manages, why those settings exist, what discern leaves to the user, and what surprises users and agents should expect from that provider.
 

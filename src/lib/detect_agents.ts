@@ -6,11 +6,11 @@
  * **feature-layer** concern (which agents exist is agent-specific), so it lives
  * here, not in the stack-neutral engine.
  *
- * Detection runs **once, at setup** ({@link resolveDefaultAgents}, wired into
- * `discern setup`) and is persisted into `discern.toml`. It is NEVER a runtime
- * fallback — `resolveConfiguredAgents` stays a pure reader of committed config, so
- * the agent set a project compiles against is fixed in the file, not re-derived
- * from whatever happens to be on PATH at gate time.
+ * Setup uses detection once ({@link resolveDefaultAgents}) and persists the
+ * resulting agent set into `discern.toml`. The desk reuses the lower-level binary
+ * scan as live launch availability, but NEVER as a configuration fallback:
+ * `resolveConfiguredAgents` remains a pure reader of committed config, so the
+ * project agent set is fixed in the file rather than re-derived at runtime.
  *
  * Semantics are **match-any** (a provider is present when ANY of its `binaries`
  * resolves), and the scan is **registry-driven**: it iterates `AGENT_NAMES` × each
@@ -24,6 +24,12 @@ import type { EnvReader } from "../shared/env.ts";
 import type { ConsentAgentSet } from "../shared/setup_messages.ts";
 import type { AgentName } from "./config.ts";
 import { PROVIDERS } from "./providers.ts";
+
+/** One known provider resolved to the concrete executable name found on PATH. */
+export interface DetectedAgentBinary {
+  readonly name: AgentName;
+  readonly binary: string;
+}
 
 /** The `PATH`-list delimiter for the host OS (`;` on Windows, `:` elsewhere). A
  * direct constant rather than a `@std/path` import, so the one place this matters
@@ -79,27 +85,39 @@ async function binaryOnPath(
 }
 
 /**
- * The known agents whose binary is present on `PATH` (match-any over each
- * provider's `binaries`), in `AGENT_NAMES` order. Empty when none is detected.
- * `env` defaults to the real process environment; a test injects a fake reader so
- * it never mutates the process (ADR 0068).
+ * The known agents and concrete executable names present on `PATH` (match-any
+ * over each provider's `binaries`), in `AGENT_NAMES` order. Empty when none is
+ * detected. `env` defaults to the real process environment; a test injects a
+ * fake reader so it never mutates the process (ADR 0068).
  */
-export async function detectAgentsOnPath(
+export async function detectAgentBinariesOnPath(
   env: EnvReader = Deno.env,
-): Promise<AgentName[]> {
+): Promise<DetectedAgentBinary[]> {
   const pathDirs = (env.get("PATH") ?? "")
     .split(pathListDelimiter())
     .filter((d) => d.length > 0);
-  const present: AgentName[] = [];
+  const present: DetectedAgentBinary[] = [];
   for (const name of AGENT_NAMES) {
     for (const binary of PROVIDERS[name].binaries) {
       if (await binaryOnPath(binary, pathDirs)) {
-        present.push(name);
+        present.push({ name, binary });
         break; // match-any — one present binary makes the agent present
       }
     }
   }
   return present;
+}
+
+/**
+ * The known agents whose binary is present on `PATH` (match-any over each
+ * provider's `binaries`), in `AGENT_NAMES` order. This name-only setup API is a
+ * projection of {@link detectAgentBinariesOnPath}; runtime launchers use the
+ * lower-level result so they execute the binary that was actually detected.
+ */
+export async function detectAgentsOnPath(
+  env: EnvReader = Deno.env,
+): Promise<AgentName[]> {
+  return (await detectAgentBinariesOnPath(env)).map(({ name }) => name);
 }
 
 /**

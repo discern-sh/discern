@@ -12,6 +12,7 @@ import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
+  detectAgentBinariesOnPath,
   detectAgentsOnPath,
   resolveDefaultAgents,
 } from "../src/lib/detect_agents.ts";
@@ -57,6 +58,16 @@ Deno.test("detectAgentsOnPath: returns the present agents in AGENT_NAMES order a
       const detected = await detectAgentsOnPath(env);
       assertEquals(detected, ["claude_code", "gemini"]);
     });
+  });
+});
+
+Deno.test("detectAgentBinariesOnPath: preserves the concrete executable selected for launch", async () => {
+  await withTempDir(async (bin) => {
+    await fakeBinary(bin, "codex");
+    assertEquals(
+      await detectAgentBinariesOnPath(fakeEnv({ PATH: bin })),
+      [{ name: "codex", binary: "codex" }],
+    );
   });
 });
 

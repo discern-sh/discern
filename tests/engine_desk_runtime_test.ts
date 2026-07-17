@@ -14,6 +14,7 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import type {
+  StartData,
   StatusData,
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
@@ -30,6 +31,7 @@ const ROOT = "/project";
 const QUIT = "\x00quit";
 const REFRESH = "\x00refresh";
 const BACK = "\x00back";
+const START_TASK = "\x00start-task";
 const NOW = Date.parse("2026-07-11T12:00:00Z");
 
 const CONFIG: DiscernConfig = configSchema.parse({
@@ -138,7 +140,14 @@ function scriptedRuntime(
     update: () => {},
     drop: () => {},
     git: () => ({ success: true, stdout: "", stderr: "" }),
-    shell: () => {},
+    interactive: () => 0,
+    detectAgents: () => [],
+    start: () => ({
+      id: "new-task",
+      branch: "agent/new-task",
+      path: "/worktrees/new-task",
+      from: "main",
+    }),
     scripts: () => [],
     runScript: () => 0,
     now: () => NOW,
@@ -272,6 +281,180 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
   assertStringIncludes(joined(refreshFailure), "the status survey failed");
 });
 
+Deno.test("desk starts a named task and focuses its ready worktree immediately", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const startedEntry = fleetEntry(
+    "agent/desk-launchers",
+    "/worktrees/desk-launchers",
+  );
+  const started: StartData = {
+    id: "desk-launchers",
+    branch: startedEntry.branch,
+    path: startedEntry.path,
+    from: "main",
+  };
+  let hasStarted = false;
+  const choices = [START_TASK, BACK, QUIT];
+  const menus: Array<{ message: string; options: string }> = [];
+  const starts: Array<{ worktreeRoot: string; name?: string }> = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData(hasStarted ? [main, startedEntry] : [main]),
+    }),
+    select: (options) => {
+      menus.push({
+        message: String(options.message),
+        options: JSON.stringify(options.options),
+      });
+      return choices.shift() ?? QUIT;
+    },
+    input: () => "  desk launchers  ",
+    start: (_ctx, opts) => {
+      starts.push(opts);
+      hasStarted = true;
+      return started;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(starts, [{
+    worktreeRoot: "/project.worktrees",
+    name: "desk launchers",
+  }]);
+  assertStringIncludes(menus[0]?.options ?? "", "Start a task");
+  assertStringIncludes(
+    menus[0]?.message ?? "",
+    "No efforts in flight — start a task or quit",
+  );
+  assert(
+    menus[1]?.message.startsWith(started.branch) ?? false,
+    "the new worktree action menu should open without another root-menu choice",
+  );
+  assertStringIncludes(
+    joined(output),
+    "discern start --name='desk launchers'",
+  );
+});
+
+Deno.test("desk leaves the start name unset when the optional prompt is blank", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const random = fleetEntry(
+    "agent/random-codename",
+    "/worktrees/random-codename",
+  );
+  let hasStarted = false;
+  const choices = [START_TASK, BACK, QUIT];
+  const starts: Array<{ worktreeRoot: string; name?: string }> = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData(hasStarted ? [main, random] : [main]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    input: () => "   ",
+    start: (_ctx, opts) => {
+      starts.push(opts);
+      hasStarted = true;
+      return {
+        id: "random-codename",
+        branch: random.branch,
+        path: random.path,
+        from: "main",
+      };
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(starts, [{ worktreeRoot: "/project.worktrees" }]);
+  assertStringIncludes(joined(output), "→ discern start");
+  assert(!joined(output).includes("--name="));
+});
+
+Deno.test("desk offers only configured agents detected on PATH and launches argv in the worktree", async () => {
+  const output = transcript();
+  const effort = fleetEntry("agent/agents", "/worktrees/agents");
+  const data = statusData([
+    fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+    effort,
+  ]);
+  const worktreeConfig = configSchema.parse({
+    project: { slug: "demo", main_branch: "main" },
+    guidance: { agents: ["claude_code", "codex"] },
+  });
+  const choices = [
+    effort.path,
+    "agent",
+    "claude_code:open",
+    effort.path,
+    "agent",
+    "claude_code:continue",
+    QUIT,
+  ];
+  const menus: Array<{ message: string; options: string }> = [];
+  const launches: Array<{
+    command: string;
+    args: readonly string[];
+    cwd: string;
+  }> = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    loadConfig: (root) => root === effort.path ? worktreeConfig : CONFIG,
+    detectAgents: () => [
+      { name: "claude_code", binary: "claude" },
+      { name: "gemini", binary: "gemini" },
+    ],
+    select: (options) => {
+      menus.push({
+        message: String(options.message),
+        options: JSON.stringify(options.options),
+      });
+      return choices.shift() ?? QUIT;
+    },
+    interactive: (command, args, cwd) => {
+      launches.push({ command, args, cwd });
+      return 0;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(launches, [
+    { command: "claude", args: [], cwd: effort.path },
+    { command: "claude", args: ["--continue"], cwd: effort.path },
+  ]);
+  const actionMenu = menus.find((menu) =>
+    menu.message.startsWith(effort.branch)
+  );
+  const agentMenu = menus.find((menu) =>
+    menu.message.startsWith("Open an agent")
+  );
+  assert(actionMenu !== undefined);
+  assert(agentMenu !== undefined);
+  assertStringIncludes(actionMenu.options, "Open with agent");
+  assertStringIncludes(agentMenu.options, "Open in Claude Code");
+  assertStringIncludes(agentMenu.options, "Continue in Claude Code");
+  assert(
+    !agentMenu.options.includes("Codex"),
+    "configured but absent stays hidden",
+  );
+  assert(
+    !agentMenu.options.includes("Gemini"),
+    "detected but unconfigured stays hidden",
+  );
+  assertStringIncludes(
+    joined(output),
+    `claude --continue  (cwd: ${effort.path})`,
+  );
+});
+
 Deno.test("desk inspect and jump actions use the scripted effect boundary", async () => {
   const output = transcript();
   const effort = fleetEntry("agent/inspect", "/worktrees/inspect", {
@@ -289,7 +472,11 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
     { success: true, stdout: "", stderr: "" },
     { success: false, stdout: "", stderr: "diff unavailable\n" },
   ];
-  const shellCalls: Array<{ command: string; cwd: string }> = [];
+  const shellCalls: Array<{
+    command: string;
+    args: readonly string[];
+    cwd: string;
+  }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     receiptHonored: () => true,
@@ -304,14 +491,16 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
       assert(result !== undefined, "inspect ran an unexpected git read");
       return result;
     },
-    shell: (command, cwd) => {
-      shellCalls.push({ command, cwd });
+    interactive: (command, args, cwd) => {
+      shellCalls.push({ command, args, cwd });
+      return 0;
     },
   });
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(shellCalls.length, 1);
   assertEquals(shellCalls[0]?.cwd, effort.path);
+  assertEquals(shellCalls[0]?.args, []);
   assert((shellCalls[0]?.command ?? "").length > 0);
   const text = joined(output);
   assertStringIncludes(text, "abc123 Explain the change");
