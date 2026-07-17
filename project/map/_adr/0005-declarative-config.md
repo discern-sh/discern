@@ -27,7 +27,7 @@ Provide declarative config as a first-class capability, in three layers.
 A small `TomlEditor` operates on the raw text as lines, never round-tripping through a TOML AST:
 
 - `setLiteral("slots.test.run", '"vitest run"')` finds the `[slots.test]` section and the `run = …` line and replaces **only the value** (preserving the key, the `=` alignment, and every comment elsewhere). A dropped inline `# e.g.` hint on the replaced line is the only loss, which is correct once the slot is filled.
-- A missing key is inserted after its section header. A missing section is created beside the last existing member of its dotted family when one exists (`[scopes.assets]` lands next to `[scopes.docs]`, not scattered away from it — see [ADR 0021](0021-migrations-insert-documented-sections.md) for the sibling problem this complements), otherwise appended at EOF (`[section]` then the key). Commented-out hint lines (`# native = …`) never match, so a real key is added alongside them.
+- A missing key in a named record table is inserted in the field order declared by that family's schema; other missing keys go immediately after their section header. A missing section is created beside the last existing member of its dotted family when one exists (`[scopes.assets]` lands next to `[scopes.docs]`, not scattered away from it — see [ADR 0021](0021-migrations-insert-documented-sections.md) for the sibling problem this complements). When it is the first live member of a schema-declared record family, it lands after that family's managed banner and examples, before the next config region. Only an unrelated section with neither kind of anchor falls back to EOF. Commented-out hint lines (`# native = …`) never match, so a real key is added alongside them.
 - Typed helpers — `setString`, `setNumber`, `setBool`, `setStringArray` — render values via the existing TOML renderers and call `setLiteral`.
 
 This editor is the one place TOML editing lives. It targets the documented `discern.toml` subset (the same shape `toml.awk` reads): `[section]` / `[section.sub]` headers and single-line `key = scalar|array` lines.
@@ -68,7 +68,7 @@ Every subcommand honours `--json` (emitting `{ok, file, dry_run, edits:[…]}`) 
 ## Consequences
 
 - A scaffolder or CI can drive discern end-to-end without owning any TOML editing: `setup --config` for a fresh, fully-specified install; `discern config …` to adjust an existing one. This is the central win for the "consumed by another project" use case.
-- `discern.toml` stays legible: programmatic edits preserve its comments and layout, so a file a scaffolder touched still reads like the hand-written one.
+- `discern.toml` stays legible: programmatic edits preserve its comments and layout, put named tables beside the banner that explains them, and keep their fields in schema order, so a file a scaffolder touched still reads like the hand-written one.
 - The editor targets the documented config subset, not arbitrary TOML. That's a deliberate bound — it matches what `toml.awk` reads, so the editor and the engine agree on the file shape. Multi-line arrays / inline tables are out of scope (the kit doesn't use them).
 - Surgical editing can't reflow alignment when a value grows; the result is valid TOML but may not be column-aligned. Acceptable for machine-written values.
 - More installer surface to maintain (one lib + one command + an init path), all additive — nothing changes for users who don't use it.

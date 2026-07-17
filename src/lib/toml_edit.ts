@@ -19,6 +19,8 @@
 
 import { parse as parseToml } from "@std/toml";
 import { renderTomlString, renderTomlStringList } from "./toml_render.ts";
+import { scanManagedBanners, scanRuledBanners } from "./config_banners.ts";
+import { RECORD_ENTRY_SCHEMAS } from "../shared/config_schema.ts";
 
 type LineEnding = "\n" | "\r\n" | "\r";
 
@@ -236,6 +238,30 @@ const HEADER_RE = /^\s*\[([^\]]+)\]/;
 
 type SectionSpan = { headerIdx: number; bodyEnd: number };
 
+/** One schema-enrolled named-table family and its canonical entry-key order. */
+interface RecordLayout {
+  family: string;
+  keys: string[];
+}
+
+/**
+ * Every named-table family, derived from the live config schema. Longest first
+ * makes a future nested family win over its parent without another rule here.
+ */
+const RECORD_LAYOUTS: RecordLayout[] = Object.entries(RECORD_ENTRY_SCHEMAS)
+  .map(([family, schema]) => ({ family, keys: Object.keys(schema.shape) }))
+  .sort((a, b) => b.family.length - a.family.length);
+const RECORD_FAMILIES = RECORD_LAYOUTS.map(({ family }) => family);
+
+/** The record-family layout owning `section`, if it is one named entry. */
+function recordLayoutForSection(section: string): RecordLayout | undefined {
+  return RECORD_LAYOUTS.find(({ family }) => {
+    if (!section.startsWith(`${family}.`)) return false;
+    const entryName = section.slice(family.length + 1);
+    return entryName !== "" && !entryName.includes(".");
+  });
+}
+
 /**
  * Edits the `discern.toml` subset in place, preserving comments and layout.
  * Mutating methods return `this` for chaining; `toString()` yields the result.
@@ -261,8 +287,9 @@ export class TomlEditor {
    * inline comment), inserts the key after its section header if the key is
    * absent, or — if the section itself is absent — creates it: right after the
    * last sibling in its dotted family if one exists (e.g. a new
-   * `[scopes.assets]` lands beside an existing `[scopes.docs]`), otherwise
-   * appended at EOF.
+   * `[scopes.assets]` lands beside an existing `[scopes.docs]`). The first member
+   * of a schema-declared record family lands inside that family's managed banner
+   * region; an unrelated section with neither anchor is appended at EOF.
    */
   setLiteral(dottedKey: string, literal: string): this {
     const segments = dottedKey.split(".");
@@ -273,6 +300,7 @@ export class TomlEditor {
       );
     }
     const section = segments.slice(0, -1).join(".");
+    const recordLayout = recordLayoutForSection(section);
 
     const span = this.findSection(section);
     const keyLine = `${key} = ${literal}`;
@@ -282,10 +310,17 @@ export class TomlEditor {
       // family (e.g. [scopes.docs] when we're creating [scopes.assets]),
       // insert right after the LAST such sibling — keeping the family
       // contiguous instead of scattering a new [scopes.*] far from the rest
-      // of [scopes.*]. Only with no family member at all do we fall back to
-      // an EOF append, with a blank-line separator.
+      // of [scopes.*]. With no family member, try its managed record banner;
+      // unrelated sections still append at EOF.
       const sibling = this.lastSiblingSection(section);
       if (sibling === null) {
+        const recordAt = recordLayout === undefined
+          ? null
+          : this.firstRecordMemberInsertionPoint(recordLayout.family);
+        if (recordAt !== null) {
+          this.lines.splice(recordAt, 0, "", `[${section}]`, keyLine);
+          return this;
+        }
         if (
           this.lines.length > 0 && this.lines[this.lines.length - 1] !== ""
         ) {
@@ -321,7 +356,15 @@ export class TomlEditor {
         return this;
       }
     }
-    // Key absent: insert immediately after the section header.
+    // A record entry's field order is part of the config's legibility. Derive it
+    // from the schema so every present and future family shares the same rule.
+    if (
+      recordLayout !== undefined &&
+      this.insertKeyBlock(section, key, keyLine, recordLayout.keys)
+    ) {
+      return this;
+    }
+    // Fixed/foreign section key absent: insert immediately after the header.
     this.lines.splice(span.headerIdx + 1, 0, keyLine);
     return this;
   }
@@ -692,6 +735,53 @@ export class TomlEditor {
       at--;
     }
     return at;
+  }
+
+  /**
+   * Where the FIRST live member of `family` belongs: after its managed banner
+   * and examples, before the next ruled banner or non-family section block. A
+   * missing/malformed banner has no safe ownership boundary, so returns null and
+   * lets the caller retain the conservative EOF fallback.
+   */
+  private firstRecordMemberInsertionPoint(family: string): number | null {
+    const text = this.lines.join("\n");
+    const banner = scanManagedBanners(text, RECORD_FAMILIES).find((span) =>
+      span.family === family
+    );
+    if (banner === undefined) {
+      return null;
+    }
+
+    const nextBanner = scanRuledBanners(text).find((span) =>
+      span.start > banner.end
+    );
+    let nextSectionBlock = this.lines.length;
+    for (let i = banner.end + 1; i < this.lines.length; i++) {
+      const path = this.lines[i]?.match(HEADER_RE)?.[1]?.trim();
+      if (
+        path === undefined || path === family ||
+        path.startsWith(`${family}.`)
+      ) {
+        continue;
+      }
+      nextSectionBlock = this.attachedCommentStart(i);
+      break;
+    }
+
+    let at = Math.min(nextBanner?.start ?? this.lines.length, nextSectionBlock);
+    while (at - 1 > banner.end && isBlankLine(this.lines[at - 1] ?? "")) {
+      at--;
+    }
+    return at;
+  }
+
+  /** Start of the contiguous comment paragraph attached to a section header. */
+  private attachedCommentStart(headerIdx: number): number {
+    let start = headerIdx;
+    while (start - 1 >= 0 && isCommentLine(this.lines[start - 1] ?? "")) {
+      start--;
+    }
+    return start;
   }
 
   /** The exclusive end line for a key's value, spanning a multi-line array. */

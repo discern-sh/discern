@@ -25,6 +25,20 @@ function readToml(dir: string): Promise<string> {
   return Deno.readTextFile(join(dir, "discern.toml"));
 }
 
+/** Active assignment keys inside one section, in written order. */
+function sectionKeys(text: string, section: string): string[] {
+  const lines = text.split("\n");
+  const header = lines.indexOf(`[${section}]`);
+  assert(header !== -1, `missing [${section}]`);
+  const keys: string[] = [];
+  for (const line of lines.slice(header + 1)) {
+    if (/^\s*\[/.test(line)) break;
+    const key = line.match(/^\s*([A-Za-z0-9_-]+)\s*=/)?.[1];
+    if (key !== undefined) keys.push(key);
+  }
+  return keys;
+}
+
 Deno.test("config set-capability fills a capability and preserves comments", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
@@ -210,6 +224,18 @@ Deno.test("config set-check writes a check table", async () => {
     assertStringIncludes(toml, 'stage = "check"');
     assertStringIncludes(toml, 'run = "license-scan"');
     assertStringIncludes(toml, 'provides = "license-audit"');
+    assert(
+      toml.indexOf("# [checks.<name>]") <
+          toml.indexOf("\n[checks.licenses]\n") &&
+        toml.indexOf("\n[checks.licenses]\n") <
+          toml.indexOf("# [scopes.<name>]"),
+      "the first check should land inside the checks region",
+    );
+    assertEquals(sectionKeys(toml, "checks.licenses"), [
+      "stage",
+      "run",
+      "provides",
+    ]);
   });
 });
 
@@ -295,6 +321,19 @@ Deno.test("config set-standard writes a named standard table", async () => {
     assertStringIncludes(toml, "limit = 500000");
     assertStringIncludes(toml, 'direction = "down"');
     assertStringIncludes(toml, 'run = "measure-bundle"');
+    assert(
+      toml.indexOf("# [standards]") <
+          toml.indexOf("\n[standards.bundle]\n") &&
+        toml.indexOf("\n[standards.bundle]\n") <
+          toml.indexOf("\n[gate]\n"),
+      "the first standard should land inside the standards region",
+    );
+    assertEquals(sectionKeys(toml, "standards.bundle"), [
+      "metric",
+      "direction",
+      "limit",
+      "run",
+    ]);
   });
 });
 

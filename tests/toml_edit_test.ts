@@ -19,6 +19,8 @@ import {
   tomlString,
   tomlStringArray,
 } from "../src/lib/toml_edit.ts";
+import { scanManagedBanners } from "../src/lib/config_template.ts";
+import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import * as tomlEditModule from "../src/lib/toml_edit.ts";
 
 const SAMPLE = `# top comment
@@ -154,6 +156,16 @@ Deno.test("editor appends a brand-new section at EOF", () => {
   assert(out.indexOf("[scripts]") > out.indexOf("[scopes.side_gates]"));
 });
 
+Deno.test("editor conservatively appends a first record member when its managed banner is missing", () => {
+  const input = `[project]\nslug = "demo"\n\n[gate]\nstream = false\n`;
+  const out = new TomlEditor(input)
+    .setString("standards.bundle.metric", "bundle_bytes")
+    .toString();
+
+  assert(out.indexOf("[standards.bundle]") > out.indexOf("[gate]"));
+  assertStringIncludes(out, 'metric = "bundle_bytes"');
+});
+
 const FAMILY_SAMPLE = `[project]
 slug = "demo"
 
@@ -209,6 +221,83 @@ stream = false
       lines.indexOf("[scopes.assets]") < lines.indexOf("[gate]"),
     "a new sibling should land after the LAST existing family member",
   );
+});
+
+Deno.test("every first record-family member lands inside its managed config region", async (t) => {
+  const template = await Deno.readTextFile(
+    new URL("../templates/discern.toml.tmpl", import.meta.url),
+  );
+  const families = Object.keys(RECORD_ENTRY_SCHEMAS);
+  const banners = scanManagedBanners(template, families);
+
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    await t.step(family, () => {
+      const banner = banners.find((candidate) => candidate.family === family);
+      assert(banner !== undefined, `expected a managed [${family}] banner`);
+      const key = Object.keys(schema.shape)[0];
+      assert(
+        key !== undefined,
+        `[${family}.<name>] must accept at least one key`,
+      );
+
+      // Remove every live member of this family while retaining the real
+      // template's banners, examples, and surrounding section order. This makes
+      // fresh_probe an adversarial FIRST member regardless of which families a
+      // future template happens to seed by default.
+      const input = template.split("\n").map((line) => {
+        const section = line.match(/^\[([^\]]+)\]$/)?.[1];
+        return section !== undefined && section.startsWith(`${family}.`)
+          ? `# ${line}`
+          : line;
+      }).join("\n");
+      const inputLines = input.split("\n");
+      const boundary = inputLines.findIndex((line, index) => {
+        if (index <= banner.end) return false;
+        const section = line.match(/^\[([^\]]+)\]$/)?.[1];
+        return section !== undefined &&
+          section !== family && !section.startsWith(`${family}.`);
+      });
+      assert(boundary !== -1, `[${family}] needs a following section anchor`);
+
+      const section = `${family}.fresh_probe`;
+      const output = new TomlEditor(input)
+        .setLiteral(`${section}.${key}`, '"probe"')
+        .toString();
+      const outputLines = output.split("\n");
+      const bannerLine = outputLines.findIndex((line) =>
+        line.includes(`# [${family}]`) || line.includes(`# [${family}.<name>]`)
+      );
+      const targetLine = outputLines.indexOf(`[${section}]`);
+      const boundaryHeader = inputLines[boundary];
+      assert(boundaryHeader !== undefined);
+      const boundaryLine = outputLines.indexOf(boundaryHeader);
+
+      assert(
+        bannerLine < targetLine && targetLine < boundaryLine,
+        `[${section}] must land after its banner and before ${boundaryHeader}`,
+      );
+    });
+  }
+});
+
+Deno.test("every record-family entry inserts absent keys in schema order", async (t) => {
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    await t.step(family, () => {
+      const keys = Object.keys(schema.shape);
+      assert(keys.length > 1, `[${family}.<name>] needs multiple ordered keys`);
+      const section = `${family}.fresh_probe`;
+      const editor = new TomlEditor(`[${section}]\n`);
+      for (const key of keys) {
+        editor.setLiteral(`${section}.${key}`, '"probe"');
+      }
+      const written = editor.toString().split("\n").flatMap((line) => {
+        const key = line.match(/^([A-Za-z0-9_-]+)\s*=/)?.[1];
+        return key === undefined ? [] : [key];
+      });
+
+      assertEquals(written, keys);
+    });
+  }
 });
 
 Deno.test("hasSection reports presence of a section header", () => {
