@@ -2,77 +2,34 @@
 
 **Status**: accepted
 
-**Ownership amendment**:
-[ADR 0139](0139-the-design-system-is-an-independent-package.md) makes the
-authored design system an external package. This ADR's build-time React and
-static-browser-runtime decision remains active.
+**Ownership amendment**: [ADR 0139](0139-the-design-system-is-an-independent-package.md) makes the authored design system an external package. This ADR's build-time React and static-browser-runtime decision remains active.
 
 ## Context
 
-The existing draft discern.sh landing pages are self-contained HTML pages,
-created as experiments before the project had established durable standards for
-their content, appearance, or integration. As discern prepares for public
-release, a coherent and maintainable frontend has become an architectural
-requirement. Each draft page currently owns a separate Tailwind theme, component
-vocabulary, font request, and inline script. Growing that pattern into the
-permanent site would make every shared visual decision a manual multi-page
-migration.
+The existing draft discern.sh landing pages are self-contained HTML pages, created as experiments before the project had established durable standards for their content, appearance, or integration. As discern prepares for public release, a coherent and maintainable frontend has become an architectural requirement. Each draft page currently owns a separate Tailwind theme, component vocabulary, font request, and inline script. Growing that pattern into the permanent site would make every shared visual decision a manual multi-page migration.
 
-A prototype design system supplied typed tokens, framework-neutral CSS, React
-adapters, component metadata, and an automatically discovered local catalogue.
-Adopting it raised a separate question: whether the public site should become a
-client-side React application. The existing site has no application runtime or
-browser compilation; its Deno fetch handler serves static files and negotiates
-text editions directly. Deno Deploy can run a deterministic build command before
-starting that handler, so generated browser files need not become authored
-repository content.
+A prototype design system supplied typed tokens, framework-neutral CSS, React adapters, component metadata, and an automatically discovered local catalogue. Adopting it raised a separate question: whether the public site should become a client-side React application. The existing site has no application runtime or browser compilation; its Deno fetch handler serves static files and negotiates text editions directly. Deno Deploy can run a deterministic build command before starting that handler, so generated browser files need not become authored repository content.
 
 ## Decision
 
-The authored design system lives in the independently released
-`@discern-sh/design-system` package. Discern's exact package selection and
-product-specific page composition live in `site/design_system.ts` and
-`site/page-src/` respectively.
+The authored design system lives in the independently released `@discern-sh/design-system` package. Discern's exact package selection and product-specific page composition live in `site/design_system.ts` and `site/page-src/` respectively.
 
-Pages use the typed React adapters at build time. `site/build.ts` renders page
-sources to static HTML, asks the package's public runtime emitter for
-deterministic framework-neutral CSS and selected assets, and writes ignored
-artifacts under `site/pages/`. Font binaries, licences, and the optional grain
-texture come from the exact package release and are emitted into local public
-output.
+Pages use the typed React adapters at build time. `site/build.ts` renders page sources to static HTML, asks the package's public runtime emitter for deterministic framework-neutral CSS and selected assets, and writes ignored artifacts under `site/pages/`. Font binaries, licences, and the optional grain texture come from the exact package release and are emitted into local public output.
 
-Deno Deploy runs `deno task site:build` before starting the dynamic
-`site/main.ts` entrypoint. A failed frontend build fails the deployment before
-the revision receives traffic. Git contains the inputs and the build contract,
-not a second review surface containing their derivations.
+Deno Deploy runs `deno task site:build` before starting the dynamic `site/main.ts` entrypoint. A failed frontend build fails the deployment before the revision receives traffic. Git contains the inputs and the build contract, not a second review surface containing their derivations.
 
-The generic React component catalogue belongs to the package repository.
-Stateful React behaviour is not assumed to survive static rendering: public
-pages use static-safe components and page-owned progressive enhancement unless a
-later decision explicitly introduces a browser runtime.
+The generic React component catalogue belongs to the package repository. Stateful React behaviour is not assumed to survive static rendering: public pages use static-safe components and page-owned progressive enhancement unless a later decision explicitly introduces a browser runtime.
 
-The first consumer is `/design-system-demo`. The four existing experimental
-pages remain unchanged until a replacement edition is ready to be compared and
-switched over as one page-sized change.
+The first consumer is `/design-system-demo`. The four existing experimental pages remain unchanged until a replacement edition is ready to be compared and switched over as one page-sized change.
 
 ## Consequences
 
-- Page authors get typed composition and one component markup source without
-  sending React to visitors.
-- Local development and deployment both build before starting the same handler;
-  a clean checkout has one path from authored source to running site.
-- Generated HTML, CSS, JavaScript, manifests, and copied assets are ignored.
-  Tests guard that the output boundary remains untracked and reproducible.
-- Deployment now depends on the frontend build succeeding. A build failure is
-  visible and prevents a broken or stale revision from receiving traffic.
-- Component source stays reusable because it carries no discern.sh copy, remote
-  asset provider, or route knowledge.
-- The public demo self-hosts fonts and textures. It can honestly claim zero
-  third-party runtime requests even while the older experiments still await
-  their migration.
-- Interactive catalogue components need an explicit browser implementation on a
-  public page. Static rendering is not treated as implicit hydration.
-- Each existing edition can migrate independently, preserving a complete old
-  artifact for comparison and rollback until its route changes.
-- Rolling back selects an earlier source revision and deterministically rebuilds
-  its runtime rather than relying on checked-in generated bytes.
+- Page authors get typed composition and one component markup source without sending React to visitors.
+- Local development and deployment both build before starting the same handler; a clean checkout has one path from authored source to running site.
+- Generated HTML, CSS, JavaScript, manifests, and copied assets are ignored. Tests guard that the output boundary remains untracked and reproducible.
+- Deployment now depends on the frontend build succeeding. A build failure is visible and prevents a broken or stale revision from receiving traffic.
+- Component source stays reusable because it carries no discern.sh copy, remote asset provider, or route knowledge.
+- The public demo self-hosts fonts and textures. It can honestly claim zero third-party runtime requests even while the older experiments still await their migration.
+- Interactive catalogue components need an explicit browser implementation on a public page. Static rendering is not treated as implicit hydration.
+- Each existing edition can migrate independently, preserving a complete old artifact for comparison and rollback until its route changes.
+- Rolling back selects an earlier source revision and deterministically rebuilds its runtime rather than relying on checked-in generated bytes.

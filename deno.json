@@ -82,6 +82,7 @@
     "discern-design-system": "jsr:@discern-sh/design-system@0.1.1"
   },
   "fmt": {
+    "proseWrap": "never",
     "exclude": [
       ".claude/",
       ".discern-help-docs/",
@@ -97,6 +98,7 @@
       "project/map/70-reference/cli-reference.md",
       "schema/discern-config.schema.json",
       "templates/",
+      "!templates/guidance/",
       "tests/fixtures/"
     ]
   },

@@ -1,135 +1,43 @@
 # ADR 0067: Accept validates the exact tree it lands, fast-pathed by a gate receipt
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current
-> pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`,
-> the gate-pass artifact → the receipt; the decision and reasoning are
-> unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the gate-pass artifact → the receipt; the decision and reasoning are unchanged.
 
-**Status**: accepted. Supersedes
-[ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) (the
-fix-stage-only fixed-point guard in `accept`) and overturns its "run the whole
-gate in accept" rejection — the gate receipt removes the cost that rejection
-rested on. Reuses the merge precondition
-([ADR 0050](0050-merge-check-fail-fast.md)) and the one result envelope
-([ADR 0028](0028-result-envelope-and-diagnostics.md)).
+**Status**: accepted. Supersedes [ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) (the fix-stage-only fixed-point guard in `accept`) and overturns its "run the whole gate in accept" rejection — the gate receipt removes the cost that rejection rested on. Reuses the merge precondition ([ADR 0050](0050-merge-check-fail-fast.md)) and the one result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)).
 
-> **Note ([ADR 0110](0110-the-landing-model.md)):** `accept --to trunk` below is
-> now plain `accept` — the configurable destination was removed and the trunk is
-> the single landing target. The receipt-fast-pathed validation decided here
-> stands unchanged.
+> **Note ([ADR 0110](0110-the-landing-model.md)):** `accept --to trunk` below is now plain `accept` — the configurable destination was removed and the trunk is the single landing target. The receipt-fast-pathed validation decided here stands unchanged.
 
 ## Context
 
-`accept` lands a branch onto the trunk — locally, via `accept --to trunk`, with
-no PR and no CI. Its only quality guards were the merge precondition (the branch
-contains the latest trunk) and the fix-stage fixed-point check
-([ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md), which re-ran
-**only the fix stage**). Neither runs the build, the checks, the tests, or the
-scope gates. So the property "what lands passed the gate" held only because an
-agent was trusted to have run a clean `done` — and that trust breaks on a
-routine sequence:
+`accept` lands a branch onto the trunk — locally, via `accept --to trunk`, with no PR and no CI. Its only quality guards were the merge precondition (the branch contains the latest trunk) and the fix-stage fixed-point check ([ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md), which re-ran **only the fix stage**). Neither runs the build, the checks, the tests, or the scope gates. So the property "what lands passed the gate" held only because an agent was trusted to have run a clean `done` — and that trust breaks on a routine sequence:
 
 1. An agent finishes its work; `done` is green. It then waits for review.
 2. While it waits, the trunk advances beneath it (other branches accept).
-3. On approval it runs `accept`, which refuses: the branch is now behind the
-   trunk.
-4. It runs `update` (a **clean** merge of the new trunk into its branch) and,
-   seeing it succeed, immediately re-runs `accept` — which now lands.
+3. On approval it runs `accept`, which refuses: the branch is now behind the trunk.
+4. It runs `update` (a **clean** merge of the new trunk into its branch) and, seeing it succeed, immediately re-runs `accept` — which now lands.
 
-The merge in step 4 creates a **new tree** the green `done` from step 1 never
-saw. A clean textual merge can still be a _semantic_ conflict — the trunk
-renamed a function the branch calls, changed a type, tightened a check, added a
-test the branch breaks. `accept` re-ran only the fix stage, so none of that was
-caught, and the broken merge fast-forwarded onto the trunk. discern's own gate
-already encodes the invalidation: `done` front-loads the merge check precisely
-because a branch that updates "discards whatever the gate computed against the
-pre-integration tree" ([ADR 0050](0050-merge-check-fail-fast.md)) — but nothing
-re-asserted the gate at the one boundary that writes to the trunk.
+The merge in step 4 creates a **new tree** the green `done` from step 1 never saw. A clean textual merge can still be a _semantic_ conflict — the trunk renamed a function the branch calls, changed a type, tightened a check, added a test the branch breaks. `accept` re-ran only the fix stage, so none of that was caught, and the broken merge fast-forwarded onto the trunk. discern's own gate already encodes the invalidation: `done` front-loads the merge check precisely because a branch that updates "discards whatever the gate computed against the pre-integration tree" ([ADR 0050](0050-merge-check-fail-fast.md)) — but nothing re-asserted the gate at the one boundary that writes to the trunk.
 
-[ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) considered
-running the whole gate in accept and rejected it: "it runs the test suite on
-every acceptance, slow across many parallel worktrees." True — _if accept
-re-runs the gate unconditionally._ But in the common case nothing changed since
-the agent's own `done`, and a re-run is pure waste. The cost objection is really
-an objection to _redundant_ runs, not to checking.
+[ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) considered running the whole gate in accept and rejected it: "it runs the test suite on every acceptance, slow across many parallel worktrees." True — _if accept re-runs the gate unconditionally._ But in the common case nothing changed since the agent's own `done`, and a re-run is pure waste. The cost objection is really an objection to _redundant_ runs, not to checking.
 
 ## Decision
 
-**`accept` refuses to land a tree that does not pass the whole gate — but skips
-the re-run when a gate receipt proves the current tree already passed.**
+**`accept` refuses to land a tree that does not pass the whole gate — but skips the re-run when a gate receipt proves the current tree already passed.**
 
-- **A gate receipt.** On a GREEN run over a CLEAN tree, `done` stamps the
-  validated HEAD SHA into `discern-gate-receipt` in the per-worktree git admin
-  directory (`.git/worktrees/<name>/discern-gate-receipt`), the same mechanism
-  as the worktree-ready sentinel. It is worktree-local (never shared across
-  branches), never tracked or committed (it sits inside `.git`), and
-  self-cleaning (it vanishes with the worktree). A FAILED run clears it
-  (fail-closed); a green-but-dirty run leaves a prior clean vouch intact (it
-  can't vouch for clean HEAD, but the old vouch is still truthful at its own
-  SHA).
-- **Honored only when it still describes the tree.** The receipt is trusted by
-  `accept` only while it names exactly the current HEAD **and** the tree is
-  clean (`git status --porcelain` empty — the `git add -A` in `accept` would
-  sweep untracked files too). Any new commit (the merge `update` creates),
-  amend, or uncommitted edit makes it stale, and accept falls back to the gate.
-  It is a fast-path cache for "this tree already passed", never a substitute for
-  the gate.
-- **Fast path / slow path, in the apply phase.** Like the guard it replaces, the
-  check sits in `executeAcceptPlan`, before any teardown/removal, so a refusal
-  leaves the branch and worktree intact and `--dry-run` never reaches it. Valid
-  receipt → land without re-running. No/stale receipt → run the full gate via
-  the one `finishResult` core; on any failure, refuse with the gate's own
-  failed-stage message and a capped list of its diagnostics, then `discern done`
-  for the rest. The branch keeps all its commits.
-- **One definition of "good enough to land".** Accept no longer enforces a
-  _weaker subset_ (the fix stage) than `done`; it asks `done` itself. The merge
-  precondition it already checked is the same one `done` front-loads, so the two
-  never diverge.
+- **A gate receipt.** On a GREEN run over a CLEAN tree, `done` stamps the validated HEAD SHA into `discern-gate-receipt` in the per-worktree git admin directory (`.git/worktrees/<name>/discern-gate-receipt`), the same mechanism as the worktree-ready sentinel. It is worktree-local (never shared across branches), never tracked or committed (it sits inside `.git`), and self-cleaning (it vanishes with the worktree). A FAILED run clears it (fail-closed); a green-but-dirty run leaves a prior clean vouch intact (it can't vouch for clean HEAD, but the old vouch is still truthful at its own SHA).
+- **Honored only when it still describes the tree.** The receipt is trusted by `accept` only while it names exactly the current HEAD **and** the tree is clean (`git status --porcelain` empty — the `git add -A` in `accept` would sweep untracked files too). Any new commit (the merge `update` creates), amend, or uncommitted edit makes it stale, and accept falls back to the gate. It is a fast-path cache for "this tree already passed", never a substitute for the gate.
+- **Fast path / slow path, in the apply phase.** Like the guard it replaces, the check sits in `executeAcceptPlan`, before any teardown/removal, so a refusal leaves the branch and worktree intact and `--dry-run` never reaches it. Valid receipt → land without re-running. No/stale receipt → run the full gate via the one `finishResult` core; on any failure, refuse with the gate's own failed-stage message and a capped list of its diagnostics, then `discern done` for the rest. The branch keeps all its commits.
+- **One definition of "good enough to land".** Accept no longer enforces a _weaker subset_ (the fix stage) than `done`; it asks `done` itself. The merge precondition it already checked is the same one `done` front-loads, so the two never diverge.
 
 ## Consequences
 
-- **The stale-`done` hole is closed.** A clean-merging but gate-breaking
-  `update` cannot fast-forward onto the trunk: the merge commit invalidates the
-  receipt, accept re-runs the gate against the merged tree, and refuses. The
-  same now covers lint, type, test, and scope-gate failures — not just the fix
-  stage (ADR 0061) — and any tree that reached accept without a clean `done` at
-  all.
-- **No redundant gate runs in the common case.** When the agent finished and
-  nothing moved, the receipt is valid and accept lands immediately — no second
-  gate run, so the cost ADR 0061 feared never materializes. The gate runs at
-  accept exactly when the tree is genuinely new (post-update, a stray commit, a
-  dirty tree) — which is precisely when it must.
-- **A sliver of persistent state, kept out of the repo.** discern's footprint
-  stays one tracked file (`discern.toml`); the receipt lives inside `.git`, is
-  worktree-scoped, and is keyed to git state so it self-invalidates. It is an
-  optimization — best-effort to write, fail-closed to honor.
-- **Receipt decisions are visible in the agent envelope.** The receipt remains
-  best-effort, but not silent: `done --json` reports the stamp/clear outcome in
-  `data.gate_receipt`, and `accept --json` reports whether it used the receipt
-  fast path or re-ran the gate in `data.gate_validation`. A suppressed human
-  logger, failed receipt write, or stale marker should never leave an agent
-  guessing why acceptance ran the gate.
-- **Residual: environment drift at a constant tree.** A receipt vouches that a
-  clean HEAD passed; if the environment later changes so the _same_ tree would
-  now fail (a dependency or clock-dependent test), the fast path would skip a
-  run that would catch it. Vanishingly rare, unavoidable in any caching scheme,
-  and narrowed by clearing the receipt on every failed run. The always-run
-  alternative avoids it only at the redundant cost this ADR exists to remove.
+- **The stale-`done` hole is closed.** A clean-merging but gate-breaking `update` cannot fast-forward onto the trunk: the merge commit invalidates the receipt, accept re-runs the gate against the merged tree, and refuses. The same now covers lint, type, test, and scope-gate failures — not just the fix stage (ADR 0061) — and any tree that reached accept without a clean `done` at all.
+- **No redundant gate runs in the common case.** When the agent finished and nothing moved, the receipt is valid and accept lands immediately — no second gate run, so the cost ADR 0061 feared never materializes. The gate runs at accept exactly when the tree is genuinely new (post-update, a stray commit, a dirty tree) — which is precisely when it must.
+- **A sliver of persistent state, kept out of the repo.** discern's footprint stays one tracked file (`discern.toml`); the receipt lives inside `.git`, is worktree-scoped, and is keyed to git state so it self-invalidates. It is an optimization — best-effort to write, fail-closed to honor.
+- **Receipt decisions are visible in the agent envelope.** The receipt remains best-effort, but not silent: `done --json` reports the stamp/clear outcome in `data.gate_receipt`, and `accept --json` reports whether it used the receipt fast path or re-ran the gate in `data.gate_validation`. A suppressed human logger, failed receipt write, or stale marker should never leave an agent guessing why acceptance ran the gate.
+- **Residual: environment drift at a constant tree.** A receipt vouches that a clean HEAD passed; if the environment later changes so the _same_ tree would now fail (a dependency or clock-dependent test), the fast path would skip a run that would catch it. Vanishingly rare, unavoidable in any caching scheme, and narrowed by clearing the receipt on every failed run. The always-run alternative avoids it only at the redundant cost this ADR exists to remove.
 
 ## Alternatives considered
 
-- **Auto-run `done` after a non-no-op `update`.** Validates the merge at update
-  time, which closes the common path — but it checks the wrong moment: anything
-  committed between update and accept (fixing the conflict the auto-run
-  surfaced) lands without re-validation, accept stays unsafe-by-construction,
-  and it couples `update` to the heavy gate. Rejected: the invariant belongs at
-  the land boundary, and a wait with repeated updates can make it run the gate
-  _more_ often than the lazy receipt-gated accept.
-- **Run the whole gate in accept unconditionally** (ADR 0061's rejected option,
-  no receipt). Correct but pays the redundant-run cost on every acceptance — the
-  objection that motivated ADR 0061's narrower guard. The receipt keeps the
-  correctness and removes the cost.
-- **Keep only the fix-stage guard (ADR 0061).** It catches unformatted output
-  but nothing else; the observed hole is broader than formatting. The validation
-  gate subsumes it (a fix-stage strand is a `fix_drift` gate failure), so the
-  targeted guard is retired, not kept alongside.
+- **Auto-run `done` after a non-no-op `update`.** Validates the merge at update time, which closes the common path — but it checks the wrong moment: anything committed between update and accept (fixing the conflict the auto-run surfaced) lands without re-validation, accept stays unsafe-by-construction, and it couples `update` to the heavy gate. Rejected: the invariant belongs at the land boundary, and a wait with repeated updates can make it run the gate _more_ often than the lazy receipt-gated accept.
+- **Run the whole gate in accept unconditionally** (ADR 0061's rejected option, no receipt). Correct but pays the redundant-run cost on every acceptance — the objection that motivated ADR 0061's narrower guard. The receipt keeps the correctness and removes the cost.
+- **Keep only the fix-stage guard (ADR 0061).** It catches unformatted output but nothing else; the observed hole is broader than formatting. The validation gate subsumes it (a fix-stage strand is a `fix_drift` gate failure), so the targeted guard is retired, not kept alongside.

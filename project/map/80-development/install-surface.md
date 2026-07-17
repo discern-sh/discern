@@ -1,34 +1,17 @@
 # Install surface
 
-_What `discern setup` lays down in a project, and which files are **yours**
-(written once, then kept), **co-managed** (discern owns a delimited part), or
-**the binary's** (re-published artifacts, always safe to overwrite)._
+_What `discern setup` lays down in a project, and which files are **yours** (written once, then kept), **co-managed** (discern owns a delimited part), or **the binary's** (re-published artifacts, always safe to overwrite)._
 
-One `discern setup` scaffolds discern into a project. The committed footprint is
-**one root file, `discern.toml`, plus one visible folder, `discern/`** —
-enforced by test
-([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md);
-see [the write-surface contract](#the-write-surface-contract)). `discern.toml`
-stays at the root as the discovery marker; the `discern/` namespace holds
-everything discern asks you to author and everything it maintains for you. The
-namespace is 100% yours: no generated artifact is ever written inside it, so no
-directory is ever part-tracked, part-generated. The seed files originate in
-[`templates/`](../../../templates/) — the source of truth — which the binary
-renders, merges, or appends into place; the built-in skills and guidance are
-bundled in the binary itself and materialised on disk only as generated output.
+One `discern setup` scaffolds discern into a project. The committed footprint is **one root file, `discern.toml`, plus one visible folder, `discern/`** — enforced by test ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md); see [the write-surface contract](#the-write-surface-contract)). `discern.toml` stays at the root as the discovery marker; the `discern/` namespace holds everything discern asks you to author and everything it maintains for you. The namespace is 100% yours: no generated artifact is ever written inside it, so no directory is ever part-tracked, part-generated. The seed files originate in [`templates/`](../../../templates/) — the source of truth — which the binary renders, merges, or appends into place; the built-in skills and guidance are bundled in the binary itself and materialised on disk only as generated output.
 
-This page is the durable map of that surface, grouped by what each part does. It
-is deliberately **not** an exhaustive file list. The per-file truth lives in
-self-describing sources that never go stale — consult those for the leaves:
+This page is the durable map of that surface, grouped by what each part does. It is deliberately **not** an exhaustive file list. The per-file truth lives in self-describing sources that never go stale — consult those for the leaves:
 
 > - `discern --help` lists every subcommand.
-> - [`discern.toml`](../../../templates/discern.toml.tmpl) documents every
->   config block in its own comments.
+> - [`discern.toml`](../../../templates/discern.toml.tmpl) documents every config block in its own comments.
 
 ## The buckets
 
-Every path in an install is one of three kinds. The bucket decides how the
-binary treats it on `upgrade` and where you change it.
+Every path in an install is one of three kinds. The bucket decides how the binary treats it on `upgrade` and where you change it.
 
 | Bucket           | What it is                                                                                                                                                                                               | On `discern upgrade`                                                                                                                                                                                                                                                                  | Where you change it                                                                                                     |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -36,50 +19,23 @@ binary treats it on `upgrade` and where you change it.
 | **co-managed**   | `discern.toml`'s fixed scaffold and ruled banners, plus the delimited discern block in `.gitignore`; project-owned values, record tables, key comments, and ignore rules outside the block remain yours. | Versioned migrations run; missing fixed sections/keys are restored (ADR 0092), every ruled config banner converges on the template (ADR 0138), and the `.gitignore` block converges on the current fragment (ADR 0093). Values, named tables, key comments, and outside rules remain. | Edit project values, named tables, comments outside ruled banners, and ignore rules outside the discern block in place. |
 | **the binary's** | Gitignored, re-published artifacts: the materialised skills dirs (`.claude/skills/`, `.agents/skills/`) and the compiled agent files. Produced from the bundled sources, always safe to overwrite.       | Re-published — overwritten to match the binary.                                                                                                                                                                                                                                       | Edit the source (in this repo) and re-run the producing command.                                                        |
 
-A limit case of the binary's bucket is **bundled**: the engine, the built-in
-skills ([`templates/skills/`](../../../templates/skills/)), and the built-in
-guidance ([`templates/guidance/`](../../../templates/guidance/)) ships _inside_
-the binary and are never committed to a project at all
-([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The same buckets are
-defined in the [glossary](../00-orientation/glossary.md#file-dispositions).
+A limit case of the binary's bucket is **bundled**: the engine, the built-in skills ([`templates/skills/`](../../../templates/skills/)), and the built-in guidance ([`templates/guidance/`](../../../templates/guidance/)) ships _inside_ the binary and are never committed to a project at all ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The same buckets are defined in the [glossary](../00-orientation/glossary.md#file-dispositions).
 
-Two seed surfaces are special-cased at `setup` so an existing project keeps what
-it already had: each configured agent's settings file by structured merge, and
-`.gitignore` by a delimited discern block whose surrounding project rules remain
-untouched.
+Two seed surfaces are special-cased at `setup` so an existing project keeps what it already had: each configured agent's settings file by structured merge, and `.gitignore` by a delimited discern block whose surrounding project rules remain untouched.
 
 ## The write-surface contract
 
 discern writes to a user project **only**:
 
 - the root `discern.toml` (the config writer);
-- the configured source paths — by default the `discern/` namespace, resolved
-  through the [paths registry](../../../src/shared/paths_registry.ts): the
-  guidance seed, the map, authored-skills and project scripts dirs, the ledger,
-  the brief;
-- the compiled agent files, materialised skills dirs, and provider integration
-  files, at the vendor-fixed paths the
-  [provider registry](../../../src/lib/providers.ts) declares;
+- the configured source paths — by default the `discern/` namespace, resolved through the [paths registry](../../../src/shared/paths_registry.ts): the guidance seed, the map, authored-skills and project scripts dirs, the ledger, the brief;
+- the compiled agent files, materialised skills dirs, and provider integration files, at the vendor-fixed paths the [provider registry](../../../src/lib/providers.ts) declares;
 - the delimited block in `.gitignore`;
 - a worktree's `.env` (updated in place, never created).
 
-Everything else it records lives inside `.git` (the gate receipt, the
-worktree-ready sentinel, the resource ledger, the ignored-file baseline), at a
-path the user typed (`docs --output`), or in a temp file — outside the project
-tree. **Placement is consent**: a file at its namespace default carries an
-implicit write-license; a config key pointed elsewhere is an explicit one; a
-path that is neither is untouchable
-([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+Everything else it records lives inside `.git` (the gate receipt, the worktree-ready sentinel, the resource ledger, the ignored-file baseline), at a path the user typed (`docs --output`), or in a temp file — outside the project tree. **Placement is consent**: a file at its namespace default carries an implicit write-license; a config key pointed elsewhere is an explicit one; a path that is neither is untouchable ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
-The contract is enforced by
-[`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts),
-guard #4 of the leakage battery
-([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)): a static
-funnel confines every raw write primitive in `src/**` to a sanctioned write-site
-module, and a runtime pass scaffolds a project, runs `setup begin` + `refresh` +
-`upgrade`, and checks every file written against the contract derived from the
-two registries. A write outside the surface fails the gate — which is what makes
-the footprint sentence a checkable predicate rather than copy.
+The contract is enforced by [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts), guard #4 of the leakage battery ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)): a static funnel confines every raw write primitive in `src/**` to a sanctioned write-site module, and a runtime pass scaffolds a project, runs `setup begin` + `refresh` + `upgrade`, and checks every file written against the contract derived from the two registries. A write outside the surface fails the gate — which is what makes the footprint sentence a checkable predicate rather than copy.
 
 ## Control surface & configuration
 
@@ -88,8 +44,7 @@ the footprint sentence a checkable predicate rather than copy.
 | [`discern.toml`](../../../templates/discern.toml.tmpl) | co-managed | The one hand-edited root file. It teaches the generic engine about your stack: capabilities, checks, scopes (with gates), worktree settings, standards, gate ergonomics, and the `[map]`/`[guidance]`/`[skills]`/`[scripts]`/`[project].todo` pointers. Its `[meta].schema_version` is the migration anchor ([ADR 0014](../_adr/0014-versioned-migration-system.md)); missing fixed structure is restored ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)), and prose between ruled banner delimiters is replaced from the current template while key comments stay project-owned ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)). |
 | `discern/brief.md`                                     | yours      | An optional project brief — seeded only when one is supplied (`discern setup --brief`/`--config`). When present, the agent reads it to help fill the map and guidance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
-Every source path has a prescriptive default and a config key that points it
-anywhere ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)):
+Every source path has a prescriptive default and a config key that points it anywhere ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)):
 
 | Source               | Default               | Config key           |
 | -------------------- | --------------------- | -------------------- |
@@ -100,16 +55,11 @@ anywhere ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)):
 | deferred-work ledger | `discern/TODO.md`     | `[project].todo`     |
 | project brief        | `discern/brief.md`    | — (fixed)            |
 
-This repo itself points every ongoing configurable authored source beneath
-`project/`: the map, guidance, authored skills, project scripts, and ledger. The
-registry-driven self-hosting guard makes a future configurable source
-auto-enrol, while the shipped defaults in the table above remain unchanged.
+This repo itself points every ongoing configurable authored source beneath `project/`: the map, guidance, authored skills, project scripts, and ledger. The registry-driven self-hosting guard makes a future configurable source auto-enrol, while the shipped defaults in the table above remain unchanged.
 
 ## The quality gate
 
-The gate is part of the binary's TypeScript engine
-([`src/engine/`](../../../src/engine/)). Its public verbs are first-class
-`discern` subcommands:
+The gate is part of the binary's TypeScript engine ([`src/engine/`](../../../src/engine/)). Its public verbs are first-class `discern` subcommands:
 
 | Command             | What it does                                                                                                                                              | Source                                                                  |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -119,34 +69,13 @@ The gate is part of the binary's TypeScript engine
 | `discern standards` | Checks never-loosen metric floors/ceilings against `main` (on demand; not part of `done`).                                                                | [`src/engine/gate/standards.ts`](../../../src/engine/gate/standards.ts) |
 | `discern impact`    | Classifies which scopes the branch touches; fails **open** (an unknown path runs more gates, never fewer).                                                | [`src/engine/scopes/scopes.ts`](../../../src/engine/scopes/scopes.ts)   |
 
-Every subsystem is core — there is no `[features]` table and no existence-toggle
-([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A subsystem that
-costs nothing when unused needs no switch: worktrees you never start and
-standards you never define are naturally inert, and the one knob left is
-`[skills].exclude` (materialised skills occupy agent context even unused).
-`[capabilities]` is what it always was: the gate's command table.
+Every subsystem is core — there is no `[features]` table and no existence-toggle ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A subsystem that costs nothing when unused needs no switch: worktrees you never start and standards you never define are naturally inert, and the one knob left is `[skills].exclude` (materialised skills occupy agent context even unused). `[capabilities]` is what it always was: the gate's command table.
 
-Stage scheduling
-([`src/engine/gate/stages.ts`](../../../src/engine/gate/stages.ts)), the
-failure-pointer wording
-([`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts)), and the
-parallel/serial job runner
-([`src/engine/jobs/runner.ts`](../../../src/engine/jobs/runner.ts), with
-process-group tree-kill in
-[`src/engine/jobs/command.ts`](../../../src/engine/jobs/command.ts)) back these.
-`doctor` ([`src/commands/doctor.ts`](../../../src/commands/doctor.ts))
-health-checks the install — config, git, capability/check commands, paths, and a
-readiness report.
+Stage scheduling ([`src/engine/gate/stages.ts`](../../../src/engine/gate/stages.ts)), the failure-pointer wording ([`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts)), and the parallel/serial job runner ([`src/engine/jobs/runner.ts`](../../../src/engine/jobs/runner.ts), with process-group tree-kill in [`src/engine/jobs/command.ts`](../../../src/engine/jobs/command.ts)) back these. `doctor` ([`src/commands/doctor.ts`](../../../src/commands/doctor.ts)) health-checks the install — config, git, capability/check commands, paths, and a readiness report.
 
 ## The isolated-worktree workflow
 
-The worktree workflow is discern's spine — always wired, with no configuration
-attached ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). Generic git
-mechanics live in the engine
-([`src/engine/worktree/`](../../../src/engine/worktree/)), driven by the hooks
-in [Bookkeeping & integration](#bookkeeping--integration). The stack-specific
-part is the per-worktree **resources** (`[worktree.resources.<name>]`) a project
-declares in `discern.toml`; a fresh install declares none.
+The worktree workflow is discern's spine — always wired, with no configuration attached ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). Generic git mechanics live in the engine ([`src/engine/worktree/`](../../../src/engine/worktree/)), driven by the hooks in [Bookkeeping & integration](#bookkeeping--integration). The stack-specific part is the per-worktree **resources** (`[worktree.resources.<name>]`) a project declares in `discern.toml`; a fresh install declares none.
 
 | Command                     | What it does                                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -160,11 +89,7 @@ declares in `discern.toml`; a fresh install declares none.
 | `discern worktree prune`    | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.                            |
 | `discern identity`          | Resolves a worktree's stable identity (id / site / branch / port / db / resource).                           |
 
-The lifecycle logic lives in
-[`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts);
-the stable worktree identity (POSIX-`cksum`-faithful) in
-[`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts).
-Run `discern --help` for the full verb list.
+The lifecycle logic lives in [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts); the stable worktree identity (POSIX-`cksum`-faithful) in [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts). Run `discern --help` for the full verb list.
 
 ## Agent instructions (author-once → compile-everywhere)
 
@@ -175,33 +100,11 @@ Run `discern --help` for the full verb list.
 | `CLAUDE.md`, `GEMINI.md`             | generated | The committed per-agent mirrors — each a one-line `@AGENTS.md` import (both vendors expand it in place), so neither can drift from the canonical file. No banner — drift is caught by the currency check.                                            |
 | `.claude/skills/`, `.agents/skills/` | generated | Materialised skills the configured agents discover — built-ins rendered, authored skills symlinked. Gitignored; stale rendered skills fail the skills currency check, and force-tracked materialized files fail the tracked-artifacts guard.         |
 
-`discern refresh`
-([`src/engine/guidelines.ts`](../../../src/engine/guidelines.ts)) regenerates
-the generated agent files, skills, and integration artifacts: it compiles each
-agent file as **discern's built-in guidance** (always prepended) **plus your
-`[guidance].sources`**, and (re)materialises the skills. Which files it writes
-is set by `[guidance].agents`, through the provider registry
-([`src/lib/providers.ts`](../../../src/lib/providers.ts)) — the per-provider
-truth, including each agent's MCP, hooks, and skills wiring, is mapped in
-[`../60-agent-integrations/`](../60-agent-integrations/).
+`discern refresh` ([`src/engine/guidelines.ts`](../../../src/engine/guidelines.ts)) regenerates the generated agent files, skills, and integration artifacts: it compiles each agent file as **discern's built-in guidance** (always prepended) **plus your `[guidance].sources`**, and (re)materialises the skills. Which files it writes is set by `[guidance].agents`, through the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts)) — the per-provider truth, including each agent's MCP, hooks, and skills wiring, is mapped in [`../60-agent-integrations/`](../60-agent-integrations/).
 
 ## Bundled skills
 
-The bundled skills the coding agent can invoke ship **in the binary** (their
-source lives under [`templates/skills/`](../../../templates/skills/), compiled
-in via `deno compile --include templates`; the table below is guard-checked
-against that set), and a project can add its own under `[skills].dir` (default
-`discern/skills`, yours overriding a built-in by name). `discern refresh` (and
-`setup`/`upgrade`) materialise the effective set into each configured agent's
-skills dir — **generated**, gitignored: built-ins **rendered** through the
-strict template engine (path tokens like `{{map_dir}}` become the configured
-paths — [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)),
-authored skills **symlinked** so edits are live (see
-[`src/lib/skills.ts`](../../../src/lib/skills.ts)). `discern skills list` shows
-the set and which of yours override which; `discern skills eject <name>` copies
-a built-in into your skills dir so you can customise it; `[skills].exclude`
-drops named skills from materialisation. Each is a `SKILL.md` under its own
-directory:
+The bundled skills the coding agent can invoke ship **in the binary** (their source lives under [`templates/skills/`](../../../templates/skills/), compiled in via `deno compile --include templates`; the table below is guard-checked against that set), and a project can add its own under `[skills].dir` (default `discern/skills`, yours overriding a built-in by name). `discern refresh` (and `setup`/`upgrade`) materialise the effective set into each configured agent's skills dir — **generated**, gitignored: built-ins **rendered** through the strict template engine (path tokens like `{{map_dir}}` become the configured paths — [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)), authored skills **symlinked** so edits are live (see [`src/lib/skills.ts`](../../../src/lib/skills.ts)). `discern skills list` shows the set and which of yours override which; `discern skills eject <name>` copies a built-in into your skills dir so you can customise it; `[skills].exclude` drops named skills from materialisation. Each is a `SKILL.md` under its own directory:
 
 | Skill                                                                                             | What it does                                                                                                         |
 | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -219,25 +122,11 @@ directory:
 | [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)       | Route a session's lesson into guidance, a skill, a project script, a doc, or an ADR — so future sessions inherit it. |
 | [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                       | Record a significant decision as an Architecture Decision Record.                                                    |
 
-(Seeding a fresh install is **not** a skill — it is the `discern setup` command;
-see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by
-[ADR 0036](../_adr/0036-unify-setup.md).)
+(Seeding a fresh install is **not** a skill — it is the `discern setup` command; see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by [ADR 0036](../_adr/0036-unify-setup.md).)
 
 ## The map & the ledger
 
-`discern setup begin` lays the map's skeleton at `[map].dir` (default `map/`,
-including the ADR pack) and the deferred-work ledger at `[project].todo`
-(default `discern/TODO.md`), and the setup brief's authoring pass fills them —
-the map is eager, and never left empty
-([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The documenter
-brief and scope-manifest template land lazily, on the
-[`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md)
-skill's first use. The skeleton sources ship with whatever creates them —
-[`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup, a
-`skeleton/` dir inside each carrying skill — and are copied to the
-**configured** destinations, with path tokens rendered
-([ADR 0080](../_adr/0080-configured-agent-map-root.md),
-[ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+`discern setup begin` lays the map's skeleton at `[map].dir` (default `map/`, including the ADR pack) and the deferred-work ledger at `[project].todo` (default `discern/TODO.md`), and the setup brief's authoring pass fills them — the map is eager, and never left empty ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The documenter brief and scope-manifest template land lazily, on the [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) skill's first use. The skeleton sources ship with whatever creates them — [`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup, a `skeleton/` dir inside each carrying skill — and are copied to the **configured** destinations, with path tokens rendered ([ADR 0080](../_adr/0080-configured-agent-map-root.md), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ## Bookkeeping & integration
 
@@ -248,17 +137,6 @@ skill's first use. The skeleton sources ship with whatever creates them —
 | [`.claude/settings.json`](../../../templates/.claude/settings.json.tmpl) | co-managed merge | Adds a `Read(./.env)` deny and three hooks — `SessionStart` → `discern worktree ensure`, `WorktreeCreate` → `discern worktree create`, `WorktreeRemove` → `discern worktree remove` — preserving existing settings. Each other configured agent gets its own settings/hooks seed the same way, routed through the provider registry ([`../60-agent-integrations/`](../60-agent-integrations/)).                                 |
 | [`.gitignore`](../../../templates/.gitignore.fragment)                   | co-managed       | The project owns its ignore rules outside `# --- discern ---` / `# --- /discern ---`. Inside that block, discern ignores only what it materializes or keeps machine-local — the skills dirs and `.claude/settings.local.json` (ADR 0128); the compiled agent files stay tracked. `upgrade` reconciles it to the current fragment (ADR 0093), while `status` warns and `done` blocks if a discern-owned ignored path is tracked. |
 
-> In this repo (which self-hosts from source), these hooks call
-> `deno task dev worktree ensure`, `deno task dev worktree create`, and
-> `deno task dev worktree remove` rather than the installed `discern` binary:
-> they run automatically with no setup, so they go through Deno directly instead
-> of the optional local-dev `discern` wrapper. The distributed
-> [`templates/.claude/settings.json.tmpl`](../../../templates/.claude/settings.json.tmpl)
-> uses the on-`PATH` `discern` binary.
+> In this repo (which self-hosts from source), these hooks call `deno task dev worktree ensure`, `deno task dev worktree create`, and `deno task dev worktree remove` rather than the installed `discern` binary: they run automatically with no setup, so they go through Deno directly instead of the optional local-dev `discern` wrapper. The distributed [`templates/.claude/settings.json.tmpl`](../../../templates/.claude/settings.json.tmpl) uses the on-`PATH` `discern` binary.
 
-The linked worktree checkouts appear only at run time, never from `setup`. By
-default they live in a **sibling** directory (`<repo>.worktrees/`), outside the
-repo entirely, so nothing in the tree needs to ignore them. A project that
-points `[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`)
-keeps them out of git via the ignore block
-([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
+The linked worktree checkouts appear only at run time, never from `setup`. By default they live in a **sibling** directory (`<repo>.worktrees/`), outside the repo entirely, so nothing in the tree needs to ignore them. A project that points `[worktree].root` at a path _inside_ the repo (e.g. `.claude/worktrees`) keeps them out of git via the ignore block ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).

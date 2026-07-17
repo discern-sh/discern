@@ -1,15 +1,10 @@
 # Run the gate on GitHub Actions
 
-_Protect your `main` branch: run `discern done` on every pull request, then
-require that check before anything can merge._
+_Protect your `main` branch: run `discern done` on every pull request, then require that check before anything can merge._
 
 ## Protect your main branch
 
-Local gates are discipline: a person or tool can still push around them. CI
-turns the gate into repository policy once the trunk — the shared landing
-branch, usually `main` — is protected. Every pull request and every push to that
-branch runs the same `discern done` command you run locally; GitHub branch
-protection or a rule set is what blocks bypasses until that check is green.
+Local gates are discipline: a person or tool can still push around them. CI turns the gate into repository policy once the trunk — the shared landing branch, usually `main` — is protected. Every pull request and every push to that branch runs the same `discern done` command you run locally; GitHub branch protection or a rule set is what blocks bypasses until that check is green.
 
 Create `.github/workflows/discern-gate.yml`:
 
@@ -109,25 +104,16 @@ jobs:
         run: git diff --exit-code
 ```
 
-Then protect `main`: require pull requests, require the `discern-gate` status
-check before merge, and decide who can bypass the rule. The workflow reports the
-result; the branch rule makes it block. The push trigger verifies landed commits
-and catches policy mistakes, but it cannot stop an already-accepted push by
-itself.
+Then protect `main`: require pull requests, require the `discern-gate` status check before merge, and decide who can bypass the rule. The workflow reports the result; the branch rule makes it block. The push trigger verifies landed commits and catches policy mistakes, but it cannot stop an already-accepted push by itself.
 
 ### The two values to customize
 
-The workflow runs as-is against discern's published releases. Two values pin it
-to the version and runner you want:
+The workflow runs as-is against discern's published releases. Two values pin it to the version and runner you want:
 
-- **`DISCERN_VERSION`** — the released version CI installs and trusts (for
-  example `v1.0.0`). The job downloads that release's Linux asset and verifies
-  its matching `.sha256` file before putting `discern` on `PATH`.
-- **`DISCERN_ASSET`** — the release asset for your runner's platform. Change it
-  when your job runs on something other than x86-64 Linux.
+- **`DISCERN_VERSION`** — the released version CI installs and trusts (for example `v1.0.0`). The job downloads that release's Linux asset and verifies its matching `.sha256` file before putting `discern` on `PATH`.
+- **`DISCERN_ASSET`** — the release asset for your runner's platform. Change it when your job runs on something other than x86-64 Linux.
 
-Everything below is optional depth: adapting the workflow to your stack,
-ephemeral cloud-agent environments, cost, and standards.
+Everything below is optional depth: adapting the workflow to your stack, ephemeral cloud-agent environments, cost, and standards.
 
 ## Adapting the workflow
 
@@ -139,59 +125,29 @@ on:
     branches: [trunk]
 ```
 
-Keep the stack setup section honest. `discern` runs the commands in
-`discern.toml`; it does not install Node packages, Python packages, Deno, a
-database client, a browser, or any other tool those commands need. The workflow
-includes common Deno, Node, and Python setup paths, but a different stack needs
-its setup steps before `discern done`.
+Keep the stack setup section honest. `discern` runs the commands in `discern.toml`; it does not install Node packages, Python packages, Deno, a database client, a browser, or any other tool those commands need. The workflow includes common Deno, Node, and Python setup paths, but a different stack needs its setup steps before `discern done`.
 
-Do not add `discern refresh` to CI. The compiled agent files travel with the
-clone (they are committed), the guidance check accepts `missing` as current for
-a project that keeps them untracked, and the materialized skills are expected to
-be absent. CI should verify the tree you committed, not materialize extra files
-and carry on.
+Do not add `discern refresh` to CI. The compiled agent files travel with the clone (they are committed), the guidance check accepts `missing` as current for a project that keeps them untracked, and the materialized skills are expected to be absent. CI should verify the tree you committed, not materialize extra files and carry on.
 
 ## Ephemeral cloud-agent environments
 
-Some coding agents don't run on your machine at all — they run in a fresh clone
-of your repo in an ephemeral environment: GitHub Copilot's coding agent, Codex
-on the web, and similar cloud runners. They clone the repo _without_ the discern
-binary. The **compiled agent guidance** (`AGENTS.md` / `CLAUDE.md` /
-`GEMINI.md`) is committed by default
-([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)), so a cloud
-agent reads the same compiled guidance a local session does, straight from the
-clone. What such an environment still starts without:
+Some coding agents don't run on your machine at all — they run in a fresh clone of your repo in an ephemeral environment: GitHub Copilot's coding agent, Codex on the web, and similar cloud runners. They clone the repo _without_ the discern binary. The **compiled agent guidance** (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`) is committed by default ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)), so a cloud agent reads the same compiled guidance a local session does, straight from the clone. What such an environment still starts without:
 
-- the **materialized skills** (`.claude/skills/`, `.agents/skills/`) — so the
-  bundled and authored skills aren't discoverable;
-- the **MCP server** — there is no binary to run `discern mcp`, so the
-  `discern_*` tools aren't available.
+- the **materialized skills** (`.claude/skills/`, `.agents/skills/`) — so the bundled and authored skills aren't discoverable;
+- the **MCP server** — there is no binary to run `discern mcp`, so the `discern_*` tools aren't available.
 
 Two ways to close the remaining gap:
 
-- **Install discern in the environment.** Add the same install step CI uses (see
-  above) to the environment's setup, so the binary is present. `discern refresh`
-  can then materialize the skills and the MCP server can run — but keep the
-  refresh in the environment's own setup, not in the gate job, for the reason in
-  [The two values to customize](#the-two-values-to-customize).
-- **Rely on the gate in CI.** For the gate specifically, the workflow above
-  installs discern and runs `discern done` on every pull request, so a change
-  that originates in a cloud environment is still held to the same bar before it
-  can land — whether or not that environment had discern while the work
-  happened.
+- **Install discern in the environment.** Add the same install step CI uses (see above) to the environment's setup, so the binary is present. `discern refresh` can then materialize the skills and the MCP server can run — but keep the refresh in the environment's own setup, not in the gate job, for the reason in [The two values to customize](#the-two-values-to-customize).
+- **Rely on the gate in CI.** For the gate specifically, the workflow above installs discern and runs `discern done` on every pull request, so a change that originates in a cloud environment is still held to the same bar before it can land — whether or not that environment had discern while the work happened.
 
 ## Cost
 
-This spends GitHub Actions minutes on every pull request update and every push
-to the trunk. The cost is the time to install the runner toolchain plus the time
-your `discern done` capabilities and checks already take. Use the cache knobs
-for your stack once the plain workflow is green.
+This spends GitHub Actions minutes on every pull request update and every push to the trunk. The cost is the time to install the runner toolchain plus the time your `discern done` capabilities and checks already take. Use the cache knobs for your stack once the plain workflow is green.
 
 ## Standards
 
-`discern standards` stays outside `discern done` because metric checks can be
-slow. Add a second, pull-request-only job once the project has standards
-configured:
+`discern standards` stays outside `discern done` because metric checks can be slow. Add a second, pull-request-only job once the project has standards configured:
 
 ```yaml
 jobs:
@@ -211,16 +167,10 @@ jobs:
         run: discern standards
 ```
 
-The separate job keeps landed-commit checks fast while still blocking pull
-requests that loosen a configured metric.
+The separate job keeps landed-commit checks fast while still blocking pull requests that loosen a configured metric.
 
 ## Troubleshooting
 
-Start with `discern doctor`. It checks the install, the config, and the tools
-the gate expects. If CI fails after `doctor` is clean, run `discern done`
-locally and compare the failing capability with the CI log; the runner is often
-missing one dependency your machine already had.
+Start with `discern doctor`. It checks the install, the config, and the tools the gate expects. If CI fails after `doctor` is clean, run `discern done` locally and compare the failing capability with the CI log; the runner is often missing one dependency your machine already had.
 
-Other CI systems use the same shape: check out the repo, install a pinned
-`discern`, install the project toolchain, run `discern done`, and assert the fix
-stage changed nothing.
+Other CI systems use the same shape: check out the repo, install a pinned `discern`, install the project toolchain, run `discern done`, and assert the fix stage changed nothing.

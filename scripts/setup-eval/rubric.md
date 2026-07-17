@@ -1,9 +1,6 @@
 # Setup Eval Rubric
 
-Grade the saved transcript manually. Mark each row pass or fail and use the
-Notes column for evidence: message excerpts, command names, commit hashes, or
-the file that proves the observation. A run fails overall if any required row
-fails.
+Grade the saved transcript manually. Mark each row pass or fail and use the Notes column for evidence: message excerpts, command names, commit hashes, or the file that proves the observation. A run fails overall if any required row fails.
 
 | Area                  | Criterion                  | Pass                                                                                                                                                                                          | Fail                                                                                                              | Notes |
 | --------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----- |
@@ -24,12 +21,6 @@ fails.
 | Completion            | Fresh-session reactivation | The closing message tells the human to start a fresh agent session so the newly written agent files, MCP wiring, and hooks are loaded.                                                        | No fresh-session step, or it suggests continuing indefinitely in the pre-setup session.                           |       |
 | Overall               | Novice comprehension       | A novice reading only the chat transcript could explain what discern is, what changed in the repo, and how to undo or continue.                                                               | The transcript requires reading raw tool output or knowing discern already.                                       |       |
 
-Use the raw JSONL/stdout files as the source of truth. The optional
-`last-message-*` files are convenience snapshots only; do not grade from them
-alone.
+Use the raw JSONL/stdout files as the source of truth. The optional `last-message-*` files are convenience snapshots only; do not grade from them alone.
 
-Two grading caveats. The Wait-boundary row is necessary-but-not-sufficient: the
-scripted first turn ends with "ask me and then stop", so a pass proves little
-while a fail is damning. And the scripted turns must never name any behavior
-this rubric grades — if you edit the prompts in `run-agent.ts`, keep them a
-plausible novice's words (see the README's Measurement Validity section).
+Two grading caveats. The Wait-boundary row is necessary-but-not-sufficient: the scripted first turn ends with "ask me and then stop", so a pass proves little while a fail is damning. And the scripted turns must never name any behavior this rubric grades — if you edit the prompts in `run-agent.ts`, keep them a plausible novice's words (see the README's Measurement Validity section).

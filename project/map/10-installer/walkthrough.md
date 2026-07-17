@@ -4,19 +4,13 @@ order: 20
 
 # A walkthrough — one session, start to finish
 
-_What actually happens when you install discern, set it up through your coding
-agent, and ship a first change. Written for the human watching._
+_What actually happens when you install discern, set it up through your coding agent, and ship a first change. Written for the human watching._
 
-discern is driven by your coding agent, not by you typing commands. So this
-walkthrough follows what you _see_: you ask your agent to do things, the agent
-runs discern, and discern hands messages back through the agent to you. Nothing
-below is scripted — it is the real staged flow, with the moments you act called
-out.
+discern is driven by your coding agent, not by you typing commands. So this walkthrough follows what you _see_: you ask your agent to do things, the agent runs discern, and discern hands messages back through the agent to you. Nothing below is scripted — it is the real staged flow, with the moments you act called out.
 
 ## 1. Install (about a minute)
 
-You install the binary once, with the one-line install script the README shows.
-The install message ends with one instruction — not "read the docs", but:
+You install the binary once, with the one-line install script the README shows. The install message ends with one instruction — not "read the docs", but:
 
 > Tell your coding agent to run `discern`.
 
@@ -24,93 +18,47 @@ That is the whole handoff. You don't configure anything by hand.
 
 ## 2. Setup is a conversation
 
-In your project, you tell your agent something like _"set this project up with
-discern."_ The agent runs `discern`, and because the project isn't set up yet,
-discern prints a **welcome** the agent relays to you: what discern is, and that
-it is about to ask for consent before writing anything.
+In your project, you tell your agent something like _"set this project up with discern."_ The agent runs `discern`, and because the project isn't set up yet, discern prints a **welcome** the agent relays to you: what discern is, and that it is about to ask for consent before writing anything.
 
-Then the agent runs `discern setup verify`, and discern serves a first-person
-**consent message** the agent relays verbatim (or in its own words) — it tells
-you, plainly:
+Then the agent runs `discern setup verify`, and discern serves a first-person **consent message** the agent relays verbatim (or in its own words) — it tells you, plainly:
 
-- what discern will write (one `discern.toml`, a visible `discern/` namespace
-  for your guidance, the map at `map/`, the agent files each coding agent needs,
-  a delimited `.gitignore` block);
-- that there is **no lock-in** — everything authored is plain Markdown you own,
-  the generated files can always be rebuilt from it, and `discern uninstall`
-  takes the wiring back out;
-- and, if your project has its own `docs/` folder, reassurance that it stays
-  untouched: the map is discern's own separate tree, never your documentation.
+- what discern will write (one `discern.toml`, a visible `discern/` namespace for your guidance, the map at `map/`, the agent files each coding agent needs, a delimited `.gitignore` block);
+- that there is **no lock-in** — everything authored is plain Markdown you own, the generated files can always be rebuilt from it, and `discern uninstall` takes the wiring back out;
+- and, if your project has its own `docs/` folder, reassurance that it stays untouched: the map is discern's own separate tree, never your documentation.
 
-You answer in plain language — _"yes, go ahead; set up Claude Code and Codex."_
-The agent doesn't proceed until you've said yes; a fresh setup requires the
-agent to attest that this conversation happened.
+You answer in plain language — _"yes, go ahead; set up Claude Code and Codex."_ The agent doesn't proceed until you've said yes; a fresh setup requires the agent to attest that this conversation happened.
 
 ## 3. The agent scaffolds
 
-With your consent, the agent runs `discern setup begin`. discern works on an
-isolated `discern-setup` branch so your `main` is never touched mid-setup — and
-it starts that branch **from** your trunk — the shared landing branch, usually
-`main` — refusing to begin from an unlanded feature branch (whose own commits
-would otherwise ride along when the setup accepts). It lays down the scaffold —
-`discern.toml`, the `discern/` namespace, the map skeleton — records a short
-brief of what you're building, and prints a **setup brief** the agent then works
-through: wiring the gate commands for your stack first — so the project is
-protected before anything else happens — then filling in your guidance and
-sketching the first docs under the live gate.
+With your consent, the agent runs `discern setup begin`. discern works on an isolated `discern-setup` branch so your `main` is never touched mid-setup — and it starts that branch **from** your trunk — the shared landing branch, usually `main` — refusing to begin from an unlanded feature branch (whose own commits would otherwise ride along when the setup accepts). It lays down the scaffold — `discern.toml`, the `discern/` namespace, the map skeleton — records a short brief of what you're building, and prints a **setup brief** the agent then works through: wiring the gate commands for your stack first — so the project is protected before anything else happens — then filling in your guidance and sketching the first docs under the live gate.
 
 You watch this happen. It's ordinary file edits on a branch you can read.
 
 ## 4. Setup proves itself, then hands back
 
-When the scaffold is ready, the agent runs `discern setup done`. This is not a
-rubber stamp: discern first refuses if any of the authored setup is still
-uncommitted (the proof runs on committed history, and "the branch keeps every
-commit" has to be true), then **proves the gate** — it refreshes the generated
-files, runs `discern doctor`, runs `discern done`, and then runs the whole gate
-again in a **throwaway worktree copy**, so a project that passes on your machine
-but would break in an isolated worktree can't complete setup silently.
+When the scaffold is ready, the agent runs `discern setup done`. This is not a rubber stamp: discern first refuses if any of the authored setup is still uncommitted (the proof runs on committed history, and "the branch keeps every commit" has to be true), then **proves the gate** — it refreshes the generated files, runs `discern doctor`, runs `discern done`, and then runs the whole gate again in a **throwaway worktree copy**, so a project that passes on your machine but would break in an isolated worktree can't complete setup silently.
 
-If that all passes, discern records that setup is complete and serves a
-**reactivation** note: the MCP tools, session hooks, and project rules it wired
-load at session start, so the session that ran setup can't see them yet — start
-a fresh agent session to pick them up. You then review the `discern-setup`
-branch like any other and land it.
+If that all passes, discern records that setup is complete and serves a **reactivation** note: the MCP tools, session hooks, and project rules it wired load at session start, so the session that ran setup can't see them yet — start a fresh agent session to pick them up. You then review the `discern-setup` branch like any other and land it.
 
 That's setup. A few minutes, one consent conversation, one review.
 
 ## 5. Shipping a change
 
-Now the daily loop. In a fresh session, you ask your agent for a small change —
-_"add a `--quiet` flag to the export command."_ Here is what the agent does, and
-what you see:
+Now the daily loop. In a fresh session, you ask your agent for a small change — _"add a `--quiet` flag to the export command."_ Here is what the agent does, and what you see:
 
-1. **It gets its own workspace.** On the trunk, the agent runs `discern start`,
-   which creates an isolated git worktree on an `agent/…` branch and moves into
-   it. Your `main` checkout is left alone; the agent works in a copy.
+1. **It gets its own workspace.** On the trunk, the agent runs `discern start`, which creates an isolated git worktree on an `agent/…` branch and moves into it. Your `main` checkout is left alone; the agent works in a copy.
 2. **It writes the change.** Ordinary editing and testing, in the worktree.
-3. **It runs the gate.** `discern done` formats, builds, lints, type-checks, and
-   tests — and won't call the work done until the whole tree passes. If a step
-   fails, discern hands the agent the exact failing command and its output, so
-   the agent fixes and re-runs rather than guessing.
-4. **It reports ready.** The agent tells you the change is green and waits — it
-   does not land anything on its own.
+3. **It runs the gate.** `discern done` formats, builds, lints, type-checks, and tests — and won't call the work done until the whole tree passes. If a step fails, discern hands the agent the exact failing command and its output, so the agent fixes and re-runs rather than guessing.
+4. **It reports ready.** The agent tells you the change is green and waits — it does not land anything on its own.
 
-You review the branch. When you're happy, you tell the agent to land it, and it
-runs `discern accept`, which fast-forwards your trunk to the reviewed branch and
-removes the worktree. The change is on `main`; the workspace is gone.
+You review the branch. When you're happy, you tell the agent to land it, and it runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree. The change is on `main`; the workspace is gone.
 
 ## 6. If you ever want it gone
 
-`discern uninstall --dry-run` shows you exactly what removal would touch;
-`discern uninstall` does it — removing the generated files and the wiring,
-keeping your `discern.toml` and everything in `discern/`. See
-[Files & ownership](artifact-ownership.md) for the full footprint.
+`discern uninstall --dry-run` shows you exactly what removal would touch; `discern uninstall` does it — removing the generated files and the wiring, keeping your `discern.toml` and everything in `discern/`. See [Files & ownership](artifact-ownership.md) for the full footprint.
 
 ## See also
 
-- [Files & ownership](artifact-ownership.md) — the footprint in full, and who
-  owns each file.
+- [Files & ownership](artifact-ownership.md) — the footprint in full, and who owns each file.
 - [FAQ & troubleshooting](faq.md) — when a step doesn't go as above.
-- [The quality gate](../20-quality-gate/README.md) — what `discern done`
-  actually runs.
+- [The quality gate](../20-quality-gate/README.md) — what `discern done` actually runs.

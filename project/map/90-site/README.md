@@ -1,9 +1,6 @@
 # The public site — discern.sh
 
-The public-facing pages for discern, served from this repository so the same
-gate that checks the engine checks the site
-([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)).
-Contributor-facing: this subtree is not bundled into `discern help`.
+The public-facing pages for discern, served from this repository so the same gate that checks the engine checks the site ([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)). Contributor-facing: this subtree is not bundled into `discern help`.
 
 ## Shape
 
@@ -43,86 +40,30 @@ The routes, from the handler's exported `PAGES` table:
 
 ## Reader negotiation
 
-A browser declares `text/html` in its `Accept` header; nothing else reliably
-does. On `/` and `/agents` the handler serves the plaintext edition to clients
-that omit `text/html` and either match a known text tool (curl, wget, and
-friends) or explicitly ask for `text/plain`. So `curl discern.sh` prints the
-agent's manual, and the same URL in a browser renders the illustrated edition.
-Negotiated responses carry `Vary: Accept, User-Agent`.
+A browser declares `text/html` in its `Accept` header; nothing else reliably does. On `/` and `/agents` the handler serves the plaintext edition to clients that omit `text/html` and either match a known text tool (curl, wget, and friends) or explicitly ask for `text/plain`. So `curl discern.sh` prints the agent's manual, and the same URL in a browser renders the illustrated edition. Negotiated responses carry `Vary: Accept, User-Agent`.
 
 ## URL and response contract
 
-Production's canonical origin is `https://discern.sh`; page URLs have no
-trailing slash. HTTP, `www`, `.html`, trailing-slash, and `index.html` variants
-resolve with a 308 before routing, and a historical redirect is folded into the
-same hop. Destination pages own `redirect_from`; section-level moves live in
-`STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry
-refuses dead targets, collisions, chains, and loops
-([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
+Production's canonical origin is `https://discern.sh`; page URLs have no trailing slash. HTTP, `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing, and a historical redirect is folded into the same hop. Destination pages own `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry refuses dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
 
-Every successful HTML response receives a canonical link, bounded description,
-Open Graph and Twitter fields, and the static branded card. Docs pages add a
-`BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit
-Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Docs pages add a `BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
-Every response, including assets, redirects, and errors, carries the same
-security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer,
-permissions restrictions, and framing denial. The handler adds a nonce to inline
-theme bootstraps; third-party resource origins are not admitted.
+Every response, including assets, redirects, and errors, carries the same security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer, permissions restrictions, and framing denial. The handler adds a nonce to inline theme bootstraps; third-party resource origins are not admitted.
 
-Unknown routes return 404. A 410 is used only for a deliberately retired public
-URL with no replacement, entered as an explicit tombstone. Missing files never
-imply 410, and there are no tombstones before launch. When a published heading
-is renamed, keep its old fragment as an explicit alias anchor in the page;
-fragments do not reach this handler.
+Unknown routes return 404. A 410 is used only for a deliberately retired public URL with no replacement, entered as an explicit tombstone. Missing files never imply 410, and there are no tombstones before launch. When a published heading is renamed, keep its old fragment as an explicit alias anchor in the page; fragments do not reach this handler.
 
 ## Guards
 
-[`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the
-exported `PAGES` table — every declared route must serve its page, negotiable
-routes must serve the plaintext edition to text clients, and the plaintext file
-itself must exist. A page added to the table auto-enrols; a route without its
-file fails the gate.
-[`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for
-the docs section by iterating the discovered tree — rendering, negotiation,
-search-index and llms.txt coverage, and link integrity all auto-enrol a new map
-leaf.
-[`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts)
-drives the ignored-output, exact-dependency, bundle selection, local asset,
-licence, component-enrolment, and static-runtime guards from the published
-package manifest and Discern's selection table.
-[`tests/site_development_test.ts`](../../../tests/site_development_test.ts)
-guards loopback-only development servers, the browser-facing localhost URL, and
-the source boundary used by watch mode.
-[`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the
-live route set and pins canonical redirects, redirect-registry safety, sitemap
-parity, metadata, machine-edition headers, llms-full, and every security-header
-response class.
-[`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts)
-keeps the sole production deploy inside the release-tag workflow.
+[`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table — every declared route must serve its page, negotiable routes must serve the plaintext edition to text clients, and the plaintext file itself must exist. A page added to the table auto-enrols; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree — rendering, negotiation, search-index and llms.txt coverage, and link integrity all auto-enrol a new map leaf. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) drives the ignored-output, exact-dependency, bundle selection, local asset, licence, component-enrolment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
 
 ## Operating it
 
-[publishing.md](publishing.md) covers running the site locally and deploying it
-to production.
+[publishing.md](publishing.md) covers running the site locally and deploying it to production.
 
 ## Current state & gotchas
 
-- Three older pages still name Tailwind's CDN and Google Fonts in their source.
-  The production CSP admits neither origin, so no visitor request reaches them;
-  their remote Tailwind compilation and fonts are consequently unavailable.
-  [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled
-  assets as a separate launch blocker. `/` and both composition atlases already
-  use compiled CSS and self-hosted assets.
-- `mockups/landing/` is the design archive. The homepage replaced in July 2026
-  remains there as `previous-homepage-2026-07-16.html`; archived pages are never
-  served or kept in sync with the live edition.
-- The generated homepage and two composition atlases are the exceptions to
-  `site/pages/` being hand-authored and self-contained. Their sources live in
-  `site/page-src/`; `deno task site:build` owns their ignored HTML and
-  design-system assets under `site/pages/`, and Deno Deploy runs that task
-  before starting the handler.
-- [the-design-system.md](the-design-system.md) records the external dependency,
-  thin integration, and bundle boundary.
-- [design-system-consumption.md](design-system-consumption.md) records static
-  page composition, retained atlases, build commands, and consumer guards.
+- Three older pages still name Tailwind's CDN and Google Fonts in their source. The production CSP admits neither origin, so no visitor request reaches them; their remote Tailwind compilation and fonts are consequently unavailable. [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled assets as a separate launch blocker. `/` and both composition atlases already use compiled CSS and self-hosted assets.
+- `mockups/landing/` is the design archive. The homepage replaced in July 2026 remains there as `previous-homepage-2026-07-16.html`; archived pages are never served or kept in sync with the live edition.
+- The generated homepage and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`; `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
+- [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
+- [design-system-consumption.md](design-system-consumption.md) records static page composition, retained atlases, build commands, and consumer guards.

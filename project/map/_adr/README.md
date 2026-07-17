@@ -1,31 +1,12 @@
 # Architecture Decision Records — discern itself
 
-This directory holds **discern's own** Architecture Decision Records: short
-documents capturing a significant decision about the kit's design, the context
-that forced it, and the reasoning behind it.
+This directory holds **discern's own** Architecture Decision Records: short documents capturing a significant decision about the kit's design, the context that forced it, and the reasoning behind it.
 
-discern _ships_ the ADR discipline to the projects it scaffolds via its bundled
-`discern-write-adr` skill, which creates `map/_adr/` on demand from its skeleton
-at
-[`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/).
-This directory is discern applying that discipline to itself — recording the
-decisions behind the engine and installer here, in the same format.
+discern _ships_ the ADR discipline to the projects it scaffolds via its bundled `discern-write-adr` skill, which creates `map/_adr/` on demand from its skeleton at [`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/). This directory is discern applying that discipline to itself — recording the decisions behind the engine and installer here, in the same format.
 
-**The canonical ADR format is the one discern ships:**
-[`templates/skills/discern-write-adr/skeleton/docs/_adr/README.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md),
-with the copy-paste template at
-[`templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md).
-Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first
-real ADR is `0001`); state the decision in the title; write one only when the
-decision is hard to reverse, surprising without context, and a real trade-off.
+**The canonical ADR format is the one discern ships:** [`templates/skills/discern-write-adr/skeleton/docs/_adr/README.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md), with the copy-paste template at [`templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md). Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first real ADR is `0001`); state the decision in the title; write one only when the decision is hard to reverse, surprising without context, and a real trade-off.
 
-Once an ADR's decision is reversed, or fully absorbed into a later one, it moves
-into [`_superseded/`](_superseded/) and drops from the index below into the
-[Superseded and consolidated](#superseded-and-consolidated-adrs) list at the
-foot of this file. It stays on the record as history — each carries a banner
-pointing to its successor — but is out of the active set so a reader of the
-index sees only current architecture. **Numbers are never reused**: the sequence
-only ever climbs, so the index has gaps where retired ADRs once sat.
+Once an ADR's decision is reversed, or fully absorbed into a later one, it moves into [`_superseded/`](_superseded/) and drops from the index below into the [Superseded and consolidated](#superseded-and-consolidated-adrs) list at the foot of this file. It stays on the record as history — each carries a banner pointing to its successor — but is out of the active set so a reader of the index sees only current architecture. **Numbers are never reused**: the sequence only ever climbs, so the index has gaps where retired ADRs once sat.
 
 ## Index
 
@@ -158,45 +139,23 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 
 ## Superseded and consolidated ADRs
 
-Kept for history under [`_superseded/`](_superseded/); each names its successor
-in a banner at the top of the file. Listed here so the record is complete
-without cluttering the active index above.
+Kept for history under [`_superseded/`](_superseded/); each names its successor in a banner at the top of the file. Listed here so the record is complete without cluttering the active index above.
 
-- [0001 — Project-owned recipes](_superseded/0001-project-owned-recipes.md) —
-  superseded by the explicit project script namespace (0137)
-- [0002 — First-class side-gates](_superseded/0002-first-class-side-gates.md) —
-  replaced by the capabilities/checks model (0017) and the scope `gate` key
-  (0018)
-- [0004 — Structured `agent finish --json`](_superseded/0004-structured-finish-json.md)
-  — superseded by the result envelope (0028)
-- [0008 — Declarative managed-set](_superseded/0008-declarative-managed-set.md)
-  — made moot by the single binary (0019)
-- [0010 — Self-host the harness](_superseded/0010-self-host-the-harness.md) —
-  superseded by the single binary (0019)
-- [0012 — Engine noglob (`set -f`) by default](_superseded/0012-engine-noglob-default.md)
-  — retired by the single binary (0019)
-- [0013 — Product vocabulary in user-facing output](_superseded/0013-product-vocabulary-in-user-output.md)
-  — retired by the single binary (0019)
-- [0016 — Consolidate the install surface under `.discern/`](_superseded/0016-consolidate-install-surface.md)
-  — superseded by the root `discern.toml` (0020)
-- [0024 — Setup is a command, not a skill](_superseded/0024-setup-command-not-skill.md)
-  — consolidated into `discern setup` (0036)
-- [0030 — `--json` is quiet](_superseded/0030-quiet-json-output.md) —
-  consolidated into the result envelope (0028)
-- [0032 — The Claude Code mirror imports AGENTS.md](_superseded/0032-claude-md-imports-agents-md.md)
-  — consolidated into the currency-check ADR (0034)
-- [0042 — Per-agent skills materialization](_superseded/0042-per-agent-skills-materialization.md)
-  — consolidated into registry-derived parity (0043)
-- [0046 — A configurable graduation destination, and removing the handoff-worktree skill](_superseded/0046-graduate-destination-and-skill-removal.md)
-  — superseded by the landing model (0110); the skill removal stands
-- [0048 — Rename the graduation landing-role `main` → `trunk`](_superseded/0048-graduate-trunk-role-name.md)
-  — consolidated into 0046
-- [0056 — Run the currency checks as fail-fast preconditions too](_superseded/0056-currency-checks-fail-fast.md)
-  — consolidated into the merge-check ADR (0050)
-- [0061 — Graduate enforces the fix stage's fixed point](_superseded/0061-graduate-fix-stage-fixed-point.md)
-  — superseded by 0067
-- [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
-  — reverted because detecting user authorship inside ignored generated files
-  produced false rescues for old generated output
-- [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
-  — absorbed by the all-ruled-banner ownership model (0138)
+- [0001 — Project-owned recipes](_superseded/0001-project-owned-recipes.md) — superseded by the explicit project script namespace (0137)
+- [0002 — First-class side-gates](_superseded/0002-first-class-side-gates.md) — replaced by the capabilities/checks model (0017) and the scope `gate` key (0018)
+- [0004 — Structured `agent finish --json`](_superseded/0004-structured-finish-json.md) — superseded by the result envelope (0028)
+- [0008 — Declarative managed-set](_superseded/0008-declarative-managed-set.md) — made moot by the single binary (0019)
+- [0010 — Self-host the harness](_superseded/0010-self-host-the-harness.md) — superseded by the single binary (0019)
+- [0012 — Engine noglob (`set -f`) by default](_superseded/0012-engine-noglob-default.md) — retired by the single binary (0019)
+- [0013 — Product vocabulary in user-facing output](_superseded/0013-product-vocabulary-in-user-output.md) — retired by the single binary (0019)
+- [0016 — Consolidate the install surface under `.discern/`](_superseded/0016-consolidate-install-surface.md) — superseded by the root `discern.toml` (0020)
+- [0024 — Setup is a command, not a skill](_superseded/0024-setup-command-not-skill.md) — consolidated into `discern setup` (0036)
+- [0030 — `--json` is quiet](_superseded/0030-quiet-json-output.md) — consolidated into the result envelope (0028)
+- [0032 — The Claude Code mirror imports AGENTS.md](_superseded/0032-claude-md-imports-agents-md.md) — consolidated into the currency-check ADR (0034)
+- [0042 — Per-agent skills materialization](_superseded/0042-per-agent-skills-materialization.md) — consolidated into registry-derived parity (0043)
+- [0046 — A configurable graduation destination, and removing the handoff-worktree skill](_superseded/0046-graduate-destination-and-skill-removal.md) — superseded by the landing model (0110); the skill removal stands
+- [0048 — Rename the graduation landing-role `main` → `trunk`](_superseded/0048-graduate-trunk-role-name.md) — consolidated into 0046
+- [0056 — Run the currency checks as fail-fast preconditions too](_superseded/0056-currency-checks-fail-fast.md) — consolidated into the merge-check ADR (0050)
+- [0061 — Graduate enforces the fix stage's fixed point](_superseded/0061-graduate-fix-stage-fixed-point.md) — superseded by 0067
+- [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md) — reverted because detecting user authorship inside ignored generated files produced false rescues for old generated output
+- [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md) — absorbed by the all-ruled-banner ownership model (0138)

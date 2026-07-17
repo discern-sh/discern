@@ -1,37 +1,18 @@
 # Working with discern
 
-This project uses **discern**, a stack-neutral agent-development system.
-Everything discern knows lives in one root file: **`discern.toml`**. Its verbs
-are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** —
-returning structured results.
+This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** — returning structured results.
 
-This file is compiled — discern's built-in operating guidance first, then the
-project's own guidance, the more specific authority: it wins on any conflict.
+This file is compiled — discern's built-in operating guidance first, then the project's own guidance, the more specific authority: it wins on any conflict.
 
 ## Operating discern
 
-- **Orient first.** Call **`discern_status`** at session start for a cheap,
-  read-only account of what's true and next.
-- **Starting a task? Get your own worktree — a separate checkout and branch for
-  one change — first.** From the main checkout, run **`discern_start`**; it creates
-  one and returns its path. Move into it and work only there, never on the trunk —
-  the shared landing branch — or in another effort's worktree.
-- **`discern_done` is the bar for "done".** It runs the gate — the project's full
-  quality check; call a change finished only when the final tree passes. Iterate with
-  **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just
-  the tests). On failure, read `diagnostics[]` for the command and output, then
-  fix it.
-- **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a
-  misconfigured install.
+- **Orient first.** Call **`discern_status`** at session start for a cheap, read-only account of what's true and next.
+- **Starting a task? Get your own worktree — a separate checkout and branch for one change — first.** From the main checkout, run **`discern_start`**; it creates one and returns its path. Move into it and work only there, never on the trunk — the shared landing branch — or in another effort's worktree.
+- **`discern_done` is the bar for "done".** It runs the gate — the project's full quality check; call a change finished only when the final tree passes. Iterate with **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just the tests). On failure, read `diagnostics[]` for the command and output, then fix it.
+- **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
-If the MCP server is **unreachable**, tell the user and use the **`discern` CLI**
-with `--json` meanwhile — never `tail` its agent-optimised output. Offer to fix
-the connection with `discern help` / `discern doctor` afterwards.
+If the MCP server is **unreachable**, tell the user and use the **`discern` CLI** with `--json` meanwhile — never `tail` its agent-optimised output. Offer to fix the connection with `discern help` / `discern doctor` afterwards.
 
 ## Generated files — don't hand-edit
 
-discern compiles your guidance sources ({{guidance_sources}}) into the agent files
-({{generated_agent_files}}) and materializes skills into their directories
-({{materialized_skills_dirs}}). To change what you read, edit the source and run
-**`discern refresh`** — edits to a generated file are overwritten on the next
-compile.
+discern compiles your guidance sources ({{guidance_sources}}) into the agent files ({{generated_agent_files}}) and materializes skills into their directories ({{materialized_skills_dirs}}). To change what you read, edit the source and run **`discern refresh`** — edits to a generated file are overwritten on the next compile.
