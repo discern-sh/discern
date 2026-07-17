@@ -136,6 +136,7 @@ Once an ADR's decision is reversed, or fully absorbed into a later one, it moves
 - [0147 — Ignored-file drift uses bounded hybrid fingerprints](0147-ignored-drift-uses-bounded-hybrid-fingerprints.md)
 - [0148 — Strand detection covers every gate stage](0148-strand-detection-covers-every-gate-stage.md)
 - [0149 — The project mark is the Unicode glyph ◮](0149-the-mark-is-the-unicode-glyph.md)
+- [0150 — Markdown prose is stored unwrapped](0150-markdown-prose-is-stored-unwrapped.md)
 
 ## Superseded and consolidated ADRs
 
