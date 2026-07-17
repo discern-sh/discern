@@ -52,8 +52,8 @@ branch_prefix = "{{branch_prefix}}"
 # Idempotent commands that make ANY checkout usable for its current tracked tree
 # — typically dependency installation from a lockfile. They run in order on each
 # managed worktree pass and after `discern accept` updates the trunk checkout.
-# Post-landing failures are recorded and later commands still run: the landing
-# cannot be rolled back safely. Keep worktree-identity-dependent commands under
+# Post-landing failures are recorded, but later commands still run, as acceptance
+# is a one-way process. Keep worktree-identity-dependent commands under
 # [worktree.setup].ensure instead; those never run in the main checkout.
 ensure = []
 
@@ -141,10 +141,6 @@ dir = "discern/skills"
 # runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
 # `discern done` and `discern test` run it in the same fail-fast test group, so a
 # quick smoke failure cancels slower siblings.
-# Discern separately probes its own predictable writes before slow workflows;
-# do not duplicate those internal checks here.
-# Put a prerequisite unique to one custom check or standard at the start of
-# that command instead.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [capabilities]
