@@ -2,6 +2,8 @@
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`, `integrate` → `update`; the decision and reasoning are unchanged.
 
+> **Convergence extension ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** Refresh is now the first post-landing checkout-convergence step. Acceptance then runs `[repository].ensure`, the configured smoke capability, and a tracked-drift check before completing worktree cleanup.
+
 **Status**: accepted
 
 > **Note ([ADR 0110](0110-the-landing-model.md)):** the `--to branch` / `--to trunk` modes referenced below were removed — `accept` always lands on the trunk now. The decision itself stands: acceptance still refreshes the trunk checkout it leaves behind.

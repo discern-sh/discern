@@ -172,7 +172,9 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'test = "sleep 9999"', // never exits — the watch-mode-runner hang, distilled
@@ -229,7 +231,9 @@ async function assertStageKindTimesOut(opts: {
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         ...opts.wiring,
         "",
@@ -390,7 +394,9 @@ async function assertOverrideBoundsOwnJob(opts: {
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         ...opts.wiring,
         "",
@@ -466,7 +472,9 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "true"',
@@ -529,7 +537,9 @@ Deno.test("timeout override: the bare command-or-list capability form parses and
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "true"',

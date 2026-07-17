@@ -17,6 +17,7 @@ import {
 } from "@std/assert";
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -226,6 +227,143 @@ Deno.test("accept: refreshes the trunk checkout after landing", async () => {
       `the merged branch should be deleted\n${r.output}`,
     );
     await assertLandingGuidanceRefreshed(dir, marker);
+  });
+});
+
+Deno.test("accept: converges and smokes the trunk without running worktree-only setup", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const wt = await mainWithWorktree(dir, "trunk-convergence");
+      const repositoryMarker = join(markers, "repository-cwd");
+      const statefulMarker = join(markers, "repository-stateful");
+      const smokeMarker = join(markers, "smoke-cwd");
+      const worktreeOnlyMarker = join(markers, "worktree-only");
+      const configPath = join(wt, "discern.toml");
+      const editor = new TomlEditor(await Deno.readTextFile(configPath));
+      const statefulCommand =
+        `test -f ${statefulMarker} || { touch ${statefulMarker}; exit 1; }`;
+      editor.setStringArray("repository.ensure", [
+        "discern identity --id",
+        statefulCommand,
+        statefulCommand,
+        `pwd >> ${repositoryMarker}`,
+      ]);
+      editor.setStringArray("worktree.setup.steps", [
+        `echo step >> ${worktreeOnlyMarker}`,
+      ]);
+      editor.setStringArray("worktree.setup.ensure", [
+        `echo ensure >> ${worktreeOnlyMarker}`,
+      ]);
+      editor.setString("capabilities.smoke", `pwd >> ${smokeMarker}`);
+      await Deno.writeTextFile(configPath, editor.toString());
+      await commitCurrentWorktree(wt, "configure checkout convergence");
+
+      const mainRoot = await Deno.realPath(dir);
+      const worktreeRoot = await Deno.realPath(wt);
+      const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+      assertEquals(run.code, 0, run.output);
+      assertEquals(
+        await exists(wt),
+        false,
+        "accept still removes the worktree",
+      );
+      assertEquals(
+        await gitOut(dir, "branch", "--list", "agent/trunk-convergence"),
+        "",
+        "accept still deletes the landed branch",
+      );
+      assertEquals(
+        (await Deno.readTextFile(repositoryMarker)).trim(),
+        mainRoot,
+        "later repository ensure commands run in the trunk after an earlier failure",
+      );
+      assertEquals(
+        await markerCount(worktreeOnlyMarker),
+        0,
+        "worktree setup steps and worktree-only ensure never run on the trunk",
+      );
+      const smokeCwds = (await Deno.readTextFile(smokeMarker)).trim().split(
+        "\n",
+      );
+      assert(
+        smokeCwds.includes(worktreeRoot),
+        `the acceptance gate first validates smoke in the worktree: ${smokeCwds}`,
+      );
+      assert(
+        smokeCwds.includes(mainRoot),
+        `accept reruns smoke in the converged trunk checkout: ${smokeCwds}`,
+      );
+
+      const result = JSON.parse(run.stdout) as {
+        ok: boolean;
+        steps: Array<{ kind: string; label: string; outcome: string }>;
+      };
+      const repositorySteps = result.steps.filter((step) =>
+        step.kind === "repository-ensure"
+      );
+      assertEquals(repositorySteps.map((step) => step.outcome), [
+        "failed",
+        "failed",
+        "ok",
+        "ok",
+      ]);
+      assert(
+        result.steps.some((step) =>
+          step.kind === "job" && step.label === "smoke" &&
+          step.outcome === "ok"
+        ),
+        run.stdout,
+      );
+      assertEquals(
+        result.ok,
+        false,
+        "the non-fatal convergence failure remains visible in the result",
+      );
+    });
+  });
+});
+
+Deno.test("accept: records a post-landing smoke failure without skipping cleanup", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "trunk-smoke-failure");
+    const configPath = join(wt, "discern.toml");
+    const editor = new TomlEditor(await Deno.readTextFile(configPath));
+    // A linked worktree has a .git FILE, while the main checkout has a .git
+    // DIRECTORY. The acceptance gate therefore passes in the worktree and only
+    // the post-landing smoke fails in the receiving checkout.
+    editor.setString("capabilities.smoke", "test -f .git");
+    await Deno.writeTextFile(configPath, editor.toString());
+    await commitCurrentWorktree(wt, "configure failing landing proof");
+
+    const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    assertEquals(await exists(wt), false, "cleanup removes the worktree");
+    assertEquals(
+      await gitOut(dir, "branch", "--list", "agent/trunk-smoke-failure"),
+      "",
+      "cleanup deletes the landed branch",
+    );
+
+    const result = JSON.parse(run.stdout) as {
+      ok: boolean;
+      steps: Array<{ kind: string; label: string; outcome: string }>;
+      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
+    };
+    assertEquals(result.ok, false);
+    assert(
+      result.steps.some((step) =>
+        step.kind === "job" && step.label === "smoke" &&
+        step.outcome === "failed"
+      ),
+      run.stdout,
+    );
+    assert(
+      result.diagnostics?.some((diagnostic) =>
+        diagnostic.tool === "smoke" &&
+        diagnostic.reproduce_cmd === "test -f .git"
+      ) ?? false,
+      run.stdout,
+    );
   });
 });
 
@@ -498,7 +636,9 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         `test = "git -C ${dir} commit --allow-empty -q -m race-main --no-gpg-sign"`,
@@ -574,7 +714,9 @@ Deno.test("accept suppresses ignored-file drift detection when configured off", 
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[worktree]",
         "ignored_file_drift = false",
@@ -1164,20 +1306,25 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
 async function mainWithSetup(
   dir: string,
   name: string,
-  setup: { steps?: string[]; ensure?: string[] },
+  setup: {
+    steps?: string[];
+    ensure?: string[];
+    repositoryEnsure?: string[];
+  },
 ): Promise<string> {
   await scaffoldEngine(dir);
   const cfgPath = join(dir, "discern.toml");
-  let cfg = await Deno.readTextFile(cfgPath);
-  const toToml = (xs: string[]) =>
-    `[${xs.map((s) => JSON.stringify(s)).join(", ")}]`;
+  const editor = new TomlEditor(await Deno.readTextFile(cfgPath));
   if (setup.steps !== undefined) {
-    cfg = cfg.replace("steps = []", `steps = ${toToml(setup.steps)}`);
+    editor.setStringArray("worktree.setup.steps", setup.steps);
   }
   if (setup.ensure !== undefined) {
-    cfg = cfg.replace("ensure = []", `ensure = ${toToml(setup.ensure)}`);
+    editor.setStringArray("worktree.setup.ensure", setup.ensure);
   }
-  await Deno.writeTextFile(cfgPath, cfg);
+  if (setup.repositoryEnsure !== undefined) {
+    editor.setStringArray("repository.ensure", setup.repositoryEnsure);
+  }
+  await Deno.writeTextFile(cfgPath, editor.toString());
   await gitInit(dir);
   return await addWorktree(dir, name);
 }
@@ -1224,6 +1371,39 @@ Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", 
   });
 });
 
+Deno.test("worktree setup: shared repository convergence precedes worktree-only convergence", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const order = join(markers, "order");
+      const wt = await mainWithSetup(dir, "shared-before-specific", {
+        repositoryEnsure: [`echo repository >> ${order}`],
+        ensure: [`echo worktree >> ${order}`],
+      });
+      const run = await runAgent(wt, ["worktree", "setup", "--json"]);
+      assertEquals(run.code, 0, run.output);
+      assertEquals(
+        (await Deno.readTextFile(order)).trim().split("\n"),
+        ["repository", "worktree"],
+      );
+      const result = JSON.parse(run.stdout) as {
+        steps: Array<{ kind: string; outcome: string }>;
+      };
+      assert(
+        result.steps.some((step) =>
+          step.kind === "repository-ensure" && step.outcome === "ok"
+        ),
+        run.stdout,
+      );
+      assert(
+        result.steps.some((step) =>
+          step.kind === "setup-ensure" && step.outcome === "ok"
+        ),
+        run.stdout,
+      );
+    });
+  });
+});
+
 Deno.test("worktree setup re-entry: skips the one-shot steps, re-runs ensure", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
@@ -1255,8 +1435,10 @@ Deno.test("worktree ensure converges via [worktree.setup].ensure on every sessio
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
       const ensure = join(markers, "ensure");
+      const repositoryEnsure = join(markers, "repository-ensure");
       const wt = await mainWithSetup(dir, "wt-ensure", {
         ensure: [`echo x >> ${ensure}`],
+        repositoryEnsure: [`echo x >> ${repositoryEnsure}`],
       });
       await runAgent(wt, ["worktree", "ensure"]); // first: fresh setup → ensure 1
       await runAgent(wt, ["worktree", "ensure"]); // already configured → ensure 2
@@ -1264,6 +1446,11 @@ Deno.test("worktree ensure converges via [worktree.setup].ensure on every sessio
         await markerCount(ensure),
         2,
         "session-start ensure must converge the worktree each time",
+      );
+      assertEquals(
+        await markerCount(repositoryEnsure),
+        2,
+        "session-start ensure must rerun shared repository convergence each time",
       );
     });
   });
@@ -1326,8 +1513,10 @@ Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () =>
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
       const ensure = join(markers, "ensure");
+      const repositoryEnsure = join(markers, "repository-ensure");
       const wt = await mainWithSetup(dir, "integ-ensure", {
         ensure: [`echo x >> ${ensure}`],
+        repositoryEnsure: [`echo x >> ${repositoryEnsure}`],
       });
       // Advance main so the branch is behind by one. (No prior `worktree` setup —
       // that would record the port into an untracked .env and dirty the tree, which
@@ -1347,6 +1536,11 @@ Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () =>
         await markerCount(ensure),
         1,
         `update must run ensure after the merge\n${r.output}`,
+      );
+      assertEquals(
+        await markerCount(repositoryEnsure),
+        1,
+        `update must run shared repository convergence after the merge\n${r.output}`,
       );
     });
   });

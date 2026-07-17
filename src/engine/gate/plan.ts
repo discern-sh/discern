@@ -400,7 +400,8 @@ function withFixAvailable(
  *    usual culprit (a watch-mode runner / hung dev server) and the two ways out;
  *  - exit 127 is the shell's "command not found" — in a fresh worktree the giveaway
  *    is an untracked tool/dependency dir that never got converged, so the hint points
- *    at `[worktree.setup].ensure` rather than leaving a bare `sh: <cmd>: not found`;
+ *    at checkout-shared `[repository].ensure` rather than leaving a bare
+ *    `sh: <cmd>: not found`;
  *  - everything else reports its exit code.
  */
 function jobFailureMessage(label: string, r: JobResult): string {
@@ -411,7 +412,7 @@ function jobFailureMessage(label: string, r: JobResult): string {
     return r.failureMessage;
   }
   if (r.code === 127) {
-    return `${label} failed (exit 127) — command not found. If it works in the main checkout, note that a fresh worktree starts without the untracked tool and dependency directories the main checkout has; converge them via [worktree.setup].ensure.`;
+    return `${label} failed (exit 127) — command not found. If it works in the main checkout, note that a fresh worktree starts without the untracked tool and dependency directories the main checkout has; converge checkout-shared dependencies via [repository].ensure.`;
   }
   return `${label} failed (exit ${r.code})`;
 }

@@ -123,15 +123,15 @@ export async function worktreeCreateHook(): Promise<number> {
   }
   const dir = join(resolveWorktreeRoot(cwd, config), name);
   try {
-    const branch = `${config.project.branch_prefix}${name}`;
+    const branch = `${config.repository.branch_prefix}${name}`;
     // Branch from the TRUNK, not the main checkout's HEAD — a main checkout parked
     // on some other branch must not poison the new worktree with that branch's
     // commits (the same rule `discern start` applies). Two deliberate fallbacks to
     // HEAD: while one-time setup is still in flight the trunk doesn't carry the
     // just-authored discern config yet (the ADR 0090 probe reasoning), and a repo
     // whose trunk branch is missing can still get a working worktree (warned, so a
-    // misconfigured [project].main_branch is visible rather than silently absorbed).
-    const trunk = config.project.main_branch;
+    // misconfigured [repository].trunk is visible rather than silently absorbed).
+    const trunk = config.repository.trunk;
     let startPoint: string | undefined;
     if (config.meta.bootstrapped) {
       if (await localBranchExists(cwd, trunk)) {
@@ -139,7 +139,7 @@ export async function worktreeCreateHook(): Promise<number> {
       } else {
         log.warn(
           `[discern] local trunk branch '${trunk}' not found — branching the new ` +
-            `worktree from HEAD instead. Set [project].main_branch to the branch ` +
+            `worktree from HEAD instead. Set [repository].trunk to the branch ` +
             `this project uses.`,
         );
       }

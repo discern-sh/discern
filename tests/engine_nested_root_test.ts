@@ -56,7 +56,9 @@ function floorConfig(limit: string, measured: string): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[standards.coverage]",
     'direction = "up"',
@@ -107,7 +109,9 @@ function widgetConfig(): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[scopes.widget]",
     'paths = ["widget/**"]',
@@ -176,7 +180,14 @@ Deno.test("nested root: the co-change advisory mines root-relative partners", as
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
-      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join(
         "\n",
       ),
     );
@@ -224,7 +235,14 @@ Deno.test("nested root: the strand dirty snapshot is root-relative", async () =>
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
-      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join(
         "\n",
       ),
     );
@@ -249,7 +267,9 @@ Deno.test("nested root: finish fires the changed scope's gate", async () => {
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.widget]",
         'paths = ["widget/**"]',
@@ -278,7 +298,14 @@ Deno.test("nested root: start refuses with the actionable repository-shape messa
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
-      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join(
         "\n",
       ),
     );
@@ -293,7 +320,14 @@ Deno.test("nested root: doctor's repository-shape check names the layout and the
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
-      ["[project]", 'slug = "engine-test"', 'main_branch = "main"', ""].join(
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join(
         "\n",
       ),
     );

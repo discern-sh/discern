@@ -43,7 +43,9 @@ function pinConfig(...standards: StandardSpec[]): string {
   const lines = [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
   ];
   for (const r of standards) {
     lines.push(

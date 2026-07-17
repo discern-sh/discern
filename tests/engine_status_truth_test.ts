@@ -192,7 +192,7 @@ Deno.test("status names a MISSING trunk instead of prescribing a switch onto it"
     const result = await statusJson(dir);
     const hint = (result.hints ?? []).find((h) => h.includes("doesn't exist"));
     assert(hint !== undefined, JSON.stringify(result.hints));
-    assertStringIncludes(hint, "[project].main_branch");
+    assertStringIncludes(hint, "[repository].trunk");
     assert(
       !(result.hints ?? []).some((h) => h.includes("git switch main")),
       `never prescribe switching onto a branch that isn't there\n${

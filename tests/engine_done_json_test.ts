@@ -123,7 +123,9 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.docs]",
         'paths = ["docs/"]',
@@ -162,10 +164,10 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
   });
 });
 
-Deno.test("done --json: an exit-127 failure explains command-not-found and points at [worktree.setup].ensure", async () => {
+Deno.test("done --json: an exit-127 failure explains command-not-found and points at [repository].ensure", async () => {
   // The class this guards: a tool present in the main checkout but absent from a
   // fresh worktree fails with a bare `sh: <cmd>: not found` and exit 127, and nothing
-  // links the failure to worktrees or to [worktree.setup].ensure. The hint stays
+  // links the failure to worktrees or to [repository].ensure. The hint stays
   // generic — no tool or ecosystem names — since discern never sniffs the stack.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -174,7 +176,9 @@ Deno.test("done --json: an exit-127 failure explains command-not-found and point
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         // a command that does not exist → the shell exits 127 ("command not found")
@@ -195,7 +199,7 @@ Deno.test("done --json: an exit-127 failure explains command-not-found and point
     );
     assertStringIncludes(diag.message, "exit 127");
     assertStringIncludes(diag.message, "command not found");
-    assertStringIncludes(diag.message, "[worktree.setup].ensure");
+    assertStringIncludes(diag.message, "[repository].ensure");
   });
 });
 
@@ -207,7 +211,9 @@ Deno.test("done --json: a passing job with suspicious output exposes an advisory
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         "lint = \"printf 'error: one\\nwarning: two\\n    ^~~~~\\nerror: three\\nwarning: four\\n    ^~~~~\\nerror: five\\nwarning: six\\n    ^~~~~\\nerror: seven\\nwarning: eight\\n    ^~~~~\\n'\"",
@@ -247,7 +253,9 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         "lint = \"printf 'STREAM-JSON-MARKER\\n'; exit 1\"",
@@ -279,7 +287,9 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'format = "echo FORMAT-BOOM >&2; exit 2"',
@@ -349,7 +359,9 @@ Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and off
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "./noisy-check.sh"',
@@ -401,7 +413,9 @@ Deno.test("done --json: scope-gates report fired (ok) and unchanged (skipped) st
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.docs]",
         'paths = ["docs/"]',
@@ -442,7 +456,9 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.docs]",
         'paths = ["docs/"]',
@@ -501,7 +517,9 @@ Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with fi
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         // The check prints SARIF (as a real `--format sarif` run would), then fails.
@@ -546,7 +564,9 @@ Deno.test("done --json: empty SARIF falls back to a raw Tier-0 diagnostic", asyn
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "cat empty.sarif; exit 1"',
@@ -577,7 +597,9 @@ Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", as
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'test = "echo hi"',
@@ -616,7 +638,9 @@ Deno.test("done (human): a failure prints a structured Failures block with repro
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "exit 7"',
@@ -640,7 +664,9 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'test = "echo ok"',
@@ -684,8 +710,10 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
         'gotchas_doc = "docs/gotchas.md"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "exit 1"',
@@ -766,7 +794,9 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[guidance]",
         'agents = ["claude_code"]',
@@ -842,7 +872,9 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[guidance]",
         'agents = ["claude_code", "codex"]',
@@ -927,7 +959,9 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
 const RECEIPT_CONFIG = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   'test = "echo receipt-gate-ok"',

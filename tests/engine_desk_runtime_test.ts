@@ -35,7 +35,8 @@ const START_TASK = "\x00start-task";
 const NOW = Date.parse("2026-07-11T12:00:00Z");
 
 const CONFIG: DiscernConfig = configSchema.parse({
-  project: { slug: "demo", main_branch: "main" },
+  project: { slug: "demo" },
+  repository: { trunk: "main" },
 });
 
 const PLAIN: Palette = {
@@ -387,7 +388,8 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     effort,
   ]);
   const worktreeConfig = configSchema.parse({
-    project: { slug: "demo", main_branch: "main" },
+    project: { slug: "demo" },
+    repository: { trunk: "main" },
     guidance: { agents: ["claude_code", "codex"] },
   });
   const choices = [

@@ -53,7 +53,9 @@ const FIXER = [
 const CONFIG = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   'format = "sh fixer.sh"',
@@ -220,7 +222,9 @@ for (const stage of MUTATING_STAGES) {
         [
           "[project]",
           'slug = "engine-test"',
-          'main_branch = "main"',
+          "",
+          "[repository]",
+          'trunk = "main"',
           "",
           "[capabilities]",
           stage.capability,
@@ -257,7 +261,9 @@ Deno.test("done: a scope gate that dirties a COMMITTED-clean tracked file fails 
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.widget]",
         'paths = ["widget/**"]',

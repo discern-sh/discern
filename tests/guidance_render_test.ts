@@ -171,7 +171,7 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
 });
 
 Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolation is real, not cosmetic)", async () => {
-  // Bare = schema defaults (branch_prefix agent/, main_branch main, no standards,
+  // Bare = schema defaults (branch_prefix agent/, trunk main, no standards,
   // no resources). Rich = custom branch/main, a standard, and a resource declared.
   const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
   const rich = await Deno.makeTempDir({ prefix: "discern-tmpl-rich-" });
@@ -183,9 +183,9 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     await Deno.writeTextFile(
       join(rich, "discern.toml"),
       [
-        "[project]",
+        "[repository]",
         'branch_prefix = "wt/"',
-        'main_branch = "trunk"',
+        'trunk = "trunk"',
         "[guidance]",
         'agents = ["codex"]',
         "[standards.coverage]",
@@ -212,7 +212,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     assert(richBody.includes("`trunk`"), "rich integration branch");
     assert(
       !richBody.includes("`main`"),
-      "custom main_branch replaces the default",
+      "custom trunk replaces the default",
     );
 
     // {{#if has_standards}} drops the whole section unless a standard is declared.
@@ -309,7 +309,7 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       [
-        "[project]",
+        "[repository]",
         'branch_prefix = "wt/"',
         "[guidance]",
         'agents = ["claude_code", "codex"]',
@@ -375,12 +375,11 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
   > = {
     branch_prefix: {
       toml:
-        '[project]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',
+        '[repository]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',
       expect: "zz-wt/",
     },
     main_branch: {
-      toml:
-        '[project]\nmain_branch = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[repository]\ntrunk = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
       expect: "zztrunk",
     },
     map_dir: {

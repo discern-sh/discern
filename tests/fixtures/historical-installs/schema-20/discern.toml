@@ -1,0 +1,17 @@
+[meta]
+schema_version = 20
+bootstrapped = true
+
+[project]
+slug = "historical-schema-20"
+branch_prefix = "change/"
+main_branch = "stable"
+gotchas_doc = ""
+todo = "discern/TODO.md"
+
+[capabilities]
+smoke = "true"
+
+[worktree.setup]
+steps = []
+ensure = []

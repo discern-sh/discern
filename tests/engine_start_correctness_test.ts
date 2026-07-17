@@ -273,7 +273,7 @@ Deno.test("a start whose setup fails discards the partial worktree (no debris)",
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n[worktree.setup]\nsteps = ["false"]\n',
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree.setup]\nsteps = ["false"]\n',
     );
     await gitInit(dir);
     const r = await runAgent(dir, ["start", "--json"]);

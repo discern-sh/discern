@@ -50,8 +50,16 @@ export interface AcceptPlan {
   worktreeBranch: string;
   worktreePath: string;
   mainRepo: string;
-  /** The trunk the acceptance fast-forwards (`[project].main_branch`). */
+  /** The trunk the acceptance fast-forwards (`[repository].trunk`). */
   trunk: string;
+  /** Shared checkout-convergence commands run in the trunk after landing. */
+  repositoryEnsureSteps: string[];
+  /** Configured smoke capability jobs run in the trunk after convergence. */
+  smokeSteps: Array<{
+    label: string;
+    command: string;
+    timeoutS?: number | undefined;
+  }>;
   /** Whether any external resource is declared (→ a teardown step). */
   hasResources: boolean;
   /** Ignored-file drift detected against the setup-time baseline, when enabled. */
@@ -66,17 +74,44 @@ export interface AcceptPlan {
 export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   const steps: PlanStep[] = [];
   // Land on the trunk FIRST: fast-forward it to the branch tip (always clean —
-  // the gate guarantees the branch contains the trunk). Only then tear down the
-  // worktree's external resources: an acceptance that loses a concurrent-landing
-  // race is refused at the fast-forward with its worktree fully intact —
-  // resources included — so the prescribed update → finish → accept
-  // recovery actually works. Teardown still precedes removal (destroys resolve
-  // `@dir@` inside the worktree; no orphan is left).
+  // the gate guarantees the branch contains the trunk). Then converge and prove
+  // the receiving checkout before the cleanup tail tears down resources and
+  // removes the worktree. A concurrent-landing loss still refuses at the
+  // fast-forward with the worktree and its resources intact.
   steps.push({
     kind: "git",
     label: "fast-forward-trunk",
     disposition: "run",
     note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+  });
+  steps.push({
+    kind: "refresh",
+    label: "refresh agent files",
+    disposition: "run",
+    note: "re-materialize the trunk checkout's generated agent files + skills",
+  });
+  for (const command of plan.repositoryEnsureSteps) {
+    steps.push({
+      kind: "repository-ensure",
+      label: command,
+      disposition: "run",
+      note: "converge the trunk checkout on the landed tree",
+    });
+  }
+  for (const smoke of plan.smokeSteps) {
+    steps.push({
+      kind: "job",
+      label: smoke.label,
+      disposition: "run",
+      note: smoke.command,
+      group: "Smoke",
+    });
+  }
+  steps.push({
+    kind: "checkout-clean-check",
+    label: "check trunk checkout",
+    disposition: "run",
+    note: "report tracked files changed by post-landing convergence",
   });
   steps.push({
     kind: "resource-destroy",
@@ -97,12 +132,6 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     label: "delete-branch",
     disposition: "run",
     note: `${plan.worktreeBranch} (merged into ${plan.trunk})`,
-  });
-  steps.push({
-    kind: "refresh",
-    label: "refresh agent files",
-    disposition: "run",
-    note: "re-materialize the trunk checkout's generated agent files + skills",
   });
   const ignoredDetails = ignoredFileDetails(plan.ignoredFileChanges);
   return {
@@ -141,7 +170,7 @@ function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
  * precondition is checked while BUILDING this — a plan only exists for an
  * integration that may proceed. */
 export interface UpdatePlan {
-  /** The source being merged in: the integration branch (`[project].main_branch`
+  /** The source being merged in: the integration branch (`[repository].trunk`
    * / `DISCERN_MAIN_BRANCH`), or the `--from` ref. */
   source: string;
   /** Whether `source` came from an explicit `--from` (vs the trunk default). */
@@ -152,15 +181,16 @@ export interface UpdatePlan {
   behind: number;
   /** Whether the branch already contains the source (→ nothing to merge). */
   alreadyUpdated: boolean;
-  /** The `[worktree.setup].ensure` commands run after the merge + refresh,
-   * to converge the worktree on the current tree (empty when none are declared). */
-  ensureSteps: string[];
+  /** Checkout-generic `[repository].ensure` commands run after merge + refresh. */
+  repositoryEnsureSteps: string[];
+  /** Worktree-only `[worktree.setup].ensure` commands run after shared convergence. */
+  worktreeEnsureSteps: string[];
 }
 
 /**
  * Project an integration onto the shared renderer: merge the source ref,
  * re-materialize the agent files + skills, then re-run the convergent
- * `[worktree.setup].ensure` to converge the worktree on the merged tree. When the
+ * checkout-shared and worktree-only ensure buckets to converge the merged tree. When the
  * branch already contains the source only the merge is `skip`ped — the refresh and
  * the ensure convergence run on EVERY pass (like session start), which is what
  * makes "re-run `discern update`" the recovery after a manually resolved
@@ -184,7 +214,15 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
       note: "re-materialize the generated agent files + skills",
     },
   ];
-  for (const step of plan.ensureSteps) {
+  for (const step of plan.repositoryEnsureSteps) {
+    steps.push({
+      kind: "repository-ensure",
+      label: step,
+      disposition: "run",
+      note: "converge the checkout on the current tree",
+    });
+  }
+  for (const step of plan.worktreeEnsureSteps) {
     steps.push({
       kind: "setup-ensure",
       label: step,

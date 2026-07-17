@@ -87,7 +87,9 @@ function covConfig(opts: {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[capabilities]",
     'lint = "true"',
@@ -135,7 +137,9 @@ Deno.test("tier 1: a deleted standard is the ultimate loosening and fails the ga
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "true"',
@@ -328,7 +332,9 @@ Deno.test("tier 2: hint variants — no standards configured means no standards 
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "true"',

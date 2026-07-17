@@ -36,6 +36,9 @@ const RICH_TOML = [
   "[project]",
   'slug = "model-test"',
   "",
+  "[repository]",
+  'ensure = ["install-shared-deps"]',
+  "",
   "[capabilities]",
   'format = "fmt ."',
   'build = "build ."',
@@ -132,6 +135,7 @@ Deno.test("execution model: actor matches the user-configured vs built-in split"
     "resource-create",
     "resource-destroy",
     "setup-step",
+    "repository-ensure",
     "setup-ensure",
   ]);
   for (const vp of model) {

@@ -467,7 +467,7 @@ async function dispatchAction(
   action: DeskAction,
   runtime: DeskRuntime,
 ): Promise<boolean> {
-  const trunk = config.project.main_branch;
+  const trunk = config.repository.trunk;
   const target = basename(row.entry.path);
   switch (action) {
     case "accept": {
@@ -646,7 +646,7 @@ async function actOn(
   while (true) {
     const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
       ...row.actions.map((a) => ({
-        name: actionLabel(a, config.project.main_branch),
+        name: actionLabel(a, config.repository.trunk),
         value: a as string,
       })),
       Select.separator(

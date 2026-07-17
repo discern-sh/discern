@@ -1418,7 +1418,9 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[checks.cwd]",
         'stage = "check"',
@@ -2689,7 +2691,7 @@ Deno.test("discern mcp: the rendered surface names the project's configured trun
     const set = await runAgent(dir, [
       "config",
       "set",
-      "project.main_branch",
+      "repository.trunk",
       "trunkline",
     ]);
     assertEquals(set.code, 0, set.output);
@@ -3085,7 +3087,9 @@ function sleeperConfig(): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[capabilities]",
     'lint = "echo $$ > gate.pid && sleep 30"',

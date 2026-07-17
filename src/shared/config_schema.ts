@@ -281,12 +281,6 @@ const projectSection = z.strictObject({
   slug: z.string().default("").describe(
     "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
   ),
-  branch_prefix: z.string().default("agent/").describe(
-    'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
-  ),
-  main_branch: z.string().default("main").describe(
-    "The trunk: the shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
-  ),
   gotchas_doc: z.string().default("").describe(
     "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
   ),
@@ -296,7 +290,21 @@ const projectSection = z.strictObject({
   agents: z.array(z.string()).optional().describe(
     "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
   ),
-}).prefault({}).describe("Project identity and integration settings.");
+}).prefault({}).describe("Project identity and authored project paths.");
+
+const repositorySection = z.strictObject({
+  trunk: z.string().default("main").describe(
+    "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
+  ),
+  branch_prefix: z.string().default("agent/").describe(
+    'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
+  ),
+  ensure: z.array(z.string()).default([]).describe(
+    "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
+  ),
+}).prefault({}).describe(
+  "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
+);
 
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
@@ -433,10 +441,10 @@ const worktreeSection = z.strictObject({
       "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
     ),
     ensure: z.array(z.string()).default([]).describe(
-      "Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern update` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely.",
+      "Linked-worktree-only commands run on every setup pass — at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. Never run in the main checkout.",
     ),
   }).prefault({}).describe(
-    "Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).",
+    "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run every linked-worktree pass, never on the trunk checkout).",
   ),
 }).prefault({}).describe(
   "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
@@ -485,6 +493,7 @@ const scriptsSection = z.strictObject({
 export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
+  repository: repositorySection,
   guidance: guidanceSection,
   skills: skillsSection,
   map: mapSection,

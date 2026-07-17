@@ -144,6 +144,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0150 — Markdown prose is stored unwrapped](0150-markdown-prose-is-stored-unwrapped.md)
 - [0151 — The desk starts tasks and opens agents](0151-the-desk-starts-tasks-and-opens-agents.md)
 - [0152 — Slow workflows prove predictable write authority before project work](0152-slow-workflows-prove-write-authority-first.md)
+- [0153 — `[repository]` owns shared checkout policy and convergence](0153-repository-owns-shared-checkout-convergence.md)
 
 ## Superseded records
 

@@ -274,7 +274,7 @@ async function runGate(
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.project.main_branch;
+    cfg.repository.trunk;
   let mergeWarning: string | undefined;
   const merged = await assertMainMerged(root, mainBranch);
   if (merged.kind === "behind") {

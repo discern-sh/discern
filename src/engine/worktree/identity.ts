@@ -432,7 +432,7 @@ export async function loadIdentitySettings(
       rawSlug = config?.project.slug ?? "";
     }
     if (branchPrefix === undefined) {
-      branchPrefix = config?.project.branch_prefix ?? "agent/";
+      branchPrefix = config?.repository.branch_prefix ?? "agent/";
     }
     envFiles = config?.worktree.env_files;
   }

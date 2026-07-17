@@ -42,7 +42,7 @@ async function unbornRepo(dir: string, branch: string): Promise<void> {
 
 // ── A6: the integration branch is detected and stamped ────────────────────────
 
-Deno.test("begin on a master repo stamps [project].main_branch = master and land works", async () => {
+Deno.test("begin on a master repo stamps [repository].trunk = master and land works", async () => {
   await withTempDir(async (dir) => {
     await repoOnBranch(dir, "master");
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
@@ -52,7 +52,7 @@ Deno.test("begin on a master repo stamps [project].main_branch = master and land
     // the gate's behind-main merge check self-skips forever ('main' is missing)
     // and `setup accept` dead-ends.
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'main_branch = "master"');
+    assertStringIncludes(toml, 'trunk = "master"');
 
     // Landing works end to end: setup lives on discern-setup, lands onto master.
     const land = await runAgent(dir, ["setup", "accept"]);
@@ -81,7 +81,7 @@ Deno.test("begin prefers the remote's declared default (origin/HEAD) over the cu
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'main_branch = "trunk"');
+    assertStringIncludes(toml, 'trunk = "trunk"');
   });
 });
 
@@ -95,7 +95,7 @@ Deno.test("begin stamps the checked-out branch even when init.defaultBranch disa
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'main_branch = "master"');
+    assertStringIncludes(toml, 'trunk = "master"');
   });
 });
 
@@ -107,7 +107,7 @@ Deno.test("begin falls back to init.defaultBranch on a detached HEAD", async () 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'main_branch = "trunk"');
+    assertStringIncludes(toml, 'trunk = "trunk"');
   });
 });
 
@@ -117,7 +117,7 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'main_branch = "main"');
+    assertStringIncludes(toml, 'trunk = "main"');
 
     // `main` is still unborn (every commit landed on discern-setup): land refuses
     // with the exact creation-then-land step, not a dead end — and the same
@@ -517,7 +517,7 @@ Deno.test("re-begin never imports a surviving compiled agent file that matches d
 // the freshInstall flag). When a first attempt fails early and the user simply re-runs, the
 // second run must re-derive that state from what is persisted (the committed config, the real
 // repo branches, the on-disk wiring) and converge to EXACTLY the install a clean first run
-// produces — machinery committed, the right `[project].main_branch`, only the configured
+// produces — machinery committed, the right `[repository].trunk`, only the configured
 // agents' seeds. A member that diverges (wiring left uncommitted, `main` stamped on a master
 // repo, DEFAULT_AGENTS scaffolded over a differently-configured project) fails here. Each
 // case injects one documented early-failure, re-runs `begin`, and asserts convergence on the
@@ -528,7 +528,7 @@ Deno.test("re-begin never imports a surviving compiled agent file that matches d
 interface ReentryConvergence {
   /** discern's harness wiring is committed on the setup branch (nothing uncommitted). */
   machineryCommitted: boolean;
-  /** The stamped `[project].main_branch`. */
+  /** The stamped `[repository].trunk`. */
   mainBranch: string;
   /** The agents whose per-agent seed files were laid (sorted). */
   scaffoldedAgents: string[];
@@ -570,7 +570,7 @@ async function readConvergence(dir: string): Promise<ReentryConvergence> {
   scaffoldedAgents.sort();
   return {
     machineryCommitted: await configIsCommitted(dir),
-    mainBranch: cfg.project.main_branch,
+    mainBranch: cfg.repository.trunk,
     scaffoldedAgents,
   };
 }

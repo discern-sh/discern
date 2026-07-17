@@ -66,7 +66,7 @@ export async function landingSummary(
   root: string,
   config: DiscernConfig,
 ): Promise<LandingSummary> {
-  const target = integrationBranch(config.project.main_branch);
+  const target = integrationBranch(config.repository.trunk);
   const inRepo =
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: root }))
       .success;
@@ -147,7 +147,7 @@ export async function runSetupAccept(
     });
   }
   const config = await loadConfig(root);
-  const target = integrationBranch(config.project.main_branch);
+  const target = integrationBranch(config.repository.trunk);
   const run = (args: string[]) => runGit(args, { cwd: root });
 
   // Outside a git repo there is no branch to land — setup is already in place as-is.
@@ -208,7 +208,7 @@ export async function runSetupAccept(
         `brand-new repository the first commits are born on \`${branch}\`, so there is no ` +
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
         `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +
-        `(If this project updates on a different branch, set [project].main_branch to it instead.)`,
+        `(If this project updates on a different branch, set [repository].trunk to it instead.)`,
       code: 1,
     });
   }

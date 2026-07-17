@@ -982,7 +982,7 @@ async function pinStandardsResult(
   const priorReceipt = await inspectGateReceipt(root);
 
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.project.main_branch;
+    cfg.repository.trunk;
   // A green check on this exact clean HEAD already paid for every measurement and
   // recorded a measurement receipt; replay its values rather than measuring again.
   const reused = await reusableMeasurements(root, plan);
@@ -1149,7 +1149,7 @@ export async function standardsResult(
         );
       } else {
         const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-          cfg.project.main_branch;
+          cfg.repository.trunk;
         const out = makeOut(colorEnabled(), { quiet: true });
         // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
         // for the exact tree they read, so a mid-measurement commit voids the stamp.
@@ -1283,7 +1283,7 @@ export async function runStandards(
   const cfg = await loadConfig(root);
   const out = makeOut(colorEnabled(), { quiet: false });
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.project.main_branch;
+    cfg.repository.trunk;
   const plan = buildStandardPlan(cfg);
 
   // --dry-run: show the plan, touch nothing — no git, no measurement.

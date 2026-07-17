@@ -811,7 +811,7 @@ async function resolveProjectState(): Promise<ProjectState> {
       inProject: true,
       configOk: true,
       bootstrapped: cfg.meta.bootstrapped,
-      mainBranch: cfg.project.main_branch,
+      mainBranch: cfg.repository.trunk,
     };
   } catch {
     return { inProject: true, configOk: false, bootstrapped: false };

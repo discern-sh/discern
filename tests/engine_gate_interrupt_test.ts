@@ -67,7 +67,9 @@ for (const sig of INTERRUPT_SIGNALS) {
         [
           "[project]",
           'slug = "engine-test"',
-          'main_branch = "main"',
+          "",
+          "[repository]",
+          'trunk = "main"',
           "",
           "[capabilities]",
           // The check-stage job records its own PID (the job group's leader)

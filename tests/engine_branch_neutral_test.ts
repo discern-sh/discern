@@ -2,7 +2,7 @@
  * Branch-neutrality guard — the integration branch is named by the resolved CONFIG
  * value, never the literal "main".
  *
- * `[project].main_branch` may be `main`, `master`, or anything else (ADR 0048
+ * `[repository].trunk` may be `main`, `master`, or anything else (ADR 0048
  * makes "trunk" a ROLE that resolves to it — "not a literal branch named main").
  * So a user-facing string that hard-codes "main" to mean the integration branch
  * reads WRONG in a `master` project. The runtime fix is to interpolate the
@@ -119,7 +119,7 @@ Deno.test("no user-facing string names the integration branch the literal 'main'
   assert(
     offenders.length === 0,
     `a user-facing string hard-codes the integration branch as "main" — a project ` +
-      `with main_branch="master" would read wrong. Interpolate the resolved branch ` +
+      `with repository.trunk="master" would read wrong. Interpolate the resolved branch ` +
       `at runtime (integrationBranch(...) / \${mainBranch}), or use the role term ` +
       `"trunk" in static text (ADR 0048). Offenders:\n  ${
         offenders.join("\n  ")

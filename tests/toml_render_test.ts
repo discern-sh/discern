@@ -57,19 +57,27 @@ Deno.test("renderTomlStringList rejects values that cannot be rendered on one TO
   }
 });
 
-Deno.test("parseDiscernToml reads a fully-populated [project] block", () => {
+Deno.test("parseDiscernToml reads populated project and repository blocks", () => {
   const text = `
 [project]
 slug = "demo-app"
-branch_prefix = "agent/"
 agents = ["claude_code", "codex"]
 gotchas_doc = "docs/gotchas.md"
+
+[repository]
+trunk = "stable"
+branch_prefix = "agent/"
+ensure = ["install"]
 `;
   const parsed = parseDiscernToml(text);
   assertEquals(parsed.project.slug, "demo-app");
-  assertEquals(parsed.project.branch_prefix, "agent/");
   assertEquals(parsed.project.agents, ["claude_code", "codex"]);
   assertEquals(parsed.project.gotchas_doc, "docs/gotchas.md");
+  assertEquals(parsed.repository, {
+    trunk: "stable",
+    branch_prefix: "agent/",
+    ensure: ["install"],
+  });
   // `raw` carries the whole document through for callers that need more.
   assert("project" in parsed.raw);
 });
@@ -78,9 +86,13 @@ Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
   const parsed = parseDiscernToml(`title = "no project here"`);
   assertEquals(parsed.project, {
     slug: undefined,
-    branch_prefix: undefined,
     agents: undefined,
     gotchas_doc: undefined,
+  });
+  assertEquals(parsed.repository, {
+    trunk: undefined,
+    branch_prefix: undefined,
+    ensure: undefined,
   });
   assertEquals(parsed.raw.title, "no project here");
 });
@@ -91,13 +103,13 @@ Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to un
   // rather than shipping with an untested coercion. `agents` is the sole array
   // field (its wrong-typed case is a separate test below).
   const populated = parseDiscernToml(
-    `[project]\nslug = "s"\nbranch_prefix = "b"\ngotchas_doc = "g"\nagents = ["claude_code"]`,
+    `[project]\nslug = "s"\ngotchas_doc = "g"\nagents = ["claude_code"]`,
   ).project;
   const stringFields = (Object.keys(populated) as Array<keyof typeof populated>)
     .filter((f) => f !== "agents");
   assert(
-    stringFields.length >= 3,
-    `expected the [project] string fields (slug/branch_prefix/gotchas_doc), got: ${
+    stringFields.length >= 2,
+    `expected the [project] string fields (slug/gotchas_doc), got: ${
       stringFields.join(", ")
     }`,
   );
@@ -120,6 +132,17 @@ Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to un
     parseDiscernToml(`[project]\nagents = "claude_code"`).project.agents,
     undefined,
   );
+});
+
+Deno.test("parseDiscernToml drops wrong-typed repository fields", () => {
+  const parsed = parseDiscernToml(
+    '[repository]\ntrunk = 1\nbranch_prefix = false\nensure = ["ok", 2]',
+  );
+  assertEquals(parsed.repository, {
+    trunk: undefined,
+    branch_prefix: undefined,
+    ensure: ["ok"],
+  });
 });
 
 Deno.test("parseDiscernToml filters non-string entries out of the agents array", () => {

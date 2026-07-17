@@ -32,8 +32,10 @@ Deno.test("a malformed config throws a catchable ConfigParseError with the hint"
 const SAMPLE = `
 [project]
 slug = "demo-app"
-main_branch = "main"
 agents = ["claude_code", "codex"]
+
+[repository]
+trunk = "main"
 
 [capabilities]
 format = "deno fmt"
@@ -88,7 +90,8 @@ Deno.test("subsections returns child table names only", () => {
 Deno.test("keys returns flat keys, excluding nested tables", () => {
   const c = new RawConfig(SAMPLE);
   assertEquals(c.keys("capabilities").sort(), ["format", "lint"]);
-  assertEquals(c.keys("project").sort(), ["agents", "main_branch", "slug"]);
+  assertEquals(c.keys("project").sort(), ["agents", "slug"]);
+  assertEquals(c.keys("repository"), ["trunk"]);
 });
 
 Deno.test("has covers scalars, arrays, and table headers", () => {

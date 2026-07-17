@@ -44,7 +44,9 @@ import type { AgentName } from "../src/lib/config.ts";
 const SCOPE_CONFIG = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[scopes.web]",
   'paths = ["web/**"]',
@@ -58,7 +60,9 @@ function statusGateFactsConfig(
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[capabilities]",
     ...wiredCapabilities.map((name) => `${name} = "true"`),
@@ -816,7 +820,9 @@ Deno.test("status is pure observation: it mutates nothing and provisions no reso
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[worktree.resources.thing]",
         `create = "touch CREATED_SENTINEL"`,
@@ -1110,7 +1116,7 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
     assert(
       (obj.hints ?? []).some((h: string) =>
         h.includes("trunk branch 'main' is not available locally") &&
-        h.includes("[project].main_branch")
+        h.includes("[repository].trunk")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,
     );
@@ -1121,6 +1127,6 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
       human.output,
       "trunk branch 'main' is not available locally",
     );
-    assertStringIncludes(human.output, "[project].main_branch");
+    assertStringIncludes(human.output, "[repository].trunk");
   });
 });

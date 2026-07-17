@@ -55,7 +55,7 @@ Deno.test("worktree location errors define the term and end in a recovery", asyn
       ensureWorktreeBranch("not a branch", worktree)
     );
     assertStringIncludes(detached, "invalid branch name");
-    assertStringIncludes(detached, "[project].branch_prefix");
+    assertStringIncludes(detached, "[repository].branch_prefix");
     assertStringIncludes(detached, "then re-run");
   });
 });
@@ -63,7 +63,7 @@ Deno.test("worktree location errors define the term and end in a recovery", asyn
 Deno.test("a missing trunk warning uses one name and gives the repair", () => {
   const message = missingIntegrationBranchWarning("main");
   assertStringIncludes(message, "trunk branch 'main'");
-  assertStringIncludes(message, "[project].main_branch");
+  assertStringIncludes(message, "[repository].trunk");
   assertStringIncludes(message, "then re-run");
   assert(!message.includes("integration branch"));
 });

@@ -124,6 +124,8 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",
     trunk: "main",
+    repositoryEnsureSteps: ["install-deps"],
+    smokeSteps: [{ label: "smoke", command: "app --version" }],
     ignoredFileChanges: {
       status: "unchanged" as const,
       changed_roots: [],
@@ -137,10 +139,13 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
   });
   assertEquals(withResources.steps.map((s) => s.label), [
     "fast-forward-trunk",
+    "refresh agent files",
+    "install-deps",
+    "smoke",
+    "check trunk checkout",
     "teardown resources",
     "remove-worktree",
     "delete-branch",
-    "refresh agent files",
   ]);
   assertEquals(
     withResources.steps.find((s) => s.label === "teardown resources")
@@ -154,10 +159,13 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
   });
   assertEquals(clean.steps.map((s) => s.label), [
     "fast-forward-trunk",
+    "refresh agent files",
+    "install-deps",
+    "smoke",
+    "check trunk checkout",
     "teardown resources",
     "remove-worktree",
     "delete-branch",
-    "refresh agent files",
   ]);
   // No resources → the teardown step is shown but skipped.
   assertEquals(

@@ -139,7 +139,7 @@ export async function statusResult(
 
   const cfg = await loadConfig(root);
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.project.main_branch;
+    cfg.repository.trunk;
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
   // the main checkout (or no git repo) does not.
@@ -325,7 +325,7 @@ export async function statusResult(
   if (location === "main") {
     const found = await unlandedPrefixBranches(
       root,
-      cfg.project.branch_prefix,
+      cfg.repository.branch_prefix,
       mainBranch,
     );
     if (found.length > 0) {
@@ -575,10 +575,10 @@ export function offTrunkStartHereHint(branch: string, trunk: string): string {
  */
 export function missingTrunkHint(branch: string, trunk: string): string {
   const label = branch === "" ? "(detached)" : `'${branch}'`;
-  return `The configured trunk ('${trunk}', [project].main_branch) doesn't ` +
+  return `The configured trunk ('${trunk}', [repository].trunk) doesn't ` +
     `exist in this repository — the main checkout is on ${label}. Worktrees ` +
     `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
-    `[project].main_branch to the branch this project actually uses, or ` +
+    `[repository].trunk to the branch this project actually uses, or ` +
     `create the trunk (\`git branch ${trunk}\`).`;
 }
 

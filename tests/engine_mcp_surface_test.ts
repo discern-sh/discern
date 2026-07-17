@@ -78,7 +78,7 @@ Deno.test("mcp surface: every config value it names flows from config — no har
     allow: string[];
   }> = {
     main_branch: {
-      patch: { project: { main_branch: "zzbranch" } },
+      patch: { repository: { trunk: "zzbranch" } },
       sentinel: "zzbranch",
       def: "main",
       // `range.main` is the update payload's wire FIELD name (the incoming-tip

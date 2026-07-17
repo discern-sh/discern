@@ -37,7 +37,7 @@ import {
 import { Logger } from "../src/lib/log.ts";
 
 const INHERIT_CONFIG =
-  '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n' +
+  '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
   '[worktree]\ninherit_env = ["APP_KEY"]\n';
 
 Deno.test("inherit_env: a declared value arrives in a FRESH worktree with no env file (end to end)", async () => {
@@ -105,7 +105,7 @@ Deno.test("fleet rows derive id and port when the project has no env file", asyn
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n[worktree]\nport = true\n',
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n[worktree]\nport = true\n',
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "no-env-here");
@@ -150,7 +150,7 @@ Deno.test("inherit_env: values survive a one-shot `cp .env.example .env` setup s
     // the FINAL file, not the pre-step one the scaffold replaced.
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n' +
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
         '[worktree]\ninherit_env = ["APP_KEY"]\nport = true\n\n' +
         '[worktree.setup]\nsteps = ["cp .env.example .env"]\n',
     );

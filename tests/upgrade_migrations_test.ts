@@ -282,7 +282,9 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
       apply: async (ctx) => {
         ran.push("applied");
         await ctx.writeText("MIGRATED", "yes\n");
-        await ctx.editToml((e) => e.setString("project.branch_prefix", "wt/"));
+        await ctx.editToml((e) =>
+          e.setString("repository.branch_prefix", "wt/")
+        );
       },
     }];
 

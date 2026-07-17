@@ -229,7 +229,9 @@ Deno.test("update: scopes_incoming classifies the merge's files through the proj
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[scopes.engine]",
         'paths = ["src/**"]',

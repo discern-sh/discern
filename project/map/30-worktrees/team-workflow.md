@@ -60,7 +60,7 @@ Without the binary, the clone lacks materialized skills and the `discern_*` MCP 
 
 Some agents also require folder trust. `discern doctor` names the provider-specific step.
 
-Claude Code can create and remove worktrees through `WorktreeCreate` and `WorktreeRemove` hooks. The binary parses the hook JSON itself, with no `jq` dependency, and calls the same create, setup, and teardown cores as `discern start`. After setup, hook-created worktrees also branch from the trunk. Its session-start hook reruns resource and setup convergence ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). Other agents use the shared lifecycle verbs directly.
+Claude Code can create and remove worktrees through `WorktreeCreate` and `WorktreeRemove` hooks. The binary parses the hook JSON itself, with no `jq` dependency, and calls the same create, setup, and teardown cores as `discern start`. After setup, hook-created worktrees also branch from the trunk. Its session-start hook reruns resources, checkout-shared `[repository].ensure`, and worktree-only setup convergence ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). Other agents use the shared lifecycle verbs directly.
 
 ## Where it lives in code
 

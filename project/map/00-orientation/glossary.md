@@ -129,7 +129,7 @@ A quality number that can never get worse: a floor or ceiling declared under `[s
 
 ### Trunk
 
-The shared branch accepted work lands on: `[project].main_branch`, usually `main`. Worktrees bring it in with `discern update` and land back on it with `discern accept`.
+The shared branch accepted work lands on: `[repository].trunk`, usually `main`. Worktrees bring it in with `discern update` and land back on it with `discern accept`.
 
 ### Update
 
@@ -145,7 +145,7 @@ An external thing a worktree needs in isolation (a database, an emulator, a cont
 
 ### Worktree settings
 
-The per-worktree configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. A fresh install declares none, so the workflow is a clean no-op until a project wires one ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
+The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. These settings may depend on a linked worktree's identity and never run in the main checkout. Checkout-generic convergence belongs in `[repository].ensure` instead. A fresh install declares none, so the workflow is a clean no-op until a project wires one ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
 
 ### Your files / Yours
 

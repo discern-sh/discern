@@ -243,7 +243,7 @@ export async function classifyScopes(
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    config.project.main_branch;
+    config.repository.trunk;
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.

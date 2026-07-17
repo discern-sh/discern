@@ -76,7 +76,9 @@ function slowStandardConfig(marker: string): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[standards.score]",
     'direction = "up"',
@@ -95,7 +97,9 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         `test = "touch ${marker}"`,

@@ -191,7 +191,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // [features] toggles and [worktree].enabled), 16→17 (drop
   // [worktree].graduate_to — accept always lands on the trunk), 17→18
   // ([ratchets] → [standards]), 18→19 ([docs] → [map], with the installed
-  // directory pinned), and 19→20 (Project Recipes → Project Scripts).
+  // directory pinned), 19→20 (Project Recipes → Project Scripts), and 20→21
+  // ([project] repository policy → [repository]).
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -212,6 +213,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     17,
     18,
     19,
+    20,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -1185,6 +1187,252 @@ Deno.test("migration 19→20 leaves files untouched when an exotic Recipe key ca
   });
 });
 
+Deno.test("migration 20→21 preserves custom repository policy and adds shared convergence", async () => {
+  const cases = [
+    {
+      name: "table keys",
+      trunk: "stable",
+      prefix: "change/",
+      text: [
+        "[meta]",
+        "schema_version = 20",
+        "",
+        "[project]",
+        'slug = "demo"',
+        '# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
+        'branch_prefix = "change/"',
+        "# The trunk: the shared branch the gate merges into and completed work lands on.",
+        "# Detected from your repository at setup (origin/HEAD, then the branch setup",
+        "# started from, then init.defaultBranch). Override per-invocation with the",
+        "# DISCERN_MAIN_BRANCH env var.",
+        'main_branch = "stable"',
+        'gotchas_doc = "project/map/gotchas.md"',
+        "",
+        "# ─────",
+        "# [map] — project documentation",
+        "# ─────",
+        "",
+        "[map]",
+        'dir = "project/map/"',
+        "",
+      ].join("\n"),
+    },
+    {
+      name: "dotted keys",
+      trunk: "stable",
+      prefix: "change/",
+      text: [
+        'project.slug = "demo"',
+        'project.branch_prefix = "change/"',
+        'project.main_branch = "stable"',
+        "",
+      ].join("\n"),
+    },
+    {
+      name: "implicit schema-20 defaults",
+      trunk: "main",
+      prefix: "agent/",
+      text: [
+        "[meta]",
+        "schema_version = 20",
+        "",
+        "[project]",
+        'slug = "demo"',
+        "",
+      ].join("\n"),
+    },
+  ];
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const configPath = join(dir, "discern.toml");
+      await Deno.writeTextFile(configPath, testCase.text);
+      const notes: string[] = [];
+      try {
+        await applyMigrationsUnchecked({
+          destDir: dir,
+          from: 20,
+          to: 21,
+          onNote: (note) => notes.push(note),
+        });
+      } catch (error) {
+        throw new Error(
+          `${testCase.name}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      const after = await Deno.readTextFile(configPath);
+      const raw = parseDiscernToml(after).raw;
+      const project = raw.project as Record<string, unknown>;
+      const repository = raw.repository as Record<string, unknown>;
+      assertEquals(project.main_branch, undefined, testCase.name);
+      assertEquals(project.branch_prefix, undefined, testCase.name);
+      assertEquals(project.slug, "demo", testCase.name);
+      assertEquals(repository.trunk, testCase.trunk, testCase.name);
+      assertEquals(repository.branch_prefix, testCase.prefix, testCase.name);
+      assertEquals(repository.ensure, [], testCase.name);
+      if (testCase.name === "table keys") {
+        assert(
+          after.indexOf("[repository]") <
+            after.indexOf("# [map] — project documentation"),
+          `the new section must not split [map] from its banner:\n${after}`,
+        );
+        assertEquals(
+          after.match(/# Branch prefix for worktrees/g)?.length,
+          1,
+          "the legacy managed key comment moves to the canonical section once",
+        );
+      }
+      assert(
+        notes.some((note) => note.includes("[repository].trunk")),
+        `${testCase.name}: ${notes.join("\n")}`,
+      );
+
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 20,
+        to: 21,
+        onNote: () => {},
+      });
+      assertEquals(await Deno.readTextFile(configPath), after, testCase.name);
+    });
+  }
+});
+
+Deno.test("migration 20→21 refuses conflicting old and pre-adopted repository settings", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[project]",
+      'main_branch = "main"',
+      "",
+      "[repository]",
+      'trunk = "stable"',
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 20,
+          to: 21,
+          onNote: () => {},
+        }),
+      Error,
+      "Keep the intended value under [repository].trunk",
+    );
+    assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), text);
+  });
+});
+
+Deno.test("migration 20→21 preserves a pre-adopted repository ensure list", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[project]",
+      'slug = "demo"',
+      'main_branch = "stable"',
+      'branch_prefix = "change/"',
+      "",
+      "[repository]",
+      'trunk = "stable"',
+      'branch_prefix = "change/"',
+      'ensure = ["install --locked", "generate --check"]',
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 20,
+      to: 21,
+      onNote: () => {},
+    });
+
+    const raw = parseDiscernToml(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+    ).raw;
+    assertEquals(raw.repository, {
+      trunk: "stable",
+      branch_prefix: "change/",
+      ensure: ["install --locked", "generate --check"],
+    });
+    const project = raw.project as Record<string, unknown>;
+    assertEquals(project.main_branch, undefined);
+    assertEquals(project.branch_prefix, undefined);
+  });
+});
+
+Deno.test("migration 20→21 preserves CRLF while inserting the repository block", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[project]",
+      'slug = "demo"',
+      'branch_prefix = "change/"',
+      'main_branch = "stable"',
+      "",
+      "[map]",
+      'dir = "map/"',
+      "",
+    ].join("\r\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 20,
+      to: 21,
+      onNote: () => {},
+    });
+
+    const migrated = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(migrated, "[repository]\r\n");
+    assert(
+      !/(?<!\r)\n/u.test(migrated),
+      `migration introduced a bare LF into a CRLF config:\n${migrated}`,
+    );
+  });
+});
+
+Deno.test("migration 20→21 removes only known key comments and preserves user context", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[project]",
+      'slug = "demo"',
+      "# Keep change branches visually distinct from release branches.",
+      '# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
+      'branch_prefix = "change/"',
+      "# Stable is mirrored by a deployment robot.",
+      "# The trunk: the shared branch the gate merges into and completed work lands on.",
+      "# Detected from your repository at setup (origin/HEAD, then the branch setup",
+      "# started from, then init.defaultBranch). Override per-invocation with the",
+      "# DISCERN_MAIN_BRANCH env var.",
+      'main_branch = "stable"',
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "discern.toml"), text);
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 20,
+      to: 21,
+      onNote: () => {},
+    });
+
+    const migrated = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(
+      migrated,
+      "# Keep change branches visually distinct from release branches.",
+    );
+    assertStringIncludes(
+      migrated,
+      "# Stable is mirrored by a deployment robot.",
+    );
+    assertEquals(
+      migrated.match(/# Branch prefix for worktrees/g)?.length,
+      1,
+      "only the new canonical repository comment remains",
+    );
+  });
+});
+
 Deno.test("migration 12→13 adds a documented [worktree].root key as the first [worktree] key", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
@@ -1977,7 +2225,9 @@ Deno.test("context: editToml edits comment-preserving, no-ops without a config",
       ".discern/config.toml",
       '# my config\n[project]\nslug = "demo"\n',
     );
-    await ctx.editToml((e) => e.setString("project.branch_prefix", "agent/"));
+    await ctx.editToml((e) =>
+      e.setString("repository.branch_prefix", "agent/")
+    );
     const toml = await ctx.readText(".discern/config.toml");
     assertExists(toml);
     assert(toml.includes('branch_prefix = "agent/"'));

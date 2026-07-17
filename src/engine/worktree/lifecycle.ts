@@ -11,7 +11,9 @@
  * (best-effort — a hiccup must never strand a worktree; a later prune is the
  * backstop), and reclaimed by prune when a worktree vanishes without a clean
  * teardown. [worktree.setup].steps run once at creation, stopping at the first
- * failure; [worktree.setup].ensure re-runs on every pass to converge the worktree.
+ * failure; [repository].ensure re-runs checkout-generic convergence on every
+ * pass and after landing, while [worktree.setup].ensure re-runs only in linked
+ * worktrees for identity-dependent convergence.
  */
 
 import { basename, isAbsolute, join, relative, resolve } from "@std/path";
@@ -37,6 +39,12 @@ import {
   recordIgnoredFileBaseline,
 } from "./ignored.ts";
 import { runShellRouted } from "./shell.ts";
+import {
+  type JobGroup,
+  planStageJobs,
+  serializeJobSteps,
+} from "../gate/plan.ts";
+import { gateRunContext, runJobGroups } from "../gate/execute.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { AWAITING_CONSENT_SLUG } from "../../shared/consent.ts";
@@ -72,11 +80,13 @@ import {
 } from "./plan.ts";
 import {
   appliedResult,
+  type Diagnostic,
   type DiscernResult,
   type EnginePlan,
   previewResult,
   renderPlan,
   renderStepResults,
+  type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
 import type {
@@ -351,6 +361,9 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   for (const step of ctx.config.worktree.setup.steps) {
     steps.push({ kind: "setup-step", label: step });
   }
+  for (const step of ctx.config.repository.ensure) {
+    steps.push({ kind: "repository-ensure", label: step });
+  }
   for (const step of ctx.config.worktree.setup.ensure) {
     steps.push({ kind: "setup-ensure", label: step });
   }
@@ -372,12 +385,22 @@ function setupResults(
   plan: SetupPlan,
   failedResources: string[],
   refreshOk: boolean,
-  failedEnsure: string[],
+  repositoryEnsureOutcomes: StepOutcome[],
+  worktreeEnsureOutcomes: StepOutcome[],
 ): StepResult[] {
+  let repositoryEnsureIndex = 0;
+  let worktreeEnsureIndex = 0;
   return plan.steps.map((s) => {
+    const repositoryEnsureOutcome = s.kind === "repository-ensure"
+      ? repositoryEnsureOutcomes[repositoryEnsureIndex++]
+      : undefined;
+    const worktreeEnsureOutcome = s.kind === "setup-ensure"
+      ? worktreeEnsureOutcomes[worktreeEnsureIndex++]
+      : undefined;
     const failed = (s.kind === "resource-create" &&
       failedResources.includes(s.label)) ||
-      (s.kind === "setup-ensure" && failedEnsure.includes(s.label)) ||
+      repositoryEnsureOutcome === "failed" ||
+      worktreeEnsureOutcome === "failed" ||
       (s.kind === "refresh" && !refreshOk);
     return {
       step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
@@ -387,53 +410,86 @@ function setupResults(
 }
 
 /**
- * Run the convergent `[worktree.setup].ensure` commands in order — the steps that
- * re-run on EVERY setup pass (creation, session-start re-entry, and `discern
- * update`) to converge the worktree on the current tree. The direct parallel to
- * a resource's `ensure`, sharing the one setup-step shell runner with the one-shot
- * `steps`. `fatal` selects the failure contract: at a fresh creation a non-zero exit
- * is fatal (a worktree that cannot ready its environment is broken — abort loudly,
+ * Run one ordered bucket of convergent checkout commands. `[repository].ensure`
+ * is safe in any checkout; `[worktree.setup].ensure` may depend on a linked
+ * worktree's identity and never reaches the main checkout. Both share the same
+ * shell runner with one-shot worktree `steps`. `fatal` selects the failure
+ * contract: at a fresh creation a non-zero exit is fatal (a worktree that cannot
+ * ready its environment is broken — abort loudly,
  * exactly like a `steps` failure); on a re-entry or update it is recorded and the
  * run continues (never undo a completed merge or break session start over a
- * convergence hiccup — the gate is the backstop). Returns the commands that failed
- * (always empty when `fatal`, since the first failure throws). A no-op when none are
- * declared.
+ * convergence hiccup — the gate is the backstop). Returns one outcome per command,
+ * preserving duplicate commands as distinct executions. A no-op when none are declared.
  */
-async function runEnsureSteps(
+async function runEnsureCommands(
   ctx: LifecycleContext,
-  opts: { fatal: boolean },
-): Promise<{ failed: string[] }> {
-  const failed: string[] = [];
-  for (const step of ctx.config.worktree.setup.ensure) {
-    ctx.log.info(`Ensure step: ${step}`);
-    const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
+  commands: string[],
+  opts: {
+    fatal: boolean;
+    cwd: string;
+    scope: "repository" | "worktree";
+  },
+): Promise<StepOutcome[]> {
+  const outcomes: StepOutcome[] = [];
+  for (const step of commands) {
+    const label = opts.scope === "repository"
+      ? "Repository ensure step"
+      : "Worktree ensure step";
+    ctx.log.info(`${label}: ${step}`);
+    const code = await runShellRouted(step, { cwd: opts.cwd, log: ctx.log });
     if (code !== 0) {
       if (opts.fatal) {
         throw new WorktreeGitError(
-          `The worktree ensure step failed: ${step}. Fix that command or its ` +
+          `The ${opts.scope} ensure step failed: ${step}. Fix that command or its ` +
             `prerequisites, then re-run \`discern worktree setup\`.`,
         );
       }
-      ctx.log.warn(`Ensure step failed (continuing): ${step}`);
-      failed.push(step);
+      ctx.log.warn(`${label} failed (continuing): ${step}`);
+      outcomes.push("failed");
+    } else {
+      outcomes.push("ok");
     }
   }
-  return { failed };
+  return outcomes;
+}
+
+/** Shared checkout convergence, safe in a linked worktree or the main checkout. */
+async function runRepositoryEnsureSteps(
+  ctx: LifecycleContext,
+  opts: { fatal: boolean; cwd?: string },
+): Promise<StepOutcome[]> {
+  return await runEnsureCommands(ctx, ctx.config.repository.ensure, {
+    fatal: opts.fatal,
+    cwd: opts.cwd ?? ctx.cwd,
+    scope: "repository",
+  });
+}
+
+/** Worktree-identity-dependent convergence; never called in the main checkout. */
+async function runWorktreeEnsureSteps(
+  ctx: LifecycleContext,
+  opts: { fatal: boolean },
+): Promise<StepOutcome[]> {
+  return await runEnsureCommands(ctx, ctx.config.worktree.setup.ensure, {
+    fatal: opts.fatal,
+    cwd: ctx.cwd,
+    scope: "worktree",
+  });
 }
 
 /**
  * Set up a linked worktree — the `worktree setup` command. Asserts the worktree
  * precondition, ensures a named branch, provisions the per-worktree resources (a
  * `required` create is fatal), inherits env vars, records the port + resource
- * handles into `.env`, runs the one-shot `[worktree.setup].steps` then the
- * convergent `[worktree.setup].ensure` in order, refreshes the agent files, and
- * drops the ready sentinel. Throws on a fatal step. `--dry-run` shows the plan and
- * touches nothing.
+ * handles into `.env`, runs the one-shot `[worktree.setup].steps`, then
+ * checkout-shared `[repository].ensure`, then linked-worktree-only
+ * `[worktree.setup].ensure`. It refreshes the agent files and drops the ready
+ * sentinel. Throws on a fatal step. `--dry-run` shows the plan and touches nothing.
  *
  * Idempotent: when the worktree is already configured (the sentinel is present),
  * the non-idempotent phases are not repeated — resources are re-readied via
  * `ensure` rather than re-created, and the one-shot `steps` are skipped. The
- * convergent `setup.ensure` runs on EVERY pass (re-install deps, rebuild) so a
+ * convergent repository and worktree ensure buckets run on EVERY pass so a
  * re-fired `worktree create` hook or a re-run `discern worktree setup` re-converges the
  * worktree on the current tree.
  */
@@ -508,18 +564,25 @@ export async function worktreeSetup(
   // 5. record the deterministic port
   await recordPort(ctx, identity);
 
-  // 6. one-shot `steps`, then convergent `ensure`. `steps` are scaffolding: they run
+  // 6. one-shot `steps`, then the shared and worktree convergence buckets.
+  // `steps` are scaffolding: they run
   // only on a FRESH worktree and are skipped once configured (a one-shot `createdb`
-  // must not re-run). `ensure` converges the worktree on the current tree (install
-  // deps, build) and runs on EVERY pass — after `steps` at a fresh creation, alone on
-  // a re-entry. A fresh `ensure` failure is FATAL (a worktree that cannot ready its
-  // environment is broken); a re-entry `ensure` failure is recorded and non-fatal.
-  let ensureFailed: string[] = [];
+  // must not re-run). Repository ensure converges checkout-generic dependencies;
+  // worktree ensure handles identity-dependent state. Both run on EVERY pass —
+  // after `steps` at a fresh creation, alone on re-entry. A fresh failure is FATAL;
+  // a re-entry failure is recorded and non-fatal.
+  let repositoryEnsureOutcomes: StepOutcome[] = [];
+  let worktreeEnsureOutcomes: StepOutcome[] = [];
   if (configured) {
     if (ctx.config.worktree.setup.steps.length > 0) {
       ctx.log.info("Worktree already configured — skipping setup steps.");
     }
-    ensureFailed = (await runEnsureSteps(ctx, { fatal: false })).failed;
+    repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+      fatal: false,
+    });
+    worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, {
+      fatal: false,
+    });
   } else {
     for (const step of ctx.config.worktree.setup.steps) {
       ctx.log.info(`Setup step: ${step}`);
@@ -549,7 +612,10 @@ export async function worktreeSetup(
       }
       await recordPort(ctx, identity);
     }
-    await runEnsureSteps(ctx, { fatal: true });
+    repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+      fatal: true,
+    });
+    worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, { fatal: true });
   }
 
   // 7. refresh the agent files, which also materializes skills into THIS
@@ -585,7 +651,13 @@ export async function worktreeSetup(
 
   const result = appliedResult(
     "worktree setup",
-    setupResults(plan, createdFailed, refreshOk, ensureFailed),
+    setupResults(
+      plan,
+      createdFailed,
+      refreshOk,
+      repositoryEnsureOutcomes,
+      worktreeEnsureOutcomes,
+    ),
   );
   if ((opts.json ?? false) || (opts.humanApplySummary ?? true)) {
     emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
@@ -734,12 +806,13 @@ export async function worktreeEnsure(
   if (await worktreeSetupComplete(ctx.cwd)) {
     // Already set up — converge the worktree: reconcile any resource that declares an
     // `ensure` (re-ready one that died out-of-band, e.g. a host reboot) and re-run the
-    // `[worktree.setup].ensure` commands (re-install deps, rebuild). Both are
+    // checkout-shared and worktree-only ensure commands. All are
     // best-effort here — a convergence hiccup must never break session start. Cheap
     // and silent when neither is declared.
     const { identity, settings } = await resolveContextIdentity(ctx);
     await ensureResources(ctx, identity, settings);
-    await runEnsureSteps(ctx, { fatal: false });
+    await runRepositoryEnsureSteps(ctx, { fatal: false });
+    await runWorktreeEnsureSteps(ctx, { fatal: false });
     return { kind: "already" };
   }
   ctx.log.warn(
@@ -820,7 +893,7 @@ async function buildDropPlan(
       "discern worktree drop needs a target. Pass a worktree id or path, then re-run.",
     );
   }
-  const trunk = integrationBranch(ctx.config.project.main_branch);
+  const trunk = integrationBranch(ctx.config.repository.trunk);
   const fleet = (await listWorktreeFleet(ctx.cwd, trunk)).filter((row) =>
     !row.isMain
   );
@@ -1164,11 +1237,11 @@ async function buildAcceptPlan(
   }
 
   // require the branch contains the latest integration branch
-  const trunkBranch = integrationBranch(ctx.config.project.main_branch);
+  const trunkBranch = integrationBranch(ctx.config.repository.trunk);
   ctx.log.info(`Checking the branch contains the latest ${trunkBranch}…`);
   const merged = await assertMainMerged(
     ctx.cwd,
-    ctx.config.project.main_branch,
+    ctx.config.repository.trunk,
   );
   if (merged.kind === "behind") {
     throw new WorktreeGitError(
@@ -1230,7 +1303,17 @@ async function buildAcceptPlan(
     worktreeBranch,
     worktreePath,
     mainRepo,
-    trunk: ctx.config.project.main_branch,
+    trunk: ctx.config.repository.trunk,
+    repositoryEnsureSteps: ctx.config.repository.ensure,
+    smokeSteps: planStageJobs(ctx.config, "test")
+      .filter((job) =>
+        job.kind === "capability" && /^smoke(?:#\d+)?$/.test(job.label)
+      )
+      .map((job) => ({
+        label: job.label,
+        command: job.command,
+        ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+      })),
     hasResources: readResourceSpecs(ctx.config).length > 0,
     ignoredFileChanges,
   };
@@ -1358,13 +1441,61 @@ async function assertAcceptBranchStillCurrent(
 }
 
 /**
+ * Run only the configured smoke capability in the landing checkout. The full
+ * gate already validated the commit in the worktree; this second, deliberately
+ * narrow pass proves the main checkout's local runtime state is usable after its
+ * repository convergence commands. It is non-fatal because the trunk has
+ * already moved, but its real job steps and diagnostics are retained.
+ */
+async function runLandingSmoke(
+  mainRepo: string,
+  config: DiscernConfig,
+  plan: AcceptPlan,
+  log: Logger,
+): Promise<{
+  steps: StepResult[];
+  diagnostics: Diagnostic[];
+  hints: string[];
+}> {
+  if (plan.smokeSteps.length === 0) {
+    return { steps: [], diagnostics: [], hints: [] };
+  }
+  const group: JobGroup = {
+    stage: "test",
+    mode: "parallel",
+    heading: "Proving the landing checkout is ready...",
+    display: "Smoke",
+    jobs: plan.smokeSteps.map((job) => ({
+      label: job.label,
+      command: job.command,
+      kind: "capability",
+      reportStage: "test",
+      willRun: true,
+      ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+    })),
+  };
+  log.info("Running the smoke capability in the landing checkout...");
+  // Always keep the gate runner quiet here: accept owns stdout (especially its
+  // JSON envelope), while serializeJobSteps retains failure output as structured
+  // diagnostics exactly as the normal gate does.
+  const { runOpts, out } = gateRunContext(mainRepo, config, true);
+  const { results, failedStage } = await runJobGroups([group], runOpts, out);
+  const serialized = await serializeJobSteps([group], results);
+  if (failedStage === null) {
+    log.ok("Landing-checkout smoke passed.");
+  } else {
+    log.warn("Landing-checkout smoke failed — the landing is kept.");
+  }
+  return serialized;
+}
+
+/**
  * Apply an acceptance plan — the mutation dance. Ensures the named branch
- * (creating one if the worktree is detached), validates the exact tree against the whole
- * gate before landing (ADR 0067, fast-pathed by a gate receipt), tears down the
- * resources, fast-forwards the trunk to the branch tip, removes the worktree,
- * deletes the merged branch, and refreshes the trunk checkout it leaves behind.
- * Narrates exactly as before; throws `WorktreeGitError` on any unrecoverable
- * error (the branch keeps its commits). Returns the per-step results for `--json`.
+ * (creating one if the worktree is detached), validates the exact tree against
+ * the whole gate (ADR 0067, fast-pathed by a gate receipt), fast-forwards the
+ * trunk, then refreshes, converges, and smoke-tests the receiving checkout before
+ * the cleanup tail tears down resources, removes the worktree, and deletes the
+ * merged branch. Returns the per-step results for `--json`.
  */
 async function executeAcceptPlan(
   ctx: LifecycleContext,
@@ -1374,7 +1505,8 @@ async function executeAcceptPlan(
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown: string | undefined;
-  refreshHints: string[];
+  convergenceHints: string[];
+  diagnostics: Diagnostic[];
 }> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
   const settings = await loadIdentitySettings(ctx.root);
@@ -1539,6 +1671,149 @@ async function executeAcceptPlan(
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
 
+  // Converge and prove the checkout accept leaves behind BEFORE cleanup. The
+  // trunk has already moved, so every operation in this block is non-fatal and
+  // recorded: no dependency-install or smoke failure may strand the linked
+  // worktree/resources by preventing the cleanup tail from running.
+  const convergenceHints: string[] = [];
+  const diagnostics: Diagnostic[] = [];
+  ctx.log.info(
+    "Re-materializing agent files + skills in the landing checkout…",
+  );
+  let refreshOk = true;
+  try {
+    const refreshed = await compileGuidelinesForLandingRefresh(
+      mainRepo,
+      ctx.log,
+      refreshTemplatesDir,
+    );
+    refreshOk = guidanceRefreshSucceeded(refreshed);
+    convergenceHints.push(...refreshed.hints);
+  } catch {
+    refreshOk = false;
+    ctx.log.warn("Agent-file refresh reported an error — continuing.");
+  }
+  doneRefresh(
+    refreshOk ? "ok" : "failed",
+    "re-materialized the trunk checkout's generated agent files + skills",
+  );
+  if (!refreshOk) {
+    convergenceHints.push(
+      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
+        `run \`discern refresh\` in ${mainRepo}.`,
+    );
+  }
+
+  let landingConfig = ctx.config;
+  try {
+    landingConfig = await loadConfig(mainRepo);
+  } catch {
+    // The gate validated this same tracked config in the worktree. Falling back
+    // keeps cleanup moving if a machine-local read hiccup occurs after the FF.
+    ctx.log.warn(
+      "Could not reload the landed config in the main checkout — using the validated worktree config for convergence.",
+    );
+  }
+
+  // Attribute tracked drift only to repository convergence/smoke. A refresh can
+  // legitimately rewrite generated tracked artifacts in older installs; if the
+  // checkout is already dirty here, this pass cannot honestly blame a later
+  // command for that pre-existing state.
+  let trackedDirtyBeforeConvergence: boolean | undefined;
+  try {
+    trackedDirtyBeforeConvergence =
+      await hasUncommittedTrackedChanges(mainRepo) ??
+        undefined;
+  } catch {
+    trackedDirtyBeforeConvergence = undefined;
+  }
+
+  let repositoryOutcomes: StepOutcome[];
+  try {
+    repositoryOutcomes = await runEnsureCommands(
+      ctx,
+      plan.repositoryEnsureSteps,
+      { fatal: false, cwd: mainRepo, scope: "repository" },
+    );
+  } catch {
+    repositoryOutcomes = plan.repositoryEnsureSteps.map(() => "failed");
+    ctx.log.warn(
+      "Repository convergence reported an unexpected error — cleanup is continuing.",
+    );
+  }
+  for (const [index, command] of plan.repositoryEnsureSteps.entries()) {
+    results.push({
+      step: {
+        kind: "repository-ensure",
+        label: command,
+        disposition: "run",
+        note: "converge the trunk checkout on the landed tree",
+      },
+      outcome: repositoryOutcomes[index] ?? "failed",
+    });
+  }
+
+  try {
+    const smoke = await runLandingSmoke(
+      mainRepo,
+      landingConfig,
+      plan,
+      ctx.log,
+    );
+    results.push(...smoke.steps);
+    diagnostics.push(...smoke.diagnostics);
+    convergenceHints.push(...smoke.hints);
+  } catch {
+    for (const smoke of plan.smokeSteps) {
+      results.push({
+        step: {
+          kind: "job",
+          label: smoke.label,
+          disposition: "run",
+          note: smoke.command,
+          group: "Smoke",
+        },
+        outcome: "failed",
+      });
+    }
+    ctx.log.warn(
+      "Landing-checkout smoke could not complete — cleanup is continuing.",
+    );
+  }
+
+  let checkoutClean: boolean | undefined;
+  if (trackedDirtyBeforeConvergence === false) {
+    try {
+      checkoutClean = !(await hasUncommittedTrackedChanges(mainRepo) ?? true);
+    } catch {
+      checkoutClean = false;
+    }
+  }
+  results.push({
+    step: {
+      kind: "checkout-clean-check",
+      label: "check trunk checkout",
+      disposition: "run",
+      note: checkoutClean === undefined
+        ? "tracked changes already existed after refresh; later drift is not attributable"
+        : "report tracked files changed by post-landing convergence",
+    },
+    outcome: checkoutClean === undefined
+      ? "skipped"
+      : checkoutClean
+      ? "ok"
+      : "failed",
+  });
+  if (checkoutClean === false) {
+    convergenceHints.push(
+      `Acceptance landed on ${trunk}, but post-landing convergence changed ` +
+        `tracked files in ${mainRepo}; review \`git status\` there.`,
+    );
+    ctx.log.warn(
+      "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
+    );
+  }
+
   // tear down external resources (non-fatal, while still in the worktree so
   // @dir@-bearing destroys resolve, and before removal so no orphan is left)
   ctx.log.info("Tearing down the worktree's resources…");
@@ -1571,38 +1846,6 @@ async function executeAcceptPlan(
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
   done("git", "delete-branch");
 
-  // Re-materialize the trunk checkout accept leaves behind. The branch has already
-  // landed, so a refresh hiccup is reported as a failed step rather than undoing the
-  // git transition (parallel to update's post-merge refresh).
-  ctx.log.info(
-    "Re-materializing agent files + skills in the landing checkout…",
-  );
-  let refreshOk = true;
-  let refreshHints: string[] = [];
-  try {
-    const refreshed = await compileGuidelinesForLandingRefresh(
-      mainRepo,
-      ctx.log,
-      refreshTemplatesDir,
-    );
-    refreshOk = guidanceRefreshSucceeded(refreshed);
-    refreshHints = refreshed.hints;
-  } catch {
-    refreshOk = false;
-    ctx.log.warn("Agent-file refresh reported an error — continuing.");
-  }
-  doneRefresh(
-    refreshOk ? "ok" : "failed",
-    "re-materialized the trunk checkout's generated agent files + skills",
-  );
-  if (!refreshOk) {
-    refreshHints = [
-      ...refreshHints,
-      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
-      `run \`discern refresh\` in ${mainRepo}.`,
-    ];
-  }
-
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   // The landing record: the receipt for the tree that just landed, pasteable
@@ -1613,16 +1856,23 @@ async function executeAcceptPlan(
       ctx.log.line(line);
     }
   }
-  return { steps: results, gateValidation, receiptMarkdown, refreshHints };
+  return {
+    steps: results,
+    gateValidation,
+    receiptMarkdown,
+    convergenceHints,
+    diagnostics,
+  };
 }
 
 /**
  * Accept this worktree's branch onto the trunk — the `discern accept`
  * command, the single PUSH target of the landing model (composition happens on
  * the pull axis: `start --from` / `update --from`). Requires the latest main
- * is present beneath this branch, tears down the worktree's external resources, fast-forwards the
- * trunk to the branch tip, removes the clean worktree directory, and deletes the
- * now-merged branch. The trunk checkout left behind is refreshed after landing.
+ * is present beneath this branch, fast-forwards the trunk to the branch tip,
+ * refreshes and converges the receiving checkout, tears down the worktree's
+ * external resources, removes the clean worktree directory, and deletes the
+ * now-merged branch.
  * Refuses without the `--confirmed` attestation (ADR 0134), then dirty worktrees,
  * dirty main checkouts, and a main checkout parked on a branch other than the
  * trunk. `--dry-run` shows the plan (after the read-only preconditions pass) and
@@ -1694,9 +1944,12 @@ export async function acceptResult(
   result.hints = executed.receiptMarkdown !== undefined
     ? [
       "The receipt (data.receipt) is the landing record — relay it to your owner; it pastes cleanly into a PR body.",
-      ...executed.refreshHints,
+      ...executed.convergenceHints,
     ]
-    : executed.refreshHints;
+    : executed.convergenceHints;
+  if (executed.diagnostics.length > 0) {
+    result.diagnostics = executed.diagnostics;
+  }
   return result;
 }
 
@@ -1991,7 +2244,8 @@ async function buildUpdatePlan(
   const run = makeGitRunner(ctx);
   const current = (await run(["branch", "--show-current"])).stdout.trim();
   const worktreeBranch = current !== "" ? current : "(detached)";
-  const ensureSteps = ctx.config.worktree.setup.ensure;
+  const repositoryEnsureSteps = ctx.config.repository.ensure;
+  const worktreeEnsureSteps = ctx.config.worktree.setup.ensure;
 
   if (from !== undefined && from.trim() !== "") {
     const source = from.trim();
@@ -2003,21 +2257,23 @@ async function buildUpdatePlan(
       worktreeBranch,
       behind: state.behind,
       alreadyUpdated: state.already,
-      ensureSteps,
+      repositoryEnsureSteps,
+      worktreeEnsureSteps,
     };
   }
 
   const merged = await assertMainMerged(
     ctx.cwd,
-    ctx.config.project.main_branch,
+    ctx.config.repository.trunk,
   );
   return {
-    source: integrationBranch(ctx.config.project.main_branch),
+    source: integrationBranch(ctx.config.repository.trunk),
     fromOverride: false,
     worktreeBranch,
     behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
     alreadyUpdated: merged.kind !== "behind",
-    ensureSteps,
+    repositoryEnsureSteps,
+    worktreeEnsureSteps,
   };
 }
 
@@ -2079,8 +2335,24 @@ async function runUpdateConvergence(
     },
     outcome: refreshOk ? "ok" : "failed",
   }];
-  const ensure = await runEnsureSteps(ctx, { fatal: false });
-  for (const step of plan.ensureSteps) {
+  const repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
+    fatal: false,
+  });
+  for (const [index, step] of plan.repositoryEnsureSteps.entries()) {
+    steps.push({
+      step: {
+        kind: "repository-ensure",
+        label: step,
+        disposition: "run",
+        note: "converge the checkout on the current tree",
+      },
+      outcome: repositoryEnsureOutcomes[index] ?? "failed",
+    });
+  }
+  const worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, {
+    fatal: false,
+  });
+  for (const [index, step] of plan.worktreeEnsureSteps.entries()) {
     steps.push({
       step: {
         kind: "setup-ensure",
@@ -2088,7 +2360,7 @@ async function runUpdateConvergence(
         disposition: "run",
         note: "converge the worktree on the current tree",
       },
-      outcome: ensure.failed.includes(step) ? "failed" : "ok",
+      outcome: worktreeEnsureOutcomes[index] ?? "failed",
     });
   }
   return { steps, refreshHints };
@@ -2096,11 +2368,10 @@ async function runUpdateConvergence(
 
 /**
  * Apply an integration: merge the source (the trunk, or the `--from` ref) in,
- * re-materialize the agent files + skills, then re-run the convergent
- * `[worktree.setup].ensure` to converge the worktree's environment on the merged
- * tree (the motivating case — a merge that changed a lockfile leaves dependencies
- * stale). When the branch already contains the source nothing is merged, but the
- * refresh + ensure convergence STILL runs (like session start) — that is what
+ * re-materialize the agent files + skills, then run checkout-shared
+ * `[repository].ensure` and linked-worktree `[worktree.setup].ensure` on the
+ * merged tree. When the branch already contains the source nothing is merged, but
+ * the refresh + ensure convergence STILL runs (like session start) — that is what
  * makes "re-run `discern update`" the recovery after a manually resolved
  * conflict, restoring everything the aborted merge skipped. A dirty tree or a
  * merge conflict throws `WorktreeGitError` (the conflict steps aside via
@@ -2116,7 +2387,7 @@ async function executeUpdatePlan(
   const { source } = plan;
   const outcome = await updateMain(
     ctx.cwd,
-    ctx.config.project.main_branch,
+    ctx.config.repository.trunk,
     plan.fromOverride ? { from: source } : {},
   );
   switch (outcome.kind) {
@@ -2307,7 +2578,7 @@ export async function livePortsInUse(
   }
   const fleet = await listWorktreeFleet(
     ctx.cwd,
-    ctx.config.project.main_branch,
+    ctx.config.repository.trunk,
   );
   for (const row of fleet) {
     if (row.isMain) {
@@ -2399,7 +2670,7 @@ async function resolveStartPoint(
   // The trunk is all a default start needs — the main checkout's HEAD may be
   // parked anywhere, detached, or even unborn (an orphan branch): the worktree
   // forks from the trunk ref, never from HEAD.
-  const trunk = integrationBranch(ctx.config.project.main_branch);
+  const trunk = integrationBranch(ctx.config.repository.trunk);
   if (await localBranchExists(ctx.root, trunk)) {
     return trunk;
   }
@@ -2411,7 +2682,7 @@ async function resolveStartPoint(
   }
   throw new WorktreeGitError(
     `New worktrees branch from the trunk, but the local branch '${trunk}' ` +
-      `doesn't exist. Set [project].main_branch to the branch this project ` +
+      `doesn't exist. Set [repository].trunk to the branch this project ` +
       `uses, or pass \`--from <ref>\` to branch from a specific ref, then re-run.`,
   );
 }
@@ -2765,10 +3036,10 @@ async function buildPrunePlan(
 ): Promise<PrunePlan> {
   const gitScan = await scanGitWorktreesForPrune({
     includeDetached: true,
-    mainBranch: ctx.config.project.main_branch,
+    mainBranch: ctx.config.repository.trunk,
   });
   const orphanScan = await scanOrphanWorktreesForSweep({
-    mainBranch: ctx.config.project.main_branch,
+    mainBranch: ctx.config.repository.trunk,
     ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
   });
   const resources = await planResourceReclaims(ctx);

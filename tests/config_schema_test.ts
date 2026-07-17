@@ -30,8 +30,9 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 Deno.test("an empty config validates to a fully-defaulted object", () => {
   const c = parseConfigOrThrow("");
-  assertEquals(c.project.main_branch, "main");
-  assertEquals(c.project.branch_prefix, "agent/");
+  assertEquals(c.repository.trunk, "main");
+  assertEquals(c.repository.branch_prefix, "agent/");
+  assertEquals(c.repository.ensure, []);
   assertEquals(c.project.slug, "");
   assertEquals(c.project.gotchas_doc, "");
   // The path defaults are the registry's (ADR 0102) — asserted against it, so
@@ -52,8 +53,37 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.standards, {});
   assertEquals(c.worktree.resources, {});
   assertEquals(c.worktree.setup.steps, []);
+  assertEquals(c.worktree.setup.ensure, []);
   assertEquals(c.worktree.inherit_env, []);
   assertEquals(c.worktree.ignored_file_drift, true);
+});
+
+Deno.test("repository owns the trunk, branch prefix, and shared convergence commands", () => {
+  const config = parseConfigOrThrow([
+    "[repository]",
+    'trunk = "stable"',
+    'branch_prefix = "change/"',
+    'ensure = ["npm install", "make generated"]',
+    "",
+  ].join("\n"));
+  assertEquals(config.repository, {
+    trunk: "stable",
+    branch_prefix: "change/",
+    ensure: ["npm install", "make generated"],
+  });
+});
+
+Deno.test("current configs reject repository settings left under [project]", () => {
+  for (const key of ["main_branch", "branch_prefix"]) {
+    const { config, issues } = parseConfig(
+      `[project]\n${key} = "legacy"\n`,
+    );
+    assertEquals(config, undefined);
+    assert(
+      issues.some((issue) => issue.path === `project.${key}`),
+      JSON.stringify(issues),
+    );
+  }
 });
 
 Deno.test("a config still carrying [features] is rejected with the upgrade hint", () => {
@@ -311,6 +341,9 @@ Deno.test("a quoted boolean gets a tailored hint, not the raw Zod message", () =
 Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   // Known scalar leaves and record paths are settable.
   assert(isSettableConfigPath("project.slug"));
+  assert(isSettableConfigPath("repository.trunk"));
+  assert(isSettableConfigPath("repository.branch_prefix"));
+  assert(isSettableConfigPath("repository.ensure"));
   assert(isSettableConfigPath("gate.fail_fast"));
   assert(isSettableConfigPath("map.dir"));
   assert(isSettableConfigPath("standards.coverage.limit")); // valid-but-incomplete OK
@@ -368,6 +401,10 @@ Deno.test("isSettableConfigPath refuses every record-key <name> the runtime vali
 
 Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
   assertEquals(settableConfigValueKind("project.slug"), { kind: "string" });
+  assertEquals(settableConfigValueKind("repository.trunk"), { kind: "string" });
+  assertEquals(settableConfigValueKind("repository.ensure"), {
+    kind: "string-array",
+  });
   assertEquals(settableConfigValueKind("gate.timeout"), { kind: "number" });
   assertEquals(settableConfigValueKind("gate.stream"), { kind: "boolean" });
   assertEquals(settableConfigValueKind("guidance.agents"), {

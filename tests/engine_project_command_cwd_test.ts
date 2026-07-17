@@ -32,7 +32,9 @@ import {
 const BASE = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
 ];
 

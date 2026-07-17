@@ -85,8 +85,10 @@ async function assertActionableFailureTail(
 const FAILING_CHECK = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
   'gotchas_doc = "docs/g.md"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   `lint = "echo LINT-BROKE; exit 7"`,
@@ -97,8 +99,10 @@ const FAILING_CHECK = [
 const FAILING_TEST = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
   'gotchas_doc = "docs/g.md"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   `test = "echo TEST-BROKE; exit 3"`,

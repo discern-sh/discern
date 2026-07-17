@@ -1217,7 +1217,7 @@ async function resolveServerConfig(
 export function mcpContext(config: DiscernConfig): GuidanceContext {
   return {
     vars: {
-      main_branch: config.project.main_branch,
+      main_branch: config.repository.trunk,
     },
     preds: {},
   };

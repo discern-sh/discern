@@ -69,7 +69,7 @@ export const guidanceAgents = resolveConfiguredAgents;
  * commit (no git branch/status, env, clock, randomness, absolute paths, or
  * gitignored/per-worktree files); that purity is what keeps the generated files'
  * currency check deterministic and the gate stable (ADR 0034). In particular
- * `main_branch` is the committed `[project].main_branch`, NEVER the
+ * `main_branch` is the committed `[repository].trunk`, NEVER the
  * `DISCERN_MAIN_BRANCH`
  * env override — that runtime override lives in the worktree/git layer, not in the
  * loaded config this reads. Keep it minimal: add a variable or predicate only when
@@ -91,7 +91,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   const agentFiles = emittedGuidancePaths(guidanceFilesFor(agents));
   return {
     vars: {
-      branch_prefix: config.project.branch_prefix,
+      branch_prefix: config.repository.branch_prefix,
       map_dir: normalizeMapDir(config.map.dir),
       // The deferred-work ledger's configured location. No built-in guidance
       // section consumes it yet; bundled-skill rendering does (ADR 0102), and it
@@ -101,7 +101,7 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
       // rendered-skill surface (ADR 0102) rather than any built-in section.
       skills_dir: config.skills.dir,
       scripts_dir: config.scripts.dir,
-      main_branch: config.project.main_branch,
+      main_branch: config.repository.trunk,
       guidance_sources: codeList(config.guidance.sources),
       generated_agent_files: codeList(agentFiles),
       materialized_skills_dirs: codeList(skillsDirsForAgents(agents)),

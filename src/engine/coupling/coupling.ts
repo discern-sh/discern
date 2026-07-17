@@ -448,7 +448,7 @@ async function diffCoupling(
   env: EnvReader,
 ): Promise<CouplingData> {
   const mainBranch = env.get("DISCERN_MAIN_BRANCH") ||
-    config.project.main_branch;
+    config.repository.trunk;
   const raw = await collectPaths(root, mainBranch);
   const changed = [
     ...new Set(

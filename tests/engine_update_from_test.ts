@@ -171,7 +171,7 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[project]\nslug = "engine-test"\nmain_branch = "main"\n\n' +
+      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
         '[worktree.setup]\nensure = ["touch converged.marker"]\n',
     );
     await gitInit(dir);

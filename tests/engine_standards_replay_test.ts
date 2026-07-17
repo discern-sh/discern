@@ -62,7 +62,9 @@ function replayConfig(opts: {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[capabilities]",
     'lint = "true"',
@@ -323,7 +325,9 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "true"',

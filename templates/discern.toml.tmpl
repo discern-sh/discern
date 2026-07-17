@@ -17,21 +17,12 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 20
+schema_version = 21
 
 
 [project]
 # Short, lowercase, dash-separated identity. Used for worktree/site/branch names.
 slug = "{{project_slug}}"
-
-# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
-branch_prefix = "{{branch_prefix}}"
-
-# The trunk: the shared branch the gate merges into and completed work lands on.
-# Detected from your repository at setup (origin/HEAD, then the branch setup
-# started from, then init.defaultBranch). Override per-invocation with the
-# DISCERN_MAIN_BRANCH env var.
-main_branch = "main"
 
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
@@ -41,6 +32,30 @@ gotchas_doc = "{{gotchas_doc}}"
 # Where the deferred-work ledger lives — the running TODO list agents read and
 # maintain, relative to the project root. `discern setup` seeds it here.
 todo = "discern/TODO.md"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [repository] — policy shared by every checkout of this Git repository: where
+# work lands, how discern names worktree branches, and how any checkout converges
+# its local runtime state after its tracked tree changes.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[repository]
+# The shared branch the gate merges into and completed work lands on. Detected
+# at setup (origin/HEAD, then the branch setup started from, then
+# init.defaultBranch). Override per-invocation with DISCERN_MAIN_BRANCH.
+trunk = "main"
+
+# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
+branch_prefix = "{{branch_prefix}}"
+
+# Idempotent commands that make ANY checkout usable for its current tracked tree
+# — typically dependency installation from a lockfile. They run in order on each
+# managed worktree pass and after `discern accept` updates the trunk checkout.
+# Post-landing failures are recorded and later commands still run: the landing
+# cannot be rolled back safely. Keep worktree-identity-dependent commands under
+# [worktree.setup].ensure instead; those never run in the main checkout.
+ensure = []
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -282,16 +297,17 @@ ignored_file_drift = true
 # the same split as a resource's create/ensure:
 #   steps   one-shot scaffolding, run ONCE at creation and not re-run (skipped once
 #           the worktree is configured): seed fixtures, generate a local-only file.
-#   ensure  convergence, re-run on EVERY pass — at creation, on session-start
-#           re-entry, and after `discern update` brings main in — so the worktree
-#           tracks the current tree: install dependencies, build, run migrations.
-#           Author each idempotent (it re-runs routinely); prefer a fast-when-current
-#           command (`<install> check || <install>`) — the per-pass cost is yours.
+#   ensure  LINKED-WORKTREE convergence, re-run on EVERY pass — at creation, on
+#           session-start re-entry, and after `discern update` brings the trunk in.
+#           Use it for commands that depend on worktree identity, ports, or
+#           resources. Put checkout-generic dependency installs and builds in
+#           [repository].ensure so acceptance also converges the trunk checkout.
+#           Author each command idempotent: it re-runs routinely.
 # Both run in order via `sh -c`. A failed `ensure` aborts setup at creation; on a
 # re-entry or update it is recorded but never undoes a merge or blocks startup.
 [worktree.setup]
 steps = []   # one-shot, e.g. ["seed-fixtures"]
-ensure = []  # converge, e.g. ["<install deps>"]
+ensure = []  # linked-worktree-only, e.g. ["<ready worktree resource>"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

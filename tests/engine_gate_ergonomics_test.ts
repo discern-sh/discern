@@ -26,7 +26,9 @@ function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[capabilities]",
     'lint = "exit 1"', // fails fast (check stage)
@@ -69,7 +71,9 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'lint = "exit 1"',
@@ -113,7 +117,9 @@ Deno.test("gate stream: output is line-prefixed with the job label", async () =>
       [
         "[project]",
         'slug = "engine-test"',
-        'main_branch = "main"',
+        "",
+        "[repository]",
+        'trunk = "main"',
         "",
         "[capabilities]",
         'format = "echo HELLO-FROM-FIX"', // format is a fix-stage capability

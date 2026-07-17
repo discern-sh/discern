@@ -11,7 +11,7 @@
  * process exit code.
  *
  * The integration branch is read from `DISCERN_MAIN_BRANCH` (env) /
- * `[project].main_branch`
+ * `[repository].trunk`
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
  */
@@ -42,7 +42,7 @@ export class WorktreeGitError extends Error {
 
 /**
  * The integration branch: `DISCERN_MAIN_BRANCH` env wins (the dispatcher exports it from
- * `[project].main_branch`); otherwise `fallback` (a config-derived value the
+ * `[repository].trunk`); otherwise `fallback` (a config-derived value the
  * lifecycle layer passes when calling outside a dispatched env); otherwise
  * `main`.
  */
@@ -64,7 +64,7 @@ export function integrationBranch(
 export function missingIntegrationBranchWarning(branch: string): string {
   return `The merge check could not run because the trunk branch '${branch}' is ` +
     `not available locally. Create that local branch, or set ` +
-    `[project].main_branch to the branch this project uses, then re-run.`;
+    `[repository].trunk to the branch this project uses, then re-run.`;
 }
 
 /**
@@ -779,7 +779,7 @@ export async function ensureWorktreeBranch(
   if (!valid.success) {
     throw new WorktreeGitError(
       `Discern generated the invalid branch name '${candidate}'. Set ` +
-        `[project].branch_prefix to a Git-safe prefix, then re-run.`,
+        `[repository].branch_prefix to a Git-safe prefix, then re-run.`,
     );
   }
 
@@ -1667,7 +1667,7 @@ export async function listWorktreeFleet(
 export interface PruneScanOptions {
   /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
-  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[repository].trunk`). */
   mainBranch?: string;
 }
 
@@ -1874,7 +1874,7 @@ export async function scanGitWorktreesForPrune(
     throw new WorktreeGitError(
       `The trunk branch '${mainBranch}' is not available locally, so worktree ` +
         `pruning cannot prove which work is landed. Create that local branch, or set ` +
-        `[project].main_branch correctly, then re-run.`,
+        `[repository].trunk correctly, then re-run.`,
     );
   }
 
@@ -2205,7 +2205,7 @@ export async function pruneStaleWorktreeMetadata(
 export interface SweepScanOptions {
   /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
-  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[project].main_branch`). */
+  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[repository].trunk`). */
   mainBranch?: string;
 }
 

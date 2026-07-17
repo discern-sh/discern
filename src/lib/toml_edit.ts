@@ -728,7 +728,14 @@ export class TomlEditor {
   private bodyInsertionPoint(
     span: { headerIdx: number; bodyEnd: number },
   ): number {
-    let at = span.bodyEnd;
+    // A fixed section's documentation banner sits immediately BEFORE its
+    // header, so the previous section's naive `bodyEnd` includes that banner.
+    // Insert before the first ruled banner in the span; otherwise a newly-added
+    // section splits the next section's docs from its header.
+    const nextBanner = scanRuledBanners(this.lines.join("\n")).find((banner) =>
+      banner.start > span.headerIdx && banner.start < span.bodyEnd
+    );
+    let at = nextBanner?.start ?? span.bodyEnd;
     while (at - 1 > span.headerIdx) {
       const prev = this.lines[at - 1];
       if (prev === undefined || !isBlankLine(prev)) break;

@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 20
+schema_version = 21
 bootstrapped   = true
 
 [project]
@@ -27,13 +27,6 @@ bootstrapped   = true
 # Short, lowercase, dash-separated identity. Used for worktree/site/branch names.
 slug = "discern"
 
-# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
-branch_prefix = "agent/"
-
-# The trunk: the shared branch the gate merges into and completed work lands on.
-# Override per-invocation with the DISCERN_MAIN_BRANCH env var.
-main_branch = "main"
-
 # Where the gate points an agent when a stage fails in a non-obvious way. Keep
 # this doc current with the traps specific to your stack (see the comment block
 # the gate prints on failure). Empty disables the pointer.
@@ -41,6 +34,29 @@ gotchas_doc = "project/map/80-development/done-gate-gotchas.md"
 
 # Where the deferred-work ledger lives.
 todo = "project/TODO.md"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [repository] — policy shared by every checkout of this Git repository: where
+# work lands, how discern names worktree branches, and how any checkout converges
+# its local runtime state after its tracked tree changes.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[repository]
+# The shared branch the gate merges into and completed work lands on. Detected
+# at setup (origin/HEAD, then the branch setup started from, then
+# init.defaultBranch). Override per-invocation with DISCERN_MAIN_BRANCH.
+trunk = "main"
+
+# Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
+branch_prefix = "agent/"
+
+# Idempotent commands that make ANY checkout usable for its current tracked tree
+# — typically dependency installation from a lockfile. They run in order on each
+# managed worktree pass and after `discern accept` updates the trunk checkout.
+# Post-landing failures are recorded and later commands still run: the landing
+# cannot be rolled back safely. Keep worktree-identity-dependent commands under
+# [worktree.setup].ensure instead; those never run in the main checkout.
+ensure = []
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [map] — the project map: discern's agent-maintained documentation tree. This is
@@ -93,8 +109,8 @@ dir = "project/skills"
 #   lint       check  read-only static analysis
 #   typecheck  check  read-only type checking
 #   test       test   the test suite
-#   smoke      test   a fast check that the app boots in this checkout (proves it
-#                     runs wherever the gate runs — including inside a worktree)
+#   smoke      test   a fast, side-effect-light readiness check: the app boots
+#                     and its essential shared runtime needs work in this checkout
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # A job needing its own time budget takes the table form — the `timeout` (seconds)
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
@@ -107,6 +123,15 @@ dir = "project/skills"
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
 # capabilities, and never builds or tests.
+#
+# `smoke` is the project's fast readiness check — real config and essential shared
+# runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
+# `discern done` and `discern test` run it in the same fail-fast test group, so a
+# quick smoke failure cancels slower siblings.
+# Discern separately probes its own predictable writes before slow workflows;
+# do not duplicate those internal checks here.
+# Put a prerequisite unique to one custom check or standard at the start of
+# that command instead.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [capabilities]

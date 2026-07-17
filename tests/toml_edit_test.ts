@@ -126,24 +126,30 @@ Deno.test("editor inserts and deletes keys on CRLF files while preserving CRLF",
   const editor = new TomlEditor(input);
 
   editor.setString("project.slug", "new");
-  editor.setString("project.main_branch", "main");
+  editor.setString("project.gotchas_doc", "gotchas.md");
   assert(editor.deleteKey("project.keep"));
 
   const out = editor.toString();
   assertOnlyLineEnding(out, "\r\n");
   assertEquals(countProjectSlugAssignments(out), 1);
   assertEquals(parsedProjectSlug(out), "new");
-  assertEquals(out, `[project]\r\nmain_branch = "main"\r\nslug = "new"\r\n`);
+  assertEquals(
+    out,
+    `[project]\r\ngotchas_doc = "gotchas.md"\r\nslug = "new"\r\n`,
+  );
 });
 
 Deno.test("editor inserts a missing key into an existing section", () => {
-  const out = new TomlEditor(SAMPLE).setString("project.main_branch", "trunk")
+  const out = new TomlEditor(SAMPLE).setString(
+    "project.gotchas_doc",
+    "gotchas.md",
+  )
     .toString();
-  assertStringIncludes(out, 'main_branch = "trunk"');
+  assertStringIncludes(out, 'gotchas_doc = "gotchas.md"');
   // Inserted under [project], not elsewhere.
   const lines = out.split("\n");
   const projectIdx = lines.indexOf("[project]");
-  const keyIdx = lines.findIndex((l) => l.startsWith("main_branch ="));
+  const keyIdx = lines.findIndex((l) => l.startsWith("gotchas_doc ="));
   assert(projectIdx >= 0 && keyIdx === projectIdx + 1);
 });
 
@@ -334,6 +340,33 @@ Deno.test("insertSectionBlockAfter places a documented block after an anchor sec
   assertStringIncludes(out, 'slug = "demo"   # the slug');
   // Separated by a blank-line gap, not jammed against the anchor's last line.
   assert(out.includes('slug = "demo"   # the slug\n\n\n# docs for features'));
+});
+
+Deno.test("insertSectionBlockAfter never separates the next ruled banner from its section", () => {
+  const input = [
+    "[project]",
+    'slug = "demo"',
+    "",
+    "# ─────",
+    "# [map] — docs",
+    "# ─────",
+    "",
+    "[map]",
+    'dir = "map/"',
+    "",
+  ].join("\n");
+  const inserted = new TomlEditor(input).insertSectionBlockAfter(
+    "project",
+    '# repository docs\n[repository]\ntrunk = "main"',
+  ).toString();
+  assert(
+    inserted.indexOf("[repository]") < inserted.indexOf("# [map] — docs"),
+    inserted,
+  );
+  assertStringIncludes(
+    inserted,
+    "# [map] — docs\n# ─────\n\n[map]",
+  );
 });
 
 Deno.test("insertSectionBlockAfter falls back to an EOF append when the anchor is absent", () => {

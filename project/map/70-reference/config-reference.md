@@ -14,11 +14,13 @@ aliases:
   - meta.setup_version
   - project
   - project.slug
-  - project.branch_prefix
-  - project.main_branch
   - project.gotchas_doc
   - project.todo
   - project.agents
+  - repository
+  - repository.trunk
+  - repository.branch_prefix
+  - repository.ensure
   - guidance
   - guidance.sources
   - guidance.agents
@@ -109,16 +111,24 @@ Installer bookkeeping. `schema_version` is the migration anchor; edit by hand on
 
 ## `[project]`
 
-Project identity and integration settings.
+Project identity and authored project paths.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `slug` | string | `""` | Short, lowercase, dash-separated identity. Used for worktree/site/branch names. |
-| `branch_prefix` | string | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature". |
-| `main_branch` | string | `"main"` | The trunk: the shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var. |
 | `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
 | `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
 | `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |
+
+## `[repository]`
+
+Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `trunk` | string | `"main"` | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var. |
+| `branch_prefix` | string | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature". |
+| `ensure` | string[] | `[]` | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
 
 ## `[guidance]`
 
@@ -209,12 +219,12 @@ The isolated-worktree workflow. The git mechanics are generic; everything projec
 
 ### `[worktree.setup]`
 
-Worktree setup commands: one-shot `steps` (creation only) and convergent `ensure` (re-run every pass).
+Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run every linked-worktree pass, never on the trunk checkout).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `steps` | string[] | `[]` | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run. |
-| `ensure` | string[] | `[]` | Commands run on EVERY setup pass — at creation, on session-start re-entry, and on `discern update` — to converge the worktree on the current tree (install dependencies, build). Run in order. Author them idempotent: they re-run routinely. |
+| `ensure` | string[] | `[]` | Linked-worktree-only commands run on every setup pass — at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. Never run in the main checkout. |
 
 ## `[standards.<name>]`
 

@@ -34,6 +34,7 @@ import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
 import {
   buildGatePlan,
   type PlannedJob,
+  planStageJobs,
   preparePlanGroups,
   stageGroup,
 } from "../gate/plan.ts";
@@ -113,6 +114,16 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     actor: "project",
     hint:
       "A one-shot `[worktree.setup].steps` command. Runs once at worktree creation, after the resources; a failure aborts setup. Skipped on re-entry.",
+  },
+  "repository-ensure": {
+    actor: "project",
+    hint:
+      "A shared `[repository].ensure` command. Re-runs in every managed worktree pass and after a trunk landing, so it MUST be idempotent, checkout-agnostic, and fast when current. Post-landing failures are recorded and cannot roll back the landing.",
+  },
+  "checkout-clean-check": {
+    actor: "discern",
+    hint:
+      "Built-in post-convergence check: report if a repository ensure command changed tracked files. It never rolls back a completed landing.",
   },
   "setup-ensure": {
     actor: "project",
@@ -329,6 +340,9 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
   for (const s of cfg.worktree.setup.steps) {
     steps.push(step("setup-step", s, { condition: "first setup only" }));
   }
+  for (const s of cfg.repository.ensure) {
+    steps.push(step("repository-ensure", s));
+  }
   for (const s of cfg.worktree.setup.ensure) {
     steps.push(step("setup-ensure", s));
   }
@@ -344,16 +358,25 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
 }
 
 /** `worktree ensure` — the idempotent session-start convergence (lifecycle.ts
- * `worktreeEnsure`): reconcile resources declaring an `ensure`, then re-run the
- * convergent `[worktree.setup].ensure`. A no-op once the worktree is ready. */
+ * `worktreeEnsure`): reconcile resources declaring an `ensure`, then run shared
+ * repository and linked-worktree convergence. A no-op outside a worktree. */
 function ensureVerb(cfg: DiscernConfig): VerbPlan {
-  const steps = cfg.worktree.setup.ensure.map((s) =>
-    step("setup-ensure", s, { condition: "converge the worktree on the tree" })
-  );
+  const steps = [
+    ...cfg.repository.ensure.map((s) =>
+      step("repository-ensure", s, {
+        condition: "converge this checkout on the tree",
+      })
+    ),
+    ...cfg.worktree.setup.ensure.map((s) =>
+      step("setup-ensure", s, {
+        condition: "converge this worktree on its identity and tree",
+      })
+    ),
+  ];
   return {
     verb: "worktree ensure",
     when:
-      "On every session start — reconcile any resource declaring an `ensure`, then re-run the convergent setup commands. Idempotent: a no-op once the worktree is ready.",
+      "On every linked-worktree session start — reconcile any resource declaring an `ensure`, then re-run checkout-shared and worktree-only convergence. Idempotent and a no-op in the main checkout.",
     steps,
   };
 }
@@ -369,6 +392,13 @@ function updateVerb(cfg: DiscernConfig): VerbPlan {
       note: "re-materialize agent files + skills",
     }),
   ];
+  for (const s of cfg.repository.ensure) {
+    steps.push(
+      step("repository-ensure", s, {
+        condition: "converge on the merged tree",
+      }),
+    );
+  }
   for (const s of cfg.worktree.setup.ensure) {
     steps.push(
       step("setup-ensure", s, { condition: "converge on the merged tree" }),
@@ -388,6 +418,25 @@ function updateVerb(cfg: DiscernConfig): VerbPlan {
  * hidden behind a generic step. */
 function acceptVerb(cfg: DiscernConfig): VerbPlan {
   const steps: ExecutionStep[] = [];
+  steps.push(step("git", "fast-forward-trunk", {
+    note: "fast-forward the trunk to the branch tip",
+  }));
+  steps.push(step("refresh", "refresh agent files", {
+    note: "re-materialize agent files + skills in the trunk checkout",
+  }));
+  for (const s of cfg.repository.ensure) {
+    steps.push(step("repository-ensure", s, {
+      condition: "in the trunk checkout after the fast-forward",
+    }));
+  }
+  for (const job of planStageJobs(cfg, "test")) {
+    if (job.kind === "capability" && /^smoke(?:#\d+)?$/.test(job.label)) {
+      steps.push(annotateJob(job));
+    }
+  }
+  steps.push(step("checkout-clean-check", "check trunk checkout", {
+    note: "report tracked files changed by post-landing convergence",
+  }));
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
   for (const [name, r] of destroyable.reverse()) {
     steps.push(step("resource-destroy", name, {
@@ -395,9 +444,6 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
       condition: "if the resource was provisioned (reverse-creation order)",
     }));
   }
-  steps.push(step("git", "fast-forward-trunk", {
-    note: "fast-forward the trunk to the branch tip",
-  }));
   steps.push(step("git", "remove-worktree", {
     note: "remove the worktree directory",
   }));

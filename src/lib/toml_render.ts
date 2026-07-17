@@ -40,9 +40,13 @@ export function renderTomlStringList(items: string[]): string {
 export interface DiscernToml {
   project: {
     slug?: string | undefined;
-    branch_prefix?: string | undefined;
     agents?: string[] | undefined;
     gotchas_doc?: string | undefined;
+  };
+  repository: {
+    trunk?: string | undefined;
+    branch_prefix?: string | undefined;
+    ensure?: string[] | undefined;
   };
   raw: Record<string, unknown>;
 }
@@ -53,9 +57,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Parse `discern.toml` text and surface the `[project]` block. Throws a clear
- * error if the text is not valid TOML; tolerates missing fields (the caller
- * decides which are required) so `doctor` can report them precisely.
+ * Parse `discern.toml` text and surface the narrow `[project]` and `[repository]`
+ * views installer callers need. Throws a clear error if the text is not valid
+ * TOML; tolerates missing fields so `doctor` can report them precisely.
  */
 export function parseDiscernToml(text: string): DiscernToml {
   let parsed: unknown;
@@ -66,17 +70,28 @@ export function parseDiscernToml(text: string): DiscernToml {
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};
+  const repository = isRecord(raw.repository) ? raw.repository : {};
   return {
     project: {
       slug: typeof project.slug === "string" ? project.slug : undefined,
-      branch_prefix: typeof project.branch_prefix === "string"
-        ? project.branch_prefix
-        : undefined,
       agents: Array.isArray(project.agents)
         ? project.agents.filter((a): a is string => typeof a === "string")
         : undefined,
       gotchas_doc: typeof project.gotchas_doc === "string"
         ? project.gotchas_doc
+        : undefined,
+    },
+    repository: {
+      trunk: typeof repository.trunk === "string"
+        ? repository.trunk
+        : undefined,
+      branch_prefix: typeof repository.branch_prefix === "string"
+        ? repository.branch_prefix
+        : undefined,
+      ensure: Array.isArray(repository.ensure)
+        ? repository.ensure.filter((command): command is string =>
+          typeof command === "string"
+        )
         : undefined,
     },
     raw,

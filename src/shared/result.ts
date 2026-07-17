@@ -56,6 +56,8 @@ export const STEP_KINDS = [
   "resource-destroy", // destroy / reclaim a per-worktree external resource
   "git", // a git mutation (branch, remove, checkout, fast-forward, sweep)
   "setup-step", // a [worktree.setup].steps command (one-shot, at creation)
+  "repository-ensure", // a [repository].ensure command (shared checkout convergence)
+  "checkout-clean-check", // report tracked drift left by checkout convergence
   "setup-ensure", // a [worktree.setup].ensure command (convergent, every pass)
   "env", // record port / inherit env / resource handles
   "refresh", // recompile agent guidance + skills

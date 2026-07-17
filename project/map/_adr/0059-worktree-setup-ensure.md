@@ -2,6 +2,8 @@
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `integrate` → `update`; the decision and reasoning are unchanged.
 
+> **Checkout-scope amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** Checkout-generic commands now belong in `[repository].ensure`, which shares this every-pass contract and also runs after landing. `[worktree.setup].ensure` is the linked-worktree-only bucket and may depend on worktree identity or resources.
+
 **Status**: accepted. Realizes the deferred "Part B" of [ADR 0055](0055-update-verb.md), and mirrors the resource `create`/`ensure` split of [ADR 0025](0025-worktree-resources.md).
 
 ## Context

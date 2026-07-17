@@ -25,7 +25,9 @@ function sideGateConfig(widgetCmd: string, gadgetCmd: string): string {
   return [
     "[project]",
     'slug = "engine-test"',
-    'main_branch = "main"',
+    "",
+    "[repository]",
+    'trunk = "main"',
     "",
     "[scopes.docs]",
     'paths = ["docs/"]',

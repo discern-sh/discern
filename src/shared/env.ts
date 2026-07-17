@@ -110,7 +110,7 @@ export interface ScriptEnv {
   scriptsDir: string;
   /** The project scripts directory resolved to an absolute path. */
   scriptsAbs: string;
-  /** The integration branch (`[project].main_branch`, default "main"). */
+  /** The integration branch (`[repository].trunk`, default "main"). */
   mainBranch: string;
 }
 

@@ -182,7 +182,7 @@ export async function runPreset(
   const config: SetupConfig = {
     projectName: toml.project.slug ?? "app",
     slug: toml.project.slug ?? "app",
-    branchPrefix: toml.project.branch_prefix ?? DEFAULTS.branchPrefix,
+    branchPrefix: toml.repository.branch_prefix ?? DEFAULTS.branchPrefix,
     sourceGlobs: [...DEFAULTS.sourceGlobs],
     brief: "",
     agents:

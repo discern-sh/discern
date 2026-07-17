@@ -141,7 +141,7 @@ export async function runProjectScriptAt(
   const scriptFile = join(directory.abs, name.replace(/:/g, "-"));
   if (await isExecutable(scriptFile)) {
     const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-      config.project.main_branch;
+      config.repository.trunk;
     const tomlPath = join(
       root,
       (await installedConfigRel(root)) ?? CONFIG_REL,

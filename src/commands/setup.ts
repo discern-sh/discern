@@ -243,7 +243,7 @@ export async function assembleInitPlan(params: {
   /** Declarative slots/scopes/side_gates/standards fills from `setup --config`. */
   fills?: DiscernConfigDoc | undefined;
   /** The repo's detected integration branch, stamped into the fresh config's
-   * `[project].main_branch` (before the fills, so an explicit fill still wins). */
+   * `[repository].trunk` (before the fills, so an explicit fill still wins). */
   mainBranch?: string | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
@@ -275,7 +275,7 @@ export async function assembleInitPlan(params: {
   // `setup --config`). All edit the config op's bytes in place, so the plan's
   // bytes are final — dry-run/json show them and apply writes them. A `skip`
   // config (an existing seed) is left untouched. Order matters: the fills come
-  // last, so an explicitly declared main_branch beats the detected one.
+  // last, so an explicitly declared repository.trunk beats the detected one.
   stampSchemaIntoPlan(plan, SCHEMA_VERSION);
   if (params.mainBranch !== undefined) {
     stampMainBranchIntoPlan(plan, params.mainBranch);
@@ -307,7 +307,7 @@ function stampSchemaIntoPlan(plan: Plan, version: number): void {
 }
 
 /**
- * Stamp the detected `[project].main_branch` into a freshly-generated config op,
+ * Stamp the detected `[repository].trunk` into a freshly-generated config op,
  * in place (comment-preserving). Without this, a repo whose default branch is not
  * `main` scaffolds a config pointing the gate's merge check at a branch that does
  * not exist locally — a check that then silently self-skips forever, and a
@@ -319,7 +319,7 @@ function stampMainBranchIntoPlan(plan: Plan, branch: string): void {
     return;
   }
   const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
-  editor.setString("project.main_branch", branch);
+  editor.setString("repository.trunk", branch);
   op.bytes = TEXT_ENCODER.encode(editor.toString());
 }
 
@@ -1067,7 +1067,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
 
   // Detect the repo's real integration branch BEFORE the `discern-setup` checkout
   // below (the last detection probe reads the currently checked-out branch), so the
-  // scaffold stamps `[project].main_branch` with the truth rather than assuming
+  // scaffold stamps `[repository].trunk` with the truth rather than assuming
   // `main` — on a `master` repo that assumption silently disarms the gate's merge
   // check and dead-ends `setup accept`.
   const detectedMainBranch = freshInstall

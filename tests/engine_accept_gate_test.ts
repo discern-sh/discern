@@ -65,7 +65,9 @@ async function recordGreenNow(
 const CONFIG_CHECK = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   'lint = "sh check.sh"',

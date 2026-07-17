@@ -151,7 +151,7 @@ export function renderConfigTemplateForConfig(
   const tokens: TokenMap = {
     project_name: config.project.slug || "project",
     project_slug: config.project.slug,
-    branch_prefix: config.project.branch_prefix,
+    branch_prefix: config.repository.branch_prefix,
     agents_array: renderTomlStringList(resolveConfiguredAgents(config)),
     map_dir: config.map.dir,
     gotchas_doc: config.project.gotchas_doc,

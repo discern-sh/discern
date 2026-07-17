@@ -237,6 +237,82 @@ function addTopLevelTableString(
   return `${text}${separator}[${section}]${newline}${key} = ${literal}${newline}`;
 }
 
+/**
+ * Remove one scalar assignment from a top-level table while leaving the rest of
+ * the document byte-shaped. Covers the two spellings discern itself has emitted:
+ * a key inside `[section]` and a root dotted key. The caller reparses and proves
+ * the key is gone before writing, so an exotic inline-table spelling is refused
+ * rather than partially migrated.
+ */
+function removeTopLevelTableKey(
+  text: string,
+  section: string,
+  key: string,
+): string {
+  const sectionToken = `(?:${escapeRegExp(section)}|"${
+    escapeRegExp(section)
+  }"|'${escapeRegExp(section)}')`;
+  const keyToken = `(?:${escapeRegExp(key)}|"${escapeRegExp(key)}"|'${
+    escapeRegExp(key)
+  }')`;
+  const firstHeader = text.search(/^\s*\[{1,2}\s*[A-Za-z0-9_"']/mu);
+  const rootEnd = firstHeader === -1 ? text.length : firstHeader;
+  const root = text.slice(0, rootEnd).replace(
+    new RegExp(
+      `^\\s*${sectionToken}\\s*\\.\\s*${keyToken}\\s*=.*(?:\\r?\\n|$)`,
+      "gmu",
+    ),
+    "",
+  );
+
+  const rest = text.slice(rootEnd);
+  const lineEnding = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = rest.split(/\r?\n/);
+  const header = new RegExp(
+    `^\\s*\\[\\s*${sectionToken}\\s*\\]\\s*(?:#.*)?$`,
+    "u",
+  );
+  const assignment = new RegExp(`^\\s*${keyToken}\\s*=`, "u");
+  let inSection = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^\s*\[/.test(line)) {
+      inSection = header.test(line);
+      continue;
+    }
+    if (inSection && assignment.test(line)) {
+      const managedBlocks: Record<string, RegExp[][]> = {
+        branch_prefix: [[
+          /^# Branch prefix for worktrees created by discern, e\.g\. "agent\/my-feature"\.$/u,
+        ], [
+          /^# Branch prefix for worktrees created by the [a-z]+, e\.g\. "agent\/my-feature"\.$/u,
+        ]],
+        main_branch: [[
+          /^# The trunk: the shared branch the gate merges into and completed work lands on\.$/u,
+          /^# Detected from your repository at setup \(origin\/HEAD, then the branch setup$/u,
+          /^# started from, then init\.defaultBranch\)\. Override per-invocation with the$/u,
+          /^# DISCERN_MAIN_BRANCH env var\.$/u,
+        ], [
+          /^# The [a-z]+ branch the gate merges into and worktrees graduate onto\.$/u,
+          /^# Override per-invocation with the MAIN_BRANCH env var\.$/u,
+        ]],
+      };
+      const managed = managedBlocks[key] ?? [];
+      const block = managed.find((candidate) => {
+        const start = i - candidate.length;
+        return start >= 0 &&
+          candidate.every((expected, offset) =>
+            expected.test((lines[start + offset] ?? "").trim())
+          );
+      });
+      const start = block === undefined ? i : i - block.length;
+      lines.splice(start, i - start + 1);
+      i = start - 1;
+    }
+  }
+  return root + lines.join(lineEnding);
+}
+
 /** The operations a migration step performs against an install. */
 export interface MigrationContext {
   /** Absolute destination root of the install being migrated. */
@@ -1232,6 +1308,179 @@ export const MIGRATIONS: Migration[] = [
       if (raw.recipes !== undefined) {
         ctx.note("renamed [recipes] to [scripts]");
       }
+    },
+  },
+  {
+    from: 20,
+    // ADR 0153
+    describe:
+      "move trunk and worktree branch policy from [project] to [repository], rename main_branch to trunk, and add shared checkout convergence",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      const project = isRecord(raw.project) ? raw.project : {};
+      const repository = raw.repository === undefined
+        ? undefined
+        : isRecord(raw.repository)
+        ? raw.repository
+        : null;
+      if (repository === null) {
+        throw new Error(
+          "[repository] must be a table. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+
+      const oldTrunk = project.main_branch;
+      const oldPrefix = project.branch_prefix;
+      if (oldTrunk !== undefined && typeof oldTrunk !== "string") {
+        throw new Error(
+          "[project].main_branch must be a string before it can move to [repository].trunk. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      if (oldPrefix !== undefined && typeof oldPrefix !== "string") {
+        throw new Error(
+          "[project].branch_prefix must be a string before it can move to [repository].branch_prefix. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      const existingTrunk = repository?.trunk;
+      const existingPrefix = repository?.branch_prefix;
+      if (
+        existingTrunk !== undefined && typeof existingTrunk !== "string"
+      ) {
+        throw new Error(
+          "[repository].trunk must be a string. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      if (
+        existingPrefix !== undefined && typeof existingPrefix !== "string"
+      ) {
+        throw new Error(
+          "[repository].branch_prefix must be a string. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      if (
+        typeof oldTrunk === "string" && typeof existingTrunk === "string" &&
+        oldTrunk !== existingTrunk
+      ) {
+        throw new Error(
+          "discern.toml gives different landing branches in [project].main_branch and [repository].trunk. Keep the intended value under [repository].trunk, remove [project].main_branch, then run `discern upgrade` again.",
+        );
+      }
+      if (
+        typeof oldPrefix === "string" && typeof existingPrefix === "string" &&
+        oldPrefix !== existingPrefix
+      ) {
+        throw new Error(
+          "discern.toml gives different worktree prefixes in [project].branch_prefix and [repository].branch_prefix. Keep the intended value under [repository].branch_prefix, remove [project].branch_prefix, then run `discern upgrade` again.",
+        );
+      }
+
+      // Schema 20 defaulted both values when absent. Materialize those effective
+      // values in the new documented section so a migrated config reads like a
+      // fresh one and never relies on a renamed key's implicit default.
+      const trunk = typeof existingTrunk === "string"
+        ? existingTrunk
+        : typeof oldTrunk === "string"
+        ? oldTrunk
+        : "main";
+      const branchPrefix = typeof existingPrefix === "string"
+        ? existingPrefix
+        : typeof oldPrefix === "string"
+        ? oldPrefix
+        : "agent/";
+
+      let migrated = removeTopLevelTableKey(
+        removeTopLevelTableKey(text, "project", "main_branch"),
+        "project",
+        "branch_prefix",
+      );
+      const editor = new TomlEditor(migrated);
+      if (!editor.hasSection("repository")) {
+        const template = await readConfigTemplate(ctx.env);
+        const canonical = template === undefined
+          ? undefined
+          : sectionBlockFromTemplate(template, "repository")
+            ?.replace(
+              /^trunk\s*=.*$/mu,
+              `trunk = ${tomlString(trunk)}`,
+            )
+            .replace(
+              /^branch_prefix\s*=.*$/mu,
+              `branch_prefix = ${tomlString(branchPrefix)}`,
+            );
+        if (canonical !== undefined) {
+          editor.insertSectionBlockAfter("project", canonical);
+        } else {
+          editor.setString("repository.trunk", trunk);
+          editor.setString("repository.branch_prefix", branchPrefix);
+          editor.setStringArray("repository.ensure", []);
+        }
+      } else {
+        if (!editor.hasKey("repository.trunk")) {
+          editor.setString("repository.trunk", trunk);
+        }
+        if (!editor.hasKey("repository.branch_prefix")) {
+          editor.setString("repository.branch_prefix", branchPrefix);
+        }
+        if (!editor.hasKey("repository.ensure")) {
+          editor.setStringArray("repository.ensure", []);
+        }
+      }
+      migrated = editor.toString();
+
+      let after: Record<string, unknown>;
+      try {
+        after = parseDiscernToml(migrated).raw;
+      } catch {
+        throw new Error(
+          "discern could not move the repository settings safely. Move them to [repository] in discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      const nextProject = isRecord(after.project) ? after.project : {};
+      const nextRepository = isRecord(after.repository)
+        ? after.repository
+        : undefined;
+      if (
+        nextProject.main_branch !== undefined ||
+        nextProject.branch_prefix !== undefined ||
+        nextRepository?.trunk !== trunk ||
+        nextRepository?.branch_prefix !== branchPrefix ||
+        !Array.isArray(nextRepository.ensure)
+      ) {
+        const unresolved = [
+          nextProject.main_branch !== undefined
+            ? "[project].main_branch"
+            : undefined,
+          nextProject.branch_prefix !== undefined
+            ? "[project].branch_prefix"
+            : undefined,
+          nextRepository?.trunk !== trunk ? "[repository].trunk" : undefined,
+          nextRepository?.branch_prefix !== branchPrefix
+            ? "[repository].branch_prefix"
+            : undefined,
+          !Array.isArray(nextRepository?.ensure)
+            ? "[repository].ensure"
+            : undefined,
+        ].filter((path): path is string => path !== undefined);
+        throw new Error(
+          `discern.toml uses a repository-setting spelling this migration cannot rewrite (${
+            unresolved.join(", ")
+          }). Move the values to [repository].trunk and [repository].branch_prefix, add ensure = [], then run \`discern upgrade\` again.`,
+        );
+      }
+
+      await ctx.rewrite("discern.toml", () => migrated);
+      ctx.note(
+        "moved [project].main_branch → [repository].trunk and [project].branch_prefix → [repository].branch_prefix; added [repository].ensure",
+      );
     },
   },
 ];

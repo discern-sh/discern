@@ -52,7 +52,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     const tomlText = await Deno.readTextFile(join(dir, "discern.toml"));
     const toml = parseDiscernToml(tomlText);
     assertEquals(toml.project.slug, "integration-demo");
-    assertEquals(toml.project.branch_prefix, "agent/");
+    assertEquals(toml.repository.branch_prefix, "agent/");
     // The agents list now lives under [guidance] (the author-once → compile
     // pipeline owns it), not [project]; read it straight from the parsed doc.
     const guidance = toml.raw.guidance as { agents?: unknown } | undefined;

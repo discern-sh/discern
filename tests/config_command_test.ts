@@ -377,11 +377,11 @@ Deno.test("config set infers types (number / bool / string)", async () => {
     await setup(dir);
     await runCli(["config", "set", "standards.coverage.limit", "80"], dir);
     await runCli(["config", "set", "worktree.port", "false"], dir);
-    await runCli(["config", "set", "project.main_branch", "trunk"], dir);
+    await runCli(["config", "set", "repository.trunk", "trunk"], dir);
     const toml = await readToml(dir);
     assertStringIncludes(toml, "limit = 80"); // number (inferred)
     assertStringIncludes(toml, "port = false"); // bool (inferred)
-    assertStringIncludes(toml, 'main_branch = "trunk"'); // string (inferred)
+    assertStringIncludes(toml, 'trunk = "trunk"'); // string (inferred)
   });
 });
 
@@ -788,14 +788,14 @@ Deno.test("config set prints a human success line without --json", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set", "project.main_branch", "trunk"],
+      ["config", "set", "repository.trunk", "trunk"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     // Non-JSON path: the green summary goes to stderr; the edit line to stdout.
-    assertStringIncludes(r.stderr, "Set project.main_branch.");
-    assertStringIncludes(r.stdout, 'project.main_branch = "trunk"');
-    assertStringIncludes(await readToml(dir), 'main_branch = "trunk"');
+    assertStringIncludes(r.stderr, "Set repository.trunk.");
+    assertStringIncludes(r.stdout, 'repository.trunk = "trunk"');
+    assertStringIncludes(await readToml(dir), 'trunk = "trunk"');
   });
 });
 
@@ -804,14 +804,14 @@ Deno.test("config --dry-run prints the edit without --json and writes nothing", 
     await setup(dir);
     const before = await readToml(dir);
     const r = await runCli(
-      ["config", "set", "project.main_branch", "trunk", "--dry-run"],
+      ["config", "set", "repository.trunk", "trunk", "--dry-run"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     // Human dry-run path: the "Dry run" notice goes to stderr (log.info), the
     // would-be edit line to stdout (log.line).
     assertStringIncludes(r.stderr, "Dry run");
-    assertStringIncludes(r.stdout, 'project.main_branch = "trunk"');
+    assertStringIncludes(r.stdout, 'repository.trunk = "trunk"');
     assertEquals(await readToml(dir), before); // unchanged
   });
 });

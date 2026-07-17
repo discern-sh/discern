@@ -31,7 +31,9 @@ const MARKER = "RAN-THE-CAPABILITY";
 const CONFIG = [
   "[project]",
   'slug = "engine-test"',
-  'main_branch = "main"',
+  "",
+  "[repository]",
+  'trunk = "main"',
   "",
   "[capabilities]",
   `test = "echo ${MARKER}"`,
@@ -124,7 +126,7 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
       human.output,
       "trunk branch 'main' is not available locally",
     );
-    assertStringIncludes(human.output, "[project].main_branch");
+    assertStringIncludes(human.output, "[repository].trunk");
     assertStringIncludes(human.output, MARKER);
 
     const json = await runAgent(wt, ["done", "--json"]);
@@ -133,7 +135,7 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
     assert(
       (obj.hints ?? []).some((h: string) =>
         h.includes("trunk branch 'main' is not available locally") &&
-        h.includes("[project].main_branch")
+        h.includes("[repository].trunk")
       ),
       `expected missing-main warning in hints\n${json.stdout}`,
     );
