@@ -42,7 +42,7 @@ Do this:
 - Define a term once, then use it identically everywhere. Rotating synonyms for variety reads as four different concepts.
 - No poetic near-misses. Never use jargon for flavor, and never use a metaphor that collapses under two seconds of scrutiny.
 
-**Claims come from source material.** Every specific fact traces to the docs, the code, command output, tests, release notes, or something the user explicitly told you. Never invent numbers, benchmarks, integrations, guarantees, defaults, security properties, or supported agents to satisfy the "prefer the number" rule. Fake specificity is worse than honest vagueness. When the exact fact isn't available: get it, weaken the claim until it's literally true, or mark it `[claim — verify]`. Finished copy must survive a hostile literal reading; a skeptical reader should never be able to say "that's not what those words mean" or "that's not always true."
+**Claims come from source material.** Every specific fact traces to the docs, the code, command output, tests, release notes, or something the user explicitly told you. Never invent numbers, benchmarks, integrations, guarantees, defaults, security properties, or supported agents to satisfy the "prefer the number" rule. Fake specificity is worse than explicit uncertainty. When the exact fact isn't available: get it, weaken the claim until it's literally true, or mark it `[claim — verify]`. Finished copy must survive a hostile literal reading; a skeptical reader should never be able to say "that's not what those words mean" or "that's not always true."
 
 **Keep the temperature of the prose below the temperature of the facts.** discern does something close to science fiction, so write about it like plumbing. When the prose gets excited, the reader stops being excited on the product's behalf. State the impressive fact flatly and let the reader supply the awe. Note what this rule bans: excitement. Not personality. Cool is not the same as flat, and the warmth and delight layers still apply at full strength.
 
@@ -72,13 +72,13 @@ The test: does the page contain at least one statement a reasonable person could
 
 ## 3. Warmth — a friend, not a vendor
 
-Write like a competent friend explaining something across the table: plain words, contractions, direct address, honesty about what we got wrong. Warmth is not perkiness. No exclamation-point cheerfulness, no "Oops!", no mascot energy. Warmth is the respect of talking to someone like a person.
+Write like a competent friend explaining something across the table: plain words, contractions, direct address, and candor about what we got wrong. Warmth is not perkiness. No exclamation-point cheerfulness, no "Oops!", no mascot energy. Warmth is the respect of talking to someone like a person.
 
 Do this:
 
 - Use the everyday word: "use" not "utilize," "help" not "facilitate," "before" not "prior to." Technical nouns stay exact when they're the actual names of things; warmth never means vague.
 - Use contractions ("it's," "you'll," "doesn't") and talk to "you." Write "we" as an owner, not an institution: "we broke this in 2.1," not "a regression was introduced."
-- Take the blame in errors and hand over the credit in successes. Active voice keeps ownership honest: "we couldn't reach the server," not "a connection error was encountered."
+- Take the blame in errors and hand over the credit in successes. Active voice makes the actor visible: "we couldn't reach the server," not "a connection error was encountered."
 - Match the reader's stress level. Someone in a tutorial has slack for a light touch; someone reading an error is having a bad moment. The worse their moment, the calmer, kinder, and more useful the words.
 - Cut filler, not meaning. Plain copy still needs context, stakes, and sequence: what problem this solves, what happens without it, what to do first. A page that is nothing but verifiable claims has cut the connective tissue that makes the claims matter. Do not turn a landing page into a parts list.
 - When humor appears, it's dry, brief, and delivered deadpan, never signposted, and understanding the sentence never depends on getting the joke.
@@ -177,7 +177,7 @@ An error message is the project at its most read and its reader at their most an
 
 ### Marketing pages, launch posts, and release notes
 
-The landing page is the documentation's confident older sibling: same facts, same honesty, more conviction per square inch. The governing rule stands at full strength here: marketing claims are held to documentation standards of truth, and every claim should be demonstrable, ideally right there on the page.
+The landing page is the documentation's confident older sibling: same facts, same factual standard, more conviction per square inch. The governing rule stands at full strength here: marketing claims are held to documentation standards of truth, and every claim should be demonstrable, ideally right there on the page.
 
 - Lead with the belief, not the feature list. The headline states the stance; the features are evidence for it.
 - Show code above the fold.
@@ -227,10 +227,10 @@ Each entry is banned for a reason, and the reason is what matters — it catches
 | "posture"                                                                                                  | Gym vocabulary for file state; readers picture ergonomics                      | "tracked or ignored," "how git treats it"          |
 | "the shape of"                                                                                             | Geometry vocabulary for architecture; names no actual thing                    | "how X fits together," or name the parts           |
 | "load-bearing"                                                                                             | Construction jargon for "important" — a meme-grade machine tell                | "doing real work," or name what breaks without it  |
-| "the one file," "the whole tree"                                                                           | Singular and scope emphasis dressed as precision                               | Drop the emphasis, or state the actual scope       |
-| "silently," "quietly," "deliberately," "deliberate," "exactly"                                             | Drama adverbs seasoning a spec                                                 | The plain claim; name the mechanism instead        |
-| "honest," "honestly," "honesty"                                                                            | Prose vouching for its own sincerity                                           | Delete it; the facts carry the sincerity           |
-| "rides along," "ride along"                                                                                | Pet metaphor for "accompanies"                                                 | Say what actually happens                          |
+| "the one file," "the whole tree"                                                                           | Judgment warning: emphasis may occasionally be the fact                        | Drop the emphasis, or state the actual scope       |
+| "silently," "quietly," "deliberately," "deliberate," "exactly"                                             | Gate error: drama adverbs seasoning a spec                                     | The plain claim; name the mechanism instead        |
+| "honest," "honestly," "honesty"                                                                            | Gate error: prose vouching for its own sincerity                               | Delete it; the facts carry the sincerity           |
+| "rides along," "ride along"                                                                                | Gate error: pet metaphor for "accompanies"                                    | Say what actually happens                          |
 | "You may want to consider"                                                                                 | A stack of hedges where the reader came for a recommendation                   | "Do X," or "Do X unless Y"                         |
 | Passive-voice fault-dodging ("an error was encountered")                                                   | Hides the actor and dodges the blame                                           | "We couldn't…" / "`discern.toml` is missing"       |
 | Exclamation points                                                                                         | Unearned enthusiasm reads as sales                                             | A period. Budget: about one per document, if that. |
@@ -238,7 +238,7 @@ Each entry is banned for a reason, and the reason is what matters — it catches
 
 ## Enforcement
 
-The mechanical tells are encoded as a Vale style at [`.vale/Discern/`](../../../.vale/Discern/), which lints every map page in the gate. Severity follows legitimacy: a pattern with zero legitimate uses (self-narration, recap headings, hedging, vendor-speak, banned jargon) is an **error** — `discern prepare` and `discern done` block it and name the file and line. A pattern that needs your judgment (contrast-frames, em-dash chains, counted sets) is a **warning**, and the gate stays quiet about warnings — so run the page-level loop yourself, `discern script prose-page <page…>`, and hold new or rewritten pages to the reference corpus's bar: zero Discern alerts. `tests/voice_vale_parity_test.ts` keeps this file's banned-words table and that style from drifting apart — add a word here and the gate fails until the style knows it too.
+The mechanical tells are encoded as a Vale style at [`.vale/Discern/`](../../../.vale/Discern/), which lints every map page in the gate. Severity follows legitimacy: a pattern with zero legitimate uses (self-narration, recap headings, hedging, vendor-speak, banned jargon, and the matured seasoning tokens in the table) is an **error**. `discern prepare` and `discern done` block it and name the file and line. `the one <noun>` and `the whole <noun>` remain warnings because their emphasis can carry a real distinction. Other patterns that need your judgment, including contrast-frames, em-dash chains, and counted sets, are also **warnings**. Run the page-level loop yourself, `discern script prose-page <page…>`, and hold new or rewritten pages to the reference corpus's bar: zero Discern alerts. `tests/voice_vale_parity_test.ts` keeps this file's banned-words table and that style from drifting apart. Add a word here and the gate fails until the style knows it too.
 
 The lint is the tripwire, not the law. It catches the checkable subset; register, budgets, and judgment stay with the writer, and a page can pass every rule and still fail this skill. Review against the reference corpus, not just the lint output.
 
