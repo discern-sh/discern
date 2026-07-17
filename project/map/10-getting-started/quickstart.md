@@ -54,6 +54,8 @@ In the fresh session, ask for a small, real change, and watch what the agent doe
 
 Review the branch. When you're happy, say so: the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance honors the receipt only while the branch is unchanged — a commit after the green run invalidates it, and the agent runs `discern done` again.
 
+To drive the handoff yourself, run bare `discern` from the main checkout. [The desk](../30-worktrees/the-desk.md) can start the task, open any configured coding-agent CLI found on `PATH` in its new worktree, and supervise the branch through review and landing.
+
 That's the loop you'll live in: your agent works in isolation, the gate says when the work is done, and nothing lands without your word.
 
 Next: the [walkthrough](walkthrough.md) narrates a full session in detail, and the [FAQ](faq.md) covers the first things that go wrong.

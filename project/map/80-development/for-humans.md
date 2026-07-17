@@ -36,6 +36,7 @@ Don't hand-edit the compiled agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.
 
 ## Working alongside the agents
 
+- Run bare `discern` from the main checkout to open [the desk](../30-worktrees/the-desk.md). Its `Start a task` action creates and readies a worktree from an optional name, then opens that row immediately; `Open with agent` appears for each coding-agent CLI that is both configured in the worktree and available on `PATH`.
 - Agent sessions run in linked git worktrees — by default a sibling of the repo, `<repo>.worktrees/<name>/` (configurable via `[worktree].root`), each with its own checkout.
 - To land an agent's finished branch, run [`discern accept`](../30-worktrees/lifecycle.md#land-the-reviewed-commit) from its worktree. It honors the clean HEAD's gate receipt, or runs the gate when no current receipt exists, then fast-forwards your trunk to the branch tip, tears the worktree down, and deletes the merged branch — the trunk is the single landing target (ADR 0110). It refuses a dirty tree (commit first) and a main checkout parked off the trunk. To review or build on work that isn't ready to land, leave it as a branch and pull it into a worktree with `discern start --from <ref>` / `discern update --from <ref>` instead.
 - To discard an abandoned worktree, run `discern worktree drop <id>` from the main checkout — it refuses without `--force` when commits not on the trunk or uncommitted changes would be lost.

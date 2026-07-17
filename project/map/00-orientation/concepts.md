@@ -39,6 +39,8 @@ discern is a single self-contained binary on your `PATH`, and the only other thi
 
 Day to day, an agent orients with `discern status` (read-only: what's true, what to do next), starts a worktree, makes the change, iterates with `discern prepare`, and claims done with `discern done`. On green it reports a receipt and waits. You review the branch, and it lands only when you say so.
 
+From the main checkout, bare `discern` opens the [desk](glossary.md#desk), the human entry point to the same loop. `Start a task` creates and readies a worktree, then its action menu can open a configured coding-agent CLI there immediately. The desk also surveys, inspects, updates, lands, enters, or discards the existing fleet without making you copy branch names between commands.
+
 ## Where next
 
 | Want to understand…                                      | Read                                            |
