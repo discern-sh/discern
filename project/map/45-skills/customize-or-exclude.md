@@ -55,9 +55,9 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 
 ## Where it lives in code
 
-| Concern                     | Source                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| Override and exclude rules  | [`skills.ts`](../../../src/lib/skills.ts) (`resolveEffectiveSkills`)         |
-| Ejection behavior           | [`skills.ts`](../../../src/lib/skills.ts) (`ejectSkill`)                     |
-| Configuration schema        | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`) |
-| Full command-path coverage  | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |
+| Concern                    | Source                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| Override and exclude rules | [`skills.ts`](../../../src/lib/skills.ts) (`resolveEffectiveSkills`)         |
+| Ejection behavior          | [`skills.ts`](../../../src/lib/skills.ts) (`ejectSkill`)                     |
+| Configuration schema       | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`) |
+| Full command-path coverage | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |
