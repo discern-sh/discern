@@ -39,7 +39,7 @@ There is nothing to tune — the metric self-calibrates. The only setting is whe
 | --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `in_gate` | `false` | Surface the diff-aware advisory during the gate too — `discern done` **and** the fast inner loop `discern prepare` (as hints, at the tail). |
 
-The subsystem is core and costs nothing until invoked — read-only, self-calibrating, on demand; `in_gate` is its one cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../10-installer/config-reference.md#coupling).
+The subsystem is core and costs nothing until invoked — read-only, self-calibrating, on demand; `in_gate` is its one cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../10-getting-started/config-reference.md#coupling).
 
 ## In the gate
 

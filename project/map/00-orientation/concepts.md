@@ -21,7 +21,7 @@ The engine inside discern never learns your stack. It runs "the test [capability
 
 ## One binary, a small footprint
 
-discern is a single self-contained binary on your `PATH`, and the only other thing it needs is `git`. Your project needs no Deno, no Node, and no runtime of discern's: what lands in the repo is configuration and text. The committed footprint is `discern.toml` plus one visible folder, the [`discern/` namespace](glossary.md#namespace), for content you author — and a test fails the moment any verb writes outside the enumerated surface ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [Files & ownership](../10-installer/artifact-ownership.md) is the full inventory.
+discern is a single self-contained binary on your `PATH`, and the only other thing it needs is `git`. Your project needs no Deno, no Node, and no runtime of discern's: what lands in the repo is configuration and text. The committed footprint is `discern.toml` plus one visible folder, the [`discern/` namespace](glossary.md#namespace), for content you author — and a test fails the moment any verb writes outside the enumerated surface ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [Files & ownership](../10-getting-started/artifact-ownership.md) is the full inventory.
 
 ## The pieces
 
@@ -43,7 +43,7 @@ Day to day, an agent orients with `discern status` (read-only: what's true, what
 
 | Want to understand…                                      | Read                                            |
 | -------------------------------------------------------- | ----------------------------------------------- |
-| Install, setup, and upgrades                             | [the installer](../10-installer/)               |
+| Install, setup, and upgrades                             | [Getting started](../10-getting-started/)       |
 | `discern done` — capabilities, checks, scopes, standards | [the quality gate](../20-quality-gate/)         |
 | The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
 | Guidance compilation and the bundled skills              | [agent guidance](../40-agent-guidance/)         |

@@ -38,4 +38,4 @@ That prints one structured object — every job, and for each failure the tool, 
 
 - Run `discern doctor` — it checks the install, the config, and that every command your gate calls is actually available. A missing tool is a common first-week cause.
 - For failures the error message alone doesn't explain — a test that only fails in parallel, a stale build artifact, a dependency a merge pulled in — [gate gotchas](../80-development/done-gate-gotchas.md) is the symptom → cause → fix reference.
-- The [FAQ](../10-installer/faq.md) covers the most common setup and environment problems.
+- The [FAQ](../10-getting-started/faq.md) covers the most common setup and environment problems.

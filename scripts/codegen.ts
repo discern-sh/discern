@@ -35,7 +35,7 @@ const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 const configReference = relative(
   repoRoot,
-  join(mapDir, "10-installer", "config-reference.md"),
+  join(mapDir, "10-getting-started", "config-reference.md"),
 );
 const cliReference = relative(
   repoRoot,

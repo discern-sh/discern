@@ -242,7 +242,7 @@ export const HELP_ADR_DOC_DIR = "_adr";
  */
 export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
   "00-orientation",
-  "10-installer",
+  "10-getting-started",
   "20-quality-gate",
   "30-worktrees",
   "40-agent-guidance",

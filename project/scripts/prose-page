@@ -5,7 +5,7 @@
 # warning-tier rules (contrast-frames, counted sets, em-dash chains) are
 # advisory. This is the loop that shows them for the pages you're writing:
 #
-#   discern script prose-page project/map/10-installer/quickstart.md
+#   discern script prose-page project/map/10-getting-started/quickstart.md
 #
 # A page in the reference corpus measures zero Discern alerts; hold new and
 # rewritten pages to that bar.

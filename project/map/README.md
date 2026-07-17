@@ -11,14 +11,14 @@ aliases:
 
 _The manual for discern: the same pages on discern.sh, in `discern help`, and in your coding agent's MCP tools._
 
-discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. New here? Start with [orientation](00-orientation/) for the concepts in plain English, then the [quickstart](10-installer/quickstart.md) to go from install to your first gated change.
+discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. New here? Start with [orientation](00-orientation/) for the concepts in plain English, then the [quickstart](10-getting-started/quickstart.md) to go from install to your first gated change.
 
 ## The sections
 
 | Section                                          | What's in it                                                                        |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | [00-orientation/](00-orientation/)               | How discern fits together, in plain English: concepts, glossary, design principles. |
-| [10-installer/](10-installer/)                   | Install and setup: quickstart, walkthrough, config reference, FAQ.                  |
+| [10-getting-started/](10-getting-started/)       | Install, setup, a first gated change, troubleshooting, and upgrades.                |
 | [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.     |
 | [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.        |
 | [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once, compiled into every agent file, plus the bundled skills.    |

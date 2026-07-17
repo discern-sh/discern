@@ -1,7 +1,7 @@
 ---
 title: Files & ownership
 description: Every file discern writes or shares, who owns each, whether git tracks it, and how uninstall removes it.
-order: 30
+order: 60
 redirect_from:
   - /docs/installer/what-discern-writes
 aliases:

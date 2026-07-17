@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import {
   configSectionNames,
@@ -71,13 +71,20 @@ Deno.test("the generated capabilities object is closed and not all-required", ()
 
 Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    `${REPO_AUTHORED_PATHS.map}/10-installer/config-reference.md`,
+    `${REPO_AUTHORED_PATHS.map}/10-getting-started/config-reference.md`,
   );
   assertEquals(
     committed,
     renderConfigReferenceDoc(),
-    `${REPO_AUTHORED_PATHS.mapRel}/10-installer/config-reference.md is stale — run \`deno task codegen\``,
+    `${REPO_AUTHORED_PATHS.mapRel}/10-getting-started/config-reference.md is stale — run \`deno task codegen\``,
   );
+});
+
+Deno.test("the generated config reference carries the section's full frontmatter", () => {
+  const doc = renderConfigReferenceDoc();
+  assertStringIncludes(doc, "title: Config reference");
+  assertStringIncludes(doc, "order: 70");
+  assertStringIncludes(doc, "  - discern.toml");
 });
 
 Deno.test("the docs reference documents every section, with its describe() prose", () => {

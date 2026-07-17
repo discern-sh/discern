@@ -172,6 +172,16 @@ export function renderConfigReferenceDoc(): string {
   >;
   const props = isObject(root.properties) ? root.properties : {};
   const out: string[] = [
+    "---",
+    "title: Config reference",
+    "description: Every discern.toml section, key, type, and default generated from the schema the binary enforces.",
+    "order: 70",
+    "aliases:",
+    "  - configuration",
+    "  - discern.toml",
+    "  - config",
+    "---",
+    "",
     DOCS_BANNER,
     "",
     "# `discern.toml` — config reference",

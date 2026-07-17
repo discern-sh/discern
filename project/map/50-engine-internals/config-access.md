@@ -4,7 +4,7 @@ _How `discern.toml` is read, resolved, and edited — one schema, one paths regi
 
 ## One typed schema
 
-The binary parses `discern.toml` with strict `@std/toml` and validates it against the one canonical Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](../10-installer/config-reference.md), the editor JSON Schema, and the rules the engine enforces — `deno task codegen` rewrites the satellites, and a drift fails the gate.
+The binary parses `discern.toml` with strict `@std/toml` and validates it against the one canonical Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](../10-getting-started/config-reference.md), the editor JSON Schema, and the rules the engine enforces — `deno task codegen` rewrites the satellites, and a drift fails the gate.
 
 ## The paths registry and its resolvers
 
@@ -24,5 +24,5 @@ Two rules keep a programmatic write from ever leaving a config the next read rej
 
 ## See also
 
-- [config-reference.md](../10-installer/config-reference.md) — every section, key, type, and default (generated).
+- [config-reference.md](../10-getting-started/config-reference.md) — every section, key, type, and default (generated).
 - [the-templating-engine.md](../40-agent-guidance/the-templating-engine.md) — how rendered guidance and skills consume the same resolved config.

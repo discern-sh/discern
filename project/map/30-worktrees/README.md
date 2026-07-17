@@ -2,7 +2,7 @@
 
 _Throwaway git Worktrees so an agent never works in the main checkout._
 
-> **New here?** Start with the [orientation tier](../00-orientation/) — [concepts](../00-orientation/concepts.md) and [what setup added to your repo](../00-orientation/after-setup.md) — before the mechanism below. Sharing the repo with people? [Working with a team](team-workflow.md) covers cloning and collaboration.
+> **New here?** Start with the [orientation tier](../00-orientation/) and [what setup added to your repo](../10-getting-started/after-setup.md) before the mechanism below. Sharing the repo with people? [Working with a team](team-workflow.md) covers cloning and collaboration.
 
 This subtree covers the Worktree lifecycle. The `discern worktree ...` subcommands provision and tear down an isolated `git worktree` (and its branch) per change, each with a **deterministic dev-server port** and any number of project-declared **resources** — external things (a database, an emulator, a container, a queue) that must exist for exactly the life of the Worktree. The git mechanics are generic; the resources are the only stack-specific part, declared as `[worktree.resources.<name>]` tables in `discern.toml`. A fresh install declares none, so a Worktree round is a clean no-op until a project wires one. The workflow is core — always wired, with no configuration attached; a session that never runs `start` never uses it ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md), [ADR 0025](../_adr/0025-worktree-resources.md), [ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 

@@ -1,12 +1,18 @@
 ---
-order: 60
+title: Migration mechanics
+description: How the versioned migration chain advances installed projects while preserving ownership and config validity.
+order: 40
+aliases:
+  - migrations
+  - schema migrations
+  - migration internals
 ---
 
 # Migrations
 
 _The versioned chain that evolves an install's shape, one idempotent step at a time._
 
-A [Migration](../00-orientation/glossary.md#migration) brings an install from [Schema version](../00-orientation/glossary.md#schema-version) `N` to `N+1`. The chain lives in [`src/lib/migrations.ts`](../../../src/lib/migrations.ts); the current schema number and the one-line history of every step live in [`src/lib/version.ts`](../../../src/lib/version.ts). `discern upgrade` reads `[meta].schema_version`, runs every pending step in order, **validates the migrated config against the typed schema before stamping** the new number ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)), and refuses a config stamped by a newer binary rather than silently downgrading it.
+A [Migration](../00-orientation/glossary.md#migration) brings an install from [Schema version](../00-orientation/glossary.md#schema-version) `N` to `N+1`. The chain lives in [`src/lib/migrations.ts`](../../../src/lib/migrations.ts); the current schema number and step history live in [`src/lib/version.ts`](../../../src/lib/version.ts). `discern upgrade` reads `[meta].schema_version`, runs every pending step in order, and validates the migrated config against the typed schema before stamping the new number ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). A config stamped by a newer binary is refused and keeps its recorded version.
 
 ## The contract each step signs
 
@@ -17,14 +23,14 @@ A [Migration](../00-orientation/glossary.md#migration) brings an install from [S
 
 ## Reading the chain
 
-The full step history is the doc comment on `SCHEMA_VERSION` in [`version.ts`](../../../src/lib/version.ts) — the single home of both the number and its story. Two recent steps show the range of what a step can do:
+The full step history is the doc comment on `SCHEMA_VERSION` in [`version.ts`](../../../src/lib/version.ts) — the single home of both the number and its story. Recent steps show the range of what a step can do:
 
 - **`14 → 15`** consolidates the authored surface under the visible `discern/` [Namespace](../00-orientation/glossary.md#namespace): each source whose config key still pointed at its pre-namespace default (the guidance seed, the map, authored skills, the then-named Recipes, the ledger, the brief) moves from its `legacyPath` to its `defaultPath` — both read from the [paths registry](../../../src/shared/paths_registry.ts), so the step enumerates no path of its own — while a user-pointed path is left alone ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 - **`15 → 16`** retires the `[features]` table and the duplicate `[worktree].enabled` key, noting any non-default value it discards ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
-A schema bump is **rare by design**: it happens only when an installed project needs a change to stay correct, so most releases leave the number untouched. Coverage for the chain lives in [`tests/upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) and its convergence sibling — each step is exercised against a scaffolded legacy layout, then re-run to prove the no-op.
+A schema bump happens only when an installed project needs a change to stay correct, so most releases leave the number untouched. Coverage for the chain lives in [`tests/upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) and its convergence sibling — each step is exercised against a scaffolded legacy layout, then re-run to prove the no-op.
 
 ## See also
 
-- [config-reference.md](config-reference.md) — every section and key the migrated config must validate against.
+- [config-reference.md](../10-getting-started/config-reference.md) — every section and key the migrated config must validate against.
 - The migration system's founding decision ([ADR 0014](../_adr/0014-versioned-migration-system.md)).

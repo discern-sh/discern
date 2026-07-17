@@ -2,7 +2,7 @@
 
 _`discern improvement` — show the project's objective baseline, keep qualitative reviews visible, and point at the highest-value improvement to make now._
 
-Where [`done`](../../../src/engine/gate/finish.ts) asks _did this change pass?_ and [`doctor`](../10-installer/README.md) asks _is this install valid?_, **`improvement`** asks _what should get better next?_ It evaluates a catalog of best-practice rules grouped into categories ([`src/engine/improve/`](../../../src/engine/improve/rules.ts)), ranks the weakest areas, and selects one prioritized next action. It is advisory by default: a completed review succeeds, while its baseline and open work live in the result.
+Where [`done`](../../../src/engine/gate/finish.ts) asks _did this change pass?_ and [`doctor`](../10-getting-started/faq.md#start-with-discern-doctor) asks _is this install valid?_, **`improvement`** asks _what should get better next?_ It evaluates a catalog of best-practice rules grouped into categories ([`src/engine/improve/`](../../../src/engine/improve/rules.ts)), ranks the weakest areas, and selects one prioritized next action. It is advisory by default: a completed review succeeds, while its baseline and open work live in the result.
 
 ## Baseline rules and qualitative reviews
 
