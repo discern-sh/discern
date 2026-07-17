@@ -21,10 +21,10 @@ is always first. Note any frontmatter a page must carry beyond the brief's
 baseline (a specific `order`, `publish: false`, a `redirect_from` claim). Keep
 the set small enough to stay within the length budget. -->
 
-| File | Topic |
-|---|---|
+| File        | Topic                                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
 | `README.md` | Public-facing 200–350-word overview: what this subtree covers, and the reading order through the leaves. |
-| `<leaf>.md` | _Topic._ |
+| `<leaf>.md` | _Topic._                                                                                                 |
 
 ## Source files to read
 

@@ -1,6 +1,6 @@
 # Working on this project
 
-*The contributor's view of the codebase — set up, write, test, ship.*
+_The contributor's view of the codebase — set up, write, test, ship._
 
 This subtree documents the developer experience: getting set up locally, the testing approach, the conventions the tooling enforces, and where to look when the quality gate fails in a way the message did not explain.
 
@@ -14,9 +14,9 @@ The end-to-end loop is short and the same on every stack discern runs on:
 
 ## Leaves
 
-| File | What's in it |
-|---|---|
+| File                                         | What's in it                                                                                                                                                                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [done-gate-gotchas.md](done-gate-gotchas.md) | Non-obvious ways `discern done` fails — the stack-independent traps (merge check, parallel-run state, stale artifacts, masked exit codes), plus a section for your stack's own. The gate points here when a stage fails. |
-| `getting-started.md` | _Skeleton — fill during `discern setup`._ Cloning, the worktree step, environment setup, running the app, the first `discern done`. |
-| `testing.md` | _Skeleton — fill during `discern setup`._ The testing approach in this repo, how to run tests, and the parallel-safe patterns the gate assumes. |
-| `code-conventions.md` | _Skeleton — fill during `discern setup`._ The rules the tooling enforces, mirroring the Conventions section of the project guidelines. |
+| `getting-started.md`                         | _Skeleton — fill during `discern setup`._ Cloning, the worktree step, environment setup, running the app, the first `discern done`.                                                                                      |
+| `testing.md`                                 | _Skeleton — fill during `discern setup`._ The testing approach in this repo, how to run tests, and the parallel-safe patterns the gate assumes.                                                                          |
+| `code-conventions.md`                        | _Skeleton — fill during `discern setup`._ The rules the tooling enforces, mirroring the Conventions section of the project guidelines.                                                                                   |

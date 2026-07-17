@@ -1,6 +1,6 @@
 # Testing
 
-*The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes.*
+_The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes._
 
 > This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `80-development` subtree) writes it from the project's actual test stack. Look for the `<!-- setup fills this -->` marker.
 

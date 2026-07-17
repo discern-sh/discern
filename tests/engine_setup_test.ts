@@ -1892,7 +1892,7 @@ Deno.test("the brief keeps wired commands honest: exit-on-its-own, install conse
   assertStringIncludes(brief, "never a narrate-and-proceed");
   assertStringIncludes(
     brief,
-    "*Wiring a tool the project already has* stays narrate-and-proceed",
+    "_Wiring a tool the project already has_ stays narrate-and-proceed",
   );
 
   // Step 8: convergence is check-then-install (the template's own

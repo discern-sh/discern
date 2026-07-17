@@ -47,8 +47,8 @@ const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
 /**
  * Retired human-facing name for the shared branch; user copy calls it the trunk.
  * Multi-word retired phrases match across any whitespace, newlines included —
- * hard-wrapped prose (still the norm under `templates/skills/`) must not hide
- * a phrase from the scan by splitting it over a line break.
+ * hard-wrapped prose (still present in fixtures and other fmt-excluded paths)
+ * must not hide a phrase from the scan by splitting it over a line break.
  */
 const INTEGRATION_BRANCH = /\bintegration\s+branch\b/gi;
 /** Callable/config/artifact pointers that are legal only in reviewed history. */

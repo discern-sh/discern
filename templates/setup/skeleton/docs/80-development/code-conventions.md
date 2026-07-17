@@ -1,6 +1,6 @@
 # Code conventions
 
-*The rules the tooling enforces, and the conventions to follow when writing code here.*
+_The rules the tooling enforces, and the conventions to follow when writing code here._
 
 > This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `80-development` subtree) writes it from the project's actual stack and the Conventions section of the project guidance. Look for the `<!-- setup fills this -->` marker.
 

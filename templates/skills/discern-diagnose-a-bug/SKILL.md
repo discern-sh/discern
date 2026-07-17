@@ -8,7 +8,7 @@ metadata:
 
 # Diagnose before you fix
 
-The most expensive way to debug is to guess: change something plausible and see whether the symptom goes away. When it does, you've learned almost nothing — a symptom can vanish for the wrong reason (masked by a retry, shifted timing, an unrelated side effect) while the real defect ships on. This skill makes the cause **proven** before any fix is written: reproduce the failure on demand, run experiments designed to *falsify* your hypotheses, demonstrate cause and effect, and separate the incident-specific causal chain from the generative mechanism that could produce siblings — then hand both to the `discern-cure-a-bug` skill.
+The most expensive way to debug is to guess: change something plausible and see whether the symptom goes away. When it does, you've learned almost nothing — a symptom can vanish for the wrong reason (masked by a retry, shifted timing, an unrelated side effect) while the real defect ships on. This skill makes the cause **proven** before any fix is written: reproduce the failure on demand, run experiments designed to _falsify_ your hypotheses, demonstrate cause and effect, and separate the incident-specific causal chain from the generative mechanism that could produce siblings — then hand both to the `discern-cure-a-bug` skill.
 
 Diagnosis and treatment stay separate on purpose. The moment you catch yourself "trying a fix to see if it helps," you have stopped diagnosing and started guessing.
 
@@ -18,7 +18,7 @@ Diagnosis and treatment stay separate on purpose. The moment you catch yourself 
 
 A failure you can't reproduce is a failure you can't prove fixed. Before theorising, get it happening on demand: **one runnable command** — a test, a script, a request — that fails now and will pass when the defect is gone. Record the command; it is the anchor for everything that follows, and later it becomes the regression test.
 
-If you can't reproduce it, *that* is the investigation: vary the inputs, environment, ordering, and timing the report implies until it fires. What the failure needs in order to appear is your first hard evidence about the cause. Don't skip ahead — a diagnosis without a reproduction is a hypothesis with no way to test it.
+If you can't reproduce it, _that_ is the investigation: vary the inputs, environment, ordering, and timing the report implies until it fires. What the failure needs in order to appear is your first hard evidence about the cause. Don't skip ahead — a diagnosis without a reproduction is a hypothesis with no way to test it.
 
 ---
 
@@ -39,7 +39,7 @@ Work in explicit rounds, and keep a written trail:
 3. **Run the cheapest experiment that could prove the hypothesis wrong.** Change one variable at a time; an experiment that varies two things rules out neither.
 4. **Write down what got ruled out**, then loop.
 
-The written trail is what prevents circular debugging — re-testing yesterday's guess because nobody recorded that it already failed. And keep the experiments *observations*, not fixes: an experiment shaped like a fix conflates diagnosis with treatment, and a disappearing symptom is not a confirmed cause.
+The written trail is what prevents circular debugging — re-testing yesterday's guess because nobody recorded that it already failed. And keep the experiments _observations_, not fixes: an experiment shaped like a fix conflates diagnosis with treatment, and a disappearing symptom is not a confirmed cause.
 
 Keep at least one live competing hypothesis until an experiment distinguishes it from the leader. The first explanation that fits the evidence often names a local participant while missing the more general mechanism that made its behaviour dangerous.
 
@@ -51,7 +51,7 @@ The defect got in somehow, and the project's history usually knows where:
 
 - **`git log`** the failing area — what changed most recently, and did the failure start then?
 - **`git bisect`**, with your reproduction command as the oracle, when pinpointing the introducing commit would settle the cause.
-- **Co-change coupling** — ask which files have historically changed *together* with your suspect (the `discern_coupling` MCP tool, or `discern coupling <file>` on the CLI). A habitual partner that was *not* updated in a recent change is a classic cause: the half-applied change. Treat partners as leads to check, not verdicts.
+- **Co-change coupling** — ask which files have historically changed _together_ with your suspect (the `discern_coupling` MCP tool, or `discern coupling <file>` on the CLI). A habitual partner that was _not_ updated in a recent change is a classic cause: the half-applied change. Treat partners as leads to check, not verdicts.
 
 ---
 
@@ -62,7 +62,7 @@ You are done diagnosing when you can demonstrate the mechanism, not merely narra
 - **Forward**: the minimal condition you identified produces the failure, on demand.
 - **Backward**: with only that condition changed, the same reproduction passes.
 
-If you can argue the cause is *plausible* but can't demonstrate both directions, you still hold a hypothesis — return to step 3. Beware the stopping-early trap: the first anomaly you find is often a co-symptom, not the cause. Ask "what causes *that*?" until the answer is a decision in code, not another symptom.
+If you can argue the cause is _plausible_ but can't demonstrate both directions, you still hold a hypothesis — return to step 3. Beware the stopping-early trap: the first anomaly you find is often a co-symptom, not the cause. Ask "what causes _that_?" until the answer is a decision in code, not another symptom.
 
 ### Name every level of the causal chain
 
@@ -83,8 +83,8 @@ Causal proof and scope proof are different: the forward/backward experiment prov
 
 Hand over two falsifiable statements with the reproduction command attached:
 
-1. **Incident diagnosis:** *specific cause → proximal mechanism → observed effect*.
-2. **Class-predicate seed:** *whenever the name-independent enabling conditions hold, the generative mechanism can produce this failure*.
+1. **Incident diagnosis:** _specific cause → proximal mechanism → observed effect_.
+2. **Class-predicate seed:** _whenever the name-independent enabling conditions hold, the generative mechanism can produce this failure_.
 
 Include the necessary, incidental, and untested details from the minimized reproduction. The cure workflow decides the final class boundary and enumerates it, but it must not have to infer which parts of the diagnosis were merely names or circumstances of the first occurrence.
 

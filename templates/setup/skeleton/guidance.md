@@ -14,6 +14,4 @@ _(One-line pitch: what {{project_name}} is and who it's for — replace this lin
 
 ## Conventions
 
-_(Replace this section.)_ Language idioms, style, structure, naming, error handling —
-anything the tooling enforces. Keep it aligned with the `[capabilities]` you wire in
-`discern.toml`, so the written rule and the enforced rule never disagree.
+_(Replace this section.)_ Language idioms, style, structure, naming, error handling — anything the tooling enforces. Keep it aligned with the `[capabilities]` you wire in `discern.toml`, so the written rule and the enforced rule never disagree.

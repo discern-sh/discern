@@ -8,23 +8,15 @@ metadata:
 
 # Write an ADR
 
-An Architecture Decision Record captures a significant decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder *"why on earth was it done this way?"*
+An Architecture Decision Record captures a significant decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder _"why on earth was it done this way?"_
 
-The project's ADRs live in the configured documentation tree, at
-`{{map_dir}}_adr/`. **The canonical format lives in
-`{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not
-restate the format — it walks you through *applying* it. There is one home for
-"how we write ADRs", and that's the README; this skill points there on purpose.
+The project's ADRs live in the configured documentation tree, at `{{map_dir}}_adr/`. **The canonical format lives in `{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not restate the format — it walks you through _applying_ it. There is one home for "how we write ADRs", and that's the README; this skill points there on purpose.
 
 ---
 
 ## 0. Ensure the ADR home exists
 
-ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a
-project that hasn't run `discern setup` — create it from this skill's skeleton
-before writing: copy this skill's own `skeleton/docs/_adr/` directory (the
-canonical `README.md` format guide and `0000-template.md`) to
-`{{map_dir}}_adr/`. If it already exists, skip this.
+ADRs live in `{{map_dir}}_adr/`. If that directory doesn't exist yet — a project that hasn't run `discern setup` — create it from this skill's skeleton before writing: copy this skill's own `skeleton/docs/_adr/` directory (the canonical `README.md` format guide and `0000-template.md`) to `{{map_dir}}_adr/`. If it already exists, skip this.
 
 ---
 
@@ -36,7 +28,7 @@ Per `{{map_dir}}_adr/README.md`, write one only when **all three** are true:
 2. **Surprising without context** — a future reader will wonder why.
 3. **A real trade-off** — there were genuine alternatives and you picked one for specific reasons.
 
-If any fails, say so and stop — an easy-to-reverse, unsurprising, or alternative-free decision is not worth an ADR. The one case to *always* consider: a decision that **overrides a design principle** under `{{map_dir}}00-orientation/design-principles.md`. The principles are hard requirements; bending one deliberately is exactly what an ADR is for.
+If any fails, say so and stop — an easy-to-reverse, unsurprising, or alternative-free decision is not worth an ADR. The one case to _always_ consider: a decision that **overrides a design principle** under `{{map_dir}}00-orientation/design-principles.md`. The principles are hard requirements; bending one deliberately is exactly what an ADR is for.
 
 When in doubt, ask the user the three questions above rather than guessing.
 
@@ -50,8 +42,7 @@ List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add on
 
 ## 3. Draft from the template
 
-Copy `{{map_dir}}_adr/0000-template.md` to
-`{{map_dir}}_adr/NNNN-slug.md` and fill it:
+Copy `{{map_dir}}_adr/0000-template.md` to `{{map_dir}}_adr/NNNN-slug.md` and fill it:
 
 - **Title** states the decision (`# ADR NNNN: <decision>`), not the question.
 - **Status** — usually `accepted` for a decision being recorded as it's made; `proposed` if it's still under discussion.
@@ -60,9 +51,7 @@ Copy `{{map_dir}}_adr/0000-template.md` to
 - **Consequences** — what follows, good and bad. Be honest about the costs.
 - **Alternatives considered** — only if the rejection is non-obvious; otherwise drop the heading.
 
-Keep it as short as the decision allows — a paragraph that names the decision
-and why beats an over-filled form. Write in the same present-tense, no-marketing
-voice as the rest of the configured documentation tree.
+Keep it as short as the decision allows — a paragraph that names the decision and why beats an over-filled form. Write in the same present-tense, no-marketing voice as the rest of the configured documentation tree.
 
 ---
 
@@ -73,12 +62,10 @@ An ADR nobody can find from the code it governs is half-wasted. After writing:
 - If it **overrides or grounds a design principle**, link it from that principle in `{{map_dir}}00-orientation/design-principles.md`.
 - If it explains a subsystem's behaviour, link it from that subtree's doc.
 - If it **supersedes** an earlier ADR, set the older one's status to `superseded by ADR-NNNN` and link forward — leave the old file in place as the record of what was once true.
-- If the decision changes something the docs describe, update those docs too (docs say what *is*; the ADR says *why*).
+- If the decision changes something the docs describe, update those docs too (docs say what _is_; the ADR says _why_).
 
 ---
 
 ## Done when
 
-The ADR exists at `{{map_dir}}_adr/NNNN-slug.md`, follows the canonical format,
-and is linked from the principle or doc it relates to (and any superseded ADR
-is marked).
+The ADR exists at `{{map_dir}}_adr/NNNN-slug.md`, follows the canonical format, and is linked from the principle or doc it relates to (and any superseded ADR is marked).

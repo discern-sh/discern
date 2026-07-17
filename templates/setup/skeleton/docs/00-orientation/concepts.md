@@ -30,6 +30,6 @@ _(Walk the main flow once, in order, in plain language. What comes in, what happ
 
 _(A table mapping "I want to understand X" to the subsystem subtree that covers it — the same numbered subtrees listed on the docs front page. `discern setup` proposes those names; fill this in once they exist.)_
 
-| Want to understand... | Go to |
-|---|---|
-| _topic_ | `../NN-subsystem/` |
+| Want to understand... | Go to              |
+| --------------------- | ------------------ |
+| _topic_               | `../NN-subsystem/` |

@@ -35,7 +35,7 @@ If a change you are about to make violates one of these, treat that as a signal 
 
 > This is a placeholder principle, here only to show the shape. `discern setup` replaces it with principles drawn from this project's brief. It is deliberately generic — do not keep it as-is.
 
-Every fact in the system — a piece of configuration, a documented convention, a unit of behaviour — lives in exactly one authoritative place. Where a second copy must exist, it is *generated* from the source, marked as generated, and never hand-edited.
+Every fact in the system — a piece of configuration, a documented convention, a unit of behaviour — lives in exactly one authoritative place. Where a second copy must exist, it is _generated_ from the source, marked as generated, and never hand-edited.
 
 **Why it matters.** Duplicated facts drift, and drift is silent until something breaks: a reader follows a stale doc, two copies of one behaviour diverge with every fix that lands in only one of them. With one source per fact, consistency is a property of the system rather than of human vigilance.
 

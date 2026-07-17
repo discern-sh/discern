@@ -14,8 +14,8 @@ If you're new, start with [00-orientation/](00-orientation/) and follow the trai
 
 ### Start here
 
-| Path | What's in it |
-|---|---|
+| Path                               | What's in it                                                                                                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [00-orientation/](00-orientation/) | The shape of the system in plain English. Concepts, glossary, an ASCII system map, and the design principles. Read this once and the rest of the tree slots into place. |
 
 ### Subsystems
@@ -24,19 +24,19 @@ If you're new, start with [00-orientation/](00-orientation/) and follow the trai
 
 The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Each has a `README.md` tour plus deeper leaves. `discern setup` proposes the subtree names from the repo's shape; until then, only the placeholders below exist. Rename and renumber freely — the numbers are a reading order, not a contract.
 
-| Path | What's in it |
-|---|---|
-| `10-<subsystem>/` | _Proposed during `discern setup`._ |
-| `20-<subsystem>/` | _Proposed during `discern setup`._ |
-| `…` | _Add as many numbered subtrees as the system needs._ |
+| Path                               | What's in it                                                                                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `10-<subsystem>/`                  | _Proposed during `discern setup`._                                                                                                                                                                                  |
+| `20-<subsystem>/`                  | _Proposed during `discern setup`._                                                                                                                                                                                  |
+| `…`                                | _Add as many numbered subtrees as the system needs._                                                                                                                                                                |
 | [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [gate gotchas](80-development/done-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
 ### Reference material
 
-| Path | What's in it |
-|---|---|
-| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format. |
-| `_internal/` | Created when you first run the `discern-document-subsystem` skill — the documenter brief and per-subtree scope manifests for writing and refreshing this tree. Not part of the user-facing docs; kept for reproducibility. |
+| Path           | What's in it                                                                                                                                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                                  |
+| `_internal/`   | Created when you first run the `discern-document-subsystem` skill — the documenter brief and per-subtree scope manifests for writing and refreshing this tree. Not part of the user-facing docs; kept for reproducibility. |
 
 ---
 
@@ -54,4 +54,4 @@ Because the map is the canonical account, it must not drift from code. When you 
 - **Terminology** follows the [glossary](00-orientation/glossary.md). The project's canonical nouns are defined there once; synonyms are not introduced.
 - **No modal verbs about the system** ("should", "would", "could", "will eventually"). Every claim describes what exists in code today. Half-built or deprecated things live under a "Current state & gotchas" heading and are called out plainly.
 - **Diagrams are ASCII-first**, so they live in the text and stay diffable. A richer rendered image is the exception, not the default.
-- **Outstanding work does not live here.** The map says what *is*; the deferred-work ledger at `{{todo_path}}` tracks what is *owed*.
+- **Outstanding work does not live here.** The map says what _is_; the deferred-work ledger at `{{todo_path}}` tracks what is _owed_.

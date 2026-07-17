@@ -8,7 +8,7 @@ metadata:
 
 # Cure the bug — don't treat the symptom
 
-A bug is rarely alone. Define its *class* by the **generative mechanism that permits the defect**, not by the name, container, feature, or location where it was first observed. Patching only what you were shown is symptomatic relief: the siblings resurface later, and "fixed at the root cause" becomes a claim nobody can check. A **cure** is different, and this skill makes it an executable one: characterize the class, ship a detector that fails on every current member and a plausible future sibling, fix to green, and leave the detector in the gate so the defect can never silently return.
+A bug is rarely alone. Define its _class_ by the **generative mechanism that permits the defect**, not by the name, container, feature, or location where it was first observed. Patching only what you were shown is symptomatic relief: the siblings resurface later, and "fixed at the root cause" becomes a claim nobody can check. A **cure** is different, and this skill makes it an executable one: characterize the class, ship a detector that fails on every current member and a plausible future sibling, fix to green, and leave the detector in the gate so the defect can never silently return.
 
 A cure starts from a **proven cause**. If all you have is a symptom — the failure is reproducible but the mechanism behind it is still a guess — run the `discern-diagnose-a-bug` skill first; a cure prescribed before the diagnosis just treats the guess.
 
@@ -35,14 +35,14 @@ State a **scope contract** before writing the detector:
 
 Separate **essential** sameness from **incidental** resemblance:
 
-- *Essential* — instances of one decision that must stay in sync. That is the real class; fix it as one thing.
-- *Incidental* — code that merely looks similar but has independent fate. That is **not** the same class. Don't force it into a shared abstraction to inflate the count — a false merge is its own future bug.
+- _Essential_ — instances of one decision that must stay in sync. That is the real class; fix it as one thing.
+- _Incidental_ — code that merely looks similar but has independent fate. That is **not** the same class. Don't force it into a shared abstraction to inflate the count — a false merge is its own future bug.
 
 ---
 
 ## 2. Write the detector first — before fixing anything
 
-Author an executable check that fails on every current member of the class, and write it *before* you fix a single instance. The check can be:
+Author an executable check that fails on every current member of the class, and write it _before_ you fix a single instance. The check can be:
 
 - a **parameterized / table-driven test** that runs one assertion over a set of cases;
 - a **structural-search or lint rule** (e.g. `semgrep`, `ast-grep`, a custom linter) that matches the offending shape;
@@ -75,9 +75,9 @@ Validate the detector with at least one **adversarial future-sibling fixture**: 
 
 A table driven from one affected container proves completeness only within that container. It cannot establish a codebase-wide cure when the same mechanism can be recreated by declaring another container.
 
-Structural search still has a blind spot: it finds members that share a *shape*, but a class can have siblings that share neither a name nor a shape — a value and the separate validator that must move with it, a constant and its mirror in another language, a registry and the switch over it. No textual or structural query reaches those, because the link is *behavioural, not syntactic*.
+Structural search still has a blind spot: it finds members that share a _shape_, but a class can have siblings that share neither a name nor a shape — a value and the separate validator that must move with it, a constant and its mirror in another language, a registry and the switch over it. No textual or structural query reaches those, because the link is _behavioural, not syntactic_.
 
-The project's own history closes that gap. Ask for the files that have historically changed *together* with the affected one — the `discern_coupling` MCP tool, or `discern coupling <file>` on the CLI. A habitual co-change partner that shares no token and no shape with the buggy file is exactly the sibling grep and AST search both miss. Treat the partners as **candidates to check**, not confirmed members: the signal is advisory and drawn from history, so weigh each against the class predicate from step 1 and keep only the ones that are genuinely the same defect.
+The project's own history closes that gap. Ask for the files that have historically changed _together_ with the affected one — the `discern_coupling` MCP tool, or `discern coupling <file>` on the CLI. A habitual co-change partner that shares no token and no shape with the buggy file is exactly the sibling grep and AST search both miss. Treat the partners as **candidates to check**, not confirmed members: the signal is advisory and drawn from history, so weigh each against the class predicate from step 1 and keep only the ones that are genuinely the same defect.
 
 ---
 
@@ -97,9 +97,9 @@ Then make the completeness claim falsifiable. In your summary, state:
 - **how you enumerated** it — what query or check, over what scope contract;
 - the **current population** found by the detector, kept distinct from the class itself;
 - the **future-sibling proof** — the unrelated synthetic or controlled instance the detector rejects;
-- what lies **outside** that scope — what the detector does *not* cover.
+- what lies **outside** that scope — what the detector does _not_ cover.
 
-"Fixed every case the detector iterates over *the canonical set*; cases reached only through *X* are out of scope" is a claim a reviewer can check. "Fixed at the root cause" is not.
+"Fixed every case the detector iterates over _the canonical set_; cases reached only through _X_ are out of scope" is a claim a reviewer can check. "Fixed at the root cause" is not.
 
 ---
 

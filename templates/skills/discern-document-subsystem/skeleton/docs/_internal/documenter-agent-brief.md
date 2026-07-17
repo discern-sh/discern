@@ -1,11 +1,6 @@
 # Documenter agent brief
 
-This file is read by every documenter agent that produces or refreshes a
-subtree under the configured documentation root. Each agent also receives a
-per-subtree **scope manifest** at `_internal/scopes/{subtree}.md` (copy
-[`scopes/_template.md`](scopes/_template.md) to start one) that complements
-this brief with the specific files to read, the area the agent owns, and any
-known overlaps.
+This file is read by every documenter agent that produces or refreshes a subtree under the configured documentation root. Each agent also receives a per-subtree **scope manifest** at `_internal/scopes/{subtree}.md` (copy [`scopes/_template.md`](scopes/_template.md) to start one) that complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
 
 This brief is the constant; the scope manifest is the variable.
 
@@ -23,15 +18,10 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 
 ## Read first (mandatory, in this order)
 
-1. **`README.md` at the documentation root** — the tree's table of contents.
-   Confirms your subtree's position and its neighbours.
-2. **`00-orientation/concepts.md`** — the canonical naming source. Use its
-   capitalised nouns verbatim. Do not introduce synonyms.
-3. **`00-orientation/glossary.md`** — precise definitions. Cross-link to
-   entries here; do **not** redefine terms in your leaves.
-4. **Your scope manifest** at `_internal/scopes/{your-subtree}.md`. It lists
-   the source files to read, the area you own, and known integration points /
-   overlap warnings.
+1. **`README.md` at the documentation root** — the tree's table of contents. Confirms your subtree's position and its neighbours.
+2. **`00-orientation/concepts.md`** — the canonical naming source. Use its capitalised nouns verbatim. Do not introduce synonyms.
+3. **`00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves.
+4. **Your scope manifest** at `_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
 5. **The source files** listed in your manifest. Read whole files where they are small. For large directories, get a listing first and read the most central files in full; sample the rest.
 
 ---
@@ -51,14 +41,14 @@ If your subtree's audience contract differs (e.g. an existing plain-English deep
 
 ```markdown
 ---
-title: Short label            # only when the H1 runs long
+title: Short label # only when the H1 runs long
 description: One-line summary for search results and section tables.
 order: NN
 ---
 
 # Title
 
-*One-line summary.*
+_One-line summary._
 
 ## What it is
 
@@ -66,20 +56,17 @@ order: NN
 
 ## How it works
 
-The mechanism, step by step. Inline `[file](relative/path)` for every code claim.
-If the mechanism is sequential, use a numbered list. If it is a state machine or
-branching logic, prefer prose.
+The mechanism, step by step. Inline `[file](relative/path)` for every code claim. If the mechanism is sequential, use a numbered list. If it is a state machine or branching logic, prefer prose.
 
 ## Key concepts
 
-Bullet list of glossary terms relevant to this leaf, each a cross-link:
-`[Term](../00-orientation/glossary.md#term)`. Do not redefine here.
+Bullet list of glossary terms relevant to this leaf, each a cross-link: `[Term](../00-orientation/glossary.md#term)`. Do not redefine here.
 
 ## Where it lives in code
 
-| Concept | File |
-|---|---|
-| ... | `[Thing](../../path/to/Thing.ext)` |
+| Concept | File                               |
+| ------- | ---------------------------------- |
+| ...     | `[Thing](../../path/to/Thing.ext)` |
 
 ## Configuration
 
@@ -92,10 +79,7 @@ The knobs that tune this behaviour, one line each. Only those your subtree owns.
 
 ## Current state & gotchas
 
-Things a future reader would be surprised to learn. Quote any TODO/FIXME/HACK
-comments verbatim. Note half-built features, recently-changed code, reserved or
-dead config, and known footguns. This section is high-value-per-word; do not
-skip it just because the happy path is well covered.
+Things a future reader would be surprised to learn. Quote any TODO/FIXME/HACK comments verbatim. Note half-built features, recently-changed code, reserved or dead config, and known footguns. This section is high-value-per-word; do not skip it just because the happy path is well covered.
 ```
 
 Skip sections that do not apply to a given leaf. Do not invent sections.
@@ -104,9 +88,7 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 ## Frontmatter
 
-Frontmatter is metadata the documentation tooling reads; it is not content, and
-rendered surfaces strip the block. Only flat `key: value` scalars and `- item`
-lists parse. The keys:
+Frontmatter is metadata the documentation tooling reads; it is not content, and rendered surfaces strip the block. Only flat `key: value` scalars and `- item` lists parse. The keys:
 
 | Key             | Rule                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -117,18 +99,11 @@ lists parse. The keys:
 | `redirect_from` | Absolute historical routes this page answers for, where a published site serves the tree.   |
 | `aliases`       | Search synonyms: renamed terms, CLI spellings.                                              |
 
-The H1 stays the long-form canonical title on the page; the first substantive
-paragraph stays the canonical summary unless `description` overrides it.
+The H1 stays the long-form canonical title on the page; the first substantive paragraph stays the canonical summary unless `description` overrides it.
 
 ## Decision-record citations
 
-Cite the decision records under `_adr/` as liberally as reasoning requires —
-citation density serves the agents who read this tree. Every citation in prose
-takes one strippable form: a parenthetical group of linked citations at clause
-end, e.g. `([ADR NNNN](../_adr/NNNN-slug.md))`, comma-separated when a clause
-cites several records. The invariant: **the sentence reads correctly with the
-citation deleted** — a citation is never the grammatical subject. Where a
-record is itself the topic, name the topic in words and cite at the end.
+Cite the decision records under `_adr/` as liberally as reasoning requires — citation density serves the agents who read this tree. Every citation in prose takes one strippable form: a parenthetical group of linked citations at clause end, e.g. `([ADR NNNN](../_adr/NNNN-slug.md))`, comma-separated when a clause cites several records. The invariant: **the sentence reads correctly with the citation deleted** — a citation is never the grammatical subject. Where a record is itself the topic, name the topic in words and cite at the end.
 
 ---
 
@@ -137,8 +112,7 @@ record is itself the topic, name the topic in words and cite at the end.
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
 2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
 3. **No modal verbs about the system.** Banned: "should", "would", "could", "will eventually", "is intended to". Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Never repeat the project-relative
-   documentation root — you are already inside it.
+4. **Cross-link with relative paths.** Never repeat the project-relative documentation root — you are already inside it.
 5. **Cross-link within your subtree liberally; do not link across subtrees.** Inter-subtree links are added in a later polish pass by the orchestrator.
 6. **Glossary additions go in your summary, not your leaves.** If you find a term that ought to be glossary-defined, list it in your summary; do not append a glossary section to a leaf.
 7. **Document scope overlap; do not silently expand.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
@@ -172,5 +146,4 @@ If any of those break, the doc is too thin or too thick.
    - **Subtree-overlap observations** — code you noticed that belongs in another subtree.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or redundant.
 
-Do not commit. Do not run the full gate. Do not edit anything outside your
-assigned subtree under the configured documentation root.
+Do not commit. Do not run the full gate. Do not edit anything outside your assigned subtree under the configured documentation root.

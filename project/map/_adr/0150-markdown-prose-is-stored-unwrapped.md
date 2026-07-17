@@ -12,7 +12,7 @@ The wrap also proved actively harmful to enforcement: line-scoped text scans can
 
 **Prose form is canonical and enforced: one line per paragraph.** `deno.json` sets `"proseWrap": "never"`, and the gate's fix stage now joins wrapped lines instead of creating them — an agent's wrapping habit is normalized away on the next `discern done`, so the tree cannot drift into mixed wrapping. `"preserve"` was rejected for exactly that reason: it removes the canonical form rather than replacing it, leaving prose shape to whichever agent last edited the file.
 
-`templates/guidance/` joins the formatted surface (a negated glob un-excludes it from the `fmt` exclude list): it compiles verbatim into end-user agent files, which should read as prose rather than hard-wrapped text. The rest of `templates/` stays excluded and keeps its authored wrapping.
+`templates/guidance/` and `templates/skills/` join the formatted surface (negated globs un-exclude them from the `fmt` exclude list): guidance compiles verbatim into end-user agent files and skills materialize verbatim into their skill directories, and both should read as prose rather than hard-wrapped text. The rest of `templates/` stays excluded and keeps its authored form.
 
 The one-time mechanical reflow landed as a single commit, recorded in `.git-blame-ignore-revs` so blame skips it.
 
@@ -20,4 +20,4 @@ The one-time mechanical reflow landed as a single commit, recorded in `.git-blam
 
 - Prose diffs shrink to one changed line per edited paragraph; blame, review, and cross-branch merges track content instead of reflow.
 - Long lines are the storage form; readers and editors soft-wrap. Semantic line breaks (one sentence per line) are unavailable — the formatter joins them, by design.
-- Hard-wrapped prose still exists under `templates/skills/` and other excluded paths, so any scan for multi-word phrases must match across line breaks rather than line by line; the vocabulary guards already do.
+- Hard-wrapped prose still exists in fixtures and other excluded paths, so any scan for multi-word phrases must match across line breaks rather than line by line; the vocabulary guards already do.

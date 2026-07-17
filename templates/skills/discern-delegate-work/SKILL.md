@@ -12,7 +12,7 @@ Handing work to a clean session gives you an isolated worktree, an uncluttered c
 
 This skill turns the work you've been discussing into briefs that stand on their own, shapes the handoff so one task goes to one agent and a large effort splits along its real seams, hands the briefs off, and closes the loop with an adversarial review of what lands.
 
-*If the user adds their own instructions or context when invoking this skill, those take precedence. Everything below yields to what they tell you in the moment.*
+_If the user adds their own instructions or context when invoking this skill, those take precedence. Everything below yields to what they tell you in the moment._
 
 ---
 

@@ -34,6 +34,6 @@ _(A short list: which parts are processes, which are libraries, which are extern
 
 _(A table mapping each region of the diagram to the subsystem subtree that documents it in depth — the numbered subtrees on the docs front page. This is what turns the picture into a navigation aid.)_
 
-| Region of the map | Documented in |
-|---|---|
-| _component_ | `../NN-subsystem/` |
+| Region of the map | Documented in      |
+| ----------------- | ------------------ |
+| _component_       | `../NN-subsystem/` |

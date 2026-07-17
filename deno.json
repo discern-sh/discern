@@ -97,8 +97,6 @@
       "PLAN.md",
       "project/map/70-reference/cli-reference.md",
       "schema/discern-config.schema.json",
-      "templates/",
-      "!templates/guidance/",
       "tests/fixtures/"
     ]
   },

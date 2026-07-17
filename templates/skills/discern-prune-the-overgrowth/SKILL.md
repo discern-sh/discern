@@ -8,7 +8,7 @@ metadata:
 
 # Prune the overgrowth — before it teaches the next session to grow more
 
-Codebases built through agent sessions overgrow in a recognizable way. Each session adds a little: a helper written because the existing one wasn't found, scaffolding left by an abandoned approach, a wrapper that seemed prudent and gained exactly one caller, a debug print that outlived the debugging. No single session made a mess; the mess is the *sum*. And it compounds, because agents write code by pattern-matching the code around it — every duplicated helper teaches the next session that duplication is house style. Overgrowth is not a cosmetic problem: it is the substrate every future session builds on, quietly degrading.
+Codebases built through agent sessions overgrow in a recognizable way. Each session adds a little: a helper written because the existing one wasn't found, scaffolding left by an abandoned approach, a wrapper that seemed prudent and gained exactly one caller, a debug print that outlived the debugging. No single session made a mess; the mess is the _sum_. And it compounds, because agents write code by pattern-matching the code around it — every duplicated helper teaches the next session that duplication is house style. Overgrowth is not a cosmetic problem: it is the substrate every future session builds on, quietly degrading.
 
 This skill is the systematic sweep: know the signatures, enumerate them with structure rather than eyes, prove every cut safe before making it, land the pruning in small behaviour-preserving commits, and — the actual point — cap the entropy with a standard so the number can never quietly climb back.
 
@@ -31,7 +31,7 @@ Find instances by their shape, not their spelling — the same rule that governs
 
 ## 3. Prove each cut safe — adversarially
 
-An over-eager pruner does more damage than the overgrowth ever did, so reverse the burden of proof: a candidate stays until *you* prove it dead. The classic false kill is **dynamic reachability** — code reached by reflection, string-keyed lookup, configuration-named entry points, serialized names, or callers outside the repo entirely (a published interface, a deploy script, a scheduled job). Hunt for those before deleting anything a plain reference count calls unused; the project's change history helps too (`discern coupling <file>` names the files that historically change with it — a live co-change partner is a hint the "dead" code isn't).
+An over-eager pruner does more damage than the overgrowth ever did, so reverse the burden of proof: a candidate stays until _you_ prove it dead. The classic false kill is **dynamic reachability** — code reached by reflection, string-keyed lookup, configuration-named entry points, serialized names, or callers outside the repo entirely (a published interface, a deploy script, a scheduled job). Hunt for those before deleting anything a plain reference count calls unused; the project's change history helps too (`discern coupling <file>` names the files that historically change with it — a live co-change partner is a hint the "dead" code isn't).
 
 For duplicates, apply the essential/incidental test before merging: **essential** duplicates are one decision spelled twice — merge them into the better spelling. **Incidental** look-alikes merely resemble each other today and have independent fates — merging those manufactures the very one-caller abstraction you came here to remove. When unsure, leave it standing and record why.
 
@@ -47,7 +47,7 @@ The sweep is relief; the ceiling is the cure. Pick the metric your pruning actua
 
 Close with what you did **not** cut, and why: couldn't prove it dead, genuinely load-bearing, risk outweighs the weight. A pruning that reports only its kills looks thorough while claiming nothing checkable — the residual list is what makes "the codebase is clean" a falsifiable claim, and it seeds the next sweep's worklist.
 
-One escalation to watch for: if the sweep keeps surfacing the same *living* pattern — not dead, but everywhere and wrong — that is not pruning, it is a migration. Hand it to `discern-outlaw-a-pattern`, which makes a pattern illegal and standards it to zero.
+One escalation to watch for: if the sweep keeps surfacing the same _living_ pattern — not dead, but everywhere and wrong — that is not pruning, it is a migration. Hand it to `discern-outlaw-a-pattern`, which makes a pattern illegal and standards it to zero.
 
 ---
 

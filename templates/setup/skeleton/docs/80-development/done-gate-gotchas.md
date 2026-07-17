@@ -1,6 +1,6 @@
 # Done-gate gotchas
 
-*Non-obvious ways `discern done` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference.*
+_Non-obvious ways `discern done` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._
 
 The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). So the explanation is one step away even for an agent that has never hit the failure.
 
@@ -40,7 +40,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** Right after `git merge main`, the next gate run dies in a check or test stage on a missing module/class/package — something that exists on `main` but is unknown locally.
 
-**Cause.** In an isolated worktree (and often elsewhere), dependencies are not in version control. A merge updates the *lockfile text* but installs nothing. The new code references a dependency that was never fetched into this checkout.
+**Cause.** In an isolated worktree (and often elsewhere), dependencies are not in version control. A merge updates the _lockfile text_ but installs nothing. The new code references a dependency that was never fetched into this checkout.
 
 **Fix.** Reinstall dependencies in this checkout (your stack's `install`/`restore`/`sync` step) **before** re-running the gate. If your toolchain has a generated index, autoloader, or classmap, regenerate it too — a merge that adds a new source path can leave the generated index stale, which some tools report as a silent bootstrap failure (an empty error, an unexpected non-zero exit) rather than a clear "not found".
 
@@ -48,9 +48,9 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** `discern done` sits on a stage with no further output, then — after `[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that the command "timed out … without exiting". The command works fine when you run it by hand.
 
-**Cause.** A gate command never exits. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a capability. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to *watching* for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely.
+**Cause.** A gate command never exits. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a capability. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to _watching_ for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely.
 
-**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is *legitimately* longer than the budget (a large suite), raise `[gate].timeout`; set it to `0` only to disable the bound entirely (not recommended — the gate can then hang again).
+**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is _legitimately_ longer than the budget (a large suite), raise `[gate].timeout`; set it to `0` only to disable the bound entirely (not recommended — the gate can then hang again).
 
 ### A gate command fails with exit 127 (command not found)
 
@@ -72,7 +72,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a docs-only change runs almost nothing.
 
-**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs *more* gates, never fewer.
+**Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs _more_ gates, never fewer.
 
 **Fix.** If something was skipped that should not have been, your `[scopes]` globs do not match the paths you changed — widen them. If something ran that you expected to be skipped, the path fell through to the fail-open default; add it to `neutral` (or the right scope) if it genuinely needs no gate.
 

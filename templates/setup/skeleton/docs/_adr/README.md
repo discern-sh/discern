@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: *"why on earth was it done this way?"*
+This directory holds the project's **Architecture Decision Records (ADRs)** — short documents that capture a significant decision, the context that forced it, and the reasoning behind it. An ADR answers the question a future reader will ask: _"why on earth was it done this way?"_
 
 **This file is the canonical ADR format for the project.** Other guidance — the [design principles](../00-orientation/design-principles.md) (whose override mechanism is "write an ADR"), the `discern-write-adr` skill — points here rather than restating the format. There is exactly one home for "how we write ADRs", and it is this page.
 
@@ -10,16 +10,12 @@ To start a new ADR, copy [`0000-template.md`](0000-template.md).
 
 ## Location and naming
 
-- ADRs live in **`_adr/` under the configured documentation root** (this
-  directory). That is the single, settled location within the tree.
+- ADRs live in **`_adr/` under the configured documentation root** (this directory). That is the single, settled location within the tree.
 - Files are named `NNNN-short-slug.md`: a four-digit, zero-padded number, then a dash, then a short kebab-case slug, e.g. `0007-event-sourced-write-model.md`.
 
 ## Numbering
 
-Scan this directory for the highest existing number and add one. Numbers are
-**continuous and never reused** — even a superseded ADR keeps its number and
-stays in the directory (it is marked superseded, not deleted). The number is a
-stable identifier other docs and commit messages can cite.
+Scan this directory for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other docs and commit messages can cite.
 
 `0000-template.md` is the copy-paste template and is not itself a decision; the first real ADR is `0001`.
 
@@ -45,7 +41,7 @@ An ADR can be short — a paragraph that names the decision and why is worth mor
 - **Context** — the forces at play: the problem, the constraints, what was true before, what pushed a decision now. Enough that the reader feels the pressure you were under. This is usually the longest section.
 - **Decision** — what you decided, stated plainly and in the present tense ("X is Y"). Include the explicit *no*s — the things you decided **not** to do are often the most valuable part.
 - **Consequences** — what follows, good and bad: what becomes easy, what becomes hard, what you are now committed to, what you have foreclosed. Be honest about the costs; an ADR that lists only upsides is not trustworthy.
-- **Alternatives considered** *(optional)* — the options you rejected and why, but **only when the rejection is non-obvious**. If you weighed two reasonable approaches and picked one for subtle reasons, record it — otherwise someone will re-propose the loser in six months.
+- **Alternatives considered** _(optional)_ — the options you rejected and why, but **only when the rejection is non-obvious**. If you weighed two reasonable approaches and picked one for subtle reasons, record it — otherwise someone will re-propose the loser in six months.
 
 Include only the sections that add value. A trivial ADR may be Title + Status + a few sentences; a load-bearing one earns all of them.
 
@@ -61,7 +57,7 @@ Write an ADR when **all three** of these are true:
 
 If a decision is easy to reverse, skip it — you will just reverse it. If it is not surprising, nobody will wonder why. If there was no real alternative, there is nothing to record beyond "we did the obvious thing".
 
-There is one decision you should *always* consider an ADR for: **overriding a [design principle](../00-orientation/design-principles.md)**. The principles are hard requirements; bending one on purpose is exactly the "hard to reverse, surprising, deliberate trade-off" case this directory exists for.
+There is one decision you should _always_ consider an ADR for: **overriding a [design principle](../00-orientation/design-principles.md)**. The principles are hard requirements; bending one on purpose is exactly the "hard to reverse, surprising, deliberate trade-off" case this directory exists for.
 
 ### What qualifies
 
@@ -78,4 +74,4 @@ There is one decision you should *always* consider an ADR for: **overriding a [d
 ## After writing one
 
 - Link the ADR from whatever it touches: the [design principle](../00-orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behaviour it explains. An ADR nobody can find from the code it governs is half-wasted.
-- If the decision changes something the docs describe, update those docs too — the docs say what *is*, the ADR says *why*.
+- If the decision changes something the docs describe, update those docs too — the docs say what _is_, the ADR says _why_.

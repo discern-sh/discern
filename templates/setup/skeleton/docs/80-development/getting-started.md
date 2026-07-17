@@ -1,6 +1,6 @@
 # Getting started
 
-*Cloning, setting up, and running the project locally for the first time.*
+_Cloning, setting up, and running the project locally for the first time._
 
 > This doc is a skeleton. The `discern setup` command (and the `discern-document-subsystem` skill, when filling the `80-development` subtree) writes it from the project's actual stack. Look for the `<!-- setup fills this -->` marker.
 

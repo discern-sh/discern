@@ -8,7 +8,7 @@ metadata:
 
 # Outlaw a pattern
 
-A codebase-wide migration fails in a predictable way: the sweep converts most of the instances, the stragglers hide, and next month someone pastes the old idiom back in — nothing made the old way *illegal*, so the migration never actually ends. This skill ends it by legislation: the pattern is outlawed **today** (a detector counts it, a standard forbids the count from ever rising), removal proceeds as fast as you can afford — one sweep if it fits, tranches if it doesn't — and at zero the ban becomes a permanent rule of the gate.
+A codebase-wide migration fails in a predictable way: the sweep converts most of the instances, the stragglers hide, and next month someone pastes the old idiom back in — nothing made the old way _illegal_, so the migration never actually ends. This skill ends it by legislation: the pattern is outlawed **today** (a detector counts it, a standard forbids the count from ever rising), removal proceeds as fast as you can afford — one sweep if it fits, tranches if it doesn't — and at zero the ban becomes a permanent rule of the gate.
 
 The standard's role here is not gradualism. It is a **one-way door**: from the moment it lands, no new instance can enter and no landing can be undone by a later one. Whether enforcement then takes one branch or six weeks is a scheduling choice the guarantee doesn't depend on.
 
@@ -34,7 +34,7 @@ Make the detector runnable as one repo command — it's about to become the stan
 
 Wire the detector's count as a `direction = "down"` standard — the `discern-standard-a-metric` skill has the full procedure and the config shape; the short of it is a `[standards.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern standards` run as needed on a clean tree.
 
-This is the moment the pattern becomes illegal: any branch that *adds* an instance now fails the standard, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project guidance or conventions doc names the outlawed pattern and its replacement, so the standard is the enforcement and not the documentation.
+This is the moment the pattern becomes illegal: any branch that _adds_ an instance now fails the standard, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project guidance or conventions doc names the outlawed pattern and its replacement, so the standard is the enforcement and not the documentation.
 
 ---
 
@@ -53,7 +53,7 @@ Convert to the replacement from step 1 — resist "improving" each site along th
 
 When the census hits zero, the standard has done its job — don't leave it holding an empty line:
 
-- **Move the detector into the always-on gate** — a check or test that fails on the *first* new instance, so the ban now holds without anyone running the standards. Then retire the `[standards.<name>]` table.
+- **Move the detector into the always-on gate** — a check or test that fails on the _first_ new instance, so the ban now holds without anyone running the standards. Then retire the `[standards.<name>]` table.
 - **Finish the paperwork** — the docs describe only the new way (the old pattern moves to history, not "both are supported"); if the ban's rationale is surprising or was contested, record it with `discern-write-adr`; delete any compatibility shims the migration needed in transit.
 
 ---

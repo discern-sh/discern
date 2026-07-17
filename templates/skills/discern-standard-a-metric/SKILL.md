@@ -8,18 +8,18 @@ metadata:
 
 # Hold a metric to a standard
 
-Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a *no-backsliding guarantee*: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgement around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
+Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a _no-backsliding guarantee_: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgement around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
 
 ---
 
 ## 1. Choose a metric worth defending
 
-A standard blocks pushes, so the number behind it must be *defendable*:
+A standard blocks pushes, so the number behind it must be _defendable_:
 
 - **Deterministic** — the same tree always yields the same number. Timing, network, and anything sampling-based will fire false alarms until the standard gets deleted, which is worse than never adding it.
 - **Affordable in the gate** — the gate measures every standard alongside the tests on each `discern done`. For a slower metric, climb the relief ladder smallest-hammer-first: declare `inputs` (the paths the metric reads) so a change touching none of them replays the recorded value for free; give the one job its own `timeout` instead of a slower global; and only for a metric genuinely too slow for every gate run, set `measure = "on-demand"` to defer it to `discern standards` — its never-loosen limit check still runs on every gate.
 - **Meaningful** — it moves when the quality it stands for moves, and is hard to satisfy by gaming. "Count of `TODO` markers" is honest; "count of files containing the word test" is theatre.
-- **Owned** — the user is willing to be *blocked* on this number. Confirm that before wiring; an unwanted standard teaches people to bypass standards.
+- **Owned** — the user is willing to be _blocked_ on this number. Confirm that before wiring; an unwanted standard teaches people to bypass standards.
 
 Classic candidates: test coverage (floor), uses of a deprecated pattern (ceiling), lint/type suppressions (ceiling), build or bundle size (ceiling), documentation-lint density (ceiling).
 
@@ -45,31 +45,31 @@ limit     = 41                         # today's value on main — never aspirat
 run       = "tools/count-suppressions" # prints: DISCERN_METRIC suppressions 41
 ```
 
-Keep the `run` script in the repo like any other tool, and make it print *only* from what's in the tree — determinism (step 1) is a property of this command.
+Keep the `run` script in the repo like any other tool, and make it print _only_ from what's in the tree — determinism (step 1) is a property of this command.
 
 ---
 
 ## 4. Set the limit at today's value — never at the aspiration
 
-Measure the metric on `main` and set `limit` to exactly that. A standard holds ground; it doesn't seize it. An aspirational limit fails every branch immediately, and the "fix" people reach for is deleting the standard. Where the number *should* be is a goal — record it in the project's TODO — and tighten the limit as real improvements land (tightening is always allowed; that's the direction the door opens).
+Measure the metric on `main` and set `limit` to exactly that. A standard holds ground; it doesn't seize it. An aspirational limit fails every branch immediately, and the "fix" people reach for is deleting the standard. Where the number _should_ be is a goal — record it in the project's TODO — and tighten the limit as real improvements land (tightening is always allowed; that's the direction the door opens).
 
 Capture a gain with **`discern standards --pin`** — never a hand-edit. It measures (reusing a green `discern standards` check's measurements when run on the same clean commit, so check → pin measures once), tightens each improved limit to the value just measured, commits that change on its own, and carries a green gate receipt forward so a follow-up `accept` call skips a needless re-run. For a metric that drifts on unrelated commits (bundle size, coverage), give the table a `margin` so pin leaves that much headroom instead of pinning to an exact number the next commit would breach; pin skips a gain smaller than the margin. Pass a name (`discern standards --pin coverage`) to pin just one.
 
-Then prove the wiring is live, detector-style: run `discern_standards` (or `discern standards --json`) and see it green — and check the failure path once, e.g. by temporarily tightening the limit past the current value and watching the run refuse, so you know a real regression will actually be caught. Finally, leave a line near the table (a comment, or the docs) saying *what this number stands for and why it's held* — the standard outlives the session that added it.
+Then prove the wiring is live, detector-style: run `discern_standards` (or `discern standards --json`) and see it green — and check the failure path once, e.g. by temporarily tightening the limit past the current value and watching the run refuse, so you know a real regression will actually be caught. Finally, leave a line near the table (a comment, or the docs) saying _what this number stands for and why it's held_ — the standard outlives the session that added it.
 
 ---
 
 ## 5. When a standard fires
 
-**Never loosen the limit to pass.** A limit loosened versus `main` — or a standard deleted outright — is precisely the regression the standard exists to catch, and every `discern done` run verifies it: a loosening cannot pass the gate on a branch at all. Move the *metric* the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the standard is doing its job.
+**Never loosen the limit to pass.** A limit loosened versus `main` — or a standard deleted outright — is precisely the regression the standard exists to catch, and every `discern done` run verifies it: a loosening cannot pass the gate on a branch at all. Move the _metric_ the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the standard is doing its job.
 
-The one legitimate exception is a limit that was *set wrong* — mis-measured, or measuring something the project has since deliberately changed. Correcting that is an **owner decision, taken on the trunk**: relay the finding and make the case; at the owner's explicit instruction, an agent working in the main checkout adjusts the limit in the trunk's config, in its own commit that says why (an ADR, via `discern-write-adr`, when the correction is surprising). A quiet loosening buried in a feature branch is indistinguishable from the failure mode — which is exactly why the gate refuses it there. (This trunk edit is only ever for *loosening* a mis-set limit — capturing a genuine improvement is `discern standards --pin`, step 4, which by construction can only tighten.)
+The one legitimate exception is a limit that was _set wrong_ — mis-measured, or measuring something the project has since deliberately changed. Correcting that is an **owner decision, taken on the trunk**: relay the finding and make the case; at the owner's explicit instruction, an agent working in the main checkout adjusts the limit in the trunk's config, in its own commit that says why (an ADR, via `discern-write-adr`, when the correction is surprising). A quiet loosening buried in a feature branch is indistinguishable from the failure mode — which is exactly why the gate refuses it there. (This trunk edit is only ever for _loosening_ a mis-set limit — capturing a genuine improvement is `discern standards --pin`, step 4, which by construction can only tighten.)
 
 ---
 
 ## 6. Plan the end state
 
-A `down` standard that reaches **zero** has finished its job as a standard — don't leave it idling there. Move the rule into the always-on gate (a check or test that fails on the *first* new instance) and retire the standard table: the standard was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is the `discern-outlaw-a-pattern` skill, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
+A `down` standard that reaches **zero** has finished its job as a standard — don't leave it idling there. Move the rule into the always-on gate (a check or test that fails on the _first_ new instance) and retire the standard table: the standard was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is the `discern-outlaw-a-pattern` skill, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
 
 ---
 
@@ -78,4 +78,4 @@ A `down` standard that reaches **zero** has finished its job as a standard — d
 - the metric is **defendable** — deterministic, cheap, meaningful, and the user agreed to be blocked on it;
 - the `[standards.<name>]` table is wired with the right **direction** (a rate, via `per`, where growth would otherwise breach it) and the **limit set at today's value** on `main`;
 - `discern standards` passes, the failure path has been seen to fire once, and what the number stands for is written down;
-- the never-loosen rule and the end state (tighten over time; at zero, move a ceiling into the gate) are understood — and nothing in the change loosens any *existing* standard.
+- the never-loosen rule and the end state (tighten over time; at zero, move a ceiling into the gate) are understood — and nothing in the change loosens any _existing_ standard.

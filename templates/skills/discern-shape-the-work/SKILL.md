@@ -10,7 +10,7 @@ metadata:
 
 The most expensive defect in agent-built software is the faithfully-built wrong thing. It compiles, the tests pass, the gate is green — and it isn't what was wanted, because the ask left a dozen decisions open and every one was resolved silently. No gate catches it; mechanically, nothing is wrong.
 
-A vague ask never stays vague. It gets resolved either by **questions asked now** or by **guesses discovered at review** — those are the only two options, and shaping is choosing the first. This skill turns an ask into a one-page brief: the goal behind it, every open decision either answered by the user or defaulted *visibly*, and acceptance criteria falsifiable enough to become the tests — and, when the work claims done, the proof (`discern-prove-it-works`).
+A vague ask never stays vague. It gets resolved either by **questions asked now** or by **guesses discovered at review** — those are the only two options, and shaping is choosing the first. This skill turns an ask into a one-page brief: the goal behind it, every open decision either answered by the user or defaulted _visibly_, and acceptance criteria falsifiable enough to become the tests — and, when the work claims done, the proof (`discern-prove-it-works`).
 
 ---
 
@@ -29,7 +29,7 @@ Enumerate the decisions the ask leaves open. Walk the standard prompts — they 
 Then split the pile in two, honestly:
 
 - **User-owned** — decisions whose consequences the user must choose between: anything visible, irreversible, or with more than one defensible answer. Ask these **now**. Every one you don't ask becomes your guess, and a guess surfaces at the worst possible time, wearing the costume of a finished feature.
-- **Agent-owned** — decisions with a clearly sensible default. Don't interrupt the user; pick the default and **write it into the brief**. The line between a professional default and a silent guess is exactly that visibility: a recorded default can be vetoed in ten seconds at review; a silent one has to be *found* first.
+- **Agent-owned** — decisions with a clearly sensible default. Don't interrupt the user; pick the default and **write it into the brief**. The line between a professional default and a silent guess is exactly that visibility: a recorded default can be vetoed in ten seconds at review; a silent one has to be _found_ first.
 
 ## 4. Ask so a non-expert can answer
 
@@ -43,7 +43,7 @@ Convert the shaped decisions into acceptance criteria: falsifiable outcomes stat
 
 ## 6. Name what is out of scope
 
-State what this work will *not* do — the adjacent features not included, the behaviour deliberately unchanged, the readings of the ask that were considered and set aside. Non-goals prevent scope creep as reliably as goals direct the work, and they pre-answer review's most common question: "was leaving X out an oversight, or a decision?" It should always be a decision, and the brief should show it.
+State what this work will _not_ do — the adjacent features not included, the behaviour deliberately unchanged, the readings of the ask that were considered and set aside. Non-goals prevent scope creep as reliably as goals direct the work, and they pre-answer review's most common question: "was leaving X out an oversight, or a decision?" It should always be a decision, and the brief should show it.
 
 ## 7. Keep the brief where the work can use it
 
