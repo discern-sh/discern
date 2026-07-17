@@ -17,7 +17,7 @@ discern ships a [bundled catalog](bundled-skills.md) of development playbooks. A
 
 The distinction keeps agent context useful. Put a short rule every session needs in guidance. Put a repeatable procedure with several steps in a Skill, where the agent loads it for relevant work. [What a Skill is](what-a-skill-is.md) covers that boundary.
 
-The set remains yours to tune. [Author a Skill](author-a-skill.md) for project-specific work, [customize or exclude](customize-or-exclude.md) a bundled one, and use [Teach the project](teach-the-project.md) to route a durable lesson from one session into the smallest project surface that can carry it.
+The set remains yours to tune. [Author a Skill](author-a-skill.md) for project-specific work, [customize or exclude](customize-or-exclude.md) a bundled one, and use [Teach the project](teach-the-project.md) to route a durable lesson from one session into its smallest project-owned home.
 
 | Read next                                       | What it helps you do                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------ |

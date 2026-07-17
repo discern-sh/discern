@@ -10,7 +10,7 @@ aliases:
 
 # Customize or exclude a Skill
 
-_Copy a built-in into project ownership when its procedure needs editing, or exclude a named Skill the project never uses._
+_Copy a built-in into project ownership when its procedure needs editing, or exclude an unused Skill._
 
 ## Eject a bundled Skill
 
@@ -23,7 +23,7 @@ discern skills list
 
 The listing now reports `discern-write-adr` as `yours (overrides built-in)`. The authored directory wins because Skill resolution uses the directory name as its key. Edit that source as you would any [project Skill](author-a-skill.md).
 
-Eject never overwrites an authored directory. If the destination already exists, the command refuses and names the path. It also refuses a name that is absent from the bundled set and lists the available names.
+Eject does not overwrite an authored directory. If the destination already exists, the command refuses and names the path. It also refuses a name that is absent from the bundled set and lists the available names.
 
 To return to the bundled version, move or remove the authored directory and run `discern refresh`. The bundled source becomes effective again on the next resolution.
 
@@ -51,7 +51,7 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 
 - `eject` copies the bundled Skill at the binary version currently installed. Later upgrades do not replace the project-owned override.
 - An exclusion applies to the name after override resolution. The same entry excludes either the bundled source or an authored source with that name.
-- Materialization reconciles every configured agent directory and prunes discern-owned entries that are no longer effective. Foreign entries discern never materialized remain untouched and produce a warning.
+- Materialization reconciles every configured agent directory and prunes discern-owned entries that are no longer effective. Foreign entries remain untouched and produce a warning.
 
 ## Where it lives in code
 
@@ -60,4 +60,4 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 | Override and exclude rules  | [`skills.ts`](../../../src/lib/skills.ts) (`resolveEffectiveSkills`)         |
 | Ejection behavior           | [`skills.ts`](../../../src/lib/skills.ts) (`ejectSkill`)                     |
 | Configuration schema        | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`) |
-| End-to-end command coverage | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |
+| Full command-path coverage  | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |

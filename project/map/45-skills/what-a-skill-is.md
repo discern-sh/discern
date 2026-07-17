@@ -27,7 +27,7 @@ discern skills list --json
 
 The human listing marks each Skill as built-in, yours, an override, or excluded. JSON returns the same catalog under `data.skills`, with `source`, `overridesBundled`, `hasBundled`, and `excluded` on each row. Excluded Skills remain visible in the listing so a missing playbook has an explanation.
 
-## Choose the right project surface
+## Choose the right home
 
 Use a Skill when the work has a repeatable sequence and still needs judgment. A good Skill tells an agent when to pause, what evidence to gather, which branch to take, and what observable condition means done.
 
@@ -36,7 +36,7 @@ Use a Skill when the work has a repeatable sequence and still needs judgment. A 
 | A rule every session must follow        | Agent guidance    | Every agent reads it from the start.           |
 | A repeatable procedure needing judgment | Skill             | The agent loads it when the task matches.      |
 | A deterministic command sequence        | Project Script    | Executable steps stay executable.              |
-| Durable facts about a subsystem         | Documentation map | Readers and agents consult it on demand.       |
+| Durable facts about a subsystem         | Documentation map | Readers and agents use it as reference.        |
 | A significant, hard-to-reverse decision | ADR               | The record preserves the reason and trade-off. |
 
 A single command does not need a Skill. Put it in a Project Script. A paragraph of project truth belongs in [guidance](../40-agent-guidance/) or the map. This boundary keeps Skills procedural and keeps always-on instructions short.

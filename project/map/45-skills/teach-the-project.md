@@ -12,7 +12,7 @@ aliases:
 
 _Turn a correction, hard-won procedure, or unrecorded decision into a project source future agent sessions inherit._
 
-The bundled `discern-teach-the-project` Skill is the capture path from a conversation into the repository. Ask your agent to “remember this,” “add this to the guidance,” or “capture this,” and the Skill routes the lesson to the smallest durable surface that carries it.
+The bundled `discern-teach-the-project` Skill is the capture path from a conversation into the repository. Ask your agent to “remember this,” “add this to the guidance,” or “capture this,” and the Skill routes the lesson to its smallest durable home.
 
 discern's built-in guidance also asks agents to offer this capture at a natural pause after a user correction, a hard-won procedure, or an unrecorded decision. The offer keeps the user as editor of what the project teaches. An agent does not interrupt active work to file every observation.
 
@@ -34,8 +34,8 @@ One lesson gets one home. A guidance rule can link to the ADR that explains it, 
 
 1. **Catch the lesson.** Keep corrections and procedures that remain useful beyond the current session. Drop facts the code already records or details that expire with the task.
 2. **Offer at a pause.** When the user did not request capture, ask after implementation or during review. Batch related lessons into one offer.
-3. **Route it.** Choose the smallest surface that carries the knowledge and check for an existing entry first.
-4. **Write to that surface's bar.** Guidance stays short and imperative. A Skill carries a real playbook. A script executes deterministically. Documentation states current facts. An ADR records a decision's context and trade-off.
+3. **Route it.** Choose the smallest home for the knowledge and check for an existing entry first.
+4. **Write to that home's bar.** Guidance stays short and imperative. A Skill carries a real playbook. A script executes deterministically. Documentation states current facts. An ADR records a decision's context and trade-off.
 5. **Make it live.** Refresh compiled guidance, verify a new Skill with the catalog, or run the relevant documentation and script checks. Report what the project learned and where it lives.
 
 ## Current state & gotchas
