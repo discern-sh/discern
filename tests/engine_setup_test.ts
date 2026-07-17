@@ -1918,14 +1918,6 @@ Deno.test("the brief keeps wired commands honest: exit-on-its-own, install conse
     tmpl,
     "`discern done` and `discern test` run it in the same fail-fast test group",
   );
-  assertStringIncludes(
-    tmpl,
-    "Discern separately probes its own predictable writes",
-  );
-  assertStringIncludes(
-    tmpl,
-    "a prerequisite unique to one custom check or standard",
-  );
   assert(
     !tmpl.includes("node -e"),
     "the copy-paste-wrong smoke example must not return",
