@@ -8,20 +8,20 @@ works with [ADR 0094](0094-final-lifecycle-checks-require-clean-trees.md) and
 
 ADR 0047 made `done` block when the **fix stage** strands changes on a
 committed-clean tracked file, and deliberately scoped the check to that one
-stage: the fix stage is the stage that is _meant_ to mutate, and CI's trailing
-`git diff --exit-code` was noted as the guard for tracked mutations from non-fix
+stage. The fix stage is the stage _meant_ to mutate; CI's trailing
+`git diff --exit-code` stood as the guard for tracked mutations from non-fix
 stages.
 
-Field use showed that residual gap has the exact failure mode ADR 0047 was
-written to eliminate. A project whose **build stage** (or a test, or a scope
-gate) regenerates a tracked artifact — a project generator rewriting a tracked
+Field use showed that residual gap has the exact failure mode ADR 0047 set out
+to remove. A project whose **build stage** (or a test, or a scope gate)
+regenerates a tracked artifact — a project generator rewriting a tracked
 manifest, a codegen step rewriting tracked schemas — dirties the tree _outside_
-the fix-stage snapshot window. The gate goes green, the receipt is silently
-refused (`skipped_dirty`), and the only signal is a hint riding on a green
-result — the "advisory on green" pattern ADR 0047 itself rejected as the thing
-agents ignore. An agent watching a long gate paid the full run, got an ambiguous
-green, blamed the strand on "the formatter", and paid a second full run after a
-diagnosis loop. CI's diff guard never enters that local loop.
+the fix-stage snapshot window. The gate goes green, the receipt silently refuses
+(`skipped_dirty`), and the only signal is a hint riding on a green result — the
+"advisory on green" pattern ADR 0047 itself rejected as the thing agents ignore.
+An agent watching a long gate paid the full run, got an ambiguous green, blamed
+the strand on "the formatter", and paid a second full run after a diagnosis
+loop. CI's diff guard never enters that local loop.
 
 discern's own repository carries the same shape: its build capability runs the
 codegen task, which rewrites tracked schema, type, and reference files.
@@ -31,13 +31,13 @@ codegen task, which rewrites tracked schema, type, and reference files.
 **`done` blocks when _any_ stage group strands changes on a previously clean
 tracked file, and the diagnostic names the stage that did it.**
 
-- **The snapshot window widens from one stage to all of them.** The
-  tracked-dirty set is captured once before any stage group runs and again after
-  each green group (fix, build, check/test, scope gates). The stranded set is
-  unchanged in spirit: paths dirty in the _final_ snapshot but not at gate start
-  — so a stage reworking the agent's own uncommitted edits (the inner loop)
-  still never trips, and a path a later stage restores to its committed state
-  does not count (the finished tree is what the receipt vouches for).
+- **The snapshot window widens from one stage to all.** The gate captures the
+  tracked-dirty set once before any stage group runs and again after each green
+  group (fix, build, check/test, scope gates). The stranded set keeps its
+  spirit: paths dirty in the _final_ snapshot but not at gate start — so a stage
+  reworking the agent's own uncommitted edits (the inner loop) still never
+  trips, and a path a later stage restores to its committed state does not count
+  (the finished tree is what the receipt vouches for).
 - **Each strand is attributed to the first snapshot that shows it.** The
   diagnostic says _which stage_ produced each file — "the build stage", "a scope
   gate" — replacing the formatter-shaped guesswork the old green path invited.
