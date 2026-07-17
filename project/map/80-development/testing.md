@@ -10,11 +10,11 @@ The suite is plain `deno test`, wired as the `test` capability:
 
 ```sh
 deno task test                          # the whole suite (what the gate runs)
-deno test tests/upgrade_test.ts         # a single file while iterating
+deno test tests/upgrade_migrations_test.ts # a single file while iterating
 deno test --filter "convergence"        # a filtered subset by test name
 ```
 
-`deno task test` grants `--allow-read --allow-write --allow-env --allow-run` (the suite runs the engine via `deno run src/main.ts` and shells out to `git`) and excludes `.claude/`, `dist/`, `templates/`, and `tests/fixtures/`.
+`deno task test` builds the site fixtures first, then runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run` (the suite runs the engine via `deno run src/main.ts` and shells out to `git`). The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
 There are **two layers**, sharing two helper modules:
 
@@ -26,11 +26,11 @@ There are **two layers**, sharing two helper modules:
 
 ## How tests are written
 
-- **Assert on behaviour, not internals.** Prefer the subprocess helpers (`runCli`, `runAgent`) and assert on captured `stdout`/`stderr`/exit code. Colour is forced off (`NO_COLOR`) so assertions match plain text.
+- **Assert on behavior, not internals.** Prefer the subprocess helpers (`runCli`, `runAgent`) and assert on captured `stdout`/`stderr`/exit code. Color is forced off (`NO_COLOR`) so assertions match plain text.
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the bytes under test are the bytes a real `discern setup` ships. Use `writeConfig` to set the `[capabilities]`/`[checks]`/`[scopes]`/`[standards]` a case needs, and `addWorktree` for the worktree-command layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus `testTokens` give a small synthetic tree for testing rendering/plan logic in isolation, separate from the full real templates.
 - **Assert idempotency/convergence where it matters.** `snapshotTree` + `assertConverges` express the "upgrade ≡ fresh init" invariant ([ADR 0014](../_adr/0014-versioned-migration-system.md)); reach for them when a change touches the install/upgrade/migration path.
-- **Put coverage in the right place.** Engine behaviour → `tests/engine_*_test.ts`; installer behaviour → the other `tests/*_test.ts`. Each engine verb is exercised by a subprocess test that actually runs it through `runAgent`, so a new verb needs a test in `tests/engine_*` that drives it end to end.
+- **Put coverage in the right place.** Engine behavior → `tests/engine_*_test.ts`; installer behavior → the other `tests/*_test.ts`. Each engine verb is exercised by a subprocess test that actually runs it through `runAgent`, so a new verb needs a test in `tests/engine_*` that drives it end to end.
 - **The map is gated like code.** `tests/map_integrity_test.ts` validates every fenced `discern …` example against the live verb/flag registry, every intra-map link and heading anchor against the shared renderer, and the published tiers' audience boundary; `tests/cli_reference_codegen_test.ts` holds the generated CLI reference to the registry. Writing docs? Quote real commands and real paths — the gate checks them ([ADR 0146](../_adr/0146-docs-integrity-gate-and-generated-cli-reference.md)).
 
 ## Coverage

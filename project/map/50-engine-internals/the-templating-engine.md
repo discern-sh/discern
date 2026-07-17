@@ -11,7 +11,7 @@ aliases:
 
 _How discern's **built-in** guidance sections and **bundled** skills are rendered against a project's config before they are compiled or materialized._
 
-discern's built-in sections ([`templates/guidance/*.md`](../../../templates/guidance/)) are the distribution surface — every project receives them verbatim. To let that generic prose name a project's _real_ branch and drop content that is inert until configured, `discern refresh` renders each built-in section through a small, strict template engine ([`src/engine/guidance_template.ts`](../../../src/engine/guidance_template.ts)) before concatenating them. The decision and its rationale are recorded ([ADR 0035](../_adr/0035-guidance-templating-engine.md)); this page is the working reference.
+discern's built-in sections ([`templates/guidance/*.md`](../../../templates/guidance/)) are the distribution source carried by every binary. To let that generic prose name a project's _real_ paths and branches and drop content that is inert until configured, `discern refresh` renders each built-in section through a small, strict template engine ([`src/engine/guidance_template.ts`](../../../src/engine/guidance_template.ts)) before concatenating them. The decision and its rationale are recorded ([ADR 0035](../_adr/0035-guidance-templating-engine.md)); this page is the working reference.
 
 The same engine renders **bundled-skill markdown** at materialization (and at `skills eject`), against the same context, so a shipped skill's prose names the project's configured paths — `{{map_dir}}`, `{{todo_path}}` — never discern's defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A sentinel-render test and a source-literal ban keep any hard-coded default a gate failure.
 
@@ -31,12 +31,19 @@ Variables work inside `{{#if}}` blocks, and `{{#if}}` may nest. Tag names are lo
 
 Every variable and predicate is built by `guidanceContext(config)` in [`guidance_render.ts`](../../../src/engine/guidance_render.ts), a **pure function of committed `discern.toml`**:
 
-| Kind      | Name                     | Source                                    |
-| --------- | ------------------------ | ----------------------------------------- |
-| variable  | `branch_prefix`          | `[project].branch_prefix`                 |
-| variable  | `main_branch`            | `[project].main_branch` (committed value) |
-| predicate | `has_standards`          | any `[standards.*]` declared              |
-| predicate | `has_worktree_resources` | any `[worktree.resources.*]` declared     |
+| Kind      | Name                       | Source                                                  |
+| --------- | -------------------------- | ------------------------------------------------------- |
+| variable  | `branch_prefix`            | `[project].branch_prefix`                               |
+| variable  | `main_branch`              | `[project].main_branch` (committed value)               |
+| variable  | `map_dir`                  | `[map].dir`, normalized with its trailing slash         |
+| variable  | `todo_path`                | `[project].todo`                                        |
+| variable  | `skills_dir`               | `[skills].dir`                                          |
+| variable  | `scripts_dir`              | `[scripts].dir`                                         |
+| variable  | `guidance_sources`         | `[guidance].sources`, rendered as a code-formatted list |
+| variable  | `generated_agent_files`    | provider-registry outputs for the configured agents     |
+| variable  | `materialized_skills_dirs` | provider-registry skills dirs for the configured agents |
+| predicate | `has_standards`            | any `[standards.*]` declared                            |
+| predicate | `has_worktree_resources`   | any `[worktree.resources.*]` declared                   |
 
 > **Invariant.** The context must read **nothing that varies between two runs on the same commit** — no git branch/status, env var, clock, randomness, absolute path, or ignored/per-worktree file. The generated agent files are gate-checked for currency ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and `done` recompile in memory and compare to disk, so a context that read mutable state would make the file perpetually "stale" and break the gate everywhere. A determinism test and the currency test guard this.
 >

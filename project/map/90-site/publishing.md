@@ -11,7 +11,7 @@ deno task site:build
 deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after build
 ```
 
-The `site` task first runs `site:build`, which deterministically creates the ignored design-system homepage, composition HTML, and assets, then serves the same handler on the loopback-only `http://localhost:4507/` in the main checkout. In a discern worktree both tasks discover its deterministic identity port automatically, so concurrent previews do not collide; an explicit `PORT` still wins. The `watch` task does the same initial build, then rebuilds in a fresh Deno process when page sources, the site-owned design-system selection, or build configuration changes. A failed watched rebuild is reported and the watcher remains ready for the correcting edit. Local and production expose the same route surface; the generic component catalogue lives in the design-system package repository and is not mounted by Discern.
+The `site` task first runs `site:build`, which deterministically creates the ignored design-system homepage, composition HTML, and assets, then serves the same handler on the loopback-only `http://localhost:4507/` in the main checkout. In a discern worktree both tasks discover its deterministic identity port automatically, so concurrent previews do not collide; an explicit `PORT` still wins. The `watch` task does the same initial build, then rebuilds in a fresh Deno process when page sources, the site-owned design-system selection, or build configuration changes. A failed watched rebuild is reported and the watcher remains ready for the correcting edit. Local and production expose the same route surface; the generic component catalog lives in the design-system package repository and is not mounted by Discern.
 
 Deno Deploy runs the same build task before it starts the handler through a `Deno.serve` entrypoint, [`site/main.ts`](../../../site/main.ts) — because the new Deno Deploy runs an entrypoint with `deno run` (see below). A build failure stops the deployment before the revision receives traffic.
 
@@ -63,7 +63,7 @@ curl -s -H "Accept: text/html" -A "Mozilla/5.0" https://discern.sh/ | head -2
 curl -sI https://www.discern.sh/docs/ | grep -Ei '^(HTTP|location:)'
 ```
 
-The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) assert the same behaviour against the handler directly, so a failure here that the gate did not catch points at the hosting layer, not the code.
+The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) assert the same behavior against the handler directly, so a failure here that the gate did not catch points at the hosting layer, not the code.
 
 ## Portability
 
