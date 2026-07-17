@@ -41,11 +41,11 @@ Day to day, an agent orients with `discern status` (read-only: what's true, what
 
 ## Where next
 
-| Want to understand…                                     | Read                                             |
-| ------------------------------------------------------- | ------------------------------------------------ |
-| Install, setup, and upgrades                            | [the installer](../10-installer/)                |
-| `discern done` — capabilities, checks, scopes, standards | [the quality gate](../20-quality-gate/)          |
-| The worktree lifecycle and its resources                | [worktrees](../30-worktrees/)                    |
-| Guidance compilation and the bundled skills             | [agent guidance](../40-agent-guidance/)          |
-| The files discern writes for each coding agent          | [agent integrations](../60-agent-integrations/)  |
-| Why the system is shaped this way                       | [design principles](design-principles.md)        |
+| Want to understand…                                      | Read                                            |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Install, setup, and upgrades                             | [the installer](../10-installer/)               |
+| `discern done` — capabilities, checks, scopes, standards | [the quality gate](../20-quality-gate/)         |
+| The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
+| Guidance compilation and the bundled skills              | [agent guidance](../40-agent-guidance/)         |
+| The files discern writes for each coding agent           | [agent integrations](../60-agent-integrations/) |
+| Why the system is shaped this way                        | [design principles](design-principles.md)       |

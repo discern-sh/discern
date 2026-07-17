@@ -12,13 +12,13 @@ The questions evaluators ask next each have a page. [Design principles](design-p
 
 Fresh from setup? [What setup added to your repo](after-setup.md) walks the diff file by file. And every term the manual uses is defined once, in the [glossary](glossary.md), then used identically everywhere.
 
-| Read next                                    | What's in it                                                               |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, guidance, ownership.    |
-| [design-principles.md](design-principles.md) | Why discern is shaped this way — each rule observable in your repo.        |
-| [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only.   |
-| [after-setup.md](after-setup.md)             | Every file setup added or touched, and which ones are yours to edit.       |
-| [system-map.md](system-map.md)               | The architecture as one picture.                                           |
-| [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                         |
+| Read next                                    | What's in it                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| [concepts.md](concepts.md)                   | The mental model in one pass: the gate, worktrees, guidance, ownership.  |
+| [design-principles.md](design-principles.md) | Why discern is shaped this way — each rule observable in your repo.      |
+| [trust-and-data.md](trust-and-data.md)       | What runs on your machine: no network, no telemetry, your commands only. |
+| [after-setup.md](after-setup.md)             | Every file setup added or touched, and which ones are yours to edit.     |
+| [system-map.md](system-map.md)               | The architecture as one picture.                                         |
+| [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                       |
 
 Done here? Head back to the [manual's front page](../README.md) and pick the section your task needs.
