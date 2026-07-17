@@ -81,7 +81,10 @@ import { searchPages } from "./search.js";
   const drawerMedia = matchMedia("(max-width: 64em)");
   const drawerBackground = [
     $(".docs-skip"),
-    ...$$(".docs-top > :not([data-drawer-toggle])"),
+    $(".docs-brand"),
+    $(".docs-brand-docs"),
+    $(".discern-docs-header__middle"),
+    $(".discern-docs-header__actions"),
     $(".docs-main"),
     $(".docs-rail"),
   ];
@@ -134,15 +137,13 @@ import { searchPages } from "./search.js";
   if (article) {
     for (const heading of $$(":is(h2, h3, h4)[id]", article)) {
       const label = (heading.textContent ?? "").trim();
-      const group = doc.createElement("div");
-      group.className = "docs-heading-row";
+      heading.classList.add("discern-anchor-heading");
       const anchor = doc.createElement("a");
-      anchor.className = "docs-anchor";
+      anchor.className = "discern-anchor-heading__anchor docs-anchor";
       anchor.href = `#${heading.id}`;
       anchor.textContent = "§";
       anchor.setAttribute("aria-label", `Link to “${label}”`);
-      heading.before(group);
-      group.append(heading, anchor);
+      heading.append(anchor);
     }
 
     for (const pre of $$(`pre`, article)) {
@@ -152,7 +153,7 @@ import { searchPages } from "./search.js";
 
       const copy = doc.createElement("button");
       copy.type = "button";
-      copy.className = "docs-copy";
+      copy.className = "discern-copy-button docs-copy";
       copy.textContent = "copy";
       copy.setAttribute("aria-label", "Copy code");
       copy.setAttribute("aria-live", "polite");
@@ -161,7 +162,11 @@ import { searchPages } from "./search.js";
       const setCopyState = (text, label, className = "") => {
         copy.textContent = text;
         copy.setAttribute("aria-label", label);
-        copy.classList.toggle("is-copied", className === "is-copied");
+        if (className === "is-copied") {
+          copy.setAttribute("data-discern-copied", "");
+        } else {
+          copy.removeAttribute("data-discern-copied");
+        }
         copy.classList.toggle(
           "is-copy-failed",
           className === "is-copy-failed",
@@ -194,7 +199,7 @@ import { searchPages } from "./search.js";
 
     for (const table of $$(".doc-body > table")) {
       const wrap = doc.createElement("div");
-      wrap.className = "docs-table";
+      wrap.className = "discern-table docs-table";
       table.replaceWith(wrap);
       wrap.append(table);
     }
@@ -213,11 +218,12 @@ import { searchPages } from "./search.js";
       .filter((heading) => byId.has(heading.id));
     let active = null;
 
+    const currentClass = "discern-table-of-contents__item--current";
     const mark = (id) => {
       const link = byId.get(id);
       if (!link || link === active) return;
-      active?.classList.remove("is-active");
-      link.classList.add("is-active");
+      active?.closest("li")?.classList.remove(currentClass);
+      link.closest("li")?.classList.add(currentClass);
       active = link;
     };
 
@@ -237,21 +243,16 @@ import { searchPages } from "./search.js";
   // ── Search palette ───────────────────────────────────────────────────────
 
   const palette = $("[data-search]");
-  const panel = $(".docs-search-panel");
   const input = $("[data-search-input]");
   const list = $("[data-search-results]");
   const empty = $("[data-search-empty]");
   const status = $("[data-search-status]");
 
-  if (palette && panel && input && list && empty && status) {
+  if (palette && input && list && empty && status) {
     let pages = null;
     let loadState = "idle";
     let results = [];
     let selected = 0;
-    let searchReturnFocus = null;
-    const modalBackground = Array.from(doc.body.children).filter((element) =>
-      element !== palette && element.tagName !== "SCRIPT"
-    );
 
     const syncSelection = () => {
       const options = $$("[role=option]", list);
@@ -299,19 +300,20 @@ import { searchPages } from "./search.js";
       results.forEach(({ page, heading, snippet }, index) => {
         const item = doc.createElement("li");
         item.id = `docs-search-option-${index}`;
-        item.className = "docs-search-option";
+        item.className = "discern-search-palette__result docs-search-option";
         item.setAttribute("role", "option");
         item.setAttribute("aria-selected", String(index === selected));
         const title = doc.createElement("span");
-        title.className = "docs-search-title";
+        title.className = "discern-search-palette__result-title";
         title.textContent = heading && heading.text !== page.title
           ? `${page.title} › ${heading.text}`
           : page.title;
         const context = doc.createElement("span");
-        context.className = "docs-search-snippet";
+        context.className = "discern-search-palette__result-context";
         context.textContent = snippet;
         const path = doc.createElement("span");
-        path.className = "docs-search-path";
+        path.className =
+          "discern-search-palette__result-context docs-search-path";
         path.textContent = `${page.section.toLowerCase()} ${page.route}`;
         item.append(title, context, path);
         item.addEventListener("mouseenter", () => {
@@ -353,15 +355,12 @@ import { searchPages } from "./search.js";
       update();
     };
 
-    const openSearch = (trigger = null) => {
-      if (!palette.hidden) return;
-      if (drawerOpen) {
-        setDrawer(false, false);
-        trigger = burger;
-      }
-      searchReturnFocus = canFocus(trigger) ? trigger : $("[data-search-open]");
-      palette.hidden = false;
-      setInert(modalBackground, true);
+    // The native dialog owns focus containment, Escape dismissal, background
+    // inerting via the top layer, and focus restoration to the opener.
+    const openSearch = () => {
+      if (palette.open) return;
+      if (drawerOpen) setDrawer(false, false);
+      palette.showModal();
       doc.body.classList.add("docs-no-scroll");
       input.setAttribute("aria-expanded", "true");
       input.value = "";
@@ -370,16 +369,19 @@ import { searchPages } from "./search.js";
       load();
     };
 
-    const closeSearch = (shouldRestore = true) => {
-      if (palette.hidden) return;
-      palette.hidden = true;
-      setInert(modalBackground, false);
+    const closeSearch = () => {
+      if (palette.open) palette.close();
+    };
+
+    palette.addEventListener("close", () => {
       doc.body.classList.remove("docs-no-scroll");
       input.setAttribute("aria-expanded", "false");
       input.removeAttribute("aria-activedescendant");
-      if (shouldRestore) restoreFocus(searchReturnFocus);
-      searchReturnFocus = null;
-    };
+    });
+
+    palette.addEventListener("mousedown", (event) => {
+      if (event.target === palette) closeSearch();
+    });
 
     input.addEventListener("input", update);
     input.addEventListener("keydown", (event) => {
@@ -399,9 +401,7 @@ import { searchPages } from "./search.js";
     });
 
     for (const trigger of $$("[data-search-open]")) {
-      trigger.addEventListener("click", (event) => {
-        openSearch(event.currentTarget);
-      });
+      trigger.addEventListener("click", () => openSearch());
     }
     for (const closer of $$("[data-search-close]")) {
       closer.addEventListener("click", () => closeSearch());
@@ -410,19 +410,11 @@ import { searchPages } from "./search.js";
     doc.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        if (palette.hidden) openSearch(doc.activeElement);
-        else closeSearch();
+        if (palette.open) closeSearch();
+        else openSearch();
         return;
       }
-      if (!palette.hidden) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeSearch();
-        } else {
-          trapFocus(event, focusablesIn(panel));
-        }
-        return;
-      }
+      if (palette.open) return;
       if (drawerOpen) {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -437,7 +429,7 @@ import { searchPages } from "./search.js";
         !/^(input|textarea|select)$/i.test(doc.activeElement?.tagName ?? "")
       ) {
         event.preventDefault();
-        openSearch(doc.activeElement);
+        openSearch();
       }
     });
   }

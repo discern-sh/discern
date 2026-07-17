@@ -25,7 +25,7 @@ import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.1.1";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.4.0";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -134,8 +134,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.1.1");
-  assert("@discern-sh/design-system@0.1.1" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.4.0");
+  assert("@discern-sh/design-system@0.4.0" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
@@ -187,9 +187,14 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
 Deno.test("the docs bundle excludes unrelated compositions and optional grain", async () => {
   const runtime = await bundleManifest("docs");
   const selected = new Set(runtime.selection.resolvedComponents);
+  // The docs chrome legitimately selects the Editorial table of contents;
+  // every OTHER Marketing/Editorial composition must stay out of the bundle.
+  const requested = new Set(resolvedSelection("docs"));
   const unrelated = packageManifest.components.filter((component) =>
-    component.group === "Marketing" || component.group === "Editorial"
+    (component.group === "Marketing" || component.group === "Editorial") &&
+    !requested.has(component.id)
   );
+  assert(unrelated.length > 0, "the exclusion set must stay non-empty");
   assert(unrelated.every((component) => !selected.has(component.id)));
   const css = await Deno.readTextFile(join(bundleRoot("docs"), "discern.css"));
   for (const component of unrelated) {
