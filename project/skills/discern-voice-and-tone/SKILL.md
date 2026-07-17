@@ -159,7 +159,7 @@ Map pages carry the docs mix above, plus these rules. The documenter brief assig
 | Troubleshooting           | 300–700 words                             |
 | Reference                 | unbudgeted — scannable beats short        |
 
-**The reference corpus.** Three pages define what this register reads like at its best; calibrate against them before writing, and hold new pages to their standard: the [docs landing page](../../map/README.md), the [quickstart](../../map/10-getting-started/quickstart.md), and [Files & ownership](../../map/10-getting-started/artifact-ownership.md).
+**The reference corpus.** Three pages define what this register reads like at its best; calibrate against them before writing, and hold new pages to their standard: the [docs landing page](../../map/README.md), the [quickstart](../../map/10-getting-started/quickstart.md), and [Files & ownership](../../map/70-reference/artifact-ownership.md).
 
 ### Errors, CLI, and UI text
 

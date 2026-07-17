@@ -27,7 +27,7 @@ The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, 
 
 ## A small, checkable footprint
 
-The full list of files discern writes is short, and a test fails the moment any command writes outside it. [Files & ownership](../10-getting-started/artifact-ownership.md) is the complete inventory. In brief: one committed `discern.toml`, one visible `discern/` folder of your own content, a marked block in your agents' config files and `.gitignore`, and a handful of generated files — the compiled agent files committed so every agent can read them, the materialized skills ignored. `discern uninstall` removes the wiring and keeps your content.
+The full list of files discern writes is short, and a test fails the moment any command writes outside it. [Files & ownership](../70-reference/artifact-ownership.md) is the complete inventory. In brief: one committed `discern.toml`, one visible `discern/` folder of your own content, a marked block in your agents' config files and `.gitignore`, and a handful of generated files — the compiled agent files committed so every agent can read them, the materialized skills ignored. `discern uninstall` removes the wiring and keeps your content.
 
 ## The binary is one self-contained file
 
@@ -39,5 +39,5 @@ discern never limits what your coding agent can read, run, or change. That is yo
 
 ## See also
 
-- [Files & ownership](../10-getting-started/artifact-ownership.md) — the enforced footprint, who owns each file, and how to remove it.
+- [Files & ownership](../70-reference/artifact-ownership.md) — the enforced footprint, who owns each file, and how to remove it.
 - [Design principles](design-principles.md) — sovereign inside, deferential outside (7); the footprint is provable (13).

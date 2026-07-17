@@ -20,12 +20,12 @@ Setup leaves ordinary files on a branch for you to inspect. [What setup added](a
 
 When you return for a later release, follow [Upgrade discern](upgrade-discern.md). Updating the binary and updating the project are separate actions, and the guide keeps them in the right order.
 
-| Read next                                       | What it helps you do                                               |
-| ----------------------------------------------- | ------------------------------------------------------------------ |
-| [Quickstart](quickstart.md)                     | Install, complete setup, and land your first gated change.         |
-| [Walkthrough](walkthrough.md)                   | Follow the same flow with each handoff and safety check explained. |
-| [What setup added](after-setup.md)              | Read the setup diff and know which files to edit.                  |
-| [FAQ and troubleshooting](faq.md)               | Diagnose setup, command, MCP, platform, and worktree problems.     |
-| [Upgrade discern](upgrade-discern.md)           | Update the binary, migrate the project, and verify the result.     |
-| [Files & ownership](artifact-ownership.md)      | Look up the complete write surface and removal behavior.           |
-| [`discern.toml` reference](config-reference.md) | Look up every configuration key, type, and default.                |
+| Read next                                                       | What it helps you do                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Quickstart](quickstart.md)                                     | Install, complete setup, and land your first gated change.         |
+| [Walkthrough](walkthrough.md)                                   | Follow the same flow with each handoff and safety check explained. |
+| [What setup added](after-setup.md)                              | Read the setup diff and know which files to edit.                  |
+| [FAQ and troubleshooting](faq.md)                               | Diagnose setup, command, MCP, platform, and worktree problems.     |
+| [Upgrade discern](upgrade-discern.md)                           | Update the binary, migrate the project, and verify the result.     |
+| [Files & ownership](../70-reference/artifact-ownership.md)      | Look up the complete write surface and removal behavior.           |
+| [`discern.toml` reference](../70-reference/config-reference.md) | Look up every configuration key, type, and default.                |

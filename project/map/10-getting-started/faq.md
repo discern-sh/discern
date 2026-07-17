@@ -76,7 +76,7 @@ discern uninstall --dry-run
 discern uninstall
 ```
 
-The command removes generated artifacts and discern's entries in shared integration files. It keeps `discern.toml` and authored content under `discern/`. [Files & ownership](artifact-ownership.md) lists the full footprint and the final binary-removal step.
+The command removes generated artifacts and discern's entries in shared integration files. It keeps `discern.toml` and authored content under `discern/`. [Files & ownership](../70-reference/artifact-ownership.md) lists the full footprint and the final binary-removal step.
 
 ## Report a bug or security issue
 

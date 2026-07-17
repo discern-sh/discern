@@ -57,7 +57,7 @@ The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, 
 
 ### File dispositions
 
-The ownership buckets that decide what `discern upgrade` may touch: [yours](#your-files--yours), [co-managed](#co-managed-seed), and [the binary's](#the-binarys-files). [Files & ownership](../10-getting-started/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
+The ownership buckets that decide what `discern upgrade` may touch: [yours](#your-files--yours), [co-managed](#co-managed-seed), and [the binary's](#the-binarys-files). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
 
 ### Gate
 

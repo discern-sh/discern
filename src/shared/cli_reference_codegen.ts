@@ -226,12 +226,15 @@ function commandSection(node: CliCommand, depth: number): string {
  * Render the map's CLI reference page from the live command tree. Every visible
  * command appears under its `COMMAND_GROUPS` group (the same grouping — and the
  * same guarded SSOT — as `discern --help`), with its flags and subcommands read
- * straight off the registry. The page ships `publish: false` until the reference
- * tier is authored and published (its README carries the same withhold).
+ * straight off the registry. Search aliases are derived from the same tree,
+ * so every visible command path is searchable without a second list to maintain.
  */
 export function renderCliReferenceDoc(root: unknown): string {
   const model = cliCommandModel(root);
   const byName = new Map(model.children.map((c) => [c.path[0] ?? "", c]));
+  const aliases = [...walkCliCommands(model)]
+    .filter((command) => command.path.length > 0 && !command.hidden)
+    .map((command) => `discern ${command.path.join(" ")}`);
 
   const groups = COMMAND_GROUPS.map((group) => {
     const members = group.commands
@@ -259,17 +262,17 @@ export function renderCliReferenceDoc(root: unknown): string {
     "---",
     "title: CLI reference",
     "description: Every discern command and flag, generated from the live command registry.",
-    "publish: false",
+    "order: 10",
+    "publish: true",
+    "aliases:",
+    ...aliases.map((alias) => `  - ${alias}`),
     "---",
     "",
     DOCS_BANNER,
     "",
     "# CLI reference",
     "",
-    "The complete `discern` command surface — every verb, subcommand, and flag,",
-    "generated from the same command registry the binary dispatches on, so this",
-    "page can never disagree with the CLI it documents. `discern <command> --help`",
-    "prints the same declarations in the terminal.",
+    "Use this page to look up the exact syntax and flags for every visible `discern` command. The entries are generated from the command registry the binary dispatches on. `discern <command> --help` prints the same declarations in the terminal.",
     "",
     "## Global options",
     "",
