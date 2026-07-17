@@ -8,7 +8,7 @@ Everything lives under [`site/`](../../../site/):
 
 | Piece                                                     | Role                                                                      |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`site/serve.ts`](../../../site/serve.ts)                 | Fetch handler for routes, reader negotiation, static fallback, and 404s. |
+| [`site/serve.ts`](../../../site/serve.ts)                 | Fetch handler for routes, reader negotiation, static fallback, and 404s.  |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
 | [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static composition pages.          |
