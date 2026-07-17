@@ -911,9 +911,12 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
     assertEquals(miss.result.structuredContent.verb, "help");
     assertEquals(miss.result.structuredContent.error, "not_found");
     assertStringIncludes(miss.result.structuredContent.message, "Closest");
-    assertEquals(
-      miss.result.structuredContent.data.suggestions[0].slug,
-      "config-reference",
+    assert(
+      miss.result.structuredContent.data.suggestions.some(
+        (suggestion: { slug: string }) =>
+          suggestion.slug === "config-reference",
+      ),
+      "config-reference remains among the retryable suggestions",
     );
 
     assertEquals(await mcp.close(), 0);

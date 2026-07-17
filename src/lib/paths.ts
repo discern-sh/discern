@@ -247,6 +247,7 @@ export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
   "30-worktrees",
   "40-agent-guidance",
   "60-agent-integrations",
+  "70-reference",
 ];
 
 /**
