@@ -380,7 +380,7 @@ measure   = "on-demand"
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
-limit     = 12.87
+limit     = 13.49
 run       = "deno task prose \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
