@@ -116,7 +116,7 @@ Identity resolution checks `DISCERN_WORKTREE_ID` in the process, then the config
 | `DISCERN_WORKTREE`        | Generic worktree handle.                   |
 | `DISCERN_RESOURCE_<NAME>` | Stable handle for one configured resource. |
 
-Resource commands receive their own `DISCERN_RESOURCE_<NAME>` and `DISCERN_WORKTREE` values in the process environment even when no env file exists. `discern identity --resource <name>` remains the on-demand source for the same handle.
+Resource commands receive their own `DISCERN_RESOURCE_<NAME>` and `DISCERN_WORKTREE` values in the process environment even when no env file exists. `discern identity --resource <name>` reports the same handle directly.
 
 ## Worktree command tokens
 

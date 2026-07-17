@@ -221,7 +221,7 @@ const standardValue = z.strictObject({
   ),
   per: perValue.optional().describe(
     "Divide the metric to hold a *rate*, not a raw count — so the number " +
-      "doesn't rise just because the project grew. Either a second metric the run emits, " +
+      "doesn't rise solely because the project grew. Either a second metric the run emits, " +
       'or a built-in extent discern measures itself: per = { words = "${map.dir}**" } ' +
       "(files | lines | words | bytes over a git pathspec).",
   ),
@@ -230,12 +230,12 @@ const standardValue = z.strictObject({
   ),
   margin: z.number().min(
     0,
-    "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so the value just measured would fail it.",
+    "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so that measurement would fail it.",
   ).default(0).describe(
     "Headroom `discern standards --pin` leaves when it tightens this limit to the " +
       "measured value: pin sets a floor to measured−margin (up) or a ceiling to " +
       "measured+margin (down), and leaves a standard un-pinned when the improvement " +
-      "is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured " +
+      "is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured " +
       "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
       "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
   ),
@@ -252,7 +252,7 @@ const standardValue = z.strictObject({
     "The paths this metric reads (scope-paths globs). When a gate run finds " +
       "every change since the last recorded measurement outside these globs, it " +
       "replays that recorded value instead of re-measuring — loudly, naming the " +
-      "source commit. Omit to always measure (the conservative default). Risk: a " +
+      "source commit. Omit to measure every time (the conservative default). Risk: a " +
       "too-narrow inputs list delays detection until the next measured run.",
   ),
   timeout: jobTimeout,
@@ -309,7 +309,7 @@ const repositorySection = z.strictObject({
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
     .describe(
-      "Your guideline source file(s), relative to the project root. Globs allowed; the generated agent files are never picked up as sources, so a glob may safely match them. Read only if present; discern's built-in guidance is always prepended.",
+      "Your guideline source file(s), relative to the project root. Globs allowed; source discovery excludes the generated agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
     ),
   agents: z.array(z.string()).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
@@ -323,7 +323,7 @@ const skillsSection = z.strictObject({
     "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.",
   ),
   exclude: z.array(z.string()).default([]).describe(
-    "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal.",
+    "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing.",
   ),
 }).prefault({}).describe(
   "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
@@ -397,7 +397,7 @@ const resourceValue = z.strictObject({
     "Retry create/destroy this many times.",
   ),
   gc: z.boolean().default(true).describe(
-    "false: never orphan-prune it (teardown-only; for data-loss-sensitive ones).",
+    "false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones).",
   ),
 });
 
@@ -418,16 +418,16 @@ export const RECORD_ENTRY_SCHEMAS = {
 
 const worktreeSection = z.strictObject({
   root: z.string().default("").describe(
-    'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees" — visible and adjacent, never nested inside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.',
+    'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees", visible and adjacent outside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.',
   ),
   port: z.boolean().default(false).describe(
-    "Give each worktree a deterministic dev-server port (hashed from its id) so concurrent worktrees never collide. Derived identity, not a resource — it provisions nothing.",
+    "Give each worktree a deterministic dev-server port (hashed from its id) to prevent collisions between concurrent worktrees. The port is derived identity and provisions nothing.",
   ),
   ignored_file_drift: z.boolean().default(true).describe(
     "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so a declared value always arrives.",
+    "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.",
   ),
   env_files: z.array(z.string()).default([".env", ".env.local"]).describe(
     "The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too.",
@@ -441,10 +441,10 @@ const worktreeSection = z.strictObject({
       "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
     ),
     ensure: z.array(z.string()).default([]).describe(
-      "Linked-worktree-only commands run on every setup pass — at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. Never run in the main checkout.",
+      "Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them.",
     ),
   }).prefault({}).describe(
-    "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run every linked-worktree pass, never on the trunk checkout).",
+    "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run on every linked-worktree pass and excluded from the trunk checkout).",
   ),
 }).prefault({}).describe(
   "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
@@ -454,7 +454,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
   ).describe(
-    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests: a standard whose declared `inputs` the change never touched replays its recorded value instead of re-measuring, and one marked measure = "on-demand" is deferred to `discern standards`. Each limit may only improve. If a number grows just because the project grew (alerts, TODOs, type errors over a growing tree), hold a rate, not the raw count: add `per` so growth alone never breaches it.',
+    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. If a number rises with project growth (alerts, TODOs, or type errors over a growing tree), hold a rate instead of the raw count: add `per` so growth alone stays within the limit.',
   );
 
 const gateSection = z.strictObject({
@@ -465,7 +465,7 @@ const gateSection = z.strictObject({
     "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
   ),
   timeout: z.number().default(600).describe(
-    "Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed and the stage fails with a plain-language timeout diagnostic — so the gate can never hang. One generous global budget (default 600 = 10 minutes): long enough for a real test suite, short enough that a stuck command (a watch-mode runner or a dev server wired without its single-run form) is caught within minutes rather than never. Set to 0 to disable the limit (not recommended — the gate can then hang indefinitely).",
+    "Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
   ),
 }).prefault({}).describe(
   "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
@@ -473,10 +473,10 @@ const gateSection = z.strictObject({
 
 const couplingSection = z.strictObject({
   in_gate: z.boolean().default(false).describe(
-    "Surface the co-change advisory during the gate too — both `discern done` and the fast inner loop `discern prepare` (as hints, at the tail), so the nudge meets a change while it is hot. Off by default; purely advisory, it never affects pass/fail.",
+    "Include the co-change advisory in `discern done` and the fast inner loop `discern prepare` as trailing hints, so it reaches the author during the change. Off by default and purely advisory; it does not affect pass/fail.",
   ),
 }).prefault({}).describe(
-  "Co-change coupling detection — a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling isn't forgotten. It self-calibrates to your repo, so there are no thresholds to tune; the only setting is whether it also rides along with the gate. Read it on demand with `discern coupling`. Purely advisory: it points at where to look and never blocks.",
+  "Co-change coupling detection is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`. The advisory points at where to look and does not block.",
 );
 
 const scriptsSection = z.strictObject({

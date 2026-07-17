@@ -185,7 +185,7 @@ export function buildCli(
     )
     .globalOption(
       "--plain",
-      "Never prompt or page; use static output. CI and non-terminal input imply this behavior.",
+      "Disable prompts and paging; use static output. CI and non-terminal input imply this behavior.",
     )
     .action(function (): void {
       // No subcommand: show the grouped, operator-oriented help.
@@ -408,7 +408,7 @@ export function buildCli(
     )
     .option(
       "--dry-run",
-      "Preview exactly what would be removed and kept; change nothing.",
+      "Preview what would be removed and kept; change nothing.",
     )
     .option("-y, --yes", "Skip the confirmation prompt.")
     .action(async (options) => {
@@ -487,7 +487,7 @@ export function buildCli(
     )
     .option(
       "--list",
-      "Print a plain table of contents and exit (never interactive).",
+      "Print a plain table of contents and exit without interaction.",
     )
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option(
@@ -535,7 +535,7 @@ export function buildCli(
     )
     .option(
       "--list",
-      "Print a plain table of contents and exit (never interactive).",
+      "Print a plain table of contents and exit without interaction.",
     )
     .option(
       "--adr",

@@ -21,7 +21,7 @@ discern writes one committed root file, one visible namespace, the agent files e
 
 ## Yours: the `discern/` namespace
 
-Plain Markdown at paths you chose or accepted ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). discern never writes a generated artifact inside the namespace, and `upgrade` never rewrites these files.
+Plain Markdown at paths you chose or accepted ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). discern writes no generated artifacts inside the namespace, and `upgrade` leaves these files unchanged.
 
 | Path                  | What it is                                             |
 | --------------------- | ------------------------------------------------------ |
@@ -32,19 +32,19 @@ Plain Markdown at paths you chose or accepted ([ADR 0099](../_adr/0099-consolida
 | `discern/TODO.md`     | The deferred-work ledger agents read and keep.         |
 | `discern/brief.md`    | The project brief captured at setup.                   |
 
-Each path is configurable (`[map].dir` can name any directory), and the map is discern's own tree: setup never points it at documentation you curate yourself ([ADR 0131](../_adr/0131-setup-never-adopts-existing-docs.md)).
+Each path is configurable (`[map].dir` can name any directory), and the map is discern's own tree: setup creates it instead of adopting documentation you curate yourself ([ADR 0131](../_adr/0131-setup-never-adopts-existing-docs.md)).
 
 ## Co-managed: tracked files discern shares with you
 
 discern owns a delimited region of each and leaves the rest alone.
 
-- **`discern.toml`** — the root file, your configuration. discern restores missing fixed sections and keys and replaces clean ruled banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it never touches values you set or comments outside those delimiters.
+- **`discern.toml`** — the root file, your configuration. discern restores missing fixed sections and keys and replaces clean ruled banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it preserves values you set and comments outside those delimiters.
 - **The `.gitignore` block** — one `# --- discern ---` block listing the ignored artifact kinds below. Your own rules outside the block are untouched.
 - **The per-agent integration files** — for each coding agent you configure, discern merges its MCP server, session hooks, and a couple of permission defaults into that agent's own config files (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, and the rest). It writes only its own entries. The [per-agent pages](../60-agent-integrations/) list the exact files.
 
-## The binary's: generated, rebuilt on demand
+## The binary's: generated and rebuilt by refresh
 
-Produced from bundled sources plus your guidance on `discern refresh`, and always safe to overwrite, because the reviewable source is your file. Each generated artifact has a declared kind in the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts), `agentArtifactPosture()`), and the kind decides how git treats it ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)):
+Produced from bundled sources plus your guidance on `discern refresh` and safe to overwrite because the reviewable source is your file. Each generated artifact has a declared kind in the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts), `agentArtifactPosture()`), and the kind decides how git treats it ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)):
 
 | Kind                   | Examples                              | In git  |
 | ---------------------- | ------------------------------------- | ------- |
@@ -52,15 +52,15 @@ Produced from bundled sources plus your guidance on `discern refresh`, and alway
 | Materialized directory | `.claude/skills/`, `.agents/skills/`  | ignored |
 | Machine-local state    | `.claude/settings.local.json`         | ignored |
 
-Everything downstream reads that one registry, so nothing can disagree with it: the managed `.gitignore` block enumerates only the ignored kinds (no wildcard — a file of your own under a provider directory is never swept up); a newly added provider's paths join the block automatically; and the gate's `tracked_artifacts` check flags only a forced-in ignored artifact.
+Everything downstream reads that registry, so nothing can disagree with it: the managed `.gitignore` block enumerates only the ignored kinds and uses no wildcard, which leaves your other files under a provider directory alone. A newly added provider's paths join the block automatically, and the gate's `tracked_artifacts` check flags only a forced-in ignored artifact.
 
-**Why compiled agent files are tracked.** A cloud agent reads a bare clone and can't run `discern refresh` first; committing the compiled agent files means every vendor surface reads the same page. The currency check in `discern done` blocks a stale copy ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)), so the tracked copies can't drift from their sources. The materialized skills stay ignored and rebuild wherever the binary runs; the [CI and cloud-agent notes](../20-quality-gate/ci.md) cover what a clone without the binary sees.
+**Why compiled agent files are tracked.** A cloud agent reads a bare clone and can't run `discern refresh` first; committing the compiled agent files means every vendor's agent file reads the same page. The currency check in `discern done` blocks a stale copy ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)), so the tracked copies can't drift from their sources. The materialized skills stay ignored and rebuild wherever the binary runs; the [CI and cloud-agent notes](../20-quality-gate/ci.md) cover what a clone without the binary sees.
 
-**Prefer the compiled files untracked?** Ignore them in your own `.gitignore` rules, outside the managed block. The gate tolerates a missing copy and nothing nags. On `discern upgrade`, an older, wider block reconciles down to the enumerated form ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)); the compiled files then show as untracked and `discern status` recommends the one-time commit. discern never runs `git add` on your behalf.
+**Prefer the compiled files untracked?** Ignore them in your own `.gitignore` rules, outside the managed block. The gate tolerates a missing copy and nothing nags. On `discern upgrade`, an older, wider block reconciles down to the enumerated form ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)); the compiled files then show as untracked and `discern status` recommends the one-time commit. discern leaves staging to you.
 
 ## What runs on your machine
 
-discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands you configure. The gate runs the commands in your `discern.toml`, and no others; a scope gate or a standard runs the command you wrote for it; a project script is your own executable. Read-only verbs (`status`, `doctor`, the docs browsers) never run any of them. discern makes zero network calls, ships no telemetry, and never updates itself — getting a newer discern means re-running your installer.
+discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands you configure. The gate runs the commands in your `discern.toml`, and no others; a scope gate or a standard runs the command you wrote for it; a project script is your own executable. Read-only verbs (`status`, `doctor`, the docs browsers) run none of them. discern makes zero network calls and ships no telemetry. A newer discern binary arrives when you re-run the installer.
 
 ## Removing it all
 
@@ -81,4 +81,4 @@ It keeps your content: `discern.toml` and the `discern/` namespace stay. If it c
 
 - [The install surface](../80-development/install-surface.md) — the exhaustive, by-disposition engineering inventory this page distills.
 - [Agent integrations](../60-agent-integrations/) — the exact file table per coding agent.
-- [Trust & your data](../00-orientation/trust-and-data.md) — the network, telemetry, and execution story on one screen.
+- [Trust & your data](../00-orientation/trust-and-data.md) — the network, telemetry, and execution contract on one screen.

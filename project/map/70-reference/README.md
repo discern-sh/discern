@@ -18,7 +18,7 @@ _Exact lookup material for discern's command line, configuration, MCP surface, f
 
 Use this section when you need the current contract rather than a guided workflow. It answers which commands and flags exist, which keys `discern.toml` accepts, what an MCP call returns, which files discern writes, and which platforms and tools can run it.
 
-The command and configuration pages are generated from the same registries the binary uses. A changed verb, flag, section, key, type, or default therefore changes the reference through `deno task codegen`; committed-output tests fail if regeneration is missed. Search aliases come from those registries too, so command paths and dotted config keys remain searchable as the surface grows.
+The command and configuration pages are generated from the same registries the binary uses. A changed verb, flag, section, key, type, or default therefore changes the reference through `deno task codegen`; committed-output tests fail if regeneration is missed. Search aliases come from those registries too, so command paths and dotted config keys remain searchable as the command set and config grow.
 
 The authored pages cover the contracts that need explanation. MCP tools share the same `DiscernResult` payload as CLI `--json`, wrapped in the protocol's text and structured channels. Files & ownership separates authored, co-managed, generated, tracked, and ignored artifacts. Platforms & prerequisites records the release targets, required executables, environment variables, identity selectors, and command-template tokens verified against the installer and runtime checks.
 

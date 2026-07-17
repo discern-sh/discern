@@ -68,11 +68,11 @@ Accepted by every command.
 | --- | --- |
 | `--json` | Emit machine-readable JSON instead of human output. |
 | `--no-color` | Disable colour (also honours NO_COLOR and non-TTY output). |
-| `--plain` | Never prompt or page; use static output. CI and non-terminal input imply this behavior. |
+| `--plain` | Disable prompts and paging; use static output. CI and non-terminal input imply this behavior. |
 
 ## Your desk
 
-The one command a human needs — bare `discern` opens it.
+The human entry point; bare `discern` opens it.
 
 ### `discern desk`
 
@@ -90,7 +90,7 @@ Your coding agent runs these as it works.
 
 ### `discern status`
 
-Show what's true right now and what to do next (read-only; never runs the gate, the project's full quality check).
+Show what's true right now and what to do next (read-only; does not run the gate, the project's full quality check).
 
 Usage: `discern status [options]`
 
@@ -137,7 +137,7 @@ Isolated workspaces your agent drives.
 
 ### `discern start`
 
-From the main checkout, create a worktree — a separate checkout and branch for one change — from the trunk — the shared landing branch — then print its path.
+From the main checkout, create a worktree with a separate checkout and branch for one change. Base it on the trunk, the shared landing branch, then print its path.
 
 Usage: `discern start [options]`
 
@@ -162,7 +162,7 @@ Usage: `discern update [options]`
 
 ### `discern accept`
 
-Accept and land this worktree's finished branch on the trunk — the shared landing branch — then remove the worktree and merged branch and refresh the main checkout.
+Accept and land this worktree's finished branch on the trunk, the shared landing branch. Then remove the worktree and merged branch and refresh the main checkout.
 
 Usage: `discern accept [options]`
 
@@ -170,7 +170,7 @@ Usage: `discern accept [options]`
 | --- | --- |
 | `--json` | Emit a machine-readable (plan, results) object on stdout. |
 | `--dry-run` | Show the acceptance plan; touch nothing. |
-| `--confirmed` | Attest that your owner has accepted this landing (or gave standing pre-authorization). Without it, acceptance refuses read-only and re-serves the review moment; a dry-run never needs it. |
+| `--confirmed` | Attest that your owner has accepted this landing (or gave standing pre-authorization). Without it, acceptance refuses read-only and re-serves the review moment; a dry-run does not need it. |
 
 ### `discern worktree <subcommand>`
 
@@ -208,7 +208,7 @@ Usage: `discern worktree teardown [options]`
 
 #### `discern worktree drop`
 
-Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch. Protects uncommitted work and commits not on the trunk — the shared landing branch — unless --force is set.
+Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch. Protects uncommitted work and commits not on the trunk, the shared landing branch, unless --force is set.
 
 Usage: `discern worktree drop <target> [options]`
 
@@ -476,7 +476,7 @@ Usage: `discern uninstall [options]`
 
 | Option | Description |
 | --- | --- |
-| `--dry-run` | Preview exactly what would be removed and kept; change nothing. |
+| `--dry-run` | Preview what would be removed and kept; change nothing. |
 | `-y, --yes` | Skip the confirmation prompt. |
 
 ## Inspect & explore
@@ -497,7 +497,7 @@ Usage: `discern improvement [options]`
 
 ### `discern standards`
 
-Measure every quality standard on demand — numbers that can never get worse (`discern done` already verifies and measures them on every run).
+Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run.
 
 Usage: `discern standards [names...] [options]`
 
@@ -506,7 +506,7 @@ Usage: `discern standards [names...] [options]`
 | `--json` | Emit the result as a JSON DiscernResult object on stdout. |
 | `--dry-run` | Show the standards that would be measured; touch nothing. |
 | `--force` | Run standards on a dirty worktree; intended only while authoring standards. |
-| `--pin` | Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree. |
+| `--pin` | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree. |
 
 ### `discern skills <subcommand>`
 
@@ -536,7 +536,7 @@ Usage: `discern skills eject <name> [options]`
 
 ### `discern impact`
 
-Show this change's impact: which scopes — named regions of the repository with their own checks — the branch and working tree wake in the quality gate, the project's full quality check.
+Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own checks.
 
 Usage: `discern impact [options]`
 
@@ -547,7 +547,7 @@ Usage: `discern impact [options]`
 
 ### `discern coupling`
 
-Surface files that historically change together (advisory; never blocks). No args: what co-changes with your branch's changes but is missing. One file: its top partners. Two files: the commits where both changed.
+Report files that historically change together; this advisory does not block. With no args, report likely siblings missing from the change. With file, report its top partners. Add with to report commits where both changed.
 
 Usage: `discern coupling [file] [with] [options]`
 
@@ -564,7 +564,7 @@ Usage: `discern map [target] [options]`
 | Option | Description |
 | --- | --- |
 | `--raw` | Print a doc's pristine Markdown source instead of rendering it. |
-| `--list` | Print a plain table of contents and exit (never interactive). |
+| `--list` | Print a plain table of contents and exit without interaction. |
 | `--no-pager` | Don't page rendered output through $PAGER. |
 | `--dir <path>` | Map directory to browse (default: the project's [map].dir). |
 | `--width <cols>` | Wrap width for rendered output. |
@@ -580,7 +580,7 @@ Usage: `discern help [target] [options]`
 | Option | Description |
 | --- | --- |
 | `--raw` | Print a doc's pristine Markdown source instead of rendering it. |
-| `--list` | Print a plain table of contents and exit (never interactive). |
+| `--list` | Print a plain table of contents and exit without interaction. |
 | `--adr` | Browse decision records in a source checkout, or show their public location. |
 | `--no-pager` | Don't page rendered output through $PAGER. |
 | `--width <cols>` | Wrap width for rendered output. |

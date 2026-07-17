@@ -134,4 +134,4 @@ For commands with a published JSON result, exit `0` corresponds to `ok: true`; a
 | [`schema/discern-results.schema.json`](../../../schema/discern-results.schema.json) | JSON Schema for CLI result envelopes and MCP tool-result wrappers.            |
 | [`types/discern-json.d.ts`](../../../types/discern-json.d.ts)                       | Standalone TypeScript types indexed by verb, command path, and MCP tool name. |
 
-The JSON Schema exposes whole-surface entry points plus per-contract definitions. The TypeScript file exposes `DiscernResultByVerb`, `DiscernResultByCommand`, `DiscernMcpStructuredContentByTool`, and `DiscernMcpToolResultByTool` lookup maps.
+The JSON Schema exposes top-level entry points for the complete contracts plus per-contract definitions. The TypeScript file exposes `DiscernResultByVerb`, `DiscernResultByCommand`, `DiscernMcpStructuredContentByTool`, and `DiscernMcpToolResultByTool` lookup maps.

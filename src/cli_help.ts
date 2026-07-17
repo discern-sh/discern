@@ -60,7 +60,7 @@ export interface CommandGroup {
 export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Your desk",
-    note: "the one command a human needs — bare `discern` opens it",
+    note: "the human entry point; bare `discern` opens it",
     commands: ["desk"],
   },
   {

@@ -359,7 +359,7 @@ export function attachEngineCommands(
   root
     .command("standards")
     .description(
-      "Measure every quality standard on demand — numbers that can never get worse (`discern done` already verifies and measures them on every run).",
+      "Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run.",
     )
     .arguments("[names...:string]")
     .option(
@@ -376,7 +376,7 @@ export function attachEngineCommands(
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the value just measured (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
+      "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
     )
     .action(async (o, ...names: string[]) => {
       Deno.exit(
@@ -420,9 +420,8 @@ export function attachEngineCommands(
   root
     .command("impact")
     .description(
-      "Show this change's impact: which scopes — named regions of the repository with " +
-        "their own checks — the branch and working tree wake in the quality gate, " +
-        "the project's full quality check.",
+      "Show which configured scopes the branch and working tree wake in the quality " +
+        "gate. Scopes are named regions of the repository with their own checks.",
     )
     .option(
       "--json",
@@ -444,9 +443,9 @@ export function attachEngineCommands(
   root
     .command("coupling")
     .description(
-      "Surface files that historically change together (advisory; never blocks). " +
-        "No args: what co-changes with your branch's changes but is missing. One file: " +
-        "its top partners. Two files: the commits where both changed.",
+      "Report files that historically change together; this advisory does not block. " +
+        "With no args, report likely siblings missing from the change. With file, " +
+        "report its top partners. Add with to report commits where both changed.",
     )
     .option(
       "--json",
@@ -471,7 +470,7 @@ export function attachEngineCommands(
   root
     .command("status")
     .description(
-      "Show what's true right now and what to do next (read-only; never runs the " +
+      "Show what's true right now and what to do next (read-only; does not run the " +
         "gate, the project's full quality check).",
     )
     .option(
@@ -513,9 +512,9 @@ export function attachEngineCommands(
   root
     .command("start")
     .description(
-      "From the main checkout, create a worktree — a separate checkout and branch for " +
-        `one change — from the trunk${trunkName} — the shared landing branch — then ` +
-        "print its path.",
+      "From the main checkout, create a worktree with a separate checkout and branch " +
+        `for one change. Base it on the trunk${trunkName}, the shared landing branch, ` +
+        "then print its path.",
     )
     .option(
       "--json",
@@ -553,8 +552,8 @@ export function attachEngineCommands(
   root
     .command("accept")
     .description(
-      `Accept and land this worktree's finished branch on the trunk${trunkName} — ` +
-        "the shared landing branch — then remove the worktree and merged branch " +
+      `Accept and land this worktree's finished branch on the trunk${trunkName}, ` +
+        "the shared landing branch. Then remove the worktree and merged branch " +
         "and refresh the main checkout.",
     )
     .option(
@@ -566,7 +565,7 @@ export function attachEngineCommands(
       "--confirmed",
       "Attest that your owner has accepted this landing (or gave standing " +
         "pre-authorization). Without it, acceptance refuses read-only and re-serves " +
-        "the review moment; a dry-run never needs it.",
+        "the review moment; a dry-run does not need it.",
     )
     .action(async (o) => {
       const json = o.json ?? false;
@@ -735,7 +734,7 @@ export function attachEngineCommands(
         .description(
           "Discard a worktree from the main checkout: tear down its resources, remove " +
             "it, and delete its branch. Protects uncommitted work and commits not on " +
-            "the trunk — the shared landing branch — unless --force is set.",
+            "the trunk, the shared landing branch, unless --force is set.",
         )
         .option(
           "--force",

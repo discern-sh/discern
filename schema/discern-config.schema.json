@@ -478,7 +478,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise just because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec).",
+            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec).",
             "anyOf": [
               {
                 "type": "string"
@@ -554,7 +554,7 @@
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the exact measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
             "type": "number",
             "minimum": 0
           },
@@ -568,7 +568,7 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to always measure (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run.",
+            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run.",
             "type": "array",
             "items": {
               "type": "string"

@@ -445,7 +445,7 @@ export const TOOLS: McpTool[] = orderTools([
       "preview which standards would run — it measures nothing, with or without " +
       "pin. Set pin to " +
       "capture measured improvements INSTEAD of just checking: it tightens each " +
-      "limit to the value just measured (the pin_names standards, or every one with " +
+      "limit to the measured value (the pin_names standards, or every one with " +
       "slack), commits that change on its own, and carries the gate receipt " +
       "forward so accept skips the redundant gate re-run — the ergonomic way to " +
       "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +

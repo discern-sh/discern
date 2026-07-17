@@ -223,9 +223,9 @@ export function renderConfigReferenceDoc(): string {
     "",
     typeof root.description === "string"
       ? root.description
-      : "The one file that configures a discern install.",
+      : "The file that configures a discern install.",
     "",
-    "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so what is documented here is exactly what the engine enforces.",
+    "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.",
     "",
     "The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.",
   ];
