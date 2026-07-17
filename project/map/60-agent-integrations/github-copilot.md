@@ -21,9 +21,9 @@ discern's GitHub Copilot integration is project-local and registry-driven. It wr
 
 GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[guidance].agents` to wire its provider-specific config.
 
-## Using the IDE, not the CLI?
+## Using the IDE
 
-Setup auto-detection sees PATH binaries, so a GitHub Copilot IDE user without the Copilot CLI on PATH is intentionally invisible to it. Add `copilot` explicitly under `[guidance].agents`, then run `discern refresh`:
+Setup auto-detection sees PATH binaries, so it cannot detect a GitHub Copilot IDE user without the Copilot CLI on PATH. Add `copilot` explicitly under `[guidance].agents`, then run `discern refresh`:
 
 ```toml
 [guidance]
@@ -58,7 +58,7 @@ Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. disc
 
 Copilot and Claude Code co-own this file. Both providers write the same byte-identical `discern` entry through one shared writer, so whichever provider runs second sees the entry already correct and writes nothing.
 
-discern does not write `.github/mcp.json` for Copilot because the Copilot CLI does not use that file for this project MCP surface. It also does not write Claude Code's `enabledMcpjsonServers` pre-approval key for Copilot; Copilot uses folder trust instead.
+discern does not write `.github/mcp.json` for Copilot because the Copilot CLI does not use that file for this project's MCP server. It also does not write Claude Code's `enabledMcpjsonServers` pre-approval key for Copilot; Copilot uses folder trust instead.
 
 ## `.github/hooks/discern.json`
 

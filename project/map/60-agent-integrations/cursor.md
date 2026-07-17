@@ -21,9 +21,9 @@ discern's Cursor integration is project-local and registry-driven. It writes, co
 
 Cursor is not in `DEFAULT_AGENTS`; add `"cursor"` to `[guidance].agents` to wire its provider-specific config.
 
-## Using the IDE, not the CLI?
+## Using the IDE
 
-Setup auto-detection sees PATH binaries, so a Cursor IDE user without `cursor-agent` on PATH is intentionally invisible to it. Add `cursor` explicitly under `[guidance].agents`, then run `discern refresh`:
+Setup auto-detection sees PATH binaries, so it cannot detect a Cursor IDE user without `cursor-agent` on PATH. Add `cursor` explicitly under `[guidance].agents`, then run `discern refresh`:
 
 ```toml
 [guidance]
@@ -87,7 +87,7 @@ Cursor's workspace root is pinned at launch with `--workspace` or the launch cwd
 
 Cursor has a `sessionStart` hook for the setup step, but no worktree create/remove hook contract. discern owns worktree creation, integration, and acceptance through its CLI and MCP verbs.
 
-Cursor's skill-loading surface has changed during the CLI beta. The product supports `.agents/skills/`, but when diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
+Cursor's skill-loading behavior has changed during the CLI beta. The product supports `.agents/skills/`, but when diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 
 ## See also
 

@@ -76,7 +76,7 @@ Gemini has no mid-session project-root move. `/directory add` can widen the work
 
 The wired hook is a `SessionStart` setup hook only. Gemini does not expose Claude Code's `WorktreeCreate` or `WorktreeRemove` contract, and its `SessionEnd` hook is advisory. discern therefore owns worktree creation and teardown through its CLI and MCP verbs rather than relying on Gemini to fire teardown.
 
-Gemini's native surfaces are moving quickly, especially worktrees and sandbox behavior. Re-run `discern refresh` after changing the configured agent set or upgrading the project so the committed settings stay aligned with the provider registry.
+Gemini's native worktree and sandbox behaviors are changing quickly. Re-run `discern refresh` after changing the configured agent set or upgrading the project so the committed settings stay aligned with the provider registry.
 
 ## See also
 

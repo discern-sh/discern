@@ -127,7 +127,7 @@ Project `.codex/` config is inert until Codex trusts the directory. That trust i
 
 Because Codex's shell stays put, it will drive the worktree explicitly by prefixing every shell command with `cd <path> &&`, and passing `path` to every discern tool. Edits and the gate then share the worktree root instead of splitting between it and the trunk.
 
-If a Codex session starts inside a worktree and that worktree is later removed, Codex can block the next user message with "Current working directory missing". This is a Codex runtime limitation, not a discern MCP failure: `discern_accept` can successfully tear down the worktree and re-aim the long-lived MCP server at the main checkout, but the Codex chat process can still remember the deleted directory it originally opened. There is no in-chat recovery once Codex blocks the conversation; start a new Codex session from the main checkout instead.
+If a Codex session starts inside a worktree and that worktree is later removed, Codex can block the next user message with "Current working directory missing". This Codex runtime limitation remains after `discern_accept` successfully tears down the worktree and re-aims the long-lived MCP server at the main checkout: the Codex chat process can still remember the deleted directory it originally opened. There is no in-chat recovery once Codex blocks the conversation; start a new Codex session from the main checkout instead.
 
 The default writable-root path includes the main checkout directory name. If a developer clones the same repository under a different folder name, run `discern refresh`; it updates `.codex/config.toml` to the local path convention. That update is expected; it keeps the grant narrow instead of widening it to the parent directory.
 
