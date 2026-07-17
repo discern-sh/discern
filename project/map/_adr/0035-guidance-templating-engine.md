@@ -7,7 +7,7 @@
 ## Context
 
 `discern refresh` compiles each provider's agent file from `[built-in base] + [a
-section per enabled feature] + [your sources]` (`guidance_render.ts`). The built-in sections (`templates/guidance/*.md`) are the **distribution surface** — every project, in every language and domain, receives them verbatim. That gave two problems the research on effective agent-instruction files ([`map/_private/research/agent-instruction-files-research.md`](../_private/research/agent-instruction-files-research.md)) flags directly:
+section per enabled feature] + [your sources]` (`guidance_render.ts`). The built-in sections (`templates/guidance/*.md`) are the **distribution surface** — every project, in every language and domain, receives them verbatim. That gave two problems the research on effective agent-instruction files ([the configuration-smells study](https://arxiv.org/abs/2606.15828)) flags directly:
 
 - **Generic prose can't be concrete.** The shipped text could only refer to "the trunk" or "`[project].branch_prefix`" in the abstract, where the evidence rewards naming the project's _actual_ branch and commands.
 - **Inert sections still cost tokens.** A project with the `standards` feature on but **no** standard declared, or the worktree workflow on but **no** resources, still received the full standard / resource-lifecycle prose — "Context Bloat," the #2 catalogued smell: guidance that doesn't apply, diluting the signal.
