@@ -21,7 +21,7 @@ discern refresh
 discern status
 ```
 
-`refresh` combines discern's built-in guidance with `[guidance].sources`. It also reconciles Skills and agent integration artifacts, so the generated surfaces agree after one command. `status` reports any generated guidance or materialized Skills that still differ from the current sources.
+`refresh` combines discern's built-in guidance with `[guidance].sources`. It also reconciles Skills and agent integration artifacts, so the generated copies agree after one command. `status` reports any generated guidance or materialized Skills that still differ from the current sources.
 
 The configured agent set decides which instruction files exist:
 
