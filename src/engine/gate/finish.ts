@@ -56,10 +56,11 @@ import type {
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import {
-  fixDriftDiagnostic,
-  fixDriftPaths,
+  type StageSnapshot,
+  strandedByStage,
+  treeDriftDiagnostic,
   worktreeDirtyPaths,
-} from "./fix_drift.ts";
+} from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
@@ -107,8 +108,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   test: "The test stage failed.",
   "check/test": "The check/test stage failed.",
   scope_gates: "One or more scope gates failed.",
-  fix_drift:
-    "The fix stage left uncommitted changes — commit the formatter's output, then re-run.",
+  tree_drift:
+    "The gate left uncommitted changes on tracked files — commit the gate's own output (the diagnostic names the stage that produced it), then re-run.",
   tracked_artifacts:
     "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
   guidance:
@@ -373,20 +374,35 @@ async function runGate(
   }
 
   // 2. Run the capability/check stage groups (fix → build → check∥test). These do
-  //    not depend on the changed scopes, so they run before scope classification. The
-  //    fix stage MUTATES the tree; snapshot the working-tree dirty set immediately
-  //    before and after it so the strand check (step 5) can flag a fixer that reformatted
-  //    a committed-clean file — the uncommitted fixer output a green gate would otherwise
-  //    hide behind a green result (ADR 0047). Skip the snapshots when no fix stage is wired, or
-  //    when a fail-fast precondition (the merge or a currency check) already failed
-  //    (nothing downstream runs).
+  //    not depend on the changed scopes, so they run before scope classification.
+  //    ANY stage may mutate the tree — the fix stage by design, a build/test/scope
+  //    gate by accident of wiring (a regenerated tracked artifact, a rewritten
+  //    golden file) — so snapshot the working-tree dirty set before any group runs
+  //    and again after each green group. The strand check (step 5) flags files a
+  //    stage dirtied that were committed-clean at gate start — the uncommitted gate
+  //    output a green result would otherwise hide (ADR 0047, extended by ADR 0148)
+  //    — and the per-group snapshots attribute each strand to the stage that
+  //    produced it. Snapshots are skipped once a stage has failed (the strand
+  //    check only runs on an otherwise-green gate); an unreadable snapshot voids
+  //    the check (fail-open: a missing snapshot must never fabricate a failure).
   const preGroups = [stageGroup(cfg, "fix"), stageGroup(cfg, "build")]
     .filter((g): g is JobGroup => g !== undefined);
-  const hasFix = preGroups.some((g) => g.stage === "fix");
-  const dirtyBeforeFix = hasFix && failedStage === null
+  const dirtyAtStart = failedStage === null
     ? await worktreeDirtyPaths(root)
     : null;
-  let dirtyAfterFix: Set<string> | null = null;
+  const stageSnapshots: StageSnapshot[] = [];
+  let snapshotsValid = dirtyAtStart !== null;
+  const snapshotAfter = async (stage: FailedStage): Promise<void> => {
+    if (!snapshotsValid) {
+      return;
+    }
+    const dirty = await worktreeDirtyPaths(root);
+    if (dirty === null) {
+      snapshotsValid = false;
+      return;
+    }
+    stageSnapshots.push({ stage, dirty });
+  };
   for (const group of preGroups) {
     if (failedStage !== null) {
       break;
@@ -395,9 +411,7 @@ async function runGate(
       failedStage = group.stage;
       break;
     }
-    if (group.stage === "fix") {
-      dirtyAfterFix = await worktreeDirtyPaths(root);
-    }
+    await snapshotAfter(group.stage);
   }
 
   // 2a. Resolve the standards' gate actions AFTER the fix stage — a fixer's
@@ -440,6 +454,8 @@ async function runGate(
       failedStage = "check/test";
     } else if (replayFailure) {
       failedStage = "check/test";
+    } else {
+      await snapshotAfter("check/test");
     }
   }
   const stageGroups = checkTest !== undefined
@@ -458,24 +474,25 @@ async function runGate(
   if (failedStage === null && sgGroup !== undefined) {
     if (!(await runGroup(sgGroup, results, runOpts, out))) {
       failedStage = "scope_gates";
+    } else {
+      await snapshotAfter("scope_gates");
     }
   }
 
-  // 5. Fix-stage strand detection (ADR 0034's sibling, ADR 0047): the fix stage may
-  //     MUTATE the tree (that's its job), but a clean gate must not hide uncommitted
-  //     fixer output. Flag only files that were CLEAN at finish-start and the fix stage
-  //     dirtied (D1 \ D0) — so a fixer reworking the agent's own uncommitted edits (the
-  //     inner loop) never trips, only one reformatting an already-COMMITTED file does.
-  //     That stranded set is exactly what a final clean check must surface early —
-  //     commit the fixer output before you finish.
-  let fixDriftDiag: Diagnostic | undefined;
-  if (
-    failedStage === null && dirtyBeforeFix !== null && dirtyAfterFix !== null
-  ) {
-    const stranded = fixDriftPaths(dirtyBeforeFix, dirtyAfterFix);
-    if (stranded.length > 0) {
-      failedStage = "fix_drift";
-      fixDriftDiag = await fixDriftDiagnostic(root, stranded);
+  // 5. Strand detection (ADR 0034's sibling; ADR 0047, extended by ADR 0148): a
+  //     stage may MUTATE the tree (the fix stage by design, any other by accident of
+  //     wiring), but a clean gate must not hide uncommitted gate output. Flag only
+  //     files that were CLEAN at finish-start and a stage left dirty — so a stage
+  //     reworking the agent's own uncommitted edits (the inner loop) never trips,
+  //     only one touching an already-COMMITTED file does — and name the stage that
+  //     produced each strand. That stranded set is exactly what a final clean check
+  //     must surface early — commit the gate's output before you finish.
+  let treeDriftDiag: Diagnostic | undefined;
+  if (failedStage === null && dirtyAtStart !== null && snapshotsValid) {
+    const strands = strandedByStage(dirtyAtStart, stageSnapshots);
+    if (strands.length > 0) {
+      failedStage = "tree_drift";
+      treeDriftDiag = await treeDriftDiagnostic(root, strands);
     }
   }
 
@@ -531,8 +548,8 @@ async function runGate(
   if (skillsDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
   }
-  if (fixDriftDiag !== undefined) {
-    result.diagnostics = [...(result.diagnostics ?? []), fixDriftDiag];
+  if (treeDriftDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];
   }
   // The receipt (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
   // renders the compact review summary from this very envelope — the artifact the
@@ -652,7 +669,7 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
+        return `Gate passed, but no gate receipt was recorded because the worktree is dirty${reason}. Use \`discern prepare\` or \`discern test\` while iterating, then commit the intended final tree and re-run \`discern done\` on the clean HEAD before handoff or acceptance.`;
       case "skipped_head_moved":
         return `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
       case "record_failed":

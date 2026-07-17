@@ -35,7 +35,7 @@ import {
 } from "./engine_helpers.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
-import { worktreeDirtyPaths } from "../src/engine/gate/fix_drift.ts";
+import { worktreeDirtyPaths } from "../src/engine/gate/tree_drift.ts";
 
 /**
  * Scaffold a real discern install at `<repo>/app` and git-init the REPOSITORY
@@ -215,12 +215,12 @@ Deno.test("nested root: the co-change advisory mines root-relative partners", as
   });
 });
 
-// ── fix-drift: the strand snapshot must speak root-relative paths ──────────────
+// ── tree-drift: the strand snapshot must speak root-relative paths ─────────────
 // The stranded-file diagnostic names the paths and shows `git diff -- <paths>`
 // run at the root; toplevel-relative paths would misname the files and resolve
 // to nothing as cwd-relative pathspecs, leaving the evidence diff empty.
 
-Deno.test("nested root: the fix-stage dirty snapshot is root-relative", async () => {
+Deno.test("nested root: the strand dirty snapshot is root-relative", async () => {
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,

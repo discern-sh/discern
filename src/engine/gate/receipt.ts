@@ -37,6 +37,7 @@
  */
 
 import { join } from "@std/path";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type {
   GateData,
@@ -83,6 +84,29 @@ async function headSha(cwd: string): Promise<string | undefined> {
 }
 
 /**
+ * Every path `git status --porcelain` reports at `cwd` — staged, unstaged, AND
+ * untracked, both sides of a rename — sorted for stable output. This is the strict
+ * dirt accept refuses to land, so a receipt refusal can NAME what blocks it instead
+ * of sending the agent on a diagnosis loop. `undefined` when git can't answer.
+ */
+async function worktreeStatusPaths(
+  cwd: string,
+): Promise<string[] | undefined> {
+  const r = await runGit(["status", "--porcelain", "-z"], { cwd });
+  if (!r.success) {
+    return undefined;
+  }
+  const paths = new Set<string>();
+  for (const entry of parsePorcelainZ(r.stdout)) {
+    if (entry.origPath !== undefined) {
+      paths.add(entry.origPath);
+    }
+    paths.add(entry.path);
+  }
+  return [...paths].sort();
+}
+
+/**
  * Whether the worktree at `cwd` is FULLY clean — `git status --porcelain` empty (no
  * staged, unstaged, OR untracked changes). This is the strict notion accept
  * requires before landing, so the receipt vouches for exactly what would land. A
@@ -91,8 +115,23 @@ async function headSha(cwd: string): Promise<string | undefined> {
  * clean rule before building a receipt for the committed tree.
  */
 export async function isWorktreeFullyClean(cwd: string): Promise<boolean> {
-  const r = await runGit(["status", "--porcelain", "-z"], { cwd });
-  return r.success && r.stdout.trim() === "";
+  return (await worktreeStatusPaths(cwd))?.length === 0;
+}
+
+/** How many dirty paths a receipt-refusal reason names before eliding the rest. */
+const DIRTY_PATHS_SHOWN = 6;
+
+/** Render a dirty-path list for a refusal reason: the first few paths, the rest
+ * counted — empty when there is nothing to name (an unreadable status). */
+function describeDirtyPaths(paths: readonly string[]): string {
+  if (paths.length === 0) {
+    return "";
+  }
+  const shown = paths.slice(0, DIRTY_PATHS_SHOWN).join(", ");
+  const more = paths.length > DIRTY_PATHS_SHOWN
+    ? `, and ${paths.length - DIRTY_PATHS_SHOWN} more`
+    : "";
+  return ` — uncommitted: ${shown}${more}`;
 }
 
 function failureReason(error: unknown): string {
@@ -120,14 +159,20 @@ export interface ValidatedTreePin {
   readonly head: string | undefined;
   /** Whether the tree was FULLY clean at capture time. */
   readonly clean: boolean;
+  /** The paths dirty at capture time (empty when clean or unreadable) — so a
+   * refusal to stamp can NAME what blocked it. */
+  readonly dirtyPaths: readonly string[];
   readonly [VALIDATED_TREE_PIN]: true;
 }
 
 /** Sample the tree at `cwd` NOW — call this before the validation work runs. */
 export async function pinValidatedTree(cwd: string): Promise<ValidatedTreePin> {
+  const dirty = await worktreeStatusPaths(cwd);
+  const dirtyPaths: readonly string[] = dirty ?? [];
   return {
     head: await headSha(cwd),
-    clean: await isWorktreeFullyClean(cwd),
+    clean: dirty !== undefined && dirty.length === 0,
+    dirtyPaths,
   } as ValidatedTreePin;
 }
 
@@ -198,13 +243,18 @@ export async function recordGateOutcome(
     if (!pin.clean) {
       return receiptRecord("skipped_dirty", {
         path,
-        reason: "the worktree was not clean when the run began",
+        reason: `the worktree was not clean when the run began${
+          describeDirtyPaths(pin.dirtyPaths)
+        }`,
       });
     }
-    if (!(await isWorktreeFullyClean(cwd))) {
+    const dirtyNow = await worktreeStatusPaths(cwd);
+    if (dirtyNow === undefined || dirtyNow.length > 0) {
       return receiptRecord("skipped_dirty", {
         path,
-        reason: "the worktree is not clean",
+        reason: `the worktree is not clean${
+          describeDirtyPaths(dirtyNow ?? [])
+        }`,
       });
     }
     try {
