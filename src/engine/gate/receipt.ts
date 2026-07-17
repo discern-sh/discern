@@ -36,19 +36,44 @@
  * re-checks that half live.
  */
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  type PlannedWriteTarget,
+  preflightPlannedWrites,
+  type WritePreflightFailure,
+} from "../../shared/write_preflight.ts";
 import type {
   GateData,
   GateReceiptCheckData,
 } from "../../shared/result_schemas.ts";
 
-/** The receipt marker's filename inside the per-worktree git admin dir. */
-const RECEIPT_FILE = "discern-gate-receipt";
-/** The measurement receipt's filename, in the same admin dir. */
-const MEASUREMENTS_FILE = "discern-standard-measurements";
+/** Every file Discern may persist after slow validation. This registry is the
+ * preflight SSOT: a new admin-state sibling cannot be addressed by a writer until
+ * it is added here, at which point it automatically joins the authority probe. */
+export const ADMIN_STATE_FILES = {
+  gateReceipt: "discern-gate-receipt",
+  standardMeasurements: "discern-standard-measurements",
+} as const;
+type AdminStateFile = keyof typeof ADMIN_STATE_FILES;
+type AdminStatePaths = Readonly<
+  Record<AdminStateFile, string | undefined>
+>;
 type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
+
+/** Brand for a successful, real write probe. Receipt writers require this token,
+ * making "probe before persist" a compile-time rule at every call site. */
+declare const ADMIN_STATE_WRITE_AUTHORITY: unique symbol;
+export interface AdminStateWriteAuthority {
+  readonly root: string;
+  readonly paths: AdminStatePaths;
+  readonly [ADMIN_STATE_WRITE_AUTHORITY]: true;
+}
+
+export type AdminStateWritePreflight =
+  | { ok: true; authority: AdminStateWriteAuthority }
+  | WritePreflightFailure;
 
 /**
  * Resolve a per-worktree admin file's path (`git rev-parse --git-path <file>`),
@@ -73,7 +98,93 @@ async function adminFilePath(
 
 /** This worktree's gate receipt path. */
 function receiptPath(cwd: string): Promise<string | undefined> {
-  return adminFilePath(cwd, RECEIPT_FILE);
+  return adminFilePath(cwd, ADMIN_STATE_FILES.gateReceipt);
+}
+
+/** Prove the real create/write/rename/remove authority every validation-state
+ * writer may need later. Existing marker files are also opened for write, without
+ * changing them, so a read-only old receipt fails now rather than at stamp time. */
+export async function preflightAdminStateWrites(
+  cwd: string,
+): Promise<AdminStateWritePreflight> {
+  const paths = {} as Record<AdminStateFile, string | undefined>;
+  // A pre-Git/setup checkout has no admin-state target to persist. Preserve the
+  // gate's established no-Git behavior with a non-applicable authority token;
+  // once Git says this IS a worktree, failure to resolve or write its paths is a
+  // genuine denial and must fail before slow work.
+  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd });
+  if (!inside.success || inside.stdout.trim() !== "true") {
+    for (const key of Object.keys(ADMIN_STATE_FILES) as AdminStateFile[]) {
+      paths[key] = undefined;
+    }
+    return {
+      ok: true,
+      authority: { root: cwd, paths } as AdminStateWriteAuthority,
+    };
+  }
+  const targets: PlannedWriteTarget[] = [];
+  for (const key of Object.keys(ADMIN_STATE_FILES) as AdminStateFile[]) {
+    const path = await adminFilePath(cwd, ADMIN_STATE_FILES[key]);
+    if (path === undefined) {
+      return {
+        ok: false,
+        path: cwd,
+        description: "its Git-admin validation state",
+        reason: `Git could not resolve ${ADMIN_STATE_FILES[key]}`,
+      };
+    }
+    paths[key] = path;
+    targets.push({
+      kind: "directory-entry",
+      path: dirname(path),
+      description: "its Git-admin validation state",
+    });
+    try {
+      const info = await Deno.stat(path);
+      if (info.isFile) {
+        targets.push({
+          kind: "existing-file",
+          path,
+          description: "its Git-admin validation state",
+        });
+      } else {
+        return {
+          ok: false,
+          path,
+          description: "its Git-admin validation state",
+          reason: "the planned marker path exists but is not a regular file",
+        };
+      }
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) {
+        return {
+          ok: false,
+          path,
+          description: "its Git-admin validation state",
+          reason: failureReason(error),
+        };
+      }
+    }
+  }
+  const probed = await preflightPlannedWrites(targets);
+  if (!probed.ok) {
+    return probed;
+  }
+  return {
+    ok: true,
+    authority: {
+      root: cwd,
+      paths,
+    } as AdminStateWriteAuthority,
+  };
+}
+
+function authorityPath(
+  cwd: string,
+  authority: AdminStateWriteAuthority,
+  file: AdminStateFile,
+): string | undefined {
+  return authority.root === cwd ? authority.paths[file] : undefined;
 }
 
 /** Current HEAD sha at `cwd`, or `undefined` when it cannot be read. */
@@ -203,16 +314,19 @@ function receiptRecord(
  *   for clean HEAD, but a prior clean vouch (at its own sha) is still truthful, and
  *   accept's HEAD-match + clean check keeps it honest.
  *
- * Best-effort throughout: the receipt is an optimization, so a write/delete hiccup
- * must never fail the finish that produced it.
+ * The caller must first acquire `authority` with
+ * {@link preflightAdminStateWrites}, before its slow work begins. The writer stays
+ * best-effort against a later TOCTOU/filesystem hiccup, which is returned visibly
+ * rather than retroactively changing the already-computed quality verdict.
  */
 export async function recordGateOutcome(
   cwd: string,
+  authority: AdminStateWriteAuthority,
   passed: boolean,
   pin: ValidatedTreePin,
   receiptMarkdown?: string,
 ): Promise<GateReceiptRecordData> {
-  const path = await receiptPath(cwd);
+  const path = authorityPath(cwd, authority, "gateReceipt");
   if (path === undefined) {
     return receiptRecord("unavailable", {
       reason: "could not resolve the gate receipt path",
@@ -372,17 +486,23 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  * does nothing (returns `undefined`), leaving the now-stale receipt for `accept` to
  * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
  * pin commit itself, which the caller just made synchronously, so the tree sampled now
- * IS the tree the vouch is about. Best-effort like all receipt I/O: a write hiccup
- * never fails the pin.
+ * IS the tree the vouch is about. The pin preflights `authority` before measuring;
+ * the writer remains best-effort against a later point-in-time hiccup.
  */
 export async function carryReceiptForwardAcrossPin(
   cwd: string,
+  authority: AdminStateWriteAuthority,
   priorHonored: boolean,
 ): Promise<GateReceiptRecordData | undefined> {
   if (!priorHonored) {
     return undefined;
   }
-  return await recordGateOutcome(cwd, true, await pinValidatedTree(cwd));
+  return await recordGateOutcome(
+    cwd,
+    authority,
+    true,
+    await pinValidatedTree(cwd),
+  );
 }
 
 // ── the standard measurement receipt ─────────────────────────────────────────────
@@ -406,16 +526,17 @@ export type StandardMeasurementsCheck =
  * deferred standard) MERGES into an existing same-HEAD receipt rather than
  * clobbering a fuller one, so check → done → pin still measures once.
  * `durations` (whole seconds per standard) ride along so a defer/replay decision
- * can be made from data. Best-effort: an I/O hiccup never fails the run that
- * produced the measurements. Returns whether a receipt was written.
+ * can be made from data. The caller preflights `authority` before measuring; a
+ * later I/O hiccup remains best-effort. Returns whether a receipt was written.
  */
 export async function recordStandardMeasurements(
   cwd: string,
+  authority: AdminStateWriteAuthority,
   values: Record<string, number>,
   pin: ValidatedTreePin,
   durations: Record<string, number> = {},
 ): Promise<boolean> {
-  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  const path = authorityPath(cwd, authority, "standardMeasurements");
   if (path === undefined || pin.head === undefined || !pin.clean) {
     return false;
   }
@@ -447,10 +568,14 @@ export async function recordStandardMeasurements(
 /**
  * Clear the measurement receipt — a RED check's values must not stay reusable
  * (fail-closed, the same posture as a failed finish clearing the gate receipt).
- * Best-effort; a missing file is already the desired state.
+ * The caller preflights `authority`; a later hiccup remains best-effort, and a
+ * missing file is already the desired state.
  */
-export async function clearStandardMeasurements(cwd: string): Promise<void> {
-  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+export async function clearStandardMeasurements(
+  cwd: string,
+  authority: AdminStateWriteAuthority,
+): Promise<void> {
+  const path = authorityPath(cwd, authority, "standardMeasurements");
   if (path === undefined) {
     return;
   }
@@ -471,7 +596,10 @@ export async function clearStandardMeasurements(cwd: string): Promise<void> {
 export async function inspectStandardMeasurements(
   cwd: string,
 ): Promise<StandardMeasurementsCheck> {
-  const path = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  const path = await adminFilePath(
+    cwd,
+    ADMIN_STATE_FILES.standardMeasurements,
+  );
   if (path === undefined) {
     return { status: "unavailable" };
   }
@@ -575,12 +703,15 @@ function parseMeasurements(
 export async function measurementBaselines(
   cwd: string,
 ): Promise<StandardMeasurements[]> {
-  const own = await adminFilePath(cwd, MEASUREMENTS_FILE);
+  const own = await adminFilePath(
+    cwd,
+    ADMIN_STATE_FILES.standardMeasurements,
+  );
   const common = await runGit(["rev-parse", "--git-common-dir"], { cwd });
   const commonDir = common.success ? common.stdout.trim() : "";
   const trunk = commonDir === "" ? undefined : join(
     commonDir.startsWith("/") ? commonDir : join(cwd, commonDir),
-    MEASUREMENTS_FILE,
+    ADMIN_STATE_FILES.standardMeasurements,
   );
   const paths = [own, trunk].filter((p): p is string => p !== undefined);
   const out: StandardMeasurements[] = [];

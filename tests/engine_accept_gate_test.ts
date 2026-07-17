@@ -28,18 +28,36 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import {
+  type AdminStateWriteAuthority,
   gateReceiptHonored,
   inspectGateReceipt,
   pinValidatedTree,
+  preflightAdminStateWrites,
   recordGateOutcome,
 } from "../src/engine/gate/receipt.ts";
+
+async function receiptAuthority(
+  dir: string,
+): Promise<AdminStateWriteAuthority> {
+  const preflight = await preflightAdminStateWrites(dir);
+  assert(
+    preflight.ok,
+    `receipt preflight failed: ${JSON.stringify(preflight)}`,
+  );
+  return preflight.authority;
+}
 
 /** Record a green outcome with a pin captured NOW — the "nothing raced the gate"
  * shorthand the receipt-primitive tests below use. */
 async function recordGreenNow(
   dir: string,
 ): ReturnType<typeof recordGateOutcome> {
-  return await recordGateOutcome(dir, true, await pinValidatedTree(dir));
+  return await recordGateOutcome(
+    dir,
+    await receiptAuthority(dir),
+    true,
+    await pinValidatedTree(dir),
+  );
 }
 
 /** A check-stage gate that fails iff `taboo.txt` exists — a deterministic stand-in for
@@ -131,9 +149,17 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
       "discern-gate-receipt",
     );
     const receiptPath = absoluteGitPath(dir, raw);
+    // Authority was available at workflow start; the path changes afterwards to
+    // exercise the writer's best-effort TOCTOU fallback.
+    const authority = await receiptAuthority(dir);
     await Deno.mkdir(receiptPath);
 
-    const receipt = await recordGreenNow(dir);
+    const receipt = await recordGateOutcome(
+      dir,
+      authority,
+      true,
+      await pinValidatedTree(dir),
+    );
     assertEquals(receipt.status, "record_failed");
     assertEquals(receipt.path, receiptPath);
     assert(
@@ -175,7 +201,12 @@ Deno.test("receipt: a failed finish clears an existing receipt (fail-closed)", a
     await gitInit(dir);
     await recordGreenNow(dir);
     assertEquals(await gateReceiptHonored(dir), true);
-    await recordGateOutcome(dir, false, await pinValidatedTree(dir)); // a later failing gate revokes the vouch
+    await recordGateOutcome(
+      dir,
+      await receiptAuthority(dir),
+      false,
+      await pinValidatedTree(dir),
+    ); // a later failing gate revokes the vouch
     assertEquals(await gateReceiptHonored(dir), false);
   });
 });
@@ -204,7 +235,12 @@ Deno.test("receipt: a commit made while the gate ran is never stamped (the pin c
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "mid-run", "--no-gpg-sign");
     // The green outcome describes the PINNED tree, not the new HEAD — no vouch.
-    const rec = await recordGateOutcome(dir, true, pin);
+    const rec = await recordGateOutcome(
+      dir,
+      await receiptAuthority(dir),
+      true,
+      pin,
+    );
     assertEquals(rec.status, "skipped_head_moved");
     assert(
       rec.reason !== undefined && rec.reason.includes("HEAD moved"),
@@ -223,7 +259,12 @@ Deno.test("receipt: a mid-run commit leaves a prior clean vouch intact (still tr
     const pin = await pinValidatedTree(dir); // a gate re-run pins C…
     await git(dir, "commit", "-q", "--allow-empty", "-m", "D", "--no-gpg-sign");
     // …and a mid-run commit D refuses the stamp, WITHOUT clearing C's vouch.
-    const rec = await recordGateOutcome(dir, true, pin);
+    const rec = await recordGateOutcome(
+      dir,
+      await receiptAuthority(dir),
+      true,
+      pin,
+    );
     assertEquals(rec.status, "skipped_head_moved");
     assertEquals((await inspectGateReceipt(dir)).status, "stale"); // still names C
     await git(dir, "reset", "-q", "--hard", "HEAD~1"); // back at clean C
@@ -239,7 +280,12 @@ Deno.test("receipt: a tree that was dirty when the gate began is not stamped eve
     const pin = await pinValidatedTree(dir);
     await Deno.remove(join(dir, "wip.txt")); // cleaned mid-run (checkout/stash)
     // The gate read the dirty tree, which is NOT the tree HEAD names — no vouch.
-    const rec = await recordGateOutcome(dir, true, pin);
+    const rec = await recordGateOutcome(
+      dir,
+      await receiptAuthority(dir),
+      true,
+      pin,
+    );
     assertEquals(rec.status, "skipped_dirty");
     assertEquals(await gateReceiptHonored(dir), false);
   });

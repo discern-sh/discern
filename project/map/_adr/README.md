@@ -143,6 +143,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0149 — The project mark is the Unicode glyph ◮](0149-the-mark-is-the-unicode-glyph.md)
 - [0150 — Markdown prose is stored unwrapped](0150-markdown-prose-is-stored-unwrapped.md)
 - [0151 — The desk starts tasks and opens agents](0151-the-desk-starts-tasks-and-opens-agents.md)
+- [0152 — Slow workflows prove predictable write authority before project work](0152-slow-workflows-prove-write-authority-first.md)
 
 ## Superseded records
 

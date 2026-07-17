@@ -20,14 +20,18 @@ export type Stage = (typeof STAGES)[number];
  * capability omitted from a config is "knowably absent" (the readiness signal
  * `doctor` reports).
  *
- * `smoke` is the odd one out: not "run tool X" but "prove the app boots in THIS
- * checkout" — a FAST, side-effect-light command (a framework's inspire/about, a
- * CLI `--version`, a script that loads config and exits), NOT an e2e suite
- * (anything heavier belongs in `[checks.<name>]`). It rides the `test` stage so
- * every `discern done` re-proves the app boots wherever the gate runs —
- * including inside a worktree, where every future task lives (ADR 0090). Anything
- * env-anchored (an untracked `.env`, an uninstalled dependency dir) that doesn't
- * survive into a fresh worktree makes it fail there, which is the point.
+ * `smoke` is the odd one out: not "run tool X" but "prove the project is ready in
+ * THIS checkout" — a FAST, side-effect-light command that boots the app with its
+ * real config and any essential shared runtime dependency (a framework's about, a
+ * CLI `--version`, a config-load-and-exit), NOT an e2e suite (anything heavier
+ * belongs in `[checks.<name>]`). It rides the fail-fast `test` group so a quick
+ * failure cancels slower siblings. Both `discern done` and `discern test` include
+ * it, and every gate re-proves readiness wherever it runs — including inside a
+ * worktree, where every future task lives (ADR 0090). Anything env-anchored (an
+ * untracked `.env`, an uninstalled dependency dir) that doesn't survive into a
+ * fresh worktree makes it fail there, which is the point. Discern-owned write
+ * authority is engine-known and preflighted separately; a prerequisite unique to
+ * one custom command belongs in that command.
  */
 export const KNOWN_CAPABILITIES = {
   format: "fix",

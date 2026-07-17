@@ -9,9 +9,10 @@
  * run), so without retention the OS temp dir accumulates tens of thousands of
  * orphaned logs — and on a size-limited tmpfs `/tmp`, eventually starves unrelated
  * programs (ADR 0117). Every creation therefore goes through
- * {@link makeTempArtifact} — an architectural test bans
- * `Deno.makeTempFile`/`makeTempDir` elsewhere in `src/` so no artifact can be
- * minted outside the registry — and the gate verbs call
+ * {@link makeTempArtifact} — an architectural test limits temp creation to this
+ * OS-temp artifact registry and the separate, immediately-removed write-authority
+ * probe (which creates beside a planned target, not in the OS temp store) — and
+ * the gate verbs call
  * {@link sweepDueTempArtifacts} before their jobs spawn, reaping expired
  * artifacts from earlier runs. A new artifact family added to
  * {@link TEMP_ARTIFACT_KINDS} auto-enrols in both the naming and the reaping.

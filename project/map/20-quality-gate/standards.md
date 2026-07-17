@@ -64,6 +64,8 @@ Loosening a limit is an owner decision made directly on trunk. A feature branch 
 
 Run `discern standards --pin coverage` after the metric improves. Pin measures the standard and tightens its limit, leaving any configured `margin`. It only moves limits in the permitted direction and reuses a valid measurement receipt when one is available.
 
+Before an ordinary standards pass measures anything, Discern proves it can persist the later measurement receipt. Before a pin, it also proves `discern.toml` and Git's commit metadata are writable. A denial returns `error = "write_access"` before the metric command starts, so a slow measurement is never paid for only to discover the pin or receipt cannot be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+
 ## Where it lives in code
 
 | Concern                                 | Source                                                            |
@@ -72,6 +74,7 @@ Run `discern standards --pin coverage` after the metric improves. Pin measures t
 | Pure standard plan                      | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)   |
 | Gate verification, replay, and deferral | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts) |
 | Measurement and pin execution           | [`standards.ts`](../../../src/engine/gate/standards.ts)           |
+| Built-in write probes                   | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
 
 ## Current state & gotchas
 

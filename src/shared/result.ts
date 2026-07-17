@@ -149,6 +149,8 @@ export interface StepResult {
  *  - `standards` — a `[standards]` limit failed verification against the trunk:
  *    loosened or deleted on this branch, or the trunk's config was fetched but
  *    does not parse (the fail-fast never-loosen precondition).
+ *  - `write_access` — a real write probe for Discern-owned state was denied
+ *    before the slow gate work began.
  *
  * Defined in this base vocabulary module (not the engine) because `result_schemas.ts`
  * — a `shared/` module that must NOT import the engine — derives the `failed_stage`
@@ -168,6 +170,7 @@ export const FAILED_STAGES = [
   "skills",
   "merge",
   "standards",
+  "write_access",
 ] as const;
 
 /** One failed-stage label ({@link FAILED_STAGES}). */

@@ -4893,7 +4893,8 @@
                         "guidance",
                         "skills",
                         "merge",
-                        "standards"
+                        "standards",
+                        "write_access"
                       ]
                     },
                     {

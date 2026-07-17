@@ -31,8 +31,10 @@ import {
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
 import {
+  type AdminStateWriteAuthority,
   clearStandardMeasurements,
   pinValidatedTree,
+  preflightAdminStateWrites,
   recordGateOutcome,
   recordStandardMeasurements,
 } from "./receipt.ts";
@@ -92,6 +94,11 @@ import {
   trackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifactsHint,
 } from "../../lib/agent_gitignore.ts";
+import {
+  writePreflightDiagnostic,
+  type WritePreflightFailure,
+  writePreflightFailureMessage,
+} from "../../shared/write_preflight.ts";
 
 /**
  * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
@@ -120,6 +127,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
   standards:
     "A [standards] limit failed verification against the trunk — a limit only tightens on a branch; the diagnostics name each standard and both values.",
+  write_access:
+    "Discern cannot write the state this gate will persist — grant this command the write access named in diagnostics, then re-run.",
 };
 
 /** The human die message for a failed stage. Exported so `accept` names the stage
@@ -252,6 +261,9 @@ async function runGate(
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
+  let writeAuthority: AdminStateWriteAuthority | undefined;
+  let writeAccessFailure: WritePreflightFailure | undefined;
+  let writeAccessDiag: Diagnostic | undefined;
 
   // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
   //    relationship is invariant across the gate (finish never fetches or commits, so
@@ -370,6 +382,29 @@ async function runGate(
     if (stale.length > 0) {
       failedStage = "skills";
       skillsDiag = await skillsDiagnostic(stale);
+    }
+  }
+
+  // 1e. Write authority — a REAL create/write/rename/remove probe, not permission
+  //     metadata. The gate may need to stamp or clear its gate/measurement state
+  //     after every outcome, so prove that tiny late effect before any project job
+  //     can consume minutes. The branded token is then required by every writer.
+  //     A denial on an otherwise-runnable gate is therefore an immediate failure,
+  //     with the exact path in diagnostics, rather than a green-but-unreceipted run
+  //     that `accept` has to repeat. Existing cheap preconditions retain priority;
+  //     when one already blocked, a successful probe merely lets its red outcome
+  //     clear stale state, and a denied probe does not hide the actionable blocker.
+  const writePreflight = await preflightAdminStateWrites(root);
+  if (writePreflight.ok) {
+    writeAuthority = writePreflight.authority;
+  } else {
+    writeAccessFailure = writePreflight;
+    if (failedStage === null) {
+      failedStage = "write_access";
+      writeAccessDiag = writePreflightDiagnostic(
+        writePreflight,
+        "discern done",
+      );
     }
   }
 
@@ -548,6 +583,9 @@ async function runGate(
   if (skillsDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
   }
+  if (writeAccessDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];
+  }
   if (treeDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];
   }
@@ -585,29 +623,48 @@ async function runGate(
         }
       }
     }
-    if (Object.keys(values).length > 0) {
-      await recordStandardMeasurements(root, values, treePin, durations);
+    if (Object.keys(values).length > 0 && writeAuthority !== undefined) {
+      await recordStandardMeasurements(
+        root,
+        writeAuthority,
+        values,
+        treePin,
+        durations,
+      );
     }
   } else if (
+    writeAuthority !== undefined &&
     standardsData.some(
       (o) =>
         o.verdict === "regressed" ||
         (o.measurement === "measured" && o.value === undefined),
     )
   ) {
-    await clearStandardMeasurements(root);
+    await clearStandardMeasurements(root, writeAuthority);
   }
   // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
-  // re-running the gate; a FAILED run clears any stale vouch. Best-effort — never fails
-  // the gate, but the outcome rides in `data` so suppressed logs still expose receipt
-  // trouble.
-  const gateReceipt = await recordGateOutcome(
-    root,
-    failedStage === null,
-    treePin,
-    receipt?.markdown,
-  );
+  // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
+  // fail-fast precondition; the writer remains best-effort only against a later
+  // point-in-time failure, whose outcome rides in `data` for suppressed loggers.
+  const gateReceipt: NonNullable<GateData["gate_receipt"]> =
+    writeAuthority === undefined
+      ? {
+        status: "unavailable",
+        ...(writeAccessFailure !== undefined
+          ? {
+            path: writeAccessFailure.path,
+            reason: writePreflightFailureMessage(writeAccessFailure),
+          }
+          : { reason: "write authority was not established" }),
+      }
+      : await recordGateOutcome(
+        root,
+        writeAuthority,
+        failedStage === null,
+        treePin,
+        receipt?.markdown,
+      );
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
   // receipt: its git facts were gathered AFTER the move, so its markdown describes a
   // tree the gate never read — the hint tells the agent to re-run on the final commit.

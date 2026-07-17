@@ -53,18 +53,26 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit, runShell } from "../../shared/subprocess.ts";
-import { join } from "@std/path";
+import { isAbsolute, join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import {
+  type AdminStateWriteAuthority,
   carryReceiptForwardAcrossPin,
   clearStandardMeasurements,
   inspectGateReceipt,
   inspectStandardMeasurements,
   pinValidatedTree,
+  preflightAdminStateWrites,
   recordStandardMeasurements,
   type ValidatedTreePin,
 } from "./receipt.ts";
+import {
+  preflightPlannedWrites,
+  writePreflightDiagnostic,
+  type WritePreflightFailure,
+  writePreflightFailureMessage,
+} from "../../shared/write_preflight.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -569,15 +577,17 @@ async function executeStandardPlan(
 /** Route a plain check's outcome into the measurement receipt: green over a clean
  * tree records every measured value against the HEAD pinned before the measurements
  * ran (for a `--pin` on that same clean HEAD to reuse), red clears any receipt
- * (fail-closed). Returns whether a reusable receipt now exists. Best-effort — the
- * receipt is an optimization, never part of the check's own verdict. */
+ * (fail-closed). The caller already preflighted `authority`; the writer remains
+ * best-effort only against a later point-in-time failure. Returns whether a
+ * reusable receipt now exists. */
 async function recordCheckMeasurements(
   root: string,
+  authority: AdminStateWriteAuthority,
   execution: StandardExecution,
   pin: ValidatedTreePin,
 ): Promise<boolean> {
   if (!execution.ok) {
-    await clearStandardMeasurements(root);
+    await clearStandardMeasurements(root, authority);
     return false;
   }
   const values: Record<string, number> = {};
@@ -587,7 +597,7 @@ async function recordCheckMeasurements(
     }
     values[o.standard.name] = o.value;
   }
-  return await recordStandardMeasurements(root, values, pin);
+  return await recordStandardMeasurements(root, authority, values, pin);
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
@@ -696,6 +706,86 @@ function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** A successful preflight for every built-in mutation `standards --pin` may
+ * perform after measuring: validation-state markers, discern.toml, and Git's
+ * common metadata for the commit. The brand forces the mutator to consume it. */
+declare const PIN_WRITE_AUTHORITY: unique symbol;
+interface PinWriteAuthority {
+  readonly root: string;
+  readonly configRel: string;
+  readonly configPath: string;
+  readonly admin: AdminStateWriteAuthority;
+  readonly [PIN_WRITE_AUTHORITY]: true;
+}
+
+type PinWritePreflight =
+  | { ok: true; authority: PinWriteAuthority }
+  | WritePreflightFailure;
+
+function absoluteFromRoot(root: string, path: string): string {
+  return isAbsolute(path) ? path : join(root, path);
+}
+
+/** Probe the complete predictable write surface before a pin pays for any metric.
+ * Git itself uses create+rename lockfiles, represented by the common-dir probe. */
+async function preflightPinWrites(root: string): Promise<PinWritePreflight> {
+  const admin = await preflightAdminStateWrites(root);
+  if (!admin.ok) {
+    return admin;
+  }
+  const configRel = (await installedConfigRel(root)) ?? CONFIG_REL;
+  const configPath = join(root, configRel);
+  const common = await runGit(["rev-parse", "--git-common-dir"], { cwd: root });
+  const commonRaw = common.stdout.trim();
+  if (!common.success || commonRaw === "") {
+    return {
+      ok: false,
+      path: root,
+      description: "the Git metadata needed to commit pinned limits",
+      reason: common.stderr.trim() ||
+        "Git could not resolve its common directory",
+    };
+  }
+  const commonDir = absoluteFromRoot(root, commonRaw);
+  const probed = await preflightPlannedWrites([
+    {
+      kind: "existing-file",
+      path: configPath,
+      description: configRel,
+    },
+    {
+      kind: "directory-entry",
+      path: commonDir,
+      description: "the Git metadata needed to commit pinned limits",
+    },
+  ]);
+  if (!probed.ok) {
+    return probed;
+  }
+  return {
+    ok: true,
+    authority: {
+      root,
+      configRel,
+      configPath,
+      admin: admin.authority,
+    } as PinWriteAuthority,
+  };
+}
+
+function standardsWriteAccessFailure(
+  failure: WritePreflightFailure,
+  reproduceCmd: string,
+): DiscernResult {
+  return {
+    ok: false,
+    verb: "standards",
+    error: "write_access",
+    message: writePreflightFailureMessage(failure),
+    diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
+  };
+}
+
 /** The re-pin commit message: an imperative subject and a body listing each limit's
  * old→new and the measurement behind it, so `git log` explains why the bound moved. */
 function pinCommitMessage(pins: PinnedStandard[]): string {
@@ -740,9 +830,13 @@ async function restorePinEdits(root: string, rel: string): Promise<boolean> {
 async function applyPinEdits(
   root: string,
   pins: PinnedStandard[],
+  authority: PinWriteAuthority,
 ): Promise<string | undefined> {
-  const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
-  const path = join(root, rel);
+  if (authority.root !== root) {
+    return "the pin write-authority token belongs to a different worktree";
+  }
+  const rel = authority.configRel;
+  const path = authority.configPath;
   let text: string;
   try {
     text = await Deno.readTextFile(path);
@@ -874,6 +968,15 @@ async function pinStandardsResult(
     };
   }
 
+  const writePreflight = await preflightPinWrites(root);
+  if (!writePreflight.ok) {
+    return standardsWriteAccessFailure(
+      writePreflight,
+      "discern standards --pin",
+    );
+  }
+  const writeAuthority = writePreflight.authority;
+
   // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorReceipt = await inspectGateReceipt(root);
@@ -947,7 +1050,7 @@ async function pinStandardsResult(
     };
   }
 
-  const failure = await applyPinEdits(root, pins);
+  const failure = await applyPinEdits(root, pins, writeAuthority);
   if (failure !== undefined) {
     return {
       ok: false,
@@ -961,6 +1064,7 @@ async function pinStandardsResult(
   // redundant gate re-run (the commit changed only standard limits — gate-neutral).
   const receipt = await carryReceiptForwardAcrossPin(
     root,
+    writeAuthority.admin,
     priorReceipt?.status === "honored",
   );
   const carried = receipt?.status === "recorded";
@@ -1037,50 +1141,73 @@ export async function standardsResult(
         message: dirtyMessage,
       };
     } else {
-      const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-        cfg.project.main_branch;
-      const out = makeOut(colorEnabled(), { quiet: true });
-      // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
-      // for the exact tree they read, so a mid-measurement commit voids the stamp.
-      const treePin = await pinValidatedTree(root);
-      const execution = await executeStandardPlan(plan, root, mainBranch, out);
-      const { results, outcomes, diagnostics } = execution;
-      result = appliedResult("standards", results, diagnostics);
-      // Green over a clean tree: record the measurement receipt a `--pin` on this
-      // same clean HEAD reuses; red: clear any receipt (fail-closed).
-      const receipted = await recordCheckMeasurements(root, execution, treePin);
-      // A green check just paid for every measurement, so answer the natural next
-      // question for free: which limits have pinnable slack. Decided by the SAME
-      // pinnedLimit the pin pass applies, so this hint and a real pin can never
-      // disagree — and a caller needs no (measuring) pin preview to find out.
-      if (result.ok) {
-        const slack = outcomes.flatMap((o) => {
-          if (!o.held || o.value === undefined) {
-            return [];
+      const writePreflight = await preflightAdminStateWrites(root);
+      if (!writePreflight.ok) {
+        result = standardsWriteAccessFailure(
+          writePreflight,
+          "discern standards",
+        );
+      } else {
+        const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+          cfg.project.main_branch;
+        const out = makeOut(colorEnabled(), { quiet: true });
+        // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
+        // for the exact tree they read, so a mid-measurement commit voids the stamp.
+        const treePin = await pinValidatedTree(root);
+        const execution = await executeStandardPlan(
+          plan,
+          root,
+          mainBranch,
+          out,
+        );
+        const { results, outcomes, diagnostics } = execution;
+        result = appliedResult("standards", results, diagnostics);
+        // Green over a clean tree: record the measurement receipt a `--pin` on this
+        // same clean HEAD reuses; red: clear any receipt (fail-closed).
+        const receipted = await recordCheckMeasurements(
+          root,
+          writePreflight.authority,
+          execution,
+          treePin,
+        );
+        // A green check just paid for every measurement, so answer the natural next
+        // question for free: which limits have pinnable slack. Decided by the SAME
+        // pinnedLimit the pin pass applies, so this hint and a real pin can never
+        // disagree — and a caller needs no (measuring) pin preview to find out.
+        if (result.ok) {
+          const slack = outcomes.flatMap((o) => {
+            if (!o.held || o.value === undefined) {
+              return [];
+            }
+            const r = o.standard;
+            const newLimit = pinnedLimit(
+              r.direction,
+              o.value,
+              r.margin,
+              r.limit,
+            );
+            if (newLimit === undefined) {
+              return [];
+            }
+            const bound = r.direction === "up" ? "floor" : "ceiling";
+            return [
+              `${r.name} (${bound} ${r.limit}, measured ${
+                fmtRate(o.value)
+              } — would pin to ${newLimit})`,
+            ];
+          });
+          if (slack.length > 0) {
+            result.hints = [
+              ...(result.hints ?? []),
+              `Pinnable slack: ${
+                slack.join("; ")
+              }. Capture it with \`discern standards --pin\` — ${
+                receipted
+                  ? "on this commit it reuses this check's measurements (measure once, pin once)"
+                  : "this check already measured, no pin dry-run needed"
+              }.`,
+            ];
           }
-          const r = o.standard;
-          const newLimit = pinnedLimit(r.direction, o.value, r.margin, r.limit);
-          if (newLimit === undefined) {
-            return [];
-          }
-          const bound = r.direction === "up" ? "floor" : "ceiling";
-          return [
-            `${r.name} (${bound} ${r.limit}, measured ${
-              fmtRate(o.value)
-            } — would pin to ${newLimit})`,
-          ];
-        });
-        if (slack.length > 0) {
-          result.hints = [
-            ...(result.hints ?? []),
-            `Pinnable slack: ${
-              slack.join("; ")
-            }. Capture it with \`discern standards --pin\` — ${
-              receipted
-                ? "on this commit it reuses this check's measurements (measure once, pin once)"
-                : "this check already measured, no pin dry-run needed"
-            }.`,
-          ];
         }
       }
     }
@@ -1180,9 +1307,20 @@ export async function runStandards(
     }
   }
 
+  const writePreflight = await preflightAdminStateWrites(root);
+  if (!writePreflight.ok) {
+    out.error(writePreflightFailureMessage(writePreflight));
+    return 1;
+  }
+
   const treePin = await pinValidatedTree(root);
   const execution = await executeStandardPlan(plan, root, mainBranch, out);
-  await recordCheckMeasurements(root, execution, treePin);
+  await recordCheckMeasurements(
+    root,
+    writePreflight.authority,
+    execution,
+    treePin,
+  );
   const { results } = execution;
   const result = appliedResult("standards", results);
   renderStepResults(outSink(out), {

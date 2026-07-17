@@ -157,7 +157,7 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `lint` | string \| string[] \| object | — | check stage — read-only static analysis. |
 | `typecheck` | string \| string[] \| object | — | check stage — read-only type checking. |
 | `test` | string \| string[] \| object | — | test stage — the test suite. |
-| `smoke` | string \| string[] \| object | — | test stage — a fast, side-effect-light check that the app boots in THIS checkout (a framework's inspire/about, a CLI --version, a config-load-and-exit); proves viability wherever the gate runs, including inside a worktree. Not an e2e suite. |
+| `smoke` | string \| string[] \| object | — | test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes. |
 
 ## `[checks.<name>]`
 

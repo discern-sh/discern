@@ -1428,6 +1428,7 @@ export type DiscernDoneResult = {
       | "skills"
       | "merge"
       | "standards"
+      | "write_access"
       | null;
     scopes_changed: Array<string>;
     standards?: Array<{

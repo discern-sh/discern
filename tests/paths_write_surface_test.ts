@@ -49,11 +49,12 @@ import {
 
 // ── leg 1: the static funnel ─────────────────────────────────────────────────
 
-/** A raw filesystem mutation primitive: the Deno write/link/move/remove calls,
- * plus `ensureDir` (directory creation). Reads are not writes; `makeTempFile`/
- * `makeTempDir` land outside the project tree by construction. */
+/** A raw filesystem mutation primitive: the Deno write/link/move/remove/temp
+ * calls, plus `ensureDir` (directory creation). Reads are not writes. Temp
+ * creation is included because an explicit `dir` can deliberately target Git
+ * metadata, as the write-authority probe does. */
 const WRITE_PRIMITIVE =
-  /\bDeno\.(writeTextFile|writeFile|copyFile|symlink|rename|remove|mkdir)\s*\(|\bensureDir\s*\(/;
+  /\bDeno\.(writeTextFile|writeFile|copyFile|symlink|rename|remove|mkdir|makeTempFile|makeTempDir)\s*\(|\bensureDir\s*\(/;
 
 /** An `@std/fs` tree-mutation helper imported by name (`copy`, `move`) — the
  * one non-`Deno.*` way src code writes files today (skills materialization). */
@@ -149,6 +150,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   [
     "src/shared/temp_artifacts.ts",
     "the OS-temp artifact registry: creates gate output artifacts and reaps expired ones (outside the project tree; ADR 0117)",
+  ],
+  [
+    "src/shared/write_preflight.ts",
+    "ephemeral same-directory authority probes for writes a slow workflow plans to perform later",
   ],
 ]);
 

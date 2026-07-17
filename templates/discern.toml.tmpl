@@ -107,8 +107,8 @@ dir = "discern/skills"
 #   lint       check  read-only static analysis
 #   typecheck  check  read-only type checking
 #   test       test   the test suite
-#   smoke      test   a fast check that the app boots in this checkout (proves it
-#                     runs wherever the gate runs — including inside a worktree)
+#   smoke      test   a fast, side-effect-light readiness check: the app boots
+#                     and its essential shared runtime needs work in this checkout
 # A value is one command, or a list run in order: lint = ["eslint .", "stylelint ."].
 # A job needing its own time budget takes the table form — the `timeout` (seconds)
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
@@ -121,6 +121,15 @@ dir = "discern/skills"
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
 # capabilities, and never builds or tests.
+#
+# `smoke` is the project's fast readiness check — real config and essential shared
+# runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
+# `discern done` and `discern test` run it in the same fail-fast test group, so a
+# quick smoke failure cancels slower siblings.
+# Discern separately probes its own predictable writes before slow workflows;
+# do not duplicate those internal checks here.
+# Put a prerequisite unique to one custom check or standard at the start of
+# that command instead.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [capabilities]
@@ -129,8 +138,8 @@ dir = "discern/skills"
 # lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
 # typecheck = "tsc --noEmit"         # or "mypy ."
 # test      = "npm test"             # or "pytest" or "go test ./..."
-# smoke     = "your-app --version"   # a fast "does it boot?" — a CLI --version,
-#                                    # a framework's inspire/about, a config-load-and-exit
+# smoke     = "your-app --version"   # fast boot/readiness — a CLI --version,
+#                                    # framework about, or real-config load-and-exit
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -5,8 +5,11 @@
  * (tens of thousands of orphaned logs were observed in the wild). These tests
  * pin the retention contract: every registered artifact family is reaped past
  * its TTL, nothing outside the registry is ever touched, and — the structural
- * guard — no code in `src/` can mint a temp file/dir outside the registry
+ * guard — no code in `src/` can mint an OS-temp file/dir outside the registry
  * module, so a future artifact family cannot silently opt out of the reaper.
+ * The one non-artifact use is the target-adjacent write-authority probe: its
+ * exact primitive and target directory are pinned below, and its own tests
+ * prove immediate cleanup.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -139,6 +142,7 @@ Deno.test("temp artifacts: creation goes through the registry, so what is minted
 
 const SRC_DIR = join(dirname(fromFileUrl(import.meta.url)), "..", "src");
 const REGISTRY_REL = join("src", "shared", "temp_artifacts.ts");
+const WRITE_PREFLIGHT_REL = join("src", "shared", "write_preflight.ts");
 
 Deno.test("temp artifacts: src/ mints temp files only through the registry (the reaper's coverage is total)", async () => {
   const offenders: string[] = [];
@@ -148,6 +152,20 @@ Deno.test("temp artifacts: src/ mints temp files only through the registry (the 
       continue; // the one place allowed to call the primitive
     }
     const text = await Deno.readTextFile(entry.path);
+    if (rel === WRITE_PREFLIGHT_REL) {
+      const primitives = text.match(/Deno\.makeTemp(File|Dir)(Sync)?\(/g) ?? [];
+      assertEquals(
+        primitives.length,
+        1,
+        "the write-authority module may mint exactly one immediate probe",
+      );
+      assertStringIncludes(
+        text,
+        "dir: target.path",
+        "the write-authority probe must be target-adjacent, never an OS-temp artifact",
+      );
+      continue;
+    }
     if (/Deno\.makeTemp(File|Dir)(Sync)?\(/.test(text)) {
       offenders.push(rel);
     }
@@ -155,9 +173,9 @@ Deno.test("temp artifacts: src/ mints temp files only through the registry (the 
   assertEquals(
     offenders,
     [],
-    "a temp file/dir minted outside src/shared/temp_artifacts.ts never gets " +
-      "reaped — add an artifact kind to TEMP_ARTIFACT_KINDS and create it " +
-      "via makeTempArtifact instead",
+    "an OS-temp file/dir minted outside src/shared/temp_artifacts.ts never " +
+      "gets reaped — add an artifact kind to TEMP_ARTIFACT_KINDS and create " +
+      "it via makeTempArtifact instead",
   );
 });
 
