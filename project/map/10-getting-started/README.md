@@ -18,7 +18,7 @@ Start with the [quickstart](quickstart.md). It is the shortest complete path fro
 
 Setup leaves ordinary files on a branch for you to inspect. [What setup added](after-setup.md) explains that diff and names what you edit, what discern shares with you, and what it regenerates. If a command or agent integration fails, go straight to the [FAQ](faq.md), which starts with the diagnostic command.
 
-When you return for a later release, follow [Upgrade discern](upgrade.md). Updating the binary and updating the project are separate actions, and the guide keeps them in the right order.
+When you return for a later release, follow [Upgrade discern](upgrade-discern.md). Updating the binary and updating the project are separate actions, and the guide keeps them in the right order.
 
 | Read next                                       | What it helps you do                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------ |
@@ -26,6 +26,6 @@ When you return for a later release, follow [Upgrade discern](upgrade.md). Updat
 | [Walkthrough](walkthrough.md)                   | Follow the same flow with each handoff and safety check explained. |
 | [What setup added](after-setup.md)              | Read the setup diff and know which files to edit.                  |
 | [FAQ and troubleshooting](faq.md)               | Diagnose setup, command, MCP, platform, and worktree problems.     |
-| [Upgrade discern](upgrade.md)                   | Update the binary, migrate the project, and verify the result.     |
+| [Upgrade discern](upgrade-discern.md)           | Update the binary, migrate the project, and verify the result.     |
 | [Files & ownership](artifact-ownership.md)      | Look up the complete write surface and removal behavior.           |
 | [`discern.toml` reference](config-reference.md) | Look up every configuration key, type, and default.                |

@@ -81,7 +81,7 @@ The documentation tree discern maintains at `[map].dir` (default `map/`): writte
 
 ### Migration
 
-One idempotent step that brings an install from [schema version](#schema-version) `N` to `N+1`. `discern upgrade` runs every pending step in order, validates the migrated config, then re-stamps the version ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). Covered in [Upgrade discern](../10-getting-started/upgrade.md).
+One idempotent step that brings an install from [schema version](#schema-version) `N` to `N+1`. `discern upgrade` runs every pending step in order, validates the migrated config, then re-stamps the version ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). Covered in [Upgrade discern](../10-getting-started/upgrade-discern.md).
 
 ### Namespace
 

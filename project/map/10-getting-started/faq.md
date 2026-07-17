@@ -45,7 +45,7 @@ Read the diagnostic returned for the failed job. It names the tool, the command 
 
 ## The project schema is newer than this binary
 
-Update the binary before running the project upgrade. The repository was upgraded by a newer discern, so the older binary refuses to stamp the schema backward. Follow [Upgrade discern](upgrade.md).
+Update the binary before running the project upgrade. The repository was upgraded by a newer discern, so the older binary refuses to stamp the schema backward. Follow [Upgrade discern](upgrade-discern.md).
 
 ## Windows reports an unsupported platform
 

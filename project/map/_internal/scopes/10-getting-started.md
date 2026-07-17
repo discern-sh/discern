@@ -15,7 +15,7 @@ The public path from installing discern through setup, a first gated change, tro
 | `walkthrough.md`        | Guided tour that adds detail after the quickstart.                      |
 | `after-setup.md`        | Guide to the files a reader sees after setup.                           |
 | `faq.md`                | Troubleshooting page led by `discern doctor`.                           |
-| `upgrade.md`            | Task guide for updating the binary and then the project.                |
+| `upgrade-discern.md`    | Task guide for updating the binary and then the project.                |
 | `artifact-ownership.md` | Approved reference exemplar; retain pending its move to `70-reference`. |
 | `config-reference.md`   | Generated config reference; retain pending its move to `70-reference`.  |
 
