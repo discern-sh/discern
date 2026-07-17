@@ -1,3 +1,13 @@
+---
+title: Gemini
+description: How discern wires guidance, shared skills, MCP, hooks, and workspace trust for Gemini.
+order: 30
+aliases:
+  - Gemini
+  - Gemini CLI
+  - Google Gemini
+---
+
 # Gemini integration
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[guidance].agents`:
@@ -18,7 +28,7 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`; edit the sources and run `discern refresh`, never edit `GEMINI.md` by hand.
+`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. That directory is shared with Codex, Cursor, and GitHub Copilot.
 

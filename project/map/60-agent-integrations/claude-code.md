@@ -1,3 +1,13 @@
+---
+title: Claude Code
+description: How discern wires guidance, skills, MCP, hooks, permissions, and worktrees for Claude Code.
+order: 10
+aliases:
+  - Claude Code
+  - claude
+  - Anthropic Claude
+---
+
 # Claude Code integration
 
 discern's Claude Code integration is project-local and registry-driven. It writes or co-manages the files below when Claude Code is enabled in `[guidance].agents`:
@@ -19,7 +29,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`; edit the sources and run `discern refresh`, never edit `CLAUDE.md` by hand.
+`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 
@@ -98,7 +108,7 @@ Claude Code can also re-root a running session with `EnterWorktree`. That moves 
 
 Claude Code shell cwd persists across tool calls, so a `cd` in one shell call can affect later calls. Agents should still prefer opening or launching a session in the intended worktree when a task is meant to stay isolated.
 
-discern does not emit Claude Code sandbox settings. If Claude Code's native sandbox is enabled by the user, it is the only native agent sandbox among the modelled agents that understands linked-worktree Git metadata automatically.
+discern does not emit Claude Code sandbox settings. If Claude Code's native sandbox is enabled by the user, it is the only native agent sandbox among the modeled agents that understands linked-worktree Git metadata automatically.
 
 ## See also
 
