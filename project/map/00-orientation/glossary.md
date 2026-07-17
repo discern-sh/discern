@@ -127,6 +127,10 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 
 A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Covered in [standards](../20-quality-gate/standards.md).
 
+### Surface
+
+A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term: the command-line surface, MCP surface, published-docs surfaces, and write surface name different boundaries. Bare “surface” does not name a component.
+
 ### Trunk
 
 The shared branch accepted work lands on: `[repository].trunk`, usually `main`. Worktrees bring it in with `discern update` and land back on it with `discern accept`.

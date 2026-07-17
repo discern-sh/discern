@@ -10,7 +10,7 @@ aliases:
 
 _Start here: the mental model, the principles behind it, and the glossary the rest of the manual leans on._
 
-discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. This section tells that story once, in plain English, before any section goes deep on mechanism. Read [concepts](concepts.md) and the rest of the manual slots into place.
+discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. This section gives you that model in plain English before any section goes deep on mechanism. Read [concepts](concepts.md) and the rest of the manual slots into place.
 
 The questions evaluators ask next each have a page. [Design principles](design-principles.md) explains why the system is shaped the way it is — rules held by tests in discern's own gate, from stack-neutrality to the provable footprint. [Trust & your data](trust-and-data.md) covers what runs on your machine: no network calls, no telemetry, and no commands beyond the ones you wrote yourself.
 

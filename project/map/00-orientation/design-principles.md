@@ -41,7 +41,7 @@ This repo's gate is the engine it ships, run straight from source. A regression 
 
 ### 7. Sovereign inside, deferential outside
 
-discern is maximally prescriptive within the surface it owns and writes nothing beyond it: the root `discern.toml`, the marked `.gitignore` block, each configured agent's own config files, a worktree's `.env`. A test fails the moment any verb writes anywhere else ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Containment is what licenses the strong opinions.
+discern is maximally prescriptive within the paths it owns: the root `discern.toml`, the marked `.gitignore` block, each configured agent's own config files, and a worktree's `.env`. A test fails the moment any verb writes anywhere else ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Containment is what licenses the strong opinions.
 
 ### 8. Placement is consent
 
@@ -65,7 +65,7 @@ The documentation tree discern maintains is the agents' map of the codebase: inf
 
 ### 13. The footprint is provable
 
-"One committed root file, one visible folder, the agent files, a short list of shims" is a checkable predicate: a test fails the moment any verb writes outside it ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). The claim stays true because a check keeps it true.
+"One committed root file, one visible folder, the agent files, a short list of shims" is a checkable predicate: a test fails the moment any verb writes outside that footprint ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). The claim stays true because a check keeps it true.
 
 ## When a principle bends
 
