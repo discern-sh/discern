@@ -1,10 +1,10 @@
 # For humans
 
-_Almost everything in this repo is built to be driven by coding agents — the guidelines, the skills, the gate, the worktree workflow. This page is the exception: the short list of what a **human** with the repo checked out does for a reliable experience. (Agents keep this page current too.)_
+_Almost everything in this repo is built to be driven by coding agents — the guidance, the Skills, the gate, the worktree workflow. This page is the exception: the short list of what a **human** with the repo checked out does for a reliable experience. (Agents keep this page current too.)_
 
 ## The one idea to hold onto: the engine is the binary's, not on disk
 
-discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guideline compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). A project never has a committed copy of the engine — it lives in the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running its own engine from source (`discern done`), so there is **no** second copy to keep in sync and nothing that can drift.
+discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guidance compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). A project never has a committed copy of the engine — it lives in the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running its own engine from source (`discern done`), so there is **no** second copy to keep in sync and nothing that can drift.
 
 An install's default authored surface has `discern.toml` and `map/` at the root, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Files split by disposition: _yours_ (the map and authored files under `discern/`), _co-managed_ (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ outputs (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file map is in [install-surface.md](install-surface.md), and the [dispositions](../00-orientation/glossary.md#file-dispositions) are defined in the glossary. Edit your files in place; regenerate the binary-owned outputs with `discern refresh` or `discern upgrade`.
 
@@ -32,7 +32,7 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### Any editor
 
-Don't hand-edit the generated agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` (committed generated files — ADR 0034/0128) are compiled from discern's built-in guidance plus this repo's own [`project/guidance.md`](../../guidance.md) by `discern refresh`. Edit that source and recompile.
+Don't hand-edit the compiled agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are compiled from discern's built-in guidance plus this repo's own [`project/guidance.md`](../../guidance.md) by `discern refresh` and committed ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Edit that source and recompile.
 
 ## Working alongside the agents
 

@@ -49,7 +49,7 @@ After the never-loosen check, the gate handles each measurement in the same para
 
 A standard failure names the measured value, the limit, and the measurement command in `diagnostics[]`.
 
-The public shape of those fields is in [Model Context Protocol tools and results](../70-reference/mcp-and-results.md).
+The public shape of those fields is in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 | Failure                                    | Response                                                                                                          |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |

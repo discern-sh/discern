@@ -24,9 +24,9 @@ sources = ["discern/guidance.md", "packages/*/AGENT-NOTES.md"]
 agents = ["claude_code", "codex", "gemini"]
 ```
 
-Omit `agents` for the default pair, Claude Code and Codex. Set an explicit list to choose integrations. An empty list emits no agent guidance files.
+Omit `agents` for the default pair, Claude Code and Codex. Set an explicit list to choose integrations. An empty list emits no compiled agent files.
 
-Source discovery skips generated agent files. A glob such as `"*.md"` never feeds `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` back into the next compilation.
+Source discovery skips compiled agent files. A glob such as `"*.md"` never feeds `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` back into the next compilation.
 
 ## Write rules that travel
 
@@ -40,7 +40,7 @@ Keep guidance provider-neutral. Agent-specific setup, trust prompts, and file be
 
 - Built-in guidance is additive. A project source cannot replace or suppress it.
 - Compilation reads source files in configured order after the built-in sections.
-- Source discovery protects generated agent files, but a broad glob can still collect unrelated Markdown. Prefer narrow patterns with clear ownership.
+- Source discovery protects compiled agent files, but a broad glob can still collect unrelated Markdown. Prefer narrow patterns with clear ownership.
 - The source stays yours. Edit it directly, then compile the generated files with `discern refresh`.
 
 ## Where it lives in code

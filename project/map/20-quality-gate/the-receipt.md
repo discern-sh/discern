@@ -39,7 +39,7 @@ discern stores the validated commit and receipt markdown in the worktree's git a
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
-The public result fields are in [Model Context Protocol tools and results](../70-reference/mcp-and-results.md).
+The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 

@@ -14,7 +14,7 @@ discern's Claude Code integration is project-local and registry-driven. It write
 
 | File                    | Role                                             | Ownership             |
 | ----------------------- | ------------------------------------------------ | --------------------- |
-| `CLAUDE.md`             | Pointer to the canonical compiled guidance file  | Generated, committed  |
+| `CLAUDE.md`             | Pointer to the canonical compiled agent file     | Generated, committed  |
 | `.claude/skills/`       | Materialized Claude Code Skills                  | Generated, gitignored |
 | `.mcp.json`             | Project MCP server entry                         | Co-managed, tracked   |
 | `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Co-managed, tracked   |
@@ -29,7 +29,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains the canonical compiled agent file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 

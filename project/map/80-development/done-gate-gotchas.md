@@ -1,4 +1,4 @@
-# Done-gate gotchas
+# Gate gotchas
 
 _Non-obvious ways the `done` gate fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._
 
@@ -22,7 +22,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 ### A generated or local discern artifact was force-added
 
-**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually generated agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or machine-local provider state under `.claude/`.
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually compiled agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized Skills, or machine-local provider state under `.claude/`.
 
 **Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. A file can be byte-current and still be wrong to track: the reviewable source is `project/guidance.md`, `[skills].dir`, or provider config, not the generated/local artifact.
 

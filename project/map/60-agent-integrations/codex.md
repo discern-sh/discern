@@ -14,7 +14,7 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 
 | File                                   | Role                                      | Ownership             |
 | -------------------------------------- | ----------------------------------------- | --------------------- |
-| `AGENTS.md`                            | Canonical compiled guidance file          | Generated, committed  |
+| `AGENTS.md`                            | Canonical compiled agent file             | Generated, committed  |
 | `.agents/skills/`                      | Materialized Agent Skills                 | Generated, gitignored |
 | `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
 | `.codex/hooks.json`                    | Session-start hook                        | Co-managed, tracked   |

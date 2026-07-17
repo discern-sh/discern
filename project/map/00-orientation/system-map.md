@@ -32,8 +32,10 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
 │      guidance.md · TODO.md ·                                │
 │      skills/ · scripts/ · brief.md (each config-pointable)  │
 │  + map/ — the documentation map                             │
-│  + generated: AGENTS.md, CLAUDE.md/GEMINI.md,               │
-│      .claude/skills/, .agents/skills/ (gitignored)          │
+│  + compiled agent files: AGENTS.md, CLAUDE.md/GEMINI.md     │
+│      (tracked)                                              │
+│  + materialized Skills: .claude/skills/, .agents/skills/    │
+│      (gitignored)                                           │
 │  + merged provider settings, co-managed .gitignore          │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -60,12 +62,12 @@ person / coding agent
                                  discern config get
 ```
 
-`discern done` walks the stages in order, attributing each job to one capability or check:
+`discern done` checks the worktree's trunk precondition, then walks the stages in order, attributing each job to one capability or check:
 
 ```
-  fix  ───►  build  ───►  check ∥ test  ───►  scope gates  ───►  main-merged
-(serial,   (parallel    (parallel,        (only scopes      (only in a
- mutating)  w/ fix)      read-only+suite)   that changed)     worktree)
+trunk-merged  ───►  fix  ───►  build  ───►  check ∥ test  ───►  scope gates
+(worktree       (serial,   (parallel    (parallel,          (only scopes
+ precondition)   mutating)  w/ fix)      read-only+suite)     that changed)
 ```
 
 The worktree workflow brackets a change, keeping the main checkout untouched:

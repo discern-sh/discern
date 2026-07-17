@@ -22,4 +22,4 @@ Focused procedures belong in [Skills](../45-skills/). Every session reads guidan
 | Read next                                                   | What it helps you do                                      |
 | ----------------------------------------------------------- | --------------------------------------------------------- |
 | [Write project guidance](write-project-guidance.md)         | Choose sources and write instructions every agent shares. |
-| [Compile and check guidance](compile-and-check-guidance.md) | Refresh, inspect, and commit generated agent files.       |
+| [Compile and check guidance](compile-and-check-guidance.md) | Refresh, inspect, and commit compiled agent files.        |

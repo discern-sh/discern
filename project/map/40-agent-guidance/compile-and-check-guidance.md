@@ -1,6 +1,6 @@
 ---
 title: Compile and check guidance
-description: Run refresh, inspect the generated instruction files, and keep every configured agent on the current sources.
+description: Run refresh, inspect the compiled agent files, and keep every configured agent on the current sources.
 order: 20
 aliases:
   - refresh guidance
@@ -47,7 +47,7 @@ Do not edit a compiled file to fix its prose. The next refresh replaces it, and 
 
 - An explicit empty `[guidance].agents` list emits no instruction files.
 - discern generates a provider-specific pointer only when its canonical target exists. Otherwise that provider receives the full compiled body.
-- Git ignores materialized Skills and tracks compiled guidance files unless your own `.gitignore` rules say otherwise.
+- Git ignores materialized Skills and tracks compiled agent files unless your own `.gitignore` rules say otherwise.
 - `discern update` and `discern accept` refresh the checkout they leave ready for work, but an ordinary source edit still needs `discern refresh` before the gate passes.
 
 ## Where it lives in code
