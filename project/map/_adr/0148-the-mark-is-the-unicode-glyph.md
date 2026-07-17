@@ -38,10 +38,10 @@ Two rules bound its use:
 - In CLI and machine-facing output the glyph is decorative, never load-bearing.
   Nothing parses it, no alignment depends on it, and output must read correctly
   in a font that lacks the codepoint.
-- Drawn assets (favicon, social images) are bespoke SVGs derived from the
-  shape, rendered theme-aware (`currentColor` or a light/dark pair), never a
-  rasterized glyph. At favicon sizes the half-fill tends to collapse into a
-  solid triangle, so drawn versions may exaggerate the split.
+- Drawn assets (favicon, social images) are bespoke SVGs derived from the shape,
+  rendered theme-aware (`currentColor` or a light/dark pair), never a rasterized
+  glyph. At favicon sizes the half-fill tends to collapse into a solid triangle,
+  so drawn versions may exaggerate the split.
 
 ## Consequences
 
