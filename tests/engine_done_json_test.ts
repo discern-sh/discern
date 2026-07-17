@@ -1025,6 +1025,15 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
     assertEquals(dirty.ok, true);
     assertEquals(dirty.data.receipt, undefined);
     assertEquals(dirty.data.gate_receipt.status, "skipped_dirty");
+    // The refusal NAMES what blocks the receipt — in the reason and the hint —
+    // so the agent commits the right file instead of diagnosing a bare "dirty".
+    assertStringIncludes(dirty.data.gate_receipt.reason, "wip.txt");
+    assert(
+      (dirty.hints ?? []).some((h: string) => h.includes("wip.txt")),
+      `the dirty hint must name the blocking path: ${
+        JSON.stringify(dirty.hints)
+      }`,
+    );
     assert(
       !(dirty.hints ?? []).some((h: string) => h.includes("relay the receipt")),
       `no relay hint without a receipt: ${JSON.stringify(dirty.hints)}`,

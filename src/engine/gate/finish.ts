@@ -669,7 +669,7 @@ function gateReceiptHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return "Gate passed, but no gate receipt was recorded because the worktree is dirty. Use `discern prepare` or `discern test` while iterating, then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance.";
+        return `Gate passed, but no gate receipt was recorded because the worktree is dirty${reason}. Use \`discern prepare\` or \`discern test\` while iterating, then commit the intended final tree and re-run \`discern done\` on the clean HEAD before handoff or acceptance.`;
       case "skipped_head_moved":
         return `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
       case "record_failed":
