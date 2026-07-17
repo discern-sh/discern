@@ -23,11 +23,11 @@ discern coupling src/shared/result.ts
 discern coupling src/shared/result.ts src/shared/result_schemas.ts
 ```
 
-| Invocation | Mode | What it reports |
-| --- | --- | --- |
-| No path | Diff-aware | Partners missing from the branch's committed and uncommitted change set. |
-| 1 path | Query | The file's strongest co-change partners, useful before editing it. |
-| 2 paths | Evidence | The recent commits where both files changed, with each file's own commit count. |
+| Invocation | Mode       | What it reports                                                                 |
+| ---------- | ---------- | ------------------------------------------------------------------------------- |
+| No path    | Diff-aware | Partners missing from the branch's committed and uncommitted change set.        |
+| 1 path     | Query      | The file's strongest co-change partners, useful before editing it.              |
+| 2 paths    | Evidence   | The recent commits where both files changed, with each file's own commit count. |
 
 Diff-aware mode compares the branch with trunk and includes worktree edits. A clean worktree can still produce suggestions when the branch has commits ahead. Evidence mode lets you inspect subjects and dates before turning a pattern into a rule.
 
@@ -63,12 +63,12 @@ The result fields and Model Context Protocol arguments are in [MCP tools and res
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
-| Mining, ranking, and all three modes | [`coupling.ts`](../../../src/engine/coupling/coupling.ts) |
-| Result data schema | [`result_schemas.ts`](../../../src/shared/result_schemas.ts) |
-| Gate and prepare integration | [`finish.ts`](../../../src/engine/gate/finish.ts), [`prepare.ts`](../../../src/engine/gate/prepare.ts) |
-| Behavioral coverage | [`engine_coupling_test.ts`](../../../tests/engine_coupling_test.ts) |
+| Concern                              | Source                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Mining, ranking, and all three modes | [`coupling.ts`](../../../src/engine/coupling/coupling.ts)                                              |
+| Result data schema                   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                           |
+| Gate and prepare integration         | [`finish.ts`](../../../src/engine/gate/finish.ts), [`prepare.ts`](../../../src/engine/gate/prepare.ts) |
+| Behavioral coverage                  | [`engine_coupling_test.ts`](../../../tests/engine_coupling_test.ts)                                    |
 
 ## Current state & gotchas
 

@@ -19,12 +19,12 @@ Use `discern prepare` while you work. It runs the fix and check stages without p
 
 For the JSON fields and agent-facing tool contract, use [MCP tools and results](../70-reference/mcp-and-results.md).
 
-| Read next                                       | What it helps you do                                                        |
-| ----------------------------------------------- | --------------------------------------------------------------------------- |
-| [When the gate fails](when-the-gate-fails.md)  | Read a red result and take the shortest route to the fix.                   |
-| [Standards](standards.md)                       | Hold a metric floor or ceiling and respond when it fires.                   |
-| [The receipt](the-receipt.md)                   | Understand the proof a clean green run hands to the reviewer.               |
-| [Strand detection](strand-detection.md)         | Fix tracked files a gate stage changed after the final commit.              |
-| [Run the gate in CI](ci.md)                     | Require the same gate on pull requests and trunk pushes.                    |
-| [Continuous improvement](improvement.md)        | Find the highest-value practice to improve after the current change passes. |
-| [Co-change coupling](coupling.md)               | Check whether this change omitted a file that usually moves with it.        |
+| Read next                                     | What it helps you do                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| [When the gate fails](when-the-gate-fails.md) | Read a red result and take the shortest route to the fix.                   |
+| [Standards](standards.md)                     | Hold a metric floor or ceiling and respond when it fires.                   |
+| [The receipt](the-receipt.md)                 | Understand the proof a clean green run hands to the reviewer.               |
+| [Strand detection](strand-detection.md)       | Fix tracked files a gate stage changed after the final commit.              |
+| [Run the gate in CI](ci.md)                   | Require the same gate on pull requests and trunk pushes.                    |
+| [Continuous improvement](improvement.md)      | Find the highest-value practice to improve after the current change passes. |
+| [Co-change coupling](coupling.md)             | Check whether this change omitted a file that usually moves with it.        |

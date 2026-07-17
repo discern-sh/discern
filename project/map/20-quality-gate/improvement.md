@@ -33,15 +33,15 @@ Objective gaps lead. The coach chooses the fix that recovers the most weighted s
 
 ## Categories
 
-| Category | What the coach inspects |
-| --- | --- |
-| `gate` | Tests, static analysis, formatting, depth, isolation, and feedback speed. |
-| `setup` | Completed setup and useful failure memory. |
-| `guidance` | Substantive authored guidance and current compiled files. |
-| `map` | A navigable map, decision records, and documentation accuracy. |
-| `worktrees` | Isolation for shared external resources. |
-| `standards` | At least one defended metric and sensible use of rates. |
-| `skills` | Repeated workflows captured as executable, verifiable playbooks. |
+| Category    | What the coach inspects                                                   |
+| ----------- | ------------------------------------------------------------------------- |
+| `gate`      | Tests, static analysis, formatting, depth, isolation, and feedback speed. |
+| `setup`     | Completed setup and useful failure memory.                                |
+| `guidance`  | Substantive authored guidance and current compiled files.                 |
+| `map`       | A navigable map, decision records, and documentation accuracy.            |
+| `worktrees` | Isolation for shared external resources.                                  |
+| `standards` | At least one defended metric and sensible use of rates.                   |
+| `skills`    | Repeated workflows captured as executable, verifiable playbooks.          |
 
 Every category applies to every install; discern has no feature-toggle layer ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 
@@ -63,10 +63,10 @@ The result fields and Model Context Protocol wrapper are in [MCP tools and resul
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
-| Category and rule catalog | [`rules.ts`](../../../src/engine/improve/rules.ts) |
-| Rule and report vocabulary | [`types.ts`](../../../src/engine/improve/types.ts) |
+| Concern                                | Source                                                 |
+| -------------------------------------- | ------------------------------------------------------ |
+| Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)     |
+| Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)     |
 | Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts) |
 
 ## Current state & gotchas

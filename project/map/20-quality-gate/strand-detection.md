@@ -36,11 +36,11 @@ The gate never commits its own output. Only the author can choose the right comm
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
-| Dirty-path snapshots and attribution | [`tree_drift.ts`](../../../src/engine/gate/tree_drift.ts) |
-| Snapshot timing and failure integration | [`finish.ts`](../../../src/engine/gate/finish.ts) |
-| Cross-stage coverage | [`engine_gate_ergonomics_test.ts`](../../../tests/engine_gate_ergonomics_test.ts) |
+| Concern                                 | Source                                                                            |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| Dirty-path snapshots and attribution    | [`tree_drift.ts`](../../../src/engine/gate/tree_drift.ts)                         |
+| Snapshot timing and failure integration | [`finish.ts`](../../../src/engine/gate/finish.ts)                                 |
+| Cross-stage coverage                    | [`engine_gate_ergonomics_test.ts`](../../../tests/engine_gate_ergonomics_test.ts) |
 
 ## Current state & gotchas
 

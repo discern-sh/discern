@@ -94,11 +94,11 @@ A cloud coding agent may start from a clone without the discern binary or materi
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
+| Concern                             | Source                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------- |
 | Binary release assets and checksums | [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) |
-| Gate preconditions and standards | [`finish.ts`](../../../src/engine/gate/finish.ts) |
-| Non-interactive job environment | [`command.ts`](../../../src/engine/jobs/command.ts) |
+| Gate preconditions and standards    | [`finish.ts`](../../../src/engine/gate/finish.ts)                         |
+| Non-interactive job environment     | [`command.ts`](../../../src/engine/jobs/command.ts)                       |
 
 ## Current state & gotchas
 

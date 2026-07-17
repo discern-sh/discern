@@ -31,10 +31,10 @@ The gate can still pass when a receipt is withheld. Its result explains why no r
 
 discern stores the validated commit and receipt markdown in the worktree's git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-| Surface | What it does with the receipt |
-| --- | --- |
-| `discern done` | Prints the markdown on a qualifying green run and returns it in `data.receipt`. |
-| `discern status` | Reports whether the marker still matches the clean current `HEAD` and returns the stored markdown when honored. |
+| Surface          | What it does with the receipt                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `discern done`   | Prints the markdown on a qualifying green run and returns it in `data.receipt`.                                     |
+| `discern status` | Reports whether the marker still matches the clean current `HEAD` and returns the stored markdown when honored.     |
 | `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the landing receipt. Otherwise it reruns the gate. |
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
@@ -43,12 +43,12 @@ The public result fields are in [Model Context Protocol tools and results](../70
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
-| Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts) |
-| Receipt facts and markdown | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
-| Gate integration | [`finish.ts`](../../../src/engine/gate/finish.ts) |
-| Landing validation | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
+| Concern                        | Source                                                            |
+| ------------------------------ | ----------------------------------------------------------------- |
+| Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
+| Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
+| Gate integration               | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
+| Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
 
 ## Current state & gotchas
 

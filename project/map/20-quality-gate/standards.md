@@ -51,12 +51,12 @@ A standard failure names the measured value, the limit, and the measurement comm
 
 The public shape of those fields is in [Model Context Protocol tools and results](../70-reference/mcp-and-results.md).
 
-| Failure | Response |
-| --- | --- |
-| The metric regressed | Raise an `up` metric or lower a `down` metric until it holds the configured limit. |
-| The branch weakened or deleted a limit | Restore the trunk value. Tell the owner if the old limit is no longer valid. |
-| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it. |
-| The measurement is too slow | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
+| Failure                                    | Response                                                                                                          |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| The metric regressed                       | Raise an `up` metric or lower a `down` metric until it holds the configured limit.                                |
+| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                      |
+| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                             |
+| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
 
 Loosening a limit is an owner decision made directly on trunk. A feature branch cannot authorize its own lower bar ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
@@ -66,12 +66,12 @@ Run `discern standards --pin coverage` after the metric improves. Pin measures t
 
 ## Where it lives in code
 
-| Concern | Source |
-| --- | --- |
-| Config fields and validation | [`config_schema.ts`](../../../src/shared/config_schema.ts) |
-| Pure standard plan | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts) |
+| Concern                                 | Source                                                            |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| Config fields and validation            | [`config_schema.ts`](../../../src/shared/config_schema.ts)        |
+| Pure standard plan                      | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)   |
 | Gate verification, replay, and deferral | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts) |
-| Measurement and pin execution | [`standards.ts`](../../../src/engine/gate/standards.ts) |
+| Measurement and pin execution           | [`standards.ts`](../../../src/engine/gate/standards.ts)           |
 
 ## Current state & gotchas
 
