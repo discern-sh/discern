@@ -6,7 +6,7 @@
 
 discern lives in text: a CLI, generated Markdown, MCP output, and a docs site
 rendered from the same tree. Most surfaces where a mark could appear are plain
-text in someone else's font, so an image-first logo would be absent from the
+text in someone else's font. An image-first logo would go missing from the
 places the project is most often seen. The docs site already uses ◮ as the
 ornament on rendered thematic breaks, and the map described it as "discern's
 intended mark" — an intent no record had fixed.
@@ -24,8 +24,8 @@ The canonical reading is **filled versus unfilled**, never dark versus light. A
 glyph renders in the reader's foreground color, so on a dark theme the "black"
 half is the bright one; any reading that depends on which half is dark inverts
 when the theme does. For the same reason the mirror ◭ (U+25ED, left half black)
-carries no distinct meaning: the two are semantically equivalent, and ◮ was
-chosen on appearance.
+carries no distinct meaning: the two are semantically equivalent, and ◮ wins on
+appearance.
 
 Practical properties, checked against the Unicode character data for U+25EE:
 
@@ -38,7 +38,7 @@ Two rules bound its use:
 - In CLI and machine-facing output the glyph is decorative, never load-bearing.
   Nothing parses it, no alignment depends on it, and output must read correctly
   in a font that lacks the codepoint.
-- Drawn assets (favicon, social images) are authored SVGs derived from the
+- Drawn assets (favicon, social images) are bespoke SVGs derived from the
   shape, rendered theme-aware (`currentColor` or a light/dark pair), never a
   rasterized glyph. At favicon sizes the half-fill tends to collapse into a
   solid triangle, so drawn versions may exaggerate the split.
