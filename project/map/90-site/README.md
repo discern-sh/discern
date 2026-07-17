@@ -46,6 +46,36 @@ A browser declares `text/html` in its `Accept` header; nothing else reliably doe
 
 Production's canonical origin is `https://discern.sh`; page URLs have no trailing slash. HTTP, `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing, and a historical redirect is folded into the same hop. Destination pages own `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`, and the combined registry refuses dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)).
 
+### Frozen public routes
+
+The public URL set freezes with wave 3A's landing on July 17, 2026. From that landing onward, adding a page extends the contract. Renaming, moving, or removing one does not erase its old address.
+
+The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. At the freeze, the set contains 200 routes:
+
+| Source           | Frozen routes                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Static pages     | `/`, `/agents`, `/start`, `/careers`, `/design-system-demo`, `/content-design-demo`                                                         |
+| Docs index       | `/docs`                                                                                                                                     |
+| Product guidance | The 47 routes in the section table below.                                                                                                   |
+| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 145 published records discovered under `_adr/`, including its archive. |
+
+Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
+
+| Section route              | Frozen leaf suffixes                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `/docs/orientation`        | `concepts`, `design-principles`, `trust-and-data`, `system-map`, `glossary`                            |
+| `/docs/getting-started`    | `quickstart`, `walkthrough`, `after-setup`, `faq`, `upgrade-discern`                                   |
+| `/docs/quality-gate`       | `when-the-gate-fails`, `standards`, `the-receipt`, `strand-detection`, `ci`, `improvement`, `coupling` |
+| `/docs/worktrees`          | `lifecycle`, `the-resources`, `identity-and-env`, `team-workflow`, `the-desk`                          |
+| `/docs/agent-guidance`     | `write-project-guidance`, `compile-and-check-guidance`                                                 |
+| `/docs/skills`             | `what-a-skill-is`, `bundled-skills`, `author-a-skill`, `customize-or-exclude`, `teach-the-project`     |
+| `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                           |
+| `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs`  |
+
+The stable non-HTML endpoints are `/docs/index.json`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt`. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
+
+A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The freeze creates no retroactive redirect debt for pre-freeze names.
+
 Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Docs pages add a `BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response, including assets, redirects, and errors, carries the same security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer, permissions restrictions, and framing denial. The handler adds a nonce to inline theme bootstraps; third-party resource origins are not admitted.

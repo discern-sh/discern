@@ -50,7 +50,7 @@ Runtime schemas remain strict. The generated JSON Schema permits additive object
 
 [`server.ts`](../../../src/engine/mcp/server.ts) exposes thin adapters over result-returning cores. A tool returns human `content`, schema-validated `structuredContent`, and `isError`; it does not implement a second result path. Tool annotations record whether a call is read-only or destructive. Surface-parity tests tie tool names, schemas, and CLI verbs back to their registries.
 
-The public caller contract belongs in [MCP tools and results](../70-reference/mcp-and-results.md). This page owns the implementation seams that keep that contract accurate.
+The public caller contract belongs in [MCP tools & results](../70-reference/mcp-and-results.md). This page owns the implementation seams that keep that contract accurate.
 
 ## Where it lives in code
 

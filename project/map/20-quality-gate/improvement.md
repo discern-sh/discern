@@ -59,7 +59,7 @@ The default command offers an interactive category detail view on a terminal. `-
 
 The old `audit` name has no alias. `improve` is accepted as a grammatical variant and normalizes to `improvement`.
 
-The result fields and Model Context Protocol wrapper are in [MCP tools and results](../70-reference/mcp-and-results.md).
+The result fields and Model Context Protocol wrapper are in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 

@@ -29,7 +29,7 @@ discern is a single self-contained binary on your `PATH`, and the only other thi
 
 **Worktrees keep every change isolated.** `discern start` gives each task its own checkout and branch, so the main checkout stays clean while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares (a database, an emulator), created when it starts and destroyed when it lands. `discern update` merges the latest [trunk](glossary.md#trunk) in beneath the work; `discern accept` lands the reviewed branch and removes the worktree. Covered in [worktrees](../30-worktrees/).
 
-**Guidance is authored once and compiled everywhere.** Your instructions live in one [source](glossary.md#guidance-source) (default `discern/guidance.md`). `discern refresh` compiles discern's built-ins plus yours into each agent's own file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot all read the same page. [Skills](glossary.md#skill), focused task playbooks, materialize into each agent's skills directory the same way. Covered in [agent guidance](../40-agent-guidance/).
+**Guidance is authored once and compiled everywhere.** Your instructions live in one [source](glossary.md#guidance-source) (default `discern/guidance.md`). `discern refresh` compiles discern's built-ins plus yours into each agent's own file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot all read the same page. [Skills](glossary.md#skill), focused task playbooks, materialize into each agent's skills directory the same way. Covered in [agent guidance](../40-agent-guidance/) and [Skills](../45-skills/).
 
 **The map is documentation your agents keep current.** Agents maintain [the map](glossary.md#map), a documentation tree of your codebase, under the same gate as the code — so a stale page is a defect, and you read the tree to audit what your agents understand. The manual you're reading is discern's own map.
 
@@ -46,6 +46,7 @@ Day to day, an agent orients with `discern status` (read-only: what's true, what
 | Install, setup, and upgrades                             | [Getting started](../10-getting-started/)       |
 | `discern done` — capabilities, checks, scopes, standards | [the quality gate](../20-quality-gate/)         |
 | The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
-| Guidance compilation and the bundled skills              | [agent guidance](../40-agent-guidance/)         |
+| Guidance compilation                                     | [agent guidance](../40-agent-guidance/)         |
+| Bundled and project-authored Skills                      | [Skills](../45-skills/)                         |
 | The files discern writes for each coding agent           | [agent integrations](../60-agent-integrations/) |
 | Why the system is shaped this way                        | [design principles](design-principles.md)       |

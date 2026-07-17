@@ -40,7 +40,7 @@ Each selected coding agent also has integration files. discern adds its own MCP 
 
 ## Files discern regenerates
 
-Compiled guidance files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` come from discern's built-in guidance plus your authored sources. They are committed so a bare clone gives its coding agents the same instructions. Edit the source and run `discern refresh`; the gate rejects a tracked generated copy that has drifted ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
+Compiled agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` come from discern's built-in guidance plus your authored sources. They are committed so a bare clone gives its coding agents the same instructions. Edit the source and run `discern refresh`; the gate rejects a tracked generated copy that has drifted ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
 Materialized skill directories such as `.agents/skills/` and `.claude/skills/` are ignored. `discern refresh` recreates them from bundled and authored skills.
 

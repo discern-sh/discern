@@ -48,13 +48,13 @@ Produced from bundled sources plus your guidance on `discern refresh`, and alway
 
 | Kind                   | Examples                              | In git  |
 | ---------------------- | ------------------------------------- | ------- |
-| Compiled guidance file | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` | tracked |
+| Compiled agent file    | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` | tracked |
 | Materialized directory | `.claude/skills/`, `.agents/skills/`  | ignored |
 | Machine-local state    | `.claude/settings.local.json`         | ignored |
 
 Everything downstream reads that one registry, so nothing can disagree with it: the managed `.gitignore` block enumerates only the ignored kinds (no wildcard — a file of your own under a provider directory is never swept up); a newly added provider's paths join the block automatically; and the gate's `tracked_artifacts` check flags only a forced-in ignored artifact.
 
-**Why guidance files are tracked.** A cloud agent reads a bare clone and can't run `discern refresh` first; committing the compiled files means every vendor surface reads the same page. The currency check in `discern done` blocks a stale copy ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)), so the tracked copies can't drift from their sources. The materialized skills stay ignored and rebuild wherever the binary runs; the [CI and cloud-agent notes](../20-quality-gate/ci.md) cover what a clone without the binary sees.
+**Why compiled agent files are tracked.** A cloud agent reads a bare clone and can't run `discern refresh` first; committing the compiled agent files means every vendor surface reads the same page. The currency check in `discern done` blocks a stale copy ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)), so the tracked copies can't drift from their sources. The materialized skills stay ignored and rebuild wherever the binary runs; the [CI and cloud-agent notes](../20-quality-gate/ci.md) cover what a clone without the binary sees.
 
 **Prefer the compiled files untracked?** Ignore them in your own `.gitignore` rules, outside the managed block. The gate tolerates a missing copy and nothing nags. On `discern upgrade`, an older, wider block reconciles down to the enumerated form ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)); the compiled files then show as untracked and `discern status` recommends the one-time commit. discern never runs `git add` on your behalf.
 
@@ -64,7 +64,7 @@ discern's trust model is the same class as a `Makefile` or an npm `scripts` bloc
 
 ## Removing it all
 
-`discern uninstall` removes the generated agent files and materialized skills, strips discern's entries from the co-managed files, and removes the `.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes the compiled agent files and materialized skills, strips discern's entries from the co-managed files, and removes the `.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
 
 It keeps your content: `discern.toml` and the `discern/` namespace stay. If it can't resolve its bundled templates, it leaves the template-seeded entries in a co-managed settings file rather than guess, and names each such file so you can finish by hand. It refuses while a worktree is in flight, and it is a CLI-only verb (no MCP tool exposes it), so an agent can't uninstall discern mid-session; that decision needs a person at the terminal. The binary itself is one file on your `PATH`, removed by hand — the file `which discern` reports.
 

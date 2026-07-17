@@ -12,11 +12,11 @@ aliases:
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[guidance].agents`:
 
-| File                    | Role                                            | Ownership             |
-| ----------------------- | ----------------------------------------------- | --------------------- |
-| `GEMINI.md`             | Pointer to the canonical compiled guidance file | Generated, committed  |
-| `.agents/skills/`       | Materialized Agent Skills                       | Generated, gitignored |
-| `.gemini/settings.json` | MCP server entry and session-start hook         | Co-managed, tracked   |
+| File                    | Role                                         | Ownership             |
+| ----------------------- | -------------------------------------------- | --------------------- |
+| `GEMINI.md`             | Pointer to the canonical compiled agent file | Generated, committed  |
+| `.agents/skills/`       | Materialized Agent Skills                    | Generated, gitignored |
+| `.gemini/settings.json` | MCP server entry and session-start hook      | Co-managed, tracked   |
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[guidance].agents` to emit these artifacts.
 
@@ -28,7 +28,7 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical compiled guidance file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains the canonical compiled agent file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. That directory is shared with Codex, Cursor, and GitHub Copilot.
 

@@ -17,7 +17,7 @@ The gate is the repository's definition of done. It first checks that the branch
 
 Use `discern prepare` while you work. It runs the fix and check stages without paying for builds or tests. Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a receipt for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
-For the JSON fields and agent-facing tool contract, use [MCP tools and results](../70-reference/mcp-and-results.md).
+For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
 | Read next                                     | What it helps you do                                                        |
 | --------------------------------------------- | --------------------------------------------------------------------------- |
