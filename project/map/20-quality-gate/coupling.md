@@ -13,7 +13,7 @@ aliases:
 
 _`discern coupling` names files that usually move together, with the history behind each suggestion._
 
-Use the co-change advisory when a change may have a habitual sibling: a schema and its validator, a registry and its consumers, or an implementation and its test. The command mines the repository's own git history and reports the strongest relationships it finds. It always succeeds and never changes the gate result; you decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
+Use the co-change advisory when a change may have a habitual sibling: a schema and its validator, a registry and its consumers, or an implementation and its test. The command mines the repository's own git history and reports the strongest relationships it finds. It exits successfully without changing the gate result; you decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## Choose a mode
 
@@ -59,7 +59,7 @@ The default is `false`. Automatic gate hints use a stricter evidence threshold a
 
 A repeated relationship asks you to inspect the pair. When the files express one essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
-The subsystem is core and costs nothing until invoked — read-only, self-calibrating, on demand; `in_gate` is its one cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
+The subsystem is core and costs nothing until invoked. It is read-only and self-calibrating; `in_gate` is its cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
 
 The result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md).
 
@@ -74,7 +74,7 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 ## Current state & gotchas
 
-- The model is recomputed on demand and has no persisted cache.
+- Each invocation recomputes the model; there is no persisted cache.
 - Neutral-path classification comes from the same scope rules as the gate. A path classified as neutral contributes no edges.
 - If git history cannot be read, the advisory returns no partners and does not fail the command or gate.
 - The relevant source files contain no unfinished-work markers for coupling behavior.

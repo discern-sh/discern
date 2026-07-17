@@ -43,7 +43,7 @@ After the never-loosen check, the gate handles each measurement in the same para
 - It replays the recorded value when the standard declares `inputs`, a usable measurement receipt exists, and none of those inputs changed.
 - It defers the measurement when `measure = "on-demand"`; the limit check still runs. Use `discern standards` to measure deferred standards.
 
-`discern prepare` never measures standards. It remains the fast fix-and-check loop.
+`discern prepare` skips standard measurement. It remains the fast fix-and-check loop.
 
 ## Respond to a failure
 
@@ -64,7 +64,7 @@ Loosening a limit is an owner decision made directly on trunk. A feature branch 
 
 Run `discern standards --pin coverage` after the metric improves. Pin measures the standard and tightens its limit, leaving any configured `margin`. It only moves limits in the permitted direction and reuses a valid measurement receipt when one is available.
 
-Before an ordinary standards pass measures anything, Discern proves it can persist the later measurement receipt. Before a pin, it also proves `discern.toml` and Git's commit metadata are writable. A denial returns `error = "write_access"` before the metric command starts, so a slow measurement is never paid for only to discover the pin or receipt cannot be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+Before an ordinary standards pass measures anything, Discern proves it can persist the later measurement receipt. Before a pin, it also proves `discern.toml` and Git's commit metadata are writable. A denial returns `error = "write_access"` before the metric command starts, avoiding a slow measurement when the pin or receipt cannot be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 ## Where it lives in code
 
