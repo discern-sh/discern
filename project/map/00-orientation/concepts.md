@@ -33,7 +33,7 @@ discern is a single self-contained binary on your `PATH`, and the only other thi
 
 **The map is documentation your agents keep current.** Agents maintain [the map](glossary.md#map), a documentation tree of your codebase, under the same gate as the code — so a stale page is a defect, and you read the tree to audit what your agents understand. The manual you're reading is discern's own map.
 
-**Ownership decides who may touch what.** Every file discern writes has a disposition: [yours](glossary.md#your-files--yours) (written once, then the project's), co-managed (a marked region in a file you share), or [the binary's](glossary.md#the-binarys-files) (regenerated on demand, safe to overwrite). The rule underneath is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. That split is what makes every command safe to re-run — `discern upgrade` migrates the config, re-materializes skills, and recompiles guidance without rewriting a value you set.
+**Ownership decides who may touch what.** Every file discern writes has a disposition: [yours](glossary.md#your-files--yours) (written once, then the project's), co-managed (a marked region in a file you share), or [the binary's](glossary.md#the-binarys-files) (regenerated from its source, safe to overwrite). The rule underneath is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. That split is what makes every command safe to re-run — `discern upgrade` migrates the config, re-materializes skills, and recompiles guidance without rewriting a value you set.
 
 ## The loop
 
