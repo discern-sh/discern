@@ -246,7 +246,11 @@ export function decorateHtmlPage(
 }
 
 /** Apply the security policy to every response, including redirects/errors. */
-export function applySecurityHeaders(headers: Headers, nonce: string): void {
+export function applySecurityHeaders(
+  headers: Headers,
+  nonce: string,
+  secure: boolean,
+): void {
   headers.set(
     "content-security-policy",
     [
@@ -262,7 +266,10 @@ export function applySecurityHeaders(headers: Headers, nonce: string): void {
       "script-src-attr 'unsafe-inline'",
       `style-src 'self' 'nonce-${nonce}'`,
       "style-src-attr 'unsafe-inline'",
-      "upgrade-insecure-requests",
+      // Only meaningful on a secure response: on plain-HTTP local preview it
+      // upgrades every asset request to an https origin that cannot answer
+      // (Safari applies it even on loopback, unlike Chrome and Firefox).
+      ...(secure ? ["upgrade-insecure-requests"] : []),
     ].join("; "),
   );
   headers.set("x-content-type-options", "nosniff");

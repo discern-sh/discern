@@ -337,6 +337,24 @@ Deno.test("security headers cover pages, assets, machine routes, redirects, erro
   assertStringIncludes(await docs.text(), `<script nonce="${nonce}">`);
 });
 
+Deno.test("insecure-request upgrading applies to secure responses only", async () => {
+  const secure = await request("/docs");
+  assertStringIncludes(
+    secure.headers.get("content-security-policy") ?? "",
+    "upgrade-insecure-requests",
+  );
+
+  // A plain-HTTP loopback preview must not upgrade its own asset requests:
+  // Safari applies the directive even on localhost, where https cannot answer.
+  const local = await handler(
+    new Request("http://localhost:8000/docs", { headers: BROWSER }),
+  );
+  assertEquals(local.status, 200);
+  const csp = local.headers.get("content-security-policy") ?? "";
+  assertStringIncludes(csp, "default-src 'self'");
+  assert(!csp.includes("upgrade-insecure-requests"));
+});
+
 Deno.test("every declared page remains part of the canonical route set", async () => {
   const site = await loadDocsSite();
   const live = new Set(liveHtmlRoutes(site));
