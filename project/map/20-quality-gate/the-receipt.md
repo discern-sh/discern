@@ -1,27 +1,57 @@
+---
+title: The receipt
+description: Read the review summary a clean green gate records for the exact commit that passed.
+order: 30
+aliases:
+  - gate receipt
+  - review receipt
+  - proof of done
+---
+
 # The receipt
 
-_The compact review summary a green gate hands the human — discern's own account of what was proven and what would land._
+_A clean green gate records what ran and identifies the exact branch state ready for review._
 
-## What it is
+`discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. The receipt is discern's review summary. It lists the branch and trunk, each capability, check, and scope gate that ran, standard outcomes, commits, changed files, and the command that opens the full diff ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
-When `discern done` passes on a clean committed tree ahead of the trunk, it renders **the receipt**: one screen of markdown carrying the branch, what ran (each capability, check, and scope gate with its command, outcome, and duration), the diffstat vs the trunk, the branch's commit list, and the exact `git diff` command for anyone who wants the raw change. It is deterministic — same tree, same result → same receipt, durations excepted — and **derived once from the result envelope**: "what ran" is read from the envelope's `steps[]`, the git facts are gathered once and carried structured in `data.receipt` (branch, trunk, commits, files, insertions, deletions), and the `markdown` is a rendering of those fields, never a second computation, per the one-object rule ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+The receipt gives the reviewer a stable account of the gate run. The agent relays it and waits for approval. When the owner accepts, `discern accept --confirmed` lands the reviewed branch.
 
-A dirty tree earns no receipt: the diff vs the trunk would describe a different tree than the one the gate validated. Commit the intended final tree, then run the final `done` on the clean HEAD.
+## When a receipt is recorded
 
-The same identity rule holds across time, not just at the edges: `done` pins the tree (HEAD plus cleanliness) before any job runs and re-verifies the pin at stamp time, so a commit made _while_ the gate was running earns no receipt either (`data.gate_receipt.status` reports `skipped_head_moved`). The receipt vouches only for the exact tree the gate actually read — re-run `done` on the final commit.
+The gate pins `HEAD` and the worktree's cleanliness before any job starts. It checks both again before recording the receipt. A receipt is withheld when:
 
-## Where it appears
+- the worktree had staged, uncommitted, or untracked changes;
+- `HEAD` moved while the gate was running;
+- the current branch is trunk, detached, or has no commits ahead of trunk;
+- git or the marker file could not be read.
 
-- **`discern done`** prints it at the tail of a green human run and carries it in the `--json`/MCP envelope as `data.receipt`, with a hint beside it: relay the receipt to your owner and stop; call `accept` only once they explicitly ask you to land.
-- **The marker.** The green run stores the markdown beside the validated sha in the per-worktree marker file (`discern-gate-receipt`, inside the git admin dir — the vouch that `accept` validates ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md))), so later verbs can surface the receipt without re-running the gate. Any new commit, amend, or uncommitted edit silently invalidates it.
-- **`discern status`**, when the clean HEAD has a recorded pass, carries the stored markdown in `data.gate_receipt.receipt`, and its review-ready hint names the moment's two affordances: relay the receipt, and inspect the raw diff with `git diff <trunk>...<branch>`.
-- **`discern accept`** prints it on a green landing — the landing record, pasteable into a PR body — and carries it as `data.receipt`.
+The gate can still pass when a receipt is withheld. Its result explains why no receipt was recorded and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
-## The review moment
+## How later commands use it
 
-Nobody calls a review verb; the receipt and the hints are the affordance. A green `discern done` run emits the receipt, the compiled guidance tells the agent to relay it and wait, and the owner reads discern's own deterministic account of what was proven — instead of the agent narrating its own grade — digs into the raw diff if they want to, and approves with a word: accept. The agent then lands with `discern accept --confirmed`, whose attestation _is_ that acceptance — so no work lands on a consent held only in the agent's own summary ([ADR 0134](../_adr/0134-accept-attests-consent.md)).
+discern stores the validated commit and receipt markdown in the worktree's git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-## See also
+| Surface | What it does with the receipt |
+| --- | --- |
+| `discern done` | Prints the markdown on a qualifying green run and returns it in `data.receipt`. |
+| `discern status` | Reports whether the marker still matches the clean current `HEAD` and returns the stored markdown when honored. |
+| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the landing receipt. Otherwise it reruns the gate. |
 
-- [the-result-envelope.md](the-result-envelope.md) — the `DiscernResult` envelope the receipt derives from.
-- [README.md](README.md) — the gate that produces it.
+Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
+
+The public result fields are in [Model Context Protocol tools and results](../70-reference/mcp-and-results.md).
+
+## Where it lives in code
+
+| Concern | Source |
+| --- | --- |
+| Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts) |
+| Receipt facts and markdown | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
+| Gate integration | [`finish.ts`](../../../src/engine/gate/finish.ts) |
+| Landing validation | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
+
+## Current state & gotchas
+
+- A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_receipt.status` before claiming the branch is ready.
+- The marker is a cache of a real gate result. If it is missing, stale, or unreadable, acceptance validates the tree again.
+- The receipt code contains no unfinished-work markers for this behavior.

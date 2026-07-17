@@ -1,10 +1,23 @@
-# Run the gate on GitHub Actions
+---
+title: Run the gate in CI
+description: Run discern done on GitHub Actions and require the result before a pull request can merge.
+order: 50
+aliases:
+  - ci
+  - GitHub Actions
+  - branch protection
+  - continuous integration
+---
 
-_Protect your `main` branch: run `discern done` on every pull request, then require that check before anything can merge._
+# Run the gate in GitHub Actions
 
-## Protect your main branch
+_Run the same `discern done` command on pull requests, then make that check required on trunk._
 
-Local gates are discipline: a person or tool can still push around them. CI turns the gate into repository policy once the trunk — the shared landing branch, usually `main` — is protected. Every pull request and every push to that branch runs the same `discern done` command you run locally; GitHub branch protection or a rule set is what blocks bypasses until that check is green.
+CI enforces the gate even when a change did not pass through a local discern worktree. The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and standards checks, runs the gate, and confirms that fixers left the committed tree unchanged.
+
+## Add the workflow
+
+This example uses Deno for the project's own toolchain. Replace that setup step with the commands your capabilities need.
 
 Create `.github/workflows/discern-gate.yml`:
 
@@ -24,153 +37,71 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  DISCERN_REPO: jackwh/discern
   DISCERN_VERSION: v1.0.0
   DISCERN_ASSET: discern-x86_64-unknown-linux-gnu
 
 jobs:
-  discern-gate:
-    name: discern-gate
+  gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
+
+      - name: Fetch trunk
+        run: >-
+          git fetch --no-tags --depth=1 origin
+          +refs/heads/main:refs/remotes/origin/main
 
       - name: Install discern
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.local/bin"
-          base_url="https://github.com/${DISCERN_REPO}/releases/download/${DISCERN_VERSION}"
-          curl -fsSLO "${base_url}/${DISCERN_ASSET}"
-          curl -fsSLO "${base_url}/${DISCERN_ASSET}.sha256"
+          base="https://github.com/jackwh/discern/releases/download/${DISCERN_VERSION}"
+          curl -fsSLO "${base}/${DISCERN_ASSET}"
+          curl -fsSLO "${base}/${DISCERN_ASSET}.sha256"
           sha256sum -c "${DISCERN_ASSET}.sha256"
-          install -m 0755 "${DISCERN_ASSET}" "$HOME/.local/bin/discern"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/discern" --version
-
-      - uses: actions/setup-node@v6
-        if: ${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') != '' }}
-        with:
-          node-version: lts/*
-
-      - name: Install npm dependencies
-        if: ${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json') != '' }}
-        run: npm ci
-
-      - name: Install pnpm dependencies
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        run: |
-          corepack enable
-          pnpm install --frozen-lockfile
-
-      - name: Install Yarn dependencies
-        if: ${{ hashFiles('yarn.lock') != '' }}
-        run: |
-          corepack enable
-          yarn install --immutable
+          install -m 0755 "${DISCERN_ASSET}" "${RUNNER_TEMP}/discern"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
       - uses: denoland/setup-deno@v2
-        if: ${{ hashFiles('deno.json', 'deno.lock') != '' }}
         with:
           deno-version: v2.x
           cache: true
 
-      - uses: actions/setup-python@v6
-        if: ${{ hashFiles('requirements.txt', 'pyproject.toml') != '' }}
-        with:
-          python-version: "3.x"
-          cache: pip
-
-      - name: Install Python requirements
-        if: ${{ hashFiles('requirements.txt') != '' }}
-        run: python -m pip install -r requirements.txt
-
-      - name: Install Python package
-        if: ${{ hashFiles('requirements.txt') == '' && hashFiles('pyproject.toml') != '' }}
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]" || python -m pip install -e .
-
-      - name: Stop if no setup matched
-        if: ${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'deno.json', 'deno.lock', 'requirements.txt', 'pyproject.toml') == '' }}
-        run: |
-          echo "Add the setup steps for your stack before running discern."
-          exit 1
-
       - name: Run the gate
+        env:
+          DISCERN_MAIN_BRANCH: origin/main
         run: discern done
 
       - name: Assert a clean tree
         run: git diff --exit-code
 ```
 
-Then protect `main`: require pull requests, require the `discern-gate` status check before merge, and decide who can bypass the rule. The workflow reports the result; the branch rule makes it block. The push trigger verifies landed commits and catches policy mistakes, but it cannot stop an already-accepted push by itself.
+Set `DISCERN_VERSION` to the release tag you approve. `DISCERN_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
 
-### The two values to customize
+The toolchain step belongs before the gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
 
-The workflow runs as-is against discern's published releases. Two values pin it to the version and runner you want:
+## Require the result
 
-- **`DISCERN_VERSION`** — the released version CI installs and trusts (for example `v1.0.0`). The job downloads that release's Linux asset and verifies its matching `.sha256` file before putting `discern` on `PATH`.
-- **`DISCERN_ASSET`** — the release asset for your runner's platform. Change it when your job runs on something other than x86-64 Linux.
+In the repository's rule set or branch-protection settings, require pull requests and the `gate` job before merge. The workflow reports a status. The repository rule turns that status into policy. Keep the push trigger so landed commits also produce a record.
 
-Everything below is optional depth: adapting the workflow to your stack, ephemeral cloud-agent environments, cost, and standards.
+## Standards in CI
 
-## Adapting the workflow
+`discern done` verifies every standard limit against trunk and measures standards whose `measure` is `"gate"`. The fetch step makes that comparison conclusive. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
 
-Change the trunk branch name if your project does not use `main`:
+## Cloud-agent changes
 
-```yaml
-on:
-  push:
-    branches: [trunk]
-```
+A cloud coding agent may start from a clone without the discern binary or materialized skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's gate before the change can merge. Install discern in the agent environment as well when you want Model Context Protocol tools and skills during the work.
 
-Keep the stack setup section honest. `discern` runs the commands in `discern.toml`; it does not install Node packages, Python packages, Deno, a database client, a browser, or any other tool those commands need. The workflow includes common Deno, Node, and Python setup paths, but a different stack needs its setup steps before `discern done`.
+## Where it lives in code
 
-Do not add `discern refresh` to CI. The compiled agent files travel with the clone (they are committed), the guidance check accepts `missing` as current for a project that keeps them untracked, and the materialized skills are expected to be absent. CI should verify the tree you committed, not materialize extra files and carry on.
+| Concern | Source |
+| --- | --- |
+| Binary release assets and checksums | [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) |
+| Gate preconditions and standards | [`finish.ts`](../../../src/engine/gate/finish.ts) |
+| Non-interactive job environment | [`command.ts`](../../../src/engine/jobs/command.ts) |
 
-## Ephemeral cloud-agent environments
+## Current state & gotchas
 
-Some coding agents don't run on your machine at all — they run in a fresh clone of your repo in an ephemeral environment: GitHub Copilot's coding agent, Codex on the web, and similar cloud runners. They clone the repo _without_ the discern binary. The **compiled agent guidance** (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`) is committed by default ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)), so a cloud agent reads the same compiled guidance a local session does, straight from the clone. What such an environment still starts without:
-
-- the **materialized skills** (`.claude/skills/`, `.agents/skills/`) — so the bundled and authored skills aren't discoverable;
-- the **MCP server** — there is no binary to run `discern mcp`, so the `discern_*` tools aren't available.
-
-Two ways to close the remaining gap:
-
-- **Install discern in the environment.** Add the same install step CI uses (see above) to the environment's setup, so the binary is present. `discern refresh` can then materialize the skills and the MCP server can run — but keep the refresh in the environment's own setup, not in the gate job, for the reason in [The two values to customize](#the-two-values-to-customize).
-- **Rely on the gate in CI.** For the gate specifically, the workflow above installs discern and runs `discern done` on every pull request, so a change that originates in a cloud environment is still held to the same bar before it can land — whether or not that environment had discern while the work happened.
-
-## Cost
-
-This spends GitHub Actions minutes on every pull request update and every push to the trunk. The cost is the time to install the runner toolchain plus the time your `discern done` capabilities and checks already take. Use the cache knobs for your stack once the plain workflow is green.
-
-## Standards
-
-`discern standards` stays outside `discern done` because metric checks can be slow. Add a second, pull-request-only job once the project has standards configured:
-
-```yaml
-jobs:
-  standards:
-    if: github.event_name == 'pull_request'
-    name: discern-standards
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Fetch main for the never-loosen comparison
-        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
-
-      # Repeat the same "Install discern" and stack setup steps from the gate
-      # job here, then hold the metric floors and ceilings.
-      - name: Hold the standards
-        run: discern standards
-```
-
-The separate job keeps landed-commit checks fast while still blocking pull requests that loosen a configured metric.
-
-## Troubleshooting
-
-Start with `discern doctor`. It checks the install, the config, and the tools the gate expects. If CI fails after `doctor` is clean, run `discern done` locally and compare the failing capability with the CI log; the runner is often missing one dependency your machine already had.
-
-Other CI systems use the same shape: check out the repo, install a pinned `discern`, install the project toolchain, run `discern done`, and assert the fix stage changed nothing.
+- Do not run `discern refresh` in the gate job. CI verifies committed guidance and accepts an intentionally missing untracked copy; regenerating first can hide drift.
+- A pull-request checkout may lack a local trunk branch. Fetching `origin/main` and setting `DISCERN_MAIN_BRANCH` prevents the never-loosen check from becoming unverified.
+- `git diff --exit-code` catches fixer output. A workflow that omits it can finish after changing the runner's checkout, which proves less than the commit contains.

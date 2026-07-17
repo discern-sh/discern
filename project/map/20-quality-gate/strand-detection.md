@@ -1,17 +1,50 @@
+---
+title: Strand detection
+description: Find tracked files a gate stage changed after the final commit, with the responsible stage named.
+order: 40
+aliases:
+  - tree drift
+  - dirty gate
+  - stranded changes
+---
+
 # Strand detection
 
-_A green `discern done` must leave the tracked tree as it found it — any stage that dirties a committed-clean file blocks the gate, with the origin stage named._
+_A green final gate must not leave a committed-clean tracked file changed._
 
-## The invariant
+Gate jobs can write files. Formatters commonly do so. A build may regenerate a manifest, and a test may update a golden file by accident. If `discern done` returned green while those changes remained uncommitted, the result would describe a different tree from the branch that would land.
 
-The fix stage mutates by design — a formatter, a codemod. Any other stage can mutate by accident of wiring: a build step regenerating a tracked manifest, a test rewriting a golden file, a scope gate running a generator. Whatever the origin, a change left on a committed-clean file is work a green gate would otherwise hide. It would surface only when `discern accept` refuses the dirty tree — one long gate run later.
+Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
-So `done` snapshots the tracked-dirty set before any stage group runs and again after each green group. A file dirty at the end that was not dirty at the start fails the gate (`failed_stage: "tree_drift"`). The diagnostic names each file with the stage that produced it, embeds a capped `git diff`, and says what to do: review, commit, re-run.
+## What the gate compares
 
-Files already dirty when the run began never trip the check — a stage reworking your own uncommitted edits is the normal inner loop. Untracked files a stage creates are out of scope by design: they show plainly as `??` in `git status`. A codemod that emits a new file (with a scope gate to validate it) is a legitimate pattern; untracked dirt still blocks the receipt, whose refusal names the blocking paths.
+Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. At the end, a path is stranded when it meets both conditions:
 
-## Why it blocks instead of hinting
+- it was tracked and clean when the gate started;
+- it is dirty when the otherwise-green gate finishes.
 
-Agents key on `ok` — a hint riding on a green result is what gets ignored. The observed failure: an agent paid a long gate run, read green, then paid a second run after guessing "the formatter" had rewritten files a build step regenerated. A red gate with the diff in hand is the same one commit either way, with the cause in view ([ADR 0047](../_adr/0047-fix-stage-strand-detection.md), [ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
+The first successful stage snapshot containing the path identifies its origin. This covers fix, build, the combined check-and-test group, and scope gates. A later stage that restores the file to its committed state leaves no strand, because the final tree is clean.
 
-The gate never commits for you: a gate is not a committer, and discern cannot know your commit boundary or message.
+## Fix the failure
+
+1. Read the diff in the diagnostic.
+2. Decide whether the generated change belongs in the commit or whether the job is misconfigured.
+3. Commit the intended output, or change the command so it verifies without rewriting.
+4. Run `discern done` again on the final commit.
+
+The gate never commits its own output. Only the author can choose the right commit boundary and message ([ADR 0047](../_adr/0047-fix-stage-strand-detection.md)).
+
+## Where it lives in code
+
+| Concern | Source |
+| --- | --- |
+| Dirty-path snapshots and attribution | [`tree_drift.ts`](../../../src/engine/gate/tree_drift.ts) |
+| Snapshot timing and failure integration | [`finish.ts`](../../../src/engine/gate/finish.ts) |
+| Cross-stage coverage | [`engine_gate_ergonomics_test.ts`](../../../tests/engine_gate_ergonomics_test.ts) |
+
+## Current state & gotchas
+
+- Paths already dirty when the gate begins are excluded. This keeps the rule useful during an inner loop where a fixer is expected to rewrite the author's current edits.
+- New untracked files do not trigger strand detection. They remain visible in `git status` and still prevent a clean receipt or acceptance.
+- If git cannot produce a snapshot, the strand check skips rather than inventing a failure. Other gate jobs continue to decide the result.
+- The relevant source files contain no unfinished-work markers for strand behavior.
