@@ -1,7 +1,7 @@
 ---
 title: Result contracts and protocol adapters
 description: How result vocabulary, Zod schemas, generated contracts, and protocol validation stay synchronized.
-order: 50
+order: 45
 aliases:
   - result envelope internals
   - DiscernResult
