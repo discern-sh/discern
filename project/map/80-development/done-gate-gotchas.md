@@ -64,29 +64,23 @@ generated artifacts that are missing, commit the index change, and re-run
 
 ### A gate stage dirtied a file you already committed
 
-**Symptom.** `done` stops right at the end — every stage green — reporting that
-the gate left uncommitted changes on tracked files
-(`failed_stage: "tree_drift"`). The diagnostic names each file and the stage
-that produced it — often a trivial Markdown reflow from the fix stage, or a
-regenerated artifact from the build stage — on files you thought were already
-committed and done.
+**Symptom.** `done` stops right at the end — every stage green — reporting
+uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The
+diagnostic names each file and the stage that produced it: a Markdown reflow
+from the fix stage, a regenerated artifact from the build stage.
 
-**Cause.** The fix stage (a formatter or codemod — here `deno fmt`) mutates in
-place by design, and any other stage can too by accident of wiring — here the
-build stage's `deno task codegen` rewrites tracked schema, type, and reference
-files. If you committed a file that was not in its generator's canonical form —
-hand-written prose the formatter reflows, or a schema edit whose generated
-satellites you didn't regenerate — the next `done` rewrites it and leaves the
-result uncommitted. `done` blocks on this whichever stage did it, so the change
-cannot ride along uncommitted into `accept`, which would otherwise strand it
-staged in the main checkout.
+**Cause.** The fix stage (here `deno fmt`) mutates by design; any stage can by
+accident of wiring — here the build stage's `deno task codegen` rewrites tracked
+schema, type, and reference files. Commit a file that is not in its generator's
+canonical form and the next `done` rewrites it, leaving the result uncommitted.
+It blocks whichever stage did it, so the change cannot ride uncommitted into
+`accept` and strand staged in the main checkout.
 
-**Fix.** The diff is the gate's own output — the diagnostic says which stage
-produced it: review it (`git diff`), commit it (`git add -A && git commit`),
-then re-run `done`. To skip the round trip, run `done` (or `prepare`) **before**
-your final commit, so the gate's changes are part of it rather than a follow-up.
-A stage reworking files you have not committed yet — your normal inner loop —
-never trips this; only an already-committed file does.
+**Fix.** The diff is the gate's own output from the named stage: review it
+(`git diff`), commit it (`git add -A && git commit`), re-run `done` — or run
+`done` (or `prepare`) **before** your final commit to skip the round trip. A
+stage reworking files you have not committed yet — the inner loop — never trips
+this; only an already-committed file does.
 
 ### A check passes alone but fails in the full run
 

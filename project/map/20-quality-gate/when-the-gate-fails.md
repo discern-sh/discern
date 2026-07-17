@@ -37,10 +37,9 @@ Most failures fall into a handful of buckets:
   files or skills have drifted from their source. Fix: `discern refresh`
   rebuilds them.
 - **The gate left changes.** A stage rewrote tracked files you had already
-  committed — the format step rewriting to a canonical style, or a build/test
-  step regenerating a tracked artifact. The diagnostic names each file and the
-  stage that produced it. Fix: commit the gate's changes — or run the gate
-  before your final commit so they ride along with it.
+  committed — the format step rewriting style, a build step regenerating an
+  artifact. The diagnostic names each file and its stage. Fix: commit the gate's
+  changes — or run the gate before your final commit so they ride along.
 - **Lint or type errors.** A linter or type-checker found a real problem in the
   code; the captured output names the file and line.
 - **A test failed.** The reproduce command re-runs that one test on its own. A
