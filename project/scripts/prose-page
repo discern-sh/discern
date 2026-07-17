@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# desc: lint one or more map pages with the full house-voice rules, warnings included
+#
+# The gate's prose check only *blocks* on error-severity findings; the
+# warning-tier rules (contrast-frames, counted sets, em-dash chains) are
+# advisory. This is the loop that shows them for the pages you're writing:
+#
+#   discern script prose-page project/map/10-installer/quickstart.md
+#
+# A page in the reference corpus measures zero Discern alerts; hold new and
+# rewritten pages to that bar.
+
+set -eu
+
+ROOT="${DISCERN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
+MAP_DIR=$(discern config get map.dir 2>/dev/null) || MAP_DIR="project/map/"
+
+exec deno run --config "$ROOT/deno.json" \
+  --allow-read --allow-write --allow-env --allow-run \
+  "$ROOT/scripts/prose_check.ts" "$ROOT/$MAP_DIR" --min-level=suggestion "$@"

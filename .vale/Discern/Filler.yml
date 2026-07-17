@@ -3,7 +3,7 @@
 extends: existence
 message: "'%s' pads the sentence: delete it; the sentence stands alone."
 ignorecase: true
-level: warning
+level: error
 tokens:
   - simply
   - obviously

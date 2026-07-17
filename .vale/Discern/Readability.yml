@@ -1,0 +1,10 @@
+# One-sided sprawl tripwire: a page whose Flesch-Kincaid grade reads like a
+# paper has sentences stacking too many clauses. One-sided by construction —
+# it only fires high, so it can never reward chopping prose into fragments.
+# The register's natural range in this corpus is grade 8-11.
+extends: metric
+message: "Flesch-Kincaid grade %s: graduate-level sentence pileup — shorter sentences, fewer stacked clauses."
+level: warning
+formula: |
+  (0.39 * (words / sentences)) + (11.8 * (syllables / words)) - 15.59
+condition: "> 14"

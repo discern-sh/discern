@@ -1,9 +1,11 @@
 # Announcing the emotion instead of the thing (voice skill: banned words).
+# Zero legitimate uses, so it blocks the gate. Words join with \s+ so an
+# instance wrapped across source lines still matches.
 extends: existence
 message: "'%s' announces the emotion instead of the thing: say the thing."
 ignorecase: true
-level: warning
+level: error
 tokens:
-  - (?:we(?:'|’)re )?excited to (?:announce|share)
-  - (?:we(?:'|’)re )?thrilled to (?:announce|share)
-  - proud to announce
+  - (?:we(?:'|’)re\s+)?excited\s+to\s+(?:announce|share)
+  - (?:we(?:'|’)re\s+)?thrilled\s+to\s+(?:announce|share)
+  - proud\s+to\s+announce

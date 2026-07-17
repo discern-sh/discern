@@ -1,6 +1,6 @@
 ---
 title: The discern manual
-description: The quality gate, isolated worktrees, agent guidance, config, and skills — one documentation tree, served on every surface.
+description: The quality gate, isolated worktrees, agent guidance, config, and skills.
 aliases:
   - docs
   - documentation
@@ -12,26 +12,24 @@ aliases:
 _The manual for discern: the same pages on discern.sh, in `discern help`, and in
 your coding agent's MCP tools._
 
-discern is documented once. This tree renders on the site, in your terminal, and
-over MCP, and it describes only what exists in code today — present tense, no
-"will eventually." When a change alters something these pages describe, the docs
-change in the same commit; a stale page is treated as a defect, not a chore.
-
-New here? Start with [orientation](00-orientation/): the concepts, the glossary,
-and the shape of the system. Then follow the reading order below.
+discern gives a repository one quality gate, an isolated worktree per change,
+and one set of instructions every coding agent reads. New here? Start with
+[orientation](00-orientation/) for the concepts in plain English, then the
+[quickstart](10-installer/quickstart.md) to go from install to your first gated
+change.
 
 ## The sections
 
-| Section                                          | What's in it                                                                     |
-| ------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [00-orientation/](00-orientation/)               | The shape of the system in plain English: concepts, glossary, design principles. |
-| [10-installer/](10-installer/)                   | Install and setup: quickstart, walkthrough, config reference, FAQ.               |
-| [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.  |
-| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.     |
-| [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once, compiled into every agent file, plus the bundled skills. |
-| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.    |
+| Section                                          | What's in it                                                                        |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [00-orientation/](00-orientation/)               | How discern fits together, in plain English: concepts, glossary, design principles. |
+| [10-installer/](10-installer/)                   | Install and setup: quickstart, walkthrough, config reference, FAQ.                  |
+| [20-quality-gate/](20-quality-gate/)             | `discern done` and the fix · build · check · test model, scopes, and standards.     |
+| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.        |
+| [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once, compiled into every agent file, plus the bundled skills.    |
+| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.       |
 
-Three more trees serve contributors rather than users and stay out of
+The remaining trees serve contributors rather than users and stay out of
 `discern help` ([ADR 0039](_adr/0039-bundled-help-docs.md)):
 [50-engine-internals/](50-engine-internals/) documents the TypeScript engine,
 [80-development/](80-development/) covers working on discern itself, and
@@ -42,14 +40,18 @@ embedded in customer binaries
 
 ## Browsing from the terminal
 
-`discern help` serves these pages inside any project discern is installed in —
-`discern help` for the index, `discern help config-reference` for one page,
-`--list` / `--json` / `--raw` for scripts. `discern map` is a different verb for
-a different tree: it opens the documentation map agents maintain for _your_
-project's code, never this manual ([ADR 0120](_adr/0120-launch-verb-canon.md)).
+`discern help` serves these pages inside any project discern is installed in:
+bare for the index, `discern help config-reference` for one page, `--list` /
+`--json` / `--raw` for scripts. `discern map` is a different verb for a
+different tree: the documentation map agents maintain for _your_ project's code,
+while this manual stays under `discern help`
+([ADR 0120](_adr/0120-launch-verb-canon.md)).
 
 ## Who writes this
 
 The coding agents that work on discern do, under the same gate as the code.
-Terminology is defined once in the [glossary](00-orientation/glossary.md) and
-used identically everywhere; claims link the source files they describe.
+Every page describes what exists in code today, and when a change alters
+documented behavior, the page changes in the same commit — the gate treats a
+stale page as a defect. Terminology is defined once in the
+[glossary](00-orientation/glossary.md) and used identically everywhere; claims
+link the source files they describe.

@@ -30,8 +30,8 @@ check, test, and scope selection must all describe the same checkout.
 There is no `selfcheck` or `shellcheck` check: with the engine compiled into the
 binary there is no second copy to drift and no portable shell to lint
 ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). There is no `build`
-capability (`deno task build` is release-only, so it is simply omitted), and the
-`test` capability (`deno task test`) is covered in [testing.md](testing.md).
+capability (`deno task build` is release-only, so it is omitted), and the `test`
+capability (`deno task test`) is covered in [testing.md](testing.md).
 
 ## Conventions to follow
 

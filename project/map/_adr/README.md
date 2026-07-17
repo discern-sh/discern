@@ -152,7 +152,8 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0144 — Site URLs are canonical at the apex and redirects resolve in one hop](0144-canonical-site-urls-and-one-hop-redirects.md)
 - [0145 — The production site deploys only from release tags](0145-production-site-deploys-only-from-release-tags.md)
 - [0146 — The gate validates the map's substance, and the CLI reference is generated](0146-docs-integrity-gate-and-generated-cli-reference.md)
-- [0147 — The project mark is the Unicode glyph ◮](0147-the-mark-is-the-unicode-glyph.md)
+- [0147 — Ignored-file drift uses bounded hybrid fingerprints](0147-ignored-drift-uses-bounded-hybrid-fingerprints.md)
+- [0148 — The project mark is the Unicode glyph ◮](0148-the-mark-is-the-unicode-glyph.md)
 
 ## Superseded and consolidated ADRs
 

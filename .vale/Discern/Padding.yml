@@ -1,5 +1,5 @@
 # The high-frequency padding words (voice skill: banned words). Suggestion
-# severity: each is occasionally load-bearing ("just" as "only"), so this rule
+# severity: each occasionally carries meaning ("just" as "only"), so this rule
 # prompts a look rather than asserting a defect.
 extends: existence
 message: "'%s' is usually padding: delete it unless it changes the meaning."

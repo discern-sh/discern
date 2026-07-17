@@ -1,9 +1,11 @@
-# Scene-setting clichés (voice skill: banned moves).
+# Scene-setting clichés (voice skill: banned moves). Zero legitimate uses, so
+# it blocks the gate. Words join with \s+ so an instance wrapped across source
+# lines still matches.
 extends: existence
 message: "'%s' is a scene-setting cliché: start with the fact."
 ignorecase: true
-level: warning
+level: error
 tokens:
-  - it(?:'|’)s 20\d\d
-  - in a world where
-  - we(?:'|’)ve all been there
+  - it(?:'|’)s\s+20\d\d
+  - in\s+a\s+world\s+where
+  - we(?:'|’)ve\s+all\s+been\s+there

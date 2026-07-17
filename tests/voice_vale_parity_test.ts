@@ -148,3 +148,20 @@ Deno.test("every banned word in the voice skill is lintable by the Discern style
       "pattern for each so the canon and the tripwire move together",
   );
 });
+
+Deno.test("every Discern pattern survives a source-line wrap", async () => {
+  // The map hard-wraps prose at ~80 columns, so any word gap in a page can be
+  // a newline. A multi-word pattern joined by a literal space silently skips
+  // every wrapped instance — the gap class behind several live misses. Join
+  // words with \s+ instead; this guard fails on any literal space so a new
+  // pattern can't reintroduce the class.
+  const offenders = (await stylePatterns()).filter((p) =>
+    p.pattern.includes(" ")
+  );
+  assertEquals(
+    offenders,
+    [],
+    "a literal space in a Vale pattern misses instances wrapped across " +
+      "source lines — join words with \\s+ instead",
+  );
+});

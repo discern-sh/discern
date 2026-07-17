@@ -32,7 +32,7 @@ does—sit beside open improvement reviews. Those reviews cover questions such a
   behaviour, boundaries, and failure paths?
 - does the failure-memory document capture symptoms, causes, and proven recovery
   rather than generic advice?
-- does guidance contain load-bearing knowledge that code cannot reveal?
+- does guidance contain knowledge the code cannot reveal?
 - do docs match the code, and can a new reader navigate from overview to detail?
 - are shared external resources isolated per worktree?
 - are growing-tree ceiling counts normalized to rates rather than loosened as

@@ -1,13 +1,14 @@
 # Trailing modifier fragments strike a pose after the comma (voice skill:
-# banned moves).
+# banned moves). Zero legitimate uses, so it blocks the gate. Words join with
+# \s+ so an instance wrapped across source lines still matches.
 extends: existence
 message: "Trailing modifier fragment ('%s'): fold it into the sentence or cut it."
 ignorecase: true
-level: warning
+level: error
 nonword: true
 tokens:
-  - ", every time[.,]"
-  - ", by design[.,]"
-  - ", at scale[.,]"
-  - ", full stop[.,]"
-  - ", no exceptions[.,]"
+  - ',\s+every\s+time[.,]'
+  - ',\s+by\s+design[.,]'
+  - ',\s+at\s+scale[.,]'
+  - ',\s+full\s+stop[.,]'
+  - ',\s+no\s+exceptions[.,]'

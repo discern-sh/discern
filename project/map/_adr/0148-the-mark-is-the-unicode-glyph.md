@@ -1,4 +1,4 @@
-# ADR 0147: The project mark is the Unicode glyph ◮
+# ADR 0148: The project mark is the Unicode glyph ◮
 
 **Status**: accepted
 

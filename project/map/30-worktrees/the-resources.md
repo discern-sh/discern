@@ -99,8 +99,8 @@ inside the Worktree — discover a resource's handle two ways, both equal to wha
    non-alphanumerics → `_`) and `DISCERN_WORKTREE`, written at setup when one of
    those files exists.
 
-This is the crux of the feature: a project's tooling addresses its OWN isolated
-resource instead of guessing from a shared global pool.
+Either way, a project's tooling addresses its OWN isolated resource instead of
+guessing from a shared global pool.
 
 ## The ledger and orphan garbage-collection
 

@@ -1,0 +1,15 @@
+# Counting a set out loud in prose (voice skill: banned moves). The spelled-out
+# count duplicates the list it introduces, so it is wrong the day the set
+# grows. Warning severity: occasionally the number IS the fact.
+extends: existence
+message: "Counted set ('%s'): the number drifts when the set changes — let the list carry the count, or name the members."
+ignorecase: true
+level: warning
+scope: sentence
+nonword: true
+tokens:
+  - '^(?:(?:the|these|those|all)\s+)?(?:two|three|four|five|six|seven|eight|nine|ten)\s+(?:more\s+)?[\w-]+\b'
+  - '\b(?:two|three|four|five|six|seven|eight|nine|ten)\s+(?:more\s+)?[\w-]+s:'
+  - '\bthere\s+are\s+(?:two|three|four|five|six|seven|eight|nine|ten)\b'
+  - '\bone\s+of\s+(?:two|three|four|five|six|seven|eight|nine|ten)\b'
+  - '\bfalls?\s+into\s+(?:two|three|four|five|six|seven|eight|nine|ten)\b'

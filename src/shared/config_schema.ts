@@ -312,7 +312,7 @@ const guidanceSection = z.strictObject({
 
 const skillsSection = z.strictObject({
   dir: z.string().default(SOURCE_PATHS.skills.defaultPath).describe(
-    "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir simply uses the built-ins.",
+    "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.",
   ),
   exclude: z.array(z.string()).default([]).describe(
     "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop the ones this project never needs. An unknown name is warned about, never fatal.",

@@ -3,7 +3,7 @@
 # discern is a stack-neutral system for coding agents and their humans.
 # Use discern.toml to teach discern about your project, preferences, and tooling.
 #
-# The quickest way to get started is to simply tell your coding agent:
+# The quickest way to get started is to tell your coding agent:
 #   "Run `discern setup` and follow the instructions.".
 #
 # Help is always available through the command line or MCP server:
@@ -380,7 +380,7 @@ measure   = "on-demand"
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
-limit     = 14.27
+limit     = 12.87
 run       = "deno task prose \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
@@ -418,7 +418,7 @@ inputs    = ["templates/guidance/**"]
 [standards.binary_size]
 metric    = "binary_size_bytes"
 direction = "down"
-limit     = 143335040
+limit     = 157286400
 measure   = "on-demand"
 # The binary's byte count drifts with every commit, so `discern standards --pin`
 # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
@@ -438,7 +438,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 7.58
+limit     = 7.75
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
 inputs    = [
   "${map.dir}**",

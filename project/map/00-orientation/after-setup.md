@@ -70,15 +70,6 @@ own branch. It sits beside your repo — not inside it — so it's easy to find 
 never mixed up with your real files. Finished worktrees are removed
 automatically; a stray one is cleaned up with `discern worktree prune`.
 
-## The short version
-
-One config file and one folder are yours. A marked block in a few shared files
-is discern's to keep current. Everything generated is rebuilt on demand — the
-agent files committed so every agent reads them, the skills kept out of your
-history. Nothing is hidden, and none of it is permanent —
-[Files & ownership](../10-installer/artifact-ownership.md) is the full
-footprint, and `discern uninstall` takes it all back out.
-
 ## See also
 
 - [The walkthrough](../10-installer/walkthrough.md) — the setup session that

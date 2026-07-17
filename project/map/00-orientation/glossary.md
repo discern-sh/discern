@@ -289,9 +289,8 @@ fast "does it boot?" check)
 mapped to a command (or a list run in order); the Engine **derives the gate
 [Stage](#stage)** from the name, so an author never writes a scheduling keyword.
 The set is closed — an unknown key is an error that points at a [Check](#check).
-A known capability that is simply **omitted** is [knowably absent](#readiness):
-the gate skips it, never errors
-([ADR 0017](../_adr/0017-capabilities-model.md)).
+A known capability that is **omitted** is [knowably absent](#readiness): the
+gate skips it, never errors ([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 ### Check
 
