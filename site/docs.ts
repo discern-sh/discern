@@ -497,27 +497,27 @@ function navHtml(site: DocsSite, current: DocsPage | null): string {
       }</a></li>`;
     }).join("");
     const here = current !== null && section.index.route === current.route;
-    return `<section class="docs-nav-chapter">
+    return `<div class="discern-docs-nav__section docs-nav-chapter">
       <a class="discern-kicker docs-nav-label" href="${section.index.route}"${
       here ? ' aria-current="page"' : ""
     }><span class="discern-kicker__index">${
       sectionIndexOf(section.dir)
     }</span>${esc(section.title)}</a>
       <ul>${leaves}</ul>
-    </section>`;
+    </div>`;
   }).join("\n");
 }
 
 function tocHtml(toc: TocItem[]): string {
   if (toc.length === 0) return "";
-  const items = toc.map((item) =>
-    `<li class="docs-toc-d${item.depth}"><a href="#${esc(item.id)}">${
-      esc(item.text)
-    }</a></li>`
+  const items = toc.map((item, index) =>
+    `<li class="docs-toc-d${item.depth}"><a href="#${esc(item.id)}"><span>${
+      String(index + 1).padStart(2, "0")
+    }</span>${esc(item.text)}</a></li>`
   ).join("");
-  return `<nav class="docs-toc" aria-label="On this page">
-    <span class="discern-kicker">On this page</span>
-    <ul>${items}</ul>
+  return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page">
+    <strong class="discern-table-of-contents__title">On this page</strong>
+    <ol>${items}</ol>
   </nav>`;
 }
 
@@ -530,44 +530,62 @@ function pagerHtml(site: DocsSite, page: DocsPage): string {
   if (!prev && !next) return "";
   const cell = (p: DocsPage | undefined, rel: "prev" | "next"): string =>
     p
-      ? `<a class="docs-pager-cell docs-pager-${rel}" rel="${rel}" href="${p.route}">
-          <span class="docs-pager-dir">${
-        rel === "prev" ? "&larr; previous" : "next &rarr;"
-      }</span><span class="docs-pager-title">${esc(p.entry.title)}</span></a>`
-      : `<span class="docs-pager-cell docs-pager-empty"></span>`;
-  return `<nav class="docs-pager" aria-label="Pagination">${
+      ? `<a class="discern-pager__link discern-pager__link--${
+        rel === "prev" ? "previous" : "next"
+      }" rel="${rel}" href="${p.route}">
+          <span class="discern-pager__direction">${
+        rel === "prev" ? "Previous" : "Next"
+      }</span><span class="discern-pager__title">${
+        esc(p.entry.title)
+      }</span></a>`
+      : `<span class="docs-pager-empty" aria-hidden="true"></span>`;
+  return `<nav class="discern-pager docs-pager" aria-label="Pagination">${
     cell(prev, "prev")
   }${cell(next, "next")}</nav>`;
 }
 
 type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
 
-/** The breadcrumb trail as a mono path — the docs' terminal ancestry. */
-function crumbsHtml(target: BreadcrumbTarget): string {
-  const sep = `<span class="docs-crumb-sep">/</span>`;
-  const parts = [`<a href="/docs">docs</a>`];
-  if (target === "decisions") {
-    parts.push(`<span aria-current="page">decisions</span>`);
-  } else if (target !== null) {
-    if (target.kind === "decision") {
-      parts.push(
-        `<a href="${DECISIONS_ROUTE}">decisions</a>`,
-        `<span aria-current="page">${esc(target.entry.slug)}</span>`,
-      );
-    } else if (target.isIndex) {
-      parts.push(`<span aria-current="page">${esc(target.sectionSlug)}</span>`);
-    } else {
-      parts.push(
-        `<a href="/docs/${target.sectionSlug}">${esc(target.sectionSlug)}</a>`,
-        `<span aria-current="page">${esc(target.entry.slug)}</span>`,
-      );
-    }
-  } else {
-    parts[0] = `<span aria-current="page">docs</span>`;
-  }
-  return `<nav class="docs-crumbs discern-mono" aria-label="Breadcrumb">${
-    parts.join(sep)
-  }</nav>`;
+/** The breadcrumb trail — the docs' titled ancestry, matching the nav. */
+function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
+  const sectionTitle = (slug: string): string =>
+    site.sections.find((section) => section.slug === slug)?.title ?? slug;
+  const ancestors: readonly { label: string; href: string }[] =
+    target === "decisions"
+      ? [{ label: "Docs", href: "/docs" }]
+      : target === null
+      ? []
+      : target.kind === "decision"
+      ? [
+        { label: "Docs", href: "/docs" },
+        { label: "Decisions", href: DECISIONS_ROUTE },
+      ]
+      : target.isIndex
+      ? [{ label: "Docs", href: "/docs" }]
+      : [
+        { label: "Docs", href: "/docs" },
+        {
+          label: sectionTitle(target.sectionSlug),
+          href: `/docs/${target.sectionSlug}`,
+        },
+      ];
+  const current = target === "decisions"
+    ? "Decisions"
+    : target === null
+    ? "Docs"
+    : target.kind === "decision"
+    ? target.entry.title
+    : target.isIndex
+    ? sectionTitle(target.sectionSlug)
+    : target.entry.title;
+  const items = ancestors.map(({ label, href }) =>
+    `<li><a href="${href}">${
+      esc(label)
+    }</a><span class="discern-breadcrumbs__separator" aria-hidden="true">/</span></li>`
+  ).join("");
+  return `<nav class="discern-breadcrumbs docs-crumbs" aria-label="Breadcrumb"><ol>${items}<li class="discern-breadcrumbs__current"><span aria-current="page">${
+    esc(current)
+  }</span></li></ol></nav>`;
 }
 
 const FAVICON =
@@ -630,34 +648,43 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <script type="module" src="/assets/docs.js"></script>
 </head>
 <body>
-<a class="docs-skip" href="#doc">Skip to content</a>
-<header class="docs-top">
-  <button class="discern-icon-button docs-burger" type="button"
-    data-drawer-toggle aria-controls="docs-nav"
-    aria-label="Open navigation" aria-expanded="false">
-    <span class="discern-icon">${ICONS.menu}</span>
-  </button>
-  <a class="docs-brand" href="/">
-    <span class="docs-brand-mark" aria-hidden="true">✓</span>
-    <span class="docs-brand-word">discern</span></a><a
-    class="docs-brand-docs discern-mono" href="/docs">/docs</a>
-  <span class="docs-top-spacer"></span>
-  <button class="docs-search-btn" type="button" data-search-open
-    aria-label="Search documentation">
-    <span class="discern-icon docs-search-icon">${ICONS.search}</span>
-    <span class="docs-search-btn-word">Search the manual</span>
-    <kbd class="discern-mono">⌘K</kbd>
-  </button>
-  <button class="discern-icon-button docs-theme" type="button"
-    aria-label="Use dark theme" aria-pressed="false" data-theme-toggle>
-    <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
-    <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
-  </button>
+<a class="discern-skip-link docs-skip" href="#doc">Skip to content</a>
+<header class="discern-docs-header docs-top">
+  <div class="discern-docs-header__inner docs-top-inner">
+    <div class="discern-docs-header__brand docs-brand-group">
+      <button class="discern-icon-button docs-burger" type="button"
+        data-drawer-toggle aria-controls="docs-nav"
+        aria-label="Open navigation" aria-expanded="false">
+        <span class="discern-icon">${ICONS.menu}</span>
+      </button>
+      <a class="docs-brand" href="/">
+        <span class="docs-brand-mark" aria-hidden="true">✓</span>
+        <span class="docs-brand-word">discern</span></a><a
+        class="docs-brand-docs discern-mono" href="/docs">/docs</a>
+    </div>
+    <div class="discern-docs-header__middle">
+      <button class="docs-search-btn" type="button" data-search-open
+        aria-label="Search documentation">
+        <span class="discern-icon docs-search-icon">${ICONS.search}</span>
+        <span class="docs-search-btn-word">Search the manual</span>
+        <kbd class="discern-kbd">⌘K</kbd>
+      </button>
+    </div>
+    <div class="discern-docs-header__actions">
+      <button class="discern-theme-toggle docs-theme" type="button"
+        aria-label="Use dark theme" aria-pressed="false" data-theme-toggle>
+        <span class="discern-theme-toggle__glyph docs-theme-glyphs" aria-hidden="true">
+          <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
+          <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
+        </span>
+      </button>
+    </div>
+  </div>
 </header>
 <div class="docs-shell">
   <div class="docs-veil" data-drawer-close hidden></div>
   <aside class="docs-nav" id="docs-nav">
-    <nav class="docs-nav-scroll" aria-label="Documentation">
+    <nav class="discern-docs-nav docs-nav-scroll" aria-label="Documentation">
 ${navHtml(site, frame.current)}
     </nav>
     <div class="docs-nav-foot discern-mono">
@@ -667,36 +694,39 @@ ${navHtml(site, frame.current)}
     </div>
   </aside>
   <main id="doc" class="docs-main">
-    ${crumbsHtml(frame.breadcrumb)}
+    ${crumbsHtml(site, frame.breadcrumb)}
     ${frame.mainHtml}
   </main>
   <div class="docs-rail">${frame.tocHtml}</div>
 </div>
-<div class="docs-search" data-search hidden>
-  <div class="docs-search-veil" data-search-close></div>
-  <div class="discern-window docs-search-panel" role="dialog" aria-modal="true"
-    aria-labelledby="docs-search-title">
-    <div class="discern-window__bar">
-      <span class="discern-window__dot"></span><span class="discern-window__dot"></span><span class="discern-window__dot"></span>
-      <span class="discern-window__title" id="docs-search-title">search · discern.sh/docs</span>
-      <button class="discern-icon-button docs-search-close" type="button"
-        data-search-close aria-label="Close search"><span aria-hidden="true">×</span></button>
-    </div>
-    <div class="discern-window__body docs-search-body">
-      <input class="docs-search-input discern-mono" type="search"
-        placeholder="Search the manual…" data-search-input role="combobox"
-        aria-label="Search documentation" aria-autocomplete="list"
-        aria-expanded="false" aria-controls="docs-search-results"
-        autocomplete="off" spellcheck="false" />
-      <ul class="docs-search-results" id="docs-search-results" role="listbox"
-        aria-label="Search results" data-search-results></ul>
-      <div class="docs-search-empty" data-search-empty hidden></div>
-      <div class="docs-visually-hidden" role="status" aria-live="polite"
-        aria-atomic="true" data-search-status></div>
-      <div class="docs-search-hint discern-mono">↑↓ choose · ↵ open · esc close</div>
-    </div>
+<dialog class="discern-search-palette docs-search" data-search
+  aria-label="Search documentation">
+  <div class="discern-search-palette__field">
+    <span class="discern-search-palette__icon" aria-hidden="true">
+      <span class="discern-icon docs-search-icon">${ICONS.search}</span>
+    </span>
+    <input class="discern-search-palette__input" type="search"
+      placeholder="Search the manual…" data-search-input role="combobox"
+      aria-label="Search documentation" aria-autocomplete="list"
+      aria-expanded="false" aria-controls="docs-search-results"
+      autocomplete="off" spellcheck="false" />
+    <button class="discern-icon-button docs-search-close" type="button"
+      data-search-close aria-label="Close search"><span aria-hidden="true">×</span></button>
   </div>
-</div>
+  <div class="discern-search-palette__results">
+    <ul class="discern-search-palette__list docs-search-results"
+      id="docs-search-results" role="listbox"
+      aria-label="Search results" data-search-results></ul>
+    <p class="discern-search-palette__empty" data-search-empty hidden></p>
+  </div>
+  <div class="docs-visually-hidden" role="status" aria-live="polite"
+    aria-atomic="true" data-search-status></div>
+  <div class="discern-search-palette__hint">
+    <span><kbd class="discern-kbd">↑</kbd> <kbd class="discern-kbd">↓</kbd> choose</span>
+    <span><kbd class="discern-kbd">↵</kbd> open</span>
+    <span><kbd class="discern-kbd">Esc</kbd> close</span>
+  </div>
+</dialog>
 </body>
 </html>
 `;
@@ -853,7 +883,7 @@ function decisionListHtml(pages: readonly DecisionPage[]): string {
       `<li><a href="${page.route}">${esc(page.entry.title)}</a>` +
       `${
         page.superseded
-          ? '<span class="docs-decision-status">Superseded</span>'
+          ? '<span class="discern-badge discern-badge--neutral docs-decision-status">Superseded</span>'
           : ""
       }</li>`
     ).join("")

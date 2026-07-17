@@ -302,6 +302,7 @@ async function finalizeResponse(
   path: string,
   nonce: string,
   headOnly: boolean,
+  secure: boolean,
 ): Promise<Response> {
   const headers = new Headers(response.headers);
   const contentType = headers.get("content-type") ?? "";
@@ -323,7 +324,7 @@ async function finalizeResponse(
     );
     headers.set("x-robots-tag", "noindex, follow");
   }
-  applySecurityHeaders(headers, nonce);
+  applySecurityHeaders(headers, nonce, secure);
   return new Response(body, {
     status: response.status,
     statusText: response.statusText,
@@ -341,6 +342,7 @@ async function handleRequest(
   routingFixture?: SiteRouting,
 ): Promise<Response> {
   const nonce = responseNonce();
+  const secure = new URL(req.url).protocol === "https:";
   if (req.method !== "GET" && req.method !== "HEAD") {
     return await finalizeResponse(
       new Response("405 — method not allowed\n", {
@@ -353,6 +355,7 @@ async function handleRequest(
       new URL(req.url).pathname,
       nonce,
       false,
+      secure,
     );
   }
 
@@ -364,6 +367,7 @@ async function handleRequest(
       url.pathname,
       nonce,
       req.method === "HEAD",
+      secure,
     );
   }
   const routing = routingFixture ?? await siteRouting();
@@ -381,6 +385,7 @@ async function handleRequest(
       target,
       nonce,
       true,
+      secure,
     );
   }
 
@@ -389,6 +394,7 @@ async function handleRequest(
     target,
     nonce,
     req.method === "HEAD",
+    secure,
   );
 }
 

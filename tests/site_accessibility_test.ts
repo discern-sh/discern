@@ -120,8 +120,8 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /restoreFocus/.test(client),
     ],
     [
-      "permalinks are siblings of headings",
-      /heading\.before\(group\)/.test(client),
+      "permalinks live inside their labelled headings",
+      /heading\.append\(anchor\)/.test(client),
     ],
     [
       "theme state is exposed",
@@ -136,9 +136,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /html:not\(\.docs-js\) \.docs-nav/.test(css),
     ],
     [
-      "drawer and dialog honor reduced motion",
+      "drawer honors reduced motion; palette motion is design-system-owned",
       /prefers-reduced-motion:\s*reduce/.test(css) &&
-      /\.docs-search-panel/.test(css),
+      /\.docs-nav/.test(css),
     ],
   ] as const;
 

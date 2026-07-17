@@ -92,7 +92,8 @@ Deno.test("the nav exposes every published page in model reading order", async (
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
   const html = await res.text();
-  const nav = /<nav class="docs-nav-scroll"[^>]*>([\s\S]*?)<\/nav>/.exec(html)
+  const nav = /<nav class="[^"]*docs-nav-scroll[^"]*"[^>]*>([\s\S]*?)<\/nav>/
+    .exec(html)
     ?.[1] ?? "";
   const childRoutes = [...nav.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
     match[1] ?? ""
@@ -257,7 +258,7 @@ Deno.test("the decisions family renders every record as labeled project history"
   const superseded = site.decisions.pages.filter((page) => page.superseded);
   assert(superseded.length > 0, "the history fixture includes retired records");
   assertEquals(
-    [...indexHtml.matchAll(/class="docs-decision-status">Superseded/g)].length,
+    [...indexHtml.matchAll(/docs-decision-status">Superseded/g)].length,
     superseded.length,
   );
 
