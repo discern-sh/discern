@@ -1,14 +1,19 @@
-# Architecture Decision Records — discern itself
+---
+title: Project decisions
+description: Dated records of the choices behind discern, including the records later superseded.
+aliases:
+  - decisions
+  - architecture decision records
+  - ADRs
+---
 
-This directory holds **discern's own** Architecture Decision Records: short documents capturing a significant decision about the kit's design, the context that forced it, and the reasoning behind it.
+# Project decisions
 
-discern _ships_ the ADR discipline to the projects it scaffolds via its bundled `discern-write-adr` skill, which creates `map/_adr/` on demand from its skeleton at [`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/). This directory is discern applying that discipline to itself — recording the decisions behind the engine and installer here, in the same format.
+These dated records preserve the context and trade-offs behind discern's architecture. They are project history, not product guidance. Read [the manual](../README.md) for current behavior and instructions.
 
-**The canonical ADR format is the one discern ships:** [`templates/skills/discern-write-adr/skeleton/docs/_adr/README.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md), with the copy-paste template at [`templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md). Read it before drafting. In brief: number continuously (`NNNN-slug.md`, first real ADR is `0001`); state the decision in the title; write one only when the decision is hard to reverse, surprising without context, and a real trade-off.
+A record captures a significant choice, its context, and the rejected alternatives. Later architecture can supersede that choice without erasing the reasoning that led to it. Current records appear first. Retired records remain available and carry their status into the public decisions pages.
 
-Once an ADR's decision is reversed, or fully absorbed into a later one, it moves into [`_superseded/`](_superseded/) and drops from the index below into the [Superseded and consolidated](#superseded-and-consolidated-adrs) list at the foot of this file. It stays on the record as history — each carries a banner pointing to its successor — but is out of the active set so a reader of the index sees only current architecture. **Numbers are never reused**: the sequence only ever climbs, so the index has gaps where retired ADRs once sat.
-
-## Index
+## Current records
 
 - [0003 — Named metric standards](0003-named-metric-standards.md)
 - [0005 — Declarative config](0005-declarative-config.md)
@@ -138,9 +143,9 @@ Once an ADR's decision is reversed, or fully absorbed into a later one, it moves
 - [0149 — The project mark is the Unicode glyph ◮](0149-the-mark-is-the-unicode-glyph.md)
 - [0150 — Markdown prose is stored unwrapped](0150-markdown-prose-is-stored-unwrapped.md)
 
-## Superseded and consolidated ADRs
+## Superseded records
 
-Kept for history under [`_superseded/`](_superseded/); each names its successor in a banner at the top of the file. Listed here so the record is complete without cluttering the active index above.
+These records remain under [`_superseded/`](_superseded/) because the path to the current design is part of the history. Each names its successor in a banner at the top of the file, and the directory marks it as superseded on the public decisions pages.
 
 - [0001 — Project-owned recipes](_superseded/0001-project-owned-recipes.md) — superseded by the explicit project script namespace (0137)
 - [0002 — First-class side-gates](_superseded/0002-first-class-side-gates.md) — replaced by the capabilities/checks model (0017) and the scope `gate` key (0018)
@@ -160,3 +165,9 @@ Kept for history under [`_superseded/`](_superseded/); each names its successor 
 - [0061 — Graduate enforces the fix stage's fixed point](_superseded/0061-graduate-fix-stage-fixed-point.md) — superseded by 0067
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md) — reverted because detecting user authorship inside ignored generated files produced false rescues for old generated output
 - [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md) — absorbed by the all-ruled-banner ownership model (0138)
+
+## For contributors
+
+discern ships the ADR discipline through the bundled `discern-write-adr` skill, which creates `map/_adr/` from [`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/). The [canonical format](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md) and [copyable template](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md) are the authoring contract.
+
+Number records continuously as `NNNN-slug.md`. The first real record is `0001`. State the decision in the title, and write a record only for a choice that is hard to reverse, surprising without context, and a real trade-off. Move a reversed or fully absorbed record into `_superseded/` and add a banner naming its successor. Never reuse a number.
