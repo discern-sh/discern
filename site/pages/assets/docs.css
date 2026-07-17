@@ -160,6 +160,7 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
 }
 
 .docs-nav-label {
+  letter-spacing: normal;
   text-decoration: none;
 }
 

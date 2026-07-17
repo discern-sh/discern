@@ -546,33 +546,38 @@ function pagerHtml(site: DocsSite, page: DocsPage): string {
 
 type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
 
-/** The breadcrumb trail as a mono path — the docs' terminal ancestry. */
-function crumbsHtml(target: BreadcrumbTarget): string {
+/** The breadcrumb trail — the docs' titled ancestry, matching the nav. */
+function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
+  const sectionTitle = (slug: string): string =>
+    site.sections.find((section) => section.slug === slug)?.title ?? slug;
   const ancestors: readonly { label: string; href: string }[] =
     target === "decisions"
-      ? [{ label: "docs", href: "/docs" }]
+      ? [{ label: "Docs", href: "/docs" }]
       : target === null
       ? []
       : target.kind === "decision"
       ? [
-        { label: "docs", href: "/docs" },
-        { label: "decisions", href: DECISIONS_ROUTE },
+        { label: "Docs", href: "/docs" },
+        { label: "Decisions", href: DECISIONS_ROUTE },
       ]
       : target.isIndex
-      ? [{ label: "docs", href: "/docs" }]
+      ? [{ label: "Docs", href: "/docs" }]
       : [
-        { label: "docs", href: "/docs" },
-        { label: target.sectionSlug, href: `/docs/${target.sectionSlug}` },
+        { label: "Docs", href: "/docs" },
+        {
+          label: sectionTitle(target.sectionSlug),
+          href: `/docs/${target.sectionSlug}`,
+        },
       ];
   const current = target === "decisions"
-    ? "decisions"
+    ? "Decisions"
     : target === null
-    ? "docs"
+    ? "Docs"
     : target.kind === "decision"
-    ? target.entry.slug
+    ? target.entry.title
     : target.isIndex
-    ? target.sectionSlug
-    : target.entry.slug;
+    ? sectionTitle(target.sectionSlug)
+    : target.entry.title;
   const items = ancestors.map(({ label, href }) =>
     `<li><a href="${href}">${
       esc(label)
@@ -689,7 +694,7 @@ ${navHtml(site, frame.current)}
     </div>
   </aside>
   <main id="doc" class="docs-main">
-    ${crumbsHtml(frame.breadcrumb)}
+    ${crumbsHtml(site, frame.breadcrumb)}
     ${frame.mainHtml}
   </main>
   <div class="docs-rail">${frame.tocHtml}</div>

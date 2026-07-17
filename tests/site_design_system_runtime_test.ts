@@ -25,7 +25,7 @@ import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.4.0";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.4.1";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -134,8 +134,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.4.0");
-  assert("@discern-sh/design-system@0.4.0" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.4.1");
+  assert("@discern-sh/design-system@0.4.1" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
