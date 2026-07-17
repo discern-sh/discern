@@ -17,7 +17,7 @@ One stripper in the doc model (`stripAdrCitations`) removes the groups from huma
 - **Stripped** (human eyes): site HTML, terminal `discern help`, MCP `discern_help` content.
 - **Retained** (agent/machine consumers): the map on disk, `discern map` content, raw `.md` editions, `--raw`, exports, and llms surfaces — their consumers benefit from the citations exactly as repo agents do.
 
-Unpublished tiers and `_private` carry no render contract and are exempt from the form. The existing law stands unchanged: documentation may cite decisions; the product's own output may not (`tests/adr_vocab_guard_test.ts`).
+Unpublished tiers and private planning or research pages carry no render contract and are exempt from the form. The existing law stands unchanged: documentation may cite decisions; the product's own output may not (`tests/adr_vocab_guard_test.ts`).
 
 ## Consequences
 

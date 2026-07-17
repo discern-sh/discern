@@ -32,13 +32,13 @@ Markdown renders at request time and caches for the process lifetime. The frontm
 
 The decision index and every record carry a server-rendered `Project history` notice that directs readers to the manual for current guidance. Superseded records are marked both in the index and on the record page. The family is linked from the docs colophon rather than the main sidebar, and raw `.md` editions retain each record's bytes.
 
-The browser shell is a design-system consumer: the server renders semantic HTML on the documented `.discern-*` classes, loading the generated tokens and component styles plus the self-hosted fonts from the minimal `/assets/design-system/docs/` bundle. Page-specific composition lives in `site/pages/assets/docs.css` and behaviour in `site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial rule treatment with a centred `◮`, discern's mark ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)).
+The browser shell is a design-system consumer: the server renders semantic HTML on the documented `.discern-*` classes, loading the generated tokens and component styles plus the self-hosted fonts from the minimal `/assets/design-system/docs/` bundle. Page-specific composition lives in `site/pages/assets/docs.css` and behavior in `site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial rule treatment with a centered `◮`, discern's mark ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)).
 
 ## Accessibility and resilience
 
 WCAG 2.2 AA is the shell's working target. The mobile drawer and search palette move focus into their modal surfaces, make the background inert, trap focus, close on Escape, and restore focus to the opener. Search exposes its labelled input, result choices, active option, and result count to assistive technology.
 
-Heading permalinks are siblings of their headings, so they do not change the heading name. The drawer trigger reports whether it opens or closes navigation, the theme control reports the action and current pressed state, and copy controls announce success or failure. Drawer and search transitions honour reduced motion. Without JavaScript, mobile navigation stays in the document flow while controls that require scripting remain hidden.
+Heading permalinks are siblings of their headings, so they do not change the heading name. The drawer trigger reports whether it opens or closes navigation, the theme control reports the action and current pressed state, and copy controls announce success or failure. Drawer and search transitions honor reduced motion. Without JavaScript, mobile navigation stays in the document flow while controls that require scripting remain hidden.
 
 ## Reader negotiation
 
