@@ -44,11 +44,16 @@ const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
 /** Retired product-category wording; one README category phrase remains searchable. */
 const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
-/** Retired human-facing name for the shared branch; user copy calls it the trunk. */
-const INTEGRATION_BRANCH = /\bintegration branch\b/gi;
+/**
+ * Retired human-facing name for the shared branch; user copy calls it the trunk.
+ * Multi-word retired phrases match across any whitespace, newlines included —
+ * hard-wrapped prose (still the norm under `templates/skills/`) must not hide
+ * a phrase from the scan by splitting it over a line break.
+ */
+const INTEGRATION_BRANCH = /\bintegration\s+branch\b/gi;
 /** Callable/config/artifact pointers that are legal only in reviewed history. */
 const RETIRED_ADR_POINTER =
-  /\b(?:discern|agent)[ _](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality [Rr]atchet\b|\b[Rr]atchet feature\b|\b[Tt]he harness\b|\b[Hh]arness's\b/g;
+  /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
 const RETIRED_ACTIVE_ADR_PATH =
   /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
 const ADR_0120_AMENDMENT =
@@ -214,13 +219,17 @@ function harnessLines(rel: string, text: string): string[] {
   return findings;
 }
 
-/** Human-readable line findings for the retired shared-branch label. */
+/**
+ * Human-readable line findings for the retired shared-branch label. Scans the
+ * whole text, not line by line, so a phrase wrapped across a line break still
+ * matches; findings carry the line the match starts on.
+ */
 function integrationBranchLines(rel: string, text: string): string[] {
   const findings: string[] = [];
-  for (const [index, line] of text.split("\n").entries()) {
-    for (const hit of line.match(INTEGRATION_BRANCH) ?? []) {
-      findings.push(`${rel}:${index + 1} contains "${hit}"`);
-    }
+  for (const match of text.matchAll(INTEGRATION_BRANCH)) {
+    const line = text.slice(0, match.index).split("\n").length;
+    const hit = match[0].replace(/\s+/g, " ");
+    findings.push(`${rel}:${line} contains "${hit}"`);
   }
   return findings;
 }
@@ -433,7 +442,9 @@ Deno.test("user-facing output consistently calls the shared branch the trunk", a
     const rel = relative(REPO_ROOT, entry.path);
     for (const { text, line } of stringLiterals(source)) {
       for (const hit of text.match(INTEGRATION_BRANCH) ?? []) {
-        offenders.push(`${rel}:${line} string contains "${hit}"`);
+        offenders.push(
+          `${rel}:${line} string contains "${hit.replace(/\s+/g, " ")}"`,
+        );
       }
     }
   }
@@ -510,4 +521,15 @@ Deno.test("adr guard: template interpolation and regex hazards don't desync the 
     "const re = /[\"`]/; const t = `x ${a ? `${b}` : '(ADR 0042)'} y`;";
   const hits = stringLiterals(tricky).flatMap((l) => citationsIn(l.text));
   assert(hits.includes("ADR 0042"), `expected the nested leak, got: ${hits}`);
+});
+
+Deno.test("adr guard: a retired phrase wrapped across a line break still matches", () => {
+  const wrapped = "one\ntwo forked from the integration\nbranch yesterday";
+  assertEquals(integrationBranchLines("x.md", wrapped), [
+    'x.md:2 contains "integration branch"',
+  ]);
+  assertEquals(
+    ("call setup\nland now").match(RETIRED_ADR_POINTER),
+    ["setup\nland"],
+  );
 });

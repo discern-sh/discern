@@ -25,8 +25,8 @@ and the list stated to be **not exhaustive**.
 mode (mirroring `scopes`):
 
 - **diff-aware** (no argument) — the primary surface. The "change set" is your
-  **branch's work** — everything committed since the fork from the integration
-  branch, plus any uncommitted edits (the same set `scopes` and the gate use).
+  **branch's work** — everything committed since the fork from the trunk, plus
+  any uncommitted edits (the same set `scopes` and the gate use).
   So it is non-empty even on a clean working tree when the branch is ahead; it
   is the unit that would accept, not just the latest commit. It names the files
   that co-change with that set but are **missing** from it. _"You changed

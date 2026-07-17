@@ -160,8 +160,8 @@ session start) and to deepen the setup with `discern improvement`.
 verbs:
 
 - `discern status` is the read-only orient-first verb: _what's true right now
-  and what to do next_ — the branch, how far it sits from the integration
-  branch, what changed, and what the gate _would_ fire (it never runs anything).
+  and what to do next_ — the branch, how far it sits from the trunk, what
+  changed, and what the gate _would_ fire (it never runs anything).
   From a **Worktree** it shows that Worktree's own state; from the main checkout
   it surveys the whole fleet of Worktrees in flight. It rounds out the trio with
   `discern doctor` (_is it correctly installed?_) and `discern improvement`
