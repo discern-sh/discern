@@ -4,3 +4,6 @@
 
 # Store Markdown prose unwrapped: proseWrap never, one-time reflow
 b2e271bc9bf6a339c54a263caa200223fa974137
+
+# Bring all template Markdown under fmt: reflow skills and setup
+7487c8061e7fe9f2557090dcc3306c7f1fb74507
