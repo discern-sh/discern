@@ -24,6 +24,7 @@ discern gives a repository one quality gate, an isolated worktree per change, an
 | [40-agent-guidance/](40-agent-guidance/)         | Guidance authored once and compiled into every agent file.                           |
 | [45-skills/](45-skills/)                         | Bundled and project-authored playbooks that agents load when the work calls for one. |
 | [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.        |
+| [70-reference/](70-reference/)                   | Exact CLI, configuration, MCP, ownership, and platform contracts.                    |
 
 Contributors can go deeper in [engine internals](50-engine-internals/), [development](80-development/), and [site](90-site/). [Project decisions](_adr/) record the choices behind discern. They are history, outside the manual and customer binaries ([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
 

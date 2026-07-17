@@ -1,5 +1,9 @@
 ---
 description: What discern is, why it's shaped this way, and where to go next — read this section first.
+aliases:
+  - orientation
+  - introduction
+  - start here
 ---
 
 # Orientation

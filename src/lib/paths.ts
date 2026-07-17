@@ -246,6 +246,7 @@ export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] = [
   "20-quality-gate",
   "30-worktrees",
   "40-agent-guidance",
+  "45-skills",
   "60-agent-integrations",
   "70-reference",
 ];
