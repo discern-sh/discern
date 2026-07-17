@@ -12,7 +12,7 @@ The wrap also proved actively harmful to enforcement: line-scoped text scans can
 
 **Prose form is canonical and enforced: one line per paragraph.** `deno.json` sets `"proseWrap": "never"`, and the gate's fix stage now joins wrapped lines instead of creating them — an agent's wrapping habit is normalized away on the next `discern done`, so the tree cannot drift into mixed wrapping. `"preserve"` was rejected for exactly that reason: it removes the canonical form rather than replacing it, leaving prose shape to whichever agent last edited the file.
 
-`templates/guidance/` joins the formatted surface (a negated glob un-excludes it from the fmt exclude list): it compiles verbatim into end-user agent files, which should read as prose rather than hard-wrapped text. The rest of `templates/` stays excluded and keeps its authored wrapping.
+`templates/guidance/` joins the formatted surface (a negated glob un-excludes it from the `fmt` exclude list): it compiles verbatim into end-user agent files, which should read as prose rather than hard-wrapped text. The rest of `templates/` stays excluded and keeps its authored wrapping.
 
 The one-time mechanical reflow landed as a single commit, recorded in `.git-blame-ignore-revs` so blame skips it.
 
