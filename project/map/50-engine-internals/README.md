@@ -19,6 +19,7 @@ This tree is contributor-facing — internals for people working ON discern — 
 - [config-access.md](config-access.md) — reading `discern.toml` via the typed schema, the paths registry and resolvers, and the `discern config` surface.
 - [migrations.md](migrations.md) — the idempotent schema-migration chain, its write contract, and convergence coverage.
 - [the-document-model.md](the-document-model.md) — the one validated model behind every docs surface: discovery, the strict frontmatter schema, the `isPublicDoc` predicate, citation stripping, and the redirect registry.
+- [the-templating-engine.md](the-templating-engine.md) — the strict config-only renderer for bundled guidance and bundled-skill Markdown.
 
 ## See also
 
