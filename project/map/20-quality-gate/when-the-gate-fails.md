@@ -36,9 +36,11 @@ Most failures fall into a handful of buckets:
 - **A generated file is out of date.** The gate reports that the compiled agent
   files or skills have drifted from their source. Fix: `discern refresh`
   rebuilds them.
-- **Formatting left changes.** The format step rewrites files to a canonical
-  style and found something uncommitted. Fix: commit the formatter's changes —
-  or run the gate before your final commit so they ride along with it.
+- **The gate left changes.** A stage rewrote tracked files you had already
+  committed — the format step rewriting to a canonical style, or a build/test
+  step regenerating a tracked artifact. The diagnostic names each file and the
+  stage that produced it. Fix: commit the gate's changes — or run the gate
+  before your final commit so they ride along with it.
 - **Lint or type errors.** A linter or type-checker found a real problem in the
   code; the captured output names the file and line.
 - **A test failed.** The reproduce command re-runs that one test on its own. A

@@ -153,6 +153,7 @@ only ever climbs, so the index has gaps where retired ADRs once sat.
 - [0145 — The production site deploys only from release tags](0145-production-site-deploys-only-from-release-tags.md)
 - [0146 — The gate validates the map's substance, and the CLI reference is generated](0146-docs-integrity-gate-and-generated-cli-reference.md)
 - [0147 — Ignored-file drift uses bounded hybrid fingerprints](0147-ignored-drift-uses-bounded-hybrid-fingerprints.md)
+- [0148 — Strand detection covers every gate stage](0148-strand-detection-covers-every-gate-stage.md)
 
 ## Superseded and consolidated ADRs
 

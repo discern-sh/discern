@@ -139,7 +139,8 @@ export interface StepResult {
  *  - `check/test` — `done` fuses the read-only checks and the tests into ONE group,
  *    so their combined failure reports this label rather than `check` or `test`;
  *  - `scope_gates` — a changed scope's self-contained gate failed;
- *  - `fix_drift` — the fix stage left uncommitted changes (ADR 0047);
+ *  - `tree_drift` — a gate stage left uncommitted changes on committed-clean
+ *    tracked files (ADR 0047, extended to every stage by ADR 0148);
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
  *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
@@ -161,7 +162,7 @@ export const FAILED_STAGES = [
   "test",
   "check/test",
   "scope_gates",
-  "fix_drift",
+  "tree_drift",
   "tracked_artifacts",
   "guidance",
   "skills",

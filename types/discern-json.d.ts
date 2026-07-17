@@ -1422,7 +1422,7 @@ export type DiscernDoneResult = {
       | "test"
       | "check/test"
       | "scope_gates"
-      | "fix_drift"
+      | "tree_drift"
       | "tracked_artifacts"
       | "guidance"
       | "skills"
