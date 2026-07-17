@@ -2,11 +2,11 @@
 
 _Almost everything in this repo is built to be driven by coding agents — the guidance, the Skills, the gate, the worktree workflow. This page is the exception: the short list of what a **human** with the repo checked out does for a reliable experience. (Agents keep this page current too.)_
 
-## The one idea to hold onto: the engine is the binary's, not on disk
+## Core idea: the engine belongs to the binary
 
-discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guidance compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). A project never has a committed copy of the engine — it lives in the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running its own engine from source (`discern done`), so there is **no** second copy to keep in sync and nothing that can drift.
+discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guidance compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). An installed project receives that engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running the same engine from source (`discern done`), leaving a single implementation with no copy drift.
 
-An install's default authored surface has `discern.toml` and `map/` at the root, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Files split by disposition: _yours_ (the map and authored files under `discern/`), _co-managed_ (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ outputs (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file map is in [install-surface.md](install-surface.md), and the [dispositions](../00-orientation/glossary.md#file-dispositions) are defined in the glossary. Edit your files in place; regenerate the binary-owned outputs with `discern refresh` or `discern upgrade`.
+An install puts `discern.toml` and `map/` at the root by default, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Files split by disposition: _yours_ (the map and authored files under `discern/`), _co-managed_ (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ outputs (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file map is in [install-surface.md](install-surface.md), and the [dispositions](../00-orientation/glossary.md#file-dispositions) are defined in the glossary. Edit your files in place; regenerate the binary-owned outputs with `discern refresh` or `discern upgrade`.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ An install's default authored surface has `discern.toml` and `map/` at the root,
 - **git** with worktree support (any recent version) — the worktree workflow, standards, and `status` all shell out to it.
 - **[Vale](https://vale.sh)** — the `prose` check runs it over the map during the gate.
 
-That is the whole list: the worktree hooks read their JSON payload in the binary itself, so there is no `jq` (or other shell-tool) dependency ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A [`Brewfile`](../../../Brewfile) at the repo root pins the toolchain for macOS/Homebrew users (`brew bundle install` from the root); `discern doctor` verifies that `git` and a POSIX `sh` resolve on `PATH`. The one _optional_ extra is **Node**, needed only for the MCP Inspector helper ([below](#inspecting-the-mcp-server)) — never for the gate, build, or tests.
+Those are the required tools. The worktree hooks read their JSON payload in the binary, so there is no `jq` or other shell-tool dependency ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A [`Brewfile`](../../../Brewfile) at the repo root pins the toolchain for macOS/Homebrew users (`brew bundle install` from the root); `discern doctor` verifies that `git` and a POSIX `sh` resolve on `PATH`. **Node** is optional and used only by the MCP Inspector helper ([below](#inspecting-the-mcp-server)). The gate, build, and tests do not use it.
 
 Stack-specific setup (installing project dependencies, running the app) lives in [getting-started.md](getting-started.md) once `discern setup` has filled it in.
 
@@ -22,9 +22,9 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### JetBrains (IntelliJ / PHPStorm)
 
-- **Worktrees** — agent worktrees default to a sibling directory (`<repo>.worktrees/`) outside the project, so the IDE never indexes them; no action needed. (If you point `[worktree].root` back inside the repo, recent versions detect and hide git worktrees for you.)
+- **Worktrees** — agent worktrees default to a sibling directory (`<repo>.worktrees/`) outside the project and beyond IDE indexing; no action needed. (If you point `[worktree].root` back inside the repo, recent versions detect and hide git worktrees for you.)
 - **Colors** — the scopes are committed in [`.idea/scopes/`](../../../.idea/scopes/). Assign colors once in **Settings → Editor → File Colors**, ticking _Share_ so they travel with the repo: `Tests` → blue, `Templates` → green, `Managed and generated` (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` plus `.claude/skills/` and `.agents/skills/`) → rose or orange (your "don't touch" color).
-- **Optional** — to drop the binary's re-published artifacts out of search entirely, mark `.claude/skills/` and `.agents/skills/` as excluded. This is an alternative to the rose color, not an addition: excluded folders ignore file colors.
+- **Optional** — to remove the binary's re-published artifacts from search, mark `.claude/skills/` and `.agents/skills/` as excluded. Use file colors when you want those folders visible and marked; excluded folders ignore file colors.
 
 ### VS Code
 
@@ -44,7 +44,7 @@ Don't hand-edit the compiled agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.
 
 ## Inspecting the MCP server
 
-`deno task inspect-mcp` opens the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) against discern's own MCP server (`discern mcp`, run from source), for eyeballing the tool surface — annotations, input/output schemas, resources — while editing [`src/engine/mcp/server.ts`](../../../src/engine/mcp/server.ts). The default opens the browser UI; append `--cli --method tools/list` (or `tools/call --tool-name … --tool-arg k=v`) for a one-shot terminal call. Full usage is in the script header, [`scripts/inspect_mcp.ts`](../../../scripts/inspect_mcp.ts).
+`deno task inspect-mcp` opens the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) against discern's own MCP server (`discern mcp`, run from source). Use it to inspect annotations, input/output schemas, and resources while editing [`src/engine/mcp/server.ts`](../../../src/engine/mcp/server.ts). The default opens the browser UI; append `--cli --method tools/list` (or `tools/call --tool-name … --tool-arg k=v`) for a one-shot terminal call. Full usage is in the script header, [`scripts/inspect_mcp.ts`](../../../scripts/inspect_mcp.ts).
 
 It is a **human-only debugging convenience** — not part of the gate, and not bundled into the binary (it lives in `scripts/`, outside `templates/`). It is the repo's one tool that needs **Node** on `PATH`: the Inspector is a Node application that launches Node subprocesses (`spawnPromise("node", …)`), so it runs via `npx` and cannot run under Deno alone. Node is therefore an optional maintainer dependency — commented in the [`Brewfile`](../../../Brewfile); install it only if you want the Inspector.
 

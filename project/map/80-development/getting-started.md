@@ -17,10 +17,10 @@ These work the same regardless of language or framework (shown here as `discern 
 
 **Prerequisites.**
 
-- **[Deno](https://deno.com)** — the only build-time dependency. It runs the whole tool (installer + engine) from `src/` and compiles the release binaries. There is no separate dependency-install step: Deno fetches and caches everything from `deno.lock` on first run.
+- **[Deno](https://deno.com)** — the only build-time dependency. It runs the installer and engine from `src/` and compiles the release binaries. There is no separate dependency-install step: Deno fetches and caches everything from `deno.lock` on first run.
 - **`git`** — the engine's one hard runtime dependency (worktrees, the merge check, scope classification all shell out to it).
 
-**Run the tool from source.** Install the dev wrapper once with `deno task install-dev-cli`: it puts a `discern` on your `PATH` that runs the engine of whichever checkout you're in — a worktree runs its own in-progress engine — mirroring what an end user runs. Outside any checkout (driving discern against another project, or from a GUI-launched agent's hooks that carry no shell env), it falls back to the main checkout baked into the wrapper at install time, which `$DISCERN_HOME` overrides when set. Then drive everything with `discern <verb>`. Never use the `dist/` binaries while developing; they bundle a frozen `templates/` snapshot. (No wrapper yet? `deno task dev <verb>` runs the same thing straight from the clone — just don't put `--` before the subcommand, or the parser prints help.)
+**Run the tool from source.** Install the dev wrapper once with `deno task install-dev-cli`. It puts a `discern` on your `PATH` that runs the engine of whichever checkout you're in, so a worktree runs its own in-progress engine and mirrors what an end user runs. Outside any checkout (driving discern against another project, or from a GUI-launched agent's hooks that carry no shell env), it falls back to the main checkout baked into the wrapper at install time, which `$DISCERN_HOME` overrides when set. Then drive everything with `discern <verb>`. Avoid the `dist/` binaries while developing because they bundle a frozen `templates/` snapshot. With no wrapper, `deno task dev <verb>` runs the same thing from the clone. Omit `--` before the subcommand; including it makes the parser print help.
 
 ```sh
 deno task install-dev-cli         # put `discern` on your PATH (once)
@@ -31,7 +31,7 @@ deno task build                   # compile per-platform binaries → dist/ (rel
 
 **Test the real compiled binary, briefly.** Occasionally you need the shipped artifact on your `PATH` instead of the source shim — an opaque binary with no trace of this checkout (say, to rule the shim out as the cause of a client-side quirk). `deno task use-compiled-build` builds the host binary, swaps it in, then holds it there only while the command runs; press Ctrl+C and it restores the dev shim automatically, so the unusual state can't outlive the terminal that reminds you of it. (Killed with `-9`? Restore by hand with `install-dev-cli`.)
 
-discern has no long-running app to start — it is one CLI binary with the engine compiled in. To _see it work_, either scaffold it into a temp directory with `discern setup` and drive `discern` there, or just run the gate in this repo.
+discern has no long-running app to start — it is one CLI binary with the engine compiled in. To _see it work_, either scaffold it into a temp directory with `discern setup` and drive `discern` there, or run the gate in this repo.
 
 **Your first green gate.** From the repo root:
 

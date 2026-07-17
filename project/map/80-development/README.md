@@ -4,10 +4,10 @@ _The contributor's view of the codebase — set up, write, test, ship._
 
 This subtree documents the developer experience: getting set up locally, the testing approach, the conventions the tooling enforces, and where to look when the quality gate fails in a way the message did not explain.
 
-The end-to-end loop is short and the same on every stack discern runs on. You drive it with `discern <verb>` — in this repo the local-dev wrapper runs that against the current checkout's own engine (the same command an end user runs):
+The loop is short and the same on every stack discern runs on. You drive it with `discern <verb>`; in this repo the local-dev wrapper runs that command against the current checkout's engine, as an end user would:
 
 - `start` provisions an isolated checkout for a change (see the worktree note in the project guidance).
-- `prepare` is the fast inner loop — it applies the fix-stage work, then the check-stage work, and never builds or tests.
+- `prepare` is the fast inner loop: it applies the fix-stage work, then the check-stage work, omitting build and test stages.
 - `done` is the full gate: in a worktree, it first verifies that your branch contains the latest trunk. It then runs the fix- and build-stage work, runs `check` and `test` in parallel, and fires any scope `gate`s whose scope changed. Run it before declaring any change done; fix what it reports and re-run.
 
 ## Leaves
