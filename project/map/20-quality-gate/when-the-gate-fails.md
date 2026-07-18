@@ -14,7 +14,7 @@ _Read the first real failure, use its reproduce command, and rerun the gate afte
 
 Start with the first entry in `diagnostics[]`. It names the tool or precondition that failed, explains the problem, and gives you a `reproduce_cmd`. Run that command when you need a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-Your agent reads these fields directly and usually fixes the failure without help. If you are handling it yourself, work from the diagnostic instead of rerunning the full gate to rediscover the same error.
+Your agent reads these fields directly and usually fixes the failure without help. Handling it yourself? Work from the diagnostic instead of rerunning the full gate.
 
 ## Match the failure to the fix
 
@@ -38,7 +38,7 @@ Run the machine-readable form when you need to hand the failure across sessions:
 discern done --json
 ```
 
-JSON mode prints one result object and suppresses live narration. Each real failure carries its diagnostic. Fail-fast siblings stop early, and their steps report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
+JSON mode prints one result object and suppresses live narration. Each real failure carries its diagnostic; fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 
@@ -54,4 +54,4 @@ JSON mode prints one result object and suppresses live narration. Each real fail
 
 - Output artifacts are temporary. Inspect an `output_path` while it is fresh. Later gate runs remove registered artifacts older than 24 hours.
 - A test that passes by itself and fails in the full gate often depends on shared state or execution order. Reproduce it in the same parallel context before treating it as a flake.
-- Run `discern doctor` when the failure points to a missing command, invalid config, or incomplete installation. It checks the configured commands without making you infer setup problems from a downstream job.
+- Run `discern doctor` when the failure points to a missing command, invalid config, or incomplete installation. It checks the configured commands directly.

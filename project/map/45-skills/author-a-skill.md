@@ -16,7 +16,7 @@ Installed projects default to `discern/skills`. The discern repository configure
 
 ## Create the Skill directory
 
-Give one procedure one directory. The directory name is the Skill's identity and becomes its materialized name.
+Give one procedure one directory. The directory name is the Skill's identity.
 
 ```text
 discern/skills/
@@ -24,9 +24,9 @@ discern/skills/
     └── SKILL.md
 ```
 
-Open `SKILL.md` with `name` and `description` frontmatter. Match `name` to the directory. Write the description as a trigger-rich sentence that says what the Skill does and when an agent reaches for it.
+Open `SKILL.md` with `name` and `description` frontmatter, `name` matching the directory. Write the description as a trigger-rich sentence: what the Skill does and when an agent reaches for it.
 
-Agent runtimes read this block with a YAML parser, and `discern done` holds every effective Skill to what those parsers accept: non-empty single-line values, with `name` in lowercase letters, digits, and hyphens. Quote a value that contains `:`. An indented continuation line fails the gate.
+Agent runtimes read this block with a YAML parser, and `discern done` holds every effective Skill to it: single-line values, `name` in lowercase letters, digits, and hyphens. Quote a value containing `:`; an indented continuation fails the gate.
 
 ```markdown
 ---
@@ -50,13 +50,13 @@ discern refresh
 discern skills list
 ```
 
-`refresh` links each authored Skill from `[skills].dir` into every configured agent's Skills directory. The listing reports it as `yours`. Relative links keep edits live after materialization, so a later change to `SKILL.md` reaches the agent directory through the same link.
+`refresh` links each authored Skill from `[skills].dir` into every configured agent's Skills directory. The listing reports it as `yours`.
 
 ## Current state & gotchas
 
-- discern creates relative symlinks for authored Skills. Commit the source directory; the materialized directory stays ignored by git.
+- discern links authored Skills as relative symlinks, so edits reach every agent directory live. Commit the source directory; the materialized one stays ignored by git.
 - discern does not template authored Markdown. A literal `{{token}}` stays literal. Only bundled Skill Markdown receives configured path substitutions.
-- A Skill with a generic description can remain undiscovered even when its procedure is good. Put task language and trigger situations in the description.
+- A generic description leaves a good Skill undiscovered. Put task language and trigger situations in it.
 - Use an authored name that matches a bundled name only when you intend to [override it](customize-or-exclude.md).
 
 ## Where it lives in code
