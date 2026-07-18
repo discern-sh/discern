@@ -804,7 +804,11 @@ function DemoPage(
             </p>
           }
           aside={
-            <Button href="/docs/installer/faq" variant="secondary" size="sm">
+            <Button
+              href="/docs/getting-started/faq"
+              variant="secondary"
+              size="sm"
+            >
               Read the full FAQ
             </Button>
           }
