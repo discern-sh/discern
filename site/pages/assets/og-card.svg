@@ -1,22 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">discern</title>
-  <desc id="desc">Software quality you can see.</desc>
-  <rect width="1200" height="630" fill="#22252c" />
-  <path d="M0 0h18v630H0z" fill="#c9f24e" />
-  <g transform="translate(940 190)">
-    <rect width="104" height="104" rx="25" fill="#c9f24e" />
-    <path d="m27 55 18 18 34-42" fill="none" stroke="#16130e" stroke-width="12"
+  <desc id="desc">Code got fast. Trust didn’t.</desc>
+  <rect width="1200" height="630" style="fill: oklch(20% 0.018 225)" />
+  <text x="84" y="118" style="fill: oklch(93% 0.012 225)"
+    font-family="'Crimson Pro', Georgia, serif" font-size="46"
+    font-weight="700">discern</text>
+  <g transform="translate(1032 66)">
+    <rect width="84" height="84" rx="20" style="fill: oklch(14.5% 0.018 225)"
+      stroke-width="2" stroke="oklch(35% 0.04 259)" />
+    <path d="m22 45 15 14 26-32" fill="none"
+      style="stroke: oklch(67% 0.165 259)" stroke-width="9"
       stroke-linecap="round" stroke-linejoin="round" />
   </g>
-  <text x="86" y="340" fill="#f7f5f8"
-    font-family="ui-sans-serif, system-ui, sans-serif" font-size="112"
-    font-weight="750" letter-spacing="-4">discern</text>
-  <text x="90" y="450" fill="#c9cbd2"
-    font-family="ui-sans-serif, system-ui, sans-serif" font-size="42"
-    font-weight="500">Software quality you can see.</text>
-  <path d="M90 520h1020" stroke="#414550" stroke-width="2" />
-  <text x="90" y="575" fill="#9297a4"
-    font-family="ui-monospace, SFMono-Regular, monospace"
-    font-size="25">discern.sh  ·  for coding agents</text>
+  <text x="80" y="330" style="fill: oklch(93% 0.012 225)"
+    font-family="'Crimson Pro', Georgia, serif" font-size="118"
+    font-weight="650" letter-spacing="-2">Code got fast.</text>
+  <text x="80" y="452" style="fill: oklch(74% 0.14 259)"
+    font-family="'Crimson Pro', Georgia, serif" font-size="118"
+    font-weight="650" font-style="italic"
+    letter-spacing="-2">Trust didn’t.</text>
+  <path d="M84 528h1032" style="stroke: oklch(32% 0.025 225)"
+    stroke-width="2" />
+  <text x="84" y="576" style="fill: oklch(62% 0.02 225)"
+    font-family="'JetBrains Mono', ui-monospace, monospace"
+    font-size="21">discern.sh · a quality harness for coding agents — and the humans who run them</text>
 </svg>
