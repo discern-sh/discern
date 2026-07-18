@@ -177,6 +177,7 @@ spawners?
 stderr
 stdin
 stdout
+strapline
 streamable
 stringly
 strippable

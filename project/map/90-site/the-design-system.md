@@ -7,7 +7,7 @@ Discern consumes `@discern-sh/design-system` from JSR as an exact, immutable dep
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.1.1"
+"discern-design-system": "jsr:@discern-sh/design-system@0.4.1"
 ```
 
 Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. Source trees, registry URLs, cache internals, distribution files, workspace links, and sibling checkouts are not consumer APIs.

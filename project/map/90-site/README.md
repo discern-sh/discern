@@ -25,7 +25,7 @@ The routes, from the handler's exported `PAGES` table:
 
 | Route                  | Page                                   | Text client receives                     |
 | ---------------------- | -------------------------------------- | ---------------------------------------- |
-| `/`                    | the generated design-system homepage   | the plaintext edition                    |
+| `/`                    | the generated landing page             | the plaintext edition                    |
 | `/agents`              | the agent's manual                     | the plaintext edition                    |
 | `/start`               | the prompt-builders edition            | the same HTML                            |
 | `/careers`             | the careers page                       | the same HTML                            |
@@ -51,14 +51,14 @@ Production's canonical origin is `https://discern.sh`; page URLs have no trailin
 
 The public URL set freezes with wave 3A's landing on July 17, 2026. From that landing onward, adding a page extends the contract. Renaming, moving, or removing one does not erase its old address.
 
-The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The freeze contained 200 routes; four later decision records extended the current set to 204 routes by July 18, 2026:
+The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The freeze contained 200 routes; five later decision records extended the current set to 205 routes by July 18, 2026:
 
 | Source           | Frozen routes                                                                                                                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Static pages     | `/`, `/agents`, `/start`, `/careers`, `/design-system-demo`, `/content-design-demo`                                                                                            |
 | Docs index       | `/docs`                                                                                                                                                                        |
 | Product guidance | The 47 routes in the section table below.                                                                                                                                      |
-| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 149 current published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
+| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 150 current published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
 
 Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
 
@@ -73,7 +73,7 @@ Each product-guidance row records its section landing and, after the colon, ever
 | `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                           |
 | `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs`  |
 
-The stable non-HTML endpoints are `/docs/index.json`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt`. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
+The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0155. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
 
 A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The freeze creates no retroactive redirect debt for pre-freeze names.
 
@@ -94,7 +94,7 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 ## Current state & gotchas
 
 - Three older pages still name Tailwind's CDN and Google Fonts in their source. The production CSP admits neither origin, so no visitor request reaches them; their remote Tailwind compilation and fonts are consequently unavailable. [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled assets as a separate launch blocker. `/` and both composition atlases already use compiled CSS and self-hosted assets.
-- `mockups/landing/` is the design archive. The homepage replaced in July 2026 remains there as `previous-homepage-2026-07-16.html`; archived pages stay confined to the archive and preserve their historical content.
-- The generated homepage and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`; `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
+- `mockups/landing/` is the design archive. The two homepages replaced in July 2026 remain there as `previous-homepage-2026-07-16.html` and `previous-homepage-2026-07-18.html`; archived pages stay confined to the archive and preserve their historical content.
+- The generated landing page and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`, sharing one document skeleton (`document.ts`) that pairs `data-discern-root` with the theme attribute on `<html>`; `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
 - [design-system-consumption.md](design-system-consumption.md) records static page composition, retained atlases, build commands, and consumer guards.
