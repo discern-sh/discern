@@ -8,15 +8,15 @@
 
 The wider model includes the strict frontmatter schema, the redirect registry, and the per-entry metadata the site reads. It is documented in [the document model](../50-engine-internals/the-document-model.md).
 
-| Route                 | Content                                                       |
-| --------------------- | ------------------------------------------------------------- |
-| `/docs`               | Browser cover; the pristine map-root README for text readers. |
-| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.    |
-| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                  |
+| Route                 | Content                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `/docs`               | Browser cover; the pristine map-root README for text readers.  |
+| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.     |
+| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                   |
 | `/docs/decisions`     | Browser index; the pristine `_adr/README.md` for text readers. |
-| `/docs/decisions/<n>` | One current or visibly superseded decision record.            |
-| `/docs/index.json`    | The client-side search index over published product guidance. |
-| `/llms.txt`           | The plaintext edition plus a generated docs listing.          |
+| `/docs/decisions/<n>` | One current or visibly superseded decision record.             |
+| `/docs/index.json`    | The client-side search index over published product guidance.  |
+| `/llms.txt`           | The plaintext edition plus a generated docs listing.           |
 
 `DocsSite.sitemapRoutes` is the canonical HTML route source for the sitemap: the docs landing, every public guidance page, the decisions index, and every decision record. Decision routes stay out of `site.pages`; search and llms prepend `DocsSite.landing` to that guidance-only sequence, while the sitemap alone adds project history.
 
@@ -30,7 +30,7 @@ The browser fetches the index once and searches it locally, with no third-party 
 
 Markdown renders at request time and caches for the process lifetime. Rendering strips the frontmatter block and inline ADR citation groups, while the `.md` editions stay pristine ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). The cited decisions remain available per page as `DocEntry.citedAdrs` and render as a deduplicated `Related decisions` footer. A section landing appends its canonical leaf index from the pages' model-owned title, description, and order, so the web listing enrols a new leaf automatically. The rendered landing suppresses authored table and list indexes once the derived replacement exists; mixed reference and "see also" blocks remain. Syntax highlighting is monochrome because this design family reserves color for verdicts. Relative links rewrite to guidance routes or on-site decision routes when the target is published, and to the repository on GitHub for internal tiers and source files, preventing reference dead ends.
 
-The decision index and every record carry a server-rendered `Project history` notice that directs readers to the manual for current guidance. Superseded records are marked both in the index and on the record page. The family is linked from the docs colophon rather than the main sidebar, and raw `.md` editions retain the `_adr/README.md` or record bytes exactly.
+The decision index and every record carry a server-rendered `Project history` notice that directs readers to the manual for current guidance. Superseded records are marked both in the index and on the record page. The family is linked from the docs colophon rather than the main sidebar, and raw `.md` editions retain the original `_adr/README.md` or record bytes.
 
 The browser shell is a design-system consumer: the docs bundle selects the package's Docs group plus named display components, so the skip link, top bar, section nav, breadcrumbs, contents rail, pager, search palette, keyboard keys, copy buttons, heading permalinks, tables, and the superseded badge all render on component-owned `.discern-*` classes from the emitted `/assets/design-system/docs/` bundle. Page-specific composition lives in `site/pages/assets/docs.css`, which owns layout, the drawer shell, brand, and code-sheet chrome while leaving component-owned classes unchanged. Behavior lives in `site/pages/assets/docs.js`. Rendered Markdown thematic breaks use the editorial rule treatment with a centered `◮`, discern's mark ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)).
 
