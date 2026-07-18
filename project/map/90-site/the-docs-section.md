@@ -40,6 +40,8 @@ WCAG 2.2 AA is the shell's working target. The mobile drawer moves focus inside 
 
 Heading permalinks render beside their headings in the design-system anchor group, each carrying an explicit per-section label without contributing to the heading's accessible name. The drawer trigger reports whether it opens or closes navigation, the theme control reports the action and current pressed state, and copy controls announce success or failure. Drawer and search transitions honor reduced motion. Without JavaScript, mobile navigation stays in the document flow while controls that require scripting remain hidden.
 
+Four falling standards pin the largest rendered docs page, the emitted docs CSS bundle, the local docs JavaScript module graph, and the search index at their measured byte sizes. [`scripts/site_asset_size.ts`](../../../scripts/site_asset_size.ts) measures those artifacts through the same site model, handler, and design-system emitter used by the running site, so a new route, module, stylesheet, or search record automatically joins the applicable budget.
+
 ## Reader negotiation
 
 Every docs route negotiates like the rest of the site: a text client receives the leaf's raw Markdown, and any reader can force it with the `.md` suffix. Negotiated responses carry `Vary: Accept, User-Agent`.

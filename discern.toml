@@ -447,6 +447,67 @@ measure   = "on-demand"
 margin    = 1000000
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
+# Docs-shell size standards — hold the largest rendered docs page and the
+# complete CSS, JavaScript module graph, and search index at their launch
+# baselines. The measurer renders the live public projection and emits the
+# selected design-system CSS into a private temporary directory, so a new page,
+# module import, or component dependency auto-enrols without relying on ignored
+# build output. These exact limits are the wave-4 baseline; 5A owns any later
+# owner-sanctioned programme-wide recalibration.
+[standards.docs_page_size]
+metric    = "docs_page_bytes"
+direction = "down"
+limit     = 46641
+run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/site_asset_size.ts docs_page_bytes"
+inputs    = [
+  "site/**",
+  "${map.dir}**",
+  "src/lib/docs.ts",
+  "src/lib/markdown.ts",
+  "src/lib/frontmatter.ts",
+  "src/lib/adr_citations.ts",
+  "scripts/site_asset_size.ts",
+  "deno.json",
+  "deno.lock",
+]
+
+[standards.docs_css_size]
+metric    = "docs_css_bytes"
+direction = "down"
+limit     = 57985
+run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/site_asset_size.ts docs_css_bytes"
+inputs    = [
+  "site/**",
+  "scripts/site_asset_size.ts",
+  "deno.json",
+  "deno.lock",
+]
+
+[standards.docs_js_size]
+metric    = "docs_js_bytes"
+direction = "down"
+limit     = 19221
+run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/site_asset_size.ts docs_js_bytes"
+inputs    = [
+  "site/**",
+  "scripts/site_asset_size.ts",
+]
+
+[standards.docs_search_index_size]
+metric    = "docs_search_index_bytes"
+direction = "down"
+limit     = 261352
+run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/site_asset_size.ts docs_search_index_bytes"
+inputs    = [
+  "site/**",
+  "${map.dir}**",
+  "src/lib/docs.ts",
+  "src/lib/markdown.ts",
+  "src/lib/frontmatter.ts",
+  "src/lib/adr_citations.ts",
+  "scripts/site_asset_size.ts",
+]
+
 # Public-map leaf-density standard — hold the map's published tree at or above
 # a rising floor of non-README Markdown leaves per 10,000 published-doc words.
 # The corpus follows the document model: underscore-prefixed subtrees
