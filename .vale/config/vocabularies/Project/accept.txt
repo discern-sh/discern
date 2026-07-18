@@ -159,6 +159,7 @@ repoints?
 repos?
 republishable
 rollout
+runtimes?
 sandboxed
 scaffolded
 scaffolder
@@ -217,7 +218,7 @@ unrunnable
 untrack(ed|ing|s)
 untrusted
 uppercased
-validator
+validators?
 Vercel('s)?
 vhost
 walkthrough(s)?

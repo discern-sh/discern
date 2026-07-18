@@ -794,7 +794,13 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
     // An authored skill whose description sits on an indented continuation
     // line containing `: ` — a real YAML parser reads a nested mapping, not a
     // string, so an agent runtime would reject or misread the skill.
-    const skillMd = join(dir, "discern", "skills", "label-the-jars", "SKILL.md");
+    const skillMd = join(
+      dir,
+      "discern",
+      "skills",
+      "label-the-jars",
+      "SKILL.md",
+    );
     const skillDoc = (description: string[]): string =>
       [
         "---",
@@ -825,7 +831,10 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "skill_frontmatter");
     const diag = diagFor(obj, "skill-frontmatter");
-    assert(diag !== undefined, `expected a skill-frontmatter diagnostic: ${r.stdout}`);
+    assert(
+      diag !== undefined,
+      `expected a skill-frontmatter diagnostic: ${r.stdout}`,
+    );
     assertStringIncludes(diag.message, "label-the-jars");
     assertStringIncludes(diag.output, "nested mapping"); // what a YAML parser reads
     assertStringIncludes(diag.output, "double quotes"); // the remedy

@@ -55,7 +55,10 @@ Deno.test("every bundled and authored skill is well-formed", async () => {
   );
   const populations = [
     { label: "bundled", skills: bundled },
-    { label: "authored", skills: await skillsUnder(REPO_AUTHORED_PATHS.skills) },
+    {
+      label: "authored",
+      skills: await skillsUnder(REPO_AUTHORED_PATHS.skills),
+    },
   ];
 
   const failures: string[] = [];
@@ -198,7 +201,11 @@ Deno.test("a missing, empty, or mis-typed identity field is rejected", () => {
   assert(missing[0]?.startsWith("description:"), missing[0]);
 
   const listName = skillFrontmatterIssues(
-    skillDoc("name:", "  - sort-the-library", "description: Shelve every book."),
+    skillDoc(
+      "name:",
+      "  - sort-the-library",
+      "description: Shelve every book.",
+    ),
     "sort-the-library",
   );
   assertEquals(listName.length, 1);

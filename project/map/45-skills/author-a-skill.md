@@ -26,6 +26,8 @@ discern/skills/
 
 Open `SKILL.md` with `name` and `description` frontmatter. Match `name` to the directory. Write the description as a trigger-rich sentence that says what the Skill does and when an agent reaches for it.
 
+Agent runtimes read this block with a YAML parser, and `discern done` holds every effective Skill to what those parsers accept: `name` and `description` are non-empty single-line strings, and `name` uses lowercase letters, digits, and hyphens. Keep each value on its own line, wrapped in double quotes when it contains `:` or starts with a YAML symbol. A value continued on an indented line reads as a different structure in YAML and fails the gate.
+
 ```markdown
 ---
 name: verify-release
@@ -63,5 +65,6 @@ discern skills list
 | --------------------------------- | -------------------------------------------------------------------------------------- |
 | `[skills].dir` default and schema | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)           |
 | Authored resolution and links     | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`) |
+| Frontmatter validation            | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                   |
 | This repo's authored example      | [`discern-voice-and-tone`](../../skills/discern-voice-and-tone/SKILL.md)               |
 | Materialization coverage          | [`guidelines_test.ts`](../../../tests/guidelines_test.ts)                              |
