@@ -41,17 +41,18 @@ import {
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
-import { buildStandardPlan } from "./standard_plan.ts";
-import { fmtRate } from "./standards.ts";
+import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
 import {
-  buildGateStandardJobs,
+  buildStandardJobs,
+  fmtRate,
+  type ResolvedStandard,
+} from "./standards.ts";
+import { verifyTrunkLimits } from "./standard_limits.ts";
+import {
   gateStandardsData,
   planStandardJobsFromConfig,
-  type ResolvedStandard,
   resolveStandardActions,
   resolveStandardActionsFromConfig,
-  standardJobLabel,
-  verifyTrunkLimits,
 } from "./standards_gate.ts";
 import type {
   GateStandard,
@@ -460,7 +461,7 @@ async function runGate(
     : failedStage === null
     ? await resolveStandardActions(root, stdPlan.standards)
     : resolveStandardActionsFromConfig(stdPlan.standards);
-  const gateStandards = buildGateStandardJobs(root, resolved);
+  const gateStandards = buildStandardJobs(root, resolved);
   const checkTest = checkTestGroup(cfg, gateStandards.jobs);
 
   // 2b. The check∥test group — capabilities, checks, tests, AND the standards'

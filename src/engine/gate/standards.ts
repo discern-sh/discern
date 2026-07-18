@@ -7,7 +7,7 @@
  * ON-DEMAND pass — the gate enforces both halves itself on every `done` run
  * (`standards_gate.ts`, ADR 0133); this verb ALWAYS measures (never replays),
  * covering deferred standards, explicit re-measurement, CI, and pinning.
- * Every standard runs even if one fails.
+ * Every structurally valid standard runs even if another fails.
  *
  * Built on the plan/apply seam (ADR 0027): a pure {@link StandardPlan} (which
  * standards, with what direction/limit/metric/command — `standard_plan.ts`) is
@@ -18,8 +18,9 @@
  * The check → pin flow measures ONCE: a green check over a clean tree records a
  * measurement receipt (`receipt.ts`) naming every measured value against the exact
  * HEAD, and a `--pin` on that same clean HEAD replays those values instead of
- * re-running the measurements — re-checking only the never-loosen half live, since
- * main's baseline can advance while HEAD stands still.
+ * re-running the measurements — re-checking only the never-loosen half from the
+ * invocation's trunk snapshot, since that baseline can advance while HEAD stands
+ * still.
  */
 
 import {
@@ -27,14 +28,13 @@ import {
   type Extent,
   loadConfig,
 } from "../../shared/config_schema.ts";
-import { RawConfig } from "../../shared/config_read.ts";
-import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
+import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
   buildStandardPlan,
-  loosenedLimitReason,
   perNote,
   pinnedLimit,
   type PlannedStandard,
+  standardJobLabel,
   type StandardPlan,
   standardPlanToEngine,
 } from "./standard_plan.ts";
@@ -46,16 +46,23 @@ import {
   previewResult,
   renderPlan,
   renderStepResults,
-  type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
-import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import { runGit, runShell } from "../../shared/subprocess.ts";
+import { runGit } from "../../shared/subprocess.ts";
 import { isAbsolute, join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
+import type { GateStandard } from "../../shared/result_schemas.ts";
+import type { JobResult } from "../jobs/types.ts";
+import type { RunOptions } from "../jobs/runner.ts";
+import { type JobEvaluators, runGroup } from "./execute.ts";
+import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
+import {
+  type TrunkLimitsVerification,
+  verifyTrunkLimits,
+} from "./standard_limits.ts";
 import {
   type AdminStateWriteAuthority,
   carryReceiptForwardAcrossPin,
@@ -73,6 +80,8 @@ import {
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
+
+export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
 /** True when `s` is a non-negative decimal number. */
 function isNumber(s: string): boolean {
@@ -105,85 +114,6 @@ export function extractMetric(
     }
   }
   return value;
-}
-
-/** Read a scalar key from main's config (the never-loosen baseline). Reads the
- * new root `discern.toml`, falling back to the legacy `.discern/config.toml` so a
- * branch whose main has not yet been migrated still checks standards correctly. The
- * `rev:./path` spelling is load-bearing: git resolves a bare `rev:path` against
- * the repository TOPLEVEL, but the config lives at the PROJECT root (the cwd) —
- * for a project rooted in a subdirectory of its repo, the bare form finds
- * nothing and the never-loosen half would silently disable. */
-async function standardMainValue(
-  root: string,
-  mainBranch: string,
-  key: string,
-): Promise<number | undefined> {
-  const trunk = await readTrunkConfig(root, mainBranch);
-  return trunk.kind === "parsed" ? trunk.config.getNumber(key) : undefined;
-}
-
-/** How reading the trunk's committed config went — the evidence Tier 1 (the
- * gate's never-loosen verification) distinguishes: a parsed config, no config
- * on the trunk at all (a fresh install on this branch), an unreadable trunk (a
- * missing ref — an unborn repo, or a CI clone that never fetched it), or a
- * config that was fetched but does not parse. */
-export type TrunkConfigRead =
-  | { kind: "parsed"; config: RawConfig }
-  | { kind: "absent" }
-  | { kind: "unreadable"; reason: string }
-  | { kind: "parse_failed"; reason: string };
-
-/**
- * Read the trunk's committed config RAW (it may be older or un-migrated — it
- * must not trip the current schema). The `rev:./path` spelling is load-bearing
- * (see {@link standardMainValue}). The trunk ref is resolved FIRST so a missing
- * ref (unborn repo, unfetched CI clone) is distinguished from a trunk that
- * simply has no config yet — the two get opposite Tier-1 postures (loud
- * unverified vs a vacuous pass).
- */
-export async function readTrunkConfig(
-  root: string,
-  mainBranch: string,
-): Promise<TrunkConfigRead> {
-  const ref = await runGit(
-    ["rev-parse", "--verify", "--quiet", `${mainBranch}^{commit}`],
-    { cwd: root },
-  );
-  if (!ref.success) {
-    return {
-      kind: "unreadable",
-      reason: `the trunk '${mainBranch}' does not resolve to a commit here`,
-    };
-  }
-  for (const rel of ["discern.toml", ".discern/config.toml"]) {
-    const out = await runGit(["show", `${mainBranch}:./${rel}`], {
-      cwd: root,
-    });
-    if (!out.success) {
-      continue;
-    }
-    try {
-      return { kind: "parsed", config: new RawConfig(out.stdout) };
-    } catch (error) {
-      return {
-        kind: "parse_failed",
-        reason: `the trunk's ${rel} does not parse: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
-    }
-  }
-  return { kind: "absent" };
-}
-
-/** Run one standard's measurement command at the resolved project root, returning
- * its combined output. The run's exit code is deliberately NOT consulted; only
- * the emitted DISCERN_METRIC line decides pass/fail. */
-async function measure(command: string, root: string): Promise<string> {
-  const r = await runShell(command, { cwd: root });
-  const dec = new TextDecoder();
-  return dec.decode(r.stdout) + dec.decode(r.stderr);
 }
 
 /** The last emitted `DISCERN_METRIC <name>` value as a number, or undefined when
@@ -238,11 +168,9 @@ export function fmtRate(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
-/** One standard check's verdict. When it failed, `reason` carries the same words the
- * logger printed — the caller mirrors them into the result envelope's diagnostics, so
- * a caller that can't hear the live logger (MCP, `--json`) still learns WHY. The
- * metric-reading failures also carry the measurement `output`: the evidence needed to
- * see why no metric emerged. */
+/** One standard check's verdict. On failure, `reason` carries the words the
+ * result envelope and human renderer expose. Metric-reading failures also carry
+ * the captured measurement `output`: the evidence for why no metric emerged. */
 export interface StandardVerdict {
   held: boolean;
   /** The value compared to the limit (rate or count); absent when unmeasurable. */
@@ -386,63 +314,179 @@ export async function evaluateMeasuredOutput(
   return verdict.held ? verdict : { ...verdict, reproduce_cmd: command };
 }
 
-/** Check one planned standard: the never-loosen read, the measurement, the comparison.
- * Prints its own pass/fail line and returns whether it `held` plus the measured `value`
- * (the rate or count compared to the limit) when a measurement was taken — the value
- * `standards --pin` would tighten the limit to. The standard is already schema-validated
- * (direction ∈ up|down, limit a number, run present), so its structural checks are
- * folded into the schema. */
-/** The never-loosen half of one standard's check: the branch's limit compared to
- * main's baseline (a floor may only rise, a ceiling only fall). Returns the failure
- * reason, or undefined when the limit is not loosened. Split out of
- * {@link standardCheck} because this half is NOT cacheable — main can advance while
- * HEAD stands still — so the measurement-receipt replay re-runs exactly this, live. */
-async function loosenedVsMainReason(
-  r: PlannedStandard,
-  root: string,
-  mainBranch: string,
-): Promise<string | undefined> {
-  const main = await standardMainValue(root, mainBranch, r.limitKey);
-  return loosenedLimitReason(r.name, r.direction, r.limit, main, mainBranch);
+/** What one standard's shared job should do. The gate may replay or defer;
+ * standalone standards always supplies `measure`. */
+export type StandardAction =
+  | { kind: "measure" }
+  | { kind: "replay"; value: number; from: string }
+  | { kind: "defer" };
+
+/** One planned standard paired with its resolved action. */
+export interface ResolvedStandard {
+  standard: PlannedStandard;
+  action: StandardAction;
 }
 
-async function standardCheck(
-  r: PlannedStandard,
+/** A holding value's standing against the current limit. */
+function heldVerdict(
+  standard: PlannedStandard,
+  value: number,
+): "improved" | "held" {
+  const better = standard.direction === "up"
+    ? value - 1e-9 > standard.limit
+    : value + 1e-9 < standard.limit;
+  return better ? "improved" : "held";
+}
+
+/** Project one resolved standard into the scheduler's planned-job shape. */
+export function plannedStandardJob(
+  standard: PlannedStandard,
+  action: StandardAction,
+  label: string = standardJobLabel(standard.name),
+): PlannedJob {
+  if (action.kind === "defer") {
+    return {
+      label,
+      command: standard.command,
+      kind: "standard",
+      reportStage: "test",
+      willRun: false,
+      note:
+        'measurement deferred (measure = "on-demand") — run `discern standards`',
+    };
+  }
+  if (action.kind === "replay") {
+    return {
+      label,
+      command: standard.command,
+      kind: "standard",
+      reportStage: "test",
+      willRun: false,
+      note: `${standard.direction}, limit ${standard.limit}, measured ${
+        fmtRate(action.value)
+      } — replayed from ${action.from.slice(0, 7)} (inputs unchanged)`,
+    };
+  }
+  return {
+    label,
+    command: standard.command,
+    kind: "standard",
+    reportStage: "test",
+    willRun: true,
+    ...(standard.timeoutS !== undefined ? { timeoutS: standard.timeoutS } : {}),
+  };
+}
+
+/** The shared job projection consumed by the gate's mixed check/test group and
+ * by the standalone verb's standards-only parallel group. */
+export interface StandardJobs {
+  jobs: PlannedJob[];
+  evaluators: JobEvaluators;
+  synthesized: Map<string, JobResult>;
+  outcomes: Map<string, GateStandard>;
+  /** Full metric verdicts retained for standalone envelope rendering. */
+  verdicts: Map<string, StandardVerdict>;
+}
+
+/**
+ * Build the one set of measurement jobs and evaluators used by both execution
+ * surfaces. The gate keeps its `standard:` scheduler namespace; standalone
+ * passes a plain-name labeler so its established result labels stay unchanged.
+ */
+export function buildStandardJobs(
   root: string,
-  mainBranch: string,
-  out: Out,
-): Promise<StandardVerdict> {
-  const { name, metric, direction, limit, command, per, scale } = r;
+  resolved: ResolvedStandard[],
+  opts: { jobLabel?: (name: string) => string } = {},
+): StandardJobs {
+  const jobs: PlannedJob[] = [];
+  const evaluators: JobEvaluators = new Map();
+  const synthesized = new Map<string, JobResult>();
+  const outcomes = new Map<string, GateStandard>();
+  const verdicts = new Map<string, StandardVerdict>();
+  const labelFor = opts.jobLabel ?? standardJobLabel;
 
-  // never loosened vs main
-  const loosened = await loosenedVsMainReason(r, root, mainBranch);
-  if (loosened !== undefined) {
-    out.error(loosened);
-    return { held: false, reason: loosened };
-  }
+  for (const { standard, action } of resolved) {
+    const label = labelFor(standard.name);
+    const base = {
+      name: standard.name,
+      direction: standard.direction,
+      limit: standard.limit,
+    };
+    jobs.push(plannedStandardJob(standard, action, label));
+    if (action.kind === "defer") {
+      outcomes.set(standard.name, { ...base, measurement: "deferred" });
+      continue;
+    }
+    if (action.kind === "replay") {
+      const verdict = compareValueToLimit(
+        standard,
+        action.value,
+        fmtRate(action.value),
+        "",
+      );
+      verdicts.set(standard.name, verdict);
+      const shortSha = action.from.slice(0, 7);
+      synthesized.set(label, {
+        label,
+        status: verdict.held ? "ok" : "failed",
+        code: verdict.held ? 0 : 1,
+        durationS: 0,
+        outputLines: 0,
+        errorLikeLines: 0,
+        ...(verdict.held ? {} : {
+          failureMessage: `${
+            verdict.reason ?? `standard '${standard.name}' failed.`
+          } (value replayed from ${shortSha} — inputs unchanged; the limit tightened past it on this branch)`,
+        }),
+      });
+      outcomes.set(standard.name, {
+        ...base,
+        measurement: "replayed",
+        value: action.value,
+        replayed_from: action.from,
+        ...(verdict.held
+          ? { verdict: heldVerdict(standard, action.value) }
+          : { verdict: "regressed" as const }),
+      });
+      continue;
+    }
 
-  // measure
-  if (command === "") {
-    const reason =
-      `standard '${name}' has no run command (set run = "<command>" under [standards.${name}]).`;
-    out.error(reason);
-    return { held: false, reason };
+    outcomes.set(standard.name, { ...base, measurement: "skipped" });
+    evaluators.set(label, async (result: JobResult): Promise<JobResult> => {
+      const verdict: StandardVerdict = standard.command === ""
+        ? {
+          held: false,
+          reason:
+            `standard '${standard.name}' has no run command (set run = "<command>" under [standards.${standard.name}]).`,
+        }
+        : await evaluateMeasuredOutput(standard, result.output ?? "", root);
+      verdicts.set(standard.name, verdict);
+      outcomes.set(standard.name, {
+        ...base,
+        measurement: "measured",
+        duration_s: result.durationS,
+        ...(verdict.value !== undefined ? { value: verdict.value } : {}),
+        ...(verdict.held && verdict.value !== undefined
+          ? { verdict: heldVerdict(standard, verdict.value) }
+          : {}),
+        ...(!verdict.held && verdict.value !== undefined
+          ? { verdict: "regressed" as const }
+          : {}),
+      });
+      if (verdict.held) {
+        const { output: _output, ...rest } = result;
+        return { ...rest, status: "ok", code: 0 };
+      }
+      return {
+        ...result,
+        status: "failed",
+        code: result.code === 0 ? 1 : result.code,
+        failureMessage: verdict.reason ??
+          `standard '${standard.name}' failed.`,
+      };
+    });
   }
-  out.heading(
-    `Measuring ${metric} (${direction}, limit ${limit}${
-      perNote(per, scale)
-    })...`,
-  );
-  const output = await measure(command, root);
-  out.raw(output.endsWith("\n") || output === "" ? output : `${output}\n`);
-
-  const verdict = await evaluateMeasuredOutput(r, output, root);
-  if (verdict.held) {
-    out.ok(verdict.summary ?? `standard '${name}' held.`);
-  } else {
-    out.error(verdict.reason ?? `standard '${name}' failed.`);
-  }
-  return verdict;
+  return { jobs, evaluators, synthesized, outcomes, verdicts };
 }
 
 /** One standard's measured outcome, carried alongside its {@link StepResult} so the
@@ -452,12 +496,13 @@ interface StandardOutcome {
   held: boolean;
   /** The value compared to the limit (rate or count); absent when unmeasurable. */
   value?: number;
+  /** Whole-second scheduler duration for a fresh measurement. */
+  durationS?: number;
 }
 
-/** The outcome of applying a standard plan: whether all held, the per-step results, the
- * per-standard measured outcomes (which the pin pass reads), and one diagnostic per
- * failure carrying its reason — the envelope's channel for WHY, so a caller that
- * can't hear the live logger (MCP, `--json`) is never left with a bare failed step. */
+/** The outcome of applying a standard plan: whether all held, the per-step
+ * results, the per-standard measured outcomes the pin pass reads, and one
+ * diagnostic per failure carrying its reason. */
 interface StandardExecution {
   ok: boolean;
   results: StepResult[];
@@ -490,18 +535,95 @@ export function standardPlanIntegrityFailure(
     : standardPlanIntegrityResult(plan, steps);
 }
 
+/** Convert Tier-1 diagnostics from the gate's scheduler namespace to the plain
+ * labels and reproduce command the standalone result has always exposed. */
+function standaloneVerificationDiagnostics(
+  verification: TrunkLimitsVerification,
+): Diagnostic[] {
+  const prefix = standardJobLabel("");
+  return verification.diagnostics.map((diagnostic) =>
+    diagnostic.tool.startsWith(prefix)
+      ? {
+        ...diagnostic,
+        tool: diagnostic.tool.slice(prefix.length),
+        reproduce_cmd: "discern standards",
+      }
+      : diagnostic
+  );
+}
+
+/** Synthetic standalone steps for deleted standards and global trunk-parse
+ * failures, neither of which has a branch measurement job to serialize. */
+function standaloneVerificationSteps(
+  plan: StandardPlan,
+  verification: TrunkLimitsVerification,
+): StepResult[] {
+  const configured = new Set(plan.standards.map((standard) => standard.name));
+  const diagnostics = standaloneVerificationDiagnostics(verification);
+  const steps: StepResult[] = [];
+  const globalFailure = diagnostics.find((diagnostic) =>
+    diagnostic.tool === "standards"
+  );
+  if (globalFailure !== undefined) {
+    steps.push({
+      step: {
+        kind: "standards-limits-check",
+        label: "trunk-limits",
+        disposition: "gate",
+        note: globalFailure.message,
+      },
+      outcome: "failed",
+    });
+  }
+  for (const name of verification.blockedStandards) {
+    if (configured.has(name)) {
+      continue;
+    }
+    steps.push({
+      step: {
+        kind: "standard",
+        label: name,
+        disposition: "gate",
+        note: "deleted on this branch; restore its trunk limit",
+      },
+      outcome: "failed",
+    });
+  }
+  return steps;
+}
+
+/** Build one applied note without losing the established `measured <value>`
+ * token. Holding summaries ride after it so human output can render from the
+ * same envelope without live parallel narration. */
+function standaloneMeasurementNote(
+  planned: PlanStep,
+  outcome: GateStandard | undefined,
+  verdict: StandardVerdict | undefined,
+): string | undefined {
+  const parts: string[] = [];
+  if (planned.note !== undefined) {
+    parts.push(planned.note);
+  }
+  if (outcome?.value !== undefined) {
+    parts.push(`measured ${fmtRate(outcome.value)}`);
+  }
+  if (verdict?.held === true && verdict.summary !== undefined) {
+    parts.push(verdict.summary);
+  }
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
 /**
- * Apply a standard plan — the thin executor. Loops the planned standards, checking
- * each (the never-loosen read + the measurement + the comparison), and collects a
- * {@link StepResult} per standard (held → "ok", failed → "failed"). Every standard
- * runs even if one fails — no short-circuit (ADR 0003). Owns every effect; the plan
- * and its projection are pure.
+ * Apply a standard plan through the same parallel job pipeline as the gate.
+ * Tier 1 is the caller's one upfront snapshot. Structurally blocked standards
+ * skip their own command; every other command runs with fail-fast disabled,
+ * per-job timeout overrides, tree-kill cancellation, and captured durations.
  */
 async function executeStandardPlan(
   plan: StandardPlan,
   root: string,
-  mainBranch: string,
-  out: Out,
+  verification: TrunkLimitsVerification,
+  opts: { timeoutS: number; signal?: AbortSignal },
 ): Promise<StandardExecution> {
   const steps = standardPlanToEngine(plan).steps;
   const integrityDiagnostic = (failure: StepResult): Diagnostic => ({
@@ -512,7 +634,6 @@ async function executeStandardPlan(
   });
   const mismatch = standardPlanIntegrityFailure(plan, steps);
   if (mismatch !== undefined) {
-    out.error(mismatch.step.note ?? "Standard plan integrity check failed.");
     return {
       ok: false,
       results: [mismatch],
@@ -520,58 +641,125 @@ async function executeStandardPlan(
       diagnostics: [integrityDiagnostic(mismatch)],
     };
   }
-  const results: StepResult[] = [];
-  const outcomes: StandardOutcome[] = [];
-  const diagnostics: Diagnostic[] = [];
-  let ok = true;
-  for (let i = 0; i < plan.standards.length; i++) {
-    const r = plan.standards[i];
-    const step = steps[i];
-    if (r === undefined || step === undefined) {
-      const failure = standardPlanIntegrityResult(plan, steps);
-      out.error(failure.step.note ?? "Standard plan integrity check failed.");
-      results.push(failure);
-      diagnostics.push(integrityDiagnostic(failure));
-      ok = false;
-      break;
-    }
-    const verdict = await standardCheck(r, root, mainBranch, out);
-    const outcome: StepOutcome = verdict.held ? "ok" : "failed";
-    // The applied step's note carries the measured value (the plan's note cannot —
-    // nothing has run yet), so an envelope-only caller sees the number on every
-    // measured step, held or not, without re-running a slow measurement.
-    const note = verdict.value !== undefined
-      ? `${step.note !== undefined ? `${step.note}, ` : ""}measured ${
-        fmtRate(verdict.value)
-      }`
-      : step.note;
-    results.push({
-      step: { ...step, ...(note !== undefined ? { note } : {}) },
-      outcome,
-    });
-    outcomes.push({
-      standard: r,
-      held: verdict.held,
-      ...(verdict.value !== undefined ? { value: verdict.value } : {}),
-    });
-    if (!verdict.held) {
-      ok = false;
-      // The same words the logger narrated, mirrored into the envelope — a failed
-      // standards step always travels with its reason (never logger-only). The
-      // reproduce is the standard's own run command when the measurement is the
-      // failure; the structural failures fall back to the verb itself.
-      diagnostics.push({
-        tool: step.label,
-        severity: "error",
-        message: verdict.reason ?? `standard '${r.name}' failed.`,
-        reproduce_cmd: verdict.reproduce_cmd ?? "discern standards",
-        ...(verdict.output !== undefined
-          ? await diagnosticOutputFields(verdict.output)
-          : {}),
-      });
+  const runnable = plan.standards.filter((standard) =>
+    !verification.blockedStandards.has(standard.name)
+  );
+  const jobs = buildStandardJobs(
+    root,
+    runnable.map((standard) => ({
+      standard,
+      action: { kind: "measure" as const },
+    })),
+    { jobLabel: (name) => name },
+  );
+  const plannedByName = new Map(steps.map((step) => [step.label, step]));
+  for (const job of jobs.jobs) {
+    const note = plannedByName.get(job.label)?.note;
+    if (note !== undefined) {
+      job.note = note;
     }
   }
-  return { ok, results, outcomes, diagnostics };
+  const group: JobGroup = {
+    stage: "standards",
+    mode: "parallel",
+    heading: "Measuring standards...",
+    display: "",
+    jobs: jobs.jobs,
+  };
+  const jobResults = new Map<string, JobResult>();
+  const runOpts: RunOptions = {
+    cwd: root,
+    stream: false,
+    failFast: false,
+    timeoutS: opts.timeoutS,
+    color: colorEnabled(),
+    quiet: true,
+    ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
+  };
+  const runnerOk = await runGroup(
+    group,
+    jobResults,
+    runOpts,
+    makeOut(runOpts.color, { quiet: true }),
+    jobs.evaluators,
+  );
+  const serialized = await serializeJobSteps([group], jobResults);
+  const executedByName = new Map(
+    serialized.steps.map((result) => [result.step.label, result]),
+  );
+
+  const results: StepResult[] = [];
+  const outcomes: StandardOutcome[] = [];
+  let integrityFailed = false;
+  for (let i = 0; i < plan.standards.length; i++) {
+    const standard = plan.standards[i];
+    const step = steps[i];
+    if (standard === undefined || step === undefined) {
+      const failure = standardPlanIntegrityResult(plan, steps);
+      results.push(failure);
+      integrityFailed = true;
+      break;
+    }
+    if (verification.blockedStandards.has(standard.name)) {
+      results.push({ step, outcome: "failed" });
+      outcomes.push({ standard, held: false });
+      continue;
+    }
+    const executed = executedByName.get(standard.name);
+    if (executed === undefined) {
+      const failure = standardPlanIntegrityResult(
+        plan,
+        serialized.steps.map((result) => result.step),
+      );
+      results.push(failure);
+      integrityFailed = true;
+      break;
+    }
+    const { group: _group, ...plainStep } = executed.step;
+    const outcome = jobs.outcomes.get(standard.name);
+    const verdict = jobs.verdicts.get(standard.name);
+    const note = standaloneMeasurementNote(step, outcome, verdict);
+    results.push({
+      ...executed,
+      step: {
+        ...plainStep,
+        ...(note !== undefined ? { note } : {}),
+      },
+    });
+    const durationS = jobResults.get(standard.name)?.durationS;
+    outcomes.push({
+      standard,
+      held: executed.outcome === "ok",
+      ...(outcome?.value !== undefined ? { value: outcome.value } : {}),
+      ...(durationS !== undefined ? { durationS } : {}),
+    });
+  }
+  results.push(...standaloneVerificationSteps(plan, verification));
+  const diagnostics = [
+    ...standaloneVerificationDiagnostics(verification),
+    ...serialized.diagnostics,
+    ...(integrityFailed
+      ? [integrityDiagnostic(standardPlanIntegrityResult(plan, steps))]
+      : []),
+  ];
+  return {
+    ok: !verification.blocking && runnerOk && !integrityFailed,
+    results,
+    outcomes,
+    diagnostics,
+  };
+}
+
+/** Convert an execution to the verb envelope. The explicit `ok` assignment is
+ * what keeps an externally-cancelled all-skipped run red. */
+function standardExecutionResult(execution: StandardExecution): DiscernResult {
+  const { results, diagnostics } = execution;
+  const result = appliedResult("standards", results);
+  result.ok = execution.ok;
+  if (diagnostics.length > 0) {
+    result.diagnostics = diagnostics;
+  }
+  return result;
 }
 
 /** Route a plain check's outcome into the measurement receipt: green over a clean
@@ -591,13 +779,23 @@ async function recordCheckMeasurements(
     return false;
   }
   const values: Record<string, number> = {};
+  const durations: Record<string, number> = {};
   for (const o of execution.outcomes) {
     if (o.value === undefined) {
       return false;
     }
     values[o.standard.name] = o.value;
+    if (o.durationS !== undefined) {
+      durations[o.standard.name] = o.durationS;
+    }
   }
-  return await recordStandardMeasurements(root, authority, values, pin);
+  return await recordStandardMeasurements(
+    root,
+    authority,
+    values,
+    pin,
+    durations,
+  );
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
@@ -621,67 +819,59 @@ async function reusableMeasurements(
 }
 
 /**
- * Rebuild a {@link StandardExecution} from the measurement receipt's values instead
- * of running the measurements. Only the never-loosen half is re-checked live — it
- * reads main's baseline, which can advance while HEAD stands still — while the
- * measured-vs-limit half needs no re-run at all: the same clean HEAD fixes both the
- * values and the limits, and only an all-green check records a receipt.
+ * Rebuild a {@link StandardExecution} from the measurement receipt's values.
+ * The caller's one Tier-1 snapshot supplies the live never-loosen verdict; the
+ * measured-vs-limit half needs no rerun because the same clean HEAD fixes both
+ * the values and limits, and only an all-green check records a receipt.
  */
-async function replayExecutionFromReceipt(
+function replayExecutionFromReceipt(
   plan: StandardPlan,
   values: Record<string, number>,
-  root: string,
-  mainBranch: string,
-): Promise<StandardExecution> {
+  verification: TrunkLimitsVerification,
+): StandardExecution {
   const results: StepResult[] = [];
   const outcomes: StandardOutcome[] = [];
-  const diagnostics: Diagnostic[] = [];
-  let ok = true;
-  for (const r of plan.standards) {
-    const value = values[r.name];
+  const diagnostics = standaloneVerificationDiagnostics(verification);
+  let ok = !verification.blocking;
+  for (const standard of plan.standards) {
+    const value = values[standard.name];
     if (value === undefined) {
       // Unreachable — the caller replays only a receipt naming every planned
       // standard — but fail closed as a plain failure rather than pinning blind.
       ok = false;
       const reason =
-        `standard '${r.name}': the measurement receipt carries no value for it. Re-run \`discern standards\` to measure.`;
+        `standard '${standard.name}': the measurement receipt carries no value for it. Re-run \`discern standards\` to measure.`;
       results.push({
-        step: { kind: "standard", label: r.name, disposition: "run" },
+        step: { kind: "standard", label: standard.name, disposition: "run" },
         outcome: "failed",
       });
-      outcomes.push({ standard: r, held: false });
+      outcomes.push({ standard, held: false });
       diagnostics.push({
-        tool: r.name,
+        tool: standard.name,
         severity: "error",
         message: reason,
         reproduce_cmd: "discern standards",
       });
       continue;
     }
-    const loosened = await loosenedVsMainReason(r, root, mainBranch);
-    const held = loosened === undefined;
+    const held = !verification.blockedStandards.has(standard.name);
     results.push({
       step: {
         kind: "standard",
-        label: r.name,
+        label: standard.name,
         disposition: "run",
-        note: `${r.direction}, limit ${r.limit}${
-          perNote(r.per, r.scale)
+        note: `${standard.direction}, limit ${standard.limit}${
+          perNote(standard.per, standard.scale)
         }, measured ${fmtRate(value)} (reused from the green check)`,
       },
       outcome: held ? "ok" : "failed",
     });
-    outcomes.push({ standard: r, held, value });
-    if (loosened !== undefined) {
+    outcomes.push({ standard, held, value });
+    if (!held) {
       ok = false;
-      diagnostics.push({
-        tool: r.name,
-        severity: "error",
-        message: loosened,
-        reproduce_cmd: "discern standards",
-      });
     }
   }
+  results.push(...standaloneVerificationSteps(plan, verification));
   return { ok, results, outcomes, diagnostics };
 }
 
@@ -899,9 +1089,17 @@ async function pinStandardsResult(
   root: string,
   cfg: DiscernConfig,
   plan: StandardPlan,
-  opts: { dryRun: boolean; names: string[] },
+  opts: {
+    dryRun: boolean;
+    names: string[];
+    verification?: TrunkLimitsVerification;
+    signal?: AbortSignal;
+  },
 ): Promise<DiscernResult> {
-  if (plan.standards.length === 0) {
+  if (
+    plan.standards.length === 0 &&
+    !(opts.verification?.blocking ?? false)
+  ) {
     return {
       ...appliedResult("standards", []),
       hints: ["No standards configured, so there is nothing to pin."],
@@ -981,15 +1179,22 @@ async function pinStandardsResult(
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorReceipt = await inspectGateReceipt(root);
 
-  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.repository.trunk;
+  const verification = opts.verification;
+  if (verification === undefined) {
+    throw new Error(
+      "internal error: a real standards pin has no trunk-limits verification",
+    );
+  }
   // A green check on this exact clean HEAD already paid for every measurement and
   // recorded a measurement receipt; replay its values rather than measuring again.
   const reused = await reusableMeasurements(root, plan);
-  const out = makeOut(colorEnabled(), { quiet: true });
-  const { ok, results, outcomes, diagnostics } = reused !== undefined
-    ? await replayExecutionFromReceipt(plan, reused, root, mainBranch)
-    : await executeStandardPlan(plan, root, mainBranch, out);
+  const execution = reused !== undefined
+    ? replayExecutionFromReceipt(plan, reused, verification)
+    : await executeStandardPlan(plan, root, verification, {
+      timeoutS: cfg.gate.timeout,
+      ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
+    });
+  const { ok, outcomes } = execution;
   const reuseHint = reused !== undefined
     ? "Reused the green check's measurements for this commit — nothing was re-measured."
     : undefined;
@@ -999,7 +1204,7 @@ async function pinStandardsResult(
     const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
     const named = failing.length > 0 ? failing.join(", ") : "a standard";
     return {
-      ...appliedResult("standards", results, diagnostics),
+      ...standardExecutionResult(execution),
       hints: [
         `Not pinning: ${named} ${
           failing.length === 1 ? "is" : "are"
@@ -1079,17 +1284,25 @@ async function pinStandardsResult(
   };
 }
 
+function unverifiedTrunkHint(
+  verification: TrunkLimitsVerification,
+): string | undefined {
+  return verification.summary.status === "unverified"
+    ? `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
+      verification.summary.reason ?? "unknown"
+    }). Fetch the trunk where standards run so the limits can be verified.`
+    : undefined;
+}
+
 /**
  * Compute the `standards` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
- * The ON-DEMAND pass: it runs every standard's measurement command fresh (and a
- * git read of main's baseline) — the gate already enforces both halves on every
- * `done` run, so this verb exists for deferred standards, explicit
- * re-measurement, and pinning. `dryRun` returns the plan
- * (no git, no measurement); an empty config is a clean pass. Non-dry-run checks
- * require a clean tree unless forced for standard authoring. Otherwise it applies
- * the plan QUIET — the measurement output flows through a silent Out so a caller
- * owning stdout (the MCP stdio channel) stays uncontaminated.
+ * The on-demand pass reads the trunk baseline once, then runs every unblocked
+ * measurement fresh in one parallel, fail-fast-off group. Each job carries its
+ * timeout and the caller's cancellation signal into the shared runner. `dryRun`
+ * returns the plan with no git or measurement; an empty config is a clean pass.
+ * Non-dry checks require a clean tree unless forced for standard authoring. The
+ * executor stays quiet so the result envelope remains the only rendering source.
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
@@ -1105,12 +1318,25 @@ export async function standardsResult(
     force?: boolean;
     pin?: boolean;
     pinNames?: string[];
+    signal?: AbortSignal;
   } = {},
 ): Promise<DiscernResult> {
   const cfg = await loadConfig(root);
   const plan = buildStandardPlan(cfg);
   let result: DiscernResult;
-  if ((opts.pinNames?.length ?? 0) > 0 && !(opts.pin ?? false)) {
+  let verification: TrunkLimitsVerification | undefined;
+  const unpinnedNames = (opts.pinNames?.length ?? 0) > 0 &&
+    !(opts.pin ?? false);
+  if (!unpinnedNames && !(opts.dryRun ?? false)) {
+    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+      cfg.repository.trunk;
+    verification = await verifyTrunkLimits(
+      root,
+      mainBranch,
+      plan.standards,
+    );
+  }
+  if (unpinnedNames) {
     // Names only mean something to the pin pass; a bare `standards <name>` would
     // otherwise silently check everything, ignoring what was asked for.
     result = {
@@ -1124,92 +1350,106 @@ export async function standardsResult(
     result = await pinStandardsResult(root, cfg, plan, {
       dryRun: opts.dryRun ?? false,
       names: opts.pinNames ?? [],
+      ...(verification !== undefined ? { verification } : {}),
+      ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     });
   } else if (opts.dryRun ?? false) {
     result = previewResult("standards", standardPlanToEngine(plan));
-  } else if (plan.standards.length === 0) {
-    result = appliedResult("standards", []);
   } else {
-    const dirtyMessage = (opts.force ?? false)
-      ? undefined
-      : await standardsCleanTreeMessage(root);
-    if (dirtyMessage !== undefined) {
+    if (verification === undefined) {
+      throw new Error(
+        "internal error: a real standards run has no trunk-limits verification",
+      );
+    }
+    if (plan.standards.length === 0 && !verification.blocking) {
       result = {
-        ok: false,
-        verb: "standards",
-        error: "dirty_worktree",
-        message: dirtyMessage,
+        ...appliedResult("standards", []),
+        hints: [
+          "No standards configured. Add a [standards.<name>] table to measure one.",
+        ],
       };
     } else {
-      const writePreflight = await preflightAdminStateWrites(root);
-      if (!writePreflight.ok) {
-        result = standardsWriteAccessFailure(
-          writePreflight,
-          "discern standards",
-        );
+      const dirtyMessage = (opts.force ?? false)
+        ? undefined
+        : await standardsCleanTreeMessage(root);
+      if (dirtyMessage !== undefined) {
+        result = {
+          ok: false,
+          verb: "standards",
+          error: "dirty_worktree",
+          message: dirtyMessage,
+        };
       } else {
-        const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-          cfg.repository.trunk;
-        const out = makeOut(colorEnabled(), { quiet: true });
-        // Pin the tree BEFORE the (slow) measurements run: the receipt may only vouch
-        // for the exact tree they read, so a mid-measurement commit voids the stamp.
-        const treePin = await pinValidatedTree(root);
-        const execution = await executeStandardPlan(
-          plan,
-          root,
-          mainBranch,
-          out,
-        );
-        const { results, outcomes, diagnostics } = execution;
-        result = appliedResult("standards", results, diagnostics);
-        // Green over a clean tree: record the measurement receipt a `--pin` on this
-        // same clean HEAD reuses; red: clear any receipt (fail-closed).
-        const receipted = await recordCheckMeasurements(
-          root,
-          writePreflight.authority,
-          execution,
-          treePin,
-        );
-        // A green check just paid for every measurement, so answer the natural next
-        // question for free: which limits have pinnable slack. Decided by the SAME
-        // pinnedLimit the pin pass applies, so this hint and a real pin can never
-        // disagree — and a caller needs no (measuring) pin preview to find out.
-        if (result.ok) {
-          const slack = outcomes.flatMap((o) => {
-            if (!o.held || o.value === undefined) {
-              return [];
+        const writePreflight = await preflightAdminStateWrites(root);
+        if (!writePreflight.ok) {
+          result = standardsWriteAccessFailure(
+            writePreflight,
+            "discern standards",
+          );
+        } else {
+          // Pin the tree before the measurements: the receipt may only vouch for
+          // the exact tree the parallel jobs read.
+          const treePin = await pinValidatedTree(root);
+          const execution = await executeStandardPlan(
+            plan,
+            root,
+            verification,
+            {
+              timeoutS: cfg.gate.timeout,
+              ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
+            },
+          );
+          const { outcomes } = execution;
+          result = standardExecutionResult(execution);
+          const receipted = await recordCheckMeasurements(
+            root,
+            writePreflight.authority,
+            execution,
+            treePin,
+          );
+          if (result.ok) {
+            const slack = outcomes.flatMap((o) => {
+              if (!o.held || o.value === undefined) {
+                return [];
+              }
+              const standard = o.standard;
+              const newLimit = pinnedLimit(
+                standard.direction,
+                o.value,
+                standard.margin,
+                standard.limit,
+              );
+              if (newLimit === undefined) {
+                return [];
+              }
+              const bound = standard.direction === "up" ? "floor" : "ceiling";
+              return [
+                `${standard.name} (${bound} ${standard.limit}, measured ${
+                  fmtRate(o.value)
+                } — would pin to ${newLimit})`,
+              ];
+            });
+            if (slack.length > 0) {
+              result.hints = [
+                ...(result.hints ?? []),
+                `Pinnable slack: ${
+                  slack.join("; ")
+                }. Capture it with \`discern standards --pin\` — ${
+                  receipted
+                    ? "on this commit it reuses this check's measurements (measure once, pin once)"
+                    : "this check already measured, no pin dry-run needed"
+                }.`,
+              ];
             }
-            const r = o.standard;
-            const newLimit = pinnedLimit(
-              r.direction,
-              o.value,
-              r.margin,
-              r.limit,
-            );
-            if (newLimit === undefined) {
-              return [];
-            }
-            const bound = r.direction === "up" ? "floor" : "ceiling";
-            return [
-              `${r.name} (${bound} ${r.limit}, measured ${
-                fmtRate(o.value)
-              } — would pin to ${newLimit})`,
-            ];
-          });
-          if (slack.length > 0) {
-            result.hints = [
-              ...(result.hints ?? []),
-              `Pinnable slack: ${
-                slack.join("; ")
-              }. Capture it with \`discern standards --pin\` — ${
-                receipted
-                  ? "on this commit it reuses this check's measurements (measure once, pin once)"
-                  : "this check already measured, no pin dry-run needed"
-              }.`,
-            ];
           }
         }
       }
+    }
+  }
+  if (verification !== undefined) {
+    const warning = unverifiedTrunkHint(verification);
+    if (warning !== undefined) {
+      result.hints = [...(result.hints ?? []), warning];
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): standards is
@@ -1221,10 +1461,11 @@ export async function standardsResult(
   return result;
 }
 
-/** Render a standards {@link DiscernResult} to the human console — the `--pin` path's
- * story is the result envelope (steps + hints), not the live measurement narration the
- * plain check path streams. */
-function renderStandardsResult(result: DiscernResult): void {
+/** Render every human standards surface from the same quiet execution envelope. */
+function renderStandardsResult(
+  result: DiscernResult,
+  opts: { pin: boolean },
+): void {
   const out = makeOut(colorEnabled(), { quiet: false });
   if (result.plan !== undefined) {
     renderPlan(outSink(out), result.plan);
@@ -1238,8 +1479,35 @@ function renderStandardsResult(result: DiscernResult): void {
   if (!result.ok && result.message !== undefined) {
     out.error(result.message);
   }
+  for (const diagnostic of result.diagnostics ?? []) {
+    if (diagnostic.output !== undefined && diagnostic.output !== "") {
+      out.raw(
+        diagnostic.output.endsWith("\n")
+          ? diagnostic.output
+          : `${diagnostic.output}\n`,
+      );
+    }
+    out.error(diagnostic.message);
+  }
   for (const hint of result.hints ?? []) {
-    out.info(hint);
+    if (hint.startsWith("Standards limits are UNVERIFIED")) {
+      out.warn(hint);
+    } else {
+      out.info(hint);
+    }
+  }
+  if (
+    result.dry_run !== true && !opts.pin && result.message === undefined &&
+    result.ok
+  ) {
+    const count = (result.steps ?? []).filter((step) =>
+      step.step.kind === "standard"
+    ).length;
+    if (count > 0) {
+      out.ok(`All ${count} standard(s) held.`);
+    }
+  } else if (!result.ok && result.message === undefined) {
+    out.error("One or more standards failed.");
   }
 }
 
@@ -1252,6 +1520,7 @@ export async function runStandards(
     force?: boolean;
     pin?: boolean;
     pinNames?: string[];
+    signal?: AbortSignal;
   } = {},
 ): Promise<number> {
   const json = opts.json ?? false;
@@ -1260,79 +1529,19 @@ export async function runStandards(
   const pin = opts.pin ?? false;
   const pinNames = opts.pinNames ?? [];
 
-  // --json (any mode), --pin, or bare standard names: the result envelope is the whole
-  // story (ADR 0030) — compute it through the shared core, then emit (JSON) or render
-  // it (human). Pinning measures and commits, so live measurement narration would only
-  // bury the outcome; names without --pin route here so the shared guard fires.
-  if (json || pin || pinNames.length > 0) {
-    const result = await standardsResult(root, {
-      dryRun,
-      force,
-      pin,
-      pinNames,
-    });
-    if (json) {
-      emitResult(result);
-    } else {
-      renderStandardsResult(result);
-    }
-    return result.ok ? 0 : 1;
-  }
-
-  // Human path: narrate live (each standard's measurement output flows through `out`).
-  const cfg = await loadConfig(root);
-  const out = makeOut(colorEnabled(), { quiet: false });
-  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
-    cfg.repository.trunk;
-  const plan = buildStandardPlan(cfg);
-
-  // --dry-run: show the plan, touch nothing — no git, no measurement.
-  if (dryRun) {
-    renderPlan(outSink(out), standardPlanToEngine(plan));
-    return 0;
-  }
-
-  if (plan.standards.length === 0) {
-    out.info(
-      "No standards configured. Add a [standards.<name>] table (e.g. [standards.coverage]).",
-    );
-    return 0;
-  }
-
-  if (!force) {
-    const dirtyMessage = await standardsCleanTreeMessage(root);
-    if (dirtyMessage !== undefined) {
-      out.error(dirtyMessage);
-      return 1;
-    }
-  }
-
-  const writePreflight = await preflightAdminStateWrites(root);
-  if (!writePreflight.ok) {
-    out.error(writePreflightFailureMessage(writePreflight));
-    return 1;
-  }
-
-  const treePin = await pinValidatedTree(root);
-  const execution = await executeStandardPlan(plan, root, mainBranch, out);
-  await recordCheckMeasurements(
-    root,
-    writePreflight.authority,
-    execution,
-    treePin,
-  );
-  const { results } = execution;
-  const result = appliedResult("standards", results);
-  renderStepResults(outSink(out), {
-    title: "Standard results",
-    steps: result.steps ?? [],
+  const result = await standardsResult(root, {
+    dryRun,
+    force,
+    pin,
+    pinNames,
+    ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
   });
-  if (!result.ok) {
-    out.error("One or more standards failed.");
-    return 1;
+  if (json) {
+    emitResult(result);
+  } else {
+    renderStandardsResult(result, { pin });
   }
-  out.ok(`All ${plan.standards.length} standard(s) held.`);
-  return 0;
+  return result.ok ? 0 : 1;
 }
 
 async function standardsCleanTreeMessage(
