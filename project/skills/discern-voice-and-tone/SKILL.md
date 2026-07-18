@@ -1,7 +1,6 @@
 ---
 name: discern-voice-and-tone
-description:
-  House voice for everything a user or visitor might read in discern — README, the documentation map (the public docs on the site, in `discern help`, and over MCP), guides, error messages, CLI help and output, UI microcopy, empty states, landing and feature pages, taglines, launch posts, and user-facing release notes. Use whenever writing, editing, or reviewing user-facing prose of any length, even a single error string, button label, or example value, and even if the task doesn't mention voice, tone, or style. Out of scope: code comments, commit messages, ADRs (dated records), and `_private/` notes. For map pages, the documenter brief owns structure, facts, and lengths; this skill owns register. Canonical technical terms are never renamed for style. This is an internal skill for the discern repo itself.
+description: "House voice for everything a user or visitor might read in discern — README, the documentation map (the public docs on the site, in `discern help`, and over MCP), guides, error messages, CLI help and output, UI microcopy, empty states, landing and feature pages, taglines, launch posts, and user-facing release notes. Use whenever writing, editing, or reviewing user-facing prose of any length, even a single error string, button label, or example value, and even if the task doesn't mention voice, tone, or style. Out of scope: code comments, commit messages, ADRs (dated records), and `_private/` notes. For map pages, the documenter brief owns structure, facts, and lengths; this skill owns register. Canonical technical terms are never renamed for style. This is an internal skill for the discern repo itself."
 ---
 
 # discern: voice and tone
