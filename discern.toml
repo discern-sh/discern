@@ -508,13 +508,15 @@ inputs    = [
   "scripts/site_asset_size.ts",
 ]
 
-# Public-map leaf-density standard — hold the map's published tree at or above
-# a rising floor of non-README Markdown leaves per 10,000 published-doc words.
-# The corpus follows the document model: underscore-prefixed subtrees
-# (_private, _internal, _adr) are excluded so private notes and ADR churn
-# cannot satisfy or breach the budget, and the publication predicate admits
-# only published pages, so a `publish: false` page counts toward neither
-# number until it publishes.
+# Public-manual leaf-density standard — hold the public guidance corpus at or
+# above a rising floor of non-README Markdown leaves per 10,000 words. The
+# corpus is the projection every published surface serves, composed from the
+# document model's own predicates: underscore-prefixed subtrees (_private,
+# _internal, _adr) are excluded so private notes and ADR churn cannot satisfy
+# or breach the budget; the manual section registry withholds contributor
+# tiers, which absorb material cut from public pages and are deliberately
+# unbudgeted here; and the publication predicate admits only published pages,
+# so a `publish: false` page counts toward neither number until it publishes.
 [standards.public_doc_leaf_density]
 metric    = "public_doc_leaves"
 direction = "up"
@@ -527,6 +529,7 @@ inputs    = [
   "scripts/public_doc_density.ts",
   "src/lib/frontmatter.ts",
   "src/lib/docs.ts",
+  "src/lib/paths.ts",
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -14,6 +14,10 @@ import {
 } from "../scripts/prose_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+
+/** A registered public section, so the density script admits the fixture. */
+const PUBLIC_SECTION = BUNDLED_PUBLIC_DOC_DIRS[0] ?? "00-orientation";
 
 const FRONTMATTERED = "---\n" +
   "title: Meta words that must not count\n" +
@@ -74,8 +78,11 @@ Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
 Deno.test("the public-doc word count excludes frontmatter", async () => {
   await withTempDir(async (dir) => {
     const map = join(dir, "map");
-    await Deno.mkdir(join(map, "10-tier"), { recursive: true });
-    await Deno.writeTextFile(join(map, "10-tier/page.md"), FRONTMATTERED);
+    await Deno.mkdir(join(map, PUBLIC_SECTION), { recursive: true });
+    await Deno.writeTextFile(
+      join(map, PUBLIC_SECTION, "page.md"),
+      FRONTMATTERED,
+    );
 
     const run = await new Deno.Command(Deno.execPath(), {
       args: [
