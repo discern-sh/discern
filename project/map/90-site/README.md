@@ -16,6 +16,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.      |
+| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.             |
 | [`site/pages/`](../../../site/pages/)                     | Hand-authored editions and ignored build output served by the handler.    |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles. |
 | [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
@@ -50,14 +51,14 @@ Production's canonical origin is `https://discern.sh`; page URLs have no trailin
 
 The public URL set freezes with wave 3A's landing on July 17, 2026. From that landing onward, adding a page extends the contract. Renaming, moving, or removing one does not erase its old address.
 
-The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. At the freeze, the set contains 200 routes:
+The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The freeze contained 200 routes; three later decision records extended the current set to 203 routes by July 18, 2026:
 
 | Source           | Frozen routes                                                                                                                               |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Static pages     | `/`, `/agents`, `/start`, `/careers`, `/design-system-demo`, `/content-design-demo`                                                         |
 | Docs index       | `/docs`                                                                                                                                     |
 | Product guidance | The 47 routes in the section table below.                                                                                                   |
-| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 145 published records discovered under `_adr/`, including its archive. |
+| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 148 current published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
 
 Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
 
@@ -84,7 +85,7 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 
 ## Guards
 
-[`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table — every declared route must serve its page, negotiable routes must serve the plaintext edition to text clients, and the plaintext file itself must exist. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree — rendering, negotiation, search-index and llms.txt coverage, and link integrity all auto-enroll a new map leaf. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
+[`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table — every declared route must serve its page, negotiable routes must serve the plaintext edition to text clients, and the plaintext file itself must exist. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree — rendering, pristine negotiation, CLI/MCP parity, search-index and llms coverage, and link integrity all auto-enroll a new map leaf. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real loopback socket and drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
 
 ## Operating it
 

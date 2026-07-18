@@ -8,6 +8,7 @@ The site is one fetch handler plus static files; publishing it is running that h
 deno task site                    # main: :4507; worktree: its discern port
 deno task watch                   # same URL; rebuild when authored inputs change
 deno task site:build
+deno task site:smoke              # build, self-host, and crawl the real handler
 deno serve --host 127.0.0.1 --allow-read --port 9000 site/serve.ts  # after build
 ```
 
@@ -55,6 +56,20 @@ deno deploy create --source local --org <org> --app <app>
 
 ## Verify a deploy
 
+Run the process smoke from the exact release-tag checkout that production should match. It compares the deployed sitemap with that checkout's live route model, then crawls every canonical HTML route, pristine Markdown and negotiated text route, internal link and anchor, redirect variant, metadata field, security response, machine projection, 404, and method refusal. `--production-domains` also proves HTTP and `www` fold directly onto the apex HTTPS canonical:
+
+```sh
+deno run --allow-read --allow-env --allow-net=discern.sh,www.discern.sh scripts/site_smoke.ts https://discern.sh --production-domains
+```
+
+External destinations depend on the network and on third-party rate limits, so they stay outside the local gate. For a release audit, opt into them separately:
+
+```sh
+deno run --allow-read --allow-env --allow-net scripts/site_smoke.ts https://discern.sh --production-domains --external-links
+```
+
+The external pass treats ordinary HTTP errors as failures. Authentication responses, rate limits, timeouts, and transport errors are reported as inconclusive for manual follow-up rather than misclassified as dead links.
+
 ```sh
 curl -s https://discern.sh/ | head -3        # DISCERN(1) masthead
 curl -s https://discern.sh/llms.txt | head -3
@@ -63,7 +78,7 @@ curl -s -H "Accept: text/html" -A "Mozilla/5.0" https://discern.sh/ | head -2
 curl -sI https://www.discern.sh/docs/ | grep -Ei '^(HTTP|location:)'
 ```
 
-The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) assert the same behavior against the handler directly. A failure here after those tests pass points at the hosting layer.
+The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The process smoke is held in the gate by [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts); the smaller route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) retain focused diagnostics. A production-only failure after both pass points at the hosting layer or release alignment.
 
 ## Portability
 

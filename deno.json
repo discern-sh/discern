@@ -52,6 +52,7 @@
     "check": "deno check",
     "gate": "deno task dev done",
     "site:build": "deno run --allow-read --allow-write --allow-run --allow-env=NODE_ENV site/build.ts",
+    "site:smoke": "deno task site:build && deno run --allow-read --allow-env --allow-net=127.0.0.1 scripts/site_smoke.ts --self-host",
     "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts",
     "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch"
   },
