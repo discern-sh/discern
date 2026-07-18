@@ -137,13 +137,15 @@ import { searchPages } from "./search.js";
   if (article) {
     for (const heading of $$(":is(h2, h3, h4)[id]", article)) {
       const label = (heading.textContent ?? "").trim();
-      heading.classList.add("discern-anchor-heading");
+      const group = doc.createElement("div");
+      group.className = "discern-anchor-heading docs-heading-row";
       const anchor = doc.createElement("a");
       anchor.className = "discern-anchor-heading__anchor docs-anchor";
       anchor.href = `#${heading.id}`;
       anchor.textContent = "§";
       anchor.setAttribute("aria-label", `Link to “${label}”`);
-      heading.append(anchor);
+      heading.before(group);
+      group.append(heading, anchor);
     }
 
     for (const pre of $$(`pre`, article)) {

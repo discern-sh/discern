@@ -58,11 +58,12 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
 
 Deno.test("representative built docs pages have no serious or critical WCAG 2.2 AA findings", async () => {
   const site = await loadDocsSite();
-  const leaf = site.pages.find((page) => !page.isIndex);
   const decision = site.decisions.pages[0];
   const routes = [
     "/docs",
-    leaf?.route,
+    ...site.sections.map((section) =>
+      section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
+    ),
     site.decisions.route,
     decision?.route,
   ].filter(
@@ -72,6 +73,152 @@ Deno.test("representative built docs pages have no serious or critical WCAG 2.2 
     await Promise.all(routes.map(seriousAxeFindings))
   ).flat();
   assertEquals(findings, []);
+});
+
+Deno.test("permalink controls stay outside every heading accessible name", async () => {
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const fixtures = [
+    ["h2", "alpha-surface", "Alpha surface"],
+    ["h3", "unrelated-beta", "Unrelated beta"],
+    ["h4", "future-gamma", "Future gamma"],
+  ] as const;
+  const body = fixtures.map(([tag, id, text]) =>
+    `<${tag} id="${id}">${text}</${tag}>`
+  ).join("");
+  const dom = new JSDOM(`<article class="doc-body">${body}</article>`, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/docs/test",
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  dom.window.eval(client.replace(/^import .*?;\n/m, ""));
+
+  const states = fixtures.map(([, id]) => {
+    const heading = dom.window.document.getElementById(id);
+    const wrapper = heading?.parentElement;
+    return {
+      tag: heading?.tagName.toLowerCase(),
+      text: heading?.textContent,
+      permalinkInsideHeading: heading?.querySelector(".docs-anchor") !== null,
+      permalinkNextToHeading: wrapper?.querySelector(
+        ":scope > .docs-anchor",
+      ) !== null,
+      label: wrapper?.querySelector(":scope > .docs-anchor")?.getAttribute(
+        "aria-label",
+      ),
+    };
+  });
+  dom.window.close();
+
+  assertEquals(
+    states,
+    fixtures.map(([tag, , text]) => ({
+      tag,
+      text,
+      permalinkInsideHeading: false,
+      permalinkNextToHeading: true,
+      label: `Link to “${text}”`,
+    })),
+  );
+});
+
+Deno.test("mobile drawer performs the complete modal focus contract", async () => {
+  const html = await (await get("/docs")).text();
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/docs",
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: true, addEventListener: () => undefined }),
+  });
+  dom.window.eval(client.replace(/^import .*?;\n/m, ""));
+
+  const document = dom.window.document;
+  const burger = document.querySelector<HTMLElement>("[data-drawer-toggle]");
+  const nav = document.querySelector<HTMLElement>("#docs-nav");
+  const background = [
+    document.querySelector<HTMLElement>(".docs-skip"),
+    document.querySelector<HTMLElement>(".docs-brand"),
+    document.querySelector<HTMLElement>(".docs-brand-docs"),
+    document.querySelector<HTMLElement>(".discern-docs-header__middle"),
+    document.querySelector<HTMLElement>(".discern-docs-header__actions"),
+    document.querySelector<HTMLElement>(".docs-main"),
+    document.querySelector<HTMLElement>(".docs-rail"),
+  ].filter((element): element is HTMLElement => element !== null);
+  const navLinks = nav?.querySelectorAll<HTMLElement>("a[href]") ?? [];
+  const firstLink = navLinks[0];
+  const lastLink = navLinks[navLinks.length - 1];
+  if (!burger || !nav || !firstLink || !lastLink) {
+    throw new Error("mobile drawer fixture has no complete focus surface");
+  }
+
+  burger.focus();
+  burger.click();
+  await Promise.resolve();
+  const opened = {
+    expanded: burger.getAttribute("aria-expanded"),
+    label: burger.getAttribute("aria-label"),
+    role: nav.getAttribute("role"),
+    modal: nav.getAttribute("aria-modal"),
+    navLabel: nav.getAttribute("aria-label"),
+    focusedFirstLink: document.activeElement === firstLink,
+    backgroundInert: background.every((element) => element.inert),
+  };
+
+  lastLink.focus();
+  document.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+  );
+  const forwardWrapsToBurger = document.activeElement === burger;
+  burger.focus();
+  document.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", {
+      key: "Tab",
+      shiftKey: true,
+      bubbles: true,
+    }),
+  );
+  const backwardWrapsToLastLink = document.activeElement === lastLink;
+  document.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  const closed = {
+    expanded: burger.getAttribute("aria-expanded"),
+    label: burger.getAttribute("aria-label"),
+    role: nav.getAttribute("role"),
+    modal: nav.getAttribute("aria-modal"),
+    navLabel: nav.getAttribute("aria-label"),
+    restoredToBurger: document.activeElement === burger,
+    backgroundInteractive: background.every((element) => !element.inert),
+  };
+  dom.window.close();
+
+  assertEquals(opened, {
+    expanded: "true",
+    label: "Close navigation",
+    role: "dialog",
+    modal: "true",
+    navLabel: "Documentation navigation",
+    focusedFirstLink: true,
+    backgroundInert: true,
+  });
+  assertEquals(forwardWrapsToBurger, true);
+  assertEquals(backwardWrapsToLastLink, true);
+  assertEquals(closed, {
+    expanded: "false",
+    label: "Open navigation",
+    role: null,
+    modal: null,
+    navLabel: null,
+    restoredToBurger: true,
+    backgroundInteractive: true,
+  });
 });
 
 Deno.test("responsive and client-generated accessibility contracts remain wired", async () => {
@@ -120,10 +267,6 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /restoreFocus/.test(client),
     ],
     [
-      "permalinks live inside their labelled headings",
-      /heading\.append\(anchor\)/.test(client),
-    ],
-    [
       "theme state is exposed",
       /aria-pressed/.test(client) && /Use light theme/.test(client),
     ],
@@ -133,12 +276,19 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     ],
     [
       "no-JS mobile navigation stays in flow",
+      /id="docs-nav"/.test(html) &&
       /html:not\(\.docs-js\) \.docs-nav/.test(css),
     ],
     [
       "drawer honors reduced motion; palette motion is design-system-owned",
       /prefers-reduced-motion:\s*reduce/.test(css) &&
       /\.docs-nav/.test(css),
+    ],
+    [
+      "print keeps the document while removing interactive chrome",
+      /@media print/.test(css) && /\.docs-search/.test(css) &&
+      /\.docs-copy/.test(css) && /\.doc-body/.test(css) &&
+      /max-width:\s*none/.test(css),
     ],
   ] as const;
 
