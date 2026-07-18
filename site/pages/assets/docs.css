@@ -862,6 +862,17 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
   }
 }
 
+.docs-heading-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.docs-heading-row > :is(h2, h3, h4) {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 40em) {
   .docs-search-btn-word,
   .docs-search-btn kbd {
