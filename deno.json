@@ -72,6 +72,7 @@
     "@std/encoding/base64": "jsr:@std/encoding@^1.0.7/base64",
     "@std/encoding/hex": "jsr:@std/encoding@^1.0.7/hex",
     "@std/toml": "jsr:@std/toml@^1.0.2",
+    "@std/yaml": "jsr:@std/yaml@^1.0.5",
     "@std/assert": "jsr:@std/assert@^1.0.10",
     "axe-core": "npm:axe-core@4.10.3",
     "jsdom": "npm:jsdom@26.1.0",

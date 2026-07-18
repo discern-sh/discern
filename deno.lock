@@ -17,6 +17,8 @@
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@^1.0.7": "1.0.10",
     "jsr:@std/fmt@^1.0.10": "1.0.10",
+    "jsr:@std/front-matter@*": "1.0.9",
+    "jsr:@std/fs@*": "1.0.24",
     "jsr:@std/fs@^1.0.13": "1.0.24",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
@@ -27,7 +29,9 @@
     "jsr:@std/text@^1.0.19": "1.0.19",
     "jsr:@std/toml@*": "1.0.11",
     "jsr:@std/toml@^1.0.2": "1.0.11",
+    "jsr:@std/yaml@*": "1.1.1",
     "jsr:@std/yaml@1": "1.1.1",
+    "jsr:@std/yaml@^1.0.5": "1.1.1",
     "jsr:@zod/zod@4": "4.4.3",
     "jsr:@zod/zod@^4.4.3": "4.4.3",
     "npm:@modelcontextprotocol/sdk@^1.29.0": "1.29.0_zod@4.4.3",
@@ -113,6 +117,12 @@
     },
     "@std/fmt@1.0.10": {
       "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
+    },
+    "@std/front-matter@1.0.9": {
+      "integrity": "ee6201d06674cbef137dda2252f62477450b48249e7d8d9ab57a30f85ff6f051",
+      "dependencies": [
+        "jsr:@std/yaml@^1.0.5"
+      ]
     },
     "@std/fs@1.0.24": {
       "integrity": "f3061b45b81673a2bece689da041df32d174be064c89eb6397fb5718d3fb7877",
@@ -952,6 +962,7 @@
       "jsr:@std/fs@^1.0.13",
       "jsr:@std/path@^1.0.8",
       "jsr:@std/toml@^1.0.2",
+      "jsr:@std/yaml@^1.0.5",
       "jsr:@zod/zod@^4.4.3",
       "npm:@modelcontextprotocol/sdk@^1.29.0",
       "npm:@types/jsdom@21.1.7",

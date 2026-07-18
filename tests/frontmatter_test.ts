@@ -53,7 +53,11 @@ Deno.test("a typo'd key fails validation, naming the allowed schema", () => {
 
 Deno.test("duplicate keys fail validation", () => {
   const issues = validateFrontmatter(doc("order: 1", "order: 2"));
-  assertEquals(issues, ["order: duplicate key"]);
+  // The restricted grammar flags the duplicate, and the YAML oracle refuses
+  // the block outright — real parsers reject duplicated mapping keys too.
+  assertEquals(issues.length, 2);
+  assertEquals(issues[0], "order: duplicate key");
+  assert(issues[1]?.includes("not valid YAML"), issues[1]);
 });
 
 Deno.test("title is bounded to the short-label ceiling", () => {
@@ -148,6 +152,45 @@ Deno.test("a scalar where a list belongs is caught, and vice versa", () => {
   assertEquals(validateFrontmatter(doc("title:", "  - a list")), [
     "title: must be a single line",
   ]);
+});
+
+Deno.test("the YAML oracle rejects a block a real parser cannot read", () => {
+  // An unquoted value containing `: ` passes the restricted grammar (it is one
+  // flat `key: value` line) but is invalid YAML — the exact shape that ships
+  // past a lax check and then breaks in an external consumer's parser.
+  const colon = validateFrontmatter(
+    doc("description: covers everything in scope: files, routes, and links."),
+  );
+  assertEquals(colon.length, 1);
+  assert(colon[0]?.includes("not valid YAML"), colon[0]);
+
+  const bracket = validateFrontmatter(doc("title: [oops"));
+  assertEquals(bracket.length, 1);
+  assert(bracket[0]?.includes("not valid YAML"), bracket[0]);
+});
+
+Deno.test("the YAML oracle rejects a value the two parsers read differently", () => {
+  // A bare number: the restricted grammar reads the string "2026", a real YAML
+  // parser reads the number 2026 — divergence, so external consumers would see
+  // a different document than discern does.
+  const numeric = validateFrontmatter(doc("title: 2026"));
+  assertEquals(numeric.length, 1);
+  assert(numeric[0]?.startsWith("title: a real YAML parser"), numeric[0]);
+
+  // Double-quote escapes: the restricted grammar keeps the backslashes, YAML
+  // interprets them.
+  const escaped = validateFrontmatter(doc('title: "a \\"quote\\""'));
+  assertEquals(escaped.length, 1);
+  assert(escaped[0]?.startsWith("title: a real YAML parser"), escaped[0]);
+
+  // Quoting a value that needs it satisfies BOTH parsers identically.
+  assertEquals(
+    validateFrontmatter(doc(
+      'title: "Scope: files and routes"',
+      'description: "A value with a colon: quoted, both parsers agree on it."',
+    )),
+    [],
+  );
 });
 
 Deno.test("an unterminated or unparseable block fails loudly, not silently", () => {

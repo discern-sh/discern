@@ -29,7 +29,15 @@
  * enforces, so a typo'd key or an out-of-shape value fails loudly at the gate
  * instead of vanishing silently. `SKILL.md` identity blocks read the same
  * scanner through `parseSkillFrontmatter` (src/lib/skills.ts).
+ *
+ * The strict validators additionally consult {@link parseYamlOracle}: a block
+ * that ships must be valid YAML a REAL parser reads to the same values,
+ * because external consumers (agent runtimes, site generators, editors) parse
+ * frontmatter as YAML, never with the restricted grammar. The two-parser
+ * agreement is what makes "passes the gate" mean "parses everywhere".
  */
+
+import { parse as parseYaml } from "@std/yaml";
 
 /** The recognised override keys, the single source the validator checks against. */
 export const DOC_META_KEYS = [
@@ -81,6 +89,8 @@ export interface FrontmatterBlock {
   /** Lines inside the fences that are neither a field, a list item, a blank
    * line, nor a comment (e.g. a nested map's members). */
   unparsed: string[];
+  /** The verbatim text between the fences — what an external YAML parser reads. */
+  raw: string;
   body: string;
 }
 
@@ -116,6 +126,7 @@ export function scanFrontmatterBlock(md: string): FrontmatterBlock | undefined {
       return {
         fields,
         unparsed,
+        raw: lines.slice(1, i).join("\n"),
         body: lines.slice(i + 1).join("\n").replace(/^\n/, ""),
       };
     }
@@ -212,6 +223,118 @@ export const DESCRIPTION_MAX_LENGTH = 160;
 /** Push `message` prefixed with its offending key, the shape every issue takes. */
 function issue(issues: string[], key: string, message: string): void {
   issues.push(`${key}: ${message}`);
+}
+
+/** The first line of a YAML parser's error, without its trailing context dump. */
+function yamlErrorSummary(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split("\n", 1)[0] ?? message;
+}
+
+/**
+ * Parse a block's verbatim text with a REAL YAML parser — the oracle every
+ * external consumer of a shipped Markdown file applies (agent runtimes, site
+ * generators, editors all read frontmatter as YAML, not as discern's restricted
+ * grammar). Returns the parsed mapping, or an issue string when the block is
+ * not valid YAML or not a flat mapping. A block the restricted grammar accepts
+ * can still fail here (an unquoted value containing `: `, a stray `[`), and
+ * that is exactly the class of file that ships fine past a lax check and then
+ * breaks in the consumer's parser.
+ */
+export function parseYamlOracle(
+  raw: string,
+): { attrs: Record<string, unknown> } | { issue: string } {
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(raw);
+  } catch (error) {
+    return {
+      issue: `frontmatter is not valid YAML — external tools parse this ` +
+        `block with a real YAML parser: ${yamlErrorSummary(error)}`,
+    };
+  }
+  if (parsed === null || parsed === undefined) return { attrs: {} };
+  if (
+    typeof parsed !== "object" || Array.isArray(parsed)
+  ) {
+    return {
+      issue:
+        `frontmatter must be a YAML mapping of \`key: value\` pairs, but a ` +
+        `real YAML parser reads this block as ${
+          Array.isArray(parsed) ? "a list" : `a ${typeof parsed}`
+        }`,
+    };
+  }
+  return { attrs: parsed as Record<string, unknown> };
+}
+
+/** Render a YAML value compactly for an agreement-issue message. */
+function describeYamlValue(value: unknown): string {
+  if (value === undefined) return "nothing";
+  const rendered = JSON.stringify(value) ?? String(value);
+  return rendered.length > 60 ? `${rendered.slice(0, 57)}…` : rendered;
+}
+
+/**
+ * The two-reader agreement check: for every schema key the restricted grammar
+ * read, a real YAML parser must read the SAME value. Divergence means discern
+ * and an external consumer would see two different documents — the failure mode
+ * that ships a file every internal check passes and an external parser then
+ * rejects or misreads. Only keys whose restricted shape was already valid are
+ * compared, so a shape error is reported once, not twice.
+ */
+function yamlAgreementIssues(
+  block: FrontmatterBlock,
+  attrs: Record<string, unknown>,
+): string[] {
+  const issues: string[] = [];
+  const disagree = (key: string, actual: unknown): void => {
+    issue(
+      issues,
+      key,
+      `a real YAML parser reads this value as ${describeYamlValue(actual)} — ` +
+        `keep it a plain single-line value (quote it if it contains ` +
+        `\`: \` or starts with a YAML symbol)`,
+    );
+  };
+  for (const field of block.fields) {
+    const yamlValue = attrs[field.key];
+    switch (field.key) {
+      case "title":
+      case "description": {
+        const expected = scalarOf(field);
+        if (expected === undefined) break;
+        if (yamlValue !== expected) disagree(field.key, yamlValue);
+        break;
+      }
+      case "order": {
+        const expected = Number(scalarOf(field));
+        if (!Number.isInteger(expected)) break;
+        if (yamlValue !== expected) disagree(field.key, yamlValue);
+        break;
+      }
+      case "publish": {
+        const scalar = scalarOf(field);
+        if (scalar !== "true" && scalar !== "false") break;
+        if (yamlValue !== (scalar === "true")) disagree(field.key, yamlValue);
+        break;
+      }
+      case "redirect_from":
+      case "aliases": {
+        // An empty `key:` is already a shape issue; YAML reads it as null.
+        if (!Array.isArray(field.value) || field.value.length === 0) break;
+        const matches = Array.isArray(yamlValue) &&
+          yamlValue.length === field.value.length &&
+          field.value.every((item, i) => yamlValue[i] === item);
+        if (!matches) disagree(field.key, yamlValue);
+        break;
+      }
+      default:
+        // Unknown keys are already schema failures; agreement adds nothing.
+        break;
+    }
+  }
+  return issues;
 }
 
 /**
@@ -343,6 +466,17 @@ export function validateFrontmatter(md: string): string[] {
         );
         break;
     }
+  }
+
+  // The YAML oracle: the block must ALSO be valid YAML that a real parser
+  // reads to the same values, because every external consumer of a shipped
+  // Markdown file (site generators, agent runtimes, editors) parses the block
+  // as YAML — never with the restricted grammar above.
+  const oracle = parseYamlOracle(block.raw);
+  if ("issue" in oracle) {
+    issues.push(oracle.issue);
+  } else {
+    issues.push(...yamlAgreementIssues(block, oracle.attrs));
   }
   return issues;
 }
