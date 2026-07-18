@@ -186,7 +186,7 @@ async function loadSiteRouting(): Promise<SiteRouting> {
   const liveRoutes = liveHtmlRoutes(site);
   const redirects = buildSiteRedirectTable(
     liveRoutes,
-    [...site.pages, ...site.decisions.pages],
+    [site.landing, ...site.pages, ...site.decisions.pages],
     STATIC_REDIRECTS,
   );
   if (redirects.issues.length > 0) {

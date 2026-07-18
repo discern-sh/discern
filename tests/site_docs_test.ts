@@ -14,6 +14,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
+import { fromFileUrl } from "@std/path";
 import { handler } from "../site/serve.ts";
 import {
   docsLlmsSection,
@@ -27,6 +28,7 @@ import type { DocEntry } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { helpResult } from "../src/commands/docs.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -34,6 +36,18 @@ const BROWSER = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
 };
 const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+
+function helpRecordRoute(path: string): string {
+  const rel = path.replace(/^(?:map|docs)\//, "");
+  if (rel === "README.md") return "/docs";
+  const parts = rel.split("/");
+  const section = (parts[0] ?? "").replace(/^\d+-/, "");
+  const filename = parts.at(-1) ?? "";
+  return filename.toLowerCase() === "readme.md"
+    ? `/docs/${section}`
+    : `/docs/${section}/${filename.replace(/\.md$/, "")}`;
+}
 
 function get(path: string, headers: Record<string, string>): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
@@ -110,6 +124,24 @@ Deno.test("the nav exposes every published page in model reading order", async (
     section.dir === "20-quality-gate"
   );
   assertEquals(gate?.pages[1]?.entry.slug, "when-the-gate-fails");
+});
+
+Deno.test("the shared CLI/MCP help core and site model have exact guidance parity", async () => {
+  const site = await loadDocsSite();
+  const help = await helpResult(REPO_ROOT);
+  assert(help.ok && help.data?.docs !== undefined);
+  const helpItems = help.data.docs.map((doc) => ({
+    route: helpRecordRoute(doc.path),
+    title: doc.title,
+  }));
+  const siteItems = [
+    { route: site.landing.route, title: site.landing.entry.title },
+    ...site.pages.map((page) => ({
+      route: page.route,
+      title: page.entry.title,
+    })),
+  ];
+  assertEquals(helpItems, siteItems);
 });
 
 Deno.test("the docs projection refuses orphan shapes", () => {
@@ -235,10 +267,14 @@ Deno.test("the /docs index lists every section for both readers", async () => {
   const asText = await get("/docs", CURL);
   assertEquals(asText.status, 200);
   const md = await asText.text();
+  const rootSource = await Deno.readTextFile(
+    new URL("../project/map/README.md", import.meta.url),
+  );
+  assertEquals(md, rootSource, "the manual front door keeps the raw contract");
 
   for (const section of site.sections) {
     assertStringIncludes(html, `href="${section.index.route}"`, section.dir);
-    assertStringIncludes(md, section.title, section.dir);
+    assertStringIncludes(md, `${section.dir}/`, section.dir);
   }
 
   // The index honours the .md suffix like every leaf does.
@@ -254,6 +290,15 @@ Deno.test("the decisions family renders every record as labeled project history"
   const indexHtml = await indexRes.text();
   assertStringIncludes(indexHtml, "Project history");
   assertStringIncludes(indexHtml, "not current product guidance");
+  const indexSource = await Deno.readTextFile(
+    new URL("../project/map/_adr/README.md", import.meta.url),
+  );
+  const indexMarkdown = await get(`${site.decisions.route}.md`, BROWSER);
+  assertEquals(
+    await indexMarkdown.text(),
+    indexSource,
+    "the decisions front door keeps the raw contract",
+  );
 
   const superseded = site.decisions.pages.filter((page) => page.superseded);
   assert(superseded.length > 0, "the history fixture includes retired records");
@@ -391,13 +436,15 @@ Deno.test("every local link in every published page resolves — no dead ends", 
 
 Deno.test("the search index and llms.txt cover every published page", async () => {
   const site = await loadDocsSite();
+  const guidanceRoutes = ["/docs", ...site.pages.map((page) => page.route)];
 
   const res = await get("/docs/index.json", BROWSER);
   assertEquals(res.status, 200);
   const index = await res.json() as {
     pages: Array<{ route: string; title: string }>;
   };
-  assertEquals(index.pages.map((p) => p.route), site.pages.map((p) => p.route));
+  assertEquals(index.pages.map((p) => p.route), guidanceRoutes);
+  assertEquals(index.pages[0]?.title, "The discern manual");
   for (const decision of site.decisions.pages) {
     assert(
       !index.pages.some((page) => page.route === decision.route),
@@ -408,6 +455,10 @@ Deno.test("the search index and llms.txt cover every published page", async () =
   const llms = await get("/llms.txt", CURL);
   const text = await llms.text();
   assertStringIncludes(text, "DISCERN(1)");
+  assert(
+    /https:\/\/discern\.sh\/docs\s+The discern manual/.test(text),
+    "llms.txt lists the manual front door with its canonical label",
+  );
   for (const page of site.pages) {
     assertStringIncludes(text, `https://discern.sh${page.route}`);
   }

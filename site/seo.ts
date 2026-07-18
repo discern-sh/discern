@@ -397,7 +397,7 @@ export async function docsLlmsFullText(site: DocsSite): Promise<string> {
     "",
     "The complete public manual. Source citations are retained for agents.",
   ];
-  for (const page of site.pages) {
+  for (const page of [site.landing, ...site.pages]) {
     const raw = await Deno.readTextFile(page.entry.absPath);
     const { body } = parseFrontmatter(raw);
     chunks.push(

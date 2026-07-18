@@ -299,6 +299,7 @@ Deno.test("llms-full is the public full-fidelity projection without frontmatter"
   const full = await response.text();
   assertStringIncludes(full, "DISCERN(1)");
   assertStringIncludes(full, "[ADR ");
+  assertStringIncludes(full, `<!-- BEGIN ${canonicalUrl("/docs")} -->`);
   for (const page of site.pages) {
     assertStringIncludes(full, `<!-- BEGIN ${canonicalUrl(page.route)} -->`);
   }

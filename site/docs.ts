@@ -76,8 +76,17 @@ export interface DocsSection {
   pages: DocsPage[];
 }
 
+/** The manual's public front door, backed by the map root README. */
+export interface DocsLanding {
+  route: "/docs";
+  entry: DocEntry;
+  mapPath: string;
+}
+
 /** The published docs site, derived once per process. */
 export interface DocsSite {
+  /** The public root README, first in every guidance projection. */
+  landing: DocsLanding;
   /** Every page in linear reading order (section indexes included). */
   pages: DocsPage[];
   byRoute: Map<string, RoutedDocPage>;
@@ -86,6 +95,8 @@ export interface DocsSite {
   sections: DocsSection[];
   decisions: {
     route: typeof DECISIONS_ROUTE;
+    /** The authored project-history front door. */
+    index: DocEntry;
     pages: DecisionPage[];
     byNumber: Map<string, DecisionPage>;
   };
@@ -118,7 +129,27 @@ async function buildDocsSite(): Promise<DocsSite> {
   if (!adrTree) throw new Error("docs: no ADR tree found");
 
   const projection = projectDocsPages(tree.entries, BUNDLED_PUBLIC_DOC_DIRS);
-  const decisionPages: DecisionPage[] = adrRecords(publicDocs(adrTree.entries))
+  const landingEntries = publicDocs(tree.entries).filter((entry) =>
+    entry.section === "" && entry.slug.toLowerCase() === "readme"
+  );
+  const landingEntry = landingEntries[0];
+  if (landingEntry === undefined || landingEntries.length !== 1) {
+    throw new Error("docs: the public manual must have one root README");
+  }
+  const landing: DocsLanding = {
+    route: "/docs",
+    entry: landingEntry,
+    mapPath: landingEntry.relToDocs,
+  };
+  const publicDecisionEntries = publicDocs(adrTree.entries);
+  const decisionIndexEntries = publicDecisionEntries.filter((entry) =>
+    entry.section === "" && entry.slug.toLowerCase() === "readme"
+  );
+  const decisionIndex = decisionIndexEntries[0];
+  if (decisionIndex === undefined || decisionIndexEntries.length !== 1) {
+    throw new Error("docs: project history must have one public root README");
+  }
+  const decisionPages: DecisionPage[] = adrRecords(publicDecisionEntries)
     .map(({ entry, number, superseded }) => ({
       kind: "decision",
       route: `${DECISIONS_ROUTE}/${entry.slug}`,
@@ -165,11 +196,17 @@ async function buildDocsSite(): Promise<DocsSite> {
 
   return {
     ...projection,
+    landing,
     byRoute,
     byMapPath,
-    decisions: { route: DECISIONS_ROUTE, pages: decisionPages, byNumber },
+    decisions: {
+      route: DECISIONS_ROUTE,
+      index: decisionIndex,
+      pages: decisionPages,
+      byNumber,
+    },
     sitemapRoutes: [
-      "/docs",
+      landing.route,
       ...projection.pages.map((page) => page.route),
       DECISIONS_ROUTE,
       ...decisionPages.map((page) => page.route),
@@ -938,44 +975,6 @@ ${rendered.html}
 
 // ── Plain-text surfaces ────────────────────────────────────────────────────
 
-/** The Markdown edition of the /docs index, for text clients. */
-export function docsIndexMarkdown(site: DocsSite): string {
-  const lines: string[] = [
-    "# discern documentation",
-    "",
-    "The same tree `discern help` serves. Append .md to any page for raw",
-    "Markdown, or fetch it with a text client.",
-    "",
-  ];
-  for (const section of site.sections) {
-    lines.push(`## ${section.title}`, "");
-    for (const p of section.pages) {
-      const desc = p.entry.description ? ` — ${p.entry.description}` : "";
-      lines.push(`- https://discern.sh${p.route}.md${desc}`);
-    }
-    lines.push("");
-  }
-  return lines.join("\n");
-}
-
-/** The Markdown edition of the project-history index. */
-export function decisionsIndexMarkdown(site: DocsSite): string {
-  const lines = [
-    "# Project decisions",
-    "",
-    "Project history, not product guidance. Use /docs for current guidance.",
-    "",
-  ];
-  for (const page of site.decisions.pages) {
-    const status = page.superseded ? " — superseded" : "";
-    lines.push(
-      `- https://discern.sh${page.route}.md — ${page.entry.title}${status}`,
-    );
-  }
-  lines.push("");
-  return lines.join("\n");
-}
-
 /** The DOCUMENTATION section appended to /llms.txt, man-page styled. */
 export function docsLlmsSection(site: DocsSite): string {
   const lines: string[] = [
@@ -985,6 +984,13 @@ export function docsLlmsSection(site: DocsSite): string {
     "    edition at the same address.",
     "",
   ];
+  const landingPad = " ".repeat(
+    Math.max(1, 42 - site.landing.route.length),
+  );
+  lines.push(
+    `        https://discern.sh${site.landing.route}${landingPad}${site.landing.entry.title}`,
+    "",
+  );
   for (const section of site.sections) {
     lines.push(`    ${section.title}`);
     for (const p of section.pages) {
@@ -1004,13 +1010,20 @@ let searchIndexCache: string | undefined;
 
 async function searchIndexJson(site: DocsSite): Promise<string> {
   if (searchIndexCache !== undefined) return searchIndexCache;
-  const index = await buildSearchIndex(site.pages.map((page) => ({
-    route: page.route,
-    section: site.sections.find((section) =>
-      section.slug === page.sectionSlug
-    )?.title ?? "",
-    entry: page.entry,
-  })));
+  const index = await buildSearchIndex([
+    {
+      route: site.landing.route,
+      section: "Manual",
+      entry: site.landing.entry,
+    },
+    ...site.pages.map((page) => ({
+      route: page.route,
+      section: site.sections.find((section) =>
+        section.slug === page.sectionSlug
+      )?.title ?? "",
+      entry: page.entry,
+    })),
+  ]);
   searchIndexCache = JSON.stringify(index);
   return searchIndexCache;
 }
@@ -1060,7 +1073,7 @@ export async function serveDocs(
   if (routePath === "/docs") {
     if (wantsMd || asText) {
       return respond(
-        docsIndexMarkdown(site),
+        await Deno.readTextFile(site.landing.entry.absPath),
         "text/markdown; charset=utf-8",
         !wantsMd,
       );
@@ -1071,7 +1084,7 @@ export async function serveDocs(
   if (routePath === site.decisions.route) {
     if (wantsMd || asText) {
       return respond(
-        decisionsIndexMarkdown(site),
+        await Deno.readTextFile(site.decisions.index.absPath),
         "text/markdown; charset=utf-8",
         !wantsMd,
       );
