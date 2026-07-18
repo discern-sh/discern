@@ -9,9 +9,8 @@
  * sources the materializer drives off, so a newly-added skill in either
  * container auto-enrols and a malformed or mis-named one fails the gate.
  * "Well-formed" is `skillFrontmatterIssues`, the one validator the engine's
- * gate precondition also applies: real YAML that every consumer's parser reads
- * to the same non-empty `name`/`description`, with `name` equal to the
- * directory.
+ * gate precondition also applies: valid YAML whose `name`/`description` are
+ * non-empty strings, with `name` equal to the directory.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -140,10 +139,9 @@ Deno.test("a valid identity passes, extra keys and nested metadata allowed", () 
   );
 });
 
-Deno.test("a description continued on an indented line is rejected", () => {
-  // The shape that shipped: `description:` with the text on the next line.
-  // With an inline `: ` a real YAML parser reads a nested mapping; without
-  // one it reads a string discern's flat reader never sees. Both must fail.
+Deno.test("a continuation line hiding an inline colon is rejected", () => {
+  // The shape that shipped: `description:` with the text on the next line and
+  // an inline `: ` in it, which YAML reads as a nested mapping, not text.
   const withColon = skillFrontmatterIssues(
     skillDoc(
       "name: prune-the-orchard",
@@ -155,16 +153,19 @@ Deno.test("a description continued on an indented line is rejected", () => {
   assertEquals(withColon.length, 1);
   assert(withColon[0]?.includes("nested mapping"), withColon[0]);
 
-  const plain = skillFrontmatterIssues(
-    skillDoc(
-      "name: prune-the-orchard",
-      "description:",
-      "  Keep the trees healthy all year round.",
+  // Without the colon the continuation is a plain multi-line YAML string —
+  // every consumer reads it correctly, so it is valid.
+  assertEquals(
+    skillFrontmatterIssues(
+      skillDoc(
+        "name: prune-the-orchard",
+        "description:",
+        "  Keep the trees healthy all year round.",
+      ),
+      "prune-the-orchard",
     ),
-    "prune-the-orchard",
+    [],
   );
-  assertEquals(plain.length, 1);
-  assert(plain[0]?.startsWith("description:"), plain[0]);
 });
 
 Deno.test("an unquoted inline `: ` is rejected as invalid YAML", () => {
@@ -179,17 +180,18 @@ Deno.test("an unquoted inline `: ` is rejected as invalid YAML", () => {
   assert(issues[0]?.includes("not valid YAML"), issues[0]);
 });
 
-Deno.test("a block-scalar description the flat reader cannot see is rejected", () => {
-  const issues = skillFrontmatterIssues(
-    skillDoc(
-      "name: chart-the-stars",
-      "description: >-",
-      "  Map the night sky one constellation at a time.",
+Deno.test("a block-scalar description is valid — YAML is YAML", () => {
+  assertEquals(
+    skillFrontmatterIssues(
+      skillDoc(
+        "name: chart-the-stars",
+        "description: >-",
+        "  Map the night sky one constellation at a time.",
+      ),
+      "chart-the-stars",
     ),
-    "chart-the-stars",
+    [],
   );
-  assertEquals(issues.length, 1);
-  assert(issues[0]?.includes("flat frontmatter reader"), issues[0]);
 });
 
 Deno.test("a missing, empty, or mis-typed identity field is rejected", () => {

@@ -52,12 +52,10 @@ Deno.test("a typo'd key fails validation, naming the allowed schema", () => {
 });
 
 Deno.test("duplicate keys fail validation", () => {
+  // YAML rejects duplicated mapping keys outright.
   const issues = validateFrontmatter(doc("order: 1", "order: 2"));
-  // The restricted grammar flags the duplicate, and the YAML oracle refuses
-  // the block outright — real parsers reject duplicated mapping keys too.
-  assertEquals(issues.length, 2);
-  assertEquals(issues[0], "order: duplicate key");
-  assert(issues[1]?.includes("not valid YAML"), issues[1]);
+  assertEquals(issues.length, 1);
+  assert(issues[0]?.includes("not valid YAML"), issues[0]);
 });
 
 Deno.test("title is bounded to the short-label ceiling", () => {
@@ -87,12 +85,14 @@ Deno.test("order must be a non-negative integer; publish exactly a boolean", () 
       "order: must be a non-negative integer",
     ]);
   }
-  for (const bad of ["publish: no", "publish: True", "publish: 0"]) {
+  for (const bad of ["publish: no", "publish: 0"]) {
     assertEquals(validateFrontmatter(doc(bad)), [
       "publish: must be exactly true or false",
     ]);
   }
   assertEquals(validateFrontmatter(doc("order: 0", "publish: true")), []);
+  // YAML reads `True` as a boolean, so consumers and discern agree it is one.
+  assertEquals(validateFrontmatter(doc("publish: True")), []);
 });
 
 Deno.test("redirect_from routes must be absolute, canonical, and unique", () => {
@@ -127,7 +127,7 @@ Deno.test("redirect_from routes must be absolute, canonical, and unique", () => 
     ["redirect_from: must be a `- item` list of absolute routes"],
   );
   assertEquals(validateFrontmatter(doc("redirect_from:")), [
-    "redirect_from: must not be an empty list",
+    "redirect_from: must be a `- item` list of absolute routes",
   ]);
 });
 
@@ -136,7 +136,7 @@ Deno.test("aliases must be a non-empty list of unique, non-empty synonyms", () =
     "aliases: must be a `- item` list of search synonyms",
   ]);
   assertEquals(validateFrontmatter(doc("aliases:")), [
-    "aliases: must not be an empty list",
+    "aliases: must be a `- item` list of search synonyms",
   ]);
   assertEquals(
     validateFrontmatter(doc("aliases:", "  - files", "  - files")),
@@ -149,15 +149,14 @@ Deno.test("aliases must be a non-empty list of unique, non-empty synonyms", () =
 });
 
 Deno.test("a scalar where a list belongs is caught, and vice versa", () => {
-  assertEquals(validateFrontmatter(doc("title:", "  - a list")), [
-    "title: must be a single line",
-  ]);
+  const issues = validateFrontmatter(doc("title:", "  - a list"));
+  assertEquals(issues.length, 1);
+  assert(issues[0]?.startsWith("title: must be text, not a list"), issues[0]);
 });
 
-Deno.test("the YAML oracle rejects a block a real parser cannot read", () => {
-  // An unquoted value containing `: ` passes the restricted grammar (it is one
-  // flat `key: value` line) but is invalid YAML — the exact shape that ships
-  // past a lax check and then breaks in an external consumer's parser.
+Deno.test("a block YAML cannot read fails validation", () => {
+  // An unquoted value containing `: ` is invalid YAML — the shape that shipped
+  // past the old flat grammar and then broke in a consumer's parser.
   const colon = validateFrontmatter(
     doc("description: covers everything in scope: files, routes, and links."),
   );
@@ -169,28 +168,30 @@ Deno.test("the YAML oracle rejects a block a real parser cannot read", () => {
   assert(bracket[0]?.includes("not valid YAML"), bracket[0]);
 });
 
-Deno.test("the YAML oracle rejects a value the two parsers read differently", () => {
-  // A bare number: the restricted grammar reads the string "2026", a real YAML
-  // parser reads the number 2026 — divergence, so external consumers would see
-  // a different document than discern does.
+Deno.test("a value of the wrong YAML type is caught; quoting fixes it", () => {
+  // A bare number reads as a number; the schema wants text.
   const numeric = validateFrontmatter(doc("title: 2026"));
   assertEquals(numeric.length, 1);
-  assert(numeric[0]?.startsWith("title: a real YAML parser"), numeric[0]);
+  assert(numeric[0]?.startsWith("title: must be text"), numeric[0]);
 
-  // Double-quote escapes: the restricted grammar keeps the backslashes, YAML
-  // interprets them.
-  const escaped = validateFrontmatter(doc('title: "a \\"quote\\""'));
-  assertEquals(escaped.length, 1);
-  assert(escaped[0]?.startsWith("title: a real YAML parser"), escaped[0]);
-
-  // Quoting a value that needs it satisfies BOTH parsers identically.
+  // Quoting satisfies YAML and the schema at once — escapes included.
   assertEquals(
     validateFrontmatter(doc(
       'title: "Scope: files and routes"',
-      'description: "A value with a colon: quoted, both parsers agree on it."',
+      'description: "A value with a colon: quoted, and it parses cleanly."',
     )),
     [],
   );
+  assertEquals(validateFrontmatter(doc('title: "a \\"2026\\" study"')), []);
+});
+
+Deno.test("the lenient reader treats an unparseable block as content", () => {
+  // No reader of a map may lose a document to a metadata mistake: a block
+  // YAML cannot parse leaves the document untouched, body and fences intact.
+  const md = doc("description: broken in scope: everywhere");
+  const result = parseFrontmatter(md);
+  assertEquals(result.meta, {});
+  assertEquals(result.body, md);
 });
 
 Deno.test("an unterminated or unparseable block fails loudly, not silently", () => {
@@ -198,10 +199,9 @@ Deno.test("an unterminated or unparseable block fails loudly, not silently", () 
   assertEquals(unterminated.length, 1);
   assert(unterminated[0]?.includes("never closes"), unterminated[0]);
 
-  // A nested map is doubly wrong: its member line is unrecognised, and the
-  // key that opened it is not in the schema.
+  // A nested map parses as YAML, but the key that opened it is not in the
+  // schema.
   const nested = validateFrontmatter(doc("metadata:", "  author: someone"));
-  assertEquals(nested.length, 2);
-  assert(nested[0]?.startsWith("unrecognised line"), nested[0]);
-  assert(nested[1]?.startsWith("metadata: unknown key"), nested[1]);
+  assertEquals(nested.length, 1);
+  assert(nested[0]?.startsWith("metadata: unknown key"), nested[0]);
 });

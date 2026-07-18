@@ -147,8 +147,8 @@ export interface StepResult {
  *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
- *    well-formedness contract (valid YAML every consumer's parser reads to the
- *    same non-empty identity), so an agent runtime would reject or misread it;
+ *    consumer contract (valid YAML with a non-empty `name`/`description`
+ *    identity), so an agent runtime would reject or misread it;
  *  - `merge` — the branch is behind the integration branch (the fail-fast
  *    precondition, ADR 0050);
  *  - `standards` — a `[standards]` limit failed verification against the trunk:

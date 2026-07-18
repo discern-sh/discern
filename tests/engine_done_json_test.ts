@@ -836,8 +836,8 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
       `expected a skill-frontmatter diagnostic: ${r.stdout}`,
     );
     assertStringIncludes(diag.message, "label-the-jars");
-    assertStringIncludes(diag.output, "nested mapping"); // what a YAML parser reads
-    assertStringIncludes(diag.output, "double quotes"); // the remedy
+    assertStringIncludes(diag.output, "nested mapping"); // what YAML reads
+    assertStringIncludes(diag.output, "must be quoted"); // the remedy
 
     // Folding the value onto one quoted line satisfies every parser.
     await Deno.writeTextFile(

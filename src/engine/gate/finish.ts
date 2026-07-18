@@ -236,9 +236,8 @@ async function skillFrontmatterDiagnostic(
         `${m.file}:\n${m.issues.map((i) => `  • ${i}`).join("\n")}`
       ).join("\n\n") +
       "\n\nEdit each named source file. A SKILL.md opens with a `---`-fenced " +
-      "YAML block whose `name:` and `description:` are non-empty single-line " +
-      "strings; agent runtimes parse it with a real YAML parser, so a value " +
-      "containing `: ` must be quoted.",
+      "YAML block whose `name:` and `description:` are non-empty strings; " +
+      "a value containing `:` must be quoted.",
   );
   return {
     tool: "skill-frontmatter",

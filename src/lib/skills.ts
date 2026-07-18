@@ -35,7 +35,11 @@ import type { Logger } from "./log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { SkillListing, SkillsListData } from "../shared/result_schemas.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
-import { parseYamlOracle, scanFrontmatterBlock } from "./frontmatter.ts";
+import {
+  describeYamlValue,
+  parseFrontmatterMapping,
+  readFrontmatterBlock,
+} from "./frontmatter.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
 import { guidanceContext } from "../engine/guidance_render.ts";
 import {
@@ -90,61 +94,14 @@ export async function bundledSkillNames(): Promise<string[]> {
   return await dirNames(await resolveBundledSkillsDir());
 }
 
-/** The identity a `SKILL.md` declares in its frontmatter. Only the fields every
- * skill must carry are surfaced; any other key in the block is ignored. */
-export interface SkillFrontmatter {
-  /** The `name:` value — the skill's canonical name (must equal its directory). */
-  name: string;
-  /** The `description:` value — what it does and when to reach for it. */
-  description: string;
-}
-
-/**
- * Parse the leading frontmatter of a `SKILL.md` into its declared `name` and
- * `description`. A SKILL.md opens with the same `---`-fenced block map docs
- * carry, read through the shared {@link scanFrontmatterBlock} scanner — ONE
- * frontmatter parser for the whole system, so a guard and any future consumer
- * agree by construction (single source of truth). Skills read TOLERANTLY:
- * only the top-level `name`/`description` scalars matter, and anything else
- * in the block (a nested `metadata:` map, a provider's extra keys) is ignored.
- *
- * Throws when the opening `---` fence is missing or unterminated — a structurally
- * broken file is a loud failure, never a silent empty parse. A well-fenced block that
- * merely omits `name`/`description` yields an empty string for the absent field, which
- * the well-formedness guard then rejects with a precise, per-skill message.
- */
-export function parseSkillFrontmatter(text: string): SkillFrontmatter {
-  const block = scanFrontmatterBlock(text);
-  if (block === undefined) {
-    throw new Error(
-      text.split(/\r?\n/, 1)[0]?.trim() === "---"
-        ? "unterminated frontmatter fence (no closing '---')"
-        : "missing opening '---' frontmatter fence",
-    );
-  }
-  let name = "";
-  let description = "";
-  for (const field of block.fields) {
-    if (typeof field.value !== "string") continue;
-    if (field.key === "name") {
-      name = field.value;
-    } else if (field.key === "description") {
-      description = field.value;
-    }
-  }
-  return { name, description };
-}
-
 // ── skill frontmatter well-formedness ───────────────────────────────────────
 // A SKILL.md's frontmatter is consumed by EXTERNAL agent runtimes, which parse
-// it with real YAML parsers and apply the agent-skills identity contract. The
-// bar is therefore not "discern's tolerant reader gets something out of it" but
-// "every consumer reads the same valid identity": the block must be real YAML,
-// `name`/`description` must be non-empty single-line strings that the tolerant
-// reader and a YAML parser agree on, the name must match the directory, and
-// the consumer-enforced limits must hold. One validator, used by the gate's
-// precondition ({@link checkSkillsWellformed}) and the repo's bundled-skill
-// guard, so "valid" means one thing everywhere.
+// it as YAML and apply the agent-skills identity contract. The bar is exactly
+// that contract: the block must be valid YAML, `name`/`description` must be
+// non-empty strings, the name must match the directory, and the
+// consumer-enforced limits must hold. One validator, used by the gate's
+// precondition ({@link checkSkillsWellformed}) and the repo's skill guard, so
+// "valid" means one thing everywhere.
 
 /** The agent-skills naming contract consumers enforce: lowercase letters,
  * digits, and hyphens. */
@@ -156,19 +113,9 @@ export const SKILL_NAME_MAX_LENGTH = 64;
 /** Consumer-enforced ceiling on a skill's `description`. */
 export const SKILL_DESCRIPTION_MAX_LENGTH = 1024;
 
-/** A compact account of what a YAML parser read, for issue messages. */
-function describeParsedValue(value: unknown): string {
-  if (value === undefined) return "nothing";
-  if (value === null) return "an empty value";
-  if (Array.isArray(value)) return "a list";
-  if (typeof value === "object") return "a nested mapping";
-  return `the ${typeof value} ${JSON.stringify(value)}`;
-}
-
-/** The remedy every malformed identity field shares, appended to its issue. */
-const SINGLE_LINE_REMEDY =
-  "put the whole value on its own single line, wrapped in double quotes if " +
-  "it contains `: ` or starts with a YAML symbol";
+/** The remedy a malformed identity field usually needs, appended to its issue. */
+const QUOTE_REMEDY =
+  "write the value as one quoted string (a value containing `:` must be quoted)";
 
 /**
  * Validate one SKILL.md's frontmatter against the contract external consumers
@@ -181,7 +128,7 @@ export function skillFrontmatterIssues(
   text: string,
   dirName: string,
 ): string[] {
-  const block = scanFrontmatterBlock(text);
+  const block = readFrontmatterBlock(text);
   if (block === undefined) {
     return [
       text.split(/\r?\n/, 1)[0]?.trim() === "---"
@@ -189,29 +136,21 @@ export function skillFrontmatterIssues(
         : "missing opening '---' frontmatter fence",
     ];
   }
-  const oracle = parseYamlOracle(block.raw);
-  if ("issue" in oracle) return [oracle.issue];
+  const parsed = parseFrontmatterMapping(block.raw);
+  if ("issue" in parsed) return [parsed.issue];
 
   const issues: string[] = [];
-  const flat = parseSkillFrontmatter(text);
   for (const key of ["name", "description"] as const) {
-    const parsed = oracle.attrs[key];
-    if (typeof parsed !== "string" || parsed.trim() === "") {
+    const value = parsed.attrs[key];
+    if (typeof value !== "string" || value.trim() === "") {
       issues.push(
-        `${key}: must be a non-empty single-line string, but a real YAML ` +
-          `parser reads ${describeParsedValue(parsed)} — ${SINGLE_LINE_REMEDY}`,
-      );
-      continue;
-    }
-    if (parsed !== flat[key]) {
-      issues.push(
-        `${key}: reads differently to discern's flat frontmatter reader ` +
-          `than to a real YAML parser — ${SINGLE_LINE_REMEDY}`,
+        `${key}: must be a non-empty string, but the block gives ` +
+          `${describeYamlValue(value)} — ${QUOTE_REMEDY}`,
       );
     }
   }
 
-  const name = oracle.attrs["name"];
+  const name = parsed.attrs["name"];
   if (typeof name === "string" && name.trim() !== "" && name !== dirName) {
     issues.push(
       `name: is "${name}" but the skill lives in directory "${dirName}" — ` +
@@ -227,7 +166,7 @@ export function skillFrontmatterIssues(
         `${SKILL_NAME_MAX_LENGTH} characters, so every agent runtime accepts it`,
     );
   }
-  const description = oracle.attrs["description"];
+  const description = parsed.attrs["description"];
   if (
     typeof description === "string" &&
     description.length > SKILL_DESCRIPTION_MAX_LENGTH
