@@ -401,7 +401,7 @@ measure   = "on-demand"
 direction = "down"
 per       = { words = "${map.dir}**" }
 scale     = 1000
-limit     = 10.73
+limit     = 10.6
 run       = "deno task prose \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
@@ -423,7 +423,7 @@ inputs    = [
 [standards.guidance]
 metric    = "guidance_words"
 direction = "down"
-limit     = 828
+limit     = 827
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 inputs    = ["templates/guidance/**"]
 
@@ -522,7 +522,7 @@ metric    = "public_doc_leaves"
 direction = "up"
 per       = "public_doc_words"
 scale     = 10000
-limit     = 11.4
+limit     = 12.68
 run       = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
 inputs    = [
   "${map.dir}**",
