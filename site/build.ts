@@ -14,11 +14,9 @@ import {
   type DesignSystemBundleName,
 } from "./design_system.ts";
 import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
-import {
-  renderDesignSystemDemo,
-  renderHomepage,
-} from "./page-src/design-system-demo.tsx";
+import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
+import { renderLanding } from "./page-src/landing.tsx";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
@@ -82,9 +80,11 @@ export async function buildSite(): Promise<void> {
   await writeGeneratedCopy("design-system-demo.css", "demo.css");
   await writeGeneratedCopy("content-design-demo.css", "content-demo.css");
   await writeGeneratedCopy("design-system-demo.js", "demo.js");
+  await writeGeneratedCopy("landing.css", "landing.css");
+  await writeGeneratedCopy("landing.js", "landing.js");
   await Deno.writeTextFile(
     HOME_PAGE_OUTPUT,
-    await formatGeneratedText(renderHomepage(summary), "html"),
+    await formatGeneratedText(renderLanding(), "html"),
   );
   await Deno.writeTextFile(
     MARKETING_PAGE_OUTPUT,
@@ -96,7 +96,7 @@ export async function buildSite(): Promise<void> {
   );
 
   console.log(
-    `Built the static homepage and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built the landing page and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

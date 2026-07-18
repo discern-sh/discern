@@ -20,64 +20,12 @@ import {
   Terminal,
   Testimonial,
 } from "discern-design-system/react";
-import { designSystemAssetPath } from "../design_system.ts";
+import { pageDocument } from "./document.ts";
+import { PageIcon } from "./icons.tsx";
 
 export interface DemoStats {
   readonly components: number;
   readonly tokens: number;
-}
-
-type DemoIconName =
-  | "agent"
-  | "arrow"
-  | "branch"
-  | "check"
-  | "code"
-  | "map"
-  | "spark";
-
-function DemoIcon({ name }: { readonly name: DemoIconName }) {
-  const path = {
-    agent: (
-      <>
-        <rect x="4" y="6" width="16" height="13" rx="3" />
-        <path d="M9 3h6M12 3v3M8 12h.01M16 12h.01M9 16h6" />
-      </>
-    ),
-    arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
-    branch: (
-      <>
-        <circle cx="6" cy="5" r="2" />
-        <circle cx="18" cy="8" r="2" />
-        <circle cx="6" cy="19" r="2" />
-        <path d="M6 7v10M8 8h4a6 6 0 0 1 6 6v-4" />
-      </>
-    ),
-    check: <path d="m5 12 4 4L19 6" />,
-    code: <path d="m9 7-5 5 5 5m6-10 5 5-5 5" />,
-    map: (
-      <>
-        <path d="m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2V6Z" />
-        <path d="M9 4v14m6-12v14" />
-      </>
-    ),
-    spark: (
-      <path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z" />
-    ),
-  }[name];
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {path}
-    </svg>
-  );
 }
 
 function ReceiptTerminal({ compact = false }: { readonly compact?: boolean }) {
@@ -107,7 +55,7 @@ function ReceiptTerminal({ compact = false }: { readonly compact?: boolean }) {
       ))}
       <span className="demo-receipt__rule" />
       <span className="demo-receipt__success">
-        <DemoIcon name="check" />
+        <PageIcon name="check" />
         <span>clean HEAD · receipt recorded</span>
       </span>
       <button
@@ -146,7 +94,7 @@ function GateVisual() {
         ))}
       </div>
       <div className="demo-gate-visual__receipt">
-        <DemoIcon name="check" />
+        <PageIcon name="check" />
         <span>
           <strong>Receipt ready</strong>
           <small>every claim links back to evidence</small>
@@ -171,7 +119,7 @@ function WorktreeVisual() {
       ].map(([branch, scope, state]) => (
         <div key={branch}>
           <span>
-            <DemoIcon name="branch" />
+            <PageIcon name="branch" />
           </span>
           <strong>{branch}</strong>
           <small>{scope} · {state}</small>
@@ -198,7 +146,7 @@ function GuidanceVisual() {
       <div className="demo-guidance__agents">
         {GUIDANCE_AGENTS.map((agent) => (
           <span data-demo-fanout-target="guidance" key={agent}>
-            <DemoIcon name="agent" />
+            <PageIcon name="agent" />
             {agent}
           </span>
         ))}
@@ -226,7 +174,7 @@ function StandardsVisual() {
         </div>
       ))}
       <p>
-        <DemoIcon name="check" />{" "}
+        <PageIcon name="check" />{" "}
         Numbers can improve. They cannot quietly slide.
       </p>
     </div>
@@ -241,7 +189,7 @@ function MapVisual() {
       aria-label="A browsable project map"
     >
       <div>
-        <DemoIcon name="map" />
+        <PageIcon name="map" />
         <strong>project/map</strong>
       </div>
       {[
@@ -272,19 +220,19 @@ function ScenarioVisual() {
         <span>siblings still exposed</span>
       </div>
       <span className="demo-scenario__arrow" aria-hidden="true">
-        <DemoIcon name="arrow" />
+        <PageIcon name="arrow" />
       </span>
       <div className="demo-scenario__after">
         <small>after</small>
         <strong>the class is illegal</strong>
         <span>
-          <DemoIcon name="check" /> canonical predicate
+          <PageIcon name="check" /> canonical predicate
         </span>
         <span>
-          <DemoIcon name="check" /> siblings auto-enrol
+          <PageIcon name="check" /> siblings auto-enrol
         </span>
         <span>
-          <DemoIcon name="check" /> future additions covered
+          <PageIcon name="check" /> future additions covered
         </span>
       </div>
     </div>
@@ -300,28 +248,20 @@ function CommandCard() {
       </code>
       <div>
         <span>
-          <DemoIcon name="check" /> one binary
+          <PageIcon name="check" /> one binary
         </span>
         <span>
-          <DemoIcon name="check" /> your stack
+          <PageIcon name="check" /> your stack
         </span>
         <span>
-          <DemoIcon name="check" /> reversible
+          <PageIcon name="check" /> reversible
         </span>
       </div>
     </div>
   );
 }
 
-type MarketingEdition = "homepage" | "atlas";
-
-function DemoPage(
-  { stats, edition }: {
-    readonly stats: DemoStats;
-    readonly edition: MarketingEdition;
-  },
-) {
-  const homepage = edition === "homepage";
+function DemoPage({ stats }: { readonly stats: DemoStats }) {
   return (
     <>
       <a className="demo-skip" href="#main">Skip to content</a>
@@ -335,24 +275,16 @@ function DemoPage(
           { label: "Proof", href: "#proof" },
           { label: "Questions", href: "#questions" },
         ]}
-        navLabel={homepage ? "Primary navigation" : "Demo navigation"}
-        notice={homepage
-          ? (
-            <span>
-              Quality engineering for agent-built software ·{" "}
-              <a href="/docs">read the manual</a> ·{" "}
-              <a href="/content-design-demo">see the content atlas</a>
-            </span>
-          )
-          : (
-            <span>
-              Block atlas · 14 reusable marketing sections ·{" "}
-              <a href="https://github.com/discern-sh/design-system">
-                inspect the published system
-              </a>{" "}
-              · <a href="/content-design-demo">open the content atlas</a>
-            </span>
-          )}
+        navLabel="Demo navigation"
+        notice={
+          <span>
+            Block atlas · 14 reusable marketing sections ·{" "}
+            <a href="https://github.com/discern-sh/design-system">
+              inspect the published system
+            </a>{" "}
+            · <a href="/content-design-demo">open the content atlas</a>
+          </span>
+        }
         actions={
           <>
             <button
@@ -394,7 +326,7 @@ function DemoPage(
               <Button
                 href="/start"
                 size="lg"
-                trailingIcon={<DemoIcon name="arrow" />}
+                trailingIcon={<PageIcon name="arrow" />}
               >
                 Add discern to a project
               </Button>
@@ -439,7 +371,7 @@ function DemoPage(
           }
           items={[
             {
-              icon: <DemoIcon name="code" />,
+              icon: <PageIcon name="code" />,
               eyebrow: "Experienced engineers",
               title: "Keep the autonomy. Add a forcing function.",
               description: (
@@ -455,7 +387,7 @@ function DemoPage(
               featured: true,
             },
             {
-              icon: <DemoIcon name="spark" />,
+              icon: <PageIcon name="spark" />,
               eyebrow: "Emerging coders",
               title: "Borrow a maintainer’s best instincts.",
               description: (
@@ -469,7 +401,7 @@ function DemoPage(
               linkLabel: "Follow the workflow",
             },
             {
-              icon: <DemoIcon name="agent" />,
+              icon: <PageIcon name="agent" />,
               eyebrow: "Coding agents",
               title: "Know what is true, next, and done.",
               description: (
@@ -529,7 +461,7 @@ function DemoPage(
                   project-owned gate—then leave a receipt.
                 </p>
               ),
-              icon: <DemoIcon name="check" />,
+              icon: <PageIcon name="check" />,
               visual: <GateVisual />,
               size: "large",
               tone: "accent",
@@ -543,7 +475,7 @@ function DemoPage(
                   accepts one onto the trunk.
                 </p>
               ),
-              icon: <DemoIcon name="branch" />,
+              icon: <PageIcon name="branch" />,
               visual: <WorktreeVisual />,
               size: "tall",
             },
@@ -926,80 +858,26 @@ function DemoPage(
             links: [
               { label: "GitHub", href: "https://github.com/jackwh/discern" },
               { label: "Careers", href: "/careers" },
-              homepage
-                ? { label: "Marketing atlas", href: "/design-system-demo" }
-                : { label: "Current homepage", href: "/" },
+              { label: "Current homepage", href: "/" },
             ],
           },
         ]}
-        legal={homepage
-          ? "© 2026 discern · open source · local-first"
-          : "© 2026 discern · internal design-system demo"}
-        meta={homepage
-          ? "static HTML · local assets · no tracking"
-          : "typed React at build time · static HTML at runtime"}
+        legal="© 2026 discern · internal design-system demo"
+        meta="typed React at build time · static HTML at runtime"
       />
     </>
   );
 }
 
-export const THEME_BOOTSTRAP =
-  `(function(){try{var t=localStorage.getItem("discern-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.dataset.discernTheme="dark"}}catch(_){}})();`;
-
-function renderMarketingEdition(
-  stats: DemoStats,
-  edition: MarketingEdition,
-): string {
-  const homepage = edition === "homepage";
-  const body = renderToStaticMarkup(
-    <DemoPage stats={stats} edition={edition} />,
-  );
-  const title = homepage
-    ? "discern · Software quality you can see"
-    : "discern · Marketing block atlas";
-  const description = homepage
-    ? "A stack-neutral development system that helps coding agents understand a project, work in isolation, and prove what changed."
-    : "A comprehensive landing-page demo composed from discern's typed marketing blocks.";
-  return `<!doctype html>
-<!-- Generated by site/build.ts from site/page-src/design-system-demo.tsx. Do not edit. -->
-<html lang="en" data-discern-theme="light">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${title}</title>
-<meta name="description" content="${description}" />
-<meta name="theme-color" content="#F7F5F8" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232B2635'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237D5BE7' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-<script>${THEME_BOOTSTRAP}</script>
-<link rel="stylesheet" href="${
-    designSystemAssetPath("compositions", "fonts.css")
-  }" />
-<link rel="stylesheet" href="${
-    designSystemAssetPath("compositions", "discern.css")
-  }" />
-<link rel="stylesheet" href="${
-    designSystemAssetPath("compositions", "grain.css")
-  }" />
-<link rel="stylesheet" href="${
-    designSystemAssetPath("compositions", "demo.css")
-  }" />
-<script defer src="${
-    designSystemAssetPath("compositions", "demo.js")
-  }"></script>
-</head>
-<body data-discern-root>
-${body}
-</body>
-</html>
-`;
-}
-
-/** Render the deterministic public homepage. */
-export function renderHomepage(stats: DemoStats): string {
-  return renderMarketingEdition(stats, "homepage");
-}
-
 /** Render the complete, deterministic static document served at the demo route. */
 export function renderDesignSystemDemo(stats: DemoStats): string {
-  return renderMarketingEdition(stats, "atlas");
+  return pageDocument({
+    source: "design-system-demo.tsx",
+    title: "discern · Marketing block atlas",
+    description:
+      "A comprehensive landing-page demo composed from discern's typed marketing blocks.",
+    styles: ["fonts.css", "discern.css", "grain.css", "demo.css"],
+    scripts: ["demo.js"],
+    body: renderToStaticMarkup(<DemoPage stats={stats} />),
+  });
 }

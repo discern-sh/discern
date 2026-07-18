@@ -15,11 +15,9 @@ import {
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
 import { renderContentDesignDemo } from "../site/page-src/content-design-demo.tsx";
-import {
-  renderDesignSystemDemo,
-  renderHomepage,
-} from "../site/page-src/design-system-demo.tsx";
+import { renderDesignSystemDemo } from "../site/page-src/design-system-demo.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
+import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
@@ -261,7 +259,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   };
   assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/index.html")),
-    await formatGeneratedText(renderHomepage(stats), "html"),
+    await formatGeneratedText(renderLanding(), "html"),
   );
   assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/design-system-demo.html")),
@@ -277,6 +275,8 @@ Deno.test("generated output is ignored and reproducible from its selections", as
       ["design-system-demo.css", "demo.css"],
       ["content-design-demo.css", "content-demo.css"],
       ["design-system-demo.js", "demo.js"],
+      ["landing.css", "landing.css"],
+      ["landing.js", "landing.js"],
     ] as const
   ) {
     assertEquals(
@@ -292,14 +292,16 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   assertStringIncludes(previousHomepage, "Don't take your agent's word for it");
 });
 
-Deno.test("the public homepage is the static local-only Marketing composition", async () => {
+Deno.test("the public homepage is the static local-only landing composition", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
   );
   assertEquals(response.status, 200);
   const html = await response.text();
-  assertStringIncludes(html, "discern · Software quality you can see");
+  assertStringIncludes(html, "Code got fast.");
+  assertStringIncludes(html, "Trust didn’t.");
+  assertStringIncludes(html, "curl -fsSL https://discern.sh/install | sh");
   assertStringIncludes(html, "static HTML · local assets · no tracking");
   assert(
     runtimeAssetReferences(html).every((path) => path.startsWith("/")),

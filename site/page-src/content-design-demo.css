@@ -7,7 +7,7 @@ html {
   scroll-padding-top: 8rem;
 }
 
-body[data-discern-root] {
+[data-discern-root] body {
   min-height: 100vh;
   margin: 0;
 }
