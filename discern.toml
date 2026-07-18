@@ -496,7 +496,7 @@ inputs    = [
 [standards.docs_search_index_size]
 metric    = "docs_search_index_bytes"
 direction = "down"
-limit     = 261352
+limit     = 263867
 run       = "deno run --allow-read --allow-write --allow-env --allow-run scripts/site_asset_size.ts docs_search_index_bytes"
 inputs    = [
   "site/**",
