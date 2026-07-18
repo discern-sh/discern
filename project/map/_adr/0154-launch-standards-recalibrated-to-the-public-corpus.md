@@ -17,7 +17,7 @@ The verification wave then surfaced two limits that no longer described the tree
 
 The search-index ceiling rises once, on the trunk, to the measured 48-page value: 263,867 bytes, no headroom. It falls from here as ever.
 
-Every remaining launch standard re-pins at the value measured on the final corpus, captured with `discern standards --pin` so each move can only tighten: the corrected density floor rises from 11.4 to the public corpus's measured 12.68 leaves per 10,000 words, the prose ceiling falls from 10.73 to 10.64 alerts per 1,000 words, and the guidance word ceiling falls from 828 to 827. Coverage and the binary-size ceiling hold their existing limits — both measured inside their pin margins. The docs page, CSS, and JavaScript ceilings keep the launch values the verification wave pinned days earlier.
+Every remaining launch standard re-pins at the value measured on the final corpus, captured with `discern standards --pin` so each move can only tighten: the corrected density floor rises from 11.4 to the public corpus's measured 12.68 leaves per 10,000 words, the prose ceiling falls from 10.73 to 10.6 alerts per 1,000 words, and the guidance word ceiling falls from 828 to 827. Coverage and the binary-size ceiling hold their existing limits — both measured inside their pin margins. The docs page, CSS, and JavaScript ceilings keep the launch values the verification wave pinned days earlier.
 
 This recalibration is the programme-end settlement D13 sanctioned, taken in daylight on the trunk with this record. It is not a precedent for adjusting a limit on a branch, and the never-loosen rule resumes in full from these values.
 
