@@ -51,6 +51,7 @@ import type {
   DoctorEnvironment,
   VerbPlan,
 } from "../shared/result_schemas.ts";
+import { inDeskSession } from "../engine/desk/session.ts";
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -94,6 +95,7 @@ export async function doctorEnvironment(): Promise<DoctorEnvironment> {
     discern: KIT_VERSION,
     platform: `${Deno.build.os}/${Deno.build.arch}`,
     ...(git !== undefined ? { git } : {}),
+    ...(inDeskSession() ? { desk_session: true as const } : {}),
   };
 }
 
@@ -956,6 +958,11 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
       env.git !== undefined ? gitDisplayVersion(env.git) : "not found"
     }`,
   );
+  if (env.desk_session === true) {
+    log.detail(
+      "desk session: active — this process was launched by discern desk",
+    );
+  }
   const cfg = await loadModelConfig(destDir);
   if (cfg !== undefined) {
     renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);

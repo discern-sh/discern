@@ -644,6 +644,7 @@ export const DoctorEnvironmentSchema = z.strictObject({
   discern: z.string(),
   platform: z.string(),
   git: z.string().optional(),
+  desk_session: z.literal(true).optional(),
 });
 export type DoctorEnvironment = z.infer<typeof DoctorEnvironmentSchema>;
 

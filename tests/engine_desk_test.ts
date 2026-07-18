@@ -11,6 +11,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+
+const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
 
 Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
   await withTempDir(async (dir) => {
@@ -22,6 +25,33 @@ Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
     assertEquals(envelope.verb, "desk");
     assertEquals(envelope.error, "interactive_only");
     assertStringIncludes(envelope.message, "status --json");
+  });
+});
+
+Deno.test("desk --json: a desk-owned child reports the active desk", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, ["desk", "--json"], {
+      env: DESK_SESSION,
+    });
+    assertEquals(r.code, 1, r.output);
+    const envelope = JSON.parse(r.stdout);
+    assertEquals(envelope.ok, false);
+    assertEquals(envelope.verb, "desk");
+    assertEquals(envelope.error, "desk_already_active");
+    assertStringIncludes(envelope.message, "exit");
+  });
+});
+
+Deno.test("bare discern refuses inside a desk-owned child before interaction policy", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const r = await runAgent(dir, [], { env: DESK_SESSION });
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "already active");
+    assertStringIncludes(r.output, "exit");
+    assert(!r.output.includes("Pick an effort"));
+    assert(!r.output.includes("Commands:"));
   });
 });
 

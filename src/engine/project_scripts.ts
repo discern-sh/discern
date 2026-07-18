@@ -102,6 +102,8 @@ export interface RunProjectScriptOptions {
   /** Child working directory. The CLI inherits its caller; the desk passes the
    * selected worktree root explicitly. */
   readonly cwd?: string;
+  /** Additional environment values for the child process. */
+  readonly env?: Record<string, string>;
 }
 
 /** List or run a Project Script against an explicit checkout root. */
@@ -148,13 +150,16 @@ export async function runProjectScriptAt(
     );
     const child = new Deno.Command(scriptFile, {
       args,
-      env: scriptEnvVars({
-        root,
-        tomlPath,
-        scriptsDir: directory.rel,
-        scriptsAbs: directory.abs,
-        mainBranch,
-      }),
+      env: {
+        ...scriptEnvVars({
+          root,
+          tomlPath,
+          scriptsDir: directory.rel,
+          scriptsAbs: directory.abs,
+          mainBranch,
+        }),
+        ...opts.env,
+      },
       ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
       stdin: "inherit",
       stdout: "inherit",

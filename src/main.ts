@@ -39,6 +39,7 @@ import {
 import { runSetupWelcome } from "./commands/setup_welcome.ts";
 import { canPrompt, setPlainMode } from "./lib/prompts.ts";
 import { runDesk } from "./engine/desk/desk.ts";
+import { inDeskSession } from "./engine/desk/session.ts";
 import { runSetupVerify } from "./commands/setup_verify.ts";
 import { runSetupAccept } from "./commands/setup_accept.ts";
 import { runUpgrade } from "./commands/upgrade.ts";
@@ -984,11 +985,11 @@ export async function main(args: string[]): Promise<void> {
           }),
         );
       }
-      if (
-        inProject && configOk && bootstrapped &&
-        !argv.includes("--json") && canPrompt(false)
-      ) {
-        Deno.exit(await runDesk({}));
+      if (inProject && configOk && bootstrapped) {
+        const json = argv.includes("--json");
+        if (inDeskSession() || (!json && canPrompt(false))) {
+          Deno.exit(await runDesk({ json }));
+        }
       }
       console.log(operatorHelp(cli as unknown as Command, { color }));
       Deno.exit(0);

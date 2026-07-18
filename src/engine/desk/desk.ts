@@ -64,6 +64,7 @@ import {
   type DeskAgentLaunch,
   type DeskRow,
 } from "./model.ts";
+import { deskSessionEnv, inDeskSession } from "./session.ts";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
 const REFRESH = "\x00refresh";
@@ -86,6 +87,7 @@ type DeskMaybePromise<T> = T | Promise<T>;
  * terminal or touching a real worktree. */
 export interface DeskRuntime {
   canPrompt(): boolean;
+  inDeskSession(): boolean;
   findRoot(): DeskMaybePromise<string | undefined>;
   loadConfig(root: string): DeskMaybePromise<DiscernConfig>;
   status(root: string): DeskMaybePromise<{
@@ -123,6 +125,7 @@ export interface DeskRuntime {
     command: string,
     args: readonly string[],
     cwd: string,
+    env: Record<string, string>,
   ): DeskMaybePromise<number>;
   detectAgents(): DeskMaybePromise<readonly DetectedAgentBinary[]>;
   start(
@@ -130,7 +133,11 @@ export interface DeskRuntime {
     opts: { worktreeRoot: string; name?: string },
   ): DeskMaybePromise<StartData>;
   scripts(root: string): DeskMaybePromise<readonly ProjectScript[]>;
-  runScript(root: string, name: string): DeskMaybePromise<number>;
+  runScript(
+    root: string,
+    name: string,
+    env: Record<string, string>,
+  ): DeskMaybePromise<number>;
   now(): number;
 }
 
@@ -189,6 +196,7 @@ function deskLogger(): Logger {
  * same functions with the same options. */
 export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   canPrompt: () => canPrompt(false),
+  inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root),
@@ -205,10 +213,11 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   update: (ctx, opts) => update(ctx, opts),
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
   git: (args, cwd) => runGit(args, { cwd }),
-  interactive: async (command, args, cwd) => {
+  interactive: async (command, args, cwd, env) => {
     const child = new Deno.Command(command, {
       args: [...args],
       cwd,
+      env,
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
@@ -236,7 +245,11 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       return [];
     }
   },
-  runScript: (root, name) => runProjectScriptAt(root, name, [], { cwd: root }),
+  runScript: (root, name, env) =>
+    runProjectScriptAt(root, name, [], {
+      cwd: root,
+      env,
+    }),
   now: () => Date.now(),
 };
 
@@ -547,7 +560,11 @@ async function dispatchAction(
         out,
         `discern script ${script.name}  (in ${target})`,
       );
-      const code = await runtime.runScript(row.entry.path, script.name);
+      const code = await runtime.runScript(
+        row.entry.path,
+        script.name,
+        deskSessionEnv(),
+      );
       if (code !== 0) {
         out.warn(`Project Script exited with status ${code}.`);
       }
@@ -573,6 +590,7 @@ async function dispatchAction(
           launch.binary,
           launch.args,
           row.entry.path,
+          deskSessionEnv(),
         );
       } catch (error) {
         out.warn(
@@ -593,7 +611,12 @@ async function dispatchAction(
       const shell = Deno.env.get("SHELL") ?? "/bin/sh";
       echoCommand(out, `${shell}  (cwd: ${row.entry.path})`);
       out.info("Exit the shell to return to the desk.");
-      const code = await runtime.interactive(shell, [], row.entry.path);
+      const code = await runtime.interactive(
+        shell,
+        [],
+        row.entry.path,
+        deskSessionEnv(),
+      );
       if (code !== 0) {
         out.warn(`Shell exited with status ${code}.`);
         await runtime.pause(out);
@@ -699,6 +722,21 @@ export async function runDesk(
   opts: DeskOptions = {},
   runtime: DeskRuntime = DEFAULT_DESK_RUNTIME,
 ): Promise<number> {
+  if (runtime.inDeskSession()) {
+    const message =
+      "discern desk is already active above this session — exit this shell, coding agent, or Project Script to return to it.";
+    if (opts.json ?? false) {
+      emitResult({
+        ok: false,
+        verb: "desk",
+        error: "desk_already_active",
+        message,
+      });
+    } else {
+      runtime.error(`discern: ${message}`);
+    }
+    return 1;
+  }
   if (opts.json ?? false) {
     emitResult({
       ok: false,

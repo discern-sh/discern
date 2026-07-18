@@ -886,6 +886,7 @@ export type DiscernDoctorResult = {
       discern: string;
       platform: string;
       git?: string;
+      desk_session?: true;
     };
     checks: Array<{
       name: string;

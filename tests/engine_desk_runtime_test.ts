@@ -20,12 +20,22 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
 import type { Out, Palette } from "../src/engine/output.ts";
-import { type DeskRuntime, runDesk } from "../src/engine/desk/desk.ts";
+import {
+  DEFAULT_DESK_RUNTIME,
+  type DeskRuntime,
+  runDesk,
+} from "../src/engine/desk/desk.ts";
+import {
+  DESK_SESSION_ENV,
+  deskSessionEnv,
+} from "../src/engine/desk/session.ts";
 import {
   IdentityError,
   type LifecycleContext,
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
+import { withTempDir } from "./helpers.ts";
+import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 const ROOT = "/project";
 const QUIT = "\x00quit";
@@ -125,6 +135,7 @@ function scriptedRuntime(
   const data = statusData([main]);
   return {
     canPrompt: () => true,
+    inDeskSession: () => false,
     findRoot: () => ROOT,
     loadConfig: () => CONFIG,
     status: () => ({ ok: true, data }),
@@ -159,6 +170,64 @@ function scriptedRuntime(
 function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
 }
+
+Deno.test("desk-owned terminal children receive the desk-session marker", async () => {
+  assertEquals(
+    await DEFAULT_DESK_RUNTIME.interactive(
+      "sh",
+      ["-c", 'test "$DISCERN_DESK_SESSION" = "1"'],
+      Deno.cwd(),
+      deskSessionEnv(),
+    ),
+    0,
+  );
+});
+
+Deno.test("desk-owned Project Scripts receive the desk-session marker", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      `${dir}/discern/scripts/record-desk-session`,
+      [
+        "#!/usr/bin/env sh",
+        "printf '%s' \"$DISCERN_DESK_SESSION\" > desk-session.txt",
+        "",
+      ].join("\n"),
+    );
+
+    assertEquals(
+      await DEFAULT_DESK_RUNTIME.runScript(
+        dir,
+        "record-desk-session",
+        deskSessionEnv(),
+      ),
+      0,
+    );
+    assertEquals(await Deno.readTextFile(`${dir}/desk-session.txt`), "1");
+  });
+});
+
+Deno.test("a desk-owned child refuses a nested desk before surveying the fleet", async () => {
+  const output = transcript();
+  let surveyed = false;
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(output, {
+        inDeskSession: () => true,
+        status: () => {
+          surveyed = true;
+          return { ok: true, data: statusData([], "worktree") };
+        },
+      }),
+    ),
+    1,
+  );
+  assertEquals(surveyed, false);
+  assertStringIncludes(joined(output), "already active");
+  assertStringIncludes(joined(output), "exit");
+  assert(!joined(output).includes("cd /"));
+});
 
 Deno.test("desk session renders every fleet class and checks receipts only for healthy efforts", async () => {
   const output = transcript();
@@ -406,6 +475,7 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     command: string;
     args: readonly string[];
     cwd: string;
+    env: Record<string, string>;
   }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
@@ -421,16 +491,26 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
       });
       return choices.shift() ?? QUIT;
     },
-    interactive: (command, args, cwd) => {
-      launches.push({ command, args, cwd });
+    interactive: (command, args, cwd, env) => {
+      launches.push({ command, args, cwd, env });
       return 0;
     },
   });
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(launches, [
-    { command: "claude", args: [], cwd: effort.path },
-    { command: "claude", args: ["--continue"], cwd: effort.path },
+    {
+      command: "claude",
+      args: [],
+      cwd: effort.path,
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
+    {
+      command: "claude",
+      args: ["--continue"],
+      cwd: effort.path,
+      env: { [DESK_SESSION_ENV]: "1" },
+    },
   ]);
   const actionMenu = menus.find((menu) =>
     menu.message.startsWith(effort.branch)
@@ -478,6 +558,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
     command: string;
     args: readonly string[];
     cwd: string;
+    env: Record<string, string>;
   }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
@@ -493,8 +574,8 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
       assert(result !== undefined, "inspect ran an unexpected git read");
       return result;
     },
-    interactive: (command, args, cwd) => {
-      shellCalls.push({ command, args, cwd });
+    interactive: (command, args, cwd, env) => {
+      shellCalls.push({ command, args, cwd, env });
       return 0;
     },
   });
@@ -503,6 +584,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   assertEquals(shellCalls.length, 1);
   assertEquals(shellCalls[0]?.cwd, effort.path);
   assertEquals(shellCalls[0]?.args, []);
+  assertEquals(shellCalls[0]?.env, { [DESK_SESSION_ENV]: "1" });
   assert((shellCalls[0]?.command ?? "").length > 0);
   const text = joined(output);
   assertStringIncludes(text, "abc123 Explain the change");
@@ -534,7 +616,11 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   const choices = [empty.path, BACK, scripted.path, "script", "deploy", QUIT];
   const menus: Array<{ message: string; options: string }> = [];
   const discoveryRoots: string[] = [];
-  const runs: Array<{ root: string; name: string }> = [];
+  const runs: Array<{
+    root: string;
+    name: string;
+    env: Record<string, string>;
+  }> = [];
   let pauses = 0;
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
@@ -553,8 +639,8 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
       assert(choice !== undefined, "the scripted desk exhausted its choices");
       return choice;
     },
-    runScript: (root, name) => {
-      runs.push({ root, name });
+    runScript: (root, name, env) => {
+      runs.push({ root, name, env });
       return 7;
     },
     pause: () => {
@@ -565,7 +651,11 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertEquals(await runDesk({}, runtime), 0);
   assert(discoveryRoots.includes(empty.path));
   assert(discoveryRoots.includes(scripted.path));
-  assertEquals(runs, [{ root: scripted.path, name: "deploy" }]);
+  assertEquals(runs, [{
+    root: scripted.path,
+    name: "deploy",
+    env: { [DESK_SESSION_ENV]: "1" },
+  }]);
   assertEquals(pauses, 1);
 
   const emptyMenu = menus.find((menu) => menu.message.startsWith(empty.branch));

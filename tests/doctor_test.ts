@@ -18,6 +18,7 @@ import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -52,7 +53,12 @@ interface DoctorPayload {
   verb: string;
   data: {
     kit_version: string;
-    environment: { discern: string; platform: string; git?: string };
+    environment: {
+      discern: string;
+      platform: string;
+      git?: string;
+      desk_session?: true;
+    };
     checks: DoctorCheck[];
     execution_model?: ExecVerb[];
   };
@@ -224,6 +230,23 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
       payload.data.environment.platform.includes("/"),
       "platform should be os/arch",
     );
+  });
+});
+
+Deno.test("doctor reports when it runs inside a desk-owned child session", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const env = { [DESK_SESSION_ENV]: "1" };
+
+    const json = await runCli(["doctor", "--json"], dir, env);
+    assertEquals(json.code, 0);
+    const payload = JSON.parse(json.stdout) as DoctorPayload;
+    assertEquals(payload.data.environment.desk_session, true);
+
+    const human = await runCli(["doctor"], dir, env);
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stderr, "desk session: active");
+    assertStringIncludes(human.stderr, "launched by discern desk");
   });
 });
 
