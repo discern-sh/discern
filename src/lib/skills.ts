@@ -35,7 +35,7 @@ import type { Logger } from "./log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { SkillListing, SkillsListData } from "../shared/result_schemas.ts";
 import { resolveBundledSkillsDir, resolveSkillsDir } from "./paths.ts";
-import { scanFrontmatterBlock } from "./frontmatter.ts";
+import { parseYamlOracle, scanFrontmatterBlock } from "./frontmatter.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
 import { guidanceContext } from "../engine/guidance_render.ts";
 import {
@@ -133,6 +133,111 @@ export function parseSkillFrontmatter(text: string): SkillFrontmatter {
     }
   }
   return { name, description };
+}
+
+// ── skill frontmatter well-formedness ───────────────────────────────────────
+// A SKILL.md's frontmatter is consumed by EXTERNAL agent runtimes, which parse
+// it with real YAML parsers and apply the agent-skills identity contract. The
+// bar is therefore not "discern's tolerant reader gets something out of it" but
+// "every consumer reads the same valid identity": the block must be real YAML,
+// `name`/`description` must be non-empty single-line strings that the tolerant
+// reader and a YAML parser agree on, the name must match the directory, and
+// the consumer-enforced limits must hold. One validator, used by the gate's
+// precondition ({@link checkSkillsWellformed}) and the repo's bundled-skill
+// guard, so "valid" means one thing everywhere.
+
+/** The agent-skills naming contract consumers enforce: lowercase letters,
+ * digits, and hyphens. */
+export const SKILL_NAME_PATTERN = /^[a-z0-9-]+$/;
+
+/** Consumer-enforced ceiling on a skill's `name`. */
+export const SKILL_NAME_MAX_LENGTH = 64;
+
+/** Consumer-enforced ceiling on a skill's `description`. */
+export const SKILL_DESCRIPTION_MAX_LENGTH = 1024;
+
+/** A compact account of what a YAML parser read, for issue messages. */
+function describeParsedValue(value: unknown): string {
+  if (value === undefined) return "nothing";
+  if (value === null) return "an empty value";
+  if (Array.isArray(value)) return "a list";
+  if (typeof value === "object") return "a nested mapping";
+  return `the ${typeof value} ${JSON.stringify(value)}`;
+}
+
+/** The remedy every malformed identity field shares, appended to its issue. */
+const SINGLE_LINE_REMEDY =
+  "put the whole value on its own single line, wrapped in double quotes if " +
+  "it contains `: ` or starts with a YAML symbol";
+
+/**
+ * Validate one SKILL.md's frontmatter against the contract external consumers
+ * apply. `dirName` is the directory the skill lives in — its canonical name.
+ * Returns one message per problem; empty means every consumer reads the same
+ * valid identity. Keys beyond `name`/`description` (nested `metadata:`, a
+ * provider's extras) are allowed, provided the block stays valid YAML.
+ */
+export function skillFrontmatterIssues(
+  text: string,
+  dirName: string,
+): string[] {
+  const block = scanFrontmatterBlock(text);
+  if (block === undefined) {
+    return [
+      text.split(/\r?\n/, 1)[0]?.trim() === "---"
+        ? "unterminated frontmatter fence (no closing '---')"
+        : "missing opening '---' frontmatter fence",
+    ];
+  }
+  const oracle = parseYamlOracle(block.raw);
+  if ("issue" in oracle) return [oracle.issue];
+
+  const issues: string[] = [];
+  const flat = parseSkillFrontmatter(text);
+  for (const key of ["name", "description"] as const) {
+    const parsed = oracle.attrs[key];
+    if (typeof parsed !== "string" || parsed.trim() === "") {
+      issues.push(
+        `${key}: must be a non-empty single-line string, but a real YAML ` +
+          `parser reads ${describeParsedValue(parsed)} — ${SINGLE_LINE_REMEDY}`,
+      );
+      continue;
+    }
+    if (parsed !== flat[key]) {
+      issues.push(
+        `${key}: reads differently to discern's flat frontmatter reader ` +
+          `than to a real YAML parser — ${SINGLE_LINE_REMEDY}`,
+      );
+    }
+  }
+
+  const name = oracle.attrs["name"];
+  if (typeof name === "string" && name.trim() !== "" && name !== dirName) {
+    issues.push(
+      `name: is "${name}" but the skill lives in directory "${dirName}" — ` +
+        "the two must match",
+    );
+  }
+  if (
+    typeof name === "string" && name.trim() !== "" &&
+    (!SKILL_NAME_PATTERN.test(name) || name.length > SKILL_NAME_MAX_LENGTH)
+  ) {
+    issues.push(
+      `name: must use only lowercase letters, digits, and hyphens, at most ` +
+        `${SKILL_NAME_MAX_LENGTH} characters, so every agent runtime accepts it`,
+    );
+  }
+  const description = oracle.attrs["description"];
+  if (
+    typeof description === "string" &&
+    description.length > SKILL_DESCRIPTION_MAX_LENGTH
+  ) {
+    issues.push(
+      `description: is ${description.length} characters — agent runtimes cap ` +
+        `it at ${SKILL_DESCRIPTION_MAX_LENGTH}`,
+    );
+  }
+  return issues;
 }
 
 /**
@@ -887,4 +992,63 @@ export async function checkSkillsCurrent(
     drift.push(...await checkSkillsDir(rel, join(root, rel), effective, ctx));
   }
   return drift;
+}
+
+// ── well-formedness check ───────────────────────────────────────────────────
+
+/** One effective skill whose SKILL.md fails the frontmatter contract. */
+export interface SkillWellformedness {
+  /** The skill's directory name. */
+  name: string;
+  /** Whether the offending source is authored (yours) or bundled. */
+  source: SkillSource;
+  /** The file to fix, project-relative when it lives in the project. */
+  file: string;
+  /** One message per problem, from {@link skillFrontmatterIssues}. */
+  issues: string[];
+}
+
+/**
+ * Validate EVERY effective skill's SKILL.md — authored files as written,
+ * bundled ones as the template engine renders them for this project (the exact
+ * bytes materialization places) — against {@link skillFrontmatterIssues}.
+ * Returns the skills that fail (empty = all valid). PURE: reads only. Driven
+ * off {@link resolveEffectiveSkills}, the same source materialization uses, so
+ * a new skill enrols in this check by existing: a malformed SKILL.md can pass
+ * this gate only by being excluded — and an excluded skill ships nowhere.
+ */
+export async function checkSkillsWellformed(
+  root: string,
+  config: DiscernConfig,
+): Promise<SkillWellformedness[]> {
+  const effective = await resolveEffectiveSkills(root, config);
+  const ctx = guidanceContext(config);
+  const malformed: SkillWellformedness[] = [];
+  for (const skill of effective) {
+    const src = join(skill.srcAbs, "SKILL.md");
+    const rel = relative(root, src);
+    const file = rel.startsWith("..")
+      ? `${skill.name}/SKILL.md (bundled with discern)`
+      : rel;
+    let issues: string[];
+    try {
+      const bytes = skill.source === "bundled"
+        ? await renderedBundledFile(src, ctx)
+        : await Deno.readFile(src);
+      issues = skillFrontmatterIssues(
+        new TextDecoder().decode(bytes),
+        skill.name,
+      );
+    } catch (error) {
+      issues = [
+        `SKILL.md could not be read: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ];
+    }
+    if (issues.length > 0) {
+      malformed.push({ name: skill.name, source: skill.source, file, issues });
+    }
+  }
+  return malformed;
 }
