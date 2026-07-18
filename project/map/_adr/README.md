@@ -145,6 +145,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0151 — The desk starts tasks and opens agents](0151-the-desk-starts-tasks-and-opens-agents.md)
 - [0152 — Slow workflows prove predictable write authority before project work](0152-slow-workflows-prove-write-authority-first.md)
 - [0153 — `[repository]` owns shared checkout policy and convergence](0153-repository-owns-shared-checkout-convergence.md)
+- [0154 — Launch standards recalibrate to the public corpus at programme end](0154-launch-standards-recalibrated-to-the-public-corpus.md)
 
 ## Superseded records
 
