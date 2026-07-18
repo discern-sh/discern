@@ -51,6 +51,10 @@ async function makeHelpFixture(
     "00-orientation/glossary.md": "# Glossary\n",
     "00-orientation/hidden.md":
       "---\npublish: false\n---\n# Hidden draft\n\nWithheld.\n",
+    "50-engine-internals/README.md":
+      "# Engine internals\n\nContributor-only.\n",
+    "55-observability/telemetry.md":
+      "# Instrumentation laboratory\n\nFresh-name contributor fixture.\n",
     "_adr/0001-first.md": "# ADR 0001: First\n",
     "_internal/brief.md": "# Documenter brief\n",
     "_private/positioning.md": "# Positioning\n",
@@ -87,6 +91,13 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
       !res.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
       "help must not surface the project's own docs/",
     );
+    assert(
+      !res.data.docs.some((d: { path: string }) =>
+        d.path.includes("50-engine-internals") ||
+        d.path.includes("55-observability")
+      ),
+      "help must not surface numbered contributor sections",
+    );
 
     // Contrast: `docs` (same cwd) DOES serve the project tree — they diverge.
     const docs = await runCli(["map", "--json"], dir);
@@ -122,6 +133,28 @@ Deno.test("help <slug> --json strips inline citations, keeps them as fields", as
     assertEquals(res.data.doc.cited_adrs, [
       { number: "0001", slug: "first", path: "../_adr/0001-first.md" },
     ]);
+  });
+});
+
+Deno.test("help terminal render strips inline citations into a related-decisions footer", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const rendered = await runCli(
+      ["help", "concepts", "--plain", "--no-pager", "--no-color"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(rendered.code, 0);
+    assert(!rendered.stdout.includes("[ADR 0001]"));
+    assertStringIncludes(rendered.stdout, "## Related decisions");
+    assertStringIncludes(
+      rendered.stdout,
+      "https://discern.sh/docs/decisions/0001-first",
+    );
+    assertEquals(
+      [...rendered.stdout.matchAll(/docs\/decisions\/0001-first/g)].length,
+      1,
+    );
   });
 });
 
@@ -172,6 +205,44 @@ Deno.test("a publish: false doc is unreachable through every help surface", asyn
     assertEquals(exported.code, 0);
     assert(!exported.stdout.includes("hidden.md"));
     assert(!exported.stdout.includes("Withheld."));
+  });
+});
+
+Deno.test("numbered contributor sections are unreachable through every help surface", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+
+    for (
+      const target of [
+        "50-engine-internals/README",
+        "55-observability/telemetry",
+      ]
+    ) {
+      const result = await runCli(
+        ["help", target, "--json"],
+        dir,
+        { DISCERN_DOCS_DIR: help },
+      );
+      assertEquals(result.code, 1, target);
+      assertEquals(JSON.parse(result.stdout).error, "not_found", target);
+    }
+
+    const list = await runCli(
+      ["help", "--list"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assert(!list.stdout.includes("Engine internals"));
+    assert(!list.stdout.includes("Instrumentation laboratory"));
+
+    const exported = await runCli(
+      ["help", "--export", "public"],
+      dir,
+      { DISCERN_DOCS_DIR: help },
+    );
+    assertEquals(exported.code, 0);
+    assert(!exported.stdout.includes("Contributor-only."));
+    assert(!exported.stdout.includes("Fresh-name contributor fixture."));
   });
 });
 

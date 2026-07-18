@@ -349,9 +349,9 @@ export async function resolveTemplatesDir(
  *   2. the build-staged public projection embedded in a compiled binary, found by
  *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
  *      keeps bundled-help document paths stable).
- *   3. this repo's own configured map when running from a checkout. Its
- *      internal `_`-prefixed subtrees are filtered out by the VIEW (`includeInternal:
- *      false`), not the embed — only the staged path is curated at build time.
+ *   3. this repo's own configured map when running from a checkout. The help
+ *      view applies both page publication and the manual section registry, so
+ *      this uncurated fallback behaves like the pre-curated staged tree.
  *
  * Returns `undefined` only when no tree can be located (a build defect in a
  * binary; never in a checkout) — the caller turns that into a clear message

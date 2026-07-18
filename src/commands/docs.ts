@@ -49,7 +49,11 @@ import {
 } from "../lib/docs.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
-import { HELP_ADR_DOC_DIR, resolveBundledDocsDir } from "../lib/paths.ts";
+import {
+  HELP_ADR_DOC_DIR,
+  isBundledDocEntry,
+  resolveBundledDocsDir,
+} from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
 import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
@@ -160,15 +164,61 @@ async function hasDecisionRecords(dir: string | undefined): Promise<boolean> {
 }
 
 /**
- * Apply the verb's PAGE-level publication policy to a discovered tree. `help`
- * is a published product manual: `isPublicDoc` withholds `publish: false`
- * leaves from every help surface (browse, TOC, JSON/MCP, targets, export).
- * `map` is the agents' own tree: agents keep everything.
+ * The top-level section a documentation entry belongs to. Root Markdown files
+ * keep their filename so {@link isBundledDocEntry} can admit the front door.
  */
-function verbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
+function docTopLevel(entry: DocEntry): string {
+  return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
+}
+
+/** Whether a checkout-only help subtree was explicitly opened for this view. */
+function helpInternalAllowed(
+  entry: DocEntry,
+  internal: boolean | readonly string[] | undefined,
+): boolean {
+  return Array.isArray(internal) && internal.includes(docTopLevel(entry));
+}
+
+/**
+ * Apply both publication axes to a public projection. Page publication comes
+ * from `isPublicDoc` through {@link publicDocs}; discern help additionally
+ * applies the manual's default-deny section registry. Enforcing both at view
+ * time keeps source checkouts, test overrides, and pre-curated binary stages
+ * behaviorally identical.
+ */
+function publicVerbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
+  const entries = publicDocs(tree.entries);
   return desc.verb === "help"
-    ? { ...tree, entries: publicDocs(tree.entries) }
-    : tree;
+    ? {
+      ...tree,
+      entries: entries.filter((entry) => isBundledDocEntry(docTopLevel(entry))),
+    }
+    : { ...tree, entries };
+}
+
+/**
+ * Apply the verb's browse policy to a discovered tree. `help` is the published
+ * product manual plus an explicitly requested checkout-only subtree such as
+ * `--adr`; `map` is the agents' own tree and keeps everything.
+ */
+function verbTree(
+  desc: DocsVerb,
+  tree: DocsTree,
+  internal?: boolean | readonly string[] | undefined,
+): DocsTree {
+  if (desc.verb === "map") return tree;
+  const published = publicVerbTree(desc, tree);
+  if (!Array.isArray(internal)) return published;
+  const extras = publicDocs(tree.entries).filter((entry) =>
+    helpInternalAllowed(entry, internal)
+  );
+  return {
+    ...published,
+    entries: [
+      ...published.entries,
+      ...extras.filter((entry) => !published.entries.includes(entry)),
+    ],
+  };
 }
 
 /**
@@ -181,6 +231,21 @@ function verbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
 function renderableBody(desc: DocsVerb, content: string): string {
   const { body } = parseFrontmatter(content);
   return desc.verb === "help" ? stripAdrCitations(body) : body;
+}
+
+/** Add a human terminal footer without changing JSON, export, or raw bodies. */
+function terminalBody(
+  desc: DocsVerb,
+  entry: DocEntry,
+  content: string,
+): string {
+  const body = renderableBody(desc, content);
+  if (desc.verb !== "help" || entry.citedAdrs.length === 0) return body;
+  const related = entry.citedAdrs.map((citation) =>
+    `- [Decision ${citation.number}](` +
+    `https://discern.sh/docs/decisions/${citation.number}-${citation.slug})`
+  );
+  return `${body.trimEnd()}\n\n## Related decisions\n\n${related.join("\n")}\n`;
 }
 
 /** Options accepted by the `map` command (global flags folded in). */
@@ -428,8 +493,9 @@ async function browse(
     last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
-    const content = renderableBody(
+    const content = terminalBody(
       desc,
+      entry,
       await Deno.readTextFile(entry.absPath),
     );
     await present(renderMarkdown(content, { width, color }), options.noPager);
@@ -536,7 +602,7 @@ async function exportDocs(
   // `--export public` is an explicitly-published projection for either verb;
   // the wider scopes (`all`, `select`) keep everything, like the map itself.
   const tree = scope === "public"
-    ? { ...discovered, entries: publicDocs(discovered.entries) }
+    ? publicVerbTree(desc, discovered)
     : discovered;
 
   let outputPath: string | undefined;
@@ -663,7 +729,7 @@ async function treeResult(
     });
   const tree = discovered === undefined
     ? undefined
-    : verbTree(desc, discovered);
+    : verbTree(desc, discovered, opts.internal);
   if (!tree) {
     return {
       ok: false,
@@ -801,7 +867,7 @@ async function viewTarget(
     return 0;
   }
   const color = colourEnabled(options.noColor);
-  const rendered = renderMarkdown(renderableBody(desc, content), {
+  const rendered = renderMarkdown(terminalBody(desc, res.entry, content), {
     width: resolveWidth(options.width),
     color,
   });
@@ -903,7 +969,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
   const tree = discovered === undefined
     ? undefined
-    : verbTree(desc, discovered);
+    : verbTree(desc, discovered, internal);
   if (!tree) {
     log.error(desc.missingTree(options));
     return 1;

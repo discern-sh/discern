@@ -221,15 +221,15 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
   {
     name: "site",
     source: "site/docs.ts",
-    via: "buildDocsSite filters guidance through isPublicDoc and decision " +
-      "records through publicDocs; search and llms derive from guidance, " +
-      "while the sitemap and raw .md editions derive from both families",
+    via: "buildDocsSite filters the landing and guidance through isPublicDoc " +
+      "and decision records through publicDocs; search and llms derive from " +
+      "guidance, while the sitemap and raw .md editions derive from both families",
   },
   {
     name: "help",
     source: "src/commands/docs.ts",
-    via: "verbTree applies publicDocs to every help view — terminal browse, " +
-      "TOC, JSON/MCP results, and target resolution",
+    via: "publicVerbTree applies publicDocs and the manual section registry " +
+      "to terminal browse, TOC, JSON/MCP results, targets, and public export",
   },
   {
     name: "export-public",
