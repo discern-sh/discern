@@ -221,11 +221,12 @@ Deno.test("frontmatter parses scalar and list overrides and passes non-blocks th
   });
   assertEquals(parsed.body, "# Heading\n\nBody.\n");
 
-  // Not frontmatter: an unclosed fence, a nested map, no block at all.
+  // Not frontmatter: an unclosed fence, a block YAML cannot parse, no block
+  // at all — each passes through as content, untouched.
   for (
     const doc of [
       "---\ntitle: Unclosed\n",
-      "---\nmetadata:\n  author: nested map\n---\nbody\n",
+      "---\ntitle: broken in scope: everywhere\n---\nbody\n",
       "# Plain doc\n",
     ]
   ) {
@@ -233,6 +234,14 @@ Deno.test("frontmatter parses scalar and list overrides and passes non-blocks th
     assertEquals(passthrough.meta, {});
     assertEquals(passthrough.body, doc);
   }
+
+  // A nested map is a valid YAML block: consumed as frontmatter, its unknown
+  // key ignored (the strict validator is what rejects it at the gate).
+  const nested = parseFrontmatter(
+    "---\nmetadata:\n  author: nested map\n---\nbody\n",
+  );
+  assertEquals(nested.meta, {});
+  assertEquals(nested.body, "body\n");
 });
 
 Deno.test("discoverDocs derives descriptions and honours frontmatter overrides", async () => {
