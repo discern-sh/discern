@@ -146,6 +146,9 @@ export interface StepResult {
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
  *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
+ *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
+ *    well-formedness contract (valid YAML every consumer's parser reads to the
+ *    same non-empty identity), so an agent runtime would reject or misread it;
  *  - `merge` — the branch is behind the integration branch (the fail-fast
  *    precondition, ADR 0050);
  *  - `standards` — a `[standards]` limit failed verification against the trunk:
@@ -170,6 +173,7 @@ export const FAILED_STAGES = [
   "tracked_artifacts",
   "guidance",
   "skills",
+  "skill_frontmatter",
   "merge",
   "standards",
   "write_access",

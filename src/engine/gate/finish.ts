@@ -88,7 +88,12 @@ import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
 } from "../guidance_render.ts";
-import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
+import {
+  checkSkillsCurrent,
+  checkSkillsWellformed,
+  type SkillsDriftEntry,
+  type SkillWellformedness,
+} from "../../lib/skills.ts";
 import {
   gitLsFilesCommand,
   type TrackedDiscernIgnoredArtifacts,
@@ -124,6 +129,8 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
     "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
+  skill_frontmatter:
+    "A skill's SKILL.md frontmatter is invalid — agent runtimes could not read it. The diagnostics name each file and problem; edit the skill's source, then re-run.",
   merge:
     "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
   standards:
@@ -209,6 +216,35 @@ async function skillsDiagnostic(
     severity: "error",
     message: `materialized skills out of date: ${dirs}`,
     reproduce_cmd: "discern refresh",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for MALFORMED skill frontmatter: each offending SKILL.md and its
+ * problems, verbatim from the well-formedness check. Unlike the currency
+ * failures, `discern refresh` cannot clear this — the SOURCE file is what every
+ * consumer misreads — so the remedy is an edit, and the diagnostic says so.
+ */
+async function skillFrontmatterDiagnostic(
+  malformed: SkillWellformedness[],
+): Promise<Diagnostic> {
+  const files = malformed.map((m) => m.file).join(", ");
+  const outputFields = await diagnosticOutputFields(
+    `Skill frontmatter that agent runtimes cannot read:\n\n` +
+      malformed.map((m) =>
+        `${m.file}:\n${m.issues.map((i) => `  • ${i}`).join("\n")}`
+      ).join("\n\n") +
+      "\n\nEdit each named source file. A SKILL.md opens with a `---`-fenced " +
+      "YAML block whose `name:` and `description:` are non-empty single-line " +
+      "strings; agent runtimes parse it with a real YAML parser, so a value " +
+      "containing `: ` must be quoted.",
+  );
+  return {
+    tool: "skill-frontmatter",
+    severity: "error",
+    message: `invalid SKILL.md frontmatter: ${files}`,
+    reproduce_cmd: "discern done",
     ...outputFields,
   };
 }
@@ -383,6 +419,21 @@ async function runGate(
     if (stale.length > 0) {
       failedStage = "skills";
       skillsDiag = await skillsDiagnostic(stale);
+    }
+  }
+
+  // 1d-bis. Skill frontmatter well-formedness — every effective skill's SKILL.md
+  //     must carry frontmatter a real YAML parser reads to the same valid identity
+  //     discern reads, because external agent runtimes consume the materialized
+  //     copy with real YAML parsers. A malformed source ships a skill those
+  //     runtimes reject or misread, so it blocks here, beside the other
+  //     shipped-artifact preconditions.
+  let skillFrontmatterDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const malformed = await checkSkillsWellformed(root, cfg);
+    if (malformed.length > 0) {
+      failedStage = "skill_frontmatter";
+      skillFrontmatterDiag = await skillFrontmatterDiagnostic(malformed);
     }
   }
 
@@ -583,6 +634,9 @@ async function runGate(
   }
   if (skillsDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), skillsDiag];
+  }
+  if (skillFrontmatterDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), skillFrontmatterDiag];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];

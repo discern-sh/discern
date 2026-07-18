@@ -784,6 +784,67 @@ Deno.test("done --json: a STALE generated agent file fails the guidance check; r
   });
 });
 
+Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatter check; an edit fixes it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await runAgent(dir, ["refresh"]);
+    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+
+    // An authored skill whose description sits on an indented continuation
+    // line containing `: ` — a real YAML parser reads a nested mapping, not a
+    // string, so an agent runtime would reject or misread the skill.
+    const skillMd = join(dir, "discern", "skills", "label-the-jars", "SKILL.md");
+    const skillDoc = (description: string[]): string =>
+      [
+        "---",
+        "name: label-the-jars",
+        ...description,
+        "---",
+        "",
+        "# Label the jars",
+        "",
+        "Body.",
+        "",
+      ].join("\n");
+    await Deno.mkdir(join(dir, "discern", "skills", "label-the-jars"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      skillMd,
+      skillDoc([
+        "description:",
+        "  Label every jar in the pantry. Out of scope: the fridge.",
+      ]),
+    );
+    await runAgent(dir, ["refresh"]); // materialize, so the currency check is clean
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.data.failed_stage, "skill_frontmatter");
+    const diag = diagFor(obj, "skill-frontmatter");
+    assert(diag !== undefined, `expected a skill-frontmatter diagnostic: ${r.stdout}`);
+    assertStringIncludes(diag.message, "label-the-jars");
+    assertStringIncludes(diag.output, "nested mapping"); // what a YAML parser reads
+    assertStringIncludes(diag.output, "double quotes"); // the remedy
+
+    // Folding the value onto one quoted line satisfies every parser.
+    await Deno.writeTextFile(
+      skillMd,
+      skillDoc([
+        'description: "Label every jar in the pantry. Out of scope: the fridge."',
+      ]),
+    );
+    assertEquals(
+      (await runAgent(dir, ["done", "--json"])).code,
+      0,
+      "a valid identity should clear the check",
+    );
+  });
+});
+
 Deno.test("done --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

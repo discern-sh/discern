@@ -1480,6 +1480,7 @@ export type DiscernDoneResult = {
       | "tracked_artifacts"
       | "guidance"
       | "skills"
+      | "skill_frontmatter"
       | "merge"
       | "standards"
       | "write_access"
