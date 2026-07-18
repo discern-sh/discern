@@ -12,7 +12,7 @@ aliases:
 
 _Read the first real failure, use its reproduce command, and rerun the gate after the fix._
 
-Start with the first entry in `diagnostics[]`. It names the tool or precondition that failed, explains the problem, and gives you a `reproduce_cmd`. Run that command when you need a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
+Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
 Your agent reads these fields directly and usually fixes the failure without help. Handling it yourself? Work from the diagnostic instead of rerunning the full gate.
 
@@ -32,7 +32,7 @@ Your agent reads these fields directly and usually fixes the failure without hel
 
 ## Give the result to an agent
 
-Run the machine-readable form when you need to hand the failure across sessions:
+Run the machine-readable form to hand the failure across sessions:
 
 ```sh
 discern done --json
@@ -52,6 +52,6 @@ JSON mode prints one result object and suppresses live narration. Each real fail
 
 ## Current state & gotchas
 
-- Output artifacts are temporary. Inspect an `output_path` while it is fresh. Later gate runs remove registered artifacts older than 24 hours.
+- Output artifacts are temporary: later gate runs remove any older than 24 hours, so inspect an `output_path` while fresh.
 - A test that passes by itself and fails in the full gate often depends on shared state or execution order. Reproduce it in the same parallel context before treating it as a flake.
 - Run `discern doctor` when the failure points to a missing command, invalid config, or incomplete installation. It checks the configured commands directly.
