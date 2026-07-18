@@ -26,7 +26,7 @@ discern/skills/
 
 Open `SKILL.md` with `name` and `description` frontmatter, `name` matching the directory. Write the description as a trigger-rich sentence: what the Skill does and when an agent reaches for it.
 
-Agent runtimes read this block with a YAML parser, and `discern done` holds every effective Skill to it: single-line values, `name` in lowercase letters, digits, and hyphens. Quote a value containing `:`; an indented continuation fails the gate.
+The block is YAML, and `discern done` holds every effective Skill to it: the block parses, `name` and `description` are non-empty strings, and `name` uses lowercase letters, digits, and hyphens. Quote a value containing `:`.
 
 ```markdown
 ---

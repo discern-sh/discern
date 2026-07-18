@@ -148,7 +148,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0154 — Launch standards recalibrate to the public corpus at programme end](0154-launch-standards-recalibrated-to-the-public-corpus.md)
 - [0155 — Standalone standards share the gate job pipeline](0155-standalone-standards-share-the-gate-job-pipeline.md)
 - [0156 — The permanent landing page and the /install endpoint](0156-permanent-landing-page-and-install-endpoint.md)
-- [0157 — Shipped frontmatter must pass a real YAML parser](0157-shipped-frontmatter-passes-a-real-yaml-parser.md)
+- [0157 — One standard YAML parser for all frontmatter](0157-one-standard-yaml-parser-for-frontmatter.md)
 
 ## Superseded records
 
