@@ -210,7 +210,9 @@ export function decorateHtmlPage(
   if (sourceDescription === undefined || sourceDescription.length === 0) {
     throw new Error(`HTML route ${route} has no description`);
   }
-  const title = sourceTitle.endsWith(" · discern.sh docs")
+  // The landing page carries its own exact title; every deeper page is
+  // suffixed into the site template.
+  const title = route === "/" || sourceTitle.endsWith(" · discern.sh docs")
     ? sourceTitle
     : `${sourceTitle} · discern.sh docs`;
   const description = boundedDescription(title, sourceDescription);

@@ -60,6 +60,7 @@ export const TEXT_EDITION = "text/discern.txt";
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".html": "text/html; charset=utf-8",
+  ".sh": "text/x-shellscript; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".json": "application/json; charset=utf-8",
@@ -249,6 +250,10 @@ async function routeResponse(
   path: string,
   routing: SiteRouting,
 ): Promise<Response> {
+  // The one-line install moment: `curl -fsSL https://discern.sh/install | sh`
+  // serves the repository's own installer, so the command on the landing
+  // page is true from the first deploy.
+  if (path === "/install") return await serveFile("../install.sh");
   if (path === "/llms.txt") return await llmsTxt(routing.site);
   if (path === "/llms-full.txt") return await llmsFullTxt(routing.site);
   if (path === "/sitemap.xml") {

@@ -213,7 +213,10 @@ export async function runSiteSmoke(
     htmlPages.set(route, { dom, html });
     const document = dom.window.document;
     const title = document.title.trim();
-    if (title === "" || !title.endsWith(" · discern.sh docs")) {
+    const titledForSite = route === "/"
+      ? title === "discern — Code got fast. Trust didn’t."
+      : title.endsWith(" · discern.sh docs");
+    if (title === "" || !titledForSite) {
       fail(`${route}: invalid title ${JSON.stringify(title)}`);
     }
     const titleOwner = titles.get(title);
@@ -505,7 +508,7 @@ export async function runSiteSmoke(
     fail,
   );
 
-  for (const path of ["/robots.txt", "/assets/og-card.png"]) {
+  for (const path of ["/robots.txt", "/assets/og-card.png", "/install"]) {
     const response = await get(path);
     secure(response, path);
     if (response.status !== 200) fail(`${path}: status ${response.status}`);

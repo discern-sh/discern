@@ -75,6 +75,22 @@ Deno.test("/llms.txt is the plaintext edition for every reader", async () => {
   }
 });
 
+Deno.test("/install serves the repository installer for every reader", async () => {
+  const installer = await Deno.readTextFile(
+    new URL("../install.sh", import.meta.url),
+  );
+  assertStringIncludes(installer, "#!/bin/sh");
+  for (const headers of [BROWSER, CURL]) {
+    const res = await get("/install", headers);
+    assertEquals(res.status, 200);
+    assertStringIncludes(
+      res.headers.get("content-type") ?? "",
+      "text/x-shellscript",
+    );
+    assertEquals(await res.text(), installer);
+  }
+});
+
 Deno.test("the plaintext edition file backs the negotiation", () => {
   // TEXT_EDITION is read on demand; a rename that misses this constant would
   // 500 in production. Resolve it the same way the handler does.

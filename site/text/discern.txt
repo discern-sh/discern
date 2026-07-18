@@ -9,7 +9,7 @@ NAME
        for humans is at https://discern.sh in a browser.
 
 SYNOPSIS
-       $ brew install discern
+       $ curl -fsSL https://discern.sh/install | sh
        $ discern status | start | prepare | test | done   [--json]
 
        Setup is one sentence from your human - "Set this project up with

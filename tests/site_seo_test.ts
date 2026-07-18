@@ -236,10 +236,14 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     const title = titleOf(html);
     const description = descriptionOf(html);
     assert(title.length > 0, `${route} has a title`);
-    assert(
-      title.endsWith(" · discern.sh docs"),
-      `${route} follows the site title template`,
-    );
+    if (route === "/") {
+      assertEquals(title, "discern — Code got fast. Trust didn’t.");
+    } else {
+      assert(
+        title.endsWith(" · discern.sh docs"),
+        `${route} follows the site title template`,
+      );
+    }
     assert(!seenTitles.has(title), `${route} has unique title ${title}`);
     seenTitles.add(title);
     const expectedDocsTitle = docsTitles.get(route);
