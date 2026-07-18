@@ -80,6 +80,7 @@ The installer downloads from GitHub over HTTPS. After installation, discern itse
 | `DISCERN_TOML`                   | Absolute path to the active config exported to a Project Script.                        |
 | `DISCERN_SCRIPTS`                | Absolute configured Project Scripts directory exported to a Project Script.             |
 | `DISCERN_SCRIPTS_DIR`            | The configured Project Scripts directory value exported to a Project Script.            |
+| `DISCERN_DESK_SESSION`           | `1` in desk-launched processes; `discern doctor` reports it.                            |
 
 Project Scripts also receive `DISCERN_MAIN_BRANCH`. They read other config through `discern config get|array|has|subsections|keys` rather than parsing TOML or sourcing a helper library.
 

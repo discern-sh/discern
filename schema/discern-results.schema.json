@@ -3016,6 +3016,10 @@
                     },
                     "git": {
                       "type": "string"
+                    },
+                    "desk_session": {
+                      "type": "boolean",
+                      "const": true
                     }
                   },
                   "required": [

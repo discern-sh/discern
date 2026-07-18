@@ -1,4 +1,4 @@
-# ADR 0157: One standard YAML parser for all frontmatter
+# ADR 0158: One standard YAML parser for all frontmatter
 
 **Status**: accepted. Extends [ADR 0034](0034-agents-md-untracked-currency-check.md) (the gate's shipped-artifact preconditions); amends the frontmatter note in [ADR 0130](0130-docs-site-renders-the-help-tree.md).
 
