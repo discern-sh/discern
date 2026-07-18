@@ -3,8 +3,8 @@
  * standards run, with what direction / limit / metric / command." The mirror of the
  * gate's `plan.ts` for the standard seam (ADR 0027): everything here is a pure
  * function of its argument — no subprocess, no git, no filesystem. The effectful
- * executor (the never-loosen-vs-main read, the measurement, the comparison) lives
- * in `standards.ts`.
+ * Tier-1 verification lives in `standard_limits.ts`; the shared measurement
+ * projection and standalone executor live in `standards.ts`.
  *
  * Each `[standards.<name>]` becomes one {@link PlannedStandard} carrying exactly the
  * data the executor needs; the whole list is carried as DATA, so "what would
@@ -60,9 +60,18 @@ export interface PlannedStandard {
    * when every change since the last recorded measurement falls outside them,
    * the gate replays that value. Absent = always measure. */
   inputs?: string[];
-  /** Per-job `timeout` override for the gate's measurement job (seconds; `0`
-   * disables the bound), replacing the global `[gate].timeout`. */
+  /** Per-job `timeout` override for this measurement job (seconds; `0` disables
+   * the bound), replacing the global `[gate].timeout` in every surface. */
   timeoutS?: number;
+}
+
+/** The scheduler label for a standard measurement inside the gate. `:` is
+ * outside the configured standard-name vocabulary, so this namespace cannot
+ * collide with a capability, check, or scope job. Standalone standards use the
+ * plain standard name at their result boundary while sharing the same job
+ * projection underneath. */
+export function standardJobLabel(name: string): string {
+  return `standard:${name}`;
 }
 
 /** Normalize a schema-validated `per` into the executor's {@link PerSpec}. A string
@@ -135,8 +144,8 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
  * recorded value, in the branch's `direction`. Returns the failure reason —
  * the words every surface narrates — or undefined when the limit is not
  * loosened (tightened, unchanged, or new on the branch: `mainValue`
- * undefined). The ONE comparison behind the standalone verb's per-standard
- * check AND the gate's Tier-1 verification, so the two can never disagree on
+ * undefined). The ONE comparison behind the shared Tier-1 verification both
+ * gate and standalone execution consume, so the surfaces cannot disagree on
  * what "loosened" means.
  */
 export function loosenedLimitReason(

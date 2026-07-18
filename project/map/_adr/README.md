@@ -146,7 +146,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0152 — Slow workflows prove predictable write authority before project work](0152-slow-workflows-prove-write-authority-first.md)
 - [0153 — `[repository]` owns shared checkout policy and convergence](0153-repository-owns-shared-checkout-convergence.md)
 - [0154 — Launch standards recalibrate to the public corpus at programme end](0154-launch-standards-recalibrated-to-the-public-corpus.md)
-- [0155 — The permanent landing page and the /install endpoint](0155-permanent-landing-page-and-install-endpoint.md)
+- [0155 — Standalone standards share the gate job pipeline](0155-standalone-standards-share-the-gate-job-pipeline.md)
+- [0156 — The permanent landing page and the /install endpoint](0156-permanent-landing-page-and-install-endpoint.md)
 
 ## Superseded records
 

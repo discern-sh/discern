@@ -8,7 +8,7 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 ## The landing page and the retained compositions
 
-The public `/` homepage is a purpose-built landing composition (`landing.tsx` with its own `landing.css` and `landing.js`) carrying the launch copy and genuine captured gate output. ADR 0155 records the decision. The complete Marketing composition remains at `/design-system-demo` as an explicitly labeled atlas exercising the published Marketing group, and `/content-design-demo` does the same for the Editorial group and a long-form reading experience. The atlases remain because the coverage guard replays every published Marketing and Editorial component through them; the landing page selects freely from the same bundle. Replaced homepages are preserved under `mockups/landing/`, outside the served tree.
+The public `/` homepage is a purpose-built landing composition (`landing.tsx` with its own `landing.css` and `landing.js`) carrying the launch copy and genuine captured gate output. ADR 0156 records the decision. The complete Marketing composition remains at `/design-system-demo` as an explicitly labeled atlas exercising the published Marketing group, and `/content-design-demo` does the same for the Editorial group and a long-form reading experience. The atlases remain because the coverage guard replays every published Marketing and Editorial component through them; the landing page selects freely from the same bundle. Replaced homepages are preserved under `mockups/landing/`, outside the served tree.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 

@@ -73,7 +73,7 @@ Each product-guidance row records its section landing and, after the colon, ever
 | `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                           |
 | `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs`  |
 
-The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0155. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
+The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0156. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
 
 A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The freeze creates no retroactive redirect debt for pre-freeze names.
 

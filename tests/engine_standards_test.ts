@@ -4,7 +4,7 @@
  * Every standard is a `[standards.<name>]` table with a direction (up=floor,
  * down=ceiling), a `limit`, and an inline `run` command that emits
  * `DISCERN_METRIC <name> <number>`. There is no built-in or special standard —
- * "coverage" is just a conventional name. `agent standards` runs them all.
+ * "coverage" is just a conventional name. `discern standards` runs them all.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -16,7 +16,10 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { standardPlanIntegrityFailure } from "../src/engine/gate/standards.ts";
+import {
+  standardPlanIntegrityFailure,
+  standardsResult,
+} from "../src/engine/gate/standards.ts";
 import type { PlannedStandard } from "../src/engine/gate/standard_plan.ts";
 import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
 
@@ -31,6 +34,7 @@ interface StandardsJson {
     disposition: string;
     outcome: string;
     note?: string;
+    duration_s?: number;
   }>;
   diagnostics?: Array<{
     tool: string;
@@ -48,9 +52,8 @@ function parseStandardsJson(stdout: string): StandardsJson {
 }
 
 /**
- * A config with one `[standards.<name>]` table whose `run` emits the metric. The
- * run is inline on the standard (not a separate gate job), so only `agent
- * standards` ever executes it — the gate never does.
+ * A config with one `[standards.<name>]` table whose inline `run` emits the
+ * metric for either gate or standalone execution.
  */
 function standardConfig(opts: {
   name: string;
@@ -61,6 +64,7 @@ function standardConfig(opts: {
   /** Raw TOML for `per`, e.g. `'{ words = "content/**" }'` or `'"words"'`. */
   per?: string;
   scale?: string;
+  timeout?: string;
 }): string {
   return [
     "[project]",
@@ -75,6 +79,7 @@ function standardConfig(opts: {
     `limit = ${opts.limit}`,
     ...(opts.per ? [`per = ${opts.per}`] : []),
     ...(opts.scale ? [`scale = ${opts.scale}`] : []),
+    ...(opts.timeout ? [`timeout = ${opts.timeout}`] : []),
     `run = "${opts.run}"`,
     "",
   ].join("\n");
@@ -117,6 +122,10 @@ Deno.test("standards: coverage passes when the emitted metric meets the floor", 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
+    const receipt = JSON.parse(
+      await Deno.readTextFile(`${dir}/.git/discern-standard-measurements`),
+    ) as { durations?: Record<string, number> };
+    assertEquals(receipt.durations?.coverage, 0);
   });
 });
 
@@ -154,6 +163,77 @@ Deno.test("standards: non-dry-run refuses a dirty tree unless forced", async () 
     const forced = await runAgent(dir, ["standards", "--force"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(forced.stdout, "meets the floor");
+  });
+});
+
+Deno.test("standards: a per-standard timeout bounds the standalone measurement", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      standardConfig({
+        name: "slow",
+        direction: "up",
+        limit: "1",
+        timeout: "1",
+        run: "sleep 30; echo 'DISCERN_METRIC slow 1'",
+      }),
+    );
+    await gitInit(dir);
+
+    const started = performance.now();
+    const run = await runAgent(dir, ["standards", "--json"]);
+    const elapsedMs = performance.now() - started;
+
+    assertEquals(run.code, 1, run.output);
+    assert(
+      elapsedMs < 6_000,
+      `the 1s timeout should end promptly, took ${elapsedMs}ms`,
+    );
+    const result = parseStandardsJson(run.stdout);
+    const diagnostic = (result.diagnostics ?? [])[0];
+    assertStringIncludes(diagnostic?.message ?? "", "timed out after 1s");
+    assertStringIncludes(diagnostic?.reproduce_cmd ?? "", "sleep 30");
+    assertEquals((result.steps ?? [])[0]?.duration_s, 1);
+  });
+});
+
+Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      standardConfig({
+        name: "slow",
+        direction: "up",
+        limit: "1",
+        run: "sleep 30; echo 'DISCERN_METRIC slow 1'",
+      }),
+    );
+    await gitInit(dir);
+
+    for (const timing of ["pre-aborted", "mid-run"] as const) {
+      const controller = new AbortController();
+      if (timing === "pre-aborted") {
+        controller.abort();
+      }
+      const started = performance.now();
+      const pending = standardsResult(dir, { signal: controller.signal });
+      const timer = timing === "mid-run"
+        ? setTimeout(() => controller.abort(), 150)
+        : undefined;
+      const result = await pending;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+      const elapsedMs = performance.now() - started;
+
+      assertEquals(result.ok, false, `${timing}: ${JSON.stringify(result)}`);
+      assert(
+        elapsedMs < 6_000,
+        `${timing} cancellation should end promptly, took ${elapsedMs}ms`,
+      );
+    }
   });
 });
 
@@ -266,6 +346,54 @@ Deno.test("standards: a limit may not be lowered vs main", async () => {
     assertStringIncludes(diag?.message ?? "", "floor 80 -> 70");
     assertStringIncludes(diag?.message ?? "", "only rises");
     assertEquals(diag?.reproduce_cmd, "discern standards");
+  });
+});
+
+Deno.test("standards: a standard deleted from branch config is reported", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      standardConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 90'",
+      }),
+    );
+    await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "agent/delete-standard");
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join("\n"),
+    );
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "delete the standard",
+      "--no-gpg-sign",
+    );
+
+    const run = await runAgent(dir, ["standards", "--json"]);
+    assertEquals(run.code, 1, run.output);
+    const result = parseStandardsJson(run.stdout);
+    const diagnostic = (result.diagnostics ?? [])[0];
+    assertEquals(diagnostic?.tool, "coverage", run.stdout);
+    assertStringIncludes(diagnostic?.message ?? "", "deleted on this branch");
+    assertEquals(
+      result.steps?.map((step) => [step.label, step.outcome]),
+      [["coverage", "failed"]],
+    );
   });
 });
 

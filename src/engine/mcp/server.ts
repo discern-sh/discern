@@ -467,12 +467,13 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    run: (root, args) =>
+    run: (root, args, signal) =>
       standardsResult(root, {
         dryRun: args.dry_run === true,
         force: args.force === true,
         pin: args.pin === true,
         ...(args.pin_names !== undefined ? { pinNames: args.pin_names } : {}),
+        signal,
       }),
   }),
   defineTool({

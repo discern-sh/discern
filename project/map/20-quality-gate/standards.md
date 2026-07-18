@@ -13,7 +13,7 @@ aliases:
 
 _Put a number behind a quality promise, then prevent later branches from moving it the wrong way._
 
-A standard is a measured floor or ceiling in `discern.toml`. Use `direction = "up"` for a metric such as coverage, where the limit is a floor. Use `direction = "down"` for a metric such as binary size, where the limit is a ceiling. Every `discern done` verifies that the branch did not weaken or delete a trunk limit before it runs expensive jobs ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
+A standard is a measured floor or ceiling in `discern.toml`. `direction = "up"` holds a floor. `direction = "down"` holds a ceiling. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
 
 ## Add a standard
 
@@ -31,25 +31,29 @@ The measurement command reports its value on stdout:
 DISCERN_METRIC coverage 91.4
 ```
 
-`metric` changes the expected metric name when it differs from the table name. `timeout` gives this measurement its own time budget. `margin` leaves headroom when a later pin tightens the limit.
+`metric` overrides the emitted metric name. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
-Use `per` and `scale` when a raw count grows with the project. A prose-alert ceiling expressed per 1,000 words measures density, so adding documentation at the same quality does not consume the budget ([ADR 0057](../_adr/0057-rate-standards.md)).
+Use `per` and `scale` when a raw count grows with the project. A per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 
 ## What the gate does
 
-After the never-loosen check, the gate handles each measurement in the same parallel group as checks and tests:
+After checking limits, the gate puts measurements in the parallel check-and-test group:
 
 - It measures by default.
-- It replays the recorded value when the standard declares `inputs`, a usable measurement receipt exists, and none of those inputs changed.
-- It defers the measurement when `measure = "on-demand"`; the limit check still runs. Use `discern standards` to measure deferred standards.
+- It replays a receipt when the standard declares `inputs` and none changed.
+- It defers `measure = "on-demand"`. Use `discern standards` to measure it. Limit checks never defer.
 
 `discern prepare` skips standard measurement. It remains the fast fix-and-check loop.
 
+## Run standards directly
+
+`discern standards` freshly measures every standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
+
+Runnable measurements share one parallel, fail-fast-off group. The gate runner supplies global and per-standard timeouts, process-tree kill, durations, terminal interruption, and Model Context Protocol cancellation. Output stays buffered until the result envelope renders ([ADR 0155](../_adr/0155-standalone-standards-share-the-gate-job-pipeline.md)).
+
 ## Respond to a failure
 
-A standard failure names the measured value, the limit, and the measurement command in `diagnostics[]`.
-
-The public shape of those fields is in [MCP tools & results](../70-reference/mcp-and-results.md).
+A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool result contracts](../70-reference/mcp-and-results.md) defines the public shape.
 
 | Failure                                    | Response                                                                                                          |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -58,26 +62,27 @@ The public shape of those fields is in [MCP tools & results](../70-reference/mcp
 | The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                             |
 | The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
 
-Loosening a limit is an owner decision made directly on trunk. A feature branch cannot authorize its own lower bar ([ADR 0003](../_adr/0003-named-metric-standards.md)).
+Only an owner can loosen a limit, directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
 ## Capture an improvement
 
-Run `discern standards --pin coverage` after the metric improves. Pin measures the standard and tightens its limit, leaving any configured `margin`. It only moves limits in the permitted direction and reuses a valid measurement receipt when one is available.
+`discern standards --pin coverage` tightens an improved limit, respects `margin`, and reuses a valid same-commit measurement receipt.
 
-Before an ordinary standards pass measures anything, Discern proves it can persist the later measurement receipt. Before a pin, it also proves `discern.toml` and Git's commit metadata are writable. A denial returns `error = "write_access"` before the metric command starts, avoiding a slow measurement when the pin or receipt cannot be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+Ordinary passes prove receipt write access. Pin also proves access to `discern.toml` and Git metadata. A denial returns `error = "write_access"` before measuring ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 ## Where it lives in code
 
-| Concern                                 | Source                                                            |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| Config fields and validation            | [`config_schema.ts`](../../../src/shared/config_schema.ts)        |
-| Pure standard plan                      | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)   |
-| Gate verification, replay, and deferral | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts) |
-| Measurement and pin execution           | [`standards.ts`](../../../src/engine/gate/standards.ts)           |
-| Built-in write probes                   | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
+| Concern                                   | Source                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| Config fields and validation              | [`config_schema.ts`](../../../src/shared/config_schema.ts)          |
+| Pure standard plan                        | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)     |
+| Shared trunk-limit verification           | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts) |
+| Shared measurement and pin execution      | [`standards.ts`](../../../src/engine/gate/standards.ts)             |
+| Gate replay and deferral policy           | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)   |
+| Parallel scheduling and process-tree kill | [`runner.ts`](../../../src/engine/jobs/runner.ts)                   |
+| Built-in write probes                     | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)      |
 
 ## Current state & gotchas
 
-- An `inputs` list is a correctness boundary. If it omits a file the metric reads, the gate can replay an older value until a later full measurement catches the change.
-- When the gate cannot read trunk, it continues with a prominent `UNVERIFIED` warning and records that state in the result and receipt. Fetch the trunk in CI so the comparison is conclusive.
-- The relevant source files contain no unfinished-work markers for standard behavior.
+- `inputs` is a correctness boundary: omitting a file the metric reads can replay a stale value.
+- An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and receipt. Fetch trunk where standards run.

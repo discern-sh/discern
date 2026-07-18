@@ -1,4 +1,4 @@
-# ADR 0155: The permanent landing page and the /install endpoint
+# ADR 0156: The permanent landing page and the /install endpoint
 
 **Status**: accepted; extends [ADR 0129](0129-site-lives-in-repo-behind-one-fetch-handler.md) and [ADR 0144](0144-canonical-site-urls-and-one-hop-redirects.md)
 
