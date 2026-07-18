@@ -373,6 +373,7 @@ The following components are licensed under the MIT License, reproduced below:
   @std/path                  1.1.5    jsr
   @std/text                  1.0.19   jsr
   @std/toml                  1.0.11   jsr
+  @std/yaml                  1.1.1    jsr
 
 MIT License
 
