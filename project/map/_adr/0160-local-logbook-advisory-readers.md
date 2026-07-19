@@ -1,6 +1,6 @@
 # ADR 0160: A local logbook of discern's own use, on by default, with advisory-only readers
 
-**Status**: proposed
+**Status**: accepted
 
 ## Context
 
@@ -26,7 +26,7 @@ Four forces bound the design:
 - **Events attribute by branch name, not worktree path** — attribution survives `accept` removing the worktree.
 - **Recording never interferes.** Appends are single-line and atomic. A write failure never fails the verb. Overhead stays unmeasurable next to any gate step.
 
-**On by default, with the one switch it earns.** A single config toggle opts out, and a reset subcommand deletes the accumulated history. Principle 9 — every subsystem is core, and a toggle exists only for what costs something when unused — applies here rather than bending: recording writes on every verb even when nobody ever reads the logbook, the same test `[skills].exclude` survived. Default-on deliberately reverses the research note's own first principle (opt-in, off by default). The value is retrospective, so opt-in guarantees an empty history at the first moment of need — and recording costs nothing the trust posture actually protects, because nothing leaves the machine. When this ships, the trust page changes: "no network, no telemetry" stays absolute, while "nothing measured" gains the logbook as its one named, inspectable, deletable exception.
+**On by default, with the one switch it earns.** A single toggle under `[project]` opts out, and a reset action deletes the accumulated history. Principle 9 — every subsystem is core, and a toggle exists only for what costs something when unused — applies here rather than bending: recording writes on every verb even when nobody ever reads the logbook, the same test `[skills].exclude` survived. Default-on deliberately reverses the research note's own first principle (opt-in, off by default). The value is retrospective, so opt-in guarantees an empty history at the first moment of need — and recording costs nothing the trust posture actually protects, because nothing leaves the machine. When this ships, the trust page changes: "no network, no telemetry" stays absolute, while "nothing measured" gains the logbook as its one named, inspectable, deletable exception.
 
 **One substrate, many readers — and every reader advises.** Recording and interpreting are separate layers. Events are evidence. Interpretation lives in readers that improve release over release on the same accumulated history, so yesterday's logbook gets smarter as readers do. No reader ever touches `ok`, an exit code, or a gate stage — standards remain the only enforcement surface. Where a reader finds something enforcement-worthy, it _proposes_ the structural move — a guidance line, a class guard, a `[standards]` stanza with today's value as the limit — and a human decides. That is the same discovery→enforcement bridge as ADR 0084, and the route that converts advice (which degrades, principle 10) into structure (which does not).
 
