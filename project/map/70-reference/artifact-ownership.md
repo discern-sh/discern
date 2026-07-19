@@ -58,6 +58,18 @@ Everything downstream reads that registry, so nothing can disagree with it: the 
 
 **Prefer the compiled files untracked?** Ignore them in your own `.gitignore` rules, outside the managed block. The gate tolerates a missing copy and nothing nags. On `discern upgrade`, an older, wider block reconciles down to the enumerated form ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)); the compiled files then show as untracked and `discern status` recommends the one-time commit. discern leaves staging to you.
 
+## Machine-local state inside `.git`
+
+Everything else discern records lives under the git admin area — outside the project tree, never in a commit, never needing a gitignore entry, and gone with the repository:
+
+| Path under `.git`         | What it is                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `discern/resources/`      | The per-worktree resource ledger orphan GC reads.                                                            |
+| `discern/logbook/`        | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
+| gate receipt + sentinels  | The recorded `done` outcome, the worktree ready sentinel, and the ignored-file baseline.                      |
+
+The write-surface test covers these too: a verb that wrote this state anywhere new would fail the gate.
+
 ## What runs on your machine
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands you configure. The gate runs the commands in your `discern.toml`, and no others; a scope gate or a standard runs the command you wrote for it; a project script is your own executable. Read-only verbs (`status`, `doctor`, the docs browsers) run none of them. discern makes zero network calls and ships no telemetry. A newer discern binary arrives when you re-run the installer.

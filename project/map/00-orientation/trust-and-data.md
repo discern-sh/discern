@@ -17,13 +17,25 @@ discern runs locally and keeps a small, visible footprint. Here's what that mean
 
 ## No network, no telemetry
 
-discern makes **zero network calls** and ships **no telemetry**. Nothing about your code, your usage, or your project is measured, phoned home, or uploaded, and it works fully offline. A newer version arrives only when you re-run the installer.
+discern makes **zero network calls** and ships **no telemetry**. Nothing about your code, your usage, or your project is phoned home or uploaded, and it works fully offline. A newer version arrives only when you re-run the installer.
+
+One thing is measured, and it stays on your machine: the logbook, below, records how discern itself is being used — with its own switch and a one-command deletion path.
+
+## The logbook: local history, one switch
+
+discern keeps a logbook of its own use: one line per verb run, appended to a plain-text file under `.git` and shared by the repository's worktrees. A line holds names and numbers only — the verb, the branch, pass or fail, and how long each gate step took. No code, no prompts, no command output; any line is safe to read aloud in a meeting. The record exists so later discern versions can answer questions a single run can't, like which gate step has been slowing down for weeks.
+
+- **Read it:** `cat .git/discern/logbook/*.jsonl`.
+- **Delete it:** remove that directory. Nothing else references it.
+- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`.
+
+The logbook never leaves the machine, and that claim is held by a check rather than a promise: a test in discern's own quality gate proves the logbook's code can reach no network interface, so a change that gave it one would fail discern's own build.
 
 ## It runs your commands, and only when you run the gate
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands **you** wrote in your own `discern.toml`. The gate runs your `format` / `lint` / `test` commands; a scope gate or a standard runs the command you gave it. discern adds none of its own beyond built-in git and file operations.
 
-The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs and help browsers) only observe. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
+The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs and help browsers) run none of your commands and change none of your files; each verb run appends its one line to the local logbook above, unless you switched that off. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
 
 ## A small, checkable footprint
 

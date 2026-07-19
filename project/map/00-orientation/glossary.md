@@ -79,6 +79,10 @@ Your own agent instructions, at the paths named by `[guidance].sources` (default
 
 The scaffolding verbs of the binary: `setup`, `upgrade`, `doctor`, `config`, `preset`. Build-time work — they write or refresh a project's files and exit, and are never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
 
+### Logbook
+
+The local record of discern's own use: one metadata-only line per verb run (verb, branch, outcome, timings), appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [Trust & your data](trust-and-data.md).
+
 ### Map
 
 The documentation tree discern maintains at `[map].dir` (default `map/`): written by agents, kept current under the gate, and read by humans both as documentation and as an audit of what their agents understand. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).
