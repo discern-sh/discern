@@ -46,16 +46,16 @@ Context (branch, commit, config, toggle) is gathered concurrently with the verb 
 
 ## Where it lives in code
 
-| Concept                          | File                                                                                   |
-| -------------------------------- | -------------------------------------------------------------------------------------- |
-| Event schema + tolerant parser   | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                |
-| Config-epoch fingerprint         | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                  |
-| Append, rotation, epoch sidecar  | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                  |
-| The recorder                     | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                |
-| The CLI wrapper + verb registry  | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                      |
-| The observed-envelope seam       | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                |
-| The no-network guard             | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)        |
-| Behaviour tests                  | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                |
+| Concept                         | File                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)         |
+| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)           |
+| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)           |
+| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)         |
+| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)               |
+| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)         |
+| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts) |
+| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)         |
 
 ## See also
 

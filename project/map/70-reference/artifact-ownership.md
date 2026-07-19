@@ -62,11 +62,11 @@ Everything downstream reads that registry, so nothing can disagree with it: the 
 
 Everything else discern records lives under the git admin area — outside the project tree, never in a commit, never needing a gitignore entry, and gone with the repository:
 
-| Path under `.git`         | What it is                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `discern/resources/`      | The per-worktree resource ledger orphan GC reads.                                                            |
-| `discern/logbook/`        | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
-| gate receipt + sentinels  | The recorded `done` outcome, the worktree ready sentinel, and the ignored-file baseline.                      |
+| Path under `.git`        | What it is                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `discern/resources/`     | The per-worktree resource ledger orphan GC reads.                                                              |
+| `discern/logbook/`       | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
+| gate receipt + sentinels | The recorded `done` outcome, the worktree ready sentinel, and the ignored-file baseline.                       |
 
 The write-surface test covers these too: a verb that wrote this state anywhere new would fail the gate.
 
