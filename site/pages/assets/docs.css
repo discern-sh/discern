@@ -592,6 +592,12 @@ html:not([data-discern-theme="dark"]) .docs-theme-moon {
 
 .docs-decision-status {
   flex: none;
+  color: var(--discern-color-ink-muted);
+  font-family: var(--discern-font-ui);
+  font-size: var(--discern-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* ── Pager ─────────────────────────────────────────────────────────────── */

@@ -920,7 +920,7 @@ function decisionListHtml(pages: readonly DecisionPage[]): string {
       `<li><a href="${page.route}">${esc(page.entry.title)}</a>` +
       `${
         page.superseded
-          ? '<span class="discern-badge discern-badge--neutral docs-decision-status">Superseded</span>'
+          ? '<span class="docs-decision-status">Superseded</span>'
           : ""
       }</li>`
     ).join("")

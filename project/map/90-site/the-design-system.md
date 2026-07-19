@@ -20,7 +20,7 @@ If Discern finds a package defect, the fix is released from the package reposito
 
 | Bundle         | Routes                                             | Selection                                      | Optional assets |
 | -------------- | -------------------------------------------------- | ---------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants                        | Five shell components                          | fonts           |
+| `docs`         | `/docs` and its descendants                        | Docs chrome and shared display parts           | fonts           |
 | `compositions` | `/`, `/design-system-demo`, `/content-design-demo` | Marketing, Editorial, and shared display parts | fonts and grain |
 
 The table also owns the Discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, a manifest, and only the requested assets. Discern does not copy the package manifest, tokens, dependency graph, CSS, or adapters.
