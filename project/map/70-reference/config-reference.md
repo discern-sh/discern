@@ -16,6 +16,7 @@ aliases:
   - project.slug
   - project.gotchas_doc
   - project.todo
+  - project.logbook
   - project.agents
   - repository
   - repository.trunk
@@ -118,6 +119,7 @@ Project identity and authored project paths.
 | `slug` | string | `""` | Short, lowercase, dash-separated identity. Used for worktree/site/branch names. |
 | `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
 | `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
+| `logbook` | boolean | `true` | Record one line of local, metadata-only operational history per verb run in the logbook under .git — timings, outcomes, and names, never code or output, never leaving this machine. false stops all writes; existing history stays until you delete it. |
 | `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |
 
 ## `[repository]`

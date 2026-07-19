@@ -287,6 +287,9 @@ const projectSection = z.strictObject({
   todo: z.string().default(SOURCE_PATHS.todo.defaultPath).describe(
     "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
   ),
+  logbook: z.boolean().default(true).describe(
+    "Record one line of local, metadata-only operational history per verb run in the logbook under .git — timings, outcomes, and names, never code or output, never leaving this machine. false stops all writes; existing history stays until you delete it.",
+  ),
   agents: z.array(z.string()).optional().describe(
     "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
   ),
