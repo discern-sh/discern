@@ -534,15 +534,14 @@ function navHtml(site: DocsSite, current: DocsPage | null): string {
       }</a></li>`;
     }).join("");
     const here = current !== null && section.index.route === current.route;
-    return `<div class="discern-docs-nav__section docs-nav-chapter">
-      <a class="discern-kicker docs-nav-label" href="${section.index.route}"${
+    // Emitted flat: this fragment repeats on every docs page, so template
+    // pretty-printing would spend page-size budget on invisible whitespace.
+    return `<div class="discern-docs-nav__section docs-nav-chapter"><a class="discern-kicker docs-nav-label" href="${section.index.route}"${
       here ? ' aria-current="page"' : ""
     }><span class="discern-kicker__index">${
       sectionIndexOf(section.dir)
-    }</span>${esc(section.title)}</a>
-      <ul>${leaves}</ul>
-    </div>`;
-  }).join("\n");
+    }</span>${esc(section.title)}</a><ul>${leaves}</ul></div>`;
+  }).join("");
 }
 
 function tocHtml(toc: TocItem[]): string {
@@ -552,10 +551,7 @@ function tocHtml(toc: TocItem[]): string {
       String(index + 1).padStart(2, "0")
     }</span>${esc(item.text)}</a></li>`
   ).join("");
-  return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page">
-    <strong class="discern-table-of-contents__title">On this page</strong>
-    <ol>${items}</ol>
-  </nav>`;
+  return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page"><strong class="discern-table-of-contents__title">On this page</strong><ol>${items}</ol></nav>`;
 }
 
 function pagerHtml(site: DocsSite, page: DocsPage): string {
