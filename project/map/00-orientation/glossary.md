@@ -81,7 +81,7 @@ The scaffolding verbs of the binary: `setup`, `upgrade`, `doctor`, `config`, `pr
 
 ### Logbook
 
-The local record of discern's own use: one metadata-only line per verb run (verb, branch, outcome, timings), appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [Trust & your data](trust-and-data.md).
+The local record of discern's own use: one metadata-only line per verb run (verb, branch, outcome, timings), appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).
 
 ### Map
 
