@@ -643,6 +643,18 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
         JSON.stringify(hints)
       }`,
     );
+
+    const fleet = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    assert(
+      !(fleet.hints ?? []).some((hint: string) =>
+        hint.includes("ready for owner review") && hint.includes("agent/alpha")
+      ),
+      `fleet status must require the same receipt: ${
+        JSON.stringify(fleet.hints)
+      }`,
+    );
   });
 });
 
@@ -705,6 +717,57 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
       ),
       `expected the fleet review-ready hint with the inspect command: ${
         JSON.stringify(fleetHints)
+      }`,
+    );
+  });
+});
+
+Deno.test("status: a behind worktree with an honored receipt is not ready for owner review", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await writeExecutable(join(wt, "web/feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const finish = await runAgent(wt, ["done", "--json"]);
+    assertEquals(finish.code, 0, finish.output);
+
+    await writeExecutable(join(dir, "upstream.txt"), "upstream");
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "advance main",
+      "--no-gpg-sign",
+    );
+
+    const local = parseStatus(
+      (await runAgent(wt, ["status", "--json"])).stdout,
+    );
+    assertEquals(local.data.gate_receipt.status, "honored");
+    assert(local.data.git.behind_integration > 0, JSON.stringify(local.data));
+    assert(
+      !(local.hints ?? []).some((hint: string) =>
+        hint.includes("ready for owner review")
+      ),
+      `behind local status must not claim readiness: ${
+        JSON.stringify(local.hints)
+      }`,
+    );
+
+    const fleet = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    assert(
+      !(fleet.hints ?? []).some((hint: string) =>
+        hint.includes("ready for owner review") && hint.includes("agent/alpha")
+      ),
+      `behind fleet status must not claim readiness: ${
+        JSON.stringify(fleet.hints)
       }`,
     );
   });

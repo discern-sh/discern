@@ -93,6 +93,7 @@ import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
+import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -746,10 +747,12 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         `Branch is ${g.behind_integration} behind ${main}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
       );
     }
-    if (
-      g.clean && g.behind_integration === 0 &&
-      g.ahead_integration !== null && g.ahead_integration > 0
-    ) {
+    const readinessFacts = {
+      clean: g.clean,
+      ahead: g.ahead_integration,
+      behind: g.behind_integration,
+    };
+    if (isLandingCandidate(readinessFacts)) {
       // accept would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
@@ -757,7 +760,12 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         hints.push(
           `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
         );
-      } else if (ctx.gateReceipt?.status === "honored") {
+      } else if (
+        isReadyToLand(
+          readinessFacts,
+          ctx.gateReceipt?.status === "honored",
+        )
+      ) {
         hints.push(
           `Committed, up to date with ${main}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
         );
@@ -797,10 +805,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         );
       }
       for (const e of others) {
-        if (
-          e.clean === true && e.behind === 0 && e.ahead !== undefined &&
-          e.ahead > 0
-        ) {
+        const receiptHonored = (await inspectGateReceipt(e.path)).status ===
+          "honored";
+        if (isReadyToLand(e, receiptHonored)) {
           hints.push(
             `Worktree ${
               e.id ?? e.branch
