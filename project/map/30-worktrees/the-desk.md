@@ -25,11 +25,11 @@ After creation, the desk opens the new row's action menu immediately. Jump into 
 
 The desk builds its rows from `discern status` and the recorded gate receipts. It groups active work by the decision it needs:
 
-| Group           | Included worktrees                                                                |
-| --------------- | --------------------------------------------------------------------------------- |
-| Ready to land   | Clean, ahead of and up to date with the trunk, with an honored gate receipt.      |
-| In flight       | Healthy work that is active, behind the trunk, or awaiting a current gate result. |
-| Needs attention | Broken, unreadable, or stale worktrees that still carry work.                     |
+| Group           | Included worktrees                                            |
+| --------------- | ------------------------------------------------------------- |
+| Ready to land   | Clean, ahead, current with trunk, honored receipt.            |
+| In flight       | Healthy, active, behind trunk, or awaiting gate.              |
+| Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
 Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree.
 
@@ -48,8 +48,6 @@ The selected row offers only actions that fit its observed state:
 | Drop            | Runs the guarded abandoned-work removal path.                                 |
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
-
-A clean branch that is both ahead of and behind the trunk offers `Accept` and `Update`. The menu is advisory. `Accept` runs the lifecycle preconditions and refuses with the `Update` → `Done` → `Accept` recovery. `Update` starts that recovery directly.
 
 Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 
@@ -87,5 +85,4 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 - The first release of agent launching is CLI-only. Desktop-app integrations for Codex and Claude are a recorded follow-up: they need an official, lifecycle-safe handoff whose status stays accurate when discern later accepts or drops the worktree.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- An unknown behind count keeps the row eligible for `Ready to land`. The desk treats missing Git data as unknown rather than evidence that the trunk advanced; `Accept` still checks the live refs.
 - Broken or unreadable checkouts offer only drop. Without explicit force, drop refuses when discern cannot verify the work.
