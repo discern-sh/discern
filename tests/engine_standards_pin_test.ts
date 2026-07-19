@@ -635,6 +635,52 @@ Deno.test("pin: carries an honored gate receipt onto the new commit", async () =
   });
 });
 
+Deno.test("pin: the tightened pin commit still passes both standards gate halves", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+
+    const before = await runAgent(dir, ["done", "--json"]);
+    assertEquals(before.code, 0, before.output);
+    const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
+    assertEquals(pin.code, 0, pin.output);
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
+
+    const after = await runAgent(dir, ["done", "--json"]);
+
+    assertEquals(after.code, 0, after.output);
+    const obj = JSON.parse(after.stdout.trim()) as {
+      ok: boolean;
+      data?: {
+        standards_limits?: { status: string };
+        standards?: Array<{
+          name: string;
+          limit: number;
+          value?: number;
+          verdict?: string;
+        }>;
+      };
+    };
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data?.standards_limits?.status, "verified");
+    const coverage = obj.data?.standards?.find((standard) =>
+      standard.name === "coverage"
+    );
+    assertEquals(coverage?.limit, 95);
+    assertEquals(coverage?.value, 95);
+    assertEquals(coverage?.verdict, "held");
+  });
+});
+
 Deno.test("pin: does NOT forge a receipt when none was honored beforehand", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

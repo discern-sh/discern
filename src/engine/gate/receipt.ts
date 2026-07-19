@@ -22,8 +22,10 @@
  *
  * `done` is its usual author, but `standards --pin` also carries an honored vouch
  * forward onto the commit it makes: that commit changes only `[standards]` limits,
- * which the gate never reads, so the vouch stays truthful across it and `accept`
- * need not re-run the whole gate for a re-pin (see {@link carryReceiptForwardAcrossPin}).
+ * and each changed limit is tighter while still held by the just-taken or same-HEAD
+ * reused measurement. The pin therefore still passes both standards halves in the
+ * gate, so the vouch stays truthful and `accept` need not re-run the whole gate for
+ * a re-pin (see {@link carryReceiptForwardAcrossPin}).
  *
  * The standard **measurement receipt** is its sibling on the same model: a green
  * `standards` check over a clean tree records every standard's measured value against
@@ -472,13 +474,15 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
 /**
  * Carry a gate receipt across a `standards --pin` commit (ADR 0106).
  *
- * `standards --pin` commits ONLY `[standards.*]` limit changes — values the gate never
- * reads (standards are not part of `done`; ADR 0003) — so the tree the pin commit
- * produces passes the gate iff the pre-pin tree did. When the pre-pin HEAD carried an
- * HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto the
- * new clean HEAD the commit created; otherwise the moved HEAD would strand a truthful
- * pass and force `accept` to re-run the whole gate for a change that cannot alter its
- * outcome.
+ * `standards --pin` commits ONLY `[standards.*]` limit changes. Its `pinnedLimit`
+ * arithmetic only tightens a limit to one the just-taken or same-HEAD reused
+ * measurement satisfies. That tightened limit also passes the
+ * never-loosen comparison against the trunk, so the pin commit still passes both
+ * standards halves now enforced by `done` (ADR 0133). When the pre-pin HEAD carried
+ * an HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto
+ * the new clean HEAD the commit created; otherwise the moved HEAD would strand a
+ * truthful pass and force `accept` to re-run the whole gate for a change that cannot
+ * alter its outcome.
  *
  * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
  * (`priorHonored`), which only the caller — the author of the commit, so the one party
