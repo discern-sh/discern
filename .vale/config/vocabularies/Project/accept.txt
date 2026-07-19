@@ -47,6 +47,7 @@ DBs?
 declaratively
 dedup(e|es|ed|ing)?
 deduplicat(e|ed|es|ing|ion)?
+deletable
 Deno
 denylist
 deps
