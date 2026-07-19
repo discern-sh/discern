@@ -150,6 +150,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0156 — The permanent landing page and the /install endpoint](0156-permanent-landing-page-and-install-endpoint.md)
 - [0157 — The desk owns its launched child sessions](0157-the-desk-owns-launched-child-sessions.md)
 - [0158 — One standard YAML parser for all frontmatter](0158-one-standard-yaml-parser-for-frontmatter.md)
+- [0159 — Inherited-terminal children have one owned lifecycle](0159-inherited-terminal-children-have-one-owned-lifecycle.md)
 
 ## Superseded records
 

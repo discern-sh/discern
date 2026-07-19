@@ -50,6 +50,7 @@ import {
 import { mainRepoPath } from "../worktree/git.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { runOwnedChild } from "../owned_child.ts";
 import {
   listProjectScripts,
   type ProjectScript,
@@ -214,15 +215,13 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
   git: (args, cwd) => runGit(args, { cwd }),
   interactive: async (command, args, cwd, env) => {
-    const child = new Deno.Command(command, {
+    const child = await runOwnedChild(command, {
       args: [...args],
       cwd,
       env,
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    return (await child.status).code;
+      resumeAfterInterrupt: true,
+    });
+    return child.status.code;
   },
   detectAgents: () => detectAgentBinariesOnPath(),
   start: async (ctx, opts) => {
@@ -249,6 +248,7 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     runProjectScriptAt(root, name, [], {
       cwd: root,
       env,
+      resumeAfterInterrupt: true,
     }),
   now: () => Date.now(),
 };

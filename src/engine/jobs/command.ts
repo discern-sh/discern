@@ -13,6 +13,7 @@
 import type { Job, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
+import { killProcessTree } from "../process_signals.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
@@ -69,19 +70,6 @@ const CAPTURE_ENV: Record<string, string> = {
   TERM: "dumb",
   CI: "1",
 };
-
-/** Signal an entire process group, falling back to the direct child. */
-export function killTree(pid: number, sig: Deno.Signal): void {
-  try {
-    Deno.kill(-pid, sig); // negative pid → the whole process group (reaches grandchildren)
-  } catch {
-    try {
-      Deno.kill(pid, sig);
-    } catch {
-      // already gone — nothing to signal
-    }
-  }
-}
 
 /**
  * The exit code a finished job reports. A job terminated by a signal — i.e. the
@@ -207,9 +195,9 @@ export async function spawnJob(
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   let pipeGraceTimer: ReturnType<typeof setTimeout> | undefined;
   const onAbort = (): void => {
-    killTree(pid, "SIGTERM");
+    killProcessTree(pid, "SIGTERM");
     // Escalate if it ignores SIGTERM; cleared once the process is reaped.
-    killTimer = setTimeout(() => killTree(pid, "SIGKILL"), 2000);
+    killTimer = setTimeout(() => killProcessTree(pid, "SIGKILL"), 2000);
     // Bound the drains: a descendant that escaped the process group (its own
     // session) survives the tree-kill holding the pipe write ends, so EOF may
     // never come. Give the pipes a grace to flush, then cancel the pending

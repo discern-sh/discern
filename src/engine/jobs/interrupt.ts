@@ -19,22 +19,9 @@
  * with no per-entry-point wiring to forget.
  */
 
-/** The interrupts that must reach in-flight gate jobs. SIGINT is the terminal's
- * Ctrl-C; SIGTERM the polite kill (a supervisor, an MCP client shutting the
- * server down); SIGHUP the controlling terminal closing. Windows supports only
- * SIGINT of these in Deno. */
-export const INTERRUPT_SIGNALS: readonly Deno.Signal[] =
-  Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM", "SIGHUP"];
+import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
 
-/** Conventional 128+n exit codes, the fallback when re-raising is unsupported (a
- * self-signal that doesn't terminate — e.g. Windows, or under load once the
- * listener is torn down). Exported so the interrupt E2E asserts against the SAME
- * codes the fallback uses, rather than a hand-copied list. */
-export const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {
-  SIGHUP: 129,
-  SIGINT: 130,
-  SIGTERM: 143,
-};
+export { INTERRUPT_SIGNALS, SIGNAL_EXIT_CODES } from "../process_signals.ts";
 
 const active = new Set<AbortController>();
 const installed = new Map<Deno.Signal, () => void>();
@@ -63,17 +50,6 @@ function uninstall(): void {
   installed.clear();
 }
 
-/** Die the way the interrupt asked: re-raise with the default disposition
- * restored (correct WIFSIGNALED status), falling back to exit 128+n. */
-function reraise(sig: Deno.Signal): never {
-  try {
-    Deno.kill(Deno.pid, sig);
-  } catch {
-    // Unsupported self-signal (e.g. Windows) — fall through to the exit code.
-  }
-  Deno.exit(SIGNAL_EXIT_CODES[sig] ?? 130);
-}
-
 /**
  * Register a stage run's controller with the watcher for the run's lifetime.
  * Call the returned release once the run has settled (children reaped, results
@@ -93,7 +69,7 @@ export function trackRun(controller: AbortController): () => void {
     const sig = received;
     received = null;
     if (sig !== null) {
-      reraise(sig);
+      reraiseInterrupt(sig);
     }
   };
 }

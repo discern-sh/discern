@@ -17,6 +17,7 @@ import {
   scriptEnvVars,
 } from "../shared/env.ts";
 import { resolveScriptsDir } from "../lib/paths.ts";
+import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 
 /** One executable Project Script surfaced by discovery. */
@@ -104,6 +105,8 @@ export interface RunProjectScriptOptions {
   readonly cwd?: string;
   /** Additional environment values for the child process. */
   readonly env?: Record<string, string>;
+  /** Return to an owning interactive surface after an interrupt. */
+  readonly resumeAfterInterrupt?: boolean;
 }
 
 /** List or run a Project Script against an explicit checkout root. */
@@ -148,7 +151,7 @@ export async function runProjectScriptAt(
       root,
       (await installedConfigRel(root)) ?? CONFIG_REL,
     );
-    const child = new Deno.Command(scriptFile, {
+    const child = await runOwnedChild(scriptFile, {
       args,
       env: {
         ...scriptEnvVars({
@@ -161,11 +164,9 @@ export async function runProjectScriptAt(
         ...opts.env,
       },
       ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    return (await child.status).code;
+      resumeAfterInterrupt: opts.resumeAfterInterrupt ?? false,
+    });
+    return child.status.code;
   }
 
   if (await pathExists(scriptFile)) {

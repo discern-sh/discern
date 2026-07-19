@@ -49,7 +49,7 @@ The selected row offers only actions that fit its observed state:
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
 
-Run script appears only when the selected checkout's configured scripts directory contains an executable Project Script. The script inherits the terminal, uses that worktree as its current directory, receives `DISCERN_ROOT`, and returns to a new fleet survey when it exits.
+Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 
 Open with agent appears only when an agent is both configured in that checkout's `discern.toml` and one of its known binaries is currently on `PATH`. A detected but unconfigured agent stays hidden; a configured but unavailable agent does too. The provider registry owns the exact actions:
 
@@ -61,7 +61,7 @@ Open with agent appears only when an agent is both configured in that checkout's
 | Cursor         | `cursor-agent` | `cursor-agent resume`                        |
 | GitHub Copilot | `copilot`      | `copilot --resume`                           |
 
-The selected process inherits the terminal and uses the worktree as its current directory. Exit the agent to return to a fresh fleet survey. The desk does not inspect or reproduce private vendor session state.
+The selected process inherits the terminal and worktree directory. Exit or interrupt it to return to a fresh survey. The desk does not inspect or reproduce private vendor session state.
 
 ## Know when the desk stays closed
 

@@ -75,6 +75,7 @@ import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { discoverProjectScripts, runProjectScript } from "./project_scripts.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
+import { runOwnedChild } from "./owned_child.ts";
 
 export { runProjectScript } from "./project_scripts.ts";
 export { reportUnknownCommand } from "./unknown_command.ts";
@@ -1140,13 +1141,10 @@ async function helperWithGotchas(args: string[]): Promise<number> {
     console.error("with-gotchas: no command given.");
     return 1;
   }
-  const child = new Deno.Command(command, {
+  const child = await runOwnedChild(command, {
     args: rest,
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
-  }).spawn();
-  const code = (await child.status).code;
+  });
+  const code = child.status.code;
   if (code !== 0) {
     const root = await findRoot();
     if (root !== undefined) {

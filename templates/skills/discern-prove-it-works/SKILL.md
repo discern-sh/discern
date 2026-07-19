@@ -24,6 +24,8 @@ Tests are proxies — indispensable, but they check the pieces the author though
 
 If the artifact genuinely cannot be exercised where you are — it needs credentials you don't hold, hardware you don't have, a paid third party — say so **as the dossier's headline, not a footnote**: name exactly what could not be run, what it would take, and what the user must therefore verify by hand. An honest "unverifiable here" preserves the trust a quiet skip destroys.
 
+When the artifact keeps running, establish its cleanup path before launch. Retain the process, session, or job handle that owns it; stop it through that owner; wait for shutdown; then verify both the process and its observable resource are gone. A name-based kill followed by an unconditional success message is an attempted cleanup, not evidence. Record the PID, port, socket, file, lock, or other resource you checked.
+
 ## 3. Walk each outcome and record what you saw
 
 For each outcome from step 1, perform the action and capture the observation: the exact command or interaction, and the output, response, or state change that came back. The discipline is first-person and past-tense — _"I ran X and observed Y"_ — because everything else is prediction dressed as evidence. "The code should now…", "this will…", "the test covers…" are claims about the future, and futures don't go in a dossier. One honest observation outranks any amount of reasoning about what the code ought to do.
@@ -55,6 +57,7 @@ Close with the evidence dossier, one line per outcome: the action performed, the
 
 - every asked-for outcome is stated as an **observation someone could make from outside the code**, held to the original ask (or the shaped acceptance criteria) rather than a friendlier rewording;
 - the **real artifact was exercised** along each outcome's path and just off it — or its unverifiability here is the dossier's headline, with what it would take spelled out;
+- every **long-running artifact was stopped and checked** — both its owned process and the resource by which a user could observe it;
 - every claim in the dossier is **first-person and past-tense** — an action performed and a result observed, never a prediction about what the code should do;
 - the **unearned-done signatures were hunted** deliberately, and anything found was fixed or reported — never omitted;
 - the dossier pairs **verdicts with a residual** — what was proven, what failed, what remains for the user to check — so "it works" is a checkable claim, not a feeling.
