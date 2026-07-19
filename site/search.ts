@@ -55,11 +55,19 @@ export function markdownSearchText(markdown: string): string {
       inFence = !inFence;
       continue;
     }
+    // Headings are indexed as their own higher-weight fields (title, headings);
+    // repeating them in the body would double their bytes for no extra recall.
+    if (!inFence && /^\s{0,3}#{1,6}\s+/.test(raw)) {
+      continue;
+    }
     const withoutBlockSyntax = inFence ? raw : raw
-      .replace(/^\s{0,3}#{1,6}\s+/, "")
       .replace(/^\s*>\s?/, "")
       .replace(/^\s*(?:[-+*]|\d+[.)])\s+/, "")
-      .replace(/^\s*\|?\s*:?-{3,}:?(?:\s*\|\s*:?-{3,}:?)+\s*\|?\s*$/, "");
+      .replace(/^\s*\|?\s*:?-{3,}:?(?:\s*\|\s*:?-{3,}:?)+\s*\|?\s*$/, "")
+      // Table-cell pipes are layout, not prose: dropping them shrinks the
+      // index and reads better in snippets ("`verb` `done`", not "| `verb` |
+      // `done` |"). Code spans keep their pipes in codeTerms.
+      .replace(/\s*\|\s*/g, " ");
     const plain = inlineToPlain(withoutBlockSyntax)
       .replace(/\s+/g, " ")
       .trim();
