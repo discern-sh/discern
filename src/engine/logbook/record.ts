@@ -115,7 +115,7 @@ async function gatherContext(
     resolveCommonGitDir(root),
     gitLine(root, ["rev-parse", "--abbrev-ref", "HEAD"]),
     gitLine(root, ["rev-parse", "--short", "HEAD"]),
-    runGit(["status", "--porcelain"], { cwd: root }),
+    runGit(["status", "--porcelain", "-z"], { cwd: root }),
   ]);
   if (commonGitDir === undefined) {
     return undefined; // not a git repository — nowhere local to write
