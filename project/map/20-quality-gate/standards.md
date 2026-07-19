@@ -37,13 +37,7 @@ Use `per` and `scale` when a raw count grows with the project. A per-1,000-word 
 
 ## What the gate does
 
-After checking limits, the gate puts measurements in the parallel check-and-test group:
-
-- It measures by default.
-- It replays a receipt when the standard declares `inputs` and none changed.
-- It defers `measure = "on-demand"`. Use `discern standards` to measure it. Limit checks never defer.
-
-`discern prepare` skips standard measurement. It remains the fast fix-and-check loop.
+The gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
 
 ## Run standards directly
 
@@ -66,9 +60,9 @@ Only an owner can loosen a limit, directly on trunk ([ADR 0003](../_adr/0003-nam
 
 ## Capture an improvement
 
-`discern standards --pin coverage` tightens an improved limit, respects `margin`, and reuses a valid same-commit measurement receipt.
+`discern standards --pin coverage` reuses a receipt or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. It proves write access. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
-Ordinary passes prove receipt write access. Pin also proves access to `discern.toml` and Git metadata. A denial returns `error = "write_access"` before measuring ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+Pin records clean HEAD before reading values and rechecks before editing. A mismatch writes nothing. Settle and rerun.
 
 ## Where it lives in code
 

@@ -896,6 +896,42 @@ function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Re-verify the exact clean tree captured before a pin read or measured values.
+ * A mismatch is reported before {@link applyPinEdits} can write anything. */
+async function pinTreeChangeMessage(
+  root: string,
+  pin: ValidatedTreePin,
+): Promise<string | undefined> {
+  const recovery =
+    "Settle the worktree at the commit you want to measure, then re-run `discern standards --pin`.";
+  if (pin.head === undefined) {
+    return "Couldn't pin the measured limits because discern could not read HEAD before the pin began. " +
+      recovery;
+  }
+  if (!pin.clean) {
+    const paths = pin.dirtyPaths.length > 0
+      ? ` Uncommitted paths: ${pin.dirtyPaths.join(", ")}.`
+      : "";
+    return `Couldn't pin the measured limits because the worktree changed before the pin began.${paths} ${recovery}`;
+  }
+
+  const current = await pinValidatedTree(root);
+  if (current.head === undefined) {
+    return "Couldn't pin the measured limits because discern could not read HEAD after measuring. " +
+      recovery;
+  }
+  if (current.head !== pin.head) {
+    return `Couldn't pin the measured limits because HEAD moved while the pin was running (started at ${pin.head}, now ${current.head}). ${recovery}`;
+  }
+  if (!current.clean) {
+    const paths = current.dirtyPaths.length > 0
+      ? ` Uncommitted paths: ${current.dirtyPaths.join(", ")}.`
+      : " Git status could not confirm that the worktree was clean.";
+    return `Couldn't pin the measured limits because the worktree changed while the pin was running.${paths} ${recovery}`;
+  }
+  return undefined;
+}
+
 /** A successful preflight for every built-in mutation `standards --pin` may
  * perform after measuring: validation-state markers, discern.toml, and Git's
  * common metadata for the commit. The brand forces the mutator to consume it. */
@@ -1175,6 +1211,11 @@ async function pinStandardsResult(
   }
   const writeAuthority = writePreflight.authority;
 
+  // Pin the tree before any measurement receipt is read or measurement runs. The
+  // mutation below re-validates this exact HEAD and full cleanliness immediately
+  // before writing, so limits can only describe the tree that supplied the values.
+  const treePin = await pinValidatedTree(root);
+
   // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorReceipt = await inspectGateReceipt(root);
@@ -1255,6 +1296,15 @@ async function pinStandardsResult(
     };
   }
 
+  const treeChanged = await pinTreeChangeMessage(root, treePin);
+  if (treeChanged !== undefined) {
+    return {
+      ok: false,
+      verb: "standards",
+      error: "pin_failed",
+      message: treeChanged,
+    };
+  }
   const failure = await applyPinEdits(root, pins, writeAuthority);
   if (failure !== undefined) {
     return {

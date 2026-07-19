@@ -393,6 +393,87 @@ Deno.test("pin: refuses a dirty worktree (it commits the change alone)", async (
   });
 });
 
+Deno.test("pin: refuses when HEAD moves during measurement and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "git commit -q --allow-empty -m mid-measure --no-gpg-sign && " +
+          "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+    const beforeHead = await gitOut(dir, "rev-parse", "HEAD");
+    const beforeConfig = await readConfig(dir);
+
+    const r = await runAgent(dir, ["standards", "--pin"]);
+
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.stderr, "HEAD moved");
+    assertStringIncludes(r.stderr, beforeHead);
+    assertStringIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertEquals(
+      await gitOut(dir, "log", "-1", "--format=%s"),
+      "mid-measure",
+      "the measurement's commit must remain HEAD; pin must add no commit",
+    );
+    assertEquals(
+      await readConfig(dir),
+      beforeConfig,
+      "pin must not rewrite discern.toml after HEAD moves",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      "",
+      "pin must not stage or write anything after the measurement's commit",
+    );
+  });
+});
+
+Deno.test("pin: refuses when measurement dirties the worktree and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "touch mid-measure.txt && echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+    const beforeHead = await gitOut(dir, "rev-parse", "HEAD");
+    const beforeConfig = await readConfig(dir);
+
+    const r = await runAgent(dir, ["standards", "--pin"]);
+
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.stderr, "worktree changed");
+    assertStringIncludes(r.stderr, "mid-measure.txt");
+    assertStringIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD"),
+      beforeHead,
+      "pin must not commit after the measurement dirties the worktree",
+    );
+    assertEquals(
+      await readConfig(dir),
+      beforeConfig,
+      "pin must not rewrite discern.toml after the worktree changes",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      "?? mid-measure.txt",
+      "only the measurement's own untracked file may remain",
+    );
+  });
+});
+
 Deno.test("pin --dry-run: renders the pin plan and measures NOTHING", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
