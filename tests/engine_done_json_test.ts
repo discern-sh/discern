@@ -14,6 +14,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
+import { gateReceiptHonored } from "../src/engine/gate/receipt.ts";
 import {
   addWorktree,
   git,
@@ -112,6 +113,53 @@ Deno.test("done --json: a no-op gate emits ok:true, verb, and no job steps", asy
     assert(Array.isArray(obj.data.scopes_changed));
     // No failure → the diagnostics field is omitted entirely.
     assertEquals(obj.diagnostics, undefined);
+  });
+});
+
+Deno.test("done --json: trunk advancing during a green gate warns and still records the receipt", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[capabilities]",
+        `test = 'git -C "${dir}" commit --allow-empty -q -m "advance main during gate" --no-gpg-sign'`,
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "mid-gate-main-advance");
+    await writeExecutable(join(wt, "feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const mainBefore = await gitOut(dir, "rev-parse", "main");
+
+    const r = await runAgent(wt, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data.failed_stage, null);
+    assertEquals(obj.data.gate_receipt.status, "recorded");
+    assertEquals(await gateReceiptHonored(wt), true);
+    assert(
+      (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
+      "the gate job must advance the shared trunk ref",
+    );
+    assert(
+      (obj.hints ?? []).some((hint: string) =>
+        hint.includes("trunk advanced while the gate ran") &&
+        hint.includes("`discern update`") &&
+        hint.includes("`discern done`") &&
+        hint.includes("before `discern accept`")
+      ),
+      `expected the stamp-time trunk warning and recovery: ${r.stdout}`,
+    );
   });
 });
 

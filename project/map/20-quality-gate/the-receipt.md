@@ -27,6 +27,8 @@ The gate pins `HEAD` and the worktree's cleanliness before any job starts. It ch
 
 The gate can still pass when a review receipt is withheld for one of those identity or summary reasons. Its result explains why no receipt was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
+Trunk currency remains live state outside the receipt. Linked worktrees share branch refs, so another worktree can advance the trunk while a gate runs. `discern done` rechecks at stamp time. If the branch fell behind during a green run, it records the receipt for the pinned `HEAD` and warns you to run `discern update`, then `discern done` again before `discern accept`. Acceptance checks the refs again at the landing boundary.
+
 Write authority is different. Before any capability, check, test, or standard measurement starts, Discern performs a tiny real create/write/rename/remove probe beside its Git-admin marker files. If a sandbox or filesystem permission blocks that later write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a complete green gate from being discarded merely because its receipt could not be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 ## How later commands use it
@@ -57,5 +59,6 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 - A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_receipt.status` before claiming the branch is ready.
 - The marker is a cache of a real gate result. If it is missing, stale, or unreadable, acceptance validates the tree again.
+- A receipt vouches for the pinned `HEAD`. It does not promise that the trunk will stay at the commit the gate checked.
 - The preflight is a point-in-time proof. Receipt writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_receipt`.
 - The receipt code contains no unfinished-work markers for this behavior.
