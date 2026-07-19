@@ -151,6 +151,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0157 — The desk owns its launched child sessions](0157-the-desk-owns-launched-child-sessions.md)
 - [0158 — One standard YAML parser for all frontmatter](0158-one-standard-yaml-parser-for-frontmatter.md)
 - [0159 — Inherited-terminal children have one owned lifecycle](0159-inherited-terminal-children-have-one-owned-lifecycle.md)
+- [0160 — A local logbook of discern's own use, on by default, with advisory-only readers](0160-local-logbook-advisory-readers.md)
 
 ## Superseded records
 
