@@ -18,6 +18,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
   git,
   gitInit,
   gitOut,
@@ -366,6 +367,58 @@ Deno.test("pin: a failing standard blocks the whole pin", async () => {
     const cfg = await readConfig(dir);
     assertEquals(limitOf(cfg, "coverage"), "80");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
+  });
+});
+
+Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "behind-pin");
+    await git(
+      dir,
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      "advance main",
+      "--no-gpg-sign",
+    );
+    const beforeHead = await gitOut(wt, "rev-parse", "HEAD");
+
+    const r = await runAgent(wt, ["standards", "--pin", "--json"]);
+
+    assertEquals(r.code, 0, r.output);
+    const obj = JSON.parse(r.stdout.trim()) as {
+      ok: boolean;
+      hints?: string[];
+    };
+    assertEquals(obj.ok, true);
+    const hint = (obj.hints ?? []).find((candidate) =>
+      candidate.includes("behind the trunk")
+    ) ?? "";
+    assertStringIncludes(hint, "measured values describe this tree");
+    assertStringIncludes(hint, "may not survive `discern update`");
+    assertStringIncludes(hint, "Run `discern update` first");
+    assert(
+      await gitOut(wt, "rev-parse", "HEAD") !== beforeHead,
+      "the hint must not block the pin commit",
+    );
+    assertEquals(limitOf(await readConfig(wt), "coverage"), "95");
+    assertEquals(
+      await gitOut(wt, "rev-list", "--count", "HEAD..main"),
+      "1",
+      "the successful pin remains behind main until update",
+    );
   });
 });
 

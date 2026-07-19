@@ -80,6 +80,7 @@ import {
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
+import { assertMainMerged } from "../worktree/git.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
@@ -1397,12 +1398,28 @@ export async function standardsResult(
         "standard names only apply with --pin. Re-run as `discern standards --pin <name>…`, or drop the names to check every standard.",
     };
   } else if (opts.pin ?? false) {
+    let behindHint: string | undefined;
+    if (!(opts.dryRun ?? false)) {
+      const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+        cfg.repository.trunk;
+      const merged = await assertMainMerged(root, mainBranch);
+      if (merged.kind === "behind") {
+        const commits = merged.behind === "1" ? "commit" : "commits";
+        behindHint =
+          `This worktree is ${merged.behind} ${commits} behind the trunk (${mainBranch}). ` +
+          "The measured values describe this tree, and limits pinned now may not survive `discern update`. " +
+          "Run `discern update` first to pin against the latest trunk.";
+      }
+    }
     result = await pinStandardsResult(root, cfg, plan, {
       dryRun: opts.dryRun ?? false,
       names: opts.pinNames ?? [],
       ...(verification !== undefined ? { verification } : {}),
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     });
+    if (behindHint !== undefined) {
+      result.hints = [...(result.hints ?? []), behindHint];
+    }
   } else if (opts.dryRun ?? false) {
     result = previewResult("standards", standardPlanToEngine(plan));
   } else {

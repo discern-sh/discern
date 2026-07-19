@@ -62,7 +62,7 @@ Only an owner can loosen a limit, directly on trunk ([ADR 0003](../_adr/0003-nam
 
 `discern standards --pin coverage` reuses a receipt or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. It proves write access. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
-Pin records clean HEAD before reading values and rechecks before editing. A mismatch writes nothing. Settle and rerun.
+Pin records clean HEAD before reading values and rechecks before editing. A mismatch writes nothing. Settle and rerun. You can pin behind trunk. A hint says values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
 ## Where it lives in code
 
