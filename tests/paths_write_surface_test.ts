@@ -6,8 +6,8 @@
  * integration files (the provider registry); the delimited `.gitignore` block;
  * and the worktree `.env` upsert. Everything else it records lives inside
  * `.git` (the gate receipt, the ready sentinel, the resource ledger, the
- * ignored-file baseline), at a user-typed output path, or in a temp file —
- * outside the project tree and outside this contract.
+ * ignored-file baseline, the logbook), at a user-typed output path, or in a
+ * temp file — outside the project tree and outside this contract.
  *
  * Two legs, so a stray write fails no matter where it hides:
  *
@@ -140,6 +140,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   [
     "src/engine/gate/receipt.ts",
     "the gate receipt — .git-internal, outside the project tree",
+  ],
+  [
+    "src/engine/logbook/store.ts",
+    "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
   ],
   // paths the user typed (explicit consent) or temp files (outside the tree)
   ["src/commands/docs.ts", "the user-typed docs-export --output path"],
