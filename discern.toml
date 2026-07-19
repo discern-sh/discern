@@ -56,7 +56,10 @@ branch_prefix = "agent/"
 # Post-landing failures are recorded, but later commands still run, as acceptance
 # is a one-way process. Keep worktree-identity-dependent commands under
 # [worktree.setup].ensure instead; those never run in the main checkout.
-ensure = []
+ensure = [
+    "deno install --frozen",
+    "vale sync",
+]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [map] — the project map: discern's agent-maintained documentation tree. This is
@@ -294,19 +297,16 @@ create  = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktr
 ensure  = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
 destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
 
-# Worktree setup commands, run after the resources are provisioned — two buckets,
-# the same split as a resource's create/ensure:
-#   steps   one-shot scaffolding, run ONCE at creation (skipped once configured):
-#           seed fixtures, generate a local-only file.
-#   ensure  convergence, re-run on EVERY pass — at creation, on session-start
-#           re-entry, and after `discern update` brings main in — so the worktree
-#           tracks the current tree. `vale sync` lives here: when a merge changes
-#           .vale.ini the styles re-sync with no manual step.
+# Worktree setup commands, run after resources are provisioned:
+#   steps   one-shot scaffolding, run once at creation.
+#   ensure  linked-worktree convergence that may depend on identity, ports, or
+#           resources. Checkout-generic dependency and Vale convergence live in
+#           [repository].ensure so acceptance also readies the main checkout.
 # Both run in order via `sh -c`. A failed `ensure` aborts setup at creation; on a
 # re-entry or update it is recorded but never undoes a merge or blocks startup.
 [worktree.setup]
-steps = []               # one-shot scaffolding (none needed here)
-ensure = ["vale sync"]   # converge: re-sync Vale styles for the prose check (idempotent)
+steps = []  # one-shot scaffolding (none needed here)
+ensure = []  # no linked-worktree-only convergence needed here
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [standards] — quality standards: numbers that can never get worse. Every

@@ -74,7 +74,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Cause.** A fresh worktree starts with only your tracked files. The command may depend on an untracked package `bin` directory, a local tools or cache directory, or a per-checkout language environment. Those directories appear only after setup, so the shell cannot find the command beforehand.
 
-**Fix.** Converge those directories in every worktree with `[worktree.setup].ensure` — commands that run on every setup pass (install dependencies, build the toolchain). One-shot scaffolding that only needs to run at creation goes in `[worktree.setup].steps`. Then the command is on `PATH` wherever the gate runs.
+**Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure`. Discern runs them in every managed worktree and after acceptance updates the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources. Put one-shot scaffolding under `[worktree.setup].steps` ([ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
 ### A failure shows up as exit 0
 

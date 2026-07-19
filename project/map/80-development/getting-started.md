@@ -17,7 +17,7 @@ These work the same regardless of language or framework (shown here as `discern 
 
 **Prerequisites.**
 
-- **[Deno](https://deno.com)** — the only build-time dependency. It runs the installer and engine from `src/` and compiles the release binaries. There is no separate dependency-install step: Deno fetches and caches everything from `deno.lock` on first run.
+- **[Deno](https://deno.com)** — the only build-time dependency. It runs the installer and engine from `src/` and compiles the release binaries. Managed worktrees run `deno install --frozen` through `[repository].ensure`. Acceptance runs it again in the main checkout before smoke. From a fresh clone, Deno fetches the locked dependencies on the first command, so you don't need a separate install step.
 - **`git`** — the engine's one hard runtime dependency (worktrees, the merge check, scope classification all shell out to it).
 
 **Run the tool from source.** Install the dev wrapper once with `deno task install-dev-cli`. It puts a `discern` on your `PATH` that runs the engine of whichever checkout you're in, so a worktree runs its own in-progress engine and mirrors what an end user runs. Outside any checkout (driving discern against another project, or from a GUI-launched agent's hooks that carry no shell env), it falls back to the main checkout baked into the wrapper at install time, which `$DISCERN_HOME` overrides when set. Then drive everything with `discern <verb>`. Avoid the `dist/` binaries while developing because they bundle a frozen `templates/` snapshot. With no wrapper, `deno task dev <verb>` runs the same thing from the clone. Omit `--` before the subcommand; including it makes the parser print help.
