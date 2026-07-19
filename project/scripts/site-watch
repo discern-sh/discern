@@ -1,0 +1,5 @@
+#!/bin/sh
+# desc: Serve the discern site, watching for changes and rebuilding when needed (deno task watch)
+set -eu
+cd "${DISCERN_ROOT:-$(dirname "$0")/../..}"
+exec deno task watch "$@"
