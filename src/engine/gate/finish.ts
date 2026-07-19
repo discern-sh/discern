@@ -83,6 +83,7 @@ import {
 } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   checkGuidanceCurrent,
@@ -969,6 +970,7 @@ export async function runFinish(
     return await dryRunGate(root, opts.json);
   }
   const { result, failedStage, cfg, out } = await runGate(root, opts.json);
+  observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
     return failedStage === null ? 0 : 1;

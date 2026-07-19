@@ -32,6 +32,7 @@ import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
+import { RECORDED_CLI_VERBS } from "../src/engine/logbook/cli.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -125,6 +126,29 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
     sorted(expected),
     "the MCP TOOLS table has drifted from the verb SSOT — register a tool for the new " +
       "verb, or record it in ENGINE_VERBS_WITHOUT_TOOL / NON_ENGINE_TOOL_VERBS",
+  );
+});
+
+Deno.test("every CLI verb routes through the logbook recording wrapper", () => {
+  // The logbook's CLI interceptor (`recordedExit`) registers each verb it wraps
+  // at CLI-build time. Building the full CLI must therefore register EXACTLY the
+  // verb SSOT: a new verb whose action skips the wrapper never records to the
+  // logbook — that is the drift this tie catches. The fix is to wrap the new
+  // action in `recordedExit("<verb>", …)`, never to weaken this assertion.
+  buildCli(false);
+  const missing = [...KNOWN_VERBS].filter((v) => !RECORDED_CLI_VERBS.has(v));
+  assertEquals(
+    missing,
+    [],
+    "CLI verbs whose actions bypass the logbook recording wrapper — wrap each " +
+      "action in recordedExit(<verb>, …) so the invocation records an event",
+  );
+  const stray = [...RECORDED_CLI_VERBS].filter((v) => !KNOWN_VERBS.has(v));
+  assertEquals(
+    stray,
+    [],
+    "the logbook wrapper registered a verb the CLI SSOT does not know — fix the " +
+      "verb string passed to recordedExit (its first word must be the top-level verb)",
   );
 });
 

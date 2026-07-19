@@ -12,6 +12,7 @@ import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
+import { observeResult } from "../shared/result_capture.ts";
 import {
   findSkeletonMarkers,
   setupUnfinishedHint,
@@ -76,6 +77,7 @@ import type { DiscernResult } from "../shared/result.ts";
 import { discoverProjectScripts, runProjectScript } from "./project_scripts.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
+import { recordedExit } from "./logbook/cli.ts";
 
 export { runProjectScript } from "./project_scripts.ts";
 export { reportUnknownCommand } from "./unknown_command.ts";
@@ -268,14 +270,13 @@ export function attachEngineCommands(
       "--dry-run",
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
-    .action(async (o) => {
-      Deno.exit(
+    .action(
+      recordedExit("done", async (o) =>
         await runFinish(await requireRoot(), {
           json: o.json ?? false,
           dryRun: o.dryRun ?? false,
-        }),
-      );
-    });
+        })),
+    );
 
   root
     .command("prepare")
@@ -286,11 +287,13 @@ export function attachEngineCommands(
       "--json",
       "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
     )
-    .action(async (o) => {
-      Deno.exit(
-        await runPrepare(await requireRoot(), { json: o.json ?? false }),
-      );
-    });
+    .action(
+      recordedExit(
+        "prepare",
+        async (o) =>
+          await runPrepare(await requireRoot(), { json: o.json ?? false }),
+      ),
+    );
 
   root
     .command("test")
@@ -301,11 +304,15 @@ export function attachEngineCommands(
       "--json",
       "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
     )
-    .action(async (o) => {
-      Deno.exit(
-        await runTestCapability(await requireRoot(), { json: o.json ?? false }),
-      );
-    });
+    .action(
+      recordedExit(
+        "test",
+        async (o) =>
+          await runTestCapability(await requireRoot(), {
+            json: o.json ?? false,
+          }),
+      ),
+    );
 
   root
     .command("improvement")
@@ -324,26 +331,27 @@ export function attachEngineCommands(
       "--min-score <n:number>",
       "Exit non-zero when the overall score is below this floor (a CI/agent gate).",
     )
-    .action(async (o) => {
-      Deno.exit(
-        await runImprovement(await requireRoot(), {
-          json: o.json ?? false,
-          category: o.category,
-          minScore: o.minScore,
-        }),
-      );
-    });
+    .action(
+      recordedExit(
+        "improvement",
+        async (o) =>
+          await runImprovement(await requireRoot(), {
+            json: o.json ?? false,
+            category: o.category,
+            minScore: o.minScore,
+          }),
+      ),
+    );
 
   root
     .command("mcp")
     .description(
       "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",
     )
-    .action(async () => {
+    .action(recordedExit("mcp", async () =>
       // The server resolves the project root itself and reports a missing one
       // per tool-call, so it need not requireRoot up front.
-      Deno.exit(await runMcpServer());
-    });
+      await runMcpServer()));
 
   root
     .command("script")
@@ -351,11 +359,11 @@ export function attachEngineCommands(
       "List the project's executable project scripts, or run one by name with every following argument forwarded unchanged.",
     )
     .arguments("[name:string] [...args:string]")
-    .action(async (_o, name: string | undefined, ...args: string[]) => {
-      Deno.exit(
+    .action(recordedExit(
+      "script",
+      async (_o, name: string | undefined, ...args: string[]) =>
         await runProjectScript(name, args),
-      );
-    });
+    ));
 
   root
     .command("standards")
@@ -379,17 +387,19 @@ export function attachEngineCommands(
       "--pin",
       "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
     )
-    .action(async (o, ...names: string[]) => {
-      Deno.exit(
-        await runStandards(await requireRoot(), {
-          json: o.json ?? false,
-          dryRun: o.dryRun ?? false,
-          force: o.force ?? false,
-          pin: o.pin ?? false,
-          pinNames: names,
-        }),
-      );
-    });
+    .action(
+      recordedExit(
+        "standards",
+        async (o, ...names: string[]) =>
+          await runStandards(await requireRoot(), {
+            json: o.json ?? false,
+            dryRun: o.dryRun ?? false,
+            force: o.force ?? false,
+            pin: o.pin ?? false,
+            pinNames: names,
+          }),
+      ),
+    );
 
   root
     .command("refresh")
@@ -401,7 +411,7 @@ export function attachEngineCommands(
       "--json",
       "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
     )
-    .action(async (o) => {
+    .action(recordedExit("refresh", async (o) => {
       const root = await requireRoot();
       const json = o.json ?? false;
       // --json: narration → stderr, the result envelope → stdout. Human: narrate
@@ -410,11 +420,12 @@ export function attachEngineCommands(
         ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
         : new Logger({ json: false, noColor: false, humanStream: "stdout" });
       const res = await refreshResult(root, log);
+      observeResult(res);
       if (json) {
         emitResult(res);
       }
-      Deno.exit(res.ok ? 0 : 1);
-    });
+      return res.ok ? 0 : 1;
+    }));
 
   attachSkillsCommand(root);
 
@@ -432,14 +443,13 @@ export function attachEngineCommands(
       "--has <scope:string>",
       "Exit 0/1 membership test for one scope (silent).",
     )
-    .action(async (o) => {
-      Deno.exit(
+    .action(
+      recordedExit("impact", async (o) =>
         await runImpact(await requireRoot(), {
           json: o.json ?? false,
           ...(o.has !== undefined ? { has: o.has } : {}),
-        }),
-      );
-    });
+        })),
+    );
 
   root
     .command("coupling")
@@ -453,17 +463,15 @@ export function attachEngineCommands(
       "Emit a JSON DiscernResult.",
     )
     .arguments("[file:string] [with:string]")
-    .action(async (o, file, withFile) => {
+    .action(recordedExit("coupling", async (o, file, withFile) => {
       const paths = [file, withFile].filter((p): p is string =>
         p !== undefined
       );
-      Deno.exit(
-        await runCoupling(await requireRoot(), {
-          json: o.json ?? false,
-          ...(paths.length > 0 ? { paths } : {}),
-        }),
-      );
-    });
+      return await runCoupling(await requireRoot(), {
+        json: o.json ?? false,
+        ...(paths.length > 0 ? { paths } : {}),
+      });
+    }));
 
   // `status` — read-only situation/orientation: what's true right now and what to
   // do next. It resolves the root itself so the not-initialized case is the
@@ -486,15 +494,12 @@ export function attachEngineCommands(
       "--json",
       "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
     )
-    .action(async (o) => {
-      Deno.exit(
-        await runStatus({
-          json: o.json ?? false,
-          all: o.all ?? false,
-          local: o.local ?? false,
-        }),
-      );
-    });
+    .action(recordedExit("status", async (o) =>
+      await runStatus({
+        json: o.json ?? false,
+        all: o.all ?? false,
+        local: o.local ?? false,
+      })));
 
   root
     .command("desk")
@@ -506,9 +511,12 @@ export function attachEngineCommands(
       "--json",
       "The desk is interactive only; use `status --json` to list every worktree.",
     )
-    .action(async (o) => {
-      Deno.exit(await runDesk({ json: o.json ?? false }));
-    });
+    .action(
+      recordedExit(
+        "desk",
+        async (o) => await runDesk({ json: o.json ?? false }),
+      ),
+    );
 
   root
     .command("start")
@@ -530,25 +538,23 @@ export function attachEngineCommands(
       "--from <ref:string>",
       "Branch the new worktree from this ref (a branch, tag, or commit) instead of the trunk. For building on unlanded work — omit it for everyday starts.",
     )
-    .action(async (o) => {
+    .action(recordedExit("start", async (o) => {
       const json = o.json ?? false;
-      Deno.exit(
-        await runWorktreeOp(
-          (ctx) =>
-            start(ctx, {
-              json,
-              dryRun: o.dryRun ?? false,
-              name: o.name ?? "",
-              ...(o.from !== undefined ? { from: o.from } : {}),
-              // WHERE the worktree lands is the feature-layer placement convention,
-              // resolved here and passed in — the engine core bakes in none (ADR 0052),
-              // exactly as the worktree prune wiring below does.
-              worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
-            }),
-          { json, verb: "start" },
-        ),
+      return await runWorktreeOp(
+        (ctx) =>
+          start(ctx, {
+            json,
+            dryRun: o.dryRun ?? false,
+            name: o.name ?? "",
+            ...(o.from !== undefined ? { from: o.from } : {}),
+            // WHERE the worktree lands is the feature-layer placement convention,
+            // resolved here and passed in — the engine core bakes in none (ADR 0052),
+            // exactly as the worktree prune wiring below does.
+            worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
+          }),
+        { json, verb: "start" },
       );
-    });
+    }));
 
   root
     .command("accept")
@@ -568,20 +574,18 @@ export function attachEngineCommands(
         "pre-authorization). Without it, acceptance refuses read-only and re-serves " +
         "the review moment; a dry-run does not need it.",
     )
-    .action(async (o) => {
+    .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;
-      Deno.exit(
-        await runWorktreeOp(
-          (ctx) =>
-            accept(ctx, {
-              json,
-              dryRun: o.dryRun ?? false,
-              confirmed: o.confirmed ?? false,
-            }),
-          { json, verb: "accept" },
-        ),
+      return await runWorktreeOp(
+        (ctx) =>
+          accept(ctx, {
+            json,
+            dryRun: o.dryRun ?? false,
+            confirmed: o.confirmed ?? false,
+          }),
+        { json, verb: "accept" },
       );
-    });
+    }));
 
   root
     .command("update")
@@ -600,20 +604,18 @@ export function attachEngineCommands(
       "--from <ref:string>",
       "Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
     )
-    .action(async (o) => {
+    .action(recordedExit("update", async (o) => {
       const json = o.json ?? false;
-      Deno.exit(
-        await runWorktreeOp(
-          (ctx) =>
-            update(ctx, {
-              json,
-              dryRun: o.dryRun ?? false,
-              ...(o.from !== undefined ? { from: o.from } : {}),
-            }),
-          { json, verb: "update" },
-        ),
+      return await runWorktreeOp(
+        (ctx) =>
+          update(ctx, {
+            json,
+            dryRun: o.dryRun ?? false,
+            ...(o.from !== undefined ? { from: o.from } : {}),
+          }),
+        { json, verb: "update" },
       );
-    });
+    }));
 
   root
     .command("identity")
@@ -639,7 +641,7 @@ export function attachEngineCommands(
       "Print every declared resource as name=stable-external-name lines.",
     )
     .arguments("[path:string]")
-    .action(async (o, path) => {
+    .action(recordedExit("identity", async (o, path) => {
       const root = await requireRoot();
       const target = path ?? Deno.cwd();
       try {
@@ -659,15 +661,15 @@ export function attachEngineCommands(
             "id";
           console.log(await identityField(root, field, target));
         }
-        Deno.exit(0);
+        return 0;
       } catch (e) {
         if (e instanceof IdentityError) {
           console.error(e.message);
-          Deno.exit(1);
+          return 1;
         }
         throw e;
       }
-    });
+    }));
 
   const worktreeSetupCommand = new Command()
     .description("Set up or re-sync the current worktree.")
@@ -676,36 +678,36 @@ export function attachEngineCommands(
       "Emit a machine-readable (plan, results) object on stdout.",
     )
     .option("--dry-run", "Show the setup plan; touch nothing.")
-    .action(async (o) => {
+    .action(recordedExit("worktree setup", async (o) => {
       const json = o.json ?? false;
-      Deno.exit(
-        await runWorktreeOp(
-          (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
-          { json, verb: "worktree setup" },
-        ),
+      return await runWorktreeOp(
+        (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
+        { json, verb: "worktree setup" },
       );
-    });
+    }));
 
   const worktree = new Command()
     .description(
       "Manage worktrees — separate checkouts and branches for individual changes.",
     )
-    .action(function (): void {
+    .action(recordedExit("worktree", function (this: Command): void {
       this.showHelp();
-    })
+    }))
     .command("setup", worktreeSetupCommand)
     .command(
       "ensure",
       new Command()
         .description("Idempotent session-start worktree setup.")
-        .action(async () => {
-          Deno.exit(
-            await runWorktreeOp(async (ctx) => {
-              await remindIfSetupUnfinished(ctx);
-              await worktreeEnsure(ctx);
-            }),
-          );
-        }),
+        .action(
+          recordedExit(
+            "worktree ensure",
+            async () =>
+              await runWorktreeOp(async (ctx) => {
+                await remindIfSetupUnfinished(ctx);
+                await worktreeEnsure(ctx);
+              }),
+          ),
+        ),
     )
     .command(
       "teardown",
@@ -718,16 +720,13 @@ export function attachEngineCommands(
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .option("--dry-run", "Show the teardown plan; touch nothing.")
-        .action(async (o) => {
+        .action(recordedExit("worktree teardown", async (o) => {
           const json = o.json ?? false;
-          Deno.exit(
-            await runWorktreeOp(
-              (ctx) =>
-                worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
-              { json, verb: "worktree teardown" },
-            ),
+          return await runWorktreeOp(
+            (ctx) => worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
+            { json, verb: "worktree teardown" },
           );
-        }),
+        })),
     )
     .command(
       "drop",
@@ -747,20 +746,18 @@ export function attachEngineCommands(
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
         .arguments("<target:string>")
-        .action(async (o, target) => {
+        .action(recordedExit("worktree drop", async (o, target) => {
           const json = o.json ?? false;
-          Deno.exit(
-            await runWorktreeOp(
-              (ctx) =>
-                worktreeDrop(ctx, target, {
-                  json,
-                  dryRun: o.dryRun ?? false,
-                  force: o.force ?? false,
-                }),
-              { json, verb: "worktree drop" },
-            ),
+          return await runWorktreeOp(
+            (ctx) =>
+              worktreeDrop(ctx, target, {
+                json,
+                dryRun: o.dryRun ?? false,
+                force: o.force ?? false,
+              }),
+            { json, verb: "worktree drop" },
           );
-        }),
+        })),
     )
     .command(
       "prune",
@@ -777,40 +774,38 @@ export function attachEngineCommands(
           "--json",
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
-        .action(async (o) => {
+        .action(recordedExit("worktree prune", async (o) => {
           const json = o.json ?? false;
-          Deno.exit(
-            await runWorktreeOp(
-              (ctx) =>
-                worktreePrune(ctx, {
-                  assumeYes: o.yes ?? false,
-                  dryRun: o.dryRun ?? false,
-                  json,
-                  // The engine sweeps git-derived worktree parents on its own; the
-                  // configured root (a location convention the engine does not know)
-                  // is passed so a FULLY-orphaned root is still reclaimed (ADR 0052).
-                  extraScanDirs: [resolveWorktreeRoot(ctx.root, ctx.config)],
-                }),
-              { json, verb: "worktree prune" },
-            ),
+          return await runWorktreeOp(
+            (ctx) =>
+              worktreePrune(ctx, {
+                assumeYes: o.yes ?? false,
+                dryRun: o.dryRun ?? false,
+                json,
+                // The engine sweeps git-derived worktree parents on its own; the
+                // configured root (a location convention the engine does not know)
+                // is passed so a FULLY-orphaned root is still reclaimed (ADR 0052).
+                extraScanDirs: [resolveWorktreeRoot(ctx.root, ctx.config)],
+              }),
+            { json, verb: "worktree prune" },
           );
-        }),
+        })),
     );
   // These two commands are provider hook entry points, not operator commands.
   // Keep them callable for the generated integration files but hide their payload
   // plumbing from human help.
   const worktreeCreate = worktree.command(
     "create",
-    new Command().action(async () => {
-      Deno.exit(await worktreeCreateHook());
-    }),
+    new Command().action(
+      recordedExit("worktree create", async () => await worktreeCreateHook()),
+    ),
   );
   worktreeCreate.hidden();
   const worktreeRemove = worktree.command(
     "remove",
-    new Command().action(async () => {
-      Deno.exit(await worktreeRemoveHook());
-    }),
+    new Command().action(
+      recordedExit("worktree remove", async () => await worktreeRemoveHook()),
+    ),
   );
   worktreeRemove.hidden();
   root.command("worktree", worktree);
@@ -822,9 +817,9 @@ function attachSkillsCommand(root: Command): void {
     .description(
       "Manage skills: list the effective set, or eject a built-in to customize it.",
     )
-    .action(function (): void {
+    .action(recordedExit("skills", function (this: Command): void {
       this.showHelp();
-    })
+    }))
     .command(
       "list",
       new Command()
@@ -835,9 +830,12 @@ function attachSkillsCommand(root: Command): void {
           "--json",
           "Emit the listing as a JSON DiscernResult (data.skills).",
         )
-        .action(async (o) => {
-          Deno.exit(await runSkillsList({ json: o.json ?? false }));
-        }),
+        .action(
+          recordedExit(
+            "skills list",
+            async (o) => await runSkillsList({ json: o.json ?? false }),
+          ),
+        ),
     )
     .command(
       "eject",
@@ -850,11 +848,13 @@ function attachSkillsCommand(root: Command): void {
           "Emit the eject result as a JSON DiscernResult on stdout.",
         )
         .arguments("<name:string>")
-        .action(async (o, name: string) => {
-          Deno.exit(
-            await runSkillsEject(name, { json: o.json ?? false }),
-          );
-        }),
+        .action(
+          recordedExit(
+            "skills eject",
+            async (o, name: string) =>
+              await runSkillsEject(name, { json: o.json ?? false }),
+          ),
+        ),
     );
   root.command("skills", skills);
 }

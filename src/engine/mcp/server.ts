@@ -31,6 +31,8 @@ import { isAbsolute } from "@std/path";
 import { z } from "@zod/zod";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
+import { takeObservedResult } from "../../shared/result_capture.ts";
+import { beginRecording } from "../logbook/record.ts";
 import {
   type AcceptData,
   AcceptOutputSchema,
@@ -1025,8 +1027,13 @@ export class WorkingRoot {
  * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
  * result — so a single tool blowing up can never take the whole stdio server down.
  * The single place {@link runTool} invokes a verb (both the normal path and the
- * root-independent fallback), so the catch-all lives once. A never-aborting default
- * keeps the verb contract simple (a verb always receives a signal).
+ * root-independent fallback), so the catch-all lives once — and the single place
+ * every MCP invocation records its logbook event, the MCP mirror of the CLI's
+ * `recordedExit` wrapper. Recording begins before the verb (context gathers
+ * concurrently, so `accept` still attributes to its branch) and finishes from
+ * the returned envelope; it never throws and never touches the result. A
+ * never-aborting default keeps the verb contract simple (a verb always receives
+ * a signal).
  */
 async function runVerb(
   tool: McpTool,
@@ -1034,16 +1041,31 @@ async function runVerb(
   args: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<DiscernResult> {
+  const recording = beginRecording(root);
+  const started = performance.now();
+  let result: DiscernResult;
   try {
-    return await tool.run(root, args, signal ?? new AbortController().signal);
+    result = await tool.run(root, args, signal ?? new AbortController().signal);
   } catch (e) {
-    return {
+    result = {
       ok: false,
       verb: verbOf(tool.name),
       error: "internal_error",
       message: e instanceof Error ? e.message : String(e),
     };
   }
+  // Drain the CLI-oriented observation seam: the in-process verb cores feed it,
+  // and this long-lived server must not leak one call's envelope into the next.
+  takeObservedResult();
+  await recording.finish({
+    verb: verbOf(tool.name),
+    surface: "mcp",
+    outcome: result.ok ? "ok" : "failed",
+    durationMs: performance.now() - started,
+    result,
+    ...(result.dry_run === true ? { dryRun: true } : {}),
+  });
+  return result;
 }
 
 /**

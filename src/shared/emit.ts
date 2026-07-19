@@ -15,8 +15,12 @@
  */
 
 import { type DiscernResult, serializeResult } from "./result.ts";
+import { observeResult } from "./result_capture.ts";
 
-/** Write a verb's result envelope as the single `--json` line on stdout. */
+/** Write a verb's result envelope as the single `--json` line on stdout. Also
+ * feeds the observed-result seam, so the logbook recorder can lift per-step
+ * timings from the same envelope the caller received. */
 export function emitResult(result: DiscernResult): void {
+  observeResult(result);
   console.log(JSON.stringify(serializeResult(result)));
 }

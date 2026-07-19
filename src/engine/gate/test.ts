@@ -18,6 +18,7 @@ import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
@@ -128,6 +129,7 @@ export async function runTestCapability(
     root,
     false,
   );
+  observeResult(result); // the logbook recorder lifts step timings from it
   if (!configured) {
     out.info(NO_TEST_CONFIGURED);
     return 0;

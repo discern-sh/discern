@@ -64,6 +64,7 @@ import {
   runConfigRead,
   runProjectScript,
 } from "./engine/dispatch.ts";
+import { recordedExit, recordedRun } from "./engine/logbook/cli.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -249,57 +250,52 @@ export function buildCli(
       "--confirmed",
       "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
     )
-    .action(async (options) => {
+    .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);
-      Deno.exit(await runSetupBegin(beginOptsFrom(options, json, noColor)));
-    });
+      return await runSetupBegin(beginOptsFrom(options, json, noColor));
+    }));
 
   const setupVerify = new Command()
     .description(
       "Preview what setup will do and the consent checklist to confirm with your human (read-only).",
     )
-    .action(async (options) => {
+    .action(recordedExit("setup verify", async (options) => {
       const { json, noColor } = globalFlags(options);
-      Deno.exit(await runSetupVerify({ json, noColor }));
-    });
+      return await runSetupVerify({ json, noColor });
+    }));
 
   const setupStep = new Command()
     .description(
       "Re-serve one numbered step of the setup brief (read-only; for a mid-setup re-focus).",
     )
     .arguments("<n:number>")
-    .action(async (options, n: number) => {
+    .action(recordedExit("setup step", async (options, n: number) => {
       const { json, noColor } = globalFlags(options);
-      Deno.exit(await runSetupStep(n, { json, noColor }));
-    });
+      return await runSetupStep(n, { json, noColor });
+    }));
 
   const setupDone = new Command()
     .description("Validate setup and record [meta].bootstrapped.")
     .option("--force", "Record completion even if skeleton markers remain.")
-    .action(async (options) => {
-      Deno.exit(
-        await runSetupDone({
-          json: globalFlags(options).json,
-          force: options.force ?? false,
-        }),
-      );
-    });
+    .action(recordedExit("setup done", async (options) =>
+      await runSetupDone({
+        json: globalFlags(options).json,
+        force: options.force ?? false,
+      })));
 
   const setupAccept = new Command()
     .description(
       `Land the finished setup branch on the trunk${trunkName} — the shared landing branch.`,
     )
     .option("--dry-run", "Print the plan and change nothing.")
-    .action(async (options) => {
+    .action(recordedExit("setup accept", async (options) => {
       const { json, noColor } = globalFlags(options);
-      Deno.exit(
-        await runSetupAccept({
-          json,
-          noColor,
-          dryRun: options.dryRun ?? false,
-        }),
-      );
-    });
+      return await runSetupAccept({
+        json,
+        noColor,
+        dryRun: options.dryRun ?? false,
+      });
+    }));
 
   const setup = new Command()
     .description(
@@ -349,16 +345,14 @@ export function buildCli(
       "--confirmed",
       "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
     )
-    .action(async (options) => {
+    .action(recordedExit("setup", async (options) => {
       const { json, noColor } = globalFlags(options);
       // Bare `discern setup` → the read-only welcome; any scaffold/declarative input
       // (the CI/preset path) scaffolds straight through `begin` (ADR 0075).
-      Deno.exit(
-        hasScaffoldIntent(options)
-          ? await runSetupBegin(beginOptsFrom(options, json, noColor))
-          : await runSetupWelcome({ json, noColor }),
-      );
-    })
+      return hasScaffoldIntent(options)
+        ? await runSetupBegin(beginOptsFrom(options, json, noColor))
+        : await runSetupWelcome({ json, noColor });
+    }))
     .command("verify", setupVerify)
     .command("begin", setupBegin)
     .command("step", setupStep)
@@ -391,16 +385,14 @@ export function buildCli(
       "--allow-dirty",
       "Upgrade even with uncommitted changes (skips the clean-tree check).",
     )
-    .action(async (options) => {
-      const code = await runUpgrade({
+    .action(recordedExit("upgrade", async (options) =>
+      await runUpgrade({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         dryRun: options.dryRun ?? false,
         check: options.check ?? false,
         allowDirty: options.allowDirty ?? false,
-      });
-      Deno.exit(code);
-    });
+      })));
 
   root
     .command("uninstall")
@@ -412,17 +404,15 @@ export function buildCli(
       "Preview what would be removed and kept; change nothing.",
     )
     .option("-y, --yes", "Skip the confirmation prompt.")
-    .action(async (options) => {
+    .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
-      Deno.exit(
-        await runUninstall({
-          json,
-          noColor,
-          dryRun: options.dryRun ?? false,
-          yes: options.yes ?? false,
-        }),
-      );
-    });
+      return await runUninstall({
+        json,
+        noColor,
+        dryRun: options.dryRun ?? false,
+        yes: options.yes ?? false,
+      });
+    }));
 
   root
     .command("doctor")
@@ -433,27 +423,23 @@ export function buildCli(
       "-v, --verbose",
       "Show the hint explaining each execution-model step (hidden by default).",
     )
-    .action(async (options) => {
-      const code = await runDoctor({
+    .action(recordedExit("doctor", async (options) =>
+      await runDoctor({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
         verbose: options.verbose ?? false,
-      });
-      Deno.exit(code);
-    });
+      })));
 
   root
     .command("licenses")
     .description(
       "Print the third-party software notices for the components bundled in this binary.",
     )
-    .action((options) => {
-      const code = runLicenses({
+    .action(recordedExit("licenses", (options) =>
+      runLicenses({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
-      });
-      Deno.exit(code);
-    });
+      })));
 
   // `preset` dispatches but stays out of the help listing: discern ships no
   // bundled presets yet, and advertising an empty mechanism hands a newcomer a
@@ -466,15 +452,18 @@ export function buildCli(
     )
     .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
     .option("--dry-run", "Print the plan and write nothing.")
-    .action(async (options, name: string) => {
-      const code = await runPreset(name, {
-        json: options.json ?? false,
-        noColor: noColorFrom(options.color),
-        dryRun: options.dryRun ?? false,
-        yes: options.yes ?? false,
-      });
-      Deno.exit(code);
-    })
+    .action(
+      recordedExit(
+        "preset",
+        async (options, name: string) =>
+          await runPreset(name, {
+            json: options.json ?? false,
+            noColor: noColorFrom(options.color),
+            dryRun: options.dryRun ?? false,
+            yes: options.yes ?? false,
+          }),
+      ),
+    )
     .hidden();
 
   root
@@ -504,22 +493,22 @@ export function buildCli(
       "--output <path:string>",
       "Write an export to a file instead of stdout.",
     )
-    .action(async (options, target?: string) => {
-      const code = await runMap({
-        json: options.json ?? false,
-        noColor: noColorFrom(options.color),
-        raw: options.raw ?? false,
-        list: options.list ?? false,
-        // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
-        noPager: options.pager === false,
-        dir: options.dir,
-        width: options.width,
-        target,
-        export: options.export,
-        output: options.output,
-      });
-      Deno.exit(code);
-    });
+    .action(
+      recordedExit("map", async (options, target?: string) =>
+        await runMap({
+          json: options.json ?? false,
+          noColor: noColorFrom(options.color),
+          raw: options.raw ?? false,
+          list: options.list ?? false,
+          // Cliffy maps `--no-pager` to a negatable `pager` boolean (like --no-color).
+          noPager: options.pager === false,
+          dir: options.dir,
+          width: options.width,
+          target,
+          export: options.export,
+          output: options.output,
+        })),
+    );
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
   // concepts, the gate/worktree/standard docs). Distinct from `map`, which serves
@@ -552,7 +541,7 @@ export function buildCli(
       "--output <path:string>",
       "Write an export to a file instead of stdout.",
     )
-    .action(async (options, target?: string) => {
+    .action(recordedExit("help", async (options, target?: string) => {
       const json = options.json ?? false;
       // `help <command>` mirrors `<command> --help` — git users type the two
       // interchangeably, and git itself forwards one to the other. Driven off
@@ -563,7 +552,7 @@ export function buildCli(
         const sub = root.getCommand(target, true);
         if (sub !== undefined) {
           sub.showHelp();
-          Deno.exit(0);
+          return 0;
         }
       }
       if (target !== undefined) {
@@ -580,15 +569,15 @@ export function buildCli(
           } else {
             console.error(`discern: ${message}`);
           }
-          Deno.exit(1);
+          return 1;
         }
         const synonym = commandSynonymSuggestion(target);
         if (synonym !== undefined) {
           reportUnknownCommand(target, synonym, { json });
-          Deno.exit(1);
+          return 1;
         }
       }
-      const code = await runHelp({
+      return await runHelp({
         json,
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
@@ -600,8 +589,7 @@ export function buildCli(
         export: options.export,
         output: options.output,
       });
-      Deno.exit(code);
-    });
+    }));
 
   // `config` — programmatic, comment-preserving edits to an existing
   // discern.toml. Each subcommand is a standalone Command instance attached via
@@ -612,14 +600,14 @@ export function buildCli(
     )
     .arguments("<name:string> <command:string>")
     .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, name: string, command: string) => {
-      Deno.exit(
+    .action(recordedExit(
+      "config set-capability",
+      async (options, name: string, command: string) =>
         await runConfigSetCapability(name, command, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
         }),
-      );
-    });
+    ));
 
   const setCheck = new Command()
     .description(
@@ -634,17 +622,19 @@ export function buildCli(
     .option("--run <cmd:string>", "The check command.", { required: true })
     .option("--provides <label:string>", "Optional free-text label.")
     .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, name: string) => {
-      Deno.exit(
-        await runConfigSetCheck(name, {
-          ...globalFlags(options),
-          dryRun: options.dryRun ?? false,
-          stage: options.stage,
-          run: options.run,
-          provides: options.provides,
-        }),
-      );
-    });
+    .action(
+      recordedExit(
+        "config set-check",
+        async (options, name: string) =>
+          await runConfigSetCheck(name, {
+            ...globalFlags(options),
+            dryRun: options.dryRun ?? false,
+            stage: options.stage,
+            run: options.run,
+            provides: options.provides,
+          }),
+      ),
+    );
 
   const setScope = new Command()
     .description(
@@ -655,8 +645,9 @@ export function buildCli(
     .option("--previewable", "A person could see changes here.")
     .option("--gate <cmd:string>", "A command to run when this scope changed.")
     .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, name: string, ...globs: string[]) => {
-      Deno.exit(
+    .action(recordedExit(
+      "config set-scope",
+      async (options, name: string, ...globs: string[]) =>
         await runConfigSetScope(name, globs, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
@@ -664,8 +655,7 @@ export function buildCli(
           previewable: options.previewable ?? false,
           gate: options.gate,
         }),
-      );
-    });
+    ));
 
   const setStandard = new Command()
     .description(
@@ -686,18 +676,20 @@ export function buildCli(
       { required: true },
     )
     .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, name: string) => {
-      Deno.exit(
-        await runConfigSetStandard(name, {
-          ...globalFlags(options),
-          dryRun: options.dryRun ?? false,
-          limit: options.limit,
-          metric: options.metric,
-          direction: options.direction,
-          run: options.run,
-        }),
-      );
-    });
+    .action(
+      recordedExit(
+        "config set-standard",
+        async (options, name: string) =>
+          await runConfigSetStandard(name, {
+            ...globalFlags(options),
+            dryRun: options.dryRun ?? false,
+            limit: options.limit,
+            metric: options.metric,
+            direction: options.direction,
+            run: options.run,
+          }),
+      ),
+    );
 
   const setScalar = new Command()
     .description(
@@ -708,8 +700,9 @@ export function buildCli(
     .option("--bool", "Treat the value as a boolean (union-typed keys only).")
     .option("--string", "Treat the value as a string (union-typed keys only).")
     .option("--dry-run", "Print the edit and write nothing.")
-    .action(async (options, key: string, value: string) => {
-      Deno.exit(
+    .action(recordedExit(
+      "config set",
+      async (options, key: string, value: string) =>
         await runConfigSet(key, value, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
@@ -717,49 +710,63 @@ export function buildCli(
           bool: options.bool ?? false,
           string: options.string ?? false,
         }),
-      );
-    });
+    ));
 
   // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
-    .action(async (_o, key: string) => {
-      Deno.exit(await runConfigRead("get", key));
-    });
+    .action(
+      recordedExit(
+        "config get",
+        async (_o, key: string) => await runConfigRead("get", key),
+      ),
+    );
   const configArray = new Command()
     .description("Print an array config value, one item per line.")
     .arguments("<key:string>")
-    .action(async (_o, key: string) => {
-      Deno.exit(await runConfigRead("array", key));
-    });
+    .action(
+      recordedExit(
+        "config array",
+        async (_o, key: string) => await runConfigRead("array", key),
+      ),
+    );
   const configHas = new Command()
     .description("Exit 0 if a key or section exists, 1 otherwise (silent).")
     .arguments("<key:string>")
-    .action(async (_o, key: string) => {
-      Deno.exit(await runConfigRead("has", key));
-    });
+    .action(
+      recordedExit(
+        "config has",
+        async (_o, key: string) => await runConfigRead("has", key),
+      ),
+    );
   const configSubsections = new Command()
     .description("Print the immediate child table names under a section.")
     .arguments("<key:string>")
-    .action(async (_o, key: string) => {
-      Deno.exit(await runConfigRead("subsections", key));
-    });
+    .action(
+      recordedExit(
+        "config subsections",
+        async (_o, key: string) => await runConfigRead("subsections", key),
+      ),
+    );
   const configKeys = new Command()
     .description("Print the flat key names declared in a section.")
     .arguments("<key:string>")
-    .action(async (_o, key: string) => {
-      Deno.exit(await runConfigRead("keys", key));
-    });
+    .action(
+      recordedExit(
+        "config keys",
+        async (_o, key: string) => await runConfigRead("keys", key),
+      ),
+    );
 
   const config = new Command()
     .description(
       "Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.",
     )
-    .action(function (): void {
+    .action(recordedExit("config", function (this: Command): void {
       this.showHelp();
-    })
+    }))
     .command("set-capability", setCapability)
     .command("set-check", setCheck)
     .command("set-scope", setScope)
@@ -1071,10 +1078,16 @@ export async function main(args: string[]): Promise<void> {
         globalTokens,
       );
       if (script.name !== "-h" && script.name !== "--help") {
+        // Pre-Cliffy dispatch still routes through the one recording point.
         Deno.exit(
-          await runProjectScript(script.name, script.args, {
-            json: argv.includes("--json"),
-          }),
+          await recordedRun(
+            "script",
+            "cli",
+            async () =>
+              await runProjectScript(script.name, script.args, {
+                json: argv.includes("--json"),
+              }),
+          ),
         );
       }
     }

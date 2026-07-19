@@ -34,9 +34,11 @@ const recordedVerbs = new Set<string>();
  */
 export const RECORDED_CLI_VERBS: ReadonlySet<string> = recordedVerbs;
 
-/** A verb action's body: runs the verb and returns its exit code (void → 0). */
-type VerbBody<A extends unknown[]> = (
-  this: unknown,
+/** A verb action's body: runs the verb and returns its exit code (void → 0).
+ * Generic over `this` so a command-group action typed `function (this: Command)`
+ * wraps without a cast. */
+type VerbBody<TThis, A extends unknown[]> = (
+  this: TThis,
   ...args: A
 ) => number | undefined | Promise<number | undefined> | void | Promise<void>;
 
@@ -84,15 +86,15 @@ export async function recordedRun(
  * parity registry collects. `this` is forwarded, so a command-group action
  * (`this.showHelp()`) wraps like any other; a void return exits 0.
  */
-export function recordedExit<A extends unknown[]>(
+export function recordedExit<TThis, A extends unknown[]>(
   verb: string,
-  body: VerbBody<A>,
-): (this: unknown, ...args: A) => Promise<void> {
+  body: VerbBody<TThis, A>,
+): (this: TThis, ...args: A) => Promise<void> {
   const top = verb.split(" ")[0];
   if (top !== undefined && top !== "") {
     recordedVerbs.add(top);
   }
-  return async function (this: unknown, ...args: A): Promise<void> {
+  return async function (this: TThis, ...args: A): Promise<void> {
     Deno.exit(
       await recordedRun(
         verb,

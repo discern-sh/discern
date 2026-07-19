@@ -49,6 +49,7 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { isAbsolute, join } from "@std/path";
@@ -1603,6 +1604,7 @@ export async function runStandards(
     pinNames,
     ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
   });
+  observeResult(result); // the logbook recorder lifts step timings from it
   if (json) {
     emitResult(result);
   } else {
