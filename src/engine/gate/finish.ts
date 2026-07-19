@@ -301,12 +301,12 @@ async function runGate(
   let writeAccessFailure: WritePreflightFailure | undefined;
   let writeAccessDiag: Diagnostic | undefined;
 
-  // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). The merge-base
-  //    relationship is invariant across the gate (finish never fetches or commits, so
-  //    neither HEAD nor main moves), so checking here gives the SAME answer as checking
-  //    last would — but a branch behind main must update and re-run regardless,
-  //    which discards whatever the gate computed against the pre-integration tree.
-  //    Front-loading it skips the expensive fix/build/check/test in exactly that case.
+  // 1. Merge precondition — checked FIRST and fail-fast (ADR 0050). HEAD is pinned
+  //    for the gate, but linked worktrees share refs: a concurrent `accept` can move
+  //    main while this run is in progress. A branch behind at the start must update
+  //    and re-run regardless, which discards whatever the gate computed against the
+  //    pre-integration tree, so front-loading still skips that doomed work. The
+  //    stamp-time advisory below covers main moving during an otherwise-green run.
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
@@ -696,6 +696,22 @@ async function runGate(
   ) {
     await clearStandardMeasurements(root, writeAuthority);
   }
+  // Linked worktrees share the trunk ref, so another worktree can advance it
+  // after the fail-fast check. Re-check beside the receipt stamp and report the
+  // new state without changing the green verdict or withholding the receipt:
+  // the receipt vouches for the pinned HEAD, while `accept` retains the final
+  // live-ref check. This observation can race too, so it stays advisory.
+  let trunkAdvanceWarning: string | undefined;
+  if (failedStage === null) {
+    const stampMerge = await assertMainMerged(root, mainBranch);
+    if (stampMerge.kind === "behind") {
+      trunkAdvanceWarning =
+        "The trunk advanced while the gate ran, so this branch is behind it now. " +
+        "The gate still passed for this HEAD. Run `discern update`, then " +
+        "`discern done` again before `discern accept`.";
+      out.warn(trunkAdvanceWarning);
+    }
+  }
   // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
@@ -751,6 +767,7 @@ async function runGate(
   const hints = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
+    ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),

@@ -72,6 +72,18 @@ const BUCKET_CASES: ReadonlyArray<{
     expect: "ready",
   },
   {
+    name: "clean, ahead, receipt honored, but behind trunk → in flight",
+    entry: entry({ ahead: 3, behind: 2, last_activity: daysAgo(20) }),
+    receipt: true,
+    expect: "in_flight",
+  },
+  {
+    name: "unknown behind state keeps the degraded-state leniency",
+    entry: entry({ ahead: 3, behind: undefined }),
+    receipt: true,
+    expect: "ready",
+  },
+  {
     name: "clean and ahead but no receipt → still in flight",
     entry: entry({ ahead: 3 }),
     receipt: false,
@@ -331,7 +343,7 @@ Deno.test("rowSummary: states render compactly and honestly", () => {
       false,
       NOW,
     ),
-    "dirty (1 file) · 2 behind · just now",
+    "dirty (1 file) · 2 behind trunk — update first · just now",
   );
   assertEquals(
     rowSummary(entry({ broken: true }), false, NOW),

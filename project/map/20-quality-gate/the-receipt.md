@@ -14,11 +14,11 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 `discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. The receipt is discern's review summary. It lists the branch and trunk, each capability, check, and scope gate that ran, standard outcomes, commits, changed files, and the command that opens the full diff ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
-The receipt gives the reviewer a stable account of the gate run. The agent relays it and waits for approval. When the owner accepts, `discern accept --confirmed` lands the reviewed branch.
+The receipt gives the reviewer a stable gate result for that `HEAD`. The trunk may advance. The agent relays it and waits. On approval, `discern accept --confirmed` checks the live refs and lands the branch.
 
 ## When a receipt is recorded
 
-The gate pins `HEAD` and the worktree's cleanliness before any job starts. It checks both again before recording the receipt. A receipt is withheld when:
+The gate pins `HEAD` and worktree cleanliness before jobs, then checks both before recording. It also rechecks the trunk. Movement warns you to update and rerun. A receipt is withheld when:
 
 - the worktree had staged, uncommitted, or untracked changes;
 - `HEAD` moved while the gate was running;
@@ -58,4 +58,3 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 - A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_receipt.status` before claiming the branch is ready.
 - The marker is a cache of a real gate result. If it is missing, stale, or unreadable, acceptance validates the tree again.
 - The preflight is a point-in-time proof. Receipt writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_receipt`.
-- The receipt code contains no unfinished-work markers for this behavior.

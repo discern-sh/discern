@@ -27,8 +27,8 @@ The desk builds its rows from `discern status` and the recorded gate receipts. I
 
 | Group           | Included worktrees                                            |
 | --------------- | ------------------------------------------------------------- |
-| Ready to land   | Clean, ahead of the trunk, with an honored gate receipt.      |
-| In flight       | Healthy work that is still active or awaiting a gate result.  |
+| Ready to land   | Clean, ahead, current with trunk, honored receipt.            |
+| In flight       | Healthy, active, behind trunk, or awaiting gate.              |
 | Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
 Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree.

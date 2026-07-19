@@ -23,6 +23,7 @@ import {
   relativeAge,
   STALE_WORKTREE_DAYS,
 } from "../status/status.ts";
+import { isReadyToLand } from "../worktree/readiness.ts";
 
 /** The decision-order buckets, most actionable first. */
 export const DESK_BUCKETS = ["ready", "in_flight", "attention"] as const;
@@ -101,7 +102,10 @@ export function classifyBucket(
   if (isUnhealthy(entry)) {
     return "attention";
   }
-  if (entry.clean === true && (entry.ahead ?? 0) > 0 && receiptHonored) {
+  if ((entry.behind ?? 0) > 0) {
+    return "in_flight";
+  }
+  if (isReadyToLand(entry, receiptHonored)) {
     return "ready";
   }
   if (isStale(entry, nowMs)) {
@@ -210,7 +214,7 @@ export function rowSummary(
     parts.push(`${entry.ahead} ahead`);
   }
   if ((entry.behind ?? 0) > 0) {
-    parts.push(`${entry.behind} behind`);
+    parts.push(`${entry.behind} behind trunk — update first`);
   }
   parts.push(relativeAge(entry.last_activity, nowMs));
   return parts.join(" · ");
