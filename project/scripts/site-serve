@@ -1,0 +1,5 @@
+#!/bin/sh
+# desc: Serve the discern site (deno task serve)
+set -eu
+cd "${DISCERN_ROOT:-$(dirname "$0")/../..}"
+exec deno task site "$@"
