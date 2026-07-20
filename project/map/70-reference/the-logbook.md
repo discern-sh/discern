@@ -14,9 +14,9 @@ _One line of local, metadata-only history per verb run: what's in it, where it l
 
 discern keeps a logbook of its own use: every verb run (CLI or MCP, pass or fail) appends one JSON line to a plain-text file under `.git`, shared by every worktree. It exists so later versions can answer what a single run can't: which gate step has been slowing down, how many runs a task needed before green, where a metric stood six months ago.
 
-- **Read it:** `cat .git/discern/logbook/*.jsonl`
-- **Delete it:** remove `.git/discern/logbook/`. Nothing else references it.
-- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops; existing files stay until you delete them.
+- **Read it:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)); `cat .git/discern/logbook/*.jsonl` shows the raw lines.
+- **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
+- **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops; existing files stay until you reset them.
 
 ## What a line contains
 
@@ -39,7 +39,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `flags`        | `["force"]` — names, never values               |
 | `change`       | files/insertions/deletions/commits vs the trunk |
 | `scopes`       | the configured scopes touched                   |
-| `steps`        | per-step labels, outcomes, timings              |
+| `steps`        | per-step labels, stages, outcomes, timings      |
 | `diagnostics`  | tool, rule id, file path at most                |
 | `standards`    | each standard's limit and measured value        |
 | `epoch`        | a fingerprint of your config                    |

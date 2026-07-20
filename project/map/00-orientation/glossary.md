@@ -95,6 +95,10 @@ One idempotent step that brings an install from [schema version](#schema-version
 
 The visible `discern/` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the `TODO.md` ledger. Nothing generated is ever written inside it, and every source has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
+### Patterns
+
+What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behaviour loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Advisory only: it never blocks, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).
+
 ### Placement is consent
 
 The rule deciding what discern and its agents may write: a file at its namespace default carries an implicit write-license, a config key you pointed elsewhere is an explicit one, and any other path is untouchable — enforced by an architectural test ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). See [design principles](design-principles.md).

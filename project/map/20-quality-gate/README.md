@@ -28,3 +28,4 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [Run the gate in CI](ci.md)                   | Require the same gate on pull requests and trunk pushes.                    |
 | [Continuous improvement](improvement.md)      | Find the highest-value practice to improve after the current change passes. |
 | [Co-change coupling](coupling.md)             | Check whether this change omitted a file that usually moves with it.        |
+| [Practice patterns](patterns.md)              | Read what the logbook shows about how agents drive discern here.            |
