@@ -623,7 +623,9 @@ export function formatDocsExport(sources: readonly DocSource[]): string {
   }).join("\n\n") + "\n";
 }
 
-/** The lowercase strings that should resolve to `entry`. */
+/** The lowercase strings that should resolve to `entry`: its path spellings
+ * plus the frontmatter `aliases:` — the same synonyms the published site's
+ * search boosts, so a name that finds a page there finds it here too. */
 function aliases(entry: DocEntry): string[] {
   const noExt = (s: string) => s.replace(/\.md$/i, "");
   const base = basename(entry.path);
@@ -634,6 +636,7 @@ function aliases(entry: DocEntry): string[] {
     noExt(entry.relToDocs),
     base,
     entry.slug,
+    ...entry.aliases,
   ].map((s) => s.toLowerCase());
 }
 

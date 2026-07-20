@@ -363,6 +363,29 @@ Deno.test("resolveDoc handles slug, path, ambiguity, and misses", async () => {
   });
 });
 
+Deno.test("resolveDoc honours frontmatter aliases, case-insensitively", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/rich.md"),
+      "---\naliases:\n  - files\n  - Shared Term\n---\n# Rich\n\nBody.\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, "docs/00-intro/other.md"),
+      "---\naliases:\n  - shared term\n---\n# Other\n\nBody.\n",
+    );
+
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+    // An alias resolves like a slug — the same synonyms the site search boosts.
+    const found = resolveDoc(tree, "Files", dir);
+    assertEquals(found.kind, "found");
+    assert(found.kind === "found" && found.entry.slug === "rich");
+    // An alias two pages claim is ambiguous, never a silent first-match.
+    assertEquals(resolveDoc(tree, "shared term", dir).kind, "ambiguous");
+  });
+});
+
 Deno.test("map --json emits the index", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);

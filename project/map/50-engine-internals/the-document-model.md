@@ -6,6 +6,8 @@ One validated model in [`src/lib/docs.ts`](../../../src/lib/docs.ts) backs every
 
 `discoverDocs` walks the configured tree and yields one `DocEntry` per leaf: paths, section, slug, a title from the first heading, and a description from the lead paragraph (`extractTitle` and `leadParagraph` live beside the model). The model also carries `publish`, `order`, `aliases`, `redirectFrom`, and `citedAdrs` (the decisions the page cites, collected by [`src/lib/adr_citations.ts`](../../../src/lib/adr_citations.ts)). `map_overview.ts` reuses `DocEntry.description` rather than re-deriving it.
 
+`resolveDoc` matches a free-form target against each entry's path spellings, slug, and frontmatter `aliases`, case-insensitively — so a glossary term or a dotted config key reaches its page by name. A name several pages claim resolves as ambiguous with the candidates listed, never a silent first match; `suggestDocs` ranks the same candidate set fuzzily for misses.
+
 Sibling reading order is README-first, then `DocEntry.order`. An explicit frontmatter `order` is authoritative; while a sibling has none, discovery fills it from the section README's authored table/list link order. Only direct sibling Markdown links count, so source links and cross-section "see also" lists cannot reorder a section. This makes the README's existing curation part of the model rather than something each renderer must rediscover.
 
 ## Frontmatter: lenient read, strict gate
