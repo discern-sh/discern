@@ -14,6 +14,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { gitInit } from "./engine_helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
@@ -1128,5 +1129,55 @@ Deno.test("doctor --json: omits the execution model when there is no readable co
     // only add noise to a broken install).
     const { payload } = await runDoctorJson(dir);
     assertEquals(payload.data.execution_model, undefined);
+  });
+});
+
+Deno.test("doctor: the logbook check covers off, empty, and recording — the class of substrate states", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await gitInit(dir);
+
+    // Enabled but no event has ever landed: red, with the self-verifying fix —
+    // this very doctor run appends the first event as it exits.
+    const empty = await runDoctorJson(dir);
+    const emptyCheck = check(empty.payload, "logbook");
+    assertEquals(emptyCheck.status, "fail");
+    assertStringIncludes(emptyCheck.detail, "no events");
+    assertStringIncludes(emptyCheck.fix ?? "", "re-run");
+    assertEquals(empty.code, 1, "an enabled-but-silent logbook fails doctor");
+
+    // The re-run finds the event the first run recorded: green.
+    const recording = await runDoctorJson(dir);
+    const recordingCheck = check(recording.payload, "logbook");
+    assertEquals(recordingCheck.status, "ok");
+    assertStringIncludes(recordingCheck.detail, "recording");
+    assertEquals(recording.code, 0);
+
+    // Toggled off: an advisory nudge (exit 0), because the history a novice
+    // switches off at setup can never be recorded retroactively.
+    const p = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      p,
+      (await Deno.readTextFile(p)).replace("logbook = true", "logbook = false"),
+    );
+    const off = await runDoctorJson(dir);
+    const offCheck = check(off.payload, "logbook");
+    assertEquals(offCheck.status, "warn");
+    assertStringIncludes(offCheck.detail, "off");
+    assertStringIncludes(offCheck.fix ?? "", "re-enabling");
+    assertEquals(off.code, 0, "a deliberate opt-out advises, never fails");
+  });
+});
+
+Deno.test("doctor: the logbook check stays out of non-repository installs", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const { payload } = await runDoctorJson(dir);
+    // No git repository → no logbook to write; the repository-shape check
+    // already owns that conversation.
+    assertEquals(
+      payload.data.checks.find((c) => c.name === "logbook"),
+      undefined,
+    );
   });
 });

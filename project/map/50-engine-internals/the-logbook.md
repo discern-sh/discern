@@ -48,6 +48,8 @@ Each interceptor also contributes what only its surface can see. The CLI wrapper
 
 Context (branch, commit, config, toggle) is gathered concurrently with the verb itself, starting at invocation — which is also why `accept` still attributes correctly: the branch is read while the worktree exists. The toggle is `[project].logbook`; when the config is unreadable, the recorder writes nothing.
 
+`discern doctor` watches the substrate's health: recording off draws an advisory nudge, and an enabled logbook with no events ever landed is a red check, because a write failure would otherwise stay silent by design. The doctor run itself records an event as it finishes, so on a healthy new install the re-run turns green.
+
 ## Where it lives in code
 
 | Concept                         | File                                                                            |

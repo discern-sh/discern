@@ -42,7 +42,9 @@ import {
   gitVersion,
   hasAnyCommit,
   repoToplevel,
+  resolveCommonGitDir,
 } from "../engine/worktree/git.ts";
+import { logbookDir } from "../engine/logbook/store.ts";
 import { z } from "@zod/zod";
 import type { DiscernResult } from "../shared/result.ts";
 import type {
@@ -132,6 +134,68 @@ function normalizeChecks(checks: DraftCheck[]): Check[] {
  * The full string is preserved verbatim in the `--json` environment block. */
 function gitDisplayVersion(raw: string): string {
   return raw.replace(/^git version\s+/, "");
+}
+
+/** Month files present in the logbook directory that hold at least one byte —
+ * evidence that recording writes actually land. */
+async function recordedMonthFiles(dir: string): Promise<number> {
+  let months = 0;
+  try {
+    for await (const entry of Deno.readDir(dir)) {
+      if (!entry.isFile || !/^\d{4}-\d{2}\.jsonl$/.test(entry.name)) {
+        continue;
+      }
+      const stat = await Deno.stat(join(dir, entry.name)).catch(() =>
+        undefined
+      );
+      if (stat !== undefined && stat.size > 0) {
+        months += 1;
+      }
+    }
+  } catch {
+    return 0; // no directory yet — indistinguishable from never-recorded
+  }
+  return months;
+}
+
+/** The logbook health check: recording on and provably landing events. Off is
+ * advice (a deliberate choice, but history can't be back-filled); on with no
+ * events ever recorded is a failure — writes are broken, or the install is so
+ * new no verb has completed, and this very doctor run settles which. */
+async function logbookCheck(
+  config: DiscernConfig,
+  commonGitDir: string,
+): Promise<DraftCheck> {
+  if (!config.project.logbook) {
+    return {
+      name: "logbook",
+      ok: true,
+      status: "warn",
+      detail:
+        "recording is off ([project].logbook = false) — discern keeps no memory of how it is driven",
+      fix:
+        "consider re-enabling it: gate thrash, flaky tests, and guidance gaps only become visible in this local history, it never leaves the machine, and it cannot be recorded retroactively",
+    };
+  }
+  const dir = logbookDir(commonGitDir);
+  const months = await recordedMonthFiles(dir);
+  if (months === 0) {
+    return {
+      name: "logbook",
+      ok: false,
+      detail:
+        "recording is on, but no events have ever landed — writes may be failing (or no verb has completed here yet)",
+      fix:
+        `this doctor run itself records one event as it finishes — re-run \`discern doctor\`, and if this stays red, check that ${dir} is writable`,
+    };
+  }
+  return {
+    name: "logbook",
+    ok: true,
+    detail: `recording — ${months} month${
+      months === 1 ? "" : "s"
+    } of local history under the git admin area`,
+  };
 }
 
 /** Whether a regular file exists at `path`. */
@@ -462,6 +526,20 @@ export async function runChecks(destDir: string): Promise<Check[]> {
           detail: "project root is the repository root, with commit history",
         });
       }
+    }
+  }
+
+  // 7d. the logbook is recording — discern's local memory of its own use, and
+  // the only place a whole class of agent-driven faults (gate thrash, flaky
+  // tests, guidance gaps) ever becomes visible. Off is a deliberate choice,
+  // surfaced as advice because history can never be recorded retroactively.
+  // On-but-empty is red: either writes are failing, or the install is so new
+  // that no verb has completed yet — and since this doctor run itself appends
+  // an event on completion, a healthy install turns the re-run green.
+  if (config !== undefined && (await repoToplevel(destDir)) !== undefined) {
+    const commonGitDir = await resolveCommonGitDir(destDir);
+    if (commonGitDir !== undefined) {
+      checks.push(await logbookCheck(config, commonGitDir));
     }
   }
 
