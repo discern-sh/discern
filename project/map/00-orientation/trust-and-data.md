@@ -19,11 +19,11 @@ discern runs locally and keeps a small, visible footprint. Here's what that mean
 
 discern makes **zero network calls** and ships **no telemetry**. Nothing about your code, your usage, or your project is phoned home or uploaded, and it works fully offline. A newer version arrives only when you re-run the installer.
 
-One thing is measured, and it stays on your machine: the logbook, below, records how discern itself is being used — with its own switch and a one-command deletion path.
+One thing is measured, and it stays on your machine: the logbook, below, records discern's own use — with its own switch and a one-command deletion path.
 
 ## The logbook: local history, one switch
 
-discern keeps a logbook of its own use: one line per verb run, appended to a plain-text file under `.git`. A line holds names and numbers only — the verb, the branch, how the run ended, how long each gate step took, the size of the change it acted on, where each quality standard stood. No code, no prompts, no command output; any line is safe to read aloud in a meeting. Read it with `cat .git/discern/logbook/*.jsonl`, delete it by removing that directory, or turn it off with `logbook = false` under `[project]`.
+discern keeps a logbook of its own use: one line per verb run, appended to a plain-text file under `.git`. A line holds names and numbers only — the verb, the branch, how the run ended and how long it took, the change's size, each quality standard's measured value. No code, no prompts, no command output; any line is safe to read aloud in a meeting. Read it with `cat .git/discern/logbook/*.jsonl`, delete it by removing that directory, or turn it off with `logbook = false` under `[project]`.
 
 The logbook never leaves the machine, and that claim is held by a check rather than a promise: a test in discern's own quality gate proves the logbook's code can reach no network interface, so a change that gave it one would fail discern's own build. [The logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
@@ -31,7 +31,7 @@ The logbook never leaves the machine, and that claim is held by a check rather t
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands **you** wrote in your own `discern.toml`. The gate runs your `format` / `lint` / `test` commands; a scope gate or a standard runs the command you gave it. discern adds none of its own beyond built-in git and file operations.
 
-The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs and help browsers) run none of your commands and change none of your files; each verb run appends its one line to the local logbook above, unless you switched that off. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
+The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs and help browsers) run none of your commands and change none of your files; each run appends its line to the local logbook above unless switched off. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
 
 ## A small, checkable footprint
 

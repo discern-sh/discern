@@ -13,7 +13,7 @@ aliases:
 
 _Every discern term, defined once and alphabetized. Each entry links the section that covers the mechanism in depth._
 
-The names here are canonical: every page of the manual uses them identically, and no synonyms are introduced. For how the terms relate, read [concepts](concepts.md).
+These names are canonical — every page uses them identically, no synonyms. For how they relate, read [concepts](concepts.md).
 
 ### Accept
 
@@ -49,7 +49,7 @@ A tracked file discern shares with the project: `discern.toml` and the marked bl
 
 ### Desk
 
-The human's interactive surface over the worktree fleet, opened from the main checkout with bare `discern` or `discern desk`. It starts new tasks, opens configured coding-agent CLIs that are available on `PATH`, and offers the actions valid for each existing worktree. Covered in [the desk](../30-worktrees/the-desk.md).
+The human's interactive surface over the worktree fleet, opened from the main checkout with bare `discern` or `discern desk`. It starts new tasks, opens configured coding-agent CLIs from `PATH`, and offers each worktree's valid actions. Covered in [the desk](../30-worktrees/the-desk.md).
 
 ### discern
 
@@ -81,7 +81,7 @@ The scaffolding verbs of the binary: `setup`, `upgrade`, `doctor`, `config`, `pr
 
 ### Logbook
 
-The local record of discern's own use: one metadata-only line per verb run (verb, branch, outcome, timings), appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).
+The local record of discern's own use: one metadata-only line per verb run, appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).
 
 ### Map
 
@@ -93,7 +93,7 @@ One idempotent step that brings an install from [schema version](#schema-version
 
 ### Namespace
 
-The visible `discern/` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the `TODO.md` ledger. It is 100% yours (nothing generated is ever written inside it), and every source in it has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+The visible `discern/` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the `TODO.md` ledger. Nothing generated is ever written inside it, and every source has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
 ### Placement is consent
 
@@ -109,7 +109,7 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 ### Readiness
 
-`discern doctor`'s judgment of whether the gate is meaningfully wired. Because the [capability](#capability) vocabulary is closed, an omitted capability is knowably absent rather than unknown, so the coverage report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).
+`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed [capability](#capability) vocabulary makes an omitted capability knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 ### Schema version
 
@@ -133,7 +133,7 @@ A quality number that can never get worse: a floor or ceiling declared under `[s
 
 ### Surface
 
-A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term: the command-line surface, MCP surface, published-docs surfaces, and write surface name different boundaries. Bare “surface” does not name a component.
+A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term (command-line surface, MCP surface, write surface); bare “surface” names no component.
 
 ### Trunk
 
@@ -153,7 +153,7 @@ An external thing a worktree needs in isolation (a database, an emulator, a cont
 
 ### Worktree settings
 
-The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. These settings may depend on a linked worktree's identity and never run in the main checkout. Checkout-generic convergence belongs in `[repository].ensure` instead. A fresh install declares none, so the workflow is a clean no-op until a project wires one ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
+The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. Identity-dependent, they never run in the main checkout; checkout-generic convergence belongs in `[repository].ensure`. A fresh install declares none ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
 
 ### Your files / Yours
 
