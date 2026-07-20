@@ -72,8 +72,9 @@ function InstallMoment({ band = false }: { readonly band?: boolean }) {
         </button>
       </div>
       <p className="landing-install__then">
-        Then tell your agent: <strong>“run discern setup”</strong>. It handles
-        the rest: on a branch, in small commits, reversible.
+        Then tell your agent:{" "}
+        <strong>“run discern setup”</strong>. It handles the rest: on a branch,
+        in small commits, reversible.
       </p>
       <p className="landing-install__platforms">
         macOS and Linux; Windows via WSL.
@@ -187,8 +188,8 @@ function TheCatch() {
           Watch it catch a <strong>real bug.</strong>
         </h2>
         <p>
-          A one-character mistake was planted in discern’s own code, the kind
-          an agent ships while announcing success. Every frame that follows is
+          A one-character mistake was planted in discern’s own code, the kind an
+          agent ships while announcing success. Every frame that follows is
           genuine captured output from this repository’s checks. Elisions are
           marked; nothing is altered.
         </p>
@@ -226,8 +227,8 @@ function TheCatch() {
           title="The checks disagree"
           caption={
             <>
-              Two tests caught the one character: the hand-written case, and
-              the class-level contract guard behind it. The other 1,951 still
+              Two tests caught the one character: the hand-written case, and the
+              class-level contract guard behind it. The other 1,951 still
               passed.
             </>
           }
@@ -290,9 +291,9 @@ function TheCatch() {
           title="The failure arrives as data"
           caption={
             <>
-              One failure, two readers. You get the story above; your agent
-              gets the structure: the failing tool, the command to reproduce
-              it, and the captured output.
+              One failure, two readers. You get the story above; your agent gets
+              the structure: the failing tool, the command to reproduce it, and
+              the captured output.
             </>
           }
         >
@@ -329,8 +330,9 @@ function TheCatch() {
           pass
           caption={
             <>
-              The agent’s loop: read <code>diagnostics[]</code>, fix, run the
-              checks again. A green run on the final tree is the receipt.
+              The agent’s loop: read{" "}
+              <code>diagnostics[]</code>, fix, run the checks again. A green run
+              on the final tree is the receipt.
             </>
           }
         >
@@ -392,8 +394,8 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       title: "A bar you can see.",
       body: (
         <p>
-          No more guessing what counts as good enough in this repo. Run the
-          gate and get a verdict: what failed, with the command and its output
+          No more guessing what counts as good enough in this repo. Run the gate
+          and get a verdict: what failed, with the command and its output
           attached. Clear it, and nobody argues.
         </p>
       ),
@@ -405,8 +407,8 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       title: "You never read the error.",
       body: (
         <p>
-          When a check fails, discern hands your agent the failure as
-          structured data. You don’t have to read it, let alone explain it.
+          When a check fails, discern hands your agent the failure as structured
+          data. You don’t have to read it, let alone explain it.
         </p>
       ),
     },
@@ -449,8 +451,8 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       title: "Write the rules once.",
       body: (
         <p>
-          One guidance file compiles into every agent’s own format: Claude
-          Code, Codex, Gemini, Cursor. Always in sync, never hand-edited.
+          One guidance file compiles into every agent’s own format: Claude Code,
+          Codex, Gemini, Cursor. Always in sync, never hand-edited.
         </p>
       ),
     },
@@ -458,8 +460,8 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       title: "Instructions that agree with each other.",
       body: (
         <p>
-          One compiled source of truth, delivered in the file you read. No
-          more CLAUDE.md contradicting a README from March.
+          One compiled source of truth, delivered in the file you read. No more
+          CLAUDE.md contradicting a README from March.
         </p>
       ),
     },
@@ -470,9 +472,9 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       title: "Zero configuration, for you.",
       body: (
         <p>
-          Install it, then say “run discern setup”. Your agent studies the
-          repo, proposes the commands, and shows its work: on a branch, in
-          small commits, reversible with one delete.
+          Install it, then say “run discern setup”. Your agent studies the repo,
+          proposes the commands, and shows its work: on a branch, in small
+          commits, reversible with one delete.
         </p>
       ),
     },
@@ -481,8 +483,8 @@ const ADDRESS_PAIRS: readonly AddressPair[] = [
       body: (
         <p>
           You know this codebase better than any wizard. discern’s setup hands
-          you the keys: you sniff the stack, propose the gate, author the
-          docs. Nothing is written until you run begin.
+          you the keys: you sniff the stack, propose the gate, author the docs.
+          Nothing is written until you run begin.
         </p>
       ),
     },
@@ -520,8 +522,7 @@ function BuiltForBoth() {
         <h2>Built for both of you.</h2>
         <p>
           discern is a tool for coding agents{" "}
-          <em>and the humans who run them</em>, so this page addresses you
-          both.
+          <em>and the humans who run them</em>, so this page addresses you both.
         </p>
       </div>
 
@@ -633,9 +634,9 @@ function LandingPage() {
           description={
             <p>
               Anyone can get an app running with a coding agent now. Keeping it
-              working while you keep asking is the hard part. discern gives
-              your agent the habits of a careful engineering team, and you
-              never have to open the manual.
+              working while you keep asking is the hard part. discern gives your
+              agent the habits of a careful engineering team, and you never have
+              to open the manual.
             </p>
           }
           actions={
@@ -696,8 +697,8 @@ function LandingPage() {
               description: (
                 <p>
                   Each task happens in its own separate copy of the project (a
-                  git worktree), on its own branch. Nothing joins the real
-                  thing until it passes the same checks.
+                  git worktree), on its own branch. Nothing joins the real thing
+                  until it passes the same checks.
                 </p>
               ),
             },
@@ -725,11 +726,10 @@ function LandingPage() {
           title="Runs on its own checks."
           description={
             <p>
-              This repository is gated by the engine it ships: eighteen
-              hundred commits in its first month, overwhelmingly
-              agent-written, every one through the same checks you get. The
-              decision records are public. Read how it’s built, then hold it
-              to its own bar.
+              This repository is gated by the engine it ships: eighteen hundred
+              commits in its first month, overwhelmingly agent-written, every
+              one through the same checks you get. The decision records are
+              public. Read how it’s built, then hold it to its own bar.
             </p>
           }
           actions={
@@ -801,10 +801,10 @@ function LandingPage() {
               question: "Do I need to be a programmer?",
               answer: (
                 <p>
-                  No. You need a project on your own computer and a coding
-                  agent that works there: Claude Code, Codex, Gemini, Cursor.
-                  If you build in a browser-only tool, there’s no project
-                  folder for discern to sit in.
+                  No. You need a project on your own computer and a coding agent
+                  that works there: Claude Code, Codex, Gemini, Cursor. If you
+                  build in a browser-only tool, there’s no project folder for
+                  discern to sit in.
                 </p>
               ),
             },
@@ -831,10 +831,10 @@ function LandingPage() {
               question: "Why not just CI?",
               answer: (
                 <p>
-                  CI is the same idea, later and further away. discern runs
-                  the identical checks locally, in seconds, inside your
-                  agent’s own loop. It scaffolds the CI job too, so the bar
-                  holds even when no laptop is involved.
+                  CI is the same idea, later and further away. discern runs the
+                  identical checks locally, in seconds, inside your agent’s own
+                  loop. It scaffolds the CI job too, so the bar holds even when
+                  no laptop is involved.
                 </p>
               ),
             },
@@ -844,8 +844,8 @@ function LandingPage() {
                 <p>
                   Reviewers are a second opinion from another model: useful,
                   paid, and probabilistic. discern is deterministic. It runs
-                  your project’s tests, locally, for free. Run both if you
-                  like; only one of them can be sweet-talked.
+                  your project’s tests, locally, for free. Run both if you like;
+                  only one of them can be sweet-talked.
                 </p>
               ),
             },
