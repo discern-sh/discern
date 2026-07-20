@@ -25,6 +25,6 @@ The hand-edited page had two live drift risks. Definitions that state engine-own
 
 ## Alternatives considered
 
-- **Keep the page hand-edited, add a lint for the closed-set entries** — polices two entries and leaves the canon unenumerable; every future consumer would hand-copy the term list. Rejected.
+- **Keep the page hand-edited, add a lint for the closed-set entries** — polices two entries and still gives code no way to enumerate the canon; every future consumer would hand-copy the term list. Rejected.
 - **Structured fields per entry (ADR list, covered-in link) rendered into sentences** — makes authoring stiff and the renderer opinionated for no present consumer; the prose already carries the links and the map gate validates them. Rejected; revisit if a consumer needs the structure.
 - **Generate the registry from the page (parse Markdown)** — inverts ownership, keeps hand-editing, and makes the parser the fragile source of truth. Rejected.

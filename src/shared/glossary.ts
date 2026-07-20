@@ -87,10 +87,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Capability",
-    definition:
-      `One of the ${countWord(Object.keys(KNOWN_CAPABILITIES).length)} known kinds of gate work a project can declare under \`[capabilities]\`: ${
-        codeList(Object.keys(KNOWN_CAPABILITIES), "and")
-      }. The engine derives each one's [stage](#stage) from its name, and an omitted capability is skipped without error ([ADR 0017](../_adr/0017-capabilities-model.md)). Covered in [the quality gate](../20-quality-gate/).`,
+    definition: `One of the ${
+      countWord(Object.keys(KNOWN_CAPABILITIES).length)
+    } known kinds of gate work a project can declare under \`[capabilities]\`: ${
+      codeList(Object.keys(KNOWN_CAPABILITIES), "and")
+    }. The engine derives each one's [stage](#stage) from its name, and an omitted capability is skipped without error ([ADR 0017](../_adr/0017-capabilities-model.md)). Covered in [the quality gate](../20-quality-gate/).`,
   },
   {
     term: "Check",
@@ -214,10 +215,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Stage",
-    definition:
-      `The scheduling bucket gate work runs in: ${
-        codeList(STAGES, "or")
-      }. Derived from a [capability](#capability)'s name; declared explicitly for a [check](#check).`,
+    definition: `The scheduling bucket gate work runs in: ${
+      codeList(STAGES, "or")
+    }. Derived from a [capability](#capability)'s name; declared explicitly for a [check](#check).`,
   },
   {
     term: "Standard",
