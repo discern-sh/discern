@@ -52,7 +52,22 @@ function sampleEvent(): VerbEvent {
     kind: "verb",
     verb: "done",
     surface: "cli",
-    driver: { session: "cli:4242", json: true, tty: false, ci: false },
+    driver: {
+      session: "cli:4242",
+      json: true,
+      tty: false,
+      ci: false,
+      agent_signals: [{
+        agent: "codex",
+        source: "process-environment",
+        markers: ["CODEX_THREAD_ID"],
+      }],
+      mcp_client: {
+        name: "codex-mcp-client",
+        title: "Codex",
+        version: "1.2.3",
+      },
+    },
     branch: "agent/sample",
     head: "abc1234",
     clean: false,

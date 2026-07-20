@@ -12,7 +12,7 @@ aliases:
 
 _Every verb run appends one local, metadata-only event under the git common dir; this page covers the substrate that records it._
 
-Every other discern surface answers "what is true now". The logbook remembers how the tool has been driven ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Each verb invocation (CLI or MCP, green or red) appends one JSON line. It carries the writing version, verb, surface, raw driver signals, branch, short commit, cleanliness (plus a diff checksum when dirty), a three-way outcome with the refusal slug and failed gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, per-standard readings, and a config-epoch fingerprint. [The logbook reference](../70-reference/the-logbook.md) lists every field. The recorder stores evidence and leaves interpretation to readers: raw signals rather than derived scores, so a future reader can re-score every line it finds. The first reader is [`discern patterns`](../20-quality-gate/patterns.md), which runs a detector registry over the stream and reports findings in plain counts; the substrate itself records, rotates, and stays out of the way.
+Every other discern surface answers "what is true now". The logbook remembers how the tool has been driven ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Each verb invocation through the command line or Model Context Protocol (MCP), green or red, appends one JSON line. It carries the writing version, verb, surface, raw driver signals, branch, short commit, cleanliness (plus a diff checksum when dirty), a three-way outcome with the refusal slug and failed gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, per-standard readings, and a config-epoch fingerprint. Driver signals can include possible coding-agent identity markers, separated by provenance, plus the MCP client's bounded declaration. They never state which agent drove the run ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). [The logbook reference](../70-reference/the-logbook.md) lists every field. The recorder stores evidence and leaves interpretation to readers: raw signals rather than derived scores, so a future reader can re-score every line it finds. The first reader is [`discern patterns`](../20-quality-gate/patterns.md), which runs a detector registry over the stream and reports findings in plain counts; the substrate itself records, rotates, and stays out of the way.
 
 The substrate's constraints:
 
@@ -44,7 +44,7 @@ The limits the epoch masks land in the stream through their own door. A `standar
 
 Each surface records at one point. MCP: `runVerb`, the single place every tool call already flows through. CLI: `recordedExit`, the shared action wrapper — every Cliffy action returns its exit code and the wrapper owns the `Deno.exit`, times the run, and records on completion. The wrapper registers each verb it wraps, and a parity test reconciles that registry against `KNOWN_VERBS`, so a future verb that skips it fails the gate. Result envelopes reach the recorder through a one-slot seam fed by `emitResult` and the gate entry points. A verb with no envelope (`identity`, `script`) still records a minimal event, because a uniform stream is what verb-sequence readers need.
 
-Each interceptor also contributes what only its surface can see. The CLI wrapper gathers the parent-process session hint, the `--json`/terminal/CI signals, and the flag names on the command line. Flag capture keeps names only, pattern-restricted, and skips the `script` namespace because its arguments belong to the child. The MCP chokepoint stamps a per-server-instance session id and the call's argument names. `help` and `map` report the topic or page they served through a one-slot target seam beside the envelope's. Everything else (gate fields, standard readings, pins, a start's `from`, an update's counts) lifts from the envelope's `data` by shape rather than by verb name. A renamed verb therefore keeps recording correctly.
+Each interceptor also contributes what only its surface can see. The CLI wrapper gathers the parent-process session hint, the `--json`/terminal/CI signals, and the flag names on the command line. Both interceptors ask the logbook-only identity detector for every matching process or host marker. The recorder keeps marker names and drops environment values. The MCP recording point also stamps a per-server-instance session id, captures the call's argument names, and retains bounded `clientInfo`. Request `_meta` takes priority, with the initialized client as fallback. The detector maps known MCP names separately. The raw declaration therefore remains available when client-name mappings improve later. Flag capture keeps names only, pattern-restricted, and skips the `script` namespace because its arguments belong to the child. `help` and `map` report the topic or page they served through a one-slot target seam beside the envelope's. Everything else (gate fields, standard readings, pins, a start's `from`, an update's counts) lifts from the envelope's `data` by shape rather than by verb name. A renamed verb therefore keeps recording correctly.
 
 Context (branch, commit, config, toggle) is gathered concurrently with the verb itself, starting at invocation — which is also why `accept` still attributes correctly: the branch is read while the worktree exists. The toggle is `[project].logbook`; when the config is unreadable, the recorder writes nothing.
 
@@ -52,21 +52,24 @@ Context (branch, commit, config, toggle) is gathered concurrently with the verb 
 
 ## Where it lives in code
 
-| Concept                         | File                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------- |
-| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)         |
-| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)           |
-| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)           |
-| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)         |
-| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)               |
-| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)             |
-| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)   |
-| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)     |
-| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)         |
-| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts) |
-| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)         |
+| Concept                         | File                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)               |
+| Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)             |
+| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts) |
+| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                 |
+| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                 |
+| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)               |
+| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                     |
+| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                   |
+| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)         |
+| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)           |
+| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)               |
+| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)       |
+| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)               |
 
 ## See also
 
 - [Trust & your data](../00-orientation/trust-and-data.md) — the user-facing contract: what is recorded, the switch, and the deletion path.
 - [ADR 0160](../_adr/0160-local-logbook-advisory-readers.md) — the decision of record, including the advisory readers to come.
+- [ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md) — why coding-agent identity remains source-labelled evidence and never steers the product.

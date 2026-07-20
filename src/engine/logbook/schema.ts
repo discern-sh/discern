@@ -41,6 +41,7 @@
  */
 
 import { z } from "@zod/zod";
+import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = 1;
@@ -115,13 +116,33 @@ export type DiagnosticClass = z.infer<typeof diagnosticClassSchema>;
  *    guidance; humans rarely do);
  *  - `tty` — stdout was an interactive terminal;
  *  - `ci` — the conventional CI environment marker was set, so automation
- *    noise is filterable from interactive history.
+ *    noise is filterable from interactive history;
+ *  - `agent_signals` — every advisory coding-agent match, separated by source
+ *    and carrying marker names only. It is deliberately a set of evidence, not
+ *    a winner or confidence score;
+ *  - `mcp_client` — the bounded raw `clientInfo` declaration when the call came
+ *    over MCP. It identifies the client implementation, not necessarily the
+ *    model or agent behind it.
  */
+const agentSignalSchema = z.looseObject({
+  agent: z.string(),
+  source: z.enum(AGENT_SIGNAL_SOURCES),
+  markers: z.array(z.string()).min(1),
+});
+
+const mcpClientSchema = z.looseObject({
+  name: z.string(),
+  title: z.string().optional(),
+  version: z.string(),
+});
+
 const driverSchema = z.looseObject({
   session: z.string().optional(),
   json: z.boolean().optional(),
   tty: z.boolean().optional(),
   ci: z.boolean().optional(),
+  agent_signals: z.array(agentSignalSchema).optional(),
+  mcp_client: mcpClientSchema.optional(),
 });
 /** One recorded driver-signal bundle. */
 export type DriverFacts = z.infer<typeof driverSchema>;

@@ -2,9 +2,10 @@
  * Agent-integration PARITY guard — the forcing function that keeps every coding
  * agent handled identically across discern's cross-cutting surfaces.
  *
- * The typed provider registry (ADR 0031) is the single source of truth for
- * everything agent-specific, and it is a TOTAL `Record<AgentName, Provider>`, so
- * adding a name to `AGENT_NAMES` already forces a complete `PROVIDERS` entry (a
+ * The shared identity catalogue (ADR 0166) derives the native `AGENT_NAMES`, and
+ * the typed provider registry (ADR 0031) is the single source of truth for every
+ * native integration surface. It is a TOTAL `Record<AgentName, Provider>`, so
+ * adding a native catalogue entry already forces a complete `PROVIDERS` entry (a
  * compile error otherwise). That coupling protects the runtime engine — but the
  * SATELLITE surfaces that re-encode agent paths (the seed `.gitignore`, the
  * neutral-scope defaults, improve's agent-file probe) have no compile-time tie to

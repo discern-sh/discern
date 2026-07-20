@@ -93,7 +93,7 @@ export interface FinishReport {
   result?: DiscernResult | undefined;
   /** True when the invocation was a preview (`--dry-run`). */
   dryRun?: boolean | undefined;
-  /** Surface-specific driver signals (session, json, tty, ci). */
+  /** Surface-specific driver signals (session, mode, identity hints). */
   driver?: DriverFacts | undefined;
   /** Flag NAMES the invocation passed (never values). */
   flags?: string[] | undefined;

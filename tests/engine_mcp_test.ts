@@ -25,6 +25,11 @@ import {
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import {
+  type LogbookEvent,
+  parseLogbookLine,
+} from "../src/engine/logbook/schema.ts";
+import { MCP_CLIENT_INFO_META_KEY } from "../src/engine/logbook/agent_signals.ts";
 import { withTempDir } from "./helpers.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import {
@@ -154,6 +159,30 @@ async function spawnMcp(
     stderr: "null",
   }).spawn();
   return new McpClient(child);
+}
+
+/** Read the valid verb events written by a spawned MCP server. */
+async function readMcpVerbEvents(
+  dir: string,
+): Promise<Extract<LogbookEvent, { kind: "verb" }>[]> {
+  const events: Extract<LogbookEvent, { kind: "verb" }>[] = [];
+  const logDir = join(dir, ".git", "discern", "logbook");
+  for await (const entry of Deno.readDir(logDir)) {
+    if (!entry.isFile || !entry.name.endsWith(".jsonl")) {
+      continue;
+    }
+    const text = await Deno.readTextFile(join(logDir, entry.name));
+    for (
+      const line of text.split("\n").filter((candidate) => candidate !== "")
+    ) {
+      const parsed = parseLogbookLine(line);
+      assert(parsed.kind === "event", `unparseable MCP logbook line: ${line}`);
+      if (parsed.event.kind === "verb") {
+        events.push(parsed.event);
+      }
+    }
+  }
+  return events;
 }
 
 async function commitWorktreeForAcceptance(
@@ -464,7 +493,17 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       jsonrpc: "2.0",
       id: 10,
       method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
+      params: {
+        name: "discern_status",
+        arguments: {},
+        _meta: {
+          [MCP_CLIENT_INFO_META_KEY]: {
+            name: "codex-mcp-client",
+            title: "Codex",
+            version: "2.0.0",
+          },
+        },
+      },
     });
     const status = await mcp.recv();
     assertEquals(status.id, 10);
@@ -564,6 +603,33 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     );
 
     assertEquals(await mcp.close(), 0);
+    const recordedEvents = await readMcpVerbEvents(dir);
+    const statusEvent = recordedEvents.find((event) => event.verb === "status");
+    assert(
+      statusEvent !== undefined,
+      "the live MCP status call must be recorded",
+    );
+    assertEquals(statusEvent.driver?.mcp_client, {
+      name: "codex-mcp-client",
+      title: "Codex",
+      version: "2.0.0",
+    });
+    assert(
+      statusEvent.driver?.agent_signals?.some((signal) =>
+        signal.agent === "codex" && signal.source === "mcp-client"
+      ) === true,
+      "per-request clientInfo must override initialized clientInfo and normalize through the catalogue",
+    );
+    const impactEvent = recordedEvents.find((event) => event.verb === "impact");
+    assert(
+      impactEvent !== undefined,
+      "the live MCP impact call must be recorded",
+    );
+    assertEquals(
+      impactEvent.driver?.mcp_client,
+      { name: "test", version: "0" },
+      "without request metadata, initialized clientInfo is the fallback",
+    );
   });
 });
 

@@ -1,6 +1,7 @@
 /**
- * The typed provider registry (ADR 0031) — the single source of truth for
- * everything agent-specific. These guard that the registry stays total and that
+ * The typed provider registry (ADR 0031) — the single source of truth for every
+ * native integration surface, over the identity-catalogue subset (ADR 0166).
+ * These guard that the registry stays total and that
  * the Claude Code MCP wiring is correct and idempotent.
  */
 

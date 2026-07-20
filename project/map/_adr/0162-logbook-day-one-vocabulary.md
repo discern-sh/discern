@@ -2,6 +2,8 @@
 
 **Status**: accepted
 
+> **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the driver vocabulary now accretes source-labelled coding-agent hints and bounded MCP client metadata. It still stores no agent verdict, confidence, or behavioural branch. The rest of this decision is unchanged.
+
 ## Context
 
 ADR 0160 decided the logbook substrate. The first implementation recorded a lean event: verb, surface, branch, `HEAD`, cleanliness, a binary outcome, durations, diagnostic classes, and the config epoch. Reviewing it against the readers to come (waves 2–3) surfaced a structural fact about timing. The event schema is loose and versioned, so any field can arrive later without breaking a reader. But a field added after launch means every early adopter's first months of history can never carry it, and that early corpus is exactly what the first detectors tune on. The launch window is therefore the one moment "record it later" and "record it never" are the same decision for the data that matters most. The product ships in days.

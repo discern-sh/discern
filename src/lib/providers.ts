@@ -1,10 +1,10 @@
 /**
- * The typed provider registry (ADR 0031): the single source of truth for
- * everything agent-specific — the compiled guidance file, the worktree-hook
- * surface, the MCP-server registration, project rules, and the skills directory.
- * Keyed by {@link AgentName} as a TOTAL Record, so the type checker forces a
- * complete entry for every known agent and provider-specific behaviour can never
- * drift across the codebase. There is no universal agent setup file, so each live
+ * The typed native-provider registry (ADR 0031): the single source of truth for
+ * every integration surface — compiled guidance, worktree hooks, MCP
+ * registration, project rules, and skills directories. Native names and labels
+ * come from the broader identity catalogue (ADR 0166); this record is TOTAL over
+ * that native subset, so the type checker forces a complete integration for every
+ * supported provider. There is no universal agent setup file, so each live
  * integration is authored against that agent's own mechanism; an absent optional
  * integration is simply skipped, never guessed.
  */
@@ -27,6 +27,7 @@ import {
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
 import { TomlEditor } from "./toml_edit.ts";
+import { agentLabelForNative } from "../shared/agent_catalogue.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -1039,7 +1040,7 @@ async function registerCopilotMcp(
 export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
     name: "claude_code",
-    label: "Claude Code",
+    label: agentLabelForNative("claude_code"),
     binaries: ["claude"],
     cli: {
       actions: [
@@ -1082,7 +1083,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   },
   codex: {
     name: "codex",
-    label: "Codex",
+    label: agentLabelForNative("codex"),
     binaries: ["codex"],
     cli: {
       actions: [
@@ -1140,7 +1141,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   },
   gemini: {
     name: "gemini",
-    label: "Gemini",
+    label: agentLabelForNative("gemini"),
     binaries: ["gemini"],
     cli: {
       actions: [
@@ -1193,7 +1194,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   },
   cursor: {
     name: "cursor",
-    label: "Cursor",
+    label: agentLabelForNative("cursor"),
     // `cursor-agent` is the high-confidence CLI signal. The generic `agent` alias is
     // deliberately NOT a setup-detection signal: unrelated tools commonly use it.
     binaries: ["cursor-agent"],
@@ -1243,7 +1244,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   },
   copilot: {
     name: "copilot",
-    label: "GitHub Copilot",
+    label: agentLabelForNative("copilot"),
     // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
     binaries: ["copilot"],
     cli: {

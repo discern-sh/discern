@@ -8,10 +8,10 @@ import type { TokenMap } from "./template.ts";
 import { renderTomlStringList } from "./toml_render.ts";
 import { KIT_VERSION } from "./version.ts";
 
-// The agent/provider vocabulary (claude_code→CLAUDE.md, codex→AGENTS.md,
-// gemini→GEMINI.md) is defined once on the canonical schema as `AGENT_NAMES` and
-// re-exported here under the installer's long-standing name, so the wizard, the
-// config document, and the generated editor JSON Schema share one list.
+// The native agent/provider vocabulary is derived from the shared identity
+// catalogue, then re-exported by the canonical schema under `AGENT_NAMES`. The
+// wizard, config document, generated editor schema, and logbook detector therefore
+// share one identity source without making signal-only agents setup choices.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import { MAP_DIR_REFERENCE } from "../shared/map_path.ts";
 import { NAMESPACE_DIR, SOURCE_PATHS } from "../shared/paths_registry.ts";

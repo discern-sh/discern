@@ -157,6 +157,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0163 — The patterns family houses its reset as a CLI-only imperative subcommand](0163-patterns-reset-cli-only.md)
 - [0164 — The glossary compiles from a term registry](0164-glossary-compiles-from-a-term-registry.md)
 - [0165 — Git-admin state shares one namespace without changing its lifetime](0165-git-admin-state-namespaced-by-lifetime.md)
+- [0166 — Coding-agent identity is advisory logbook evidence from one catalogue](0166-agent-identity-is-advisory-logbook-evidence.md)
 
 ## Superseded records
 

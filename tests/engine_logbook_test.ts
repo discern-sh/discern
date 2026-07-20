@@ -69,7 +69,10 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["status", "--local", "--json"]);
+    const envValue = "logbook-test-thread-value";
+    const r = await runAgent(dir, ["status", "--local", "--json"], {
+      env: { CODEX_THREAD_ID: envValue },
+    });
     assertEquals(r.code, 0, r.output);
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
@@ -102,6 +105,18 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
       event.driver.session !== undefined &&
         event.driver.session.startsWith("cli:"),
       `a CLI session hint expected, got ${event.driver.session}`,
+    );
+    assert(
+      event.driver.agent_signals?.some((signal) =>
+        signal.agent === "codex" &&
+        signal.source === "process-environment" &&
+        signal.markers.includes("CODEX_THREAD_ID")
+      ) === true,
+      "the CLI event carries the catalogue match as advisory evidence",
+    );
+    assert(
+      !JSON.stringify(event.driver).includes(envValue),
+      "the environment marker's value must not land in the logbook",
     );
     assertEquals(event.flags, ["local"]);
     assertEquals(event.change, {
@@ -356,7 +371,18 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     await gitInit(dir);
     const status = TOOLS.find((t) => t.name === "discern_status");
     assert(status !== undefined);
-    const result = await runTool(status, new WorkingRoot(dir), {});
+    const result = await runTool(
+      status,
+      new WorkingRoot(dir),
+      {},
+      undefined,
+      () => Promise.resolve(undefined),
+      {
+        name: "codex-mcp-client",
+        title: "Codex",
+        version: "1.2.3",
+      },
+    );
     assertEquals(result.isError, false);
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
@@ -370,6 +396,18 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       event.driver !== undefined && event.driver.session !== undefined &&
         event.driver.session.startsWith("mcp:"),
       "an MCP event carries its server-instance session hint",
+    );
+    assertEquals(event.driver?.mcp_client, {
+      name: "codex-mcp-client",
+      title: "Codex",
+      version: "1.2.3",
+    });
+    assert(
+      event.driver?.agent_signals?.some((signal) =>
+        signal.agent === "codex" && signal.source === "mcp-client" &&
+        signal.markers.includes("clientInfo.name")
+      ) === true,
+      "the raw MCP declaration and its normalized advisory signal both land",
     );
   });
 });

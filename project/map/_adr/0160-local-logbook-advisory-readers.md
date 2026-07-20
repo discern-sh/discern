@@ -2,6 +2,8 @@
 
 **Status**: accepted
 
+> **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the logbook now records source-labelled coding-agent identity signals when cheap hints exist. They remain evidence, never a vendor verdict, and never steer product behaviour. The rest of this decision is unchanged.
+
 ## Context
 
 Every discern surface answers the question _"what is true now?"_ — `status`, `doctor`, `improvement`, and a `done` receipt are all point-in-time snapshots. The missing axis is time. discern keeps no memory of how agents drive it: the verbs they call and their order, what the gate fails on and how often, how long each step takes, how many loops a task needs before green.

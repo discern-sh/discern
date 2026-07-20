@@ -10,13 +10,13 @@ aliases:
 
 _Provider-specific files, trust gates, and daily gotchas for each coding agent discern knows how to wire._
 
-discern keeps provider-specific behavior in one typed registry: [`src/lib/providers.ts`](../../../src/lib/providers.ts). That registry names each agent's instruction file, skills directory, MCP config target, hooks, trust gate, interactive CLI actions, and any app-managed worktree lifecycle file. `discern setup`, `discern refresh`, and `discern upgrade` use the registry to re-establish the integration artifacts idempotently; [the desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
+discern keeps coding-agent identity in one shared catalogue: [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The total provider registry in [`src/lib/providers.ts`](../../../src/lib/providers.ts) then describes every native integration. It names the instruction file, skills directory, Model Context Protocol (MCP) config target, hooks, trust gate, interactive CLI actions, and any app-managed worktree lifecycle file. Signal-only catalogue entries can appear as advisory logbook evidence but never become setup choices. `discern setup`, `discern refresh`, and `discern upgrade` use the provider registry to re-establish integration artifacts. [The desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
 
 This section is the human-readable companion to that registry. Each provider page names the exact files discern writes or co-manages, why those settings exist, what discern leaves to the user, and what surprises users and agents should expect from that provider.
 
 For the shared instructions behind these files, read [Agent guidance](../40-agent-guidance/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
 
-The provider registry is the source of truth for this supported set ([ADR 0031](../_adr/0031-typed-provider-integration.md)).
+The identity catalogue supplies the supported set, and the total provider registry makes every native integration complete ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md), [ADR 0031](../_adr/0031-typed-provider-integration.md)).
 
 | Read next                           | What's in it                                                     |
 | ----------------------------------- | ---------------------------------------------------------------- |

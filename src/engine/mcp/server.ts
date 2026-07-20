@@ -35,6 +35,12 @@ import { takeObservedResult } from "../../shared/result_capture.ts";
 import { beginRecording } from "../logbook/record.ts";
 import type { DriverFacts } from "../logbook/schema.ts";
 import {
+  type AgentSignal,
+  detectAgentSignals,
+  type RecordedMcpClient,
+  resolveMcpClientInfo,
+} from "../logbook/agent_signals.ts";
+import {
   type AcceptData,
   AcceptOutputSchema,
   CouplingOutputSchema,
@@ -1082,10 +1088,13 @@ export class WorkingRoot {
  * which is exactly the grouping a session reader wants. */
 const MCP_SESSION = `mcp:${crypto.randomUUID().slice(0, 8)}`;
 
-/** The MCP surface's raw driver signals: the per-instance session id and the
- * CI marker. `json`/`tty` are CLI concepts; an MCP client is programmatic by
+/** The MCP surface's raw driver signals: the per-instance session id, CI marker,
+ * advisory catalogue matches, and the bounded protocol client declaration when
+ * present. `json`/`tty` are CLI concepts; an MCP client is programmatic by
  * construction, and the absence of those fields says so honestly. */
-function mcpDriverFacts(): DriverFacts {
+async function mcpDriverFacts(
+  mcpClient?: RecordedMcpClient,
+): Promise<DriverFacts> {
   let ci = false;
   try {
     const marker = Deno.env.get("CI");
@@ -1093,7 +1102,22 @@ function mcpDriverFacts(): DriverFacts {
   } catch {
     // No env permission reads as not-CI.
   }
-  return { session: MCP_SESSION, ci };
+  let agentSignals: AgentSignal[] | undefined;
+  try {
+    agentSignals = await detectAgentSignals(
+      mcpClient === undefined ? {} : { mcpClient },
+    );
+  } catch {
+    // Driver enrichment is best-effort and must never affect the tool result.
+  }
+  return {
+    session: MCP_SESSION,
+    ci,
+    ...(agentSignals !== undefined && agentSignals.length > 0
+      ? { agent_signals: agentSignals }
+      : {}),
+    ...(mcpClient !== undefined ? { mcp_client: mcpClient } : {}),
+  };
 }
 
 /** The argument NAMES a tool call provided — the MCP mirror of CLI flag names,
@@ -1119,8 +1143,10 @@ async function runVerb(
   root: string,
   args: Record<string, unknown>,
   signal?: AbortSignal,
+  mcpClient?: RecordedMcpClient,
 ): Promise<DiscernResult> {
   const recording = beginRecording(root);
+  const driver = mcpDriverFacts(mcpClient);
   const started = performance.now();
   let result: DiscernResult;
   try {
@@ -1143,7 +1169,7 @@ async function runVerb(
     outcome: result.ok ? "ok" : "failed",
     durationMs: performance.now() - started,
     result,
-    driver: mcpDriverFacts(),
+    driver: await driver,
     ...(result.dry_run === true ? { dryRun: true } : {}),
     ...(flags !== undefined ? { flags } : {}),
     ...(target !== undefined ? { target } : {}),
@@ -1171,6 +1197,7 @@ export async function runTool(
   signal?: AbortSignal,
   resolveInstalledVersion: () => Promise<string | undefined> =
     defaultInstalledVersion,
+  mcpClient?: RecordedMcpClient,
 ): Promise<ToolResult> {
   // Version handshake: if the discern binary on disk was replaced with a different
   // version since this long-lived server started, its engine and embedded templates
@@ -1215,7 +1242,7 @@ export async function runTool(
     // (the TOOLS-table single source of truth) — no per-name special case here.
     if (tool.rootIndependent === true) {
       return render(
-        await runVerb(tool, Deno.cwd(), args, signal),
+        await runVerb(tool, Deno.cwd(), args, signal, mcpClient),
       );
     }
     return render({
@@ -1240,7 +1267,7 @@ export async function runTool(
       message: NOT_SET_UP_MESSAGE,
     });
   }
-  const result = await runVerb(tool, root, args, signal);
+  const result = await runVerb(tool, root, args, signal, mcpClient);
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
   // the working root per the tool's own hook (start → the new worktree it created;
   // accept → the main checkout it landed in). A `path` override is normally a
@@ -1642,7 +1669,11 @@ export async function runMcpServer(): Promise<number> {
   // this OR the SDK's per-request signal (aborted on `notifications/cancelled`
   // when the client cancels that one call).
   const shutdown = new AbortController();
-  const callSignal = (extra: { signal: AbortSignal }): AbortSignal =>
+  interface McpCallExtra {
+    readonly signal: AbortSignal;
+    readonly _meta?: Record<string, unknown>;
+  }
+  const callSignal = (extra: McpCallExtra): AbortSignal =>
     AbortSignal.any([extra.signal, shutdown.signal]);
 
   for (const tool of TOOLS) {
@@ -1668,8 +1699,20 @@ export async function runMcpServer(): Promise<number> {
     server.registerTool(
       tool.name,
       { ...config, inputSchema: strictInput(tool.inputSchema) },
-      (args: Record<string, unknown>, extra: { signal: AbortSignal }) =>
-        runTool(tool, working, args, callSignal(extra), installedVersion),
+      (args: Record<string, unknown>, extra: McpCallExtra) => {
+        const mcpClient = resolveMcpClientInfo(
+          extra._meta,
+          server.server.getClientVersion(),
+        );
+        return runTool(
+          tool,
+          working,
+          args,
+          callSignal(extra),
+          installedVersion,
+          mcpClient,
+        );
+      },
     );
   }
 

@@ -27,6 +27,7 @@ import {
 } from "../../shared/result_capture.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import { beginRecording } from "./record.ts";
+import { type AgentSignal, detectAgentSignals } from "./agent_signals.ts";
 
 const recordedVerbs = new Set<string>();
 
@@ -36,10 +37,12 @@ const recordedVerbs = new Set<string>();
  * session grouping hint — one conversation's invocations share a parent even
  * when every task shares a branch), whether `--json` was requested (agents
  * pass it per the guidance; humans rarely do), whether stdout is a terminal,
- * and whether the conventional CI marker is set. Facts only; scoring them into
- * an is-this-an-agent inference is reader work, revisable over all history.
+ * whether the conventional CI marker is set, and every advisory identity marker
+ * the shared catalogue recognizes. Facts only; marker values never land, and
+ * scoring them into an is-this-an-agent inference is reader work, revisable over
+ * all history.
  */
-function cliDriverFacts(scanArgs: boolean): DriverFacts {
+async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   let tty = false;
   try {
     tty = Deno.stdout.isTerminal();
@@ -53,11 +56,20 @@ function cliDriverFacts(scanArgs: boolean): DriverFacts {
   } catch {
     // No env permission reads as not-CI.
   }
+  let agentSignals: AgentSignal[] | undefined;
+  try {
+    agentSignals = await detectAgentSignals();
+  } catch {
+    // Driver enrichment is best-effort and must never affect the verb.
+  }
   return {
     session: `cli:${Deno.ppid}`,
     ...(scanArgs ? { json: Deno.args.includes("--json") } : {}),
     tty,
     ci,
+    ...(agentSignals !== undefined && agentSignals.length > 0
+      ? { agent_signals: agentSignals }
+      : {}),
   };
 }
 
@@ -115,6 +127,11 @@ export async function recordedRun(
   body: () => number | undefined | Promise<number | undefined>,
 ): Promise<number> {
   const recording = beginRecording(Deno.cwd());
+  // Everything after a `script` name belongs to the child, so only normal verbs
+  // may inspect this process's argv. Start driver enrichment beside the verb so
+  // the host-marker stat does not extend the completion tail.
+  const scanArgs = verb !== "script";
+  const driver = cliDriverFacts(scanArgs);
   const started = performance.now();
   let code = 1;
   try {
@@ -127,7 +144,6 @@ export async function recordedRun(
     // every argv scan (dry-run, --json, flag names) — everything after the
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.
-    const scanArgs = verb !== "script";
     const dryRun = observed?.dry_run === true ||
       (scanArgs && Deno.args.includes("--dry-run"));
     const flags = scanArgs ? cliFlagNames() : undefined;
@@ -136,7 +152,7 @@ export async function recordedRun(
       surface,
       outcome: code === 0 ? "ok" : "failed",
       durationMs: performance.now() - started,
-      driver: cliDriverFacts(scanArgs),
+      driver: await driver,
       ...(observed !== undefined ? { result: observed } : {}),
       ...(dryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),

@@ -31,6 +31,9 @@ import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
 import { isValidMapDir } from "./map_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { retiredConfigKeySuccessor } from "./vocabulary.ts";
+import { AGENT_NAMES } from "./agent_catalogue.ts";
+
+export { AGENT_NAMES } from "./agent_catalogue.ts";
 
 // ── TOML syntax diagnostics (kept here so config_read/toml_render share them) ──
 
@@ -76,17 +79,10 @@ export class ConfigParseError extends Error {
  * `<name>` the next load would reject. */
 export const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
-/** The agent/provider files discern knows how to emit — the single source for
- * the document's `agents` enum, the generated editor JSON Schema (so it can never
- * miss one), AND the installer's `KNOWN_AGENTS` (re-exported from
- * `lib/config.ts`). */
-export const AGENT_NAMES = [
-  "claude_code",
-  "codex",
-  "gemini",
-  "cursor",
-  "copilot",
-] as const;
+/** The native provider names are derived from the shared identity catalogue,
+ * then reused by the document's `agents` enum, generated editor JSON Schema,
+ * and installer `KNOWN_AGENTS` export. Signal-only identities never become
+ * configuration choices. */
 
 /**
  * The providers a fresh install emits when neither `[guidance].agents` nor the
