@@ -152,6 +152,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0158 — One standard YAML parser for all frontmatter](0158-one-standard-yaml-parser-for-frontmatter.md)
 - [0159 — Inherited-terminal children have one owned lifecycle](0159-inherited-terminal-children-have-one-owned-lifecycle.md)
 - [0160 — A local logbook of discern's own use, on by default, with advisory-only readers](0160-local-logbook-advisory-readers.md)
+- [0161 — Standards hold growth-proof numbers, and a breach from the work itself escalates](0161-growth-proof-standards-and-breach-escalation.md)
 
 ## Superseded records
 

@@ -41,7 +41,7 @@ Ask before wiring: does this number move when the project healthily grows? The a
 - A **quality that scales** rises with the tree — coverage, alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 - A **growing total** rises with every shipped feature — an asset size, a word count. A ceiling pinned at today's value fails the next legitimate change, and the pressure lands on qualities no standard measures: an agent shrinks unrelated content or trades readability for bytes, and the gate reports green. Prefer the rate that states the real claim; where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused (the deliverable grew what the metric measures) instead of engineering the number back down. The owner moves the limit on the trunk, and the breach diagnostic says so at the moment it fires.
+Report a breach the work itself caused (the deliverable grew what the metric measures) instead of engineering the number back down. The owner moves the limit on the trunk, and the breach diagnostic says so at the moment it fires ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md)).
 
 ## What the gate does
 
