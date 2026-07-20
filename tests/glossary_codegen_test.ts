@@ -3,7 +3,7 @@ import {
   GLOSSARY,
   renderGlossaryDoc,
   sortedGlossary,
-} from "../src/shared/glossary.ts";
+} from "../scripts/glossary_registry.ts";
 import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 

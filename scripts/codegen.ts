@@ -18,7 +18,7 @@ import {
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
-import { renderGlossaryDoc } from "../src/shared/glossary.ts";
+import { renderGlossaryDoc } from "./glossary_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderResultJsonSchema,
@@ -76,7 +76,7 @@ await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
-console.log("Regenerating the glossary from src/shared/glossary.ts:");
+console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",

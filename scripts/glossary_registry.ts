@@ -12,16 +12,23 @@
  *    aliases, lookups, future term surfaces) reads {@link GLOSSARY} instead of
  *    parsing Markdown.
  *
- * Definitions whose prose states a closed set the engine owns (the capability
- * vocabulary, the stage names) interpolate that set from its single source of
- * truth, so adding a member updates the glossary in the same change — the page
- * cannot silently disagree with the engine.
+ * Definitions whose prose states a fact another registry owns interpolate it
+ * from that single source of truth — the capability vocabulary from
+ * `KNOWN_CAPABILITIES`, the stage names from `STAGES`, the authored-source
+ * default paths from `SOURCE_PATHS` — so adding a member or moving a default
+ * updates the glossary in the same change; the page cannot silently disagree
+ * with the engine.
  *
- * These functions stay OUT of the engine's hot path — they are dev/codegen
- * tools.
+ * This module lives under `scripts/`, not `src/`: its strings are map prose,
+ * whose internal ADR citations the vocab guard rightly bans from the binary's
+ * own source tree (ADR 0164).
  */
 
-import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
+import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import {
+  NAMESPACE_DIR,
+  sourcePathDefault,
+} from "../src/shared/paths_registry.ts";
 
 /** One glossary entry: the canonical term and its definition. */
 export interface GlossaryEntry {
@@ -146,7 +153,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Guidance source",
     definition:
-      "Your own agent instructions, at the paths named by `[guidance].sources` (default `discern/guidance.md`). Additive: discern's built-in guidance is always prepended, so your sources extend it rather than replace it. Covered in [agent guidance](../40-agent-guidance/).",
+      `Your own agent instructions, at the paths named by \`[guidance].sources\` (default \`${
+        sourcePathDefault("guidance")
+      }\`). Additive: discern's built-in guidance is always prepended, so your sources extend it rather than replace it. Covered in [agent guidance](../40-agent-guidance/).`,
   },
   {
     term: "Installer",
@@ -161,7 +170,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Map",
     definition:
-      "The documentation tree discern maintains at `[map].dir` (default `map/`): written by agents, kept current under the gate, and read by humans both as documentation and as an audit of what their agents understand. `publish: false` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing `[map].dir` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).",
+      `The documentation tree discern maintains at \`[map].dir\` (default \`${
+        sourcePathDefault("map")
+      }\`): written by agents, kept current under the gate, and read by humans both as documentation and as an audit of what their agents understand. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).`,
   },
   {
     term: "Migration",
@@ -171,7 +182,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Namespace",
     definition:
-      "The visible `discern/` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the `TODO.md` ledger. Nothing generated is ever written inside it, and every source has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).",
+      `The visible \`${NAMESPACE_DIR}\` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the \`TODO.md\` ledger. Nothing generated is ever written inside it, and every source has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).`,
   },
   {
     term: "Patterns",
@@ -191,7 +202,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Project script",
     definition:
-      "A project's own language-agnostic executable under `[scripts].dir` (default `discern/scripts`), run as `discern script <name>` with `DISCERN_*` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).",
+      `A project's own language-agnostic executable under \`[scripts].dir\` (default \`${
+        sourcePathDefault("scripts")
+      }\`), run as \`discern script <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
   },
   {
     term: "Readiness",
@@ -263,7 +276,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
 
 /** The banner stamped atop the generated glossary page. */
 const DOCS_BANNER =
-  "<!-- GENERATED by `deno task codegen` from the term registry (src/shared/glossary.ts) — do NOT edit by hand. Change an entry there and regenerate. -->";
+  "<!-- GENERATED by `deno task codegen` from the term registry (scripts/glossary_registry.ts) — do NOT edit by hand. Change an entry there and regenerate. -->";
 
 /** The sort key an entry alphabetizes under: lowercased, leading "The " dropped. */
 function sortKey(term: string): string {

@@ -34,7 +34,7 @@ The map is public documentation: the published tiers render on the docs site, in
 
 1. **`map/README.md`** — the documentation tree's table of contents. Confirms your subtree's position and its neighbours.
 2. **`map/00-orientation/concepts.md`** — the canonical naming source. Use its capitalised nouns verbatim. Do not introduce synonyms.
-3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves. The page is generated from the term registry (`src/shared/glossary.ts`): a new or changed entry is an edit there plus `deno task codegen`, never an edit to the page.
+3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves. The page is generated from the term registry (`scripts/glossary_registry.ts`): a new or changed entry is an edit there plus `deno task codegen`, never an edit to the page.
 4. **The [voice skill](../../skills/discern-voice-and-tone/SKILL.md)** — the register your pages hold, and the banned moves the gate's prose lint watches for.
 5. **Your scope manifest** at `map/_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
 6. **The source files** listed in your manifest. Read whole files where they are small. For large directories, get a listing first and read the most central files in full; sample the rest.
