@@ -899,12 +899,31 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
       "the single-doc result carries the file's content",
     );
 
-    // A near-miss target → a not_found error envelope with retryable suggestions.
+    // A frontmatter alias resolves like a slug ("config" is a declared alias
+    // of the config reference).
     await mcp.send({
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
       params: { name: "discern_help", arguments: { target: "config" } },
+    });
+    const viaAlias = await mcp.recv();
+    assertEquals(viaAlias.result.isError, false);
+    assertEquals(
+      viaAlias.result.structuredContent.data.doc.slug,
+      "config-reference",
+      "a frontmatter alias resolves to its page",
+    );
+
+    // A near-miss target → a not_found error envelope with retryable suggestions.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "discern_help",
+        arguments: { target: "config-referenc" },
+      },
     });
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
