@@ -9,6 +9,9 @@ import { fromFileUrl, join, relative } from "@std/path";
 import {
   AGENT_CATALOGUE,
   AGENT_NAMES,
+  AGENT_SIGNAL_SOURCE_LIFETIMES,
+  AGENT_SIGNAL_SOURCES,
+  agentLabel,
   type AgentIdentity,
 } from "../src/shared/agent_catalogue.ts";
 import {
@@ -124,6 +127,33 @@ Deno.test("agent catalogue: covers laravel/agent-detector's stated agents and de
       `${name}: provider label must come from the shared catalogue`,
     );
   }
+});
+
+Deno.test("agent catalogue: every source class carries a lifetime and every identity a label", () => {
+  assertEquals(
+    Object.keys(AGENT_SIGNAL_SOURCE_LIFETIMES).sort(),
+    [...AGENT_SIGNAL_SOURCES].sort(),
+    "the lifetime record must stay total over the source union",
+  );
+  for (const source of AGENT_SIGNAL_SOURCES) {
+    const lifetime = AGENT_SIGNAL_SOURCE_LIFETIMES[source];
+    assert(
+      lifetime === "invocation" || lifetime === "ambient",
+      `${source}: unclassified lifetime`,
+    );
+  }
+  for (const identity of AGENT_CATALOGUE) {
+    assertEquals(
+      agentLabel(identity.id),
+      identity.label,
+      `${identity.id}: label lookup must come from the catalogue`,
+    );
+  }
+  assertEquals(
+    agentLabel("some-future-agent"),
+    "some-future-agent",
+    "an id this release doesn't know must fall back to itself, never throw",
+  );
 });
 
 Deno.test("agent detection is imported only by the two logbook recording chokepoints", async () => {

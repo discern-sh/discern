@@ -178,6 +178,36 @@ export const AGENT_SIGNAL_SOURCES = [
 /** One signal provenance class. */
 export type AgentSignalSource = (typeof AGENT_SIGNAL_SOURCES)[number];
 
+/**
+ * Each source class's evidence lifetime. `invocation` evidence is scoped to the
+ * run that carried it (a process variable, a per-call client declaration);
+ * `ambient` evidence is persistent host state that outlives any one invocation,
+ * so it can corroborate a reading but must never drive one — a reader that let
+ * a persistent host marker classify runs would attribute every run on that
+ * host forever. A total record over the source union: a new source class fails
+ * compilation until its lifetime is classified, and every reader inherits the
+ * answer.
+ */
+export const AGENT_SIGNAL_SOURCE_LIFETIMES = {
+  "process-environment": "invocation",
+  "mcp-client": "invocation",
+  "host-filesystem": "ambient",
+} as const satisfies Record<AgentSignalSource, "invocation" | "ambient">;
+
+/**
+ * The display label for one identity id, falling back to the id itself for
+ * vocabulary this release doesn't know — logbook events may carry ids written
+ * by a newer release's catalogue.
+ */
+export function agentLabel(id: string): string {
+  for (const identity of AGENT_CATALOGUE) {
+    if (identity.id === id) {
+      return identity.label;
+    }
+  }
+  return id;
+}
+
 type NativeAgentEntry = Extract<
   (typeof AGENT_CATALOGUE)[number],
   { readonly nativeName: string; readonly nativeOrder: number }
