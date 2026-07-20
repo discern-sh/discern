@@ -44,7 +44,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `standards`    | each standard's limit and measured value        |
 | `epoch`        | a fingerprint of your config                    |
 
-Each line carries a schema version; readers skip lines they don't recognize, and fields only accrete. Three rarer kinds sit beside the verb line: `config-change` when your config genuinely changes (section names, never values), `pin` when `discern standards --pin` tightens a limit (old bound, new bound, measured value — your ratchet's history), and `prune` when rotation removes old months.
+Each line carries a schema version. Readers skip lines they don't recognize, and fields only accrete. Rarer kinds sit beside the verb line: `config-change` when your config genuinely changes (section names, never values), `pin` when `discern standards --pin` tightens a limit (old bound, new bound, measured value — your ratchet's history), and `prune` when rotation removes old months.
 
 ## It never leaves the machine
 
@@ -52,7 +52,7 @@ The logbook is written under the git admin area, so it lands in no commit and ne
 
 ## Rotation and config epochs
 
-Events land in month-stamped files (`2026-07.jsonl`); the newest 24 months are kept. Pruning is loud: removals land as a `prune` line digesting each removed month (counts by verb and outcome), so coarse trends outlive the raw lines.
+Events land in month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. Pruning is loud: removals land as a `prune` line digesting each removed month (counts by verb and outcome), so coarse trends outlive the raw lines.
 
 The `epoch` fingerprint hashes your config's behavior-relevant settings, section by section, with a standard's `limit` masked out — so a pin doesn't move it, while a real edit (a command, a scope, an input list) does and logs a `config-change` line naming the section that moved.
 
