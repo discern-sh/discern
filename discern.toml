@@ -145,7 +145,7 @@ format    = "deno fmt"
 build     = ["deno task codegen", "deno task site:build"]
 lint      = "deno lint"
 typecheck = "deno check"
-test      = "deno task test"
+test      = { run = "deno task test", timeout = 1200 }
 smoke     = "deno task dev --version"
 
 # ─────────────────────────────────────────────────────────────────────────────
