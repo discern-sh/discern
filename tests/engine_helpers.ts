@@ -31,6 +31,7 @@ import {
   type SourcePathName,
 } from "../src/shared/paths_registry.ts";
 import type { AgentName } from "../src/lib/config.ts";
+import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /** The captured result of one `agent` invocation. */
@@ -90,7 +91,11 @@ async function discernShimDir(): Promise<string> {
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated, the
- * `discern` shim on PATH, plus any caller overrides.
+ * `discern` shim on PATH, plus any caller overrides. The desk's session marker
+ * is designed to be inherited by every descendant process, so a suite launched
+ * from inside `discern desk` would leak it into every spawned engine; blanking
+ * it here keeps the suite deterministic, and a test that needs the marker sets
+ * it via `extra`.
  */
 export async function engineEnv(
   extra: Record<string, string> = {},
@@ -99,6 +104,7 @@ export async function engineEnv(
   return {
     NO_COLOR: "1",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
+    [DESK_SESSION_ENV]: "",
     ...GIT_ISOLATION,
     ...extra,
   };
