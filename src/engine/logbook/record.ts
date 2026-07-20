@@ -334,7 +334,10 @@ function liftData(data: unknown): LiftedData {
     ) {
       lifted.failedStage = gate.data.failed_stage;
     }
-    if (gate.data.scopes_changed !== undefined) {
+    if (
+      gate.data.scopes_changed !== undefined &&
+      gate.data.scopes_changed.length > 0
+    ) {
       lifted.scopes = gate.data.scopes_changed;
     }
   }
