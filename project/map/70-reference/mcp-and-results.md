@@ -21,6 +21,7 @@ aliases:
   - discern_accept
   - discern_impact
   - discern_coupling
+  - discern_patterns
   - discern_refresh
   - discern_map
   - discern_help
@@ -57,6 +58,7 @@ The human, JSON, and MCP tool forms report the same settled result. `structuredC
 | `discern_accept`      | Land an authorized worktree and tear down its resources and branch.          | Destructive; requires owner confirmation.                  |
 | `discern_impact`      | List the scopes the current change activates.                                | Read-only and idempotent.                                  |
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.    | Read-only, idempotent, and advisory.                       |
+| `discern_patterns`    | Report findings from the local logbook of discern's own verb runs.           | Read-only, idempotent, and advisory.                       |
 | `discern_refresh`     | Rebuild generated guidance, skills, and provider integration artifacts.      | Mutating, closed-world, and idempotent.                    |
 | `discern_map`         | Read the project's map index or one map page.                                | Read-only and idempotent.                                  |
 | `discern_help`        | Read discern's bundled manual index or one page.                             | Read-only, idempotent, and project-independent.            |

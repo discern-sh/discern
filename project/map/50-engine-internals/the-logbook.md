@@ -12,7 +12,7 @@ aliases:
 
 _Every verb run appends one local, metadata-only event under the git common dir; this page covers the substrate that records it._
 
-Every other discern surface answers "what is true now". The logbook remembers how the tool has been driven ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Each verb invocation (CLI or MCP, green or red) appends one JSON line. It carries the writing version, verb, surface, raw driver signals, branch, short commit, cleanliness (plus a diff checksum when dirty), a three-way outcome with the refusal slug and failed gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, per-standard readings, and a config-epoch fingerprint. [The logbook reference](../70-reference/the-logbook.md) lists every field. The recorder stores evidence and leaves interpretation to readers: raw signals rather than derived scores, so a future reader can re-score every line it finds. No reader ships in this wave. The substrate records, rotates, and stays out of the way.
+Every other discern surface answers "what is true now". The logbook remembers how the tool has been driven ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Each verb invocation (CLI or MCP, green or red) appends one JSON line. It carries the writing version, verb, surface, raw driver signals, branch, short commit, cleanliness (plus a diff checksum when dirty), a three-way outcome with the refusal slug and failed gate stage, duration, the verb's target and flag names, the change's scale, touched scopes, per-step timings with their dispositions, diagnostic classes with counts, per-standard readings, and a config-epoch fingerprint. [The logbook reference](../70-reference/the-logbook.md) lists every field. The recorder stores evidence and leaves interpretation to readers: raw signals rather than derived scores, so a future reader can re-score every line it finds. The first reader is [`discern patterns`](../20-quality-gate/patterns.md), which runs a detector registry over the stream and reports findings in plain counts; the substrate itself records, rotates, and stays out of the way.
 
 The substrate's constraints:
 
@@ -59,6 +59,9 @@ Context (branch, commit, config, toggle) is gathered concurrently with the verb 
 | Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)           |
 | The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)         |
 | The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)               |
+| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)             |
+| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)   |
+| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)     |
 | The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)         |
 | The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts) |
 | Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)         |

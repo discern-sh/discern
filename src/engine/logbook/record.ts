@@ -219,6 +219,7 @@ function stepTimings(result: DiscernResult): StepTiming[] | undefined {
     kind: s.step.kind,
     outcome: s.outcome,
     disposition: s.step.disposition,
+    ...(s.step.group !== undefined ? { group: s.step.group } : {}),
     ...(s.durationS !== undefined ? { duration_s: s.durationS } : {}),
     ...(s.errorLikeLines !== undefined && s.errorLikeLines > 0
       ? { error_like_lines: s.errorLikeLines }

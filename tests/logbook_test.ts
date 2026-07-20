@@ -39,6 +39,7 @@ import {
   readEpochState,
   writeEpochState,
 } from "../src/engine/logbook/store.ts";
+import { readLogbookStream } from "../src/engine/logbook/read.ts";
 
 // ── the event schema ────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ function sampleEvent(): VerbEvent {
       kind: "job",
       outcome: "ok",
       disposition: "run",
+      group: "Check & test",
       duration_s: 3,
       error_like_lines: 2,
     }],
@@ -378,6 +380,64 @@ Deno.test("store: an append into an existing month runs no rotation", async () =
       }
     }
     assertEquals(count, MAX_MONTH_FILES + 3);
+  });
+});
+
+// ── the stream reader ───────────────────────────────────────────────────────
+
+Deno.test("reader: a missing logbook is an empty stream, not an error", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(await readLogbookStream(dir), {
+      events: [],
+      unparsed: 0,
+      months: [],
+    });
+  });
+});
+
+Deno.test("reader: months merge chronologically and torn/foreign lines are counted, never fatal", async () => {
+  await withTempDir(async (dir) => {
+    const logDir = logbookDir(dir);
+    await Deno.mkdir(logDir, { recursive: true });
+    // Two months written out of name order, one holding a torn line and a
+    // foreign (future-major) line between real events — plus an out-of-order
+    // append inside the newer month (a concurrent worktree's interleaving).
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      [
+        JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
+        JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
+      ].join("\n") + "\n",
+    );
+    await Deno.writeTextFile(
+      join(logDir, "2026-06.jsonl"),
+      [
+        JSON.stringify(verbEventAt("2026-06-10T10:00:00.000Z")),
+        '{"schema":1,"kind":"ver',
+        JSON.stringify({
+          ...verbEventAt("2026-06-11T10:00:00.000Z"),
+          schema: 99,
+        }),
+        JSON.stringify(verbEventAt("2026-06-12T10:00:00.000Z")),
+      ].join("\n") + "\n",
+    );
+    // The epoch sidecar sits beside the months and is not event storage.
+    await writeEpochState(dir, {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      branches: {},
+    });
+    const stream = await readLogbookStream(dir);
+    assertEquals(stream.months, ["2026-06.jsonl", "2026-07.jsonl"]);
+    assertEquals(stream.unparsed, 2);
+    assertEquals(
+      stream.events.map((e) => e.at),
+      [
+        "2026-06-10T10:00:00.000Z",
+        "2026-06-12T10:00:00.000Z",
+        "2026-07-01T08:00:00.000Z",
+        "2026-07-02T09:00:00.000Z",
+      ],
+    );
   });
 });
 

@@ -154,6 +154,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0160 — A local logbook of discern's own use, on by default, with advisory-only readers](0160-local-logbook-advisory-readers.md)
 - [0161 — Standards hold growth-proof numbers, and a breach from the work itself escalates](0161-growth-proof-standards-and-breach-escalation.md)
 - [0162 — The logbook records its full vocabulary from day one, as evidence rather than inference](0162-logbook-day-one-vocabulary.md)
+- [0163 — The patterns family houses its reset as a CLI-only imperative subcommand](0163-patterns-reset-cli-only.md)
 
 ## Superseded records
 

@@ -771,6 +771,35 @@ export const ImprovementDataSchema = z.strictObject({
 });
 export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
+// patterns ─────────────────────────────────────────────────────────────────
+
+/** The `patterns` verb's detector vocabulary and data shapes live in their own
+ * dependency-light module (`patterns_vocabulary.ts`) so the logbook subsystem
+ * can share them from inside its no-network wall; re-exported here so wire
+ * consumers keep one import site. */
+export {
+  DETECTOR_FAMILIES,
+  DETECTOR_SCOPES,
+  DETECTOR_STATUSES,
+  DETECTOR_TIERS,
+  PatternsDataSchema,
+  PatternsResetDataSchema,
+} from "./patterns_vocabulary.ts";
+export type {
+  DetectorFamily,
+  DetectorScope,
+  DetectorStatus,
+  DetectorTier,
+  PatternsData,
+  PatternsDetector,
+  PatternsFinding,
+  PatternsResetData,
+} from "./patterns_vocabulary.ts";
+import {
+  PatternsDataSchema,
+  PatternsResetDataSchema,
+} from "./patterns_vocabulary.ts";
+
 // docs / help ──────────────────────────────────────────────────────────────
 
 /** One doc's record (no content). Frontmatter values travel as these
@@ -1260,6 +1289,19 @@ export const ImpactOutputSchema = resultOutputSchema(
 export const CouplingOutputSchema = resultOutputSchema(
   "coupling",
   CouplingDataSchema,
+);
+
+/** `patterns` output: envelope + the logbook-reader `data`. */
+export const PatternsOutputSchema = resultOutputSchema(
+  "patterns",
+  PatternsDataSchema,
+);
+
+/** `patterns reset` output: envelope + the deletion `data`. CLI-only (the one
+ * destructive member of the patterns family stays off the MCP surface). */
+export const PatternsResetOutputSchema = resultOutputSchema(
+  "patterns reset",
+  PatternsResetDataSchema,
 );
 
 /** `start` output: envelope + the new-worktree `data`. */

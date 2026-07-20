@@ -45,6 +45,7 @@ import {
   ImpactOutputSchema,
   ImprovementOutputSchema,
   MapOutputSchema,
+  PatternsOutputSchema,
   PrepareOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
@@ -76,6 +77,7 @@ import { improvementResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
+import { patternsResult } from "../logbook/patterns.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
 import { doctorResult } from "../../commands/doctor.ts";
@@ -263,6 +265,7 @@ const TOOL_PRIORITY = [
   "discern_accept",
   "discern_impact",
   "discern_coupling",
+  "discern_patterns",
   "discern_refresh",
   "discern_map",
   "discern_help",
@@ -562,6 +565,38 @@ export const TOOLS: McpTool[] = orderTools([
         ),
       });
     },
+  }),
+  defineTool({
+    name: "discern_patterns",
+    title: "Read the practice patterns",
+    outputSchema: PatternsOutputSchema.shape,
+    annotations: READ_ONLY,
+    description:
+      "Report the patterns in how this project's agents drive discern, read " +
+      "from the local logbook — discern's on-machine record of its own verb " +
+      "runs (metadata only; nothing leaves the machine). The diagnostic " +
+      "ladder's third question: discern_doctor asks whether the install is " +
+      "valid, discern_improvement whether the setup follows best practice, " +
+      "discern_patterns whether the practice is actually healthy. Named " +
+      "detectors cover agent behaviour (red-gate thrash, refusal loops, " +
+      "skipped prepare, work landing on the trunk), gate fit (a dominant " +
+      "stage, duration creep, same-tree flakes, recurring diagnostic " +
+      "classes), the task funnel (loops to green, cycle time, update " +
+      "friction), and each quality standard's measured trajectory against " +
+      "its limit's own history. data.findings is ranked by evidence " +
+      "strength — each carries plain counts, a scope, and a recommended " +
+      "next step; data.detectors reports every detector including the ones " +
+      "with insufficient evidence, so a young logbook reads as young, never " +
+      "as healthy. Trends compare only within one config epoch and release; " +
+      "across a boundary they name what moved instead of blending. Strictly " +
+      "ADVISORY: findings never block and never gate — standards remain the " +
+      "only enforcement surface. Distinct from discern_coupling, which mines " +
+      "git history for files that change together; patterns reads discern's " +
+      "own run history. An empty logbook is a normal state with a helpful " +
+      "message. The reset action (`discern patterns reset`, CLI only) " +
+      "deletes the recorded history.",
+    inputSchema: { ...PATH_PARAM },
+    run: (root) => patternsResult(root),
   }),
   defineTool({
     name: "discern_improvement",
@@ -1530,6 +1565,10 @@ export function buildInstructions(): string {
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
+    "- Ask discern_patterns how the practice is going over time: findings " +
+    "from the local logbook of discern's own runs — behaviour loops, gate " +
+    "fit, funnel flow, and each standard's trajectory. Advisory only; it " +
+    "never blocks.",
     "- Quality standards — numbers that can never get worse — are enforced by " +
     "discern_done itself: every run verifies no limit loosened versus the " +
     "trunk and measures each standard alongside the tests. Use " +

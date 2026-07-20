@@ -56,8 +56,9 @@ export function monthFileName(atIso: string): string {
   return `${atIso.slice(0, 7)}.jsonl`;
 }
 
-/** The shape of a month-file name — what rotation may count and remove. */
-const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
+/** The shape of a month-file name — what rotation may count and remove, and
+ * what the stream reader (`read.ts`) recognizes as event storage. */
+export const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
 
 /** Serialize one event as its single logbook line (trailing newline included). */
 function eventLine(event: LogbookEvent): string {
@@ -243,4 +244,47 @@ export async function writeEpochState(
   const tmp = `${path}.${Deno.pid}.tmp`;
   await Deno.writeTextFile(tmp, `${JSON.stringify(state, null, 2)}\n`);
   await Deno.rename(tmp, path);
+}
+
+// ── the reset ───────────────────────────────────────────────────────────────
+
+/** One logbook file's name and size — the reset plan's unit. */
+export interface LogbookFile {
+  file: string;
+  bytes: number;
+}
+
+/** Every regular file directly under the logbook directory (month files, the
+ * epoch sidecar, anything a future writer adds), sorted by name — what a reset
+ * plan lists and its executor removes. A missing directory is an empty list. */
+export async function listLogbookFiles(
+  commonGitDir: string,
+): Promise<LogbookFile[]> {
+  const dir = logbookDir(commonGitDir);
+  const files: LogbookFile[] = [];
+  try {
+    for await (const entry of Deno.readDir(dir)) {
+      if (!entry.isFile) {
+        continue;
+      }
+      const info = await Deno.stat(join(dir, entry.name));
+      files.push({ file: entry.name, bytes: info.size });
+    }
+  } catch {
+    return [];
+  }
+  return files.sort((a, b) => a.file.localeCompare(b.file));
+}
+
+/** Delete the whole logbook directory — the reset action's executor, kept in
+ * the store because this module is the subsystem's only sanctioned write site.
+ * Removing an already-absent logbook is a no-op, not an error. */
+export async function removeLogbook(commonGitDir: string): Promise<void> {
+  try {
+    await Deno.remove(logbookDir(commonGitDir), { recursive: true });
+  } catch (e) {
+    if (!(e instanceof Deno.errors.NotFound)) {
+      throw e;
+    }
+  }
 }
