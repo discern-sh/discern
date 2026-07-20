@@ -23,7 +23,7 @@ One thing is measured, and it stays on your machine: the logbook, below, records
 
 ## The logbook: local history, one switch
 
-discern keeps a logbook of its own use: one line per verb run, appended to a plain-text file under `.git`. A line holds names and numbers only — the verb, the branch, pass or fail, and how long each gate step took. No code, no prompts, no command output; any line is safe to read aloud in a meeting. Read it with `cat .git/discern/logbook/*.jsonl`, delete it by removing that directory, or turn it off with `logbook = false` under `[project]`.
+discern keeps a logbook of its own use: one line per verb run, appended to a plain-text file under `.git`. A line holds names and numbers only — the verb, the branch, how the run ended, how long each gate step took, the size of the change it acted on, where each quality standard stood. No code, no prompts, no command output; any line is safe to read aloud in a meeting. Read it with `cat .git/discern/logbook/*.jsonl`, delete it by removing that directory, or turn it off with `logbook = false` under `[project]`.
 
 The logbook never leaves the machine, and that claim is held by a check rather than a promise: a test in discern's own quality gate proves the logbook's code can reach no network interface, so a change that gave it one would fail discern's own build. [The logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
