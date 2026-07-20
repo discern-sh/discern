@@ -35,6 +35,7 @@ import {
   preflightAdminStateWrites,
   recordGateOutcome,
 } from "../src/engine/gate/receipt.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 
 async function receiptAuthority(
   dir: string,
@@ -148,7 +149,7 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
       dir,
       "rev-parse",
       "--git-path",
-      "discern-gate-receipt",
+      GIT_ADMIN_STATE.gateReceipt.path,
     );
     const receiptPath = absoluteGitPath(dir, raw);
     // Authority was available at workflow start; the path changes afterwards to

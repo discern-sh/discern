@@ -8,14 +8,15 @@
  * commit so `accept` skips the redundant re-run. These tests drive the real engine
  * through `runAgent` and assert on the config, the commit, and the receipt file.
  *
- * The receipt lives at `.git/discern-gate-receipt` in a plain repo (what
+ * The receipt lives at `.git/discern/gate-receipt` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
  * exactly the (receipt names HEAD, clean tree) condition `accept` honors.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -75,12 +76,13 @@ function limitOf(configText: string, name: string): string | undefined {
 }
 
 function receiptFile(dir: string): string {
-  return join(dir, ".git", "discern-gate-receipt");
+  return join(dir, ".git", GIT_ADMIN_STATE.gateReceipt.path);
 }
 
 /** Seed a prior `done` vouch: write `sha` (default current HEAD) to the receipt. */
 async function seedReceipt(dir: string, sha?: string): Promise<void> {
   const head = sha ?? await gitOut(dir, "rev-parse", "HEAD");
+  await Deno.mkdir(dirname(receiptFile(dir)), { recursive: true });
   await Deno.writeTextFile(receiptFile(dir), `${head}\n`);
 }
 
@@ -886,7 +888,7 @@ async function measureCount(dir: string): Promise<number> {
 }
 
 function measurementsFile(dir: string): string {
-  return join(dir, ".git", "discern-standard-measurements");
+  return join(dir, ".git", GIT_ADMIN_STATE.standardMeasurements.path);
 }
 
 Deno.test("receipt: a pin after a green check reuses its measurements — one measurement total", async () => {
@@ -1017,6 +1019,7 @@ Deno.test("receipt: a malformed receipt file is ignored — the pin measures fre
       }),
     );
     await gitInit(dir);
+    await Deno.mkdir(dirname(measurementsFile(dir)), { recursive: true });
     await Deno.writeTextFile(measurementsFile(dir), "not json {{{\n");
 
     const pin = await runAgent(dir, ["standards", "--pin"]);

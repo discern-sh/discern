@@ -2,6 +2,8 @@
 
 **Status**: accepted. Refines the gate receipt's best-effort write policy ([ADR 0067](0067-accept-validates-the-landed-tree.md)), extends the measurement-receipt flow ([ADR 0112](0112-standard-measurement-receipt.md)), and preserves `smoke` as the project's fast readiness capability ([ADR 0090](0090-setup-proves-worktree-viability.md)).
 
+> **Registry amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
+
 ## Context
 
 `discern done` can spend minutes running builds, checks, tests, scope gates, and standard measurements before it records the gate and measurement receipts in Git's per-worktree administration directory. In a linked worktree, that directory is usually inside the main checkout's `.git/worktrees/<name>/`, not inside the sibling worktree directory. A sandbox can therefore allow every project job while denying the final marker write.

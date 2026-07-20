@@ -19,6 +19,7 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   parsePorcelainZ,
@@ -1063,24 +1064,12 @@ export async function detectSilentDivergence(
     `path="${cwd}" to discern's MCP tools.`;
 }
 
-/** The per-worktree setup sentinel path (`git rev-parse --git-path discern-worktree-ready`)
+/** The per-worktree setup sentinel path (`git rev-parse --git-path discern/worktree-ready`)
  * for the checkout at `cwd`, or undefined when it can't be resolved. */
 export async function readySentinelPath(
   cwd: string,
 ): Promise<string | undefined> {
-  const r = await git(
-    ["rev-parse", "--git-path", "discern-worktree-ready"],
-    cwd,
-  );
-  if (!r.success) {
-    return undefined;
-  }
-  const raw = r.stdout.trim();
-  if (raw === "") {
-    return undefined;
-  }
-  // `--git-path` may print a path relative to the worktree's cwd.
-  return raw.startsWith("/") ? raw : join(cwd, raw);
+  return await gitAdminStatePath(cwd, "worktreeReady");
 }
 
 /** Whether the worktree at `cwd` completed its setup — the ready sentinel is the

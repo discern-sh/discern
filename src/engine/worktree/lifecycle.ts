@@ -16,7 +16,14 @@
  * worktrees for identity-dependent convergence.
  */
 
-import { basename, isAbsolute, join, relative, resolve } from "@std/path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -293,7 +300,7 @@ async function buildTeardownPlan(ctx: LifecycleContext): Promise<TeardownPlan> {
   return { entries: await entriesForWorktree(commonGitDir, gitKey) };
 }
 
-// The per-worktree ready sentinel (`discern-worktree-ready`) lives in the git
+// The per-worktree ready sentinel (`discern/worktree-ready`) lives in the git
 // layer now — `readySentinelPath` / `worktreeSetupComplete` — shared with
 // status's broken-worktree flag, so "is this worktree configured?" has one read.
 
@@ -641,6 +648,7 @@ export async function worktreeSetup(
   const marker = await readySentinelPath(ctx.cwd);
   if (marker !== undefined) {
     try {
+      await Deno.mkdir(dirname(marker), { recursive: true });
       await Deno.writeTextFile(marker, "");
     } catch {
       // best-effort sentinel — a failure here must not fail setup

@@ -22,6 +22,7 @@ import {
 } from "../src/engine/gate/standards.ts";
 import type { PlannedStandard } from "../src/engine/gate/standard_plan.ts";
 import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 
 interface StandardsJson {
   ok: boolean;
@@ -123,7 +124,9 @@ Deno.test("standards: coverage passes when the emitted metric meets the floor", 
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
     const receipt = JSON.parse(
-      await Deno.readTextFile(`${dir}/.git/discern-standard-measurements`),
+      await Deno.readTextFile(
+        `${dir}/.git/${GIT_ADMIN_STATE.standardMeasurements.path}`,
+      ),
     ) as { durations?: Record<string, number> };
     assertEquals(receipt.durations?.coverage, 0);
   });

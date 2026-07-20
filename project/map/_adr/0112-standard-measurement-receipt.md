@@ -8,6 +8,8 @@
 
 > **Operational amendment ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** `standards` now proves the measurement receipt is writable before measuring; `standards --pin` also proves the config and Git commit surfaces before measuring or replaying. The receipt remains best-effort only against failures that arise after that point-in-time probe.
 
+> **Path amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The worktree-local measurement receipt now resolves as `discern/standard-measurements`, beneath Discern's Git-admin namespace. Its identity and cache semantics are unchanged.
+
 ## Context
 
 The intended capture flow is check → pin: run `discern standards`, read the green result's pinnable-slack hints, then run `discern standards --pin` to capture the gain. But verbs are stateless, so the pin re-ran every measurement the check had just paid for — on the same clean HEAD, guaranteed to produce the same numbers. A project with a slow measurement suite (a full coverage run, a release build) paid double on its most common capture path. Efficiency, not correctness: the double-run could never pin a wrong value, only waste the first run.

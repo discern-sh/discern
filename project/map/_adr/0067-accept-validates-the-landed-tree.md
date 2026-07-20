@@ -8,6 +8,8 @@
 
 > **Operational amendment ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** Receipt I/O remains best-effort against failures that arise after validation starts, but `done` now proves its Git-admin write authority before project jobs run. A known denial is a fail-fast gate precondition, not a green run without a receipt that acceptance has to repeat.
 
+> **Path amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The worktree-local receipt now resolves as `discern/gate-receipt`, beneath Discern's Git-admin namespace. Its identity and lifetime are unchanged.
+
 ## Context
 
 `accept` lands a branch onto the trunk — locally, via `accept --to trunk`, with no PR and no CI. Its only quality guards were the merge precondition (the branch contains the latest trunk) and the fix-stage fixed-point check ([ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md), which re-ran **only the fix stage**). Neither runs the build, the checks, the tests, or the scope gates. So the property "what lands passed the gate" held only because an agent was trusted to have run a clean `done` — and that trust breaks on a routine sequence:

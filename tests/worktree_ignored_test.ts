@@ -8,13 +8,14 @@
  * mechanism enrols through the public snapshot behaviour, not an `app/` case.
  */
 
-import { assertEquals } from "@std/assert";
-import { dirname, isAbsolute, join } from "@std/path";
+import { assert, assertEquals } from "@std/assert";
+import { dirname, join } from "@std/path";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   inspectIgnoredFileChanges,
   recordIgnoredFileBaseline,
 } from "../src/engine/worktree/ignored.ts";
-import { gitInit, gitOut } from "./engine_helpers.ts";
+import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
 interface BaselineRoot {
@@ -46,13 +47,9 @@ async function initIgnoredRepo(
 }
 
 async function baselinePath(dir: string): Promise<string> {
-  const raw = await gitOut(
-    dir,
-    "rev-parse",
-    "--git-path",
-    "discern-ignored-baseline",
-  );
-  return isAbsolute(raw) ? raw : join(dir, raw);
+  const path = await gitAdminStatePath(dir, "ignoredBaseline");
+  assert(path !== undefined, "ignored baseline path must resolve inside Git");
+  return path;
 }
 
 async function readBaseline(dir: string): Promise<BaselineFile> {
@@ -170,6 +167,7 @@ Deno.test("recording replaces an incompatible ignored baseline before reuse", as
   await withTempDir(async (dir) => {
     await initIgnoredRepo(dir, "cache/", { "cache/payload.bin": "value\n" });
     const path = await baselinePath(dir);
+    await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, '{"version":1,"roots":[]}\n');
 
     await recordIgnoredFileBaseline(dir, true);

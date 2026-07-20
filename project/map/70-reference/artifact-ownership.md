@@ -60,15 +60,20 @@ Everything downstream reads that registry, so nothing can disagree with it: the 
 
 ## Machine-local state inside `.git`
 
-Everything else discern records lives under the git admin area — outside the project tree, never in a commit, never needing a gitignore entry, and gone with the repository:
+Everything else discern records lives beneath `discern/` in the git admin area — outside the project tree, never in a commit, never needing a gitignore entry, and gone with the repository:
 
-| Path under `.git`        | What it is                                                                                                     |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `discern/resources/`     | The per-worktree resource ledger orphan GC reads.                                                              |
-| `discern/logbook/`       | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
-| gate receipt + sentinels | The recorded `done` outcome, the worktree ready sentinel, and the ignored-file baseline.                       |
+| Registered path                 | Lifetime   | What it is                                                                                                     |
+| ------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `discern/resources/`            | repository | The per-worktree resource ledger orphan GC reads.                                                              |
+| `discern/logbook/`              | repository | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
+| `discern/gate-receipt`          | worktree   | The last clean `done` outcome that can fast-path acceptance.                                                   |
+| `discern/standard-measurements` | worktree   | Measurements a clean check can reuse on the same commit.                                                       |
+| `discern/ignored-baseline`      | worktree   | The ignored-file snapshot used before removing a worktree.                                                     |
+| `discern/worktree-ready`        | worktree   | Proof that the worktree completed its one-time setup.                                                          |
 
-The write-surface test covers these too: a verb that wrote this state anywhere new would fail the gate.
+Repository-lifetime paths resolve beneath the common Git directory, so every linked worktree shares them. Worktree-lifetime paths use Git's own per-worktree admin directory: they appear under `.git/discern/` in the main checkout and `.git/worktrees/<key>/discern/` for linked worktrees, then disappear when Git removes that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)).
+
+The registry and write-surface tests cover these paths. A new entry joins the namespace, lifetime, and reset-preservation guards automatically; a verb that writes state anywhere new fails the gate.
 
 ## What runs on your machine
 
@@ -85,6 +90,7 @@ It keeps your content: `discern.toml` and the `discern/` namespace stay. If it c
 | Concept                        | File                                                                              |
 | ------------------------------ | --------------------------------------------------------------------------------- |
 | Artifact kinds                 | [`src/lib/providers.ts`](../../../src/lib/providers.ts) (`agentArtifactPosture`)  |
+| Git-admin state                | [`src/shared/git_admin_state.ts`](../../../src/shared/git_admin_state.ts)         |
 | The write-surface guard        | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
 | The managed `.gitignore` block | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)               |
 | Uninstall                      | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                 |

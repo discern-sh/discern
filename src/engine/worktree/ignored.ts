@@ -12,7 +12,8 @@
  * broadening the filesystem scan.
  */
 
-import { dirname, isAbsolute, join } from "@std/path";
+import { dirname, join } from "@std/path";
+import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
 const BASELINE_VERSION = 2;
@@ -73,7 +74,7 @@ export async function recordIgnoredFileBaseline(
   if (!enabled) {
     return;
   }
-  const path = await ignoredBaselinePath(cwd);
+  const path = await gitAdminStatePath(cwd, "ignoredBaseline");
   if (path === undefined) {
     return;
   }
@@ -106,7 +107,7 @@ export async function inspectIgnoredFileChanges(
   if (!enabled) {
     return ignoredFileDriftDisabled();
   }
-  const path = await ignoredBaselinePath(cwd);
+  const path = await gitAdminStatePath(cwd, "ignoredBaseline");
   if (path === undefined) {
     return unavailable();
   }
@@ -154,24 +155,6 @@ function unavailable(): IgnoredFileChangeSummary {
     changed_total: 0,
     truncated: false,
   };
-}
-
-async function ignoredBaselinePath(cwd: string): Promise<string | undefined> {
-  const run = await runGit([
-    "rev-parse",
-    "--git-path",
-    "discern-ignored-baseline",
-  ], {
-    cwd,
-  });
-  if (!run.success) {
-    return undefined;
-  }
-  const raw = run.stdout.trim();
-  if (raw === "") {
-    return undefined;
-  }
-  return isAbsolute(raw) ? raw : join(cwd, raw);
 }
 
 async function readBaseline(

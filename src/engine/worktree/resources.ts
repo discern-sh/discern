@@ -31,6 +31,7 @@ import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
   type IdentitySettings,
   resourceForId,
@@ -180,7 +181,7 @@ export function resourceEnvName(name: string): string {
 
 /** The ledger directory for this repo: `<common-git-dir>/discern/resources/`. */
 export function resourcesDir(commonGitDir: string): string {
-  return join(commonGitDir, "discern", "resources");
+  return join(commonGitDir, GIT_ADMIN_STATE.resources.path);
 }
 
 /** A filesystem-safe component for an entry filename. */

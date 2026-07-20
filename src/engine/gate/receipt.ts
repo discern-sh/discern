@@ -4,8 +4,8 @@
  * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
  * It lives where the worktree-ready sentinel does: a single file in the per-worktree
- * git admin dir, resolved via `git rev-parse --git-path discern-gate-receipt`
- * (`.git/worktrees/<name>/discern-gate-receipt`). It is therefore worktree-local
+ * git admin dir, resolved via `git rev-parse --git-path discern/gate-receipt`
+ * (`.git/worktrees/<name>/discern/gate-receipt`). It is therefore worktree-local
  * (never shared across branches), never tracked or committed (it sits inside
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
@@ -39,6 +39,12 @@
  */
 
 import { dirname, join } from "@std/path";
+import {
+  GIT_ADMIN_STATE,
+  gitAdminStatePath,
+  VALIDATION_ADMIN_STATE_KEYS,
+  type ValidationAdminStateKey,
+} from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -51,16 +57,8 @@ import type {
   GateReceiptCheckData,
 } from "../../shared/result_schemas.ts";
 
-/** Every file Discern may persist after slow validation. This registry is the
- * preflight SSOT: a new admin-state sibling cannot be addressed by a writer until
- * it is added here, at which point it automatically joins the authority probe. */
-export const ADMIN_STATE_FILES = {
-  gateReceipt: "discern-gate-receipt",
-  standardMeasurements: "discern-standard-measurements",
-} as const;
-type AdminStateFile = keyof typeof ADMIN_STATE_FILES;
 type AdminStatePaths = Readonly<
-  Record<AdminStateFile, string | undefined>
+  Record<ValidationAdminStateKey, string | undefined>
 >;
 type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
 
@@ -77,30 +75,9 @@ export type AdminStateWritePreflight =
   | { ok: true; authority: AdminStateWriteAuthority }
   | WritePreflightFailure;
 
-/**
- * Resolve a per-worktree admin file's path (`git rev-parse --git-path <file>`),
- * normalizing a worktree-relative result to absolute against `cwd`. `undefined`
- * outside a git repo (so every caller treats "no git" as "no receipt").
- */
-async function adminFilePath(
-  cwd: string,
-  file: string,
-): Promise<string | undefined> {
-  const r = await runGit(["rev-parse", "--git-path", file], { cwd });
-  if (!r.success) {
-    return undefined;
-  }
-  const raw = r.stdout.trim();
-  if (raw === "") {
-    return undefined;
-  }
-  // `--git-path` may print a path relative to the worktree's cwd.
-  return raw.startsWith("/") ? raw : join(cwd, raw);
-}
-
 /** This worktree's gate receipt path. */
 function receiptPath(cwd: string): Promise<string | undefined> {
-  return adminFilePath(cwd, ADMIN_STATE_FILES.gateReceipt);
+  return gitAdminStatePath(cwd, "gateReceipt");
 }
 
 /** Prove the real create/write/rename/remove authority every validation-state
@@ -109,14 +86,14 @@ function receiptPath(cwd: string): Promise<string | undefined> {
 export async function preflightAdminStateWrites(
   cwd: string,
 ): Promise<AdminStateWritePreflight> {
-  const paths = {} as Record<AdminStateFile, string | undefined>;
+  const paths = {} as Record<ValidationAdminStateKey, string | undefined>;
   // A pre-Git/setup checkout has no admin-state target to persist. Preserve the
   // gate's established no-Git behavior with a non-applicable authority token;
   // once Git says this IS a worktree, failure to resolve or write its paths is a
   // genuine denial and must fail before slow work.
   const inside = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd });
   if (!inside.success || inside.stdout.trim() !== "true") {
-    for (const key of Object.keys(ADMIN_STATE_FILES) as AdminStateFile[]) {
+    for (const key of VALIDATION_ADMIN_STATE_KEYS) {
       paths[key] = undefined;
     }
     return {
@@ -125,17 +102,27 @@ export async function preflightAdminStateWrites(
     };
   }
   const targets: PlannedWriteTarget[] = [];
-  for (const key of Object.keys(ADMIN_STATE_FILES) as AdminStateFile[]) {
-    const path = await adminFilePath(cwd, ADMIN_STATE_FILES[key]);
+  for (const key of VALIDATION_ADMIN_STATE_KEYS) {
+    const path = await gitAdminStatePath(cwd, key);
     if (path === undefined) {
       return {
         ok: false,
         path: cwd,
         description: "its Git-admin validation state",
-        reason: `Git could not resolve ${ADMIN_STATE_FILES[key]}`,
+        reason: `Git could not resolve ${GIT_ADMIN_STATE[key].path}`,
       };
     }
     paths[key] = path;
+    try {
+      await Deno.mkdir(dirname(path), { recursive: true });
+    } catch (error) {
+      return {
+        ok: false,
+        path: dirname(path),
+        description: "its Git-admin validation state",
+        reason: failureReason(error),
+      };
+    }
     targets.push({
       kind: "directory-entry",
       path: dirname(path),
@@ -184,7 +171,7 @@ export async function preflightAdminStateWrites(
 function authorityPath(
   cwd: string,
   authority: AdminStateWriteAuthority,
-  file: AdminStateFile,
+  file: ValidationAdminStateKey,
 ): string | undefined {
   return authority.root === cwd ? authority.paths[file] : undefined;
 }
@@ -600,10 +587,7 @@ export async function clearStandardMeasurements(
 export async function inspectStandardMeasurements(
   cwd: string,
 ): Promise<StandardMeasurementsCheck> {
-  const path = await adminFilePath(
-    cwd,
-    ADMIN_STATE_FILES.standardMeasurements,
-  );
+  const path = await gitAdminStatePath(cwd, "standardMeasurements");
   if (path === undefined) {
     return { status: "unavailable" };
   }
@@ -707,15 +691,12 @@ function parseMeasurements(
 export async function measurementBaselines(
   cwd: string,
 ): Promise<StandardMeasurements[]> {
-  const own = await adminFilePath(
-    cwd,
-    ADMIN_STATE_FILES.standardMeasurements,
-  );
+  const own = await gitAdminStatePath(cwd, "standardMeasurements");
   const common = await runGit(["rev-parse", "--git-common-dir"], { cwd });
   const commonDir = common.success ? common.stdout.trim() : "";
   const trunk = commonDir === "" ? undefined : join(
     commonDir.startsWith("/") ? commonDir : join(cwd, commonDir),
-    ADMIN_STATE_FILES.standardMeasurements,
+    GIT_ADMIN_STATE.standardMeasurements.path,
   );
   const paths = [own, trunk].filter((p): p is string => p !== undefined);
   const out: StandardMeasurements[] = [];

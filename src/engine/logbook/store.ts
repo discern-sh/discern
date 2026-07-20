@@ -33,6 +33,7 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { KIT_VERSION } from "../../lib/version.ts";
+import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -43,7 +44,7 @@ import {
 
 /** The logbook directory for a repo: `<common-git-dir>/discern/logbook/`. */
 export function logbookDir(commonGitDir: string): string {
-  return join(commonGitDir, "discern", "logbook");
+  return join(commonGitDir, GIT_ADMIN_STATE.logbook.path);
 }
 
 /** The month files kept after rotation (about two years of history — a month

@@ -18,10 +18,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { preflightAdminStateWrites } from "../src/engine/gate/receipt.ts";
 import {
-  ADMIN_STATE_FILES,
-  preflightAdminStateWrites,
-} from "../src/engine/gate/receipt.ts";
+  GIT_ADMIN_STATE,
+  VALIDATION_ADMIN_STATE_KEYS,
+} from "../src/shared/git_admin_state.ts";
 
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
@@ -51,8 +52,11 @@ async function directoryEntryNames(path: string): Promise<string[]> {
 /** Resolve one admin-state path, then make its containing Git admin directory
  * unwritable for exactly one assertion. All current admin-state files share this
  * directory; production derives the complete set from its own registry. */
-async function gitAdminPath(root: string, filename: string): Promise<string> {
-  const raw = await gitOut(root, "rev-parse", "--git-path", filename);
+async function gitAdminPath(
+  root: string,
+  relativePath: string,
+): Promise<string> {
+  const raw = await gitOut(root, "rev-parse", "--git-path", relativePath);
   return isAbsolute(raw) ? raw : join(root, raw);
 }
 
@@ -60,8 +64,9 @@ async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,
 ): Promise<void> {
-  const path = await gitAdminPath(root, ADMIN_STATE_FILES.gateReceipt);
+  const path = await gitAdminPath(root, GIT_ADMIN_STATE.gateReceipt.path);
   const dir = dirname(path);
+  await Deno.mkdir(dir, { recursive: true });
   const originalMode = (await Deno.stat(dir)).mode;
   assert(originalMode !== null, `could not read mode for ${dir}`);
   await Deno.chmod(dir, 0o555);
@@ -204,12 +209,14 @@ Deno.test("standards --pin probes the common Git directory before measuring in a
 // The future-sibling guard: the cases derive from the production registry. Add a
 // new admin-state file under any unrelated name and this test auto-enrols it,
 // proving the common preflight actually reaches its resolved path.
-for (const [role, filename] of Object.entries(ADMIN_STATE_FILES)) {
+for (const role of VALIDATION_ADMIN_STATE_KEYS) {
+  const filename = GIT_ADMIN_STATE[role].path;
   Deno.test(`admin-state preflight auto-enrols the ${role} registry member`, async () => {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await gitInit(dir);
       const target = await gitAdminPath(dir, filename);
+      await Deno.mkdir(dirname(target), { recursive: true });
       await Deno.mkdir(target);
 
       const result = await preflightAdminStateWrites(dir);
@@ -224,14 +231,14 @@ Deno.test("a successful admin-state preflight removes every temporary probe", as
     await scaffoldEngine(dir);
     await gitInit(dir);
     const adminDir = dirname(
-      await gitAdminPath(dir, ADMIN_STATE_FILES.gateReceipt),
+      await gitAdminPath(dir, GIT_ADMIN_STATE.gateReceipt.path),
     );
-    const before = await directoryEntryNames(adminDir);
+    assertEquals(await pathExists(adminDir), false);
 
     const result = await preflightAdminStateWrites(dir);
     assert(result.ok, JSON.stringify(result));
     const after = await directoryEntryNames(adminDir);
-    assertEquals(after, before);
+    assertEquals(after, []);
     assert(
       after.every((name) => !name.startsWith(".discern-write-probe-")),
       `write probe leaked into ${adminDir}: ${after.join(", ")}`,

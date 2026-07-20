@@ -9,9 +9,14 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  GIT_ADMIN_STATE,
+  GIT_ADMIN_STATE_KEYS,
+  gitAdminStatePath,
+} from "../src/shared/git_admin_state.ts";
 import {
   PatternsOutputSchema,
   PatternsResetOutputSchema,
@@ -65,6 +70,32 @@ async function seedLogbook(dir: string): Promise<void> {
       }),
     ].join("\n") + "\n",
   );
+}
+
+interface SeededAdminSibling {
+  path: string;
+  contents: string;
+}
+
+/** Seed every registered artifact except the logbook reset owns. */
+async function seedAdminSiblings(dir: string): Promise<SeededAdminSibling[]> {
+  const seeded: SeededAdminSibling[] = [];
+  for (const key of GIT_ADMIN_STATE_KEYS) {
+    if (key === "logbook") {
+      continue;
+    }
+    const entry = GIT_ADMIN_STATE[key];
+    const resolved = await gitAdminStatePath(dir, key);
+    assert(resolved !== undefined, `could not resolve ${key}`);
+    const path = entry.kind === "directory"
+      ? join(resolved, "reset-must-preserve")
+      : resolved;
+    const contents = `${key}\n`;
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(path, contents);
+    seeded.push({ path, contents });
+  }
+  return seeded;
 }
 
 Deno.test("patterns: an empty logbook is a first-class state with a helpful message", async () => {
@@ -144,10 +175,9 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
     await scaffoldEngine(dir);
     await gitInit(dir);
     await seedLogbook(dir);
-    // A sibling under .git/discern/ that reset must NOT touch — "the whole
-    // logbook directory" means the logbook directory alone.
-    const sibling = join(dir, ".git", "discern", "resources.txt");
-    await Deno.writeTextFile(sibling, "ledger\n");
+    // Every registered sibling must survive: "the whole logbook directory"
+    // means the logbook directory alone. New registry members auto-enrol.
+    const siblings = await seedAdminSiblings(dir);
     const logDir = join(dir, ".git", "discern", "logbook");
 
     // The preview lists the files and removes nothing.
@@ -200,11 +230,13 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
       }
       assert(seededGone, "the seeded history must be gone after reset");
     }
-    assertEquals(
-      await Deno.readTextFile(sibling),
-      "ledger\n",
-      "reset must remove the logbook alone, never its siblings",
-    );
+    for (const sibling of siblings) {
+      assertEquals(
+        await Deno.readTextFile(sibling.path),
+        sibling.contents,
+        `reset must preserve ${sibling.path}`,
+      );
+    }
 
     // Afterwards the verb reports a young logbook again (at most the reset's
     // own freshly-recorded events), with no findings.
