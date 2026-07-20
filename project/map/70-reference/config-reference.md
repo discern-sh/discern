@@ -228,7 +228,7 @@ Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aw
 
 ## `[standards.<name>]`
 
-[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. If a number rises with project growth (alerts, TODOs, or type errors over a growing tree), hold a rate instead of the raw count: add `per` so growth alone stays within the limit.
+[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count; a quality that scales (coverage, alert density) holds a rate — add `per` so growth alone stays within the limit; a total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows — pinned at today's value it fails the next legitimate change.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |

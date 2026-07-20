@@ -451,7 +451,13 @@ export const TOOLS: McpTool[] = orderTools([
       "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +
       "and pins nothing while any standard is failing. A green check's hints[] " +
       "already name any pinnable slack with measured values, so the whole flow is " +
-      "check then pin — never spend a call just to see whether a pin is worthwhile.",
+      "check then pin — never spend a call just to see whether a pin is worthwhile. " +
+      "Authoring a NEW standard? Sort the number first: an invariant a healthy " +
+      "project never adds holds the raw count; a quality that scales holds a " +
+      "rate (per); a total that grows with the product needs margin and an owner " +
+      "willing to raise the limit as it grows — a ceiling pinned at today's value " +
+      "fails the next legitimate change and invites offsetting edits from " +
+      "unrelated code.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",

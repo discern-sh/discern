@@ -317,8 +317,14 @@ ensure = []  # no linked-worktree-only convergence needed here
 # subsystem on.
 #
 # Each limit may only improve: line coverage, a bundle-size budget, a lint/type-
-# error count, a perf budget. Each [standards.<name>]
-# table declares one:
+# error count, a perf budget. Sort the number before holding it: an invariant a
+# healthy project never adds (suppressions, a banned pattern) holds the raw
+# count; a quality that scales (coverage, alert density) holds a rate via
+# `per`; a total that grows with the product (a size, a word count) needs
+# `margin` and an owner willing to raise the limit as the product grows —
+# pinned at today's value it fails the next legitimate change.
+#
+# Each [standards.<name>] table declares one:
 #   metric     the metric name the run emits        (default: the standard name)
 #   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
 #              "down" value should fall; limit is a CEILING (e.g. a size budget)
