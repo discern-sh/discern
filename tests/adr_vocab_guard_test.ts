@@ -347,6 +347,10 @@ Deno.test("configured guidance, config, and landing mockups retire harness; READ
     );
   }
   for await (const entry of walk(MOCKUPS, { includeDirs: false })) {
+    // Archived shipped homepages are dated records, like _adr/: they keep the
+    // vocabulary they went live with. Only forward-looking mockups are held
+    // to the canon.
+    if (entry.name.startsWith("previous-homepage-")) continue;
     const rel = relative(REPO_ROOT, entry.path);
     offenders.push(...harnessLines(rel, await Deno.readTextFile(entry.path)));
   }
