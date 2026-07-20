@@ -167,6 +167,11 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
       "the plan's intent rides each step, so collateral skips stay tellable",
     );
     assertEquals(
+      testStep.group,
+      "Check & test",
+      "the gate stage rides each step, so a reader can tell a fixer from a check",
+    );
+    assertEquals(
       event.failed_stage,
       "check/test",
       "the gate's failed stage is lifted — which red, not just that it was red",

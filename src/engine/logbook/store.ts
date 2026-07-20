@@ -56,8 +56,9 @@ export function monthFileName(atIso: string): string {
   return `${atIso.slice(0, 7)}.jsonl`;
 }
 
-/** The shape of a month-file name — what rotation may count and remove. */
-const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
+/** The shape of a month-file name — what rotation may count and remove, and
+ * what the stream reader (`read.ts`) recognizes as event storage. */
+export const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
 
 /** Serialize one event as its single logbook line (trailing newline included). */
 function eventLine(event: LogbookEvent): string {

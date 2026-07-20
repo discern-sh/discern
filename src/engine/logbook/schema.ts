@@ -78,6 +78,10 @@ const stepTimingSchema = z.looseObject({
   kind: z.string(),
   outcome: z.string(),
   disposition: z.string().optional(),
+  /** The plan's display grouping — for gate jobs, the stage ("Fix", "Build",
+   * "Check & test") — so a reader can tell a fixer from a check without a
+   * hand-kept label table. Absent on events written before it was lifted. */
+  group: z.string().optional(),
   duration_s: z.number().optional(),
   error_like_lines: z.number().optional(),
 });
