@@ -18,6 +18,7 @@ import {
   renderConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
+import { renderGlossaryDoc } from "../src/shared/glossary.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderResultJsonSchema,
@@ -40,6 +41,10 @@ const configReference = relative(
 const cliReference = relative(
   repoRoot,
   join(mapDir, "70-reference", "cli-reference.md"),
+);
+const glossary = relative(
+  repoRoot,
+  join(mapDir, "00-orientation", "glossary.md"),
 );
 
 type EquivalentText = (before: string, after: string) => boolean;
@@ -71,6 +76,8 @@ await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
+console.log("Regenerating the glossary from src/shared/glossary.ts:");
+await write(glossary, renderGlossaryDoc());
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );
