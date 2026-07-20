@@ -14,7 +14,7 @@ deno test tests/upgrade_migrations_test.ts # a single file while iterating
 deno test --filter "convergence"        # a filtered subset by test name
 ```
 
-`deno task test` builds the site fixtures first, then runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run` (the suite runs the engine via `deno run src/main.ts` and shells out to `git`). The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
+`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run` (the suite runs the engine via `deno run src/main.ts` and shells out to `git`). The site tests read the built site, which the gate's build stage produces via `deno task site:build`; on a fresh checkout that has never run the gate, run `deno task site:build` once before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
 There are **two layers**, sharing two helper modules:
 

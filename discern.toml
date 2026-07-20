@@ -142,7 +142,7 @@ dir = "project/skills"
 
 [capabilities]
 format    = "deno fmt"
-build     = "deno task codegen"
+build     = ["deno task codegen", "deno task site:build"]
 lint      = "deno lint"
 typecheck = "deno check"
 test      = "deno task test"
