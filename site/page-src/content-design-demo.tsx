@@ -20,6 +20,7 @@ import {
   Timeline,
 } from "discern-design-system/react";
 import type { DemoStats } from "./design-system-demo.tsx";
+import { DISCERN_MARK } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 
 const LISTING = `# The project owns the definition of done.
@@ -112,7 +113,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
       <SiteHeader
         className="editorial-demo-header"
         brand={<strong>discern · field notes</strong>}
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         navItems={[
           { label: "Argument", href: "#argument" },
           { label: "Model", href: "#model" },
@@ -526,7 +527,7 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
 
       <SiteFooter
         brand="discern · field notes"
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         description={
           <p>
             Editorial engineering for agentic software: rigorous systems,

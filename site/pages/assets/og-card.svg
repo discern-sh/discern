@@ -9,9 +9,12 @@
   <g transform="translate(1032 66)">
     <rect width="84" height="84" rx="20" style="fill: oklch(14.5% 0.018 225)"
       stroke-width="2" stroke="oklch(35% 0.04 259)" />
-    <path d="m22 45 15 14 26-32" fill="none"
-      style="stroke: oklch(67% 0.165 259)" stroke-width="9"
-      stroke-linecap="round" stroke-linejoin="round" />
+    <g transform="translate(6 6) scale(.72)"
+      style="color: oklch(67% 0.165 259)">
+      <path d="M50 12 90 84H50Z" fill="currentColor" />
+      <path d="M50 12 90 84H10Z" fill="none" stroke="currentColor"
+        stroke-width="7" stroke-linejoin="round" />
+    </g>
   </g>
   <text x="80" y="330" style="fill: oklch(93% 0.012 225)"
     font-family="'Crimson Pro', Georgia, serif" font-size="118"

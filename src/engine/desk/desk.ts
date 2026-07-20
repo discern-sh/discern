@@ -18,6 +18,7 @@
 
 import { Select } from "@cliffy/prompt";
 import { basename } from "@std/path";
+import { DISCERN_WORDMARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -370,7 +371,7 @@ function renderHeader(
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(`discern desk — ${project}`);
+  out.heading(`${DISCERN_WORDMARK} desk — ${project}`);
   const main = (data.fleet ?? []).find((e) => e.is_main);
   if (main !== undefined) {
     const state = main.clean === true

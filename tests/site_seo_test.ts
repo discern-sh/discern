@@ -6,6 +6,10 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
+import {
+  DISCERN_MARK_FILLED_PATH,
+  DISCERN_MARK_OUTLINE_PATH,
+} from "../site/brand.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import {
   handler,
@@ -282,6 +286,13 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
   const card = await request("/assets/og-card.png");
   assertEquals(card.status, 200);
   assertEquals(card.headers.get("content-type"), "image/png");
+
+  const cardSource = await Deno.readTextFile(
+    new URL("../site/pages/assets/og-card.svg", import.meta.url),
+  );
+  assertStringIncludes(cardSource, `d="${DISCERN_MARK_FILLED_PATH}"`);
+  assertStringIncludes(cardSource, `d="${DISCERN_MARK_OUTLINE_PATH}"`);
+  assert(!cardSource.includes("m22 45 15 14 26-32"));
 });
 
 Deno.test("every explicit Markdown edition declares its HTML canonical and noindex policy", async () => {

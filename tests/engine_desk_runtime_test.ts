@@ -9,6 +9,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { DISCERN_WORDMARK } from "../src/shared/brand.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -271,7 +272,7 @@ Deno.test("desk session renders every fleet class and checks receipts only for h
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(receiptPaths, [ready.path, flying.path]);
   const text = joined(output);
-  assertStringIncludes(text, "discern desk — demo");
+  assertStringIncludes(text, `${DISCERN_WORDMARK} desk — demo`);
   assertStringIncludes(text, "main: 1 uncommitted change");
   assertStringIncludes(text, "unlanded work with no worktree: agent/orphan");
   for (

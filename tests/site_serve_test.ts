@@ -6,6 +6,12 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  DISCERN_FAVICON_PATH,
+  DISCERN_MARK,
+  DISCERN_MARK_FILLED_PATH,
+  DISCERN_MARK_OUTLINE_PATH,
+} from "../site/brand.ts";
 import { handler, PAGES, TEXT_EDITION, wantsText } from "../site/serve.ts";
 
 const BROWSER = {
@@ -28,8 +34,36 @@ Deno.test("every declared route serves its page to a browser", async () => {
       "text/html",
       `route ${path}`,
     );
-    assertStringIncludes(await res.text(), "discern", `route ${path}`);
+    const html = await res.text();
+    assertStringIncludes(html, "discern", `route ${path}`);
+    const links = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) ?? [];
+    assert(
+      links.some((link) =>
+        link.includes(DISCERN_MARK) && link.includes("discern")
+      ),
+      `brand link on route ${path} must place ${DISCERN_MARK} beside discern`,
+    );
+    assertStringIncludes(
+      html,
+      `href="${DISCERN_FAVICON_PATH}"`,
+      `favicon on route ${path}`,
+    );
   }
+});
+
+Deno.test("the project mark and favicon preserve the ADR 0149 identity", async () => {
+  const res = await get(DISCERN_FAVICON_PATH, BROWSER);
+  assertEquals(res.status, 200);
+  assertStringIncludes(res.headers.get("content-type") ?? "", "image/svg+xml");
+  const svg = await res.text();
+  assertStringIncludes(svg, `d="${DISCERN_MARK_FILLED_PATH}"`);
+  assertStringIncludes(svg, `d="${DISCERN_MARK_OUTLINE_PATH}"`);
+  assertStringIncludes(svg, "currentColor");
+  assertStringIncludes(svg, "prefers-color-scheme: dark");
+  assert(
+    !svg.includes(DISCERN_MARK),
+    "the favicon must draw the shape instead of rasterizing the glyph",
+  );
 });
 
 Deno.test("negotiable routes serve the plaintext edition to text clients", async () => {

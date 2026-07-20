@@ -15,6 +15,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { fromFileUrl } from "@std/path";
+import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "../site/brand.ts";
 import { handler } from "../site/serve.ts";
 import {
   docsLlmsSection,
@@ -218,6 +219,16 @@ Deno.test("every published page renders for a browser, with title and shell", as
     const html = await res.text();
     assertStringIncludes(html, "<title>", `route ${page.route}`);
     assertStringIncludes(html, 'class="doc-body"', `route ${page.route}`);
+    assertStringIncludes(
+      html,
+      `class="docs-brand-mark" aria-hidden="true">${DISCERN_MARK}</span>`,
+      `brand mark on route ${page.route}`,
+    );
+    assertStringIncludes(
+      html,
+      `href="${DISCERN_FAVICON_PATH}"`,
+      `favicon on route ${page.route}`,
+    );
   }
 });
 

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"
+  viewBox="0 0 100 100">
+  <title>discern</title>
+  <style>
+  svg {
+    color: #2b2635;
+  }
+  @media (prefers-color-scheme: dark) {
+    svg {
+      color: #f7f5f8;
+    }
+  }
+  </style>
+  <path d="M50 12 90 84H50Z" fill="currentColor" />
+  <path d="M50 12 90 84H10Z" fill="none" stroke="currentColor"
+    stroke-width="7" stroke-linejoin="round" />
+</svg>

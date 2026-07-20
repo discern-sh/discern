@@ -5,13 +5,11 @@
  */
 
 import { designSystemAssetPath } from "../design_system.ts";
+import { DISCERN_FAVICON_PATH } from "../brand.ts";
 
 /** Applies the stored or preferred theme before first paint. */
 export const THEME_BOOTSTRAP =
   `(function(){try{var t=localStorage.getItem("discern-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.dataset.discernTheme="dark"}}catch(_){}})();`;
-
-const FAVICON =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232B2635'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237D5BE7' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 export interface PageDocument {
   /** The page-src file the output is generated from, for the marker comment. */
@@ -47,7 +45,7 @@ export function pageDocument(page: PageDocument): string {
 <title>${page.title}</title>
 <meta name="description" content="${page.description}" />
 <meta name="theme-color" content="#F7F5F8" />
-<link rel="icon" href="${FAVICON}" />
+<link rel="icon" href="${DISCERN_FAVICON_PATH}" />
 <script>${THEME_BOOTSTRAP}</script>
 ${styles}
 ${scripts}

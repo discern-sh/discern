@@ -16,6 +16,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,
@@ -30,6 +31,7 @@ const ANSI_ESCAPE = new RegExp(`${ESC}\\[[0-9;]*m`);
 const ANSI_ESCAPES = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
 const FRESH_WELCOME_FACTS: readonly string[] = [
+  DISCERN_MARK,
   "discern",
   "quality gates and safe worktrees",
   "coding agents and the humans who run them",
