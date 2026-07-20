@@ -147,6 +147,7 @@ pushback
 rasteriz(e|ed|es|ing)
 ratchetable
 READMEs?
+recalibrat(e|es|ed|ing|ion)s?
 recompiles?
 recoverability
 reflog
