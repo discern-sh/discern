@@ -5,8 +5,10 @@ export const SITE_BUILD_INPUTS = [
   "deno.json",
   "deno.lock",
   "site/build.ts",
+  "site/brand.ts",
   "site/design_system.ts",
   "site/page-src",
+  "src/shared/brand.ts",
 ] as const;
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));

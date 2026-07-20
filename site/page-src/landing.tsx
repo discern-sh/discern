@@ -22,6 +22,7 @@ import {
   Window,
 } from "discern-design-system/react";
 import type { ReactNode } from "react";
+import { DISCERN_MARK } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 import { PageIcon } from "./icons.tsx";
 
@@ -588,7 +589,7 @@ function LandingPage() {
       <SiteHeader
         sticky
         brand={<strong>discern</strong>}
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         navItems={[
           { label: "The pattern", href: "#the-pattern" },
           { label: "The catch", href: "#the-catch" },
@@ -884,7 +885,7 @@ function LandingPage() {
 
       <SiteFooter
         brand="discern"
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         description={
           <p>
             Quality checks and safe worktrees for coding agents and the humans

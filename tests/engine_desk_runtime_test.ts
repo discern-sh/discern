@@ -9,6 +9,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -285,7 +286,7 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(receiptPaths, [ready.path, flying.path]);
   const text = joined(output);
-  assertStringIncludes(text, "heading:demo");
+  assertStringIncludes(text, `heading:${DISCERN_MARK} demo`);
   assertStringIncludes(text, "4 tasks");
   assertStringIncludes(text, "main has 1 uncommitted change");
   assertStringIncludes(text, "1 branch has no worktree: agent/orphan");

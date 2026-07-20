@@ -20,6 +20,7 @@ import {
   Terminal,
   Testimonial,
 } from "discern-design-system/react";
+import { DISCERN_MARK } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 import { PageIcon } from "./icons.tsx";
 
@@ -268,7 +269,7 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
       <SiteHeader
         sticky
         brand={<strong>discern</strong>}
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         navItems={[
           { label: "Audiences", href: "#audiences" },
           { label: "Capabilities", href: "#capabilities" },
@@ -825,7 +826,7 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
 
       <SiteFooter
         brand="discern"
-        brandMark="D"
+        brandMark={DISCERN_MARK}
         description={
           <p>
             A stack-neutral development system for coding agents and the humans

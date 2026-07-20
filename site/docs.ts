@@ -27,6 +27,7 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
+import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
 
@@ -621,9 +622,6 @@ function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
   }</span></li></ol></nav>`;
 }
 
-const FAVICON =
-  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231C1E27'/%3E%3Cpath d='M28 53l17 16 27-36' stroke='%237C89F2' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E`;
-
 const ICONS = {
   menu:
     `<svg viewBox="0 0 16 16" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>`,
@@ -664,7 +662,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <meta name="description" content="${esc(frame.description)}" />
 <meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
-<link rel="icon" href="${FAVICON}" />
+<link rel="icon" href="${DISCERN_FAVICON_PATH}" />
 <script>
 (function () {
   document.documentElement.classList.add("docs-js");
@@ -691,7 +689,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
         <span class="discern-icon">${ICONS.menu}</span>
       </button>
       <a class="docs-brand" href="/">
-        <span class="docs-brand-mark" aria-hidden="true">✓</span>
+        <span class="docs-brand-mark" aria-hidden="true">${DISCERN_MARK}</span>
         <span class="docs-brand-word">discern</span></a><a
         class="docs-brand-docs discern-mono" href="/docs">/docs</a>
     </div>

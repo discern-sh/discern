@@ -18,6 +18,7 @@
 
 import { Select } from "@cliffy/prompt";
 import { basename } from "@std/path";
+import { DISCERN_MARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -381,7 +382,7 @@ function renderHeader(
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(project);
+  out.heading(`${DISCERN_MARK} ${project}`);
   const taskCount = rows.length === 0
     ? "No tasks"
     : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
