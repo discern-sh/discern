@@ -83,6 +83,43 @@ function htmlEsc(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
+function docsTopBarVerticalNudges(css: string): string[] {
+  const start = css.indexOf("/* ── Top bar");
+  const end = css.indexOf("/* ── Chapter nav", start);
+  if (start < 0 || end <= start) return ["missing top-bar boundary"];
+  const topBar = css.slice(start, end);
+  const nudges: string[] = [];
+  for (const match of topBar.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = (match[1] ?? "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .trim();
+    for (const declaration of (match[2] ?? "").split(";")) {
+      const value = declaration.trim();
+      if (
+        /^(?:align-self|(?:margin|padding)-(?:block(?:-start|-end)?|top|bottom)|inset-block(?:-start|-end)?|top|bottom|translate|transform)\s*:/
+          .test(
+            value,
+          )
+      ) {
+        nudges.push(`${selector}: ${value}`);
+      }
+    }
+  }
+  return nudges;
+}
+
+Deno.test("the docs top-bar alignment guard catches a fresh-name vertical nudge", () => {
+  const fixture = `
+    /* ── Top bar ── */
+    .fresh-identity-addon { margin-block-start: 2px; }
+    /* ── Chapter nav ── */
+  `;
+  assertEquals(
+    docsTopBarVerticalNudges(fixture),
+    [".fresh-identity-addon: margin-block-start: 2px"],
+  );
+});
+
 Deno.test("the published docs site covers exactly the bundled-public sections", async () => {
   const site = await loadDocsSite();
   assertEquals(
@@ -221,7 +258,7 @@ Deno.test("every published page renders for a browser, with title and shell", as
     assertStringIncludes(html, 'class="doc-body"', `route ${page.route}`);
     assertStringIncludes(
       html,
-      'class="discern-logo discern-logo--sm discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">◮</span>',
+      'class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">◮</span>',
       `design-system brand on route ${page.route}`,
     );
     assertStringIncludes(
@@ -247,6 +284,13 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assertStringIncludes(css, "color: var(--discern-color-ink-faint)");
   assertStringIncludes(css, "font-size: 1rem");
   assertStringIncludes(css, "transform: translate(-50%, -60%)");
+});
+
+Deno.test("the docs top bar aligns its children without vertical nudges", async () => {
+  const css = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.css", import.meta.url),
+  );
+  assertEquals(docsTopBarVerticalNudges(css), []);
 });
 
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {

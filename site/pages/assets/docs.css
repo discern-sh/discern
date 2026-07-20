@@ -68,8 +68,6 @@ body {
 }
 
 .docs-brand-docs {
-  align-self: end;
-  padding-bottom: 9px;
   color: var(--discern-color-ink-faint);
   font-size: var(--discern-font-size-xs);
   text-decoration: none;

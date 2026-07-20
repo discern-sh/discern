@@ -401,7 +401,9 @@ Deno.test("every design-system route renders the canonical brand lockup", async 
       );
       assertEquals(response.status, 200, route);
       const html = await response.text();
+      assertStringIncludes(html, "discern-brand--md", route);
       assertStringIncludes(html, "discern-brand--mono", route);
+      assertStringIncludes(html, "discern-logo--md", route);
       assertStringIncludes(html, "discern-logo--plain", route);
       assertStringIncludes(html, "discern-logo--natural", route);
       assertStringIncludes(html, 'aria-hidden="true">◮</span>', route);

@@ -6,7 +6,7 @@ Page authors compose the package's typed React adapters in [`site/page-src/`](..
 
 Layout and display components render completely as semantic HTML. Any browser behavior is a small page-owned progressive enhancement. Product copy, routes, commands, bespoke artwork, docs rendering, and composition CSS remain in Discern; none moves into the reusable package.
 
-Public pages that load a design-system bundle share the lockup in `site/page-src/branding.tsx`. The component renders `discern` beside the decorative Unicode mark in the `mono` typeface. The Editorial atlas adds `field notes` through the component's tagline slot. Header and footer links receive the same component, and the docs shell embeds one pre-rendered copy in its top bar.
+Public pages that load a design-system bundle share the lockup in `site/page-src/branding.tsx`. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. The Editorial atlas adds `field notes` through the component's tagline slot. Header and footer links receive the same component, and the docs shell embeds one pre-rendered copy in its top bar.
 
 ## The landing page and the retained compositions
 
@@ -34,5 +34,7 @@ deno task site:build   # emit both runtimes, the homepage, and two atlases
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 ```
+
+The `site` and `watch` tasks grant `NODE_ENV` to the server-side React renderer. The renderer reads it when the docs Brand module loads; the browser still receives static HTML and no React runtime.
 
 The package's `discern` theme preserves the semantic color, type, spacing, focus, motion, and background roles established during the prototype. Crimson Pro is the display face, Inter serves body and interface roles, and JetBrains Mono serves code. All font binaries and SIL Open Font License texts are copied from the selected package asset pack into local generated output. The optional grain provider adds a bundled local texture to the composition bundle, with no remote browser dependency.

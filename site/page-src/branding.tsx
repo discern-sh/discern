@@ -16,7 +16,7 @@ export function DiscernBrand({ tagline }: DiscernBrandProps) {
     <Brand
       mark={DISCERN_MARK}
       name="discern"
-      size="sm"
+      size="md"
       tagline={tagline}
       typeface="mono"
     />

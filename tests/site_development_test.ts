@@ -85,6 +85,29 @@ function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   return offenders;
 }
 
+function siteDevEnvPermissionOffenders(
+  entries: readonly ConfigEntry[],
+): string[] {
+  const offenders: string[] = [];
+  for (const { path, config } of entries) {
+    for (const [name, command] of Object.entries(config.tasks ?? {})) {
+      if (!/\bsite\/dev\.ts\b/.test(command)) continue;
+      const allowEnv = /(?:^|\s)--allow-env(?:=([^\s]+))?(?:\s|$)/.exec(
+        command,
+      );
+      if (
+        allowEnv !== null &&
+        (allowEnv[1] === undefined ||
+          allowEnv[1].split(",").includes("NODE_ENV"))
+      ) {
+        continue;
+      }
+      offenders.push(`${path}:${name}`);
+    }
+  }
+  return offenders;
+}
+
 Deno.test("the development-server detector catches a freshly named wildcard sibling", () => {
   assertEquals(
     wildcardServeTasks([{
@@ -92,6 +115,21 @@ Deno.test("the development-server detector catches a freshly named wildcard sibl
       config: { tasks: { preview: "deno serve --port 9999 app.ts" } },
     }]),
     ["unrelated/deno.json:preview"],
+  );
+});
+
+Deno.test("the site env detector catches a freshly named task sibling", () => {
+  assertEquals(
+    siteDevEnvPermissionOffenders([{
+      path: "unrelated/deno.json",
+      config: {
+        tasks: {
+          showcase:
+            "deno run --allow-env=PORT --allow-net=127.0.0.1 site/dev.ts",
+        },
+      },
+    }]),
+    ["unrelated/deno.json:showcase"],
   );
 });
 
@@ -139,6 +177,14 @@ Deno.test("every deno serve task binds to loopback explicitly", async () => {
   );
 });
 
+Deno.test("every site development task permits React's environment read", async () => {
+  assertEquals(
+    siteDevEnvPermissionOffenders(await developmentConfigs()),
+    [],
+    "site/dev.ts imports the server-rendered Brand lockup, whose React runtime reads NODE_ENV",
+  );
+});
+
 Deno.test("the site development runner advertises localhost and rejects bad ports", () => {
   assertEquals(SITE_DEV_BIND_HOST, "127.0.0.1");
   assertEquals(SITE_DEV_BROWSER_HOST, "localhost");
@@ -181,7 +227,7 @@ Deno.test("the watch task delegates to the source-driven site watcher", async ()
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);
