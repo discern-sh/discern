@@ -38,7 +38,7 @@ import type {
   DetectorScope,
   DetectorStatus,
   DetectorTier,
-} from "../../shared/result_schemas.ts";
+} from "../../shared/patterns_vocabulary.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────

@@ -19,6 +19,8 @@ import {
   ImpactOutputSchema,
   ImprovementOutputSchema,
   MapOutputSchema,
+  PatternsOutputSchema,
+  PatternsResetOutputSchema,
   PrepareOutputSchema,
   PresetOutputSchema,
   RefreshOutputSchema,
@@ -192,6 +194,19 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "coupling",
     schema: CouplingOutputSchema,
     mcpTool: "discern_coupling",
+  },
+  {
+    id: "patterns",
+    commands: ["patterns"],
+    verb: "patterns",
+    schema: PatternsOutputSchema,
+    mcpTool: "discern_patterns",
+  },
+  {
+    id: "patternsReset",
+    commands: ["patterns reset"],
+    verb: "patterns reset",
+    schema: PatternsResetOutputSchema,
   },
   {
     id: "status",

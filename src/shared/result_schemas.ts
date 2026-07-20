@@ -773,43 +773,32 @@ export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
 // patterns ─────────────────────────────────────────────────────────────────
 
-/** The detector families the `patterns` registry groups by: how agents behave,
- * how the gate fits the stack, how the task funnel flows, and how the numbers
- * move over time. SSOT for the family vocabulary — the schema enum below and
- * the engine's detector registry both derive from it. Defined here (not the
- * engine) because this `shared/` module must not import `src/engine/**`. */
-export const DETECTOR_FAMILIES = [
-  "behaviour",
-  "gate-fit",
-  "funnel",
-  "trajectory",
-] as const;
-/** One detector family ({@link DETECTOR_FAMILIES}). */
-export type DetectorFamily = (typeof DETECTOR_FAMILIES)[number];
-
-/** What a finding is ABOUT — the surface wave 3 routes it to: one branch's
- * work, one conversation's runs, or the whole project. */
-export const DETECTOR_SCOPES = ["branch", "session", "project"] as const;
-/** One detector scope ({@link DETECTOR_SCOPES}). */
-export type DetectorScope = (typeof DETECTOR_SCOPES)[number];
-
-/** How costly a detector is to run: `inline` is cheap enough for the receipt
- * and `status` to carry (a glance at recent events); `batch` runs only under
- * the `patterns` verb, so `done` never pays for longitudinal analysis. */
-export const DETECTOR_TIERS = ["inline", "batch"] as const;
-/** One detector tier ({@link DETECTOR_TIERS}). */
-export type DetectorTier = (typeof DETECTOR_TIERS)[number];
-
-/** How a detector's run turned out: it spoke (`fired`), it saw enough evidence
- * and found nothing (`quiet`), or the logbook is too young for it to speak
- * (`insufficient-evidence` — reported as such, never extrapolated past). */
-export const DETECTOR_STATUSES = [
-  "fired",
-  "quiet",
-  "insufficient-evidence",
-] as const;
-/** One detector status ({@link DETECTOR_STATUSES}). */
-export type DetectorStatus = (typeof DETECTOR_STATUSES)[number];
+/** The `patterns` verb's detector vocabulary and data shapes live in their own
+ * dependency-light module (`patterns_vocabulary.ts`) so the logbook subsystem
+ * can share them from inside its no-network wall; re-exported here so wire
+ * consumers keep one import site. */
+export {
+  DETECTOR_FAMILIES,
+  DETECTOR_SCOPES,
+  DETECTOR_STATUSES,
+  DETECTOR_TIERS,
+  PatternsDataSchema,
+  PatternsResetDataSchema,
+} from "./patterns_vocabulary.ts";
+export type {
+  DetectorFamily,
+  DetectorScope,
+  DetectorStatus,
+  DetectorTier,
+  PatternsData,
+  PatternsDetector,
+  PatternsFinding,
+  PatternsResetData,
+} from "./patterns_vocabulary.ts";
+import {
+  PatternsDataSchema,
+  PatternsResetDataSchema,
+} from "./patterns_vocabulary.ts";
 
 // docs / help ──────────────────────────────────────────────────────────────
 
@@ -1300,6 +1289,19 @@ export const ImpactOutputSchema = resultOutputSchema(
 export const CouplingOutputSchema = resultOutputSchema(
   "coupling",
   CouplingDataSchema,
+);
+
+/** `patterns` output: envelope + the logbook-reader `data`. */
+export const PatternsOutputSchema = resultOutputSchema(
+  "patterns",
+  PatternsDataSchema,
+);
+
+/** `patterns reset` output: envelope + the deletion `data`. CLI-only (the one
+ * destructive member of the patterns family stays off the MCP surface). */
+export const PatternsResetOutputSchema = resultOutputSchema(
+  "patterns reset",
+  PatternsResetDataSchema,
 );
 
 /** `start` output: envelope + the new-worktree `data`. */

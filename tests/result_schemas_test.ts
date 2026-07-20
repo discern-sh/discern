@@ -44,6 +44,8 @@ import {
   ImpactOutputSchema,
   ImprovementOutputSchema,
   MapOutputSchema,
+  PatternsOutputSchema,
+  PatternsResetOutputSchema,
   PrepareOutputSchema,
   RefreshOutputSchema,
   SkillsListOutputSchema,
@@ -68,6 +70,10 @@ import { doctorResult } from "../src/commands/doctor.ts";
 import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
+import {
+  patternsResetResult,
+  patternsResult,
+} from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
 import { helpResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
@@ -177,6 +183,8 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "help",
   "improvement",
   "update",
+  "patterns",
+  "patternsReset",
   "prepare",
   "standards",
   "refresh",
@@ -564,6 +572,85 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
       ev.mode === "evidence" && (ev.together ?? 0) >= 1 &&
         (ev.commits ?? []).length >= 1,
       "evidence mode reports the commits a.ts and b.ts shared",
+    );
+  });
+});
+
+Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, applied)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The empty-logbook state is first-class and must validate too.
+    expectValid(
+      PatternsOutputSchema,
+      await patternsResult(dir),
+      "patterns empty",
+    );
+
+    // Seed one synthetic month: a done-thrash stream (exercises the finding
+    // sub-schema), a torn line (the unparsed counter), and a pin event.
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const event = (at: string, outcome: string): string =>
+      JSON.stringify({
+        schema: 1,
+        at,
+        kind: "verb",
+        verb: "done",
+        surface: "cli",
+        writer: "1.0.0",
+        driver: { session: "cli:1", json: true, tty: false, ci: false },
+        branch: "agent/seeded",
+        head: "abc1234",
+        clean: true,
+        outcome,
+        ...(outcome === "failed" ? { failed_stage: "check/test" } : {}),
+        duration_ms: 1000,
+        epoch: "e1",
+      });
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      [
+        event("2026-07-01T00:00:00.000Z", "failed"),
+        event("2026-07-01T01:00:00.000Z", "failed"),
+        event("2026-07-01T02:00:00.000Z", "failed"),
+        event("2026-07-01T03:00:00.000Z", "ok"),
+        '{"schema":1,"kind":"ver',
+        JSON.stringify({
+          schema: 1,
+          at: "2026-07-01T04:00:00.000Z",
+          kind: "pin",
+          branch: "agent/seeded",
+          standard: "cov",
+          from: 80,
+          to: 85,
+          measured: 85,
+        }),
+      ].join("\n") + "\n",
+    );
+    const seeded = await patternsResult(dir);
+    expectValid(PatternsOutputSchema, seeded, "patterns seeded");
+    const data = seeded.data;
+    assert(
+      data !== undefined && "findings" in data && data.findings.length > 0,
+      "the seeded thrash stream must produce findings, so the finding sub-schema is exercised",
+    );
+
+    // The reset's plan (dry-run), apply, and already-empty modes all validate.
+    expectValid(
+      PatternsResetOutputSchema,
+      await patternsResetResult(dir, { dryRun: true }),
+      "patterns reset dry-run",
+    );
+    expectValid(
+      PatternsResetOutputSchema,
+      await patternsResetResult(dir),
+      "patterns reset",
+    );
+    expectValid(
+      PatternsResetOutputSchema,
+      await patternsResetResult(dir),
+      "patterns reset (nothing left)",
     );
   });
 });

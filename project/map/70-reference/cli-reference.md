@@ -40,6 +40,8 @@ aliases:
   - discern skills eject
   - discern impact
   - discern coupling
+  - discern patterns
+  - discern patterns reset
   - discern status
   - discern desk
   - discern start
@@ -554,6 +556,27 @@ Usage: `discern coupling [file] [with] [options]`
 | Option | Description |
 | --- | --- |
 | `--json` | Emit a JSON DiscernResult. |
+
+### `discern patterns`
+
+Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behaviour, gate fit, the task funnel, and each standard's trajectory. Advisory only; never blocks.
+
+Usage: `discern patterns [options]`
+
+| Option | Description |
+| --- | --- |
+| `--json` | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence). |
+
+#### `discern patterns reset`
+
+Delete the recorded history: every logbook month file and the epoch sidecar. Local data only; nothing else is touched.
+
+Usage: `discern patterns reset [options]`
+
+| Option | Description |
+| --- | --- |
+| `--json` | Emit the result as a JSON DiscernResult object on stdout. |
+| `--dry-run` | List what would be removed; touch nothing. |
 
 ### `discern map`
 

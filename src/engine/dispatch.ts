@@ -42,6 +42,7 @@ import { runTestCapability } from "./gate/test.ts";
 import { runStandards } from "./gate/standards.ts";
 import { runImpact } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
+import { runPatterns, runPatternsReset } from "./logbook/patterns.ts";
 import { runStatus } from "./status/status.ts";
 import { runDesk } from "./desk/desk.ts";
 import { refreshResult } from "./guidelines.ts";
@@ -93,6 +94,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "refresh",
   "impact",
   "coupling",
+  "patterns",
   "status",
   "desk",
   "accept",
@@ -146,6 +148,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "refresh",
   "impact",
   "coupling",
+  "patterns",
   "status",
   "accept",
   "update",
@@ -472,6 +475,48 @@ export function attachEngineCommands(
         ...(paths.length > 0 ? { paths } : {}),
       });
     }));
+
+  const patterns = new Command()
+    .description(
+      "Report the patterns in this project's discern use, read from the local " +
+        "logbook of verb runs: agent behaviour, gate fit, the task funnel, and " +
+        "each standard's trajectory. Advisory only; never blocks.",
+    )
+    .option(
+      "--json",
+      "Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).",
+    )
+    .action(
+      recordedExit(
+        "patterns",
+        async (o) =>
+          await runPatterns(await requireRoot(), { json: o.json ?? false }),
+      ),
+    )
+    .command(
+      "reset",
+      new Command()
+        .description(
+          "Delete the recorded history: every logbook month file and the epoch " +
+            "sidecar. Local data only; nothing else is touched.",
+        )
+        .option(
+          "--json",
+          "Emit the result as a JSON DiscernResult object on stdout.",
+        )
+        .option("--dry-run", "List what would be removed; touch nothing.")
+        .action(
+          recordedExit(
+            "patterns reset",
+            async (o) =>
+              await runPatternsReset(await requireRoot(), {
+                json: o.json ?? false,
+                dryRun: o.dryRun ?? false,
+              }),
+          ),
+        ),
+    );
+  root.command("patterns", patterns);
 
   // `status` — read-only situation/orientation: what's true right now and what to
   // do next. It resolves the root itself so the not-initialized case is the

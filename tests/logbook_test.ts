@@ -422,7 +422,10 @@ Deno.test("reader: months merge chronologically and torn/foreign lines are count
       ].join("\n") + "\n",
     );
     // The epoch sidecar sits beside the months and is not event storage.
-    await writeEpochState(dir, { schema: LOGBOOK_SCHEMA_VERSION, branches: {} });
+    await writeEpochState(dir, {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      branches: {},
+    });
     const stream = await readLogbookStream(dir);
     assertEquals(stream.months, ["2026-06.jsonl", "2026-07.jsonl"]);
     assertEquals(stream.unparsed, 2);
