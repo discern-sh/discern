@@ -33,7 +33,15 @@ DISCERN_METRIC coverage 91.4
 
 `metric` overrides the emitted metric name. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
-Use `per` and `scale` when a raw count grows with the project. A per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
+## Choose a number that survives growth
+
+Ask before wiring: does this number move when the project healthily grows? The answer decides how to hold it.
+
+- An **invariant** never moves with growth — lint suppressions, uses of a banned pattern. Hold the raw count and drive it to zero.
+- A **quality that scales** rises with the tree — coverage, alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
+- A **growing total** rises with every shipped feature — an asset size, a word count. A ceiling pinned at today's value fails the next legitimate change, and the pressure lands on qualities no standard measures: an agent shrinks unrelated content or trades readability for bytes, and the gate reports green. Prefer the rate that states the real claim; where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
+
+Report a breach the work itself caused (the deliverable grew what the metric measures) instead of engineering the number back down. The owner moves the limit on the trunk, and the breach diagnostic says so at the moment it fires.
 
 ## What the gate does
 
@@ -51,7 +59,7 @@ A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool r
 
 | Failure                                    | Response                                                                                                          |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| The metric regressed                       | Raise an `up` metric or lower a `down` metric until it holds the configured limit.                                |
+| The metric regressed                       | Move it the right way within the task's scope. Report a breach the work itself caused; the owner moves the limit. |
 | The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                      |
 | The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                             |
 | The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
