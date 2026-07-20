@@ -21,11 +21,71 @@
  * that surfaces no envelope still records a minimal event.
  */
 
-import { takeObservedResult } from "../../shared/result_capture.ts";
-import type { LogbookSurface } from "./schema.ts";
+import {
+  takeObservedResult,
+  takeVerbTarget,
+} from "../../shared/result_capture.ts";
+import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import { beginRecording } from "./record.ts";
 
 const recordedVerbs = new Set<string>();
+
+/**
+ * The CLI's raw driver signals — evidence for the who-drove-this question,
+ * gathered here because only the surface knows them: the parent process id (a
+ * session grouping hint — one conversation's invocations share a parent even
+ * when every task shares a branch), whether `--json` was requested (agents
+ * pass it per the guidance; humans rarely do), whether stdout is a terminal,
+ * and whether the conventional CI marker is set. Facts only; scoring them into
+ * an is-this-an-agent inference is reader work, revisable over all history.
+ */
+function cliDriverFacts(scanArgs: boolean): DriverFacts {
+  let tty = false;
+  try {
+    tty = Deno.stdout.isTerminal();
+  } catch {
+    // A closed stdout reads as not-a-terminal.
+  }
+  let ci = false;
+  try {
+    const marker = Deno.env.get("CI");
+    ci = marker !== undefined && marker !== "" && marker !== "false";
+  } catch {
+    // No env permission reads as not-CI.
+  }
+  return {
+    session: `cli:${Deno.ppid}`,
+    ...(scanArgs ? { json: Deno.args.includes("--json") } : {}),
+    tty,
+    ci,
+  };
+}
+
+/**
+ * The flag NAMES this invocation passed — `--force`, `--raw`, and kin — never
+ * their values (`--name foo` records `name` alone) and never positionals. The
+ * scan stops at a bare `--`, keeps only conventional flag-shaped names (so a
+ * pasted path or free-text argument can never slip in), and drops the two
+ * flags that already ride first-class event fields. Cliffy rejects unknown
+ * flags before any verb runs, so what lands here is registry-vetted by parse.
+ */
+function cliFlagNames(): string[] | undefined {
+  const names: string[] = [];
+  for (const arg of Deno.args) {
+    if (arg === "--") {
+      break;
+    }
+    const match = /^--([a-z][a-z0-9-]*)(=|$)/.exec(arg);
+    const name = match?.[1];
+    if (
+      name !== undefined && name !== "json" && name !== "dry-run" &&
+      !names.includes(name)
+    ) {
+      names.push(name);
+    }
+  }
+  return names.length > 0 ? names : undefined;
+}
 
 /**
  * The top-level verbs whose Cliffy actions route through {@link recordedExit},
@@ -61,19 +121,26 @@ export async function recordedRun(
     code = (await body()) ?? 0;
   } finally {
     const observed = takeObservedResult();
+    const target = takeVerbTarget();
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `script` namespace is excluded from
-    // the argv check — everything after the script name belongs to the child,
-    // so a child's own --dry-run must not mislabel the event.
+    // every argv scan (dry-run, --json, flag names) — everything after the
+    // script name belongs to the child, so a child's own flags must not
+    // mislabel the event.
+    const scanArgs = verb !== "script";
     const dryRun = observed?.dry_run === true ||
-      (verb !== "script" && Deno.args.includes("--dry-run"));
+      (scanArgs && Deno.args.includes("--dry-run"));
+    const flags = scanArgs ? cliFlagNames() : undefined;
     await recording.finish({
       verb,
       surface,
       outcome: code === 0 ? "ok" : "failed",
       durationMs: performance.now() - started,
+      driver: cliDriverFacts(scanArgs),
       ...(observed !== undefined ? { result: observed } : {}),
       ...(dryRun ? { dryRun: true } : {}),
+      ...(flags !== undefined ? { flags } : {}),
+      ...(target !== undefined ? { target } : {}),
     });
   }
   return code;

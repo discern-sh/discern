@@ -33,6 +33,7 @@ import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import { takeObservedResult } from "../../shared/result_capture.ts";
 import { beginRecording } from "../logbook/record.ts";
+import type { DriverFacts } from "../logbook/schema.ts";
 import {
   type AcceptData,
   AcceptOutputSchema,
@@ -1035,6 +1036,43 @@ export class WorkingRoot {
  * never-aborting default keeps the verb contract simple (a verb always receives
  * a signal).
  */
+/** One opaque id per server INSTANCE — the MCP session grouping hint: every
+ * invocation this long-lived process serves belongs to one client conversation,
+ * which is exactly the grouping a session reader wants. */
+const MCP_SESSION = `mcp:${crypto.randomUUID().slice(0, 8)}`;
+
+/** The MCP surface's raw driver signals: the per-instance session id and the
+ * CI marker. `json`/`tty` are CLI concepts; an MCP client is programmatic by
+ * construction, and the absence of those fields says so honestly. */
+function mcpDriverFacts(): DriverFacts {
+  let ci = false;
+  try {
+    const marker = Deno.env.get("CI");
+    ci = marker !== undefined && marker !== "" && marker !== "false";
+  } catch {
+    // No env permission reads as not-CI.
+  }
+  return { session: MCP_SESSION, ci };
+}
+
+/** The argument NAMES a tool call provided — the MCP mirror of CLI flag names,
+ * already registry-vetted by the tool's input schema. Values never land; names
+ * are normalized to the CLI's hyphenated spelling so readers see one
+ * vocabulary. `path` (plumbing) and `dry_run` (a first-class field) drop out;
+ * a string-valued `target` argument is lifted as the verb's target instead. */
+function mcpCallFacts(
+  args: Record<string, unknown>,
+): { flags: string[] | undefined; target: string | undefined } {
+  const names = Object.keys(args)
+    .filter((k) => k !== "path" && k !== "dry_run" && k !== "target")
+    .map((k) => k.replaceAll("_", "-"))
+    .sort();
+  const target = typeof args.target === "string" && args.target !== ""
+    ? args.target
+    : undefined;
+  return { flags: names.length > 0 ? names : undefined, target };
+}
+
 async function runVerb(
   tool: McpTool,
   root: string,
@@ -1057,13 +1095,17 @@ async function runVerb(
   // Drain the CLI-oriented observation seam: the in-process verb cores feed it,
   // and this long-lived server must not leak one call's envelope into the next.
   takeObservedResult();
+  const { flags, target } = mcpCallFacts(args);
   await recording.finish({
     verb: verbOf(tool.name),
     surface: "mcp",
     outcome: result.ok ? "ok" : "failed",
     durationMs: performance.now() - started,
     result,
+    driver: mcpDriverFacts(),
     ...(result.dry_run === true ? { dryRun: true } : {}),
+    ...(flags !== undefined ? { flags } : {}),
+    ...(target !== undefined ? { target } : {}),
   });
   return result;
 }

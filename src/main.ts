@@ -12,6 +12,7 @@ import { colors } from "@cliffy/ansi/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
+import { observeVerbTarget } from "./shared/result_capture.ts";
 import { setColorOverride } from "./engine/output.ts";
 import {
   AGENT_NAMES,
@@ -494,8 +495,11 @@ export function buildCli(
       "Write an export to a file instead of stdout.",
     )
     .action(
-      recordedExit("map", async (options, target?: string) =>
-        await runMap({
+      recordedExit("map", async (options, target?: string) => {
+        if (target !== undefined && target !== "") {
+          observeVerbTarget(target); // which page was read — a slug, never text
+        }
+        return await runMap({
           json: options.json ?? false,
           noColor: noColorFrom(options.color),
           raw: options.raw ?? false,
@@ -507,7 +511,8 @@ export function buildCli(
           target,
           export: options.export,
           output: options.output,
-        })),
+        });
+      }),
     );
 
   // `help` — browse discern's OWN bundled documentation (the config reference,
@@ -543,6 +548,9 @@ export function buildCli(
     )
     .action(recordedExit("help", async (options, target?: string) => {
       const json = options.json ?? false;
+      if (target !== undefined && target !== "") {
+        observeVerbTarget(target); // which topic was looked up — a slug, never text
+      }
       // `help <command>` mirrors `<command> --help` — git users type the two
       // interchangeably, and git itself forwards one to the other. Driven off
       // the verb registry (hidden commands included: they still dispatch), so

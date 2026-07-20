@@ -30,3 +30,23 @@ export function takeObservedResult(): DiscernResult | undefined {
   observed = undefined;
   return result;
 }
+
+let observedTarget: string | undefined;
+
+/**
+ * Report the invocation's TARGET — the object a verb acted on when it has one
+ * (a `help` topic, a `map` page slug). The same one-slot mailbox pattern as the
+ * envelope above, for verbs whose target is a positional the generic recording
+ * wrapper cannot see. A slug or doc path only, never free text — it lands in
+ * the local logbook, whose bar is metadata safe to read aloud.
+ */
+export function observeVerbTarget(target: string): void {
+  observedTarget = target;
+}
+
+/** Take (and clear) the observed target, or undefined when none was reported. */
+export function takeVerbTarget(): string | undefined {
+  const target = observedTarget;
+  observedTarget = undefined;
+  return target;
+}
