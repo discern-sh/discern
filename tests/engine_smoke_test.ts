@@ -39,6 +39,12 @@ Deno.test("engine smoke: doctor passes with warnings on a fresh install", async 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
+    // Any first verb run seeds the logbook; until one completes, doctor's
+    // logbook check is deliberately red (an enabled-but-silent logbook is
+    // indistinguishable from failing writes). The smoke claim under test is
+    // that WARNINGS don't fail doctor — so run one verb first.
+    const seed = await runAgent(dir, ["status", "--json"]);
+    assertEquals(seed.code, 0, seed.output);
     const r = await runAgent(dir, ["doctor"]);
     // Warnings (all-no-op gate) are advisories: doctor still exits 0.
     assertEquals(r.code, 0, r.output);
