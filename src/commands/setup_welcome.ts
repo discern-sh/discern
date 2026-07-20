@@ -17,6 +17,7 @@
  */
 
 import { emitResult } from "../shared/emit.ts";
+import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -304,7 +305,7 @@ function actionBox(): string[] {
  * compact — the full agent preflight is `verify`'s job, not the welcome's.
  */
 const PLAIN_FRESH_WELCOME: readonly string[] = [
-  "discern — quality gates and safe worktrees for coding agents and the humans who run them.",
+  `${DISCERN_WORDMARK} — quality gates and safe worktrees for coding agents and the humans who run them.`,
   "",
   "This project isn't set up yet.",
   "",
@@ -371,7 +372,9 @@ export function renderFreshWelcome(
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
   return [
     boxTop(),
-    boxLine(`${bold(cyan("discern"))} — quality gates and safe worktrees`),
+    boxLine(
+      `${bold(cyan(DISCERN_WORDMARK))} — quality gates and safe worktrees`,
+    ),
     boxLine(dim("for coding agents and the humans who run them.")),
     boxRule("This project isn't set up yet."),
     ...(ctx.gitRepo ? [] : [

@@ -19,7 +19,7 @@ Agents use Model Context Protocol (MCP) tools and JSON results to operate their 
 
 The root menu includes `Start a task` even when the fleet is empty. It asks for an optional name and runs the same lifecycle core as `discern start`: a name is normalised to the worktree id and branch, while a blank answer uses a random codename. The new worktree is created, set up, and ready before the desk continues.
 
-After creation, the desk opens the new row's action menu immediately. Jump into its shell or open a configured coding agent without finding and selecting the new branch first.
+After creation, the desk opens the new row's action menu immediately. Open its shell or a configured coding agent without finding and selecting the new branch first.
 
 ## Read the decision order
 
@@ -33,6 +33,8 @@ The desk builds its rows from `discern status` and the recorded gate receipts. I
 
 Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree.
 
+Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
+
 ## Choose an action
 
 The selected row offers only actions that fit its observed state:
@@ -43,7 +45,7 @@ The selected row offers only actions that fit its observed state:
 | Update          | Brings the trunk into the selected worktree.                                  |
 | Run script      | Runs a discovered executable Project Script from that worktree.               |
 | Open with agent | Starts or continues a configured coding-agent CLI inside the worktree.        |
-| Jump in         | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.  |
+| Open a shell    | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.  |
 | Inspect         | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
 | Drop            | Runs the guarded abandoned-work removal path.                                 |
 
