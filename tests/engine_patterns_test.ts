@@ -102,7 +102,11 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     assertEquals(parsed.ok, true);
     const data = parsed.data as PatternsData;
     assert(data.logbook.events >= 5, "the seeded events must be read");
-    assertEquals(data.logbook.unparsed, 1, "the torn line is counted, not fatal");
+    assertEquals(
+      data.logbook.unparsed,
+      1,
+      "the torn line is counted, not fatal",
+    );
 
     const thrash = data.findings.find((f) => f.detector === "done-thrash");
     assert(thrash !== undefined, "the seeded 3-streak must fire done-thrash");
@@ -147,7 +151,12 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
     const logDir = join(dir, ".git", "discern", "logbook");
 
     // The preview lists the files and removes nothing.
-    const preview = await runAgent(dir, ["patterns", "reset", "--dry-run", "--json"]);
+    const preview = await runAgent(dir, [
+      "patterns",
+      "reset",
+      "--dry-run",
+      "--json",
+    ]);
     assertEquals(preview.code, 0, preview.output);
     const previewParsed = PatternsResetOutputSchema.parse(
       JSON.parse(preview.stdout),
@@ -166,7 +175,9 @@ Deno.test("patterns reset: dry-run previews, apply removes exactly the logbook",
     // The apply removes the directory and reports what it removed.
     const apply = await runAgent(dir, ["patterns", "reset", "--json"]);
     assertEquals(apply.code, 0, apply.output);
-    const applyParsed = PatternsResetOutputSchema.parse(JSON.parse(apply.stdout));
+    const applyParsed = PatternsResetOutputSchema.parse(
+      JSON.parse(apply.stdout),
+    );
     const applyData = applyParsed.data as PatternsResetData;
     assert(applyData.removed.some((f) => f.file === "2026-06.jsonl"));
     assert(applyData.bytes > 0);

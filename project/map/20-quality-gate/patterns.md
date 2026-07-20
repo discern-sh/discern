@@ -31,12 +31,12 @@ An empty logbook is a normal state: the report says so and suggests checking bac
 
 A registry of named detectors runs over the event stream, grouped by family:
 
-| Family      | Watches for                                                                                                                                                                            |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Behaviour   | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, dirty-tree churn, edits on the trunk, recurring `--force`, missed doc lookups, worktrees started but never green, out-of-protocol orderings. |
-| Gate fit    | One job dominating gate wall time, duration creep on an unchanged setup, a fix stage with no visible effect, one diagnostic class failing across branches, divergent verdicts on an identical tree — the flake signature. |
-| Funnel      | Red runs before the first green per branch, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                       |
-| Trajectory  | Each standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                       |
+| Family     | Watches for                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Behaviour  | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, dirty-tree churn, edits on the trunk, recurring `--force`, missed doc lookups, worktrees started but never green, out-of-protocol orderings. |
+| Gate fit   | One job dominating gate wall time, duration creep on an unchanged setup, a fix stage with no visible effect, one diagnostic class failing across branches, divergent verdicts on an identical tree — the flake signature.                  |
+| Funnel     | Red runs before the first green per branch, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                         |
+| Trajectory | Each standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                                                                         |
 
 Detector thresholds start conservative and are recorded beside each entry in the registry source.
 
@@ -61,14 +61,14 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 ## Where it lives in code
 
-| Concern                                  | Source                                                                      |
-| ---------------------------------------- | ---------------------------------------------------------------------------- |
-| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                   |
-| The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)                     |
-| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                             |
-| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts)       |
-| Registry-driven fixtures and behaviour   | [`patterns_test.ts`](../../../tests/patterns_test.ts)                        |
-| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)          |
+| Concern                                  | Source                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
+| The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
+| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
+| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
+| Registry-driven fixtures and behaviour   | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
 
 ## Current state & gotchas
 

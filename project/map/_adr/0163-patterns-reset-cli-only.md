@@ -4,7 +4,7 @@
 
 ## Context
 
-[ADR 0160](0160-local-logbook-advisory-readers.md) decided the logbook and promised its owner-facing escape hatch: "a reset action deletes the accumulated history" — the deletability leg of the trust posture. [ADR 0120](0120-launch-verb-canon.md) fixed the naming rule the action must live under: questions are nouns, actions are imperatives. `patterns` is the question (the first reader, per 0160). The reset is an action, and shipping it forces two surface decisions the earlier records left open: how the imperative is spelled into the family, and which surfaces expose it.
+[ADR 0160](0160-local-logbook-advisory-readers.md) decided the logbook and promised its owner-facing escape hatch: "a reset action deletes the accumulated history" — the deletion leg of the trust promise. [ADR 0120](0120-launch-verb-canon.md) fixed the naming rule the action must live under: questions are nouns, actions are imperatives. `patterns` is the question (the first reader, per 0160). The reset is an action, and shipping it forces two surface decisions the earlier records left open: how the imperative is spelled into the family, and which surfaces expose it.
 
 The candidates for the spelling: a `--reset` flag on the `patterns` verb, or an imperative subcommand. The candidates for exposure: CLI only, or an MCP tool beside `discern_patterns`.
 
@@ -15,7 +15,7 @@ Three prior decisions bear on it. [ADR 0119](0119-bare-discern-opens-the-operato
 **`discern patterns reset` — an imperative subcommand, plan/apply with `--dry-run`, on the CLI only.**
 
 - **A subcommand, not a flag.** `patterns` is a read-only question and its MCP tool advertises read-only annotations; a `--reset` flag would make one spelling both the question and a destructive act, and the MCP input schema would either carry a flag the tool refuses or the two surfaces would diverge. The subcommand keeps the family in the canon's shape — the noun asks, the imperative acts — the same way `skills` houses `eject` and `worktree` houses `drop`.
-- **CLI only.** Deleting the recorded history is the owner's local act: an agent has no task that needs it, and an agent that *wants* it is exactly the case 0160 warned about (a reader policed by its own history learns to erase the history). The MCP surface therefore exposes the question and not the eraser, on ADR 0119's precedent. The `discern_patterns` description names the CLI spelling so an owner who asks their agent about resetting is routed to the right place.
+- **CLI only.** Deleting the recorded history is the owner's local act: an agent has no task that needs it, and an agent that _wants_ it is exactly the case 0160 warned about (a reader policed by its own history learns to erase the history). The MCP surface therefore exposes the question and not the eraser, on ADR 0119's precedent. The `discern_patterns` description names the CLI spelling so an owner who asks their agent about resetting is routed to the right place.
 - **One command, no confirmation prompt.** The trust page promises one-command deletion; a prompt would break it for scripts and add ceremony the `--dry-run` preview already covers better.
 - **Plan/apply, data-shaped.** The plan is the file list (names and sizes) computed read-only; `--dry-run` renders it and touches nothing; the executor is a single directory removal that lives in the store module, the logbook subsystem's one sanctioned write site. Removal covers the logbook directory alone — month files and the epoch sidecar — never its siblings under the git admin area.
 
