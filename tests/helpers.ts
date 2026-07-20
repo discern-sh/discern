@@ -4,6 +4,7 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import type { TokenMap } from "../src/lib/template.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 
@@ -79,7 +80,14 @@ export async function runCli(
       ...args,
     ],
     cwd,
-    env: { DISCERN_TEMPLATES_DIR: REAL_TEMPLATES, NO_COLOR: "1", ...env },
+    // The desk session marker inherits into every descendant; blank it so a
+    // suite launched from inside `discern desk` stays deterministic.
+    env: {
+      DISCERN_TEMPLATES_DIR: REAL_TEMPLATES,
+      NO_COLOR: "1",
+      [DESK_SESSION_ENV]: "",
+      ...env,
+    },
     stdin: stdin !== undefined ? "piped" : "null",
     stdout: "piped",
     stderr: "piped",
