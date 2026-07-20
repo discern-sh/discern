@@ -23,7 +23,7 @@ import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.6.0";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.7.0";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -77,26 +77,33 @@ async function bundleManifest(
 
 function resolvedSelection(name: DesignSystemBundleName): string[] {
   const selection = DESIGN_SYSTEM_BUNDLES[name];
-  const selected = new Set<string>(selection.components);
+  const seeds = new Set<string>(selection.components);
   const selectedGroups = new Set<string>(selection.groups);
   for (const component of packageManifest.components) {
-    if (selectedGroups.has(component.group)) selected.add(component.id);
+    if (selectedGroups.has(component.group)) seeds.add(component.id);
   }
+  const canonicalIds = (ids: Iterable<string>): string[] => {
+    const selected = new Set(ids);
+    return packageManifest.components
+      .filter((component) => selected.has(component.id))
+      .map((component) => component.id);
+  };
+  const resolved: string[] = [];
+  const visited = new Set<string>();
   const visit = (id: string): void => {
+    if (visited.has(id)) return;
     const component = packageManifest.components.find((entry) =>
       entry.id === id
     );
     assert(component !== undefined, `${name} selects unknown component ${id}`);
-    for (const dependency of component.dependencies) {
-      if (selected.has(dependency)) continue;
-      selected.add(dependency);
+    for (const dependency of canonicalIds(component.dependencies)) {
       visit(dependency);
     }
+    visited.add(id);
+    resolved.push(id);
   };
-  for (const id of [...selected]) visit(id);
-  return packageManifest.components
-    .filter((component) => selected.has(component.id))
-    .map((component) => component.id);
+  for (const id of canonicalIds(seeds)) visit(id);
+  return resolved;
 }
 
 function componentOwnedSelectors(
@@ -132,8 +139,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.6.0");
-  assert("@discern-sh/design-system@0.6.0" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.7.0");
+  assert("@discern-sh/design-system@0.7.0" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
@@ -168,9 +175,16 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     assertEquals(runtime.groups, packageManifest.groups);
     assertEquals(
       runtime.components,
-      packageManifest.components.filter((component) =>
-        resolved.includes(component.id)
-      ),
+      resolved.map((id) => {
+        const component = packageManifest.components.find((entry) =>
+          entry.id === id
+        );
+        assert(
+          component !== undefined,
+          `${name} resolved unknown component ${id}`,
+        );
+        return component;
+      }),
     );
     assertEquals(runtime.publicTokenNames, packageManifest.publicTokenNames);
     assertEquals(runtime.selection.all, false);
@@ -369,6 +383,28 @@ Deno.test("bundle routes use local static assets and ship no React runtime", asy
         runtimeRefs.filter((value) => /(?:react|jsx-runtime)/i.test(value)),
         [],
       );
+    }
+  }
+});
+
+Deno.test("every design-system route renders the canonical brand lockup", async () => {
+  for (
+    const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
+  ) {
+    assert(
+      DESIGN_SYSTEM_BUNDLES[name].components.includes("brand"),
+      `${name} must select the brand component`,
+    );
+    for (const route of DESIGN_SYSTEM_BUNDLES[name].routes) {
+      const response = await handler(
+        new Request(`https://discern.sh${route}`, { headers: BROWSER }),
+      );
+      assertEquals(response.status, 200, route);
+      const html = await response.text();
+      assertStringIncludes(html, "discern-brand--mono", route);
+      assertStringIncludes(html, "discern-logo--plain", route);
+      assertStringIncludes(html, "discern-logo--natural", route);
+      assertStringIncludes(html, 'aria-hidden="true">◮</span>', route);
     }
   }
 });

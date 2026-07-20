@@ -63,27 +63,8 @@ body {
 .docs-brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
   color: var(--discern-color-ink);
   text-decoration: none;
-}
-
-.docs-brand-mark {
-  display: inline-grid;
-  place-items: center;
-  inline-size: 22px;
-  block-size: 22px;
-  border: 1.5px solid var(--discern-color-ink);
-  border-radius: var(--discern-radius-xs);
-  background: var(--discern-color-accent-100);
-  box-shadow: 2px 2px 0 var(--discern-color-ink);
-  color: var(--discern-color-accent-700);
-  font: 700 0.75rem var(--discern-font-mono);
-}
-
-.docs-brand-word {
-  font: 650 1.125rem var(--discern-font-display);
-  letter-spacing: -0.01em;
 }
 
 .docs-brand-docs {

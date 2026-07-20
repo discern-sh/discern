@@ -22,7 +22,7 @@ import {
   Window,
 } from "discern-design-system/react";
 import type { ReactNode } from "react";
-import { DISCERN_MARK } from "../brand.ts";
+import { DiscernBrand } from "./branding.tsx";
 import { pageDocument } from "./document.ts";
 import { PageIcon } from "./icons.tsx";
 
@@ -588,8 +588,8 @@ function LandingPage() {
       <a className="landing-skip" href="#main">Skip to content</a>
       <SiteHeader
         sticky
-        brand={<strong>discern</strong>}
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand />}
+        brandTypeface="inherit"
         navItems={[
           { label: "The pattern", href: "#the-pattern" },
           { label: "The catch", href: "#the-catch" },
@@ -884,8 +884,8 @@ function LandingPage() {
       </main>
 
       <SiteFooter
-        brand="discern"
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand />}
+        brandTypeface="inherit"
         description={
           <p>
             Quality checks and safe worktrees for coding agents and the humans

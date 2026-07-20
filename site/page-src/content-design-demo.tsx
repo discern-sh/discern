@@ -20,7 +20,7 @@ import {
   Timeline,
 } from "discern-design-system/react";
 import type { DemoStats } from "./design-system-demo.tsx";
-import { DISCERN_MARK } from "../brand.ts";
+import { DiscernBrand } from "./branding.tsx";
 import { pageDocument } from "./document.ts";
 
 const LISTING = `# The project owns the definition of done.
@@ -112,8 +112,8 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
       <a className="editorial-demo-skip" href="#article">Skip to article</a>
       <SiteHeader
         className="editorial-demo-header"
-        brand={<strong>discern · field notes</strong>}
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand tagline="field notes" />}
+        brandTypeface="inherit"
         navItems={[
           { label: "Argument", href: "#argument" },
           { label: "Model", href: "#model" },
@@ -526,8 +526,8 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
       </main>
 
       <SiteFooter
-        brand="discern · field notes"
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand tagline="field notes" />}
+        brandTypeface="inherit"
         description={
           <p>
             Editorial engineering for agentic software: rigorous systems,

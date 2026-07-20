@@ -27,8 +27,9 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
-import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "./brand.ts";
+import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
+import { DISCERN_BRAND_HTML } from "./page-src/branding.tsx";
 import { buildSearchIndex } from "./search.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
@@ -689,8 +690,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
         <span class="discern-icon">${ICONS.menu}</span>
       </button>
       <a class="docs-brand" href="/">
-        <span class="docs-brand-mark" aria-hidden="true">${DISCERN_MARK}</span>
-        <span class="docs-brand-word">discern</span></a><a
+        ${DISCERN_BRAND_HTML}</a><a
         class="docs-brand-docs discern-mono" href="/docs">/docs</a>
     </div>
     <div class="discern-docs-header__middle">

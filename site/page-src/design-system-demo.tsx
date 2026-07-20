@@ -20,7 +20,7 @@ import {
   Terminal,
   Testimonial,
 } from "discern-design-system/react";
-import { DISCERN_MARK } from "../brand.ts";
+import { DiscernBrand } from "./branding.tsx";
 import { pageDocument } from "./document.ts";
 import { PageIcon } from "./icons.tsx";
 
@@ -268,8 +268,8 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
       <a className="demo-skip" href="#main">Skip to content</a>
       <SiteHeader
         sticky
-        brand={<strong>discern</strong>}
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand />}
+        brandTypeface="inherit"
         navItems={[
           { label: "Audiences", href: "#audiences" },
           { label: "Capabilities", href: "#capabilities" },
@@ -825,8 +825,8 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
       </main>
 
       <SiteFooter
-        brand="discern"
-        brandMark={DISCERN_MARK}
+        brand={<DiscernBrand />}
+        brandTypeface="inherit"
         description={
           <p>
             A stack-neutral development system for coding agents and the humans
