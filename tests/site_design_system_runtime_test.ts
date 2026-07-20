@@ -290,6 +290,10 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     join(ROOT, "mockups/landing/previous-homepage-2026-07-16.html"),
   );
   assertStringIncludes(previousHomepage, "Don't take your agent's word for it");
+  const practitionerHomepage = await Deno.readTextFile(
+    join(ROOT, "mockups/landing/previous-homepage-2026-07-20.html"),
+  );
+  assertStringIncludes(practitionerHomepage, "Code got fast.");
 });
 
 Deno.test("the public homepage is the static local-only landing composition", async () => {
@@ -299,8 +303,8 @@ Deno.test("the public homepage is the static local-only landing composition", as
   );
   assertEquals(response.status, 200);
   const html = await response.text();
-  assertStringIncludes(html, "Code got fast.");
-  assertStringIncludes(html, "Trust didn’t.");
+  assertStringIncludes(html, "You ask. It builds.");
+  assertStringIncludes(html, "discern checks.");
   assertStringIncludes(html, "curl -fsSL https://discern.sh/install | sh");
   assertStringIncludes(html, "static HTML · local assets · no tracking");
   assert(

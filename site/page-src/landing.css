@@ -62,7 +62,7 @@ html {
 
 .landing-strapline {
   display: block;
-  font-size: clamp(2.9rem, 9.5vw, 6.75rem);
+  font-size: clamp(2.6rem, 8vw, 5.75rem);
   line-height: 1.02;
   letter-spacing: -0.025em;
   text-wrap: balance;
@@ -175,6 +175,75 @@ html {
   letter-spacing: 0.04em;
   text-align: center;
   text-wrap: balance;
+}
+
+/* ── The pattern: four beats everyone has lived ─────────────────────── */
+
+.landing-pattern {
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-block: clamp(4rem, 9vw, 7.5rem);
+  padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.landing-pattern__header {
+  max-width: 46rem;
+  margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  display: grid;
+  gap: var(--discern-space-4);
+}
+
+.landing-pattern__header h2 {
+  margin: 0;
+  font-family: var(--discern-font-display);
+  font-size: clamp(2rem, 4.6vw, 3.4rem);
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+.landing-pattern__beats {
+  display: grid;
+  gap: var(--discern-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 60rem) {
+  .landing-pattern__beats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.landing-pattern__beat {
+  display: grid;
+  align-content: start;
+  gap: var(--discern-space-3);
+  padding: var(--discern-space-5);
+  border: 1px solid var(--discern-color-border);
+  border-radius: var(--discern-radius-lg);
+  background: var(--discern-color-surface);
+}
+
+.landing-pattern__head {
+  display: flex;
+}
+
+.landing-pattern__beat p {
+  margin: 0;
+  color: var(--discern-color-ink-muted);
+  font-size: var(--discern-font-size-sm);
+  line-height: 1.6;
+}
+
+.landing-pattern__close {
+  max-width: 46rem;
+  margin: clamp(2.5rem, 5vw, 4rem) 0 0;
+  color: var(--discern-color-ink-muted);
+  font-size: var(--discern-font-size-lg);
+  line-height: 1.6;
 }
 
 /* ── The catch: four frames, one verdict ────────────────────────────── */
