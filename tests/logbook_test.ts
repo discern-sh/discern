@@ -47,20 +47,69 @@ function sampleEvent(): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
+    writer: "1.0.0",
     kind: "verb",
     verb: "done",
     surface: "cli",
+    driver: { session: "cli:4242", json: true, tty: false, ci: false },
     branch: "agent/sample",
     head: "abc1234",
-    clean: true,
+    clean: false,
+    tree: "9f21ab04",
     outcome: "failed",
     error: "dirty_worktree",
+    failed_stage: "check/test",
     duration_ms: 1234,
-    steps: [{ label: "lint", kind: "job", outcome: "ok", duration_s: 3 }],
-    diagnostics: [{ tool: "lint", rule: "no-unused-vars", file: "src/a.ts" }],
+    target: "the-gate",
+    from: "main",
+    flags: ["force"],
+    change: { files: 3, insertions: 40, deletions: 5, commits: 2 },
+    scopes: ["web"],
+    steps: [{
+      label: "lint",
+      kind: "job",
+      outcome: "ok",
+      disposition: "run",
+      duration_s: 3,
+      error_like_lines: 2,
+    }],
+    diagnostics: [{
+      tool: "lint",
+      rule: "no-unused-vars",
+      file: "src/a.ts",
+      count: 14,
+    }],
+    standards: [{
+      name: "cov",
+      direction: "up",
+      limit: 80,
+      value: 84.2,
+      verdict: "improved",
+      measurement: "measured",
+    }],
+    update: { behind: 3, files: 7, overlap: 1 },
     epoch: "0a1b2c3d",
   };
 }
+
+Deno.test("logbook schema: a substrate-era minimal line still parses (fields only accrete)", () => {
+  // The first recorded events carried none of the enrichment fields; readers
+  // must parse them forever — the additive-only compatibility promise.
+  const parsed = parseLogbookLine(JSON.stringify({
+    schema: LOGBOOK_SCHEMA_VERSION,
+    at: "2026-07-19T12:00:00.000Z",
+    kind: "verb",
+    verb: "status",
+    surface: "cli",
+    branch: "main",
+    head: "abc1234",
+    clean: true,
+    outcome: "ok",
+    duration_ms: 42,
+    epoch: null,
+  }));
+  assert(parsed.kind === "event", "a minimal substrate-era line must parse");
+});
 
 Deno.test("logbook schema: a written line round-trips through the parser", () => {
   const event = sampleEvent();
@@ -103,7 +152,7 @@ Deno.test("logbook schema: an unknown kind is foreign; a torn line is torn", () 
   assertEquals(parseLogbookLine("").kind, "torn");
 });
 
-Deno.test("logbook schema: config-change and prune events validate", () => {
+Deno.test("logbook schema: config-change, pin, and prune events validate", () => {
   const ok = logbookEventSchema.safeParse({
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
@@ -113,11 +162,30 @@ Deno.test("logbook schema: config-change and prune events validate", () => {
     epoch: "deadbeef",
   });
   assert(ok.success);
+  const pin = logbookEventSchema.safeParse({
+    schema: LOGBOOK_SCHEMA_VERSION,
+    at: "2026-07-19T12:00:00.000Z",
+    writer: "1.0.0",
+    kind: "pin",
+    branch: "agent/sample",
+    standard: "cov",
+    from: 80,
+    to: 84,
+    measured: 84.2,
+  });
+  assert(pin.success);
   const prune = logbookEventSchema.safeParse({
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
     kind: "prune",
-    removed: ["2025-01.jsonl"],
+    removed: [{
+      file: "2025-01.jsonl",
+      events: 12,
+      ok: 9,
+      failed: 2,
+      refused: 1,
+      by_verb: { done: 5, status: 7 },
+    }],
   });
   assert(prune.success);
 });
@@ -222,16 +290,31 @@ Deno.test("store: appends land one parseable line per event in the month file", 
   });
 });
 
-Deno.test("store: rotation prunes oldest-first, keeps the cap, and is loud", async () => {
+Deno.test("store: rotation prunes oldest-first, keeps the cap, and leaves digests", async () => {
   await withTempDir(async (dir) => {
     const logDir = logbookDir(dir);
     await Deno.mkdir(logDir, { recursive: true });
     // Fabricate more history than the cap, all older than the event's month.
-    const fabricated: string[] = [];
+    // The oldest month holds real events (plus one torn line), so its digest
+    // has something to prove; the rest are empty.
+    const oldest = [
+      JSON.stringify(verbEventAt("2020-01-02T12:00:00.000Z")),
+      JSON.stringify(verbEventAt("2020-01-03T12:00:00.000Z")),
+      JSON.stringify({
+        ...verbEventAt("2020-01-04T12:00:00.000Z"),
+        verb: "done",
+        outcome: "failed",
+      }),
+      JSON.stringify({
+        ...verbEventAt("2020-01-05T12:00:00.000Z"),
+        verb: "done",
+        outcome: "refused",
+      }),
+      '{"schema":1,"kind":"ver',
+    ].join("\n") + "\n";
     for (let i = 0; i < MAX_MONTH_FILES + 2; i++) {
       const name = `2020-${String(i + 1).padStart(2, "0")}.jsonl`;
-      fabricated.push(name);
-      await Deno.writeTextFile(join(logDir, name), "");
+      await Deno.writeTextFile(join(logDir, name), i === 0 ? oldest : "");
     }
     const at = "2026-07-19T12:00:00.000Z";
     await appendEvent(dir, verbEventAt(at)); // creates a NEW month file → rotation
@@ -247,7 +330,8 @@ Deno.test("store: rotation prunes oldest-first, keeps the cap, and is loud", asy
     assert(!remaining.includes("2020-02.jsonl"));
     assert(!remaining.includes("2020-03.jsonl"));
     assert(remaining.includes(monthFileName(at)));
-    // Loud: the removals are recorded as a prune event in the current file.
+    // Loud: the removals are recorded as a prune event in the current file,
+    // each removed month leaving its digest so coarse trends survive rotation.
     const lines = (await Deno.readTextFile(join(logDir, monthFileName(at))))
       .trimEnd().split("\n");
     const events = lines.map(parseLogbookLine);
@@ -259,11 +343,20 @@ Deno.test("store: rotation prunes oldest-first, keeps the cap, and is loud", asy
       "no prune event recorded",
     );
     assert(prune.event.kind === "prune");
-    assertEquals(prune.event.removed, [
-      "2020-01.jsonl",
-      "2020-02.jsonl",
-      "2020-03.jsonl",
-    ]);
+    assertEquals(
+      prune.event.removed.map((d) => d.file),
+      ["2020-01.jsonl", "2020-02.jsonl", "2020-03.jsonl"],
+    );
+    assertEquals(prune.event.removed[0], {
+      file: "2020-01.jsonl",
+      events: 5,
+      ok: 2,
+      failed: 1,
+      refused: 1,
+      by_verb: { status: 2, done: 2 },
+      unparsed: 1,
+    });
+    assertEquals(prune.event.removed[1], { file: "2020-02.jsonl", events: 0 });
   });
 });
 

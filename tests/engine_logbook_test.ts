@@ -69,7 +69,7 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["status", "--json"]);
+    const r = await runAgent(dir, ["status", "--local", "--json"]);
     assertEquals(r.code, 0, r.output);
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
@@ -88,6 +88,52 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
     assert(
       event.epoch !== null && /^[0-9a-f]{8}$/.test(event.epoch),
       `epoch fingerprint expected, got ${event.epoch}`,
+    );
+    // The enrichment fields: the writing version, the raw driver signals, the
+    // flag names (values never), and the change's scale against the trunk.
+    assert(
+      typeof event.writer === "string" && event.writer.length > 0,
+      "every event names the discern version that wrote it",
+    );
+    assert(event.driver !== undefined, "a CLI event carries driver signals");
+    assertEquals(event.driver.json, true);
+    assertEquals(event.driver.tty, false);
+    assert(
+      event.driver.session !== undefined &&
+        event.driver.session.startsWith("cli:"),
+      `a CLI session hint expected, got ${event.driver.session}`,
+    );
+    assertEquals(event.flags, ["local"]);
+    assertEquals(event.change, {
+      files: 0,
+      insertions: 0,
+      deletions: 0,
+      commits: 0,
+    });
+  });
+});
+
+Deno.test("logbook: a refusal records with its slug and the looked-up target", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const r = await runAgent(dir, ["help", "no-such-topic", "--json"]);
+    assert(r.code !== 0, "a doc miss refuses");
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 1);
+    const event = events[0];
+    assert(event !== undefined);
+    assertEquals(event.verb, "help");
+    assertEquals(
+      event.outcome,
+      "refused",
+      "a declined verb is refused, not failed — different diagnoses",
+    );
+    assert(event.error !== undefined, "the refusal carries its slug");
+    assertEquals(
+      event.target,
+      "no-such-topic",
+      "what was looked up is recorded — the guidance-gap signal",
     );
   });
 });
@@ -115,6 +161,16 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     const testStep = event.steps.find((s) => s.label === "test");
     assert(testStep !== undefined, "the failing test job must appear in steps");
     assertEquals(testStep.outcome, "failed");
+    assertEquals(
+      testStep.disposition,
+      "run",
+      "the plan's intent rides each step, so collateral skips stay tellable",
+    );
+    assertEquals(
+      event.failed_stage,
+      "check/test",
+      "the gate's failed stage is lifted — which red, not just that it was red",
+    );
     assert(
       event.diagnostics !== undefined &&
         event.diagnostics.some((d) => d.tool === "test"),
@@ -124,6 +180,53 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     for (const d of event.diagnostics ?? []) {
       assertEquals(Object.keys(d).sort(), ["tool"]);
     }
+  });
+});
+
+Deno.test("logbook: a standards pin lands pin events and holds the epoch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `[standards.cov]\nlimit = 10\nrun = "echo DISCERN_METRIC cov 50"\n`,
+    );
+    await gitInit(dir);
+    const check = await runAgent(dir, ["standards", "--json"]);
+    assertEquals(check.code, 0, check.output);
+    const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
+    assertEquals(pin.code, 0, pin.output);
+
+    const events = await readEvents(dir);
+    const verbs = verbEvents(events);
+    // The check's event carries the measured reading — the value trajectory.
+    const checkEvent = verbs.find((e) => e.verb === "standards");
+    assert(checkEvent !== undefined && checkEvent.standards !== undefined);
+    const reading = checkEvent.standards.find((s) => s.name === "cov");
+    assert(reading !== undefined, "the standard's reading must be recorded");
+    assertEquals(reading.value, 50);
+    assertEquals(reading.measurement, "measured");
+    assertEquals(reading.limit, 10);
+    // The pin verb event records the flag; the pin itself lands as a
+    // first-class event — the ratchet's trajectory, readable back out.
+    const pinVerb = verbs.filter((e) => e.verb === "standards")[1];
+    assert(pinVerb !== undefined);
+    assertEquals(pinVerb.flags, ["pin"]);
+    const pins = events.filter((e) => e.kind === "pin");
+    assertEquals(pins.length, 1);
+    const pinEvent = pins[0];
+    assert(pinEvent !== undefined && pinEvent.kind === "pin");
+    assertEquals(pinEvent.standard, "cov");
+    assertEquals(pinEvent.from, 10);
+    assertEquals(pinEvent.to, 50);
+    assertEquals(pinEvent.measured, 50);
+    // A pin rewrites only the limit, which the epoch masks: no config-change.
+    const post = await runAgent(dir, ["status", "--json"]);
+    assertEquals(post.code, 0, post.output);
+    assertEquals(
+      (await readEvents(dir)).filter((e) => e.kind === "config-change"),
+      [],
+      "the pin's limit rewrite must not read as a reconfiguration",
+    );
   });
 });
 
@@ -258,5 +361,10 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     assertEquals(event.surface, "mcp");
     assertEquals(event.branch, "main");
     assertEquals(event.outcome, "ok");
+    assert(
+      event.driver !== undefined && event.driver.session !== undefined &&
+        event.driver.session.startsWith("mcp:"),
+      "an MCP event carries its server-instance session hint",
+    );
   });
 });
