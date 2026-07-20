@@ -15,6 +15,7 @@ import {
 } from "./design_system.ts";
 import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
 import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
+import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderLanding } from "./page-src/landing.tsx";
 
@@ -27,12 +28,15 @@ export const GENERATED_SITE_OUTPUTS = [
   "pages/design-system-demo.html",
   "pages/content-design-demo.html",
   "pages/assets/design-system/",
+  "pages/fragments/",
 ] as const;
 
 const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
 const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
 const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
 const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[3], SITE_ROOT);
+const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[4], SITE_ROOT);
+const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
@@ -75,6 +79,7 @@ export async function buildSite(): Promise<void> {
   }
 
   await Deno.mkdir(ASSET_ROOT, { recursive: true });
+  await Deno.mkdir(FRAGMENT_ROOT, { recursive: true });
   await emitBundle("docs");
   const summary = await emitBundle("compositions");
   await writeGeneratedCopy("design-system-demo.css", "demo.css");
@@ -94,9 +99,10 @@ export async function buildSite(): Promise<void> {
     CONTENT_PAGE_OUTPUT,
     await formatGeneratedText(renderContentDesignDemo(summary), "html"),
   );
+  await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 
   console.log(
-    `Built the landing page and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built the shared Brand fragment, landing page, and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

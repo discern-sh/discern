@@ -29,7 +29,6 @@ import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
-import { DISCERN_BRAND_HTML } from "./page-src/branding.tsx";
 import { buildSearchIndex } from "./search.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
@@ -38,6 +37,15 @@ const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
 const ADR_DIR = join(MAP_DIR, "_adr");
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 const DECISIONS_ROUTE = "/docs/decisions";
+const DISCERN_BRAND_FRAGMENT = new URL(
+  "pages/fragments/brand.html",
+  import.meta.url,
+);
+
+/** Read the build-emitted lockup on demand so watch rebuilds stay visible. */
+function discernBrandHtml(): string {
+  return Deno.readTextFileSync(DISCERN_BRAND_FRAGMENT);
+}
 
 /** One published docs page. */
 export interface DocsPage {
@@ -690,7 +698,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
         <span class="discern-icon">${ICONS.menu}</span>
       </button>
       <a class="docs-brand" href="/">
-        ${DISCERN_BRAND_HTML}</a><a
+        ${discernBrandHtml()}</a><a
         class="docs-brand-docs discern-mono" href="/docs">/docs</a>
     </div>
     <div class="discern-docs-header__middle">

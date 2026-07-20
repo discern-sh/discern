@@ -23,5 +23,7 @@ export function DiscernBrand({ tagline }: DiscernBrandProps) {
   );
 }
 
-/** Framework-neutral markup for request-time shells that author with strings. */
-export const DISCERN_BRAND_HTML = renderToStaticMarkup(<DiscernBrand />);
+/** Render the shared, tagline-free lockup for build-emitted static fragments. */
+export function renderDiscernBrand(): string {
+  return renderToStaticMarkup(<DiscernBrand />);
+}

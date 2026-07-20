@@ -16,6 +16,7 @@ import {
 } from "../site/design_system.ts";
 import { renderContentDesignDemo } from "../site/page-src/content-design-demo.tsx";
 import { renderDesignSystemDemo } from "../site/page-src/design-system-demo.tsx";
+import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
@@ -42,6 +43,33 @@ interface DenoConfig {
 interface DenoLock {
   readonly specifiers: Readonly<Record<string, string>>;
   readonly jsr: Readonly<Record<string, unknown>>;
+}
+
+interface DenoInfo {
+  readonly modules?: readonly { readonly specifier?: string }[];
+}
+
+function reactRuntimeModules(specifiers: readonly string[]): string[] {
+  return specifiers.filter((specifier) =>
+    !specifier.startsWith("npm:/@types/") &&
+    /(?:^|[/@-])react(?:-dom)?(?:[/.@-]|$)/i.test(specifier)
+  );
+}
+
+async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["info", "--json", entrypoint],
+    cwd: ROOT,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!output.success) {
+    throw new Error(new TextDecoder().decode(output.stderr));
+  }
+  const info = JSON.parse(new TextDecoder().decode(output.stdout)) as DenoInfo;
+  return (info.modules ?? []).flatMap((module) =>
+    module.specifier === undefined ? [] : [module.specifier]
+  );
 }
 
 async function git(args: string[]): Promise<Deno.CommandOutput> {
@@ -164,6 +192,23 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   assertEquals(violations, []);
 });
 
+Deno.test("the production site import graph remains React-free", async () => {
+  const newSibling = "https://example.test/vendor/react-dom@99/server";
+  assertEquals(
+    reactRuntimeModules([
+      "https://example.test/new-server.ts",
+      newSibling,
+    ]),
+    [newSibling],
+  );
+  assertEquals(
+    reactRuntimeModules(
+      await moduleSpecifiers(join(ROOT, "site/main.ts")),
+    ),
+    [],
+  );
+});
+
 Deno.test("each emitted bundle is the dependency closure of the site selection", async () => {
   for (
     const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
@@ -282,6 +327,10 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/content-design-demo.html")),
     await formatGeneratedText(renderContentDesignDemo(stats), "html"),
+  );
+  assertEquals(
+    await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
+    renderDiscernBrand(),
   );
 
   for (

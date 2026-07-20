@@ -85,7 +85,7 @@ function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   return offenders;
 }
 
-function siteDevEnvPermissionOffenders(
+function siteDevEnvMaskingOffenders(
   entries: readonly ConfigEntry[],
 ): string[] {
   const offenders: string[] = [];
@@ -100,9 +100,8 @@ function siteDevEnvPermissionOffenders(
         (allowEnv[1] === undefined ||
           allowEnv[1].split(",").includes("NODE_ENV"))
       ) {
-        continue;
+        offenders.push(`${path}:${name}`);
       }
-      offenders.push(`${path}:${name}`);
     }
   }
   return offenders;
@@ -118,14 +117,14 @@ Deno.test("the development-server detector catches a freshly named wildcard sibl
   );
 });
 
-Deno.test("the site env detector catches a freshly named task sibling", () => {
+Deno.test("the site env-mask detector catches a freshly named task sibling", () => {
   assertEquals(
-    siteDevEnvPermissionOffenders([{
+    siteDevEnvMaskingOffenders([{
       path: "unrelated/deno.json",
       config: {
         tasks: {
           showcase:
-            "deno run --allow-env=PORT --allow-net=127.0.0.1 site/dev.ts",
+            "deno run --allow-env=PORT,NODE_ENV --allow-net=127.0.0.1 site/dev.ts",
         },
       },
     }]),
@@ -177,11 +176,11 @@ Deno.test("every deno serve task binds to loopback explicitly", async () => {
   );
 });
 
-Deno.test("every site development task permits React's environment read", async () => {
+Deno.test("site development tasks leave NODE_ENV reads visible", async () => {
   assertEquals(
-    siteDevEnvPermissionOffenders(await developmentConfigs()),
+    siteDevEnvMaskingOffenders(await developmentConfigs()),
     [],
-    "site/dev.ts imports the server-rendered Brand lockup, whose React runtime reads NODE_ENV",
+    "site/dev.ts must neither grant NODE_ENV nor grant unrestricted env access",
   );
 });
 
@@ -227,7 +226,7 @@ Deno.test("the watch task delegates to the source-driven site watcher", async ()
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);
