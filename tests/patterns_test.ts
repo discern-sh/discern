@@ -18,11 +18,16 @@
 
 import { assert, assertEquals } from "@std/assert";
 import {
+  AGENT_SIGNAL_SOURCE_LIFETIMES,
+  AGENT_SIGNAL_SOURCES,
+} from "../src/shared/agent_catalogue.ts";
+import {
   buildStreamFacts,
   comparableTail,
   type Detector,
   type DetectorReport,
   DETECTORS,
+  driverAgent,
   driverKind,
   runDetector,
 } from "../src/engine/logbook/detectors.ts";
@@ -621,6 +626,129 @@ for (const d of DETECTORS) {
     assertEquals(previewReport.findings, []);
   });
 }
+
+// ── driver scoring from identity signals ────────────────────────────────────
+
+/** One identity-evidence bundle for a driver-fact fixture. */
+function signal(
+  agent: string,
+  source: (typeof AGENT_SIGNAL_SOURCES)[number],
+  marker = "MARKER",
+): NonNullable<NonNullable<VerbEvent["driver"]>["agent_signals"]>[number] {
+  return { agent, source, markers: [marker] };
+}
+
+Deno.test("patterns driver scoring: every signal source behaves per its classified lifetime", () => {
+  for (const source of AGENT_SIGNAL_SOURCES) {
+    const lifetime = AGENT_SIGNAL_SOURCE_LIFETIMES[source];
+    const quiet = verb({
+      driver: {
+        json: false,
+        tty: false,
+        ci: false,
+        agent_signals: [signal("claude", source)],
+      },
+    });
+    const interactive = verb({
+      driver: {
+        json: false,
+        tty: true,
+        ci: false,
+        agent_signals: [signal("claude", source)],
+      },
+    });
+    if (lifetime === "invocation") {
+      assertEquals(
+        driverKind(quiet),
+        "agent",
+        `${source}: an invocation-scoped signal marks an unmarked CLI agent`,
+      );
+      assertEquals(
+        driverKind(interactive),
+        "unknown",
+        `${source}: a signal against a terminal is ambiguous — revoke the ` +
+          `human verdict, never claim agent`,
+      );
+    } else {
+      assertEquals(
+        driverKind(quiet),
+        "unknown",
+        `${source}: ambient evidence must move nothing`,
+      );
+      assertEquals(
+        driverKind(interactive),
+        "human",
+        `${source}: ambient evidence must move nothing`,
+      );
+    }
+  }
+});
+
+Deno.test("patterns driver attribution: one identity names the driver; disagreement or ambient-only evidence names nothing", () => {
+  const corroborated = verb({
+    driver: {
+      json: true,
+      tty: false,
+      ci: false,
+      agent_signals: [
+        signal("claude", "process-environment", "CLAUDECODE"),
+        signal("claude", "mcp-client", "clientInfo.name"),
+      ],
+    },
+  });
+  assertEquals(driverAgent(corroborated), "claude");
+  const disagreeing = verb({
+    driver: {
+      json: true,
+      tty: false,
+      ci: false,
+      agent_signals: [
+        signal("claude", "process-environment", "CLAUDECODE"),
+        signal("codex", "process-environment", "CODEX_THREAD_ID"),
+      ],
+    },
+  });
+  assertEquals(driverAgent(disagreeing), undefined);
+  const ambientOnly = verb({
+    driver: {
+      json: true,
+      tty: false,
+      ci: false,
+      agent_signals: [signal("devin", "host-filesystem", "/opt/.devin")],
+    },
+  });
+  assertEquals(driverAgent(ambientOnly), undefined);
+  assertEquals(driverAgent(verb({})), undefined);
+});
+
+Deno.test("patterns driver scoring: a signalled interactive-looking run re-enters the analysis population", () => {
+  const events = FIXTURES["done-thrash"]?.firing.map((e): LogbookEvent =>
+    e.kind === "verb"
+      ? {
+        ...e,
+        driver: {
+          session: "cli:9",
+          json: false,
+          tty: true,
+          ci: false,
+          agent_signals: [
+            signal("claude", "process-environment", "CLAUDECODE"),
+          ],
+        },
+      }
+      : e
+  );
+  assert(events !== undefined);
+  const thrash = DETECTORS.find((d) => d.id === "done-thrash");
+  assert(thrash !== undefined);
+  const outcome = runDetector(thrash, buildStreamFacts(events, "main"));
+  assertEquals(
+    outcome.considered,
+    events.length,
+    "a terminal with an invocation-scoped signal is ambiguous, not human — " +
+      "it must stay in the population",
+  );
+});
 
 // ── segmentation and attribution ────────────────────────────────────────────
 

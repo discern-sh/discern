@@ -11,8 +11,8 @@ import {
   AGENT_NAMES,
   AGENT_SIGNAL_SOURCE_LIFETIMES,
   AGENT_SIGNAL_SOURCES,
-  agentLabel,
   type AgentIdentity,
+  agentLabel,
 } from "../src/shared/agent_catalogue.ts";
 import {
   detectAgentSignals,
