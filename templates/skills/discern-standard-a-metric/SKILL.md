@@ -25,12 +25,15 @@ Classic candidates: test coverage (floor), uses of a deprecated pattern (ceiling
 
 ---
 
-## 2. Pick the direction — and set a rate standard when the project grows
+## 2. Sort the number — invariant, rate, or growing total
 
-- `direction = "up"` — the limit is a **floor**; right for numbers where more is better (coverage).
-- `direction = "down"` — the limit is a **ceiling**; right for counts of a thing you want less of.
+Ask one question before wiring anything: **does this number move when the project healthily grows?** The answer decides the standard's shape:
 
-Watch for metrics that rise just because the project grows: a raw count of TODOs, alerts, or type errors over a growing tree punishes growth, not regression. Hold the **rate** instead — the config's `per` divides the metric by a second number (one the run emits, or an extent discern measures itself: `files`, `lines`, `words`, or `bytes` over a git pathspec), with `scale` to keep the limit in human units (e.g. per 1,000 lines).
+- **An invariant** — a count of things a healthy project never adds: lint suppressions, uses of a banned pattern. Growth doesn't move it, so hold the raw count; no margin needed, and the end state is zero (step 6).
+- **A quality that scales** — coverage, alert density. The raw count rises with the tree, so hold the **rate**: `per` divides the metric by a second number (one the run emits, or an extent discern measures itself: `files`, `lines`, `words`, or `bytes` over a git pathspec), with `scale` to keep the limit in human units (e.g. per 1,000 lines). Proportional growth passes; dilution fails.
+- **A growing total** — an asset size, a word count, a page count: numbers that rise with every shipped feature because the product itself grew. A ceiling pinned at today's value fails the next legitimate change, and every exit from that failure is bad — an agent hunting stray bytes in unrelated code is the classic result. Prefer the rate that states the real claim (bytes per page, alerts per 1,000 words); where only the total will do, set a `margin`, and treat raising the limit as a routine owner decision when the product grows, never as a defeat.
+
+`direction = "up"` makes the limit a **floor** (more is better); `direction = "down"` makes it a **ceiling** (less is better). Both directions take `per`.
 
 ---
 
@@ -61,7 +64,9 @@ Then prove the wiring is live, detector-style: run `discern_standards` (or `disc
 
 ## 5. When a standard fires
 
-**Never loosen the limit to pass.** A limit loosened versus `main` — or a standard deleted outright — is precisely the regression the standard exists to catch, and every `discern done` run verifies it: a loosening cannot pass the gate on a branch at all. Move the _metric_ the right way instead: remove the instances you added, cover what you uncovered, shrink what you grew. This holds even when the work that tripped it feels unrelated or urgent; the standard is doing its job.
+**Never loosen the limit to pass.** A limit loosened versus `main` — or a standard deleted outright — is precisely the regression the standard exists to catch, and every `discern done` run verifies it: a loosening cannot pass the gate on a branch at all. Move the _metric_ the right way instead, **within the scope of your task**: remove the instances you added, cover what you uncovered, shrink what you grew.
+
+**A breach from the work itself is not yours to engineer away.** When the deliverable legitimately grew what the metric measures — a documented feature grew the docs, a needed dependency grew the binary — the fix is not to claw the number back from elsewhere. Shrinking unrelated content, trading readability for bytes, or replacing a dependency with a hand-rolled copy makes the codebase worse while the number reports it got better. Stop and report the breach to the owner: the measured value, the delta, and why the growth is intrinsic to the work. Moving the limit is their decision, and an offsetting edit buried in a feature branch hides the very growth they needed to see.
 
 The one legitimate exception is a limit that was _set wrong_ — mis-measured, or measuring something the project has since deliberately changed. Correcting that is an **owner decision, taken on the trunk**: relay the finding and make the case; at the owner's explicit instruction, an agent working in the main checkout adjusts the limit in the trunk's config, in its own commit that says why (an ADR, via `discern-write-adr`, when the correction is surprising). A quiet loosening buried in a feature branch is indistinguishable from the failure mode — which is exactly why the gate refuses it there. (This trunk edit is only ever for _loosening_ a mis-set limit — capturing a genuine improvement is `discern standards --pin`, step 4, which by construction can only tighten.)
 
@@ -76,6 +81,6 @@ A `down` standard that reaches **zero** has finished its job as a standard — d
 ## Done when
 
 - the metric is **defendable** — deterministic, cheap, meaningful, and the user agreed to be blocked on it;
-- the `[standards.<name>]` table is wired with the right **direction** (a rate, via `per`, where growth would otherwise breach it) and the **limit set at today's value** on `main`;
+- the `[standards.<name>]` table is wired with the number **sorted** (invariant, rate, or growing total — with `per` and `margin` to match, step 2) and the **limit set at today's value** on `main`;
 - `discern standards` passes, the failure path has been seen to fire once, and what the number stands for is written down;
 - the never-loosen rule and the end state (tighten over time; at zero, move a ceiling into the gate) are understood — and nothing in the change loosens any _existing_ standard.

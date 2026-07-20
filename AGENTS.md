@@ -35,7 +35,7 @@ Acceptance requires a clean worktree and lands committed branch history only.
 
 Standards are **numbers that can never get worse**: metrics held at a `limit` that may only improve versus `main` — a floor may only rise (`up`), a ceiling only fall (`down`). Every **`discern_done`** run verifies no limit loosened versus `main` and measures each standard alongside the tests — untouched `inputs` replay the recorded value for free; `measure = "on-demand"` defers a standard to **`discern_standards`**.
 
-**Never loosen one to pass.** A loosened or deleted limit fails the gate — that is the standard working. Move the _metric_ the right way; lowering a limit is an owner decision, taken on the trunk.
+**Never loosen one to pass.** A loosened or deleted limit fails the gate. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
 
 ## Skills
 

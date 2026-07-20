@@ -1,4 +1,4 @@
-# ADR 0161: The logbook records its full vocabulary from day one, as evidence rather than inference
+# ADR 0162: The logbook records its full vocabulary from day one, as evidence rather than inference
 
 **Status**: accepted
 

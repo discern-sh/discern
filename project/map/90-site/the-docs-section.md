@@ -40,7 +40,7 @@ WCAG 2.2 AA is the shell's working target. The mobile drawer moves focus inside 
 
 Permalinks sit beside h2–h4 headings. Their labels do not change heading names for assistive technology. The drawer trigger names its action. Theme and copy controls report results. Drawer and search motion respects reduced motion. Without JavaScript, navigation stays in flow and script-only controls remain hidden.
 
-[`scripts/site_asset_size.ts`](../../../scripts/site_asset_size.ts) measures the largest page, emitted CSS, JavaScript graph, and search-index bytes. Falling standards pin them and enrol new routes or assets.
+Asset size budgets live with the design system: the `@discern-sh/design-system` package holds its own CSS and JavaScript standards in its repository.
 
 ## Reader negotiation
 

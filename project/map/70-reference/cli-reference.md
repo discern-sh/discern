@@ -497,7 +497,7 @@ Usage: `discern improvement [options]`
 
 ### `discern standards`
 
-Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run.
+Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.
 
 Usage: `discern standards [names...] [options]`
 

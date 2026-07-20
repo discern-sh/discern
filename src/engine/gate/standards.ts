@@ -212,7 +212,11 @@ export function compareValueToLimit(
         held: false,
         value,
         reason:
-          `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. Improve it; never lower the floor.`,
+          `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. ` +
+          `Raise it within the scope of your task; never lower the floor. ` +
+          `If the work itself shrank what this measures, stop and report the breach — ` +
+          `moving a limit is an owner decision taken on the trunk, and propping the ` +
+          `number up with unrelated changes is worse than the breach.`,
       };
     }
     return {
@@ -232,7 +236,11 @@ export function compareValueToLimit(
       held: false,
       value,
       reason:
-        `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. Bring it down; never raise the ceiling.${growHint}`,
+        `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. ` +
+        `Bring it down within the scope of your task; never raise the ceiling. ` +
+        `If the work itself grew what this measures, stop and report the breach — ` +
+        `moving a limit is an owner decision taken on the trunk, and offsetting the ` +
+        `number with unrelated changes is worse than the breach.${growHint}`,
     };
   }
   return {
