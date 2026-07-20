@@ -25,14 +25,19 @@
  * Rotation is by age: month-stamped files, the newest {@link MAX_MONTH_FILES}
  * kept. The prune pass runs only when a new month file is first created (the
  * one moment the file count can grow), removes oldest-first, and is LOUD — the
- * removals are themselves recorded as a `prune` event, never silent.
+ * removals are themselves recorded as a `prune` event that carries a compact
+ * digest of each removed month (event totals by outcome and verb), so coarse
+ * long-horizon trends outlive the raw lines they came from.
  */
 
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { KIT_VERSION } from "../../lib/version.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
+  parseLogbookLine,
+  type PruneDigest,
   type PruneEvent,
 } from "./schema.ts";
 
@@ -41,8 +46,10 @@ export function logbookDir(commonGitDir: string): string {
   return join(commonGitDir, "discern", "logbook");
 }
 
-/** The month files kept after rotation (about a year of history). */
-export const MAX_MONTH_FILES = 12;
+/** The month files kept after rotation (about two years of history — a month
+ * of heavy use is a few hundred kilobytes, so retention is bounded by
+ * usefulness, not disk; the prune digest preserves coarser trends beyond it). */
+export const MAX_MONTH_FILES = 24;
 
 /** A month-stamped event file name (`2026-07.jsonl`) from an ISO timestamp. */
 export function monthFileName(atIso: string): string {
@@ -93,11 +100,60 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/** Digest one month file before its removal: line totals, verb-event counts by
+ * outcome and by verb. Best-effort — an unreadable file digests to its name
+ * and zero, and torn/foreign lines count as `unparsed` rather than vanishing. */
+async function digestMonthFile(
+  path: string,
+  name: string,
+): Promise<PruneDigest> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(path);
+  } catch {
+    return { file: name, events: 0 };
+  }
+  const lines = text.split("\n").filter((line) => line.trim() !== "");
+  let ok = 0;
+  let failed = 0;
+  let refused = 0;
+  let unparsed = 0;
+  const byVerb: Record<string, number> = {};
+  for (const line of lines) {
+    const parsed = parseLogbookLine(line);
+    if (parsed.kind !== "event") {
+      unparsed += 1;
+      continue;
+    }
+    if (parsed.event.kind !== "verb") {
+      continue;
+    }
+    byVerb[parsed.event.verb] = (byVerb[parsed.event.verb] ?? 0) + 1;
+    if (parsed.event.outcome === "ok") {
+      ok += 1;
+    } else if (parsed.event.outcome === "refused") {
+      refused += 1;
+    } else {
+      failed += 1;
+    }
+  }
+  return {
+    file: name,
+    events: lines.length,
+    ...(ok > 0 ? { ok } : {}),
+    ...(failed > 0 ? { failed } : {}),
+    ...(refused > 0 ? { refused } : {}),
+    ...(Object.keys(byVerb).length > 0 ? { by_verb: byVerb } : {}),
+    ...(unparsed > 0 ? { unparsed } : {}),
+  };
+}
+
 /**
  * The rotation pass: list the month files, keep the newest
- * {@link MAX_MONTH_FILES} (the YYYY-MM names sort chronologically), remove the
- * rest oldest-first, and record the removals as a `prune` event in the current
- * month file — pruning is loud, never silent.
+ * {@link MAX_MONTH_FILES} (the YYYY-MM names sort chronologically), digest and
+ * remove the rest oldest-first, and record the removals as a `prune` event in
+ * the current month file — pruning is loud, never silent, and each removed
+ * month leaves its digest behind.
  */
 async function rotate(
   dir: string,
@@ -114,14 +170,18 @@ async function rotate(
   if (excess.length === 0) {
     return;
   }
+  const removed: PruneDigest[] = [];
   for (const name of excess) {
-    await Deno.remove(join(dir, name));
+    const path = join(dir, name);
+    removed.push(await digestMonthFile(path, name));
+    await Deno.remove(path);
   }
   const prune: PruneEvent = {
     schema: LOGBOOK_SCHEMA_VERSION,
     at: atIso,
+    writer: KIT_VERSION,
     kind: "prune",
-    removed: excess,
+    removed,
   };
   await appendLine(currentPath, eventLine(prune));
 }
