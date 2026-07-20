@@ -18,11 +18,13 @@
  * CLI-only and plan/apply like every effectful verb (`--dry-run` previews).
  */
 
+import { agentLabel } from "../../shared/agent_catalogue.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
   PatternsData,
   PatternsFinding,
+  PatternsPopulation,
   PatternsResetData,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -33,8 +35,36 @@ import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
 import {
   buildStreamFacts,
   type DetectorReport,
+  driverAgent,
+  driverKind,
   runDetectors,
+  type StreamFacts,
 } from "./detectors.ts";
+
+/**
+ * Score the analysis population's drivers — reader logic over the recorded
+ * evidence, computed fresh on every read so improved scoring retroactively
+ * covers all accumulated history. The report states this split so the
+ * segmentation the detectors rely on is never a silent filter.
+ */
+function scorePopulation(facts: StreamFacts): PatternsPopulation {
+  const kinds = { agent: 0, human: 0, unknown: 0 };
+  const identityRuns = new Map<string, number>();
+  for (const e of facts.verbs) {
+    kinds[driverKind(e)] += 1;
+    const identity = driverAgent(e);
+    if (identity !== undefined) {
+      identityRuns.set(identity, (identityRuns.get(identity) ?? 0) + 1);
+    }
+  }
+  return {
+    analyzed: facts.verbs.length,
+    ...kinds,
+    identities: [...identityRuns.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([agent, runs]) => ({ agent, label: agentLabel(agent), runs })),
+  };
+}
 
 /** The refusal when the working root is not inside a git repository — with no
  * git admin area there is nowhere a logbook could live. */
@@ -103,6 +133,7 @@ export async function patternsResult(
       branches: branches.size,
       recording: config.project.logbook,
     },
+    population: scorePopulation(facts),
     findings,
     detectors: reports.map((r) => ({
       id: r.detector.id,
@@ -174,12 +205,31 @@ function summaryLine(data: PatternsData): string {
   return parts.join(" · ");
 }
 
+/** "drivers: 231 agent · 60 interactive · 21 unknown — Claude Code 190, …" */
+function driversLine(population: PatternsPopulation): string {
+  const parts = [
+    `${population.agent} agent`,
+    `${population.human} interactive`,
+    `${population.unknown} unknown`,
+  ];
+  const identities = population.identities
+    .map((i) => `${i.label} ${i.runs}`)
+    .join(", ");
+  return `drivers: ${parts.join(" · ")}${
+    identities !== "" ? ` — ${identities}` : ""
+  }`;
+}
+
 /** Render the report for a person: the ranked findings, then the registry's
  * own accounting (quiet and too-young detector counts), then the boundary. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
   const c = out.c;
   out.heading(`discern patterns${slug ? ` · ${slug}` : ""}`);
-  out.raw(`  ${c.dim}${summaryLine(data)}${c.reset}\n\n`);
+  out.raw(`  ${c.dim}${summaryLine(data)}${c.reset}\n`);
+  if (data.population.analyzed > 0) {
+    out.raw(`  ${c.dim}${driversLine(data.population)}${c.reset}\n`);
+  }
+  out.raw("\n");
 
   if (data.logbook.events === 0) {
     out.raw(

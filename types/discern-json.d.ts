@@ -2326,6 +2326,17 @@ export type DiscernPatternsResult = {
       branches: number;
       recording: boolean;
     };
+    population: {
+      analyzed: number;
+      agent: number;
+      human: number;
+      unknown: number;
+      identities: Array<{
+        agent: string;
+        label: string;
+        runs: number;
+      }>;
+    };
     findings: Array<{
       detector: string;
       family: "behaviour" | "gate-fit" | "funnel" | "trajectory";

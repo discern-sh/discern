@@ -7747,6 +7747,62 @@
                     "recording"
                   ]
                 },
+                "population": {
+                  "type": "object",
+                  "properties": {
+                    "analyzed": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "agent": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "human": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "unknown": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "runs": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "agent",
+                          "label",
+                          "runs"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "analyzed",
+                    "agent",
+                    "human",
+                    "unknown",
+                    "identities"
+                  ]
+                },
                 "findings": {
                   "type": "array",
                   "items": {
@@ -7880,6 +7936,7 @@
               },
               "required": [
                 "logbook",
+                "population",
                 "findings",
                 "detectors"
               ]

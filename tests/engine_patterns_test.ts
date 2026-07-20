@@ -57,6 +57,40 @@ async function seedLogbook(dir: string): Promise<void> {
       seededEvent("2026-06-01T11:00:00.000Z", "failed"),
       seededEvent("2026-06-01T12:00:00.000Z", "failed"),
       seededEvent("2026-06-01T13:00:00.000Z", "ok"),
+      // One identity-bearing run: the invocation-scoped Claude marker names
+      // the driver; the ambient host marker beside it must attribute nothing.
+      JSON.stringify({
+        schema: 1,
+        at: "2026-06-01T13:30:00.000Z",
+        kind: "verb",
+        verb: "status",
+        surface: "cli",
+        writer: "1.0.0",
+        driver: {
+          session: "cli:7",
+          json: true,
+          tty: false,
+          ci: false,
+          agent_signals: [
+            {
+              agent: "claude",
+              source: "process-environment",
+              markers: ["CLAUDECODE"],
+            },
+            {
+              agent: "devin",
+              source: "host-filesystem",
+              markers: ["/opt/.devin"],
+            },
+          ],
+        },
+        branch: "agent/seeded",
+        head: "abc1234",
+        clean: true,
+        outcome: "ok",
+        duration_ms: 100,
+        epoch: "e1",
+      }),
       '{"schema":1,"kind":"ver',
       JSON.stringify({
         schema: 1,
@@ -108,6 +142,13 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
     assertEquals(parsed.ok, true);
     const data = parsed.data as PatternsData;
     assertEquals(data.logbook.events, 0);
+    assertEquals(data.population, {
+      analyzed: 0,
+      agent: 0,
+      human: 0,
+      unknown: 0,
+      identities: [],
+    });
     assertEquals(data.findings, []);
     assert(
       data.detectors.every((d) => d.status === "insufficient-evidence"),
@@ -139,6 +180,15 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
       "the torn line is counted, not fatal",
     );
 
+    // The driver split states the segmentation, and identity attribution
+    // honours only the invocation-scoped signal — never the ambient one.
+    assertEquals(data.population.analyzed, 5);
+    assertEquals(data.population.agent, 5);
+    assertEquals(data.population.human, 0);
+    assertEquals(data.population.identities, [
+      { agent: "claude", label: "Claude Code", runs: 1 },
+    ]);
+
     const thrash = data.findings.find((f) => f.detector === "done-thrash");
     assert(thrash !== undefined, "the seeded 3-streak must fire done-thrash");
     assertEquals(thrash.evidence.consecutive_failures, 3);
@@ -165,6 +215,8 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "discern patterns");
     assertStringIncludes(r.output, "done-thrash");
+    assertStringIncludes(r.output, "drivers:");
+    assertStringIncludes(r.output, "Claude Code 1");
     assertStringIncludes(r.output, "Advisory only");
     assertStringIncludes(r.output, "next");
   });

@@ -99,11 +99,34 @@ const patternsLogbookSchema = z.strictObject({
   recording: z.boolean(),
 });
 
+/** Who plausibly drove the analyzed runs, scored by the reader from recorded
+ * driver evidence — never stored, so a smarter release re-scores all history.
+ * `analyzed` counts the analysis population (CI and previews excluded);
+ * `agent`/`human`/`unknown` partition it. `identities` counts the runs whose
+ * invocation-scoped evidence names exactly one agent, by stable catalogue id
+ * with its display label — ambient host state and conflicting evidence
+ * attribute nothing, so the identity counts can sum below `agent`. */
+const patternsPopulationSchema = z.strictObject({
+  analyzed: z.number().int(),
+  agent: z.number().int(),
+  human: z.number().int(),
+  unknown: z.number().int(),
+  identities: z.array(z.strictObject({
+    agent: z.string(),
+    label: z.string(),
+    runs: z.number().int(),
+  })),
+});
+/** The scored driver population of one report. */
+export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
+
 /** `patterns` — the logbook read back as findings: `findings` ranked by
  * evidence strength, `detectors` reporting every registry member (fired,
- * quiet, or insufficient evidence), and the `logbook` counts behind them. */
+ * quiet, or insufficient evidence), the `logbook` counts behind them, and the
+ * scored driver `population`. */
 export const PatternsDataSchema = z.strictObject({
   logbook: patternsLogbookSchema,
+  population: patternsPopulationSchema,
   findings: z.array(patternsFindingSchema),
   detectors: z.array(patternsDetectorSchema),
 });
