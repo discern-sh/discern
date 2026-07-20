@@ -72,6 +72,8 @@ const REFRESH = "\x00refresh";
 const QUIT = "\x00quit";
 const BACK = "\x00back";
 const START_TASK = "\x00start-task";
+/** A short fleet is faster to scan directly; larger fleets gain type-to-filter. */
+const FILTER_THRESHOLD = 8;
 
 /** Flags accepted by `desk`. */
 export interface DeskOptions {
@@ -286,19 +288,19 @@ async function loadWorktreeConfig(
 function actionLabel(action: DeskAction, trunk: string): string {
   switch (action) {
     case "accept":
-      return `Accept — land this branch on ${trunk}`;
+      return `Accept and land on ${trunk}`;
     case "update":
-      return `Update — bring ${trunk} into this branch`;
+      return `Update branch from ${trunk}`;
     case "script":
-      return "Run Script — choose a Project Script in this worktree";
+      return "Run a Project Script";
     case "agent":
-      return "Open with agent — start or continue a configured CLI";
+      return "Open with an agent";
     case "jump":
-      return "Jump in — open a shell inside the worktree";
+      return "Open a shell";
     case "inspect":
-      return `Inspect — commits, changes, diffstat vs ${trunk}`;
+      return "Inspect commits and changes";
     case "drop":
-      return "Drop — discard the worktree and its branch";
+      return "Drop worktree and branch";
   }
 }
 
@@ -318,8 +320,10 @@ async function pickAgentLaunch(
   let id: string;
   try {
     id = await runtime.select({
-      message: `Open an agent in ${row.entry.branch}`,
+      message: `Choose an agent for ${row.task.name}`,
       options,
+      hint: "Use the arrow keys to move and Enter to choose.",
+      info: false,
     });
   } catch {
     return undefined;
@@ -346,10 +350,16 @@ async function pickScript(
   ];
   let name: string;
   try {
+    const search = row.scripts.length > FILTER_THRESHOLD;
     name = await runtime.select({
-      message: `Run a Project Script in ${row.entry.branch}`,
+      message: `Choose a Project Script for ${row.task.name}`,
       options,
-      search: true,
+      search,
+      ...(search ? { searchLabel: "filter" } : {}),
+      hint: search
+        ? "Type to filter. Use the arrow keys to move and Enter to choose."
+        : "Use the arrow keys to move and Enter to choose.",
+      info: false,
     });
   } catch {
     return undefined;
@@ -366,28 +376,43 @@ function renderHeader(
   config: DiscernConfig,
   root: string,
   data: StatusData,
+  rows: readonly DeskRow[],
 ): void {
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(`discern desk — ${project}`);
+  out.heading(project);
+  const taskCount = rows.length === 0
+    ? "No tasks"
+    : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
   const main = (data.fleet ?? []).find((e) => e.is_main);
   if (main !== undefined) {
-    const state = main.clean === true
-      ? "clean"
+    const mainState = main.clean === true
+      ? `${main.branch} clean`
       : main.clean === false
-      ? `${main.changed_files ?? "?"} uncommitted change${
+      ? `${main.branch} has ${main.changed_files ?? "?"} uncommitted change${
         main.changed_files === 1 ? "" : "s"
       }`
-      : "state unknown";
-    out.raw(`${out.c.dim}  ${main.branch}: ${state}${out.c.reset}\n`);
+      : `${main.branch} state unknown`;
+    const stateColor = main.clean === true ? out.c.green : out.c.yellow;
+    out.raw(
+      `  ${out.c.dim}${taskCount}  ·${out.c.reset}  ${stateColor}${mainState}${out.c.reset}\n`,
+    );
+  } else {
+    out.raw(`  ${out.c.dim}${taskCount}${out.c.reset}\n`);
   }
   const unlanded = data.unlanded_branches ?? [];
   if (unlanded.length > 0) {
+    const branches = `${unlanded.length} branch${
+      unlanded.length === 1 ? " has" : "es have"
+    } no worktree`;
     out.raw(
-      `${out.c.dim}  unlanded work with no worktree: ${
+      `  ${out.c.yellow}${branches}${out.c.reset}: ${out.c.dim}${
         unlanded.join(", ")
-      }  (pull in with \`discern start --from <branch>\`)${out.c.reset}\n`,
+      }${out.c.reset}\n`,
+    );
+    out.raw(
+      `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}\n`,
     );
   }
 }
@@ -398,36 +423,85 @@ async function pickRow(
   out: Out,
   runtime: DeskRuntime,
 ): Promise<string> {
-  const paint = (s: string): string =>
-    out.color ? `${out.c.bold}${out.c.cyan}${s}${out.c.reset}` : s;
   const dim = (s: string): string =>
     out.color ? `${out.c.dim}${s}${out.c.reset}` : s;
+  const bucketHeading = (bucket: DeskRow["bucket"], count: number): string => {
+    if (!out.color) {
+      return `${bucketTitle(bucket)}  ${count}`;
+    }
+    const color = bucket === "ready"
+      ? out.c.green
+      : bucket === "attention"
+      ? out.c.yellow
+      : out.c.cyan;
+    return `${out.c.bold}${color}${
+      bucketTitle(bucket)
+    }  ${count}${out.c.reset}`;
+  };
+  const nameCounts = new Map<string, number>();
+  for (const row of rows) {
+    nameCounts.set(row.task.name, (nameCounts.get(row.task.name) ?? 0) + 1);
+  }
+  const labels = new Map<string, { plain: string; rendered: string }>();
+  for (const row of rows) {
+    const duplicate = (nameCounts.get(row.task.name) ?? 0) > 1;
+    const disambiguator = duplicate
+      ? row.task.disambiguator ?? row.entry.id ?? row.entry.branch
+      : undefined;
+    labels.set(
+      row.entry.path,
+      disambiguator === undefined
+        ? { plain: row.task.name, rendered: row.task.name }
+        : {
+          plain: `${row.task.name}  ${disambiguator}`,
+          rendered: `${row.task.name}  ${dim(disambiguator)}`,
+        },
+    );
+  }
+  const labelWidth = Math.max(
+    0,
+    ...[...labels.values()].map((v) => v.plain.length),
+  );
   const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [];
   for (const bucket of DESK_BUCKETS) {
     const members = rows.filter((r) => r.bucket === bucket);
     if (members.length === 0) {
       continue;
     }
-    options.push(Select.separator(paint(bucketTitle(bucket))));
+    options.push(Select.separator(bucketHeading(bucket, members.length)));
     for (const r of members) {
+      const label = labels.get(r.entry.path) ?? {
+        plain: r.task.name,
+        rendered: r.task.name,
+      };
       options.push({
-        name: `${r.entry.branch}  ${dim(`· ${r.summary}`)}`,
+        name: `${label.rendered}${
+          " ".repeat(labelWidth - label.plain.length)
+        }  ${dim(r.summary)}`,
         value: r.entry.path,
       });
     }
   }
   options.push(Select.separator(dim("─────")));
-  options.push({ name: "Start a task", value: START_TASK });
+  options.push({
+    name: out.color
+      ? `${out.c.bold}${out.c.cyan}Start a task${out.c.reset}`
+      : "Start a task",
+    value: START_TASK,
+  });
   options.push({ name: dim("Refresh"), value: REFRESH });
   options.push({ name: dim("Quit"), value: QUIT });
+  const search = rows.length > FILTER_THRESHOLD;
   try {
     return await runtime.select({
-      message: rows.length === 0
-        ? "No efforts in flight — start a task or quit"
-        : "Pick an effort  ·  type to filter",
+      message: rows.length === 0 ? "No tasks yet" : "Choose a task",
       options,
-      search: true,
-      info: true,
+      search,
+      ...(search ? { searchLabel: dim("filter") } : {}),
+      hint: search
+        ? "Type to filter. Use the arrow keys to move and Enter to choose."
+        : "Use the arrow keys to move and Enter to choose.",
+      info: false,
       maxRows: 16,
     });
   } catch {
@@ -448,7 +522,7 @@ async function startTask(
   let answer: string;
   try {
     answer = await runtime.input(
-      "Task name (optional — leave blank for a random codename)",
+      "Task name (blank uses a codename)",
     );
   } catch {
     return undefined;
@@ -666,6 +740,10 @@ async function actOn(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<void> {
+  clearBoard(out);
+  out.heading(row.task.name);
+  out.raw(`  ${out.c.dim}${row.summary}${out.c.reset}\n`);
+  out.raw(`  ${out.c.dim}Branch ${row.entry.branch}${out.c.reset}\n`);
   while (true) {
     const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
       ...row.actions.map((a) => ({
@@ -680,8 +758,10 @@ async function actOn(
     let action: string;
     try {
       action = await runtime.select({
-        message: `${row.entry.branch}  ·  ${row.summary}`,
+        message: "Choose an action",
         options,
+        hint: "Use the arrow keys to move and Enter to choose.",
+        info: false,
       });
     } catch {
       return;
@@ -817,7 +897,7 @@ export async function runDesk(
       agentLaunchesByPath,
       runtime.now(),
     );
-    renderHeader(out, config, root, data);
+    renderHeader(out, config, root, data, rows);
 
     const focused = focusPath === undefined
       ? undefined

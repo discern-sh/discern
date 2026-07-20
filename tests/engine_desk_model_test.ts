@@ -19,6 +19,7 @@ import {
   type DeskBucket,
   legalActions,
   rowSummary,
+  taskLabel,
 } from "../src/engine/desk/model.ts";
 
 /** A fixed "now" every case measures idleness against. */
@@ -332,10 +333,29 @@ Deno.test("buildAgentLaunches: an explicitly empty agent set stays empty", () =>
 
 // ── the row summary strings ────────────────────────────────────────────────────
 
-Deno.test("rowSummary: states render compactly and honestly", () => {
+Deno.test("taskLabel: minted ids become task names with separate disambiguators", () => {
+  assertEquals(
+    taskLabel(entry({
+      id: "google-font-preview-eb4ace",
+      branch: "agent/google-font-preview-eb4ace",
+      path: "/p/google-font-preview-eb4ace",
+    })),
+    { name: "Google font preview", disambiguator: "eb4ace" },
+  );
+  assertEquals(
+    taskLabel(entry({ id: undefined, path: "/p/brisk-otter-a3f9c1" })),
+    { name: "Brisk otter", disambiguator: "a3f9c1" },
+  );
+  assertEquals(
+    taskLabel(entry({ id: "hand-made-worktree", path: "/p/ignored" })),
+    { name: "Hand made worktree" },
+  );
+});
+
+Deno.test("rowSummary: states lead with the decision a person needs", () => {
   assertEquals(
     rowSummary(entry({ ahead: 3, last_activity: daysAgo(1) }), true, NOW),
-    "gate green · clean · 3 ahead · 1d ago",
+    "Gate passed · 3 ahead · 1d ago",
   );
   assertEquals(
     rowSummary(
@@ -343,14 +363,22 @@ Deno.test("rowSummary: states render compactly and honestly", () => {
       false,
       NOW,
     ),
-    "dirty (1 file) · 2 behind trunk — update first · just now",
+    "Update needed · 1 file changed · 2 behind · now",
   );
   assertEquals(
     rowSummary(entry({ broken: true }), false, NOW),
-    "broken — setup never completed",
+    "Setup incomplete",
   );
   assertEquals(
     rowSummary(entry({ git_unavailable: true, clean: undefined }), false, NOW),
-    "state unreadable — git could not run here",
+    "Git state unreadable",
+  );
+  assertEquals(
+    rowSummary(entry({ ahead: 2 }), false, NOW),
+    "Awaiting gate · 2 ahead · now",
+  );
+  assertEquals(
+    rowSummary(entry({}), false, NOW),
+    "No changes · now",
   );
 });

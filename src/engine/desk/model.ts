@@ -13,6 +13,7 @@ import {
   type DiscernConfig,
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
+import { basename } from "@std/path";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
@@ -52,9 +53,18 @@ export interface DeskAgentLaunch {
   readonly args: readonly string[];
 }
 
+/** The human task name shown by the desk, plus the minted id's short tail when
+ * two visible tasks need disambiguating. Git identity remains available on the
+ * action screen instead of leading every fleet row. */
+export interface DeskTaskLabel {
+  readonly name: string;
+  readonly disambiguator?: string;
+}
+
 /** One selectable effort on the desk: a non-main fleet entry, classified. */
 export interface DeskRow {
   readonly entry: StatusFleetEntry;
+  readonly task: DeskTaskLabel;
   /** Whether the row's clean HEAD holds a recorded gate receipt. */
   readonly receiptHonored: boolean;
   /** Executable Project Scripts discovered through this worktree's config. */
@@ -66,6 +76,20 @@ export interface DeskRow {
   readonly actions: readonly DeskAction[];
   /** The plain-text state summary shown beside the branch name. */
   readonly summary: string;
+}
+
+/** Turn a discern worktree id (`<name>-<hex>`) back into the task name a person
+ * supplied. The uniqueness tail is retained separately for duplicate names. */
+export function taskLabel(entry: StatusFleetEntry): DeskTaskLabel {
+  const id = entry.id?.trim() || basename(entry.path);
+  const match = /^(.*)-([0-9a-f]{6})$/i.exec(id);
+  const stem = match?.[1] ?? id;
+  const words = stem.replaceAll("-", " ").trim();
+  const name = words === ""
+    ? "Unnamed task"
+    : `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+  const disambiguator = match?.[2];
+  return disambiguator === undefined ? { name } : { name, disambiguator };
 }
 
 /** The bucket headings as the desk renders them. */
@@ -194,29 +218,42 @@ export function rowSummary(
   nowMs: number,
 ): string {
   if (entry.broken === true) {
-    return "broken — setup never completed";
+    return "Setup incomplete";
   }
   if (entry.git_unavailable === true) {
-    return "state unreadable — git could not run here";
+    return "Git state unreadable";
   }
   const parts: string[] = [];
-  if (receiptHonored) {
-    parts.push("gate green");
+  const ahead = entry.ahead ?? 0;
+  const behind = entry.behind ?? 0;
+  if (isStale(entry, nowMs)) {
+    parts.push("Stale");
   }
-  parts.push(
-    entry.clean === true
-      ? "clean"
-      : `dirty (${entry.changed_files ?? "?"} file${
-        entry.changed_files === 1 ? "" : "s"
-      })`,
-  );
-  if ((entry.ahead ?? 0) > 0) {
-    parts.push(`${entry.ahead} ahead`);
+  if (behind > 0) {
+    parts.push("Update needed");
+  } else if (receiptHonored) {
+    parts.push("Gate passed");
+  } else if (entry.clean === true && ahead > 0) {
+    parts.push("Awaiting gate");
   }
-  if ((entry.behind ?? 0) > 0) {
-    parts.push(`${entry.behind} behind trunk — update first`);
+  if (entry.clean === false) {
+    const changed = entry.changed_files;
+    parts.push(
+      changed === undefined
+        ? "Changed files unknown"
+        : `${changed} file${changed === 1 ? "" : "s"} changed`,
+    );
+  } else if (ahead === 0 && behind === 0) {
+    parts.push("No changes");
   }
-  parts.push(relativeAge(entry.last_activity, nowMs));
+  if (ahead > 0) {
+    parts.push(`${ahead} ahead`);
+  }
+  if (behind > 0) {
+    parts.push(`${behind} behind`);
+  }
+  const age = relativeAge(entry.last_activity, nowMs);
+  parts.push(age === "just now" ? "now" : age);
   return parts.join(" · ");
 }
 
@@ -248,6 +285,7 @@ export function buildDeskRows(
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
       return {
         entry,
+        task: taskLabel(entry),
         receiptHonored,
         scripts,
         agentLaunches,

@@ -549,8 +549,8 @@ export function attachEngineCommands(
   root
     .command("desk")
     .description(
-      "Open an interactive list of every worktree: pick an effort to enter, update, " +
-        "land, or drop. Bare `discern` opens it.",
+      "Open the interactive task list: start a task, open its worktree, update it, " +
+        "land it, or drop it. Bare `discern` opens the desk.",
     )
     .option(
       "--json",

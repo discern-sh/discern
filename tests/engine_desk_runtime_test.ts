@@ -229,7 +229,7 @@ Deno.test("a desk-owned child refuses a nested desk before surveying the fleet",
   assert(!joined(output).includes("cd /"));
 });
 
-Deno.test("desk session renders every fleet class and checks receipts only for healthy efforts", async () => {
+Deno.test("desk session renders task-first fleet rows and checks receipts only for healthy tasks", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,
@@ -237,19 +237,30 @@ Deno.test("desk session renders every fleet class and checks receipts only for h
     clean: false,
     changed_files: 1,
   });
-  const ready = fleetEntry("agent/ready", "/worktrees/ready", { ahead: 2 });
-  const flying = fleetEntry("agent/flying", "/worktrees/flying", {
+  const ready = fleetEntry(
+    "agent/ready-to-land-a1b2c3",
+    "/worktrees/ready-to-land-a1b2c3",
+    { id: "ready-to-land-a1b2c3", ahead: 2 },
+  );
+  const flying = fleetEntry("agent/flying-c4d5e6", "/worktrees/flying-c4d5e6", {
+    id: "flying-c4d5e6",
     clean: false,
     changed_files: 3,
   });
-  const broken = fleetEntry("agent/broken", "/worktrees/broken", {
+  const broken = fleetEntry("agent/broken-123abc", "/worktrees/broken-123abc", {
+    id: "broken-123abc",
     broken: true,
   });
-  const unreadable = fleetEntry("agent/unreadable", "/worktrees/unreadable", {
-    clean: undefined,
-    changed_files: undefined,
-    git_unavailable: true,
-  });
+  const unreadable = fleetEntry(
+    "agent/unreadable-456def",
+    "/worktrees/unreadable-456def",
+    {
+      id: "unreadable-456def",
+      clean: undefined,
+      changed_files: undefined,
+      git_unavailable: true,
+    },
+  );
   const data = {
     ...statusData([main, ready, flying, broken, unreadable]),
     unlanded_branches: ["agent/orphan"],
@@ -263,6 +274,9 @@ Deno.test("desk session renders every fleet class and checks receipts only for h
       return path === ready.path;
     },
     select: (options) => {
+      assertEquals(options.info, false);
+      assertEquals(options.search, false);
+      assertStringIncludes(String(options.hint), "arrow keys");
       optionText.push(JSON.stringify(options.options));
       return QUIT;
     },
@@ -271,19 +285,55 @@ Deno.test("desk session renders every fleet class and checks receipts only for h
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(receiptPaths, [ready.path, flying.path]);
   const text = joined(output);
-  assertStringIncludes(text, "discern desk — demo");
-  assertStringIncludes(text, "main: 1 uncommitted change");
-  assertStringIncludes(text, "unlanded work with no worktree: agent/orphan");
-  for (
-    const branch of [
-      "agent/ready",
-      "agent/flying",
-      "agent/broken",
-      "agent/unreadable",
-    ]
-  ) {
-    assertStringIncludes(optionText.join("\n"), branch);
+  assertStringIncludes(text, "heading:demo");
+  assertStringIncludes(text, "4 tasks");
+  assertStringIncludes(text, "main has 1 uncommitted change");
+  assertStringIncludes(text, "1 branch has no worktree: agent/orphan");
+  const options = optionText.join("\n");
+  for (const task of ["Ready to land", "Flying", "Broken", "Unreadable"]) {
+    assertStringIncludes(options, task);
   }
+  assert(!options.includes("agent/"), "fleet rows should lead with task names");
+  assert(
+    !options.includes("Ready to land  a1b2c3"),
+    "a unique task name should not display its id tail",
+  );
+});
+
+Deno.test("desk adds filtering for a large fleet and disambiguates duplicate task names", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const tasks = [
+    fleetEntry("agent/same-task-a1b2c3", "/worktrees/same-task-a1b2c3", {
+      id: "same-task-a1b2c3",
+    }),
+    fleetEntry("agent/same-task-d4e5f6", "/worktrees/same-task-d4e5f6", {
+      id: "same-task-d4e5f6",
+    }),
+    ...Array.from({ length: 7 }, (_, index) => {
+      const id = `task-${index}-a0000${index}`;
+      return fleetEntry(`agent/${id}`, `/worktrees/${id}`, { id });
+    }),
+  ];
+  let optionText = "";
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data: statusData([main, ...tasks]) }),
+    select: (options) => {
+      assertEquals(options.search, true);
+      assertEquals(options.searchLabel, "filter");
+      assertEquals(options.info, false);
+      assertStringIncludes(String(options.hint), "Type to filter");
+      optionText = JSON.stringify(options.options);
+      return QUIT;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertStringIncludes(optionText, "Same task  a1b2c3");
+  assertStringIncludes(optionText, "Same task  d4e5f6");
 });
 
 Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
@@ -341,7 +391,7 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
             : { ok: false };
         },
         select: (options) => {
-          assertStringIncludes(String(options.message), "No efforts in flight");
+          assertStringIncludes(String(options.message), "No tasks yet");
           return REFRESH;
         },
       }),
@@ -399,10 +449,10 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
   assertStringIncludes(menus[0]?.options ?? "", "Start a task");
   assertStringIncludes(
     menus[0]?.message ?? "",
-    "No efforts in flight — start a task or quit",
+    "No tasks yet",
   );
   assert(
-    menus[1]?.message.startsWith(started.branch) ?? false,
+    menus[1]?.message === "Choose an action",
     "the new worktree action menu should open without another root-menu choice",
   );
   assertStringIncludes(
@@ -512,15 +562,13 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
       env: { [DESK_SESSION_ENV]: "1" },
     },
   ]);
-  const actionMenu = menus.find((menu) =>
-    menu.message.startsWith(effort.branch)
-  );
+  const actionMenu = menus.find((menu) => menu.message === "Choose an action");
   const agentMenu = menus.find((menu) =>
-    menu.message.startsWith("Open an agent")
+    menu.message.startsWith("Choose an agent for Agents")
   );
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
-  assertStringIncludes(actionMenu.options, "Open with agent");
+  assertStringIncludes(actionMenu.options, "Open with an agent");
   assertStringIncludes(agentMenu.options, "Open in Claude Code");
   assertStringIncludes(agentMenu.options, "Continue in Claude Code");
   assert(
@@ -595,12 +643,20 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
     "gate receipt: this clean HEAD holds a recorded pass",
   );
   const actionMenu = menus.join("\n");
-  for (const label of ["Accept", "Update", "Jump in", "Inspect", "Drop"]) {
+  for (
+    const label of [
+      "Accept and land",
+      "Update branch",
+      "Open a shell",
+      "Inspect commits",
+      "Drop worktree",
+    ]
+  ) {
     assertStringIncludes(actionMenu, label);
   }
   assert(
-    !actionMenu.includes("Run Script"),
-    "a worktree without executable scripts must not offer Run Script",
+    !actionMenu.includes("Run a Project Script"),
+    "a worktree without executable scripts must not offer a Project Script action",
   );
 });
 
@@ -658,18 +714,23 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   }]);
   assertEquals(pauses, 1);
 
-  const emptyMenu = menus.find((menu) => menu.message.startsWith(empty.branch));
-  const scriptedMenu = menus.find((menu) =>
-    menu.message.startsWith(scripted.branch)
+  const actionMenus = menus.filter((menu) =>
+    menu.message === "Choose an action"
+  );
+  const emptyMenu = actionMenus.find((menu) =>
+    !menu.options.includes("Run a Project Script")
+  );
+  const scriptedMenu = actionMenus.find((menu) =>
+    menu.options.includes("Run a Project Script")
   );
   const scriptMenu = menus.find((menu) =>
-    menu.message.startsWith("Run a Project Script")
+    menu.message.startsWith("Choose a Project Script for Scripted")
   );
   assert(emptyMenu !== undefined);
   assert(scriptedMenu !== undefined);
   assert(scriptMenu !== undefined);
-  assert(!emptyMenu.options.includes("Run Script"));
-  assertStringIncludes(scriptedMenu.options, "Run Script");
+  assert(!emptyMenu.options.includes("Run a Project Script"));
+  assertStringIncludes(scriptedMenu.options, "Run a Project Script");
   assertStringIncludes(scriptMenu.options, "deploy");
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
 
