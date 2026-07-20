@@ -10,9 +10,9 @@ import { exists } from "@std/fs";
 import { basename, join } from "@std/path";
 import {
   CouplingOutputSchema,
-  DatalessEnvelopeSchema,
   DoctorOutputSchema,
   RefreshOutputSchema,
+  StandardsOutputSchema,
   StatusOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
@@ -2615,9 +2615,18 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
     const failed = await mcp.recv();
     assertEquals(failed.result.isError, true, JSON.stringify(failed.result));
     const payload = failed.result.structuredContent;
-    assert(DatalessEnvelopeSchema.safeParse(payload).success);
+    const parsed = StandardsOutputSchema.safeParse(payload);
+    assert(parsed.success, JSON.stringify(payload));
     assertEquals(payload.ok, false);
     assertEquals(payload.verb, "standards");
+    // The envelope carries the per-standard readings even on a red run — the
+    // measured value and its regressed verdict, not just a failed step.
+    const reading = payload.data?.standards?.find(
+      (s: { name: string }) => s.name === "coverage",
+    );
+    assert(reading !== undefined, JSON.stringify(payload.data));
+    assertEquals(reading.value, 10);
+    assertEquals(reading.verdict, "regressed");
     assert(
       payload.steps.some((s: { outcome: string }) => s.outcome === "failed"),
       JSON.stringify(payload),

@@ -777,15 +777,18 @@ async function executeStandardPlan(
  * (the logbook recorder included) read one vocabulary from both surfaces. */
 function standardExecutionResult(execution: StandardExecution): DiscernResult {
   const { results, diagnostics } = execution;
-  const result: DiscernResult = appliedResult("standards", results);
+  const result = appliedResult("standards", results);
   result.ok = execution.ok;
   if (diagnostics.length > 0) {
     result.diagnostics = diagnostics;
   }
-  if (execution.readings.length > 0) {
-    result.data = { standards: execution.readings } satisfies StandardsData;
+  if (execution.readings.length === 0) {
+    return result;
   }
-  return result;
+  return {
+    ...result,
+    data: { standards: execution.readings } satisfies StandardsData,
+  };
 }
 
 /** Route a plain check's outcome into the measurement receipt: green over a clean
