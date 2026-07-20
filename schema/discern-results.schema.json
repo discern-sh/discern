@@ -6388,29 +6388,117 @@
           "const": "standards"
         },
         "data": {
-          "type": "object",
-          "properties": {
-            "issues": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string"
-                  },
-                  "message": {
-                    "type": "string"
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "standards": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down"
+                        ]
+                      },
+                      "limit": {
+                        "type": "number"
+                      },
+                      "measurement": {
+                        "type": "string",
+                        "enum": [
+                          "measured",
+                          "replayed",
+                          "deferred",
+                          "skipped"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "verdict": {
+                        "type": "string",
+                        "enum": [
+                          "improved",
+                          "held",
+                          "regressed"
+                        ]
+                      },
+                      "duration_s": {
+                        "type": "number"
+                      },
+                      "replayed_from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "direction",
+                      "limit",
+                      "measurement"
+                    ]
                   }
                 },
-                "required": [
-                  "path",
-                  "message"
-                ]
+                "pinned": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      },
+                      "measured": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "from",
+                      "to",
+                      "measured"
+                    ]
+                  }
+                }
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
             }
-          },
-          "required": [
-            "issues"
           ]
         }
       },

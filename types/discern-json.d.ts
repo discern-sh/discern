@@ -1920,6 +1920,23 @@ export type DiscernStandardsResult = {
   message?: string;
   verb: "standards";
   data?: {
+    standards?: Array<{
+      name: string;
+      direction: "up" | "down";
+      limit: number;
+      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      value?: number;
+      verdict?: "improved" | "held" | "regressed";
+      duration_s?: number;
+      replayed_from?: string;
+    }>;
+    pinned?: Array<{
+      name: string;
+      from: number;
+      to: number;
+      measured: number;
+    }>;
+  } | {
     issues: Array<{
       path: string;
       message: string;

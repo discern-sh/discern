@@ -55,7 +55,10 @@ import { runGit } from "../../shared/subprocess.ts";
 import { isAbsolute, join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
-import type { GateStandard } from "../../shared/result_schemas.ts";
+import type {
+  GateStandard,
+  StandardsData,
+} from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
 import { type JobEvaluators, runGroup } from "./execute.ts";
@@ -503,12 +506,15 @@ interface StandardOutcome {
 }
 
 /** The outcome of applying a standard plan: whether all held, the per-step
- * results, the per-standard measured outcomes the pin pass reads, and one
- * diagnostic per failure carrying its reason. */
+ * results, the per-standard measured outcomes the pin pass reads, the
+ * envelope-facing readings (`GateData.standards`' shape, so both surfaces
+ * report standards identically), and one diagnostic per failure carrying its
+ * reason. */
 interface StandardExecution {
   ok: boolean;
   results: StepResult[];
   outcomes: StandardOutcome[];
+  readings: GateStandard[];
   diagnostics: Diagnostic[];
 }
 
@@ -640,6 +646,7 @@ async function executeStandardPlan(
       ok: false,
       results: [mismatch],
       outcomes: [],
+      readings: [],
       diagnostics: [integrityDiagnostic(mismatch)],
     };
   }
@@ -744,22 +751,39 @@ async function executeStandardPlan(
       ? [integrityDiagnostic(standardPlanIntegrityResult(plan, steps))]
       : []),
   ];
+  // The envelope-facing readings, in plan order: the evaluators filled
+  // `jobs.outcomes` as measurements settled; a standard the runnable set never
+  // held (blocked by the never-loosen verification) reads as skipped.
+  const readings: GateStandard[] = plan.standards.map((standard) =>
+    jobs.outcomes.get(standard.name) ?? {
+      name: standard.name,
+      direction: standard.direction,
+      limit: standard.limit,
+      measurement: "skipped" as const,
+    }
+  );
   return {
     ok: !verification.blocking && runnerOk && !integrityFailed,
     results,
     outcomes,
+    readings,
     diagnostics,
   };
 }
 
 /** Convert an execution to the verb envelope. The explicit `ok` assignment is
- * what keeps an externally-cancelled all-skipped run red. */
+ * what keeps an externally-cancelled all-skipped run red. The readings ride
+ * `data.standards` — the same shape the gate reports — so downstream consumers
+ * (the logbook recorder included) read one vocabulary from both surfaces. */
 function standardExecutionResult(execution: StandardExecution): DiscernResult {
   const { results, diagnostics } = execution;
-  const result = appliedResult("standards", results);
+  const result: DiscernResult = appliedResult("standards", results);
   result.ok = execution.ok;
   if (diagnostics.length > 0) {
     result.diagnostics = diagnostics;
+  }
+  if (execution.readings.length > 0) {
+    result.data = { standards: execution.readings } satisfies StandardsData;
   }
   return result;
 }
@@ -833,6 +857,7 @@ function replayExecutionFromReceipt(
 ): StandardExecution {
   const results: StepResult[] = [];
   const outcomes: StandardOutcome[] = [];
+  const readings: GateStandard[] = [];
   const diagnostics = standaloneVerificationDiagnostics(verification);
   let ok = !verification.blocking;
   for (const standard of plan.standards) {
@@ -848,6 +873,12 @@ function replayExecutionFromReceipt(
         outcome: "failed",
       });
       outcomes.push({ standard, held: false });
+      readings.push({
+        name: standard.name,
+        direction: standard.direction,
+        limit: standard.limit,
+        measurement: "skipped",
+      });
       diagnostics.push({
         tool: standard.name,
         severity: "error",
@@ -869,12 +900,20 @@ function replayExecutionFromReceipt(
       outcome: held ? "ok" : "failed",
     });
     outcomes.push({ standard, held, value });
+    readings.push({
+      name: standard.name,
+      direction: standard.direction,
+      limit: standard.limit,
+      measurement: "replayed",
+      value,
+      ...(held ? { verdict: heldVerdict(standard, value) } : {}),
+    });
     if (!held) {
       ok = false;
     }
   }
   results.push(...standaloneVerificationSteps(plan, verification));
-  return { ok, results, outcomes, diagnostics };
+  return { ok, results, outcomes, readings, diagnostics };
 }
 
 /** One limit the pin pass will tighten: the standard, the value it measured, and the
@@ -1291,6 +1330,9 @@ async function pinStandardsResult(
   if (pins.length === 0) {
     return {
       ...appliedResult("standards", steps),
+      ...(execution.readings.length > 0
+        ? { data: { standards: execution.readings } satisfies StandardsData }
+        : {}),
       hints: [
         ...(reuseHint !== undefined ? [reuseHint] : []),
         "Nothing to pin — every standard asked for already sits at its measured value (within its margin).",
@@ -1327,6 +1369,17 @@ async function pinStandardsResult(
   const carried = receipt?.status === "recorded";
   return {
     ...appliedResult("standards", steps),
+    data: {
+      ...(execution.readings.length > 0
+        ? { standards: execution.readings }
+        : {}),
+      pinned: pins.map((p) => ({
+        name: p.standard.name,
+        from: p.standard.limit,
+        to: p.newLimit,
+        measured: p.measured,
+      })),
+    } satisfies StandardsData,
     hints: [
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried

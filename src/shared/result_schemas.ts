@@ -272,6 +272,26 @@ export const GateStandardSchema = z.strictObject({
 });
 export type GateStandard = z.infer<typeof GateStandardSchema>;
 
+/** One limit a `standards --pin` tightened: the standard, the bound it moved
+ * `from` → `to`, and the measured value that justified it. */
+export const PinnedLimitSchema = z.strictObject({
+  name: z.string(),
+  from: z.number(),
+  to: z.number(),
+  measured: z.number(),
+});
+export type PinnedLimit = z.infer<typeof PinnedLimitSchema>;
+
+/** The `standards` verb's `data`: the per-standard readings (the same shape the
+ * gate carries in `GateData.standards`, so one consumer reads both), and — on a
+ * `--pin` that tightened limits — the applied pins. Both optional: a refusal or
+ * an empty config carries neither. */
+export const StandardsDataSchema = z.strictObject({
+  standards: z.array(GateStandardSchema).optional(),
+  pinned: z.array(PinnedLimitSchema).optional(),
+});
+export type StandardsData = z.infer<typeof StandardsDataSchema>;
+
 /** How the gate's never-loosen verification of `[standards]` limits against the
  * trunk went: `verified` (none loosened — vacuously so for limits new on the
  * branch or a trunk with no config yet), `loosened` (a limit loosened or an
@@ -1205,8 +1225,12 @@ export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
 /** `test` output: envelope only (except top-level config parse errors). */
 export const TestOutputSchema = datalessResultOutputSchema("test");
 
-/** `standards` output: envelope only (except top-level config parse errors). */
-export const StandardsOutputSchema = datalessResultOutputSchema("standards");
+/** `standards` output: envelope + the per-standard readings, and — on a `--pin`
+ * that tightened limits — the applied pins. */
+export const StandardsOutputSchema = resultOutputSchema(
+  "standards",
+  StandardsDataSchema,
+);
 
 /** `refresh` output: envelope + the generated-artifact summary `data`. */
 export const RefreshOutputSchema = resultOutputSchema(
