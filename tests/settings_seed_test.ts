@@ -64,6 +64,7 @@ Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts
  * its settings file at `.acme/settings.json`. Stands in for a future vendor. */
 const ACME_HOOKS: HooksIntegration = {
   settingsFile: ".acme/settings.json",
+  ownership: { shared: true },
   worktreeEventKeys: [], // SessionStart-only — no worktree create/remove events
   sessionHookNeedle: "discern worktree ensure",
 };

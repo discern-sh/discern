@@ -636,7 +636,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       hookDrift === undefined;
     const wired = [
       guidanceWired ? `guidance ${guidancePath}` : undefined,
-      provider.skillsDir ? `skills ${provider.skillsDir}` : undefined,
+      provider.skillsDir ? `skills ${provider.skillsDir.path}` : undefined,
       mcp.kind === "wired" ? "mcp" : undefined,
       hooksWired ? "hooks" : undefined,
     ].filter((s): s is string => s !== undefined);

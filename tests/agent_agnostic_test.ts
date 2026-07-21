@@ -53,7 +53,7 @@ function providerPathFragments(): string[] {
   for (const provider of Object.values(PROVIDERS)) {
     paths.push(provider.guidanceFile.path);
     if (provider.skillsDir !== undefined) {
-      paths.push(provider.skillsDir);
+      paths.push(provider.skillsDir.path);
     }
     if (provider.hooks !== undefined) {
       paths.push(provider.hooks.settingsFile);

@@ -11,6 +11,8 @@
  * default written as a literal anywhere else in `src/**` is a defect.
  */
 
+import type { FileOwnershipDeclaration } from "./file_ownership.ts";
+
 /** One configurable source path: where it is keyed, where it defaults, and what
  * lives there. */
 export interface SourcePathEntry {
@@ -28,6 +30,12 @@ export interface SourcePathEntry {
   readonly defaultPath: string;
   /** The previous default a migration carries forward. It never seeds anything new. */
   readonly legacyPath: string;
+  /** Whether the write-surface contract admits one file or a directory tree. */
+  readonly pathKind: "file" | "directory";
+  /** How the write target is selected from config. */
+  readonly resolution: "configured" | "guidance-seed" | "default";
+  /** This authored path's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /** One-line description of what lives at the path. */
   readonly description: string;
 }
@@ -60,6 +68,9 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     key: "guidance.sources",
     defaultPath: "discern/guidance.md",
     legacyPath: "guidance.md",
+    pathKind: "file",
+    resolution: "guidance-seed",
+    ownership: { "project-owned": true },
     description:
       "The project's guidance source discern compiles into the agent files.",
   },
@@ -67,6 +78,9 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     key: "map.dir",
     defaultPath: "map/",
     legacyPath: "discern/docs/",
+    pathKind: "directory",
+    resolution: "configured",
+    ownership: { "project-owned": true },
     description:
       "The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.",
   },
@@ -74,18 +88,27 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     key: "skills.dir",
     defaultPath: "discern/skills",
     legacyPath: "skills",
+    pathKind: "directory",
+    resolution: "configured",
+    ownership: { "project-owned": true },
     description: "Where the project's authored skills live.",
   },
   scripts: {
     key: "scripts.dir",
     defaultPath: "discern/scripts",
     legacyPath: "discern/recipes",
+    pathKind: "directory",
+    resolution: "configured",
+    ownership: { "project-owned": true },
     description: "Where the project's own executable scripts live.",
   },
   todo: {
     key: "project.todo",
     defaultPath: "discern/TODO.md",
     legacyPath: "TODO.md",
+    pathKind: "file",
+    resolution: "configured",
+    ownership: { "project-owned": true },
     description:
       "The deferred-work ledger — the running TODO list agents read and maintain.",
   },
@@ -93,6 +116,9 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     key: null,
     defaultPath: "discern/brief.md",
     legacyPath: "brief.md",
+    pathKind: "file",
+    resolution: "default",
+    ownership: { "project-owned": true },
     description:
       "The project brief captured at setup — authored intent, read by the setup instructions.",
   },

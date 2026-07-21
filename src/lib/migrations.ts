@@ -57,6 +57,9 @@ const SCHEMA_14_MAP_PATH: SourcePathEntry = {
   key: "docs.dir",
   defaultPath: "discern/docs/",
   legacyPath: "docs/",
+  pathKind: "directory",
+  resolution: "configured",
+  ownership: { "project-owned": true },
   description: "The schema-14 agent documentation tree.",
 };
 
@@ -65,6 +68,9 @@ const SCHEMA_14_RECIPE_PATH: SourcePathEntry = {
   key: "recipes.dir",
   defaultPath: "discern/recipes",
   legacyPath: "recipes",
+  pathKind: "directory",
+  resolution: "configured",
+  ownership: { "project-owned": true },
   description: "The schema-14 Project Recipes directory.",
 };
 

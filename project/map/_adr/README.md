@@ -161,6 +161,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0167 — The term registry polices the vocabulary](0167-term-registry-polices-the-vocabulary.md)
 - [0168 — The gate declares jobs](0168-the-gate-declares-jobs.md)
 - [0169 — The launch glossary canon](0169-the-launch-glossary-canon.md)
+- [0170 — File ownership is required registry data](0170-file-ownership-is-registry-data.md)
 
 ## Superseded records
 

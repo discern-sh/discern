@@ -33,19 +33,10 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import {
-  resolveBriefPath,
-  resolveGuidanceSeedRel,
-  resolveMapDir,
-  resolveScriptsDir,
-  resolveSkillsDir,
-  resolveTodoPath,
-} from "../src/lib/paths.ts";
-import {
-  allGuidanceFilePaths,
-  allSkillsDirs,
-  PROVIDERS,
-  wiredMcp,
-} from "../src/lib/providers.ts";
+  artifactPathMatches,
+  isDiscernWriteTarget,
+  projectArtifactPaths,
+} from "../src/lib/artifact_ownership.ts";
 
 // ── leg 1: the static funnel ─────────────────────────────────────────────────
 
@@ -258,18 +249,11 @@ function writtenPaths(
   return out.sort();
 }
 
-/** A dir path in prefix form (`discern/docs/`, `.claude/skills/`). */
-function asPrefix(dir: string): string {
-  return dir.endsWith("/") ? dir : `${dir}/`;
-}
-
 /**
  * The write-surface contract as a predicate over project-relative paths,
- * derived from the registries against the project's OWN config — the paths
- * registry through the production resolvers, the provider registry through its
- * aggregators — plus the two shims (`discern.toml`, `.gitignore`) and the
- * worktree `.env`. Nothing here is a hand-copied path list: a new registry or
- * provider entry auto-enrols.
+ * derived from the canonical artifact enumeration against the project's own
+ * config. Provider-local paths are declared there so the ignore contract stays
+ * exhaustive, but they are not discern write targets.
  */
 async function contractPredicate(
   root: string,
@@ -277,43 +261,8 @@ async function contractPredicate(
   const config = parseConfigOrThrow(
     await Deno.readTextFile(join(root, "discern.toml")),
   );
-
-  const exact = new Set<string>(["discern.toml", ".gitignore", ".env"]);
-  const prefixes: string[] = [];
-
-  // The paths registry, through the resolvers.
-  prefixes.push(asPrefix(resolveMapDir(root, config).rel));
-  prefixes.push(asPrefix(resolveSkillsDir(root, config).rel));
-  prefixes.push(asPrefix(resolveScriptsDir(root, config).rel));
-  exact.add(resolveTodoPath(root, config).rel);
-  exact.add(resolveBriefPath(root).rel);
-  exact.add(resolveGuidanceSeedRel(config));
-
-  // The provider registry: agent files, materialized skills dirs, and
-  // every declared integration file.
-  for (const path of allGuidanceFilePaths()) {
-    exact.add(path);
-  }
-  for (const dir of allSkillsDirs()) {
-    prefixes.push(asPrefix(dir));
-  }
-  for (const provider of Object.values(PROVIDERS)) {
-    const mcp = wiredMcp(provider);
-    if (mcp !== undefined) {
-      exact.add(mcp.configFile);
-    }
-    if (provider.hooks !== undefined) {
-      exact.add(provider.hooks.settingsFile);
-    }
-    if (provider.worktreeApp !== undefined) {
-      exact.add(provider.worktreeApp.configFile);
-    }
-    if (provider.projectRules !== undefined) {
-      exact.add(provider.projectRules.rulesFile);
-    }
-  }
-
-  return (rel) => exact.has(rel) || prefixes.some((p) => rel.startsWith(p));
+  const writable = projectArtifactPaths(config).filter(isDiscernWriteTarget);
+  return (rel) => writable.some((entry) => artifactPathMatches(entry, rel));
 }
 
 Deno.test("setup begin + refresh + upgrade write only inside the contract", async () => {

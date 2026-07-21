@@ -45,14 +45,14 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
 Deno.test("every known agent declares a skills directory (all SKILL.md-format)", () => {
   for (const name of AGENT_NAMES) {
     const dir = providerFor(name)?.skillsDir;
-    assert(dir !== undefined && dir.length > 0, `${name}: no skills dir`);
+    assert(dir !== undefined && dir.path.length > 0, `${name}: no skills dir`);
   }
   // Claude keeps its own; Codex, Gemini, Cursor, and Copilot share the cross-tool standard.
-  assertEquals(providerFor("claude_code")?.skillsDir, ".claude/skills");
-  assertEquals(providerFor("codex")?.skillsDir, ".agents/skills");
-  assertEquals(providerFor("gemini")?.skillsDir, ".agents/skills");
-  assertEquals(providerFor("cursor")?.skillsDir, ".agents/skills");
-  assertEquals(providerFor("copilot")?.skillsDir, ".agents/skills");
+  assertEquals(providerFor("claude_code")?.skillsDir?.path, ".claude/skills");
+  assertEquals(providerFor("codex")?.skillsDir?.path, ".agents/skills");
+  assertEquals(providerFor("gemini")?.skillsDir?.path, ".agents/skills");
+  assertEquals(providerFor("cursor")?.skillsDir?.path, ".agents/skills");
+  assertEquals(providerFor("copilot")?.skillsDir?.path, ".agents/skills");
 });
 
 Deno.test("skillsDirsForAgents: dedupes Codex+Gemini onto the shared .agents/skills", () => {
@@ -196,7 +196,7 @@ Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no dup
     assertEquals(p.guidanceFile.reuseCanonical, true);
     assertEquals(p.guidanceFile.pointer, undefined);
     // The shared cross-tool skills dir — deduped onto Codex's/Gemini's target.
-    assertEquals(p.skillsDir, ".agents/skills");
+    assertEquals(p.skillsDir?.path, ".agents/skills");
     // Committed MCP/hooks are inert until a one-time trust, and the action is named.
     assertEquals(p.trust.required, true);
     assert(

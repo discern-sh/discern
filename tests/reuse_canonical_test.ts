@@ -23,16 +23,22 @@ import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
 import { fromFileUrl, join } from "@std/path";
 
 /** The canonical full-body file (codex → AGENTS.md). */
-const CANONICAL: GuidanceFile = { path: "AGENTS.md", canonical: true };
+const CANONICAL: GuidanceFile = {
+  path: "AGENTS.md",
+  ownership: { generated: true },
+  canonical: true,
+};
 /** A pointer mirror (claude_code → CLAUDE.md → @AGENTS.md). */
 const POINTER: GuidanceFile = {
   path: "CLAUDE.md",
+  ownership: { generated: true },
   canonical: false,
   pointer: atImportPointer,
 };
 /** A SYNTHETIC reuse-canonical provider: reads AGENTS.md natively. */
 const REUSE: GuidanceFile = {
   path: "AGENTS.md",
+  ownership: { generated: true },
   canonical: false,
   reuseCanonical: true,
 };

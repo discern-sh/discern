@@ -1,7 +1,5 @@
 /**
- * Regenerate the committed artifacts that derive from the canonical config schema
- * (ADR 0026): the editor JSON Schema and the docs config-reference. Run it after
- * editing `src/shared/config_schema.ts`:
+ * Regenerate committed artifacts derived from canonical registries and schemas:
  *
  *   deno task codegen
  *
@@ -29,11 +27,17 @@ import {
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
 } from "../src/shared/third_party_codegen.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
+import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
+import {
+  projectArtifactPaths,
+  renderArtifactInventory,
+  replaceArtifactInventory,
+} from "../src/lib/artifact_ownership.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
-const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+const config = await loadConfig(repoRoot);
+const mapDir = resolveMapDir(repoRoot, config).abs;
 const configReference = relative(
   repoRoot,
   join(mapDir, "70-reference", "config-reference.md"),
@@ -45,6 +49,14 @@ const cliReference = relative(
 const glossary = relative(
   repoRoot,
   join(mapDir, "00-orientation", "glossary.md"),
+);
+const installSurface = relative(
+  repoRoot,
+  join(mapDir, "80-development", "install-surface.md"),
+);
+const artifactOwnership = relative(
+  repoRoot,
+  join(mapDir, "70-reference", "artifact-ownership.md"),
 );
 
 type EquivalentText = (before: string, after: string) => boolean;
@@ -78,6 +90,24 @@ console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
+console.log("Regenerating the project artifact ownership inventory:");
+const inventory = renderArtifactInventory(
+  projectArtifactPaths(parseConfigOrThrow("")),
+);
+const artifactOwnershipDoc = await Deno.readTextFile(
+  join(repoRoot, artifactOwnership),
+);
+await write(
+  artifactOwnership,
+  replaceArtifactInventory(artifactOwnershipDoc, inventory),
+);
+const installSurfaceDoc = await Deno.readTextFile(
+  join(repoRoot, installSurface),
+);
+await write(
+  installSurface,
+  replaceArtifactInventory(installSurfaceDoc, inventory),
+);
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );

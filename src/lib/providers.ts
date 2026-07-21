@@ -28,6 +28,7 @@ import {
 } from "./settings_merge.ts";
 import { TomlEditor } from "./toml_edit.ts";
 import { agentLabelForNative } from "../shared/agent_catalogue.ts";
+import type { FileOwnershipDeclaration } from "../shared/file_ownership.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -144,6 +145,8 @@ export interface McpWireResult {
 export interface McpIntegration {
   /** The project-relative config file this provider keeps its servers in. */
   readonly configFile: string;
+  /** The config file's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /** Register `server` for this provider under `root`, idempotently. */
   register(
     root: string,
@@ -222,6 +225,8 @@ export interface AgentCliIntegration {
 export interface WorktreeAppIntegration {
   /** The project-relative app-managed config file discern co-manages. */
   readonly configFile: string;
+  /** The config file's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /** Merge discern's worktree setup/teardown into `configFile` under `root`,
    * idempotently, preserving the app's own keys. Returns the project-relative files
    * written (empty when already in place). */
@@ -236,6 +241,8 @@ export interface WorktreeAppIntegration {
 export interface ProjectRulesIntegration {
   /** The project-relative rules file discern owns and re-emits idempotently. */
   readonly rulesFile: string;
+  /** The rules entry's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /** Write the rules file under `root`, returning it when bytes changed. */
   register(root: string): Promise<string[]>;
 }
@@ -245,6 +252,8 @@ export interface ProjectRulesIntegration {
 export interface HooksIntegration {
   /** The project-relative settings file this provider's hooks live in. */
   readonly settingsFile: string;
+  /** The settings file's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /**
    * The create/remove worktree-lifecycle hook-event keys this provider uses. MAY be
    * empty: an agent with no worktree create/remove events (the non-Claude agents)
@@ -279,6 +288,8 @@ export interface SettingsSeed {
 export interface GuidanceFile {
   /** Project-relative path of the generated file. */
   readonly path: string;
+  /** The agent file's required File ownership declaration. */
+  readonly ownership: FileOwnershipDeclaration;
   /**
    * Whether this is the CANONICAL agent file: the one holding the full compiled
    * body that every other provider's pointer imports (exactly one — codex /
@@ -346,6 +357,12 @@ export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
   return out;
 }
 
+/** One provider path declared together with its File ownership. */
+export interface ProviderArtifactPath {
+  readonly path: string;
+  readonly ownership: FileOwnershipDeclaration;
+}
+
 /** Everything provider-specific for one agent, in one typed record. The single
  * place to extend when teaching discern a new agent. */
 export interface Provider {
@@ -401,7 +418,7 @@ export interface Provider {
    * this agent (skipped, never guessed). All three known agents use the identical
    * SKILL.md folder format, differing only in the directory.
    */
-  readonly skillsDir?: string;
+  readonly skillsDir?: ProviderArtifactPath;
   /**
    * Machine-local state files this agent keeps in the project tree — personal,
    * per-machine overrides (e.g. a local settings file) that must stay out of
@@ -409,7 +426,7 @@ export interface Provider {
    * gate's tracked-artifacts check derive them from the registry rather than a
    * hand-copied list. Absent → the agent has none.
    */
-  readonly localState?: readonly string[];
+  readonly localState?: readonly ProviderArtifactPath[];
 }
 
 /**
@@ -1054,6 +1071,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     guidanceFile: {
       path: "CLAUDE.md",
+      ownership: { generated: true },
       canonical: false,
       pointer: atImportPointer,
     },
@@ -1061,11 +1079,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       kind: "wired",
       integration: {
         configFile: MCP_JSON_FILE,
+        ownership: { shared: true },
         register: registerClaudeCodeMcp,
       },
     },
     hooks: {
       settingsFile: CLAUDE_SETTINGS_FILE,
+      ownership: { shared: true },
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
     },
@@ -1076,10 +1096,19 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
     },
-    skillsDir: CLAUDE_SKILLS_DIR,
+    skillsDir: {
+      path: CLAUDE_SKILLS_DIR,
+      ownership: { generated: true },
+    },
     // Claude Code's settings.local.json is the vendor's own per-machine override
     // file — never meant to be shared, so discern keeps it ignored.
-    localState: [CLAUDE_LOCAL_SETTINGS_FILE],
+    localState: [{
+      path: CLAUDE_LOCAL_SETTINGS_FILE,
+      ownership: {
+        "provider-local":
+          "Claude Code creates and maintains this per-machine override. discern only keeps it out of Git.",
+      },
+    }],
   },
   codex: {
     name: "codex",
@@ -1095,8 +1124,15 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         },
       ],
     },
-    guidanceFile: { path: "AGENTS.md", canonical: true },
-    skillsDir: AGENTS_SKILLS_DIR,
+    guidanceFile: {
+      path: "AGENTS.md",
+      ownership: { generated: true },
+      canonical: true,
+    },
+    skillsDir: {
+      path: AGENTS_SKILLS_DIR,
+      ownership: { generated: true },
+    },
     // MCP is wired: discern merges `[mcp_servers.discern]` into the project-committable
     // `.codex/config.toml` via the comment-preserving TOML editor (its own format, NOT
     // Claude's .mcp.json), gated by a one-time directory trust (see trust).
@@ -1104,6 +1140,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       kind: "wired",
       integration: {
         configFile: CODEX_CONFIG_FILE,
+        ownership: { shared: true },
         register: registerCodexProjectConfig,
       },
     },
@@ -1113,6 +1150,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // (empty worktreeEventKeys). A committed hook won't run until its hash is approved.
     hooks: {
       settingsFile: CODEX_HOOKS_FILE,
+      ownership: { shared: true },
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
     },
@@ -1121,6 +1159,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // (preserving the app's autogenerated keys), re-emitted on every refresh.
     worktreeApp: {
       configFile: CODEX_ENV_FILE,
+      ownership: { shared: true },
       register: registerCodexEnvironment,
     },
     // Narrow project-local exec-policy rules for the linked-worktree happy path:
@@ -1128,6 +1167,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // shell wrappers, destructive commands, or sandbox bypass.
     projectRules: {
       rulesFile: CODEX_RULES_FILE,
+      ownership: { shared: true },
       register: registerCodexRules,
     },
     // Committed .codex/ config is inert until the directory is trusted, and a
@@ -1158,12 +1198,16 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // like Claude Code, so the body lives in one file and the mirror can't drift.
     guidanceFile: {
       path: "GEMINI.md",
+      ownership: { generated: true },
       canonical: false,
       pointer: atImportPointer,
     },
     // Gemini reads .gemini/skills/ AND the .agents/skills/ alias (which takes
     // precedence) — use the shared alias so Codex + Gemini dedupe to one dir.
-    skillsDir: AGENTS_SKILLS_DIR,
+    skillsDir: {
+      path: AGENTS_SKILLS_DIR,
+      ownership: { generated: true },
+    },
     // MCP is wired: discern deep-merges `mcpServers.discern` into the
     // project-committable `.gemini/settings.json` (Gemini's own format, NOT .mcp.json),
     // inert in safe mode until the folder is trusted (see trust). The seeded `hooks`
@@ -1172,6 +1216,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       kind: "wired",
       integration: {
         configFile: GEMINI_SETTINGS_FILE,
+        ownership: { shared: true },
         register: registerGeminiMcp,
       },
     },
@@ -1181,6 +1226,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // seed sets hooksConfig.enabled = true so the hook actually fires (see trust).
     hooks: {
       settingsFile: GEMINI_SETTINGS_FILE,
+      ownership: { shared: true },
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
     },
@@ -1210,17 +1256,29 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
     // no Cursor-specific file (reuse-canonical: no duplicate body, no pointer).
-    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    guidanceFile: {
+      path: "AGENTS.md",
+      ownership: { generated: true },
+      canonical: false,
+      reuseCanonical: true,
+    },
     // Cursor reads the cross-tool .agents/skills/ — the shared alias, so it dedupes
     // onto Codex's/Gemini's target rather than adding a dir of its own.
-    skillsDir: AGENTS_SKILLS_DIR,
+    skillsDir: {
+      path: AGENTS_SKILLS_DIR,
+      ownership: { generated: true },
+    },
     // MCP is wired: discern writes the stdio `discern mcp` server into the
     // project-committable `.cursor/mcp.json` (Cursor's own file, with type: "stdio"),
     // preserving other servers/keys; idempotent; gated by workspace trust + per-tool
     // approval (see trust), not a pre-approval list.
     mcp: {
       kind: "wired",
-      integration: { configFile: CURSOR_MCP_FILE, register: registerCursorMcp },
+      integration: {
+        configFile: CURSOR_MCP_FILE,
+        ownership: { shared: true },
+        register: registerCursorMcp,
+      },
     },
     // SessionStart-only hooks surface in the committable `.cursor/hooks.json`: the
     // per-session `discern worktree ensure` re-ready step. No worktree create/remove
@@ -1230,6 +1288,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // idempotent across re-seeds.
     hooks: {
       settingsFile: CURSOR_HOOKS_FILE,
+      ownership: { shared: true },
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
       mergeSeed: mergeJsonSettingsDedupingGroups,
@@ -1260,17 +1319,29 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // The Copilot CLI reads the canonical AGENTS.md natively as its primary
     // instructions (it has no @import directive), so discern emits no
     // Copilot-specific file (reuse-canonical).
-    guidanceFile: { path: "AGENTS.md", canonical: false, reuseCanonical: true },
+    guidanceFile: {
+      path: "AGENTS.md",
+      ownership: { generated: true },
+      canonical: false,
+      reuseCanonical: true,
+    },
     // Copilot reads the cross-tool .agents/skills/ — the shared alias, deduped onto the
     // existing target.
-    skillsDir: AGENTS_SKILLS_DIR,
+    skillsDir: {
+      path: AGENTS_SKILLS_DIR,
+      ownership: { generated: true },
+    },
     // MCP is wired: discern writes the stdio `discern mcp` server into the shared
     // committable `.mcp.json` (co-owned with Claude Code, byte-identical) — NO
     // enabledMcpjsonServers pre-approval (Copilot gates via folder trust, not that key).
     // Idempotent and order-independent with Claude's wiring (the shared writer).
     mcp: {
       kind: "wired",
-      integration: { configFile: MCP_JSON_FILE, register: registerCopilotMcp },
+      integration: {
+        configFile: MCP_JSON_FILE,
+        ownership: { shared: true },
+        register: registerCopilotMcp,
+      },
     },
     // SessionStart-only hooks surface in a discern-owned `.github/hooks/discern.json`
     // (Copilot loads every `.github/hooks/*.json`). sessionStart fires per-prompt in
@@ -1280,6 +1351,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // group-dedup seed strategy to re-seed idempotently.
     hooks: {
       settingsFile: COPILOT_HOOKS_FILE,
+      ownership: { shared: true },
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
       mergeSeed: mergeJsonSettingsDedupingGroups,
@@ -1333,7 +1405,7 @@ export function settingsSeeds(): SettingsSeed[] {
 export function skillsDirsForAgents(agents: readonly string[]): string[] {
   const dirs: string[] = [];
   for (const agent of agents) {
-    const dir = providerFor(agent)?.skillsDir;
+    const dir = providerFor(agent)?.skillsDir?.path;
     if (dir !== undefined && !dirs.includes(dir)) {
       dirs.push(dir);
     }
@@ -1394,7 +1466,8 @@ export function neutralAgentScopePaths(): string[] {
 export function allLocalStateFiles(): string[] {
   const out: string[] = [];
   for (const name of AGENT_NAMES) {
-    for (const file of PROVIDERS[name].localState ?? []) {
+    for (const entry of PROVIDERS[name].localState ?? []) {
+      const file = entry.path;
       if (!out.includes(file)) {
         out.push(file);
       }

@@ -696,7 +696,7 @@ async function chmodWritable(dir: string): Promise<void> {
  * dir (guarded by the total Provider record + providers_test); the undefined branch
  * is unreachable in practice and only guards a broken registry. */
 export function claudeSkillsDirOf(root: string): string {
-  const dir = providerFor("claude_code")?.skillsDir;
+  const dir = providerFor("claude_code")?.skillsDir?.path;
   if (dir === undefined) {
     throw new Error(
       "registry invariant broken: claude_code declares no skillsDir",

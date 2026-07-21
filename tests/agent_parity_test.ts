@@ -116,8 +116,8 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
     );
     if (p.skillsDir !== undefined) {
       assert(
-        skillsDirs.includes(p.skillsDir),
-        `allSkillsDirs() is missing ${name}'s ${p.skillsDir}`,
+        skillsDirs.includes(p.skillsDir.path),
+        `allSkillsDirs() is missing ${name}'s ${p.skillsDir.path}`,
       );
     }
   }
@@ -294,7 +294,7 @@ Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir"
   }
   // Every known agent contributes a neutral region (none silently absent).
   for (const name of AGENT_NAMES) {
-    const dir = providerFor(name)?.skillsDir;
+    const dir = providerFor(name)?.skillsDir?.path;
     if (dir === undefined) continue;
     const top = `${dir.split("/")[0]}/`;
     assert(
@@ -325,10 +325,10 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     // 2. Materialized skills dir (when the agent has one): gitignored + neutral.
     if (p.skillsDir !== undefined) {
       assert(
-        fragmentIgnoresDir(p.skillsDir),
-        `${name}: skills dir ${p.skillsDir} not gitignored by the seed fragment`,
+        fragmentIgnoresDir(p.skillsDir.path),
+        `${name}: skills dir ${p.skillsDir.path} not gitignored by the seed fragment`,
       );
-      const top = `${p.skillsDir.split("/")[0]}/`;
+      const top = `${p.skillsDir.path.split("/")[0]}/`;
       assert(
         defaultNeutralScopes().includes(`"${top}"`),
         `${name}: generated region ${top} not in the seed neutral scopes`,
@@ -336,7 +336,8 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     }
 
     // 2b. Machine-local state (when the agent declares any): gitignored.
-    for (const file of p.localState ?? []) {
+    for (const entry of p.localState ?? []) {
+      const file = entry.path;
       assert(
         fragmentIgnoresFile(file),
         `${name}: machine-local state file ${file} not gitignored by the seed fragment`,
