@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   GLOSSARY,
+  glossarySummary,
   renderGlossaryDoc,
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
@@ -30,6 +31,33 @@ Deno.test("every term is unique and defined (the registry is a canon, not a list
     assert(!seen.has(key), `duplicate glossary term: ${term}`);
     seen.add(key);
     assert(definition.trim().length > 0, `empty definition for: ${term}`);
+  }
+});
+
+Deno.test("every entry has a one-sentence hover summary without duplicating short definitions", () => {
+  assertEquals(
+    glossarySummary({
+      term: "Fixture",
+      definition: "Use `AGENTS.md`, then continue. Full detail follows.",
+    }),
+    "Use `AGENTS.md`, then continue.",
+  );
+  assertEquals(
+    glossarySummary({
+      term: "Fixture",
+      summary: "A tighter sentence.",
+      definition: "A long first sentence with details. More follows.",
+    }),
+    "A tighter sentence.",
+  );
+
+  for (const entry of GLOSSARY) {
+    const summary = glossarySummary(entry);
+    assert(summary.trim().length > 0, `empty summary for: ${entry.term}`);
+    assert(
+      /[.!?]$/u.test(summary),
+      `summary is not one complete sentence: ${entry.term}`,
+    );
   }
 });
 

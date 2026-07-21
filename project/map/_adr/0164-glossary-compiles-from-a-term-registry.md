@@ -2,6 +2,8 @@
 
 > **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`, `KNOWN_CAPABILITIES` → `KNOWN_JOBS`; the decision and reasoning are unchanged.
 
+> **Display and matching extension ([ADR 0171](0171-glossary-display-and-matching-are-separate-data.md)):** The web hover-card consumer now needs the structure this record deferred. Entries add a one-sentence summary and explicit matching phrases while the term and definition remain canonical.
+
 **Status**: accepted
 
 ## Context

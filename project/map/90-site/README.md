@@ -53,14 +53,14 @@ Production's canonical origin is `https://discern.sh`; page URLs have no trailin
 
 The public URL set freezes with wave 3A's landing on July 17, 2026. From that landing onward, adding a page extends the contract. Renaming, moving, or removing one does not erase its old address.
 
-The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The freeze contained 200 routes; five later decision records extended the current set to 205 routes by July 18, 2026:
+The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The freeze contained 200 routes. The live registries contain 224 routes as of July 21, 2026:
 
-| Source           | Frozen routes                                                                                                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Static pages     | `/`, `/agents`, `/start`, `/careers`, `/design-system-demo`, `/content-design-demo`                                                                                            |
-| Docs index       | `/docs`                                                                                                                                                                        |
-| Product guidance | The 47 routes in the section table below.                                                                                                                                      |
-| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 150 current published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
+| Source           | Frozen routes                                                                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Static pages     | `/`, `/agents`, `/start`, `/careers`, `/design-system-demo`, `/content-design-demo`                                                                                    |
+| Docs index       | `/docs`                                                                                                                                                                |
+| Product guidance | The 50 routes in the section table below.                                                                                                                              |
+| Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 166 published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
 
 Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
 

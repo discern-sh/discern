@@ -89,3 +89,38 @@ Deno.test("vocab signals: bold emphasis is a redefinition unless it links the en
     null,
   );
 });
+
+Deno.test("vocab signals ignore hover matching controls", async () => {
+  const glossary: GlossaryEntry[] = [
+    {
+      term: "Update",
+      definition: "The update concept.",
+      matches: [],
+    },
+    {
+      term: "Accept",
+      definition: "The accept concept.",
+      matches: [],
+    },
+  ];
+  const dir = await fixtureMap({
+    [GLOSSARY_PAGE_REL]: "# Glossary\n\n### Update\n\n### Accept\n",
+    "10-topic/page.md": [
+      "Update the docs.",
+      "",
+      "Land with [the command](../00-orientation/glossary.md#accept).",
+      "",
+      "**Update** — a second definition.",
+    ].join("\n"),
+  });
+  try {
+    const signals = await measureVocabSignals(dir, glossary);
+    assertEquals(signals.deadTerms, []);
+    assertEquals(signals.redefinitions, [
+      { file: "10-topic/page.md", line: 5, term: "Update" },
+    ]);
+    assertEquals(signals.debt, 1);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});

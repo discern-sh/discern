@@ -34,7 +34,11 @@ import {
   renderMarkdownHtml,
   renderMarkdownInlineHtml,
 } from "../src/lib/markdown.ts";
-import { GLOSSARY, type GlossaryEntry } from "../scripts/glossary_registry.ts";
+import {
+  GLOSSARY,
+  type GlossaryEntry,
+  glossarySummary,
+} from "../scripts/glossary_registry.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
@@ -502,7 +506,7 @@ export function rewriteLinks(
   }).join("\n");
 }
 
-interface GlossaryMention {
+export interface GlossaryMention {
   entry: GlossaryEntry;
   text: string;
 }
@@ -511,11 +515,17 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function glossaryMentions(): GlossaryMention[] {
+/** Resolve and validate the prose phrases owned by glossary entries. */
+export function glossaryMentions(
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): GlossaryMention[] {
   const mentions: GlossaryMention[] = [];
   const owners = new Map<string, string>();
-  for (const entry of GLOSSARY) {
-    for (const text of entry.term.split(/\s+\/\s+/)) {
+  for (const entry of glossary) {
+    for (const text of entry.matches ?? [entry.term]) {
+      if (text.trim().length === 0) {
+        throw new Error(`docs: glossary mention is empty for ${entry.term}`);
+      }
       const key = text.toLowerCase();
       const prior = owners.get(key);
       if (prior !== undefined && prior !== entry.term) {
@@ -523,6 +533,7 @@ function glossaryMentions(): GlossaryMention[] {
           `docs: glossary mention ${text} belongs to both ${prior} and ${entry.term}`,
         );
       }
+      if (prior === entry.term) continue;
       owners.set(key, entry.term);
       mentions.push({ entry, text });
     }
@@ -548,44 +559,45 @@ const GLOSSARY_PANEL_IDS = new Map(
     `docs-glossary-definition-${index + 1}`,
   ]),
 );
-const glossaryDefinitionsCache = new WeakMap<
+const glossarySummariesCache = new WeakMap<
   DocsSite,
   ReadonlyMap<string, string>
 >();
 
-function glossaryDefinitions(site: DocsSite): ReadonlyMap<string, string> {
-  const cached = glossaryDefinitionsCache.get(site);
+function glossarySummaries(site: DocsSite): ReadonlyMap<string, string> {
+  const cached = glossarySummariesCache.get(site);
   if (cached !== undefined) return cached;
 
   const glossaryPage = site.byMapPath.get(GLOSSARY_MAP_PATH);
   if (glossaryPage === undefined || glossaryPage.kind !== "guide") {
     throw new Error(`docs: published glossary missing at ${GLOSSARY_MAP_PATH}`);
   }
-  const definitions = new Map<string, string>();
+  const summaries = new Map<string, string>();
   for (const entry of GLOSSARY) {
-    const citationsStripped = stripAdrCitations(entry.definition);
+    const citationsStripped = stripAdrCitations(glossarySummary(entry));
     const rootedAnchors = citationsStripped.replace(
       /\]\((#[^()\s]+)\)/g,
       `](${glossaryPage.route}$1)`,
     );
     const rewritten = rewriteLinks(rootedAnchors, glossaryPage, site);
-    definitions.set(entry.term, renderMarkdownInlineHtml(rewritten));
+    summaries.set(entry.term, renderMarkdownInlineHtml(rewritten));
   }
-  glossaryDefinitionsCache.set(site, definitions);
-  return definitions;
+  glossarySummariesCache.set(site, summaries);
+  return summaries;
 }
 
 function glossaryTermHtml(
   visible: string,
   entry: GlossaryEntry,
-  definitionHtml: string,
+  summaryHtml: string,
 ): string {
   const panelId = GLOSSARY_PANEL_IDS.get(entry.term);
   if (panelId === undefined) {
     throw new Error(`docs: glossary term has no panel id: ${entry.term}`);
   }
-  const term = escapeMarkdownHtml(visible);
-  const label = escapeMarkdownHtml(`${visible} definition`);
+  const trigger = escapeMarkdownHtml(visible);
+  const term = escapeMarkdownHtml(entry.term);
+  const label = escapeMarkdownHtml(`${entry.term} summary`);
   const heading = renderMarkdownHtml(`### ${entry.term}`).headings[0];
   if (heading === undefined) {
     throw new Error(
@@ -594,20 +606,20 @@ function glossaryTermHtml(
   }
   const glossaryHref = `/docs/orientation/glossary#${heading.id}`;
   const glossaryLabel = escapeMarkdownHtml(
-    `Open ${visible} in the glossary`,
+    `Open ${entry.term} in the glossary`,
   );
-  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${term}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><span class="docs-glossary-heading"><strong class="discern-glossary-term__term">${term}</strong><a class="docs-glossary-link" href="${glossaryHref}" aria-label="${glossaryLabel}"><span aria-hidden="true">↗</span></a></span><span class="discern-glossary-term__definition">${definitionHtml}</span></span></span></span>`;
+  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${trigger}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><span class="docs-glossary-heading"><strong class="discern-glossary-term__term">${term}</strong><a class="docs-glossary-link" href="${glossaryHref}" aria-label="${glossaryLabel}"><span aria-hidden="true">↗</span></a></span><span class="discern-glossary-term__definition">${summaryHtml}</span></span></span></span>`;
 }
 
 /**
- * Build one page-scoped prose renderer. Each canonical term's first eligible
- * mention becomes the design system's Glossary term semantic HTML; later
- * mentions remain plain text.
+ * Build one page-scoped prose renderer. Each entry's first eligible matching
+ * phrase becomes the design system's Glossary term semantic HTML with the
+ * entry's summary; later matches for that entry remain plain text.
  */
 export function createGlossaryProseRenderer(
   site: DocsSite,
 ): (text: string) => string {
-  const definitions = glossaryDefinitions(site);
+  const summaries = glossarySummaries(site);
   const seen = new Set<string>();
   const matcher = new RegExp(
     `(?<![\\p{L}\\p{N}_])(?:${GLOSSARY_MENTION_PATTERN})(?![\\p{L}\\p{N}_])`,
@@ -623,10 +635,10 @@ export function createGlossaryProseRenderer(
       const entry = GLOSSARY_BY_MENTION.get(visible.toLowerCase());
       if (index === undefined || entry === undefined) continue;
       html += escapeMarkdownHtml(text.slice(cursor, index));
-      const definition = definitions.get(entry.term);
-      if (!seen.has(entry.term) && definition !== undefined) {
+      const summary = summaries.get(entry.term);
+      if (!seen.has(entry.term) && summary !== undefined) {
         seen.add(entry.term);
-        html += glossaryTermHtml(visible, entry, definition);
+        html += glossaryTermHtml(visible, entry, summary);
       } else {
         html += escapeMarkdownHtml(visible);
       }

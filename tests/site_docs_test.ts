@@ -21,6 +21,7 @@ import {
   createGlossaryProseRenderer,
   docsLlmsSection,
   type DocsPage,
+  glossaryMentions,
   loadDocsSite,
   projectDocsPages,
   relatedDecisionCitations,
@@ -274,15 +275,91 @@ Deno.test("every published page renders for a browser, with title and shell", as
   }
 });
 
-Deno.test("first eligible glossary mentions render the design-system hover-card contract", async () => {
+Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are explicit", () => {
+  const live = glossaryMentions();
+  const matchesFor = (term: string): string[] =>
+    live.filter((mention) => mention.entry.term === term).map((mention) =>
+      mention.text
+    );
+  assertEquals(matchesFor("Accept"), ["discern accept"]);
+  assertEquals(matchesFor("Patterns"), ["discern patterns"]);
+  assertEquals(matchesFor("Preset"), ["discern preset"]);
+  assertEquals(matchesFor("Update"), ["discern update"]);
+
+  assertEquals(
+    glossaryMentions([
+      { term: "Gate", definition: "The full check." },
+      { term: "Gate job", definition: "One unit of gate work." },
+    ]).map((mention) => mention.text),
+    ["Gate job", "Gate"],
+  );
+  assertEquals(
+    glossaryMentions([
+      { term: "Hidden", definition: "A hidden term.", matches: [] },
+    ]),
+    [],
+  );
+  assertThrows(
+    () =>
+      glossaryMentions([
+        {
+          term: "First",
+          definition: "The first term.",
+          matches: ["same phrase"],
+        },
+        {
+          term: "Second",
+          definition: "The second term.",
+          matches: ["Same phrase"],
+        },
+      ]),
+    Error,
+    "belongs to both First and Second",
+  );
+});
+
+Deno.test("bare common words stay plain while code-form matches link", async () => {
+  const site = await loadDocsSite();
+  const render = createGlossaryProseRenderer(site);
+  assertEquals(
+    render("accept the suggestion and update the docs"),
+    "accept the suggestion and update the docs",
+  );
+
+  const dom = new JSDOM(
+    `<article>${render("Run discern accept when ready.")}</article>`,
+  );
+  const document = dom.window.document;
+  assertEquals(
+    document.querySelector("dfn")?.textContent,
+    "discern accept",
+  );
+  assertEquals(
+    document.querySelector(".discern-glossary-term__term")?.textContent,
+    "Accept",
+  );
+  assertEquals(
+    document.querySelector(".discern-hover-card__panel")?.getAttribute(
+      "aria-label",
+    ),
+    "Accept summary",
+  );
+  assertEquals(
+    document.querySelector(".docs-glossary-link")?.getAttribute("href"),
+    "/docs/orientation/glossary#accept",
+  );
+  dom.window.close();
+});
+
+Deno.test("first eligible glossary mentions render summaries and longest matches", async () => {
   const site = await loadDocsSite();
   const { html } = renderMarkdownHtml(
     [
-      "# Worktree resource",
+      "# Gate job",
       "",
-      "`Worktree resource` [Worktree resource](/already-linked) **Worktree resource**",
+      "`Gate job` [Gate job](/already-linked) **Gate job**",
       "",
-      "Worktree resource pairs with a worktree. Worktree resource and worktree follow.",
+      "Gate job pairs with a gate. Gate job and gate follow.",
     ].join("\n"),
     { renderProseText: createGlossaryProseRenderer(site) },
   );
@@ -295,8 +372,8 @@ Deno.test("first eligible glossary mentions render the design-system hover-card 
 
   assertEquals(cards.length, 2);
   assertEquals(triggers.map((trigger) => trigger?.textContent), [
-    "Worktree resource",
-    "worktree",
+    "Gate job",
+    "gate",
   ]);
   assertEquals(
     document.querySelector("h1 .discern-glossary-term"),
@@ -329,11 +406,11 @@ Deno.test("first eligible glossary mentions render the design-system hover-card 
     assertEquals(panel.getAttribute("role"), "group");
     assertEquals(
       panel.getAttribute("aria-label"),
-      `${trigger.textContent} definition`,
+      `${index === 0 ? "Gate job" : "Gate"} summary`,
     );
     assertEquals(
       panel.querySelector(".discern-glossary-term__term")?.textContent,
-      trigger.textContent,
+      index === 0 ? "Gate job" : "Gate",
     );
   }
   assertEquals(panelIds.size, cards.length);
@@ -341,10 +418,12 @@ Deno.test("first eligible glossary mentions render the design-system hover-card 
   const links = [...document.querySelectorAll<HTMLAnchorElement>(
     ".discern-glossary-term__definition a",
   )].map((link) => link.getAttribute("href"));
-  assert(links.includes("/docs/orientation/glossary#worktree-resource"));
-  assert(links.includes("/docs/worktrees"));
-  assert(!html.includes("../30-worktrees"));
-  assert(!html.includes("ADR 0025"));
+  assert(links.includes("/docs/orientation/glossary#gate-job"));
+  assert(links.includes("/docs/orientation/glossary#stage"));
+  assert(links.includes("/docs/orientation/glossary#scope"));
+  assert(links.includes("/docs/orientation/glossary#standard"));
+  assert(!html.includes("Every job is labeled"));
+  assert(!html.includes("../20-quality-gate"));
 
   const glossaryLinks = [...document.querySelectorAll<HTMLAnchorElement>(
     ".docs-glossary-link",
@@ -352,15 +431,15 @@ Deno.test("first eligible glossary mentions render the design-system hover-card 
   assertEquals(
     glossaryLinks.map((link) => link.getAttribute("href")),
     [
-      "/docs/orientation/glossary#worktree-resource",
-      "/docs/orientation/glossary#worktree",
+      "/docs/orientation/glossary#gate-job",
+      "/docs/orientation/glossary#gate",
     ],
   );
   assertEquals(
     glossaryLinks.map((link) => link.getAttribute("aria-label")),
     [
-      "Open Worktree resource in the glossary",
-      "Open worktree in the glossary",
+      "Open Gate job in the glossary",
+      "Open Gate in the glossary",
     ],
   );
   dom.window.close();
@@ -378,6 +457,25 @@ Deno.test("published Markdown pages wire glossary cards into the docs shell", as
   assertStringIncludes(html, "discern-hover-card__panel");
   assertStringIncludes(html, "discern-dotted-underline");
   assertStringIncludes(html, "aria-details=");
+});
+
+Deno.test("the built Worktrees page links Fleet without linking bare update", async () => {
+  const site = await loadDocsSite();
+  const worktrees = site.sections.find((section) =>
+    section.dir === "30-worktrees"
+  );
+  assert(worktrees !== undefined);
+  const response = await get(worktrees.index.route, BROWSER);
+  const dom = new JSDOM(await response.text());
+  const document = dom.window.document;
+  const triggers = [...document.querySelectorAll("dfn")].map((node) =>
+    node.textContent?.toLowerCase()
+  );
+
+  assert(document.body.textContent?.includes("inspect, update, land"));
+  assert(triggers.includes("fleet"));
+  assert(!triggers.includes("update"));
+  dom.window.close();
 });
 
 Deno.test("rendered Markdown rules use the editorial discern mark", async () => {

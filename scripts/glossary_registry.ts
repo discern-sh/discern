@@ -56,10 +56,20 @@ export interface RetiredSynonym {
   allowed?: readonly RetiredException[];
 }
 
-/** One glossary entry: the canonical term and its definition. */
+/** One glossary entry: the canonical term and its display and matching data. */
 export interface GlossaryEntry {
   /** The canonical name, exactly as the entry's heading renders it. */
   term: string;
+  /**
+   * The one-sentence hover-card copy. When absent, the definition's first
+   * sentence is the summary so short definitions are not authored twice.
+   */
+  summary?: string;
+  /**
+   * Phrases whose prose mentions receive a hover card. Defaults to the term;
+   * an empty list opts the entry out of automatic matching.
+   */
+  matches?: readonly string[];
   /**
    * The definition: one Markdown paragraph, with links written relative to the
    * glossary's own directory (`00-orientation/`). Intra-page term links use
@@ -69,6 +79,16 @@ export interface GlossaryEntry {
   definition: string;
   /** Synonyms retired in favour of this term, policed by the drift guard. */
   retired?: readonly RetiredSynonym[];
+}
+
+/** The authored summary, or the definition's first sentence by default. */
+export function glossarySummary(entry: GlossaryEntry): string {
+  if (entry.summary !== undefined) return entry.summary;
+  const firstSentence = entry.definition.match(/^.*?[.!?](?=\s|$)/u)?.[0];
+  if (firstSentence === undefined) {
+    throw new Error(`glossary entry has no summary sentence: ${entry.term}`);
+  }
+  return firstSentence;
 }
 
 /** Small counts spelled out, the way the prose voice writes them. */
@@ -107,6 +127,8 @@ function codeList(names: readonly string[], conjunction: string): string {
 export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Accept",
+    // "accept" is also an HTTP header and an ordinary verb in the manual.
+    matches: ["discern accept"],
     definition:
       "What `discern accept` does: land a worktree's reviewed branch on the [trunk](#trunk) as a clean fast-forward, then tear the worktree down — resources destroyed, directory removed, the merged branch deleted ([ADR 0110](../_adr/0110-the-landing-model.md)). Covered in [worktrees](../30-worktrees/).",
   },
@@ -270,6 +292,10 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Patterns",
+    summary:
+      "Findings `discern patterns` mines from the [logbook](#logbook) about behavior loops, gate fit, funnel flow, and standard trajectories.",
+    // "patterns" also names ordinary testing and design patterns in the manual.
+    matches: ["discern patterns"],
     definition:
       "What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behavior loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is [advisory](#advisory) only, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).",
   },
@@ -280,6 +306,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Preset",
+    // "preset" also names component and design-system presets in the manual.
+    matches: ["discern preset"],
     definition:
       "A reusable overlay applied with `discern preset <name>`: scaffolded files plus config fills. Fills are fill-if-absent — a value the project already sets stands, and every key is disclosed as filled or kept ([ADR 0118](../_adr/0118-preset-fills-never-overwrite.md)).",
   },
@@ -329,6 +357,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Update",
+    // "update" is also an ordinary editing instruction throughout the manual.
+    matches: ["discern update"],
     definition:
       "What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the complement of [accept](#accept): update brings trunk into the branch; accept lands the branch on trunk.",
   },
