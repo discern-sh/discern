@@ -816,7 +816,7 @@ Deno.test("doctor: reports resolved guidance sources and authored skills when pr
   });
 });
 
-Deno.test("doctor: flags a [guidance].sources entry naming a generated agent file", async () => {
+Deno.test("doctor: flags a [guidance].sources entry naming a agent file", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     // An output can never be a source (resolveGuidanceSources refuses it), so a

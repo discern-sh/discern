@@ -88,7 +88,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "guidance-check": {
     actor: "discern",
     hint:
-      "Built-in fail-fast precondition: the generated agent files must match their sources — run `discern refresh` if stale.",
+      "Built-in fail-fast precondition: the agent files must match their sources — run `discern refresh` if stale.",
   },
   "skills-check": {
     actor: "discern",
@@ -137,8 +137,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   },
   refresh: {
     actor: "discern",
-    hint:
-      "Built-in: recompile the generated agent files and re-materialize the skills.",
+    hint: "Built-in: recompile the agent files and re-materialize the skills.",
   },
   standard: {
     actor: "project",

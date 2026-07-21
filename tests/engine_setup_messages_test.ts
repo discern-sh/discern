@@ -61,8 +61,8 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assertStringIncludes(msg, "isolated working copies (git worktrees)");
   assertStringIncludes(msg, "shared project instructions");
   // Placement stays consent: the tracked-by-default posture is disclosed — the
-  // compiled agent files land committed so out-of-tool sessions can read them.
-  assertStringIncludes(msg, "the compiled agent files are committed");
+  // agent files land committed so out-of-tool sessions can read them.
+  assertStringIncludes(msg, "the agent files are committed");
   // The footprint story in namespace terms (ADR 0099): one root file, one visible
   // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
   // the provider config files acknowledged as the user's own tools' integrations.

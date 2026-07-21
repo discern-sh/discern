@@ -61,7 +61,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     defaultPath: "discern/guidance.md",
     legacyPath: "guidance.md",
     description:
-      "The user's guideline source discern compiles into the agent files.",
+      "The project's guidance source discern compiles into the agent files.",
   },
   map: {
     key: "map.dir",

@@ -133,11 +133,11 @@ Repository-wide checkout policy: the trunk, discern-created branch names, and co
 
 ## `[guidance]`
 
-The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.
+The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sources` | string[] | `["discern/guidance.md"]` | Your guideline source file(s), relative to the project root. Globs allowed; source discovery excludes the generated agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended. |
+| `sources` | string[] | `["discern/guidance.md"]` | Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended. |
 | `agents` | string[] | — | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all. |
 
 ## `[skills]`

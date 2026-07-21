@@ -53,7 +53,7 @@ export interface ImprovementContext {
   mapDir: string;
   /** Count of real ADRs under the configured map root's `_adr`. */
   adrCount: number;
-  /** Whether at least one compiled agent file (any configured provider's) exists. */
+  /** Whether at least one agent file (any configured provider's) exists. */
   agentFilePresent: boolean;
   /** Count of authored skill directories under `[skills].dir`. */
   authoredSkills: number;

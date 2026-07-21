@@ -8,7 +8,7 @@
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
  *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
- *      `discern.toml` with jobs unset, the compiled agent files, the
+ *      `discern.toml` with jobs unset, the agent files, the
  *      merged settings, the MCP wiring.
  *   2. Lay the doc skeletons — only when the project has none, so an existing
  *      `docs/` tree is never disturbed.
@@ -263,7 +263,7 @@ export async function assembleInitPlan(params: {
 
   // The brief is the user's authored intent, captured at setup for the agent.
   // It is seeded only when non-empty so a default install's footprint is just
-  // `discern.toml` (+ the generated agent files). An empty brief writes nothing.
+  // `discern.toml` (+ the agent files). An empty brief writes nothing.
   if (config.brief.trim().length > 0) {
     const briefOp = await planBrief(destDir, config.brief);
     plan.ops.push(briefOp);
@@ -486,7 +486,7 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
     }
   };
   add(scaffold.written.length, "seed file");
-  add(scaffold.compiled.length, "compiled agent file");
+  add(scaffold.compiled.length, "agent file");
   add(scaffold.mcpWired.length, "MCP config");
   add(scaffold.hooksWired.length, "hooks file");
   add(scaffold.worktreeAppWired.length, "worktree app config");
@@ -750,7 +750,7 @@ async function scaffoldHarness(
  * later be deleted — the exact loss `verify`'s "nothing is lost" promise rules
  * out.
  *
- * On a FRESH install no discern-generated agent file SHOULD exist (discern writes
+ * On a FRESH install no discern-agent file SHOULD exist (discern writes
  * them only via a compile, which needs a config) — but one can survive an
  * abandoned earlier setup: an uncommitted compiled file outlives a branch switch
  * or a deleted `discern-setup` branch. So a candidate is treated
@@ -2284,7 +2284,7 @@ type GateProof =
 
 /**
  * Run the completion proof `discern setup done` requires before recording
- * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the generated agent files are
+ * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the agent files are
  * current), then `doctor` (the install is healthy), then `done` (the gate is green
  * with whatever jobs were just wired) — all in the main checkout — then a
  * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy

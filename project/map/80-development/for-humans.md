@@ -32,7 +32,7 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### Any editor
 
-Don't hand-edit the compiled agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are compiled from discern's built-in guidance plus this repo's own [`project/guidance.md`](../../guidance.md) by `discern refresh` and committed ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Edit that source and recompile.
+Don't hand-edit the agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are compiled from discern's built-in guidance plus this repo's own [`project/guidance.md`](../../guidance.md) by `discern refresh` and committed ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Edit that source and recompile.
 
 ## Working alongside the agents
 

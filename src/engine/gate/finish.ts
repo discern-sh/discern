@@ -132,7 +132,7 @@ const FAIL_MESSAGES: Record<FailedStage, string> = {
   tracked_artifacts:
     "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
   guidance:
-    "Generated agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
+    "Agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   skills:
     "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
   skill_frontmatter:
@@ -175,7 +175,7 @@ function driftDiff(entry: GuidanceDriftEntry): string {
 }
 
 /**
- * The Tier-0 {@link Diagnostic} for a stale generated agent file: the `discern
+ * The Tier-0 {@link Diagnostic} for a stale agent file: the `discern
  * refresh` reproduce command, the redirect (edits belong in `[guidance].sources`,
  * not the generated file), and a capped diff of what a refresh would change — the
  * rescue, since the untracked file has no `git diff` to fall back on.
@@ -185,7 +185,7 @@ async function guidanceDiagnostic(
 ): Promise<Diagnostic> {
   const files = stale.map((d) => d.path).join(", ");
   const outputFields = await diagnosticOutputFields(
-    `Generated agent files are out of date: ${files}.\n` +
+    `Agent files are out of date: ${files}.\n` +
       "Run `discern refresh` to regenerate them. If you meant to change the " +
       "guidance, edit your [guidance].sources (e.g. guidance.md) instead — a direct " +
       "edit to a generated file is overwritten on the next refresh.\n\n" +
@@ -194,7 +194,7 @@ async function guidanceDiagnostic(
   return {
     tool: "guidance",
     severity: "error",
-    message: `generated agent file(s) out of date: ${files}`,
+    message: `agent file(s) out of date: ${files}`,
     reproduce_cmd: "discern refresh",
     ...outputFields,
   };
@@ -397,7 +397,7 @@ async function runGate(
   //     fail-fast precondition beside the merge check (ADR 0056). Its verdict is
   //     invariant across the gate for the same reason the merge check's is: the gate
   //     never runs `discern refresh`, and its fix stage formats SOURCE code, never the
-  //     guidance sources or the generated agent files those checks read —
+  //     guidance sources or the agent files those checks read —
   //     so checking here gives the same answer as checking last, while skipping the
   //     slow build/check∥test/scope-gate sweep when the only problem is stale drift the
   //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent

@@ -82,4 +82,4 @@ discern upgrade --check
 
 `discern doctor` checks the complete installation and integrations. `discern upgrade --check` exits successfully when the project's schema, fixed config scaffold, managed banners, and `.gitignore` block match the installed binary. It does not query the network for a newer release.
 
-Commit the reviewed upgrade diff. If the compiled agent files changed, keep them in the same commit as their source and the migration changes.
+Commit the reviewed upgrade diff. If the agent files changed, keep them in the same commit as their source and the migration changes.

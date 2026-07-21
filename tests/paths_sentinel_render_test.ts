@@ -67,7 +67,7 @@ Deno.test("sentinel render: no registry default survives in compiled guidance or
     const config = parseConfigOrThrow(sentinelToml());
     const defaults = SOURCE_PATH_NAMES.map((n) => SOURCE_PATHS[n].defaultPath);
 
-    // Rendered surface 1: the compiled agent files (in memory — the writer and
+    // Rendered surface 1: the agent files (in memory — the writer and
     // the currency check share this exact content).
     const outputs: Array<[string, string]> = [];
     for (const [rel, body] of await renderAgentFiles(root, config)) {

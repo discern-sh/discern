@@ -611,7 +611,7 @@ interface HintContext {
   unlandedBranches: string[] | undefined;
   fleet: StatusFleetEntry[] | undefined;
   liveCount: number;
-  /** Generated agent files that don't match what `discern refresh` would write. */
+  /** Agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
   /** Materialized skills that don't match the effective set a refresh would place. */
   skillsDrift: SkillsDriftEntry[];
@@ -664,7 +664,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     hints.push(untrackedGuidanceFilesHint(ctx.untrackedGuidance));
   }
 
-  // Generated agent files drifted from their source — actionable anywhere, so lead
+  // Agent files drifted from their source — actionable anywhere, so lead
   // with it. "missing" (not built yet) reads differently from "stale" (a drift that
   // a refresh would overwrite), so the redirect to the source only shows for stale.
   if (ctx.guidanceDrift.length > 0) {
@@ -672,8 +672,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     const allMissing = ctx.guidanceDrift.every((d) => d.reason === "missing");
     hints.push(
       allMissing
-        ? `Generated agent files aren't built yet (${paths}); run \`discern refresh\`.`
-        : `Generated agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+        ? `Agent files aren't built yet (${paths}); run \`discern refresh\`.`
+        : `Agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
     );
   }
 

@@ -416,7 +416,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     assertEquals(first.code, 0, first.output);
 
     // Abandon mid-setup: switch back to main. The config lives only in commits
-    // on discern-setup; the compiled agent files are gitignored and survive.
+    // on discern-setup; the agent files are gitignored and survive.
     await git(dir, "checkout", "-q", "main");
     assert(!(await exists(join(dir, "discern.toml"))), "config is branch-only");
 
@@ -465,9 +465,9 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
   });
 });
 
-Deno.test("re-begin never imports a surviving compiled agent file that matches discern's own render", async () => {
+Deno.test("re-begin never imports a surviving agent file that matches discern's own render", async () => {
   // The harder abandonment: the setup branch was DELETED, so the install really
-  // is fresh again — but the gitignored compiled agent file survived on disk.
+  // is fresh again — but the gitignored agent file survived on disk.
   // The exact-match guard must recognize it as discern's own output and skip the
   // "Imported from" migration (it is not the user's authoring), and say so.
   await withTempDir(async (dir) => {

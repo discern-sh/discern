@@ -795,7 +795,7 @@ Deno.test("done --json: human mode is unaffected (stdout still human, not JSON)"
   });
 });
 
-Deno.test("done --json: a STALE generated agent file fails the guidance check; refresh fixes it", async () => {
+Deno.test("done --json: a STALE agent file fails the guidance check; refresh fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -938,7 +938,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
       }`,
     );
 
-    // Stale a generated agent file → the guidance currency precondition fails FIRST.
+    // Stale a agent file → the guidance currency precondition fails FIRST.
     const claudePath = join(dir, "CLAUDE.md");
     await Deno.writeTextFile(
       claudePath,
@@ -962,7 +962,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
   });
 });
 
-Deno.test("done --json: a MISSING generated agent file does NOT block (absent copy tolerated)", async () => {
+Deno.test("done --json: a MISSING agent file does NOT block (absent copy tolerated)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);

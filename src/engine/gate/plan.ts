@@ -572,7 +572,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       label: "guidance-check",
       disposition: "gate",
       note:
-        "verify the generated agent files match their sources (`discern refresh` if stale)",
+        "verify the agent files match their sources (`discern refresh` if stale)",
     });
   }
   if (plan.skillsCheck) {

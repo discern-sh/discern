@@ -14,7 +14,7 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 
 | File                                   | Role                                      | Ownership             |
 | -------------------------------------- | ----------------------------------------- | --------------------- |
-| `AGENTS.md`                            | Canonical compiled agent file             | Generated, committed  |
+| `AGENTS.md`                            | Canonical agent file                      | Generated, committed  |
 | `.agents/skills/`                      | Materialized Agent Skills                 | Generated, gitignored |
 | `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
 | `.codex/hooks.json`                    | Session-start hook                        | Co-managed, tracked   |
@@ -23,7 +23,7 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 
 ## Guidance and skills
 
-Codex reads `AGENTS.md` directly, so discern makes it the canonical compiled agent file. Claude Code and Gemini point back to that file rather than duplicating it. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+Codex reads `AGENTS.md` directly, so discern makes it the canonical agent file. Claude Code and Gemini point back to that file rather than duplicating it. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
 Codex also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`.
 

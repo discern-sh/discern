@@ -549,7 +549,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
   // before the user wonders why their guidance/skills aren't picked up.
   {
     const sources = await resolveGuidanceSources(destDir, config);
-    // A configured source that IS a generated agent file would feed the compiler
+    // A configured source that IS a agent file would feed the compiler
     // its own output; resolution refuses those (see resolveGuidanceSources), so
     // an explicit listing deserves a named diagnostic, not a silent zero-match.
     const outputs = allGuidanceFilePaths();
@@ -560,11 +560,11 @@ export async function runChecks(destDir: string): Promise<Check[]> {
         name: "guidance sources",
         ok: false,
         detail:
-          `[guidance].sources names generated agent file(s) discern itself writes: ${
+          `[guidance].sources names agent file(s) discern itself writes: ${
             listedOutputs.join(", ")
           } — an output can never be a source, so these entries resolve to nothing`,
         fix:
-          "point [guidance].sources at your authored guidance instead (the compiled agent files are generated outputs, overwritten on every refresh)",
+          "point [guidance].sources at your authored guidance instead (the agent files are generated outputs, overwritten on every refresh)",
       });
     } else {
       checks.push({

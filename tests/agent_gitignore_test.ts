@@ -154,7 +154,7 @@ Deno.test("reconcile narrows a previous install's over-wide block to enumerated 
   // previously ignored guidance files become trackable, with user rules intact.
   const legacyBlock = [
     DISCERN_GITIGNORE_BEGIN,
-    "# These are discern's generated agent files, materialized skills,",
+    "# These are discern's agent files, materialized skills,",
     "# and local provider state.",
     "/AGENTS.md",
     "/CLAUDE.md",

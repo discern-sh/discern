@@ -919,7 +919,7 @@ Deno.test("status is pure observation: it mutates nothing and provisions no reso
   });
 });
 
-Deno.test("status: a drifted generated agent file is listed and hinted to refresh", async () => {
+Deno.test("status: a drifted agent file is listed and hinted to refresh", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -953,7 +953,7 @@ Deno.test("status: a drifted generated agent file is listed and hinted to refres
   });
 });
 
-Deno.test("status: a missing generated agent file hints it isn't built yet", async () => {
+Deno.test("status: a missing agent file hints it isn't built yet", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1018,7 +1018,7 @@ Deno.test("status: untracked compiled guidance files draw a commit hint that cle
     assertEquals(r.code, 0, r.output);
     assert(
       (parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("compiled agent files are untracked") &&
+        h.includes("agent files are untracked") &&
         h.includes("commit them")
       ),
       `expected an untracked-guidance commit hint: ${r.stdout}`,
@@ -1030,7 +1030,7 @@ Deno.test("status: untracked compiled guidance files draw a commit hint that cle
     assertEquals(r.code, 0, r.output);
     assert(
       !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("compiled agent files are untracked")
+        h.includes("agent files are untracked")
       ),
       `hint must clear once the files are tracked: ${r.stdout}`,
     );
@@ -1047,7 +1047,7 @@ Deno.test("status: untracked compiled guidance files draw a commit hint that cle
     assertEquals(r.code, 0, r.output);
     assert(
       !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("compiled agent files are untracked")
+        h.includes("agent files are untracked")
       ),
       `a deliberate per-project ignore must silence the hint: ${r.stdout}`,
     );

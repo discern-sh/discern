@@ -315,13 +315,13 @@ const repositorySection = z.strictObject({
 const guidanceSection = z.strictObject({
   sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
     .describe(
-      "Your guideline source file(s), relative to the project root. Globs allowed; source discovery excludes the generated agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
+      "Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
     ),
   agents: z.array(z.string()).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
   ),
 }).prefault({}).describe(
-  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one generated file per provider.",
+  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
 );
 
 const skillsSection = z.strictObject({

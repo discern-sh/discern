@@ -49,7 +49,7 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 
 ## Current state & gotchas
 
-- `eject` copies the bundled Skill at the binary version currently installed. Later upgrades do not replace the project-owned override.
+- `eject` copies the bundled Skill at the discern version currently installed. Later upgrades do not replace the project-owned override.
 - An exclusion applies to the name after override resolution. The same entry excludes either the bundled source or an authored source with that name.
 - Materialization reconciles every configured agent directory and prunes discern-owned entries that are no longer effective. Foreign entries remain untouched and produce a warning.
 

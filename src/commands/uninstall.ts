@@ -6,13 +6,13 @@
  * nothing it deletes was ever theirs. It reverses the write-surface contract
  * (ADR 0099) leg by leg, derived from the SAME single sources that contract is
  * enforced from — the provider registry (`src/lib/providers.ts`) for the
- * generated agent files, materialized skills, and co-owned integration files,
+ * agent files, materialized skills, and co-owned integration files,
  * and the paths registry for the user content it must NOT touch. Driving the
  * removal off the registries is what stops it drifting from what discern
  * actually writes: a new provider file auto-enrols (the round-trip test fails
  * until uninstall handles it), never a stale hand list.
  *
- * What it removes: the generated agent files and materialized skills dirs
+ * What it removes: the agent files and materialized skills dirs
  * (always regenerable); discern-owned provider files (the Codex
  * rules, the Copilot hook file); the discern entries inside co-owned files (each
  * provider's MCP server, the session hooks, the permission defaults) — stripping

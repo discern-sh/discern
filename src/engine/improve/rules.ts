@@ -109,7 +109,7 @@ async function countAuthoredSkills(
   return count;
 }
 
-/** Whether any compiled agent file is present (the output of `discern refresh`).
+/** Whether any agent file is present (the output of `discern refresh`).
  * Derived from the provider registry (every agent's `guidanceFile.path`), so a new
  * agent's file counts without editing this probe. */
 async function anyAgentFile(root: string): Promise<boolean> {
@@ -442,10 +442,10 @@ const GUIDANCE: Category = {
         "Run `discern refresh` to (re)compile them.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.agentFilePresent
-          ? { status: "pass", detail: "a compiled agent file is present" }
+          ? { status: "pass", detail: "a agent file is present" }
           : {
             status: "fail",
-            detail: "no compiled agent file found",
+            detail: "no agent file found",
           },
     },
     {

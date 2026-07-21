@@ -2,7 +2,7 @@
 
 > **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for _you, the coding agent in this session_ — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. **These are your setup instructions** — you are reading them right now — discern intentionally hands you this brief over stdout.
 
-`discern setup begin` has just laid down discern's machinery — a `discern.toml` whose jobs are all unset, the compiled agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate from a no-op into a real definition-of-done, then author the docs, the guidance, and the design principles from the project's own context. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
+`discern setup begin` has just laid down discern's machinery — a `discern.toml` whose jobs are all unset, the agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate from a no-op into a real definition-of-done, then author the docs, the guidance, and the design principles from the project's own context. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
 
 ## Operating principles — read these first
 
@@ -247,7 +247,7 @@ Good principles are specific to this project and falsifiable: you can point at a
 ## Step 5 — Fill the project guidance
 
 ```toml
-intent = "Fill {{guidance_path}} with this project's own conventions — the source every compiled agent file (and discern) is built from."
+intent = "Fill {{guidance_path}} with this project's own conventions — the source every agent file (and discern) is built from."
 files_to_read = [
   "{{guidance_path}} (the configured [guidance].sources seed)",
 ]

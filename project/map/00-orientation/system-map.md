@@ -32,7 +32,7 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
 │      guidance.md · TODO.md ·                                │
 │      skills/ · scripts/ · brief.md (each config-pointable)  │
 │  + map/ — the documentation map                             │
-│  + compiled agent files: AGENTS.md, CLAUDE.md/GEMINI.md     │
+│  + agent files: AGENTS.md, CLAUDE.md/GEMINI.md     │
 │      (tracked)                                              │
 │  + materialized Skills: .claude/skills/, .agents/skills/    │
 │      (gitignored)                                           │

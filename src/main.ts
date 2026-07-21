@@ -371,7 +371,7 @@ export function buildCli(
     .description(
       "Upgrade discern itself in this project: migrate its config and refresh bundled " +
         "skills and guidance. Use `discern update` for this branch; use `discern " +
-        "refresh` for generated agent files alone.",
+        "refresh` for agent files alone.",
     )
     .option(
       "--dry-run",

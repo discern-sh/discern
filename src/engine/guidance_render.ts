@@ -241,7 +241,7 @@ export async function renderAgentFiles(
   return agentFileContents(guidanceFilesFor(guidanceAgents(cfg)), body);
 }
 
-/** One generated agent file that does not match what `refresh` would write. */
+/** One agent file that does not match what `refresh` would write. */
 export interface GuidanceDriftEntry {
   /** Project-relative path of the generated file. */
   path: string;

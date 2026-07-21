@@ -88,7 +88,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     kind: "refresh",
     label: "refresh agent files",
     disposition: "run",
-    note: "re-materialize the trunk checkout's generated agent files + skills",
+    note: "re-materialize the trunk checkout's agent files + skills",
   });
   for (const command of plan.repositoryEnsureSteps) {
     steps.push({
@@ -211,7 +211,7 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
       kind: "refresh",
       label: "refresh agent files",
       disposition: "run",
-      note: "re-materialize the generated agent files + skills",
+      note: "re-materialize the agent files + skills",
     },
   ];
   for (const step of plan.repositoryEnsureSteps) {

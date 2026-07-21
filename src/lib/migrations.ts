@@ -2308,7 +2308,7 @@ async function fixGitignoreForSchema6(ctx: MigrationContext): Promise<void> {
 }
 
 /**
- * Add `/AGENTS.md` to `.gitignore` so the compiled agent file joins `/CLAUDE.md`
+ * Add `/AGENTS.md` to `.gitignore` so the agent file joins `/CLAUDE.md`
  * and `/GEMINI.md` as an untracked build artifact (ADR 0034). The schema-6 step
  * deliberately KEPT `AGENTS.md` tracked; this reverses that now that the currency
  * check guards drift and the reviewable unit is the source.
@@ -2340,7 +2340,7 @@ async function ignoreAgentsMd(ctx: MigrationContext): Promise<void> {
   } else {
     const base = existing.replace(/\n+$/, "");
     text =
-      `${base}\n\n# discern: the compiled agent file is a build artifact\n/AGENTS.md\n`;
+      `${base}\n\n# discern: the agent file is a build artifact\n/AGENTS.md\n`;
   }
   await ctx.writeText(".gitignore", text);
   ctx.note(

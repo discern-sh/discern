@@ -266,7 +266,7 @@ export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
 }
 
 export function untrackedGuidanceFilesHint(paths: readonly string[]): string {
-  return `The compiled agent files are untracked (${
+  return `The agent files are untracked (${
     paths.join(", ")
   }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`;
 }

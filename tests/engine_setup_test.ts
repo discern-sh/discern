@@ -1015,7 +1015,7 @@ Deno.test("discern setup migrates a pre-existing agent file into guidance.md, ne
     assertStringIncludes(guidance, rule);
     assertStringIncludes(guidance, "Imported from CLAUDE.md");
 
-    // ...and is re-emitted into the compiled agent files (the compile folds
+    // ...and is re-emitted into the agent files (the compile folds
     // guidance.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
     // reading the agent guidance still shows it — nothing was lost.
     const compiled = (await Promise.all(
@@ -1562,7 +1562,7 @@ Deno.test("begin reports the scaffold by category, never the old flat count", as
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Files written into");
     assertStringIncludes(r.stdout, "seed file");
-    assertStringIncludes(r.stdout, "compiled agent file");
+    assertStringIncludes(r.stdout, "agent file");
     assertStringIncludes(r.stdout, "MCP config");
     assert(
       !r.stdout.includes("files written:"),

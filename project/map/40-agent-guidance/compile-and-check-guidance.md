@@ -1,10 +1,10 @@
 ---
 title: Compile and check guidance
-description: Run refresh, inspect the compiled agent files, and keep every configured agent on the current sources.
+description: Run refresh, inspect the agent files, and keep every configured agent on the current sources.
 order: 20
 aliases:
   - refresh guidance
-  - compiled agent files
+  - agent files
   - generated guidance
 ---
 
@@ -37,7 +37,7 @@ The configured agent set decides which instruction files exist:
 
 ## Keep sources and outputs together
 
-discern generates compiled agent files, and git tracks them by default. A bare clone then carries the current instructions before it can run `discern refresh` ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Review and commit the source edit and generated files in the same change.
+discern generates agent files, and git tracks them by default. A bare clone then carries the current instructions before it can run `discern refresh` ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Review and commit the source edit and generated files in the same change.
 
 Do not edit a compiled file to fix its prose. The next refresh replaces it, and the gate's currency check reports the drift. Return to the configured source, edit there, and refresh again.
 
@@ -47,7 +47,7 @@ Do not edit a compiled file to fix its prose. The next refresh replaces it, and 
 
 - An explicit empty `[guidance].agents` list emits no instruction files.
 - discern generates a provider-specific pointer only when its canonical target exists. Otherwise that provider receives the full compiled body.
-- Git ignores materialized Skills and tracks compiled agent files unless your own `.gitignore` rules say otherwise.
+- Git ignores materialized Skills and tracks agent files unless your own `.gitignore` rules say otherwise.
 - `discern update` and `discern accept` refresh the checkout they leave ready for work, but an ordinary source edit still needs `discern refresh` before the gate passes.
 
 ## Where it lives in code

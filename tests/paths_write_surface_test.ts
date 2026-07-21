@@ -2,7 +2,7 @@
  * The write-surface contract (ADR 0099), enforced — guard #4 of the leakage
  * battery (ADR 0102). discern writes to a user project ONLY: the root
  * `discern.toml`; the configured source paths (the paths registry, through the
- * resolvers); the compiled agent files, materialized skills dirs, and provider
+ * resolvers); the agent files, materialized skills dirs, and provider
  * integration files (the provider registry); the delimited `.gitignore` block;
  * and the worktree `.env` upsert. Everything else it records lives inside
  * `.git` (the gate receipt, the ready sentinel, the resource ledger, the
@@ -100,7 +100,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   // provider-registry paths
   [
     "src/engine/guidelines.ts",
-    "the compiled agent files (provider registry guidance paths)",
+    "the agent files (provider registry guidance paths)",
   ],
   [
     "src/lib/providers.ts",
@@ -289,7 +289,7 @@ async function contractPredicate(
   exact.add(resolveBriefPath(root).rel);
   exact.add(resolveGuidanceSeedRel(config));
 
-  // The provider registry: compiled agent files, materialized skills dirs, and
+  // The provider registry: agent files, materialized skills dirs, and
   // every declared integration file.
   for (const path of allGuidanceFilePaths()) {
     exact.add(path);
@@ -323,7 +323,7 @@ Deno.test("setup begin + refresh + upgrade write only inside the contract", asyn
     const before = await snapshotTree(dir);
 
     // The richest writing verb, for every agent the registry knows: seeds,
-    // skeletons, guidance seed, provider wiring, skills, compiled agent files.
+    // skeletons, guidance seed, provider wiring, skills, agent files.
     let r = await runAgent(dir, [
       "setup",
       "begin",

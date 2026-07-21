@@ -407,7 +407,7 @@ export function attachEngineCommands(
   root
     .command("refresh")
     .description(
-      "Refresh the generated agent files, skills, and provider integrations. Use " +
+      "Refresh the agent files, skills, and provider integrations. Use " +
         "`discern update` for this branch; use `discern upgrade` for discern itself.",
     )
     .option(
@@ -636,9 +636,9 @@ export function attachEngineCommands(
     .command("update")
     .description(
       `Update this branch: merge the trunk's latest${trunkName} into this branch and ` +
-        "re-materialize the generated agent files. The trunk is the shared landing " +
+        "re-materialize the agent files. The trunk is the shared landing " +
         "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
-        "generated agent files alone.",
+        "agent files alone.",
     )
     .option(
       "--json",

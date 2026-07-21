@@ -50,7 +50,7 @@ export const STEP_KINDS = [
   "merge-check", // assert the branch contains the integration branch
   "standards-limits-check", // assert no [standards] limit loosened vs the trunk
   "tracked-artifacts-check", // assert discern-owned ignored artifacts are untracked
-  "guidance-check", // assert the generated agent files match their sources
+  "guidance-check", // assert the agent files match their sources
   "skills-check", // assert the materialized skills match the effective set
   "resource-create", // create a per-worktree external resource
   "resource-destroy", // destroy / reclaim a per-worktree external resource
@@ -144,7 +144,7 @@ export interface StepResult {
  *  - `tree_drift` — a gate stage left uncommitted changes on committed-clean
  *    tracked files (ADR 0047, extended to every stage by ADR 0148);
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
- *  - `guidance` / `skills` — a generated agent file / materialized skills dir is stale
+ *  - `guidance` / `skills` — a agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
  *    consumer contract (valid YAML with a non-empty `name`/`description`

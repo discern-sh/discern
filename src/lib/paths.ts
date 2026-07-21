@@ -167,7 +167,7 @@ export function resolveWorktreeRoot(
  * are de-duplicated and sorted for a stable concatenation order regardless of
  * match order.
  *
- * The compile pipeline's own OUTPUTS — the generated agent files the provider
+ * The compile pipeline's own OUTPUTS — the agent files the provider
  * registry emits at the project root (`AGENTS.md`, `CLAUDE.md`, …) — are never
  * admitted, even when a pattern matches them (`sources = ["*.md"]` is the
  * classic case, but an explicit listing is refused too). Consuming an output as

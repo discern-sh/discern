@@ -164,7 +164,7 @@ Deno.test("engine refresh: materializes skills even with no guideline sources (j
   });
 });
 
-Deno.test("engine refresh: compiled agent files are world-readable (0644)", async () => {
+Deno.test("engine refresh: agent files are world-readable (0644)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 

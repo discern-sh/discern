@@ -340,7 +340,7 @@ export const TOOLS: McpTool[] = orderTools([
       "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.standards lists the configured quality standards — numbers " +
       "that can never get worse. " +
-      "data.stale_generated flags generated agent files, data.stale_materialized " +
+      "data.stale_generated flags agent files, data.stale_materialized " +
       "the materialized skills, and data.stale_integrations provider integration " +
       "files, that have drifted from their sources (call " +
       "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
@@ -376,8 +376,7 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Refresh generated artifacts",
     outputSchema: RefreshOutputSchema.shape,
     annotations: REFRESH,
-    description:
-      "Refresh the generated agent files, materialized skills, and provider " +
+    description: "Refresh the agent files, materialized skills, and provider " +
       "integration artifacts. It rewrites discern-generated or co-managed artifacts " +
       "only; edit guidance sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
@@ -744,7 +743,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
       "worktree's branch and " +
       "re-materialize the " +
-      "generated agent files + skills, in one deterministic step — the inverse of " +
+      "agent files + skills, in one deterministic step — the inverse of " +
       "discern_accept, and the action that resolves discern_done's merge check " +
       "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
       "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
@@ -771,7 +770,7 @@ export const TOOLS: McpTool[] = orderTools([
       "touching anything. Never touches the main checkout; operates only " +
       "on the worktree the server runs in. This updates the branch; run " +
       "`discern upgrade` to update discern itself, or use discern_refresh to " +
-      "refresh generated agent files alone.",
+      "refresh agent files alone.",
     inputSchema: {
       from: z.string().optional().describe(
         "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +
@@ -1578,7 +1577,7 @@ export function buildInstructions(): string {
     "",
     "- Orient at the start of a session with discern_status: the branch's " +
     "situation, what the gate would fire, and advisory next steps.",
-    "- If generated agent files or materialized skills are missing/stale, call " +
+    "- If agent files or materialized skills are missing/stale, call " +
     "discern_refresh. It rewrites discern-generated and co-managed artifacts only.",
     "- Before calling any change done, run discern_done on the final tree (the full gate). While " +
     "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +

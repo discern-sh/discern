@@ -170,7 +170,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     "  • quality checks — your formatter, linter, and tests, run on every change to catch mistakes before they ship;",
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
-    "  • shared project instructions — one place that tells every coding session how this project works; the compiled agent files are committed, so cloud sessions read them too.",
+    "  • shared project instructions — one place that tells every coding session how this project works; the agent files are committed, so cloud sessions read them too.",
     "",
     `  • On disk, discern itself owns one root file (\`discern.toml\`), one visible \`discern/\` folder — a deferred-work ledger and those shared instructions — and a map of your codebase at \`${SOURCE_PATHS.map.defaultPath}\` (docs your agents keep current for you to audit). It also updates the files your coding tools require, committed openly for review.`,
     ...(docsExists

@@ -151,7 +151,7 @@ Usage: `discern start [options]`
 
 ### `discern update`
 
-Update this branch: merge the trunk's latest into this branch and re-materialize the generated agent files. The trunk is the shared landing branch. Use `discern upgrade` for discern itself; use `discern refresh` for generated agent files alone.
+Update this branch: merge the trunk's latest into this branch and re-materialize the agent files. The trunk is the shared landing branch. Use `discern upgrade` for discern itself; use `discern refresh` for agent files alone.
 
 Usage: `discern update [options]`
 
@@ -340,7 +340,7 @@ Usage: `discern setup accept [options]`
 
 ### `discern upgrade`
 
-Upgrade discern itself in this project: migrate its config and refresh bundled skills and guidance. Use `discern update` for this branch; use `discern refresh` for generated agent files alone.
+Upgrade discern itself in this project: migrate its config and refresh bundled skills and guidance. Use `discern update` for this branch; use `discern refresh` for agent files alone.
 
 Usage: `discern upgrade [options]`
 
@@ -451,7 +451,7 @@ Usage: `discern config keys <key> [options]`
 
 ### `discern refresh`
 
-Refresh the generated agent files, skills, and provider integrations. Use `discern update` for this branch; use `discern upgrade` for discern itself.
+Refresh the agent files, skills, and provider integrations. Use `discern update` for this branch; use `discern upgrade` for discern itself.
 
 Usage: `discern refresh [options]`
 

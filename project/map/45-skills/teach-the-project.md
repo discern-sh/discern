@@ -43,7 +43,7 @@ One lesson gets one home. A guidance rule can link to the ADR that explains it, 
 - Proactive capture is an offer. The user decides whether an observation is durable project knowledge.
 - The Skill routes lessons; it does not make every lesson a Skill. Always-on rules, executable actions, current facts, and decisions have their own homes.
 - A declined lesson leaves no note or half-created file.
-- A new authored Skill becomes discoverable after `discern refresh`; guidance changes also need refresh before compiled agent files become current.
+- A new authored Skill becomes discoverable after `discern refresh`; guidance changes also need refresh before agent files become current.
 
 ## Where it lives in code
 

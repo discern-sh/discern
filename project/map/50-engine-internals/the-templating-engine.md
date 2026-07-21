@@ -45,7 +45,7 @@ Every variable and predicate is built by `guidanceContext(config)` in [`guidance
 | predicate | `has_standards`            | any `[standards.*]` declared                            |
 | predicate | `has_worktree_resources`   | any `[worktree.resources.*]` declared                   |
 
-> **Invariant.** The context must read **nothing that varies between two runs on the same commit** — no git branch/status, env var, clock, randomness, absolute path, or ignored/per-worktree file. The compiled agent files are gate-checked for currency ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and `done` recompile in memory and compare to disk, so a context that read mutable state would make the file perpetually "stale" and break the gate everywhere. A determinism test and the currency test guard this.
+> **Invariant.** The context must read **nothing that varies between two runs on the same commit** — no git branch/status, env var, clock, randomness, absolute path, or ignored/per-worktree file. The agent files are gate-checked for currency ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and `done` recompile in memory and compare to disk, so a context that read mutable state would make the file perpetually "stale" and break the gate everywhere. A determinism test and the currency test guard this.
 >
 > The classic trap: use `config.repository.trunk` (committed), **never** the `DISCERN_MAIN_BRANCH` env override (applied at runtime in the worktree/git layer).
 

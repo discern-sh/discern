@@ -1703,7 +1703,7 @@ async function executeAcceptPlan(
   }
   doneRefresh(
     refreshOk ? "ok" : "failed",
-    "re-materialized the trunk checkout's generated agent files + skills",
+    "re-materialized the trunk checkout's agent files + skills",
   );
   if (!refreshOk) {
     convergenceHints.push(
@@ -2313,7 +2313,7 @@ function updateConflictMessage(
 }
 
 /**
- * Re-materialize the generated agent files + skills, then re-run the convergent
+ * Re-materialize the agent files + skills, then re-run the convergent
  * `[worktree.setup].ensure` commands — the convergence tail every integration pass
  * shares, merge or no-op. Non-fatal throughout: a refresh or convergence hiccup is
  * recorded as a failed step, never undoing a landed merge or failing the pass (the
@@ -2339,7 +2339,7 @@ async function runUpdateConvergence(
       kind: "refresh",
       label: "refresh agent files",
       disposition: "run",
-      note: "re-materialized the generated agent files + skills",
+      note: "re-materialized the agent files + skills",
     },
     outcome: refreshOk ? "ok" : "failed",
   }];
