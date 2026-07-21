@@ -36,7 +36,7 @@ Each path is configurable (`[map].dir` can name any directory), and the map is d
 
 ## Co-managed: tracked files discern shares with you
 
-discern owns a delimited region of each and leaves the rest alone.
+These are the [co-managed seeds](../00-orientation/glossary.md#co-managed-seed): discern owns a delimited region of each and leaves the rest alone.
 
 - **`discern.toml`** — the root file, your configuration. discern restores missing fixed sections and keys and replaces clean ruled banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it preserves values you set and comments outside those delimiters.
 - **The `.gitignore` block** — one `# --- discern ---` block listing the ignored artifact kinds below. Your own rules outside the block are untouched.

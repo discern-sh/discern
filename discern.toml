@@ -425,6 +425,30 @@ inputs    = [
   "src/lib/frontmatter.ts",
 ]
 
+# Vocabulary standard — hold the map's vocabulary debt at zero. `deno task vocab`
+# reads the term registry and the live map pages, counts dead terms (a glossary
+# entry no page names or links) and redefinitions (a page restating a term
+# bold-faced instead of linking its glossary entry), and emits
+# DISCERN_METRIC vocabulary_debt <count>. At zero, a term added to the registry
+# must be used by a page in the same change, and a second definition of a term
+# fails the gate. Bold emphasis stays legal when it carries the link:
+# `**[term](…/glossary.md#anchor)**`. `inputs` names what the metric reads, so
+# a code-only change replays the recorded value.
+[standards.vocabulary]
+metric    = "vocabulary_debt"
+direction = "down"
+limit     = 0
+run       = "deno task vocab \"${map.dir}\""
+inputs    = [
+  "${map.dir}**",
+  "scripts/vocab_signals.ts",
+  "scripts/vocab_signals_lib.ts",
+  "scripts/glossary_registry.ts",
+  "src/lib/docs_integrity.ts",
+  "src/lib/markdown.ts",
+  "src/lib/frontmatter.ts",
+]
+
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
 # word count is a context-window budget we spend on their behalf. ~814 words today.

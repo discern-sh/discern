@@ -22,7 +22,7 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 ### JetBrains (IntelliJ / PHPStorm)
 
-- **Worktrees** — agent worktrees default to a sibling directory (`<repo>.worktrees/`) outside the project and beyond IDE indexing; no action needed. (If you point `[worktree].root` back inside the repo, recent versions detect and hide git worktrees for you.)
+- **[Worktrees](../00-orientation/glossary.md#worktree)** — agent worktrees default to a sibling directory (`<repo>.worktrees/`) outside the project and beyond IDE indexing; no action needed. (If you point `[worktree].root` back inside the repo, recent versions detect and hide git worktrees for you.)
 - **Colors** — the scopes are committed in [`.idea/scopes/`](../../../.idea/scopes/). Assign colors once in **Settings → Editor → File Colors**, ticking _Share_ so they travel with the repo: `Tests` → blue, `Templates` → green, `Managed and generated` (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` plus `.claude/skills/` and `.agents/skills/`) → rose or orange (your "don't touch" color).
 - **Optional** — to remove the binary's re-published artifacts from search, mark `.claude/skills/` and `.agents/skills/` as excluded. Use file colors when you want those folders visible and marked; excluded folders ignore file colors.
 
