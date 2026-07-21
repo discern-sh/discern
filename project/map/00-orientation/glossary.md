@@ -58,7 +58,7 @@ aliases:
 
 _Every discern term, defined once and alphabetized. Each entry links the section that covers the mechanism in depth._
 
-These names are canonical — every page uses them identically, no synonyms. For how they relate, read [concepts](concepts.md).
+These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)). For how they relate, read [concepts](concepts.md).
 
 ### Accept
 

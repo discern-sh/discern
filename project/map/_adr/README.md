@@ -160,6 +160,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0166 — Coding-agent identity is advisory logbook evidence from one catalogue](0166-agent-identity-is-advisory-logbook-evidence.md)
 - [0167 — The term registry polices the vocabulary](0167-term-registry-polices-the-vocabulary.md)
 - [0168 — The gate declares jobs](0168-the-gate-declares-jobs.md)
+- [0169 — The launch glossary canon](0169-the-launch-glossary-canon.md)
 
 ## Superseded records
 
