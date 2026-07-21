@@ -42,7 +42,7 @@ export interface RetiredException {
  * A synonym the canon retired in favour of the entry's term. The
  * vocabulary-drift guard (tests/vocab_drift_test.ts) bans every retired phrase
  * from the live prose surfaces, and the renderer emits each as a search alias
- * so a search for the old name lands on the canonical one.
+ * so a search for a retired phrase lands on the canonical term.
  */
 export interface RetiredSynonym {
   /** The retired wording, in display form ("integration branch"). */
@@ -400,8 +400,8 @@ export function sortedGlossary(): GlossaryEntry[] {
  */
 export function renderGlossaryDoc(): string {
   const entries = sortedGlossary();
-  // Retired synonyms are aliases too: a search for the old name should land
-  // on the canonical one.
+  // Retired synonyms are aliases too: a search for a retired phrase should
+  // land on the canonical term.
   const aliases = [
     "terms",
     "definitions",
