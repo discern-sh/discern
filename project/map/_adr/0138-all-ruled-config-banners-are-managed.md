@@ -1,6 +1,6 @@
 # ADR 0138: All ruled config banners are managed regions
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** `[ratchets]` and `[docs]` below name historical schema inputs; current config uses `[standards]` and `[map]`. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** `[recipes]` below names the historical schema input; current config uses `[scripts]`.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** `[ratchets]` and `[docs]` below name historical schema inputs; current config uses `[standards]` and `[map]`. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** `[recipes]` below names the historical schema input; current config uses `[scripts]`. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -8,7 +8,7 @@
 
 ## Context
 
-`discern.toml` is both executable configuration and the local explanation of the installed binary. ADR 0092 made its fixed structure co-managed: upgrade restores an absent section or key with the current template documentation, but leaves comments beside existing structure untouched. ADR 0107 then made the ruled record-family banners managed because those banners are the only route by which new record knobs reach an existing install.
+`discern.toml` is both executable configuration and the local explanation of the installed binary. ADR 0092 made its fixed structure shared with discern: upgrade restores an absent section or key with the current template documentation, but leaves comments beside existing structure untouched. ADR 0107 then made the ruled record-family banners managed because those banners are the only route by which new record knobs reach an existing install.
 
 That split left fixed-section banners in an ambiguous state. Their opening and closing `# ───` rules look owned, but upgrade treated the prose between them as project content whenever the section still existed. Ordinary template copy changes therefore never reached existing projects. More seriously, the schema 17→18, 18→19, and 19→20 migrations renamed live tables while deliberately preserving all comments. They left `# [ratchets]`, `# [docs]`, and `# [recipes]` banners behind. The first was no longer recognizable as the managed `[standards]` record banner; the other two sat above current `[map]` and `[scripts]` sections that reconciliation considered complete.
 

@@ -1,6 +1,6 @@
 # ADR 0036: Unify setup under one zero-config `discern setup`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -24,7 +24,7 @@ There is also a **model-capability** insight specific to setup. Setup is a one-t
 
 **Make `discern setup` the single, always-non-interactive setup surface, fronted by bare `discern`, and market it as zero-configuration.**
 
-- **One command.** `discern setup` scaffolds the machinery (a `discern.toml` with jobs unset, the compiled agent files, the merged settings, the MCP wiring), lays the doc skeletons (only when the project has none), and prints the authoring instructions for the agent — in one invocation. `discern setup done` validates and records `[meta].bootstrapped`.
+- **One command.** `discern setup` scaffolds the machinery (a `discern.toml` with jobs unset, the Agent files, the merged settings, the MCP wiring), lays the doc skeletons (only when the project has none), and prints the authoring instructions for the agent — in one invocation. `discern setup done` validates and records `[meta].bootstrapped`.
 - **Bare `discern` is the entry point.** The install message is now "tell your coding agent to run `discern`." Bare `discern`, before setup is recorded, runs setup (in a project, or — to avoid scaffolding a stray directory — in any git work tree); once recorded, it shows help as before.
 - **Always non-interactive.** There is no wizard. Setup resolves everything from zero-config defaults (slug from the directory, the default agent set, no brief). The user makes no decisions at the CLI; the agent asks clarifying questions in chat. The declarative `--config`/`--brief`/flag path is retained for CI and presets.
 - **Pre-setup, the work verbs hard-redirect.** Until `[meta].bootstrapped` is recorded, `done` / `prepare` / `test` / `standards` / `accept` refuse and point at `discern setup` (exit non-zero; a structured `not_set_up` result under `--json`). This amends ADR 0024's "nudge, not gate" stance for these verbs: an empty gate pre-setup reports a false "all-green," which is worse than a clear redirect. `help` (discern's own documentation), `status`, `doctor`, `config`, the plumbing the hooks call, and `setup` itself stay open.

@@ -1,6 +1,6 @@
 # ADR 0045: The MCP server is core infrastructure, not a feature toggle
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
 
 **Status**: accepted; revises the feature set from [ADR 0020](0020-dissolve-discern-dir.md) (which introduced `[features]`, `mcp` among them) and builds on [ADR 0041](0041-self-describing-mcp-surface.md) and [ADR 0031](0031-typed-provider-integration.md)
 
@@ -11,7 +11,7 @@
 Three things have since changed what `mcp` actually toggles:
 
 - **The server is a zero-cost thin adapter.** It is bundled in the one binary, launched on demand (`discern mcp`), and every tool is a like-for-like call into the same verb cores the CLI runs ([ADR 0038](0038-official-mcp-sdk.md), [ADR 0041](0041-self-describing-mcp-surface.md)). Nothing is _installed_ and nothing runs until a client connects — "available" costs nothing.
-- **The shipped guidance is now built around it.** The compiled agent files are MCP-first (prefer the `discern_*` tools), with a CLI fallback that already covers any client that does not connect. There is one operating model, and it assumes the tools exist.
+- **The shipped guidance is now built around it.** The Agent files are MCP-first (prefer the `discern_*` tools), with a CLI fallback that already covers any client that does not connect. There is one operating model, and it assumes the tools exist.
 - **The flag conflated two different questions.** _"Is the server available?"_ — now always, it is the spine — versus _"does this client connect?"_ — which varies and is handled entirely by the CLI fallback. A `[features].mcp = false` no longer expresses a coherent product state: it would force a second, conditional operating-model phrasing in `base.md` for a configuration that contradicts how discern now works.
 
 The toggle also carried real machinery: `refresh` wired the server when the feature was on and **removed** it (`unwireProviderMcp` / the provider registry's `unregister` hook) when off, reporting the change as `mcp_removed`.

@@ -1,12 +1,14 @@
 # ADR 0125: An explicit `[guidance] agents = []` means no agents
 
+> **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
 
 `[guidance].agents` names the provider integrations discern compiles guidance and materializes skills for. When it is not configured, discern emits the default pair (`claude_code`, `codex`; ADR-era `DEFAULT_AGENTS`). The resolver behind every call-site — the compiler, the worktree dispatcher, the skills currency check — is `resolveConfiguredAgents`.
 
-The key carried a schema default of `[]`, and the resolver treated a zero-length list as "unset": it fell through to the legacy `[project].agents`, then to the default pair. That made two states indistinguishable. A config with no `agents` key and a config with `agents = []` parsed to the same value, and both resolved to the default pair. So an author who wanted discern to emit for **no** agents at all — a project that keeps its compiled agent files out of the loop, or drives them by another route — had no way to say so: writing the empty list they would naturally reach for was silently read as "give me the default two." The generated config reference compounded it, documenting the default as `[]`, which reads as "no agents by default" when the true default is the pair.
+The key carried a schema default of `[]`, and the resolver treated a zero-length list as "unset": it fell through to the legacy `[project].agents`, then to the default pair. That made two states indistinguishable. A config with no `agents` key and a config with `agents = []` parsed to the same value, and both resolved to the default pair. So an author who wanted discern to emit for **no** agents at all — a project that keeps its Agent files out of the loop, or drives them by another route — had no way to say so: writing the empty list they would naturally reach for was silently read as "give me the default two." The generated config reference compounded it, documenting the default as `[]`, which reads as "no agents by default" when the true default is the pair.
 
 The empty-collection-conflated-with-absent trap is a recurring defect class; this is its instance at the config boundary.
 

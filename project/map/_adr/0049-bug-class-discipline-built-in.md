@@ -1,6 +1,6 @@
 # ADR 0049: Ship the fix-the-class discipline as built-in guidance and a bundled skill
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since [ADR 0087](0087-prefix-and-expand-bundled-skills.md), which prefixed and expanded the bundled skill set. The discipline is unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since [ADR 0087](0087-prefix-and-expand-bundled-skills.md), which prefixed and expanded the bundled skill set. The discipline is unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Compiled agent file` → `Agent file`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -28,7 +28,7 @@ Three facts make the scope call:
 ## Consequences
 
 - **Precedent: built-in guidance may carry a universal discipline, not only discern's own mechanics.** This is the first always-on norm about _how to work_ rather than _how to drive discern_. The bar it sets for future additions: a candidate must be stack-neutral, universal across domains, and consistent with the design principles — and it earns the always-on slot only if it clears that bar. A stack-specific or domain-specific habit does not; it belongs in a project's own `guidance.md`, never the bundled surface.
-- **Every project's agents read the norm by default.** It costs a few lines in every compiled agent file. That is the intended price of a default-on discipline; a project that disagrees can shorten its own guidance but cannot drop the built-in section without turning the `guidance` feature off — the same trade every bundled-guidance section carries.
+- **Every project's agents read the norm by default.** It costs a few lines in every Agent file. That is the intended price of a default-on discipline; a project that disagrees can shorten its own guidance but cannot drop the built-in section without turning the `guidance` feature off — the same trade every bundled-guidance section carries.
 - **One more bundled skill to keep generic and well-formed.** `fix-a-bug-class` joins the distribution surface, so it must stay domain-neutral like the rest of `templates/`. The new guard makes part of that enforceable (structure, naming); domain-neutrality itself stays a review concern, as it is for the rest of `templates/`.
 - **Removing it later is a distribution-surface change, not a local edit.** Like the skill removal in [ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md), pulling the norm or skill back out would change what every project receives on its next upgrade — which is exactly why recording the decision to add it is worth an ADR.
 

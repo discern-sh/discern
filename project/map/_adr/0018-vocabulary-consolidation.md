@@ -1,6 +1,6 @@
 # ADR 0018: Consolidate discern vocabulary into four layers
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Current-state note.** Lands together with its sibling [ADR 0017](0017-capabilities-model.md) (declare capabilities, derive the gate) — one 3→4 schema migration, best read as a pair. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The older Recipe layer below describes the then-current command implementation. Project-owned executables are now Project Scripts under `discern script`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Current-state note.** Lands together with its sibling [ADR 0017](0017-capabilities-model.md) (declare capabilities, derive the gate) — one 3→4 schema migration, best read as a pair. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The older Recipe layer below describes the then-current command implementation. Project-owned executables are now Project Scripts under `discern script`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`, the product category `Your files` / `Yours` → `Project-owned file`, `The binary's files` → `Generated file`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -25,7 +25,7 @@ Consolidate the parallel concepts, and present what remains as **four layers** i
 1. **The gate — your definition of done:** jobs, scopes, standards.
 2. **The workspace — isolated worktrees:** worktrees and their settings.
 3. **The agent surface — what agents read and run:** guidelines (always-on), skills (on-demand), recipes (your `agent` verbs).
-4. **The ownership model — who owns what:** managed vs. **yours**, with **presets** layering reusable stacks on top.
+4. **The ownership model — who owns what:** Project-owned files, Shared files, and Generated files, with **presets** layering reusable stacks on top.
 
 The concrete moves:
 
