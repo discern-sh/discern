@@ -69,8 +69,8 @@ Deno.test("vocab signals: dead terms, link-only references, plurals, and redefin
 });
 
 Deno.test("vocab signals: reference matching drops a leading The, splits slashed terms, and wraps lines", () => {
-  assert(referencePattern("The binary's files").test("the binary's\nfiles"));
-  assert(referencePattern("Your files / Yours").test("it stays yours"));
+  assert(referencePattern("The example file").test("the example\nfiles"));
+  assert(referencePattern("Widget / Gizmo").test("one gizmo"));
   assert(referencePattern("Gate job").test("three gate jobs"));
   assert(
     !referencePattern("Gate").test("delegates delegate"),

@@ -36,7 +36,7 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
 │      (tracked)                                              │
 │  + materialized Skills: .claude/skills/, .agents/skills/    │
 │      (gitignored)                                           │
-│  + merged provider settings, co-managed .gitignore          │
+│  + merged provider settings, shared .gitignore              │
 └────────────────────────────────────────────────────────────┘
 ```
 

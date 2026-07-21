@@ -19,7 +19,7 @@ _Every file discern creates or merges into, who owns each, whether git tracks or
 
 discern writes one committed root file, one visible namespace, the agent files each vendor requires, and a short list of shims. A test fails if any verb writes anywhere else ([`paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts)). Everything it writes has an ownership kind, and the kind decides what `discern upgrade` may touch and how git treats the file.
 
-## Yours: the `discern/` namespace
+## Project-owned files: the `discern/` namespace
 
 Plain Markdown at paths you chose or accepted ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). discern writes no generated artifacts inside the namespace, and `upgrade` leaves these files unchanged.
 
@@ -34,15 +34,15 @@ Plain Markdown at paths you chose or accepted ([ADR 0099](../_adr/0099-consolida
 
 Each path is configurable (`[map].dir` can name any directory), and the map is discern's own tree: setup creates it instead of adopting documentation you curate yourself ([ADR 0131](../_adr/0131-setup-never-adopts-existing-docs.md)).
 
-## Co-managed: tracked files discern shares with you
+## Shared files: tracked files discern shares with you
 
-The [co-managed seeds](../00-orientation/glossary.md#co-managed-seed): discern owns a delimited region of each and leaves the rest alone.
+For each [shared file](../00-orientation/glossary.md#shared-file), discern owns a delimited region or named entry and leaves the rest alone.
 
 - **`discern.toml`** — the root file, your configuration. discern restores missing fixed sections and keys and replaces clean ruled banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)); it preserves values you set and comments outside those delimiters.
 - **The `.gitignore` block** — one `# --- discern ---` block listing the ignored artifact kinds below. Your own rules outside the block are untouched.
 - **The per-agent integration files** — for each coding agent you configure, discern merges its MCP server, session hooks, and a couple of permission defaults into that agent's own config files (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, and the rest). It writes only its own entries. The [per-agent pages](../60-agent-integrations/) list the exact files.
 
-## The binary's: generated and rebuilt by refresh
+## Generated files: rebuilt by refresh
 
 Produced from bundled sources plus your guidance on `discern refresh` and safe to overwrite because the reviewable source is your file. Each generated artifact has a declared kind in the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts), `agentArtifactPosture()`), and the kind decides how git treats it ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)):
 
@@ -81,9 +81,9 @@ discern's trust model is the same class as a `Makefile` or an npm `scripts` bloc
 
 ## Removing it all
 
-`discern uninstall` removes the agent files and materialized skills, strips discern's entries from the co-managed files, and removes the `.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes the agent files and materialized skills, strips discern's entries from shared files, and removes the `.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
 
-It keeps your content: `discern.toml` and the `discern/` namespace stay. If it can't resolve its bundled templates, it leaves the template-seeded entries in a co-managed settings file rather than guess, and names each such file so you can finish by hand. It refuses while a worktree is in flight, and it is a CLI-only verb (no MCP tool exposes it), so an agent can't uninstall discern mid-session; that decision needs a person at the terminal. The binary itself is one file on your `PATH`, removed by hand — the file `which discern` reports.
+It keeps your content: `discern.toml` and the `discern/` namespace stay. If it can't resolve its bundled templates, it leaves the template-seeded entries in a shared settings file rather than guess, and names each such file so you can finish by hand. It refuses while a worktree is in flight, and it is a CLI-only verb (no MCP tool exposes it), so an agent can't uninstall discern mid-session; that decision needs a person at the terminal. The binary itself is one file on your `PATH`, removed by hand — the file `which discern` reports.
 
 ## Where it lives in code
 
@@ -97,6 +97,6 @@ It keeps your content: `discern.toml` and the `discern/` namespace stay. If it c
 
 ## See also
 
-- [The install surface](../80-development/install-surface.md) — the exhaustive, by-disposition engineering inventory this page distills.
+- [The install surface](../80-development/install-surface.md) — the exhaustive engineering inventory by ownership bucket.
 - [Agent integrations](../60-agent-integrations/) — the exact file table per coding agent.
 - [Trust & your data](../00-orientation/trust-and-data.md) — the network, telemetry, and execution contract on one screen.

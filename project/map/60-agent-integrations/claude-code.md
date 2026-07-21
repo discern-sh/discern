@@ -16,8 +16,8 @@ discern's Claude Code integration is project-local and registry-driven. It write
 | ----------------------- | ------------------------------------------------ | --------------------- |
 | `CLAUDE.md`             | Pointer to the canonical agent file              | Generated, committed  |
 | `.claude/skills/`       | Materialized Claude Code Skills                  | Generated, gitignored |
-| `.mcp.json`             | Project MCP server entry                         | Co-managed, tracked   |
-| `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Co-managed, tracked   |
+| `.mcp.json`             | Project MCP server entry                         | Shared, tracked       |
+| `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Shared, tracked       |
 
 Claude Code may also create `.claude/settings.local.json` for machine-local permission grants and overrides. discern does not seed or track that file; the shipped `.gitignore` keeps it ignored so local approvals do not create permanent porcelain noise.
 

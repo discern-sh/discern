@@ -16,7 +16,7 @@ discern's Gemini integration is project-local and registry-driven. It writes or 
 | ----------------------- | --------------------------------------- | --------------------- |
 | `GEMINI.md`             | Pointer to the canonical agent file     | Generated, committed  |
 | `.agents/skills/`       | Materialized Agent Skills               | Generated, gitignored |
-| `.gemini/settings.json` | MCP server entry and session-start hook | Co-managed, tracked   |
+| `.gemini/settings.json` | MCP server entry and session-start hook | Shared, tracked       |
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[guidance].agents` to emit these artifacts.
 

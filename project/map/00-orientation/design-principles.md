@@ -25,7 +25,7 @@ A fact is authored once and everything else derives from it: guidance compiles f
 
 ### 3. Re-running is always safe
 
-discern scaffolds into a repository you care about, so every command is safe to run again. Your files are written once and never refreshed; co-managed files converge only inside marked regions; the binary's artifacts may always be overwritten because you never edit them ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Migrations are idempotent and refuse a dirty tree, so an upgrade stays revertible with git ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
+discern scaffolds into a repository you care about, so every command is safe to run again. Your files are written once and never refreshed; [shared files](glossary.md#shared-file) converge only inside marked regions; [generated files](glossary.md#generated-file) may always be overwritten because you never edit them ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). Migrations are idempotent and refuse a dirty tree, so an upgrade stays revertible with git ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
 
 ### 4. An installed project carries no runtime
 

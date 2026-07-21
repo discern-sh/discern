@@ -16,10 +16,10 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 | -------------------------------------- | ----------------------------------------- | --------------------- |
 | `AGENTS.md`                            | Canonical agent file                      | Generated, committed  |
 | `.agents/skills/`                      | Materialized Agent Skills                 | Generated, gitignored |
-| `.codex/config.toml`                   | Project Codex config and MCP server entry | Co-managed, tracked   |
-| `.codex/hooks.json`                    | Session-start hook                        | Co-managed, tracked   |
-| `.codex/environments/environment.toml` | Codex app worktree setup/cleanup          | Co-managed, tracked   |
-| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees    | Co-managed, tracked   |
+| `.codex/config.toml`                   | Project Codex config and MCP server entry | Shared, tracked       |
+| `.codex/hooks.json`                    | Session-start hook                        | Shared, tracked       |
+| `.codex/environments/environment.toml` | Codex app worktree setup/cleanup          | Shared, tracked       |
+| `.codex/rules/discern.rules`           | Narrow Git rules for discern worktrees    | Shared, tracked       |
 
 ## Guidance and skills
 

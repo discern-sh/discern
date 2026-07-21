@@ -111,11 +111,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "What `discern accept` does: land a worktree's reviewed branch on the [trunk](#trunk) as a clean fast-forward, then tear the worktree down — resources destroyed, directory removed, the merged branch deleted ([ADR 0110](../_adr/0110-the-landing-model.md)). Covered in [worktrees](../30-worktrees/).",
   },
   {
-    term: "The binary's files",
-    definition:
-      "Artifacts the binary re-publishes and may always overwrite, because you never edit them: the materialized skills (gitignored) and the [agent files](#agent-file) (committed). The reviewable source is always yours; drift between a generated copy and its source fails the gate ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).",
-  },
-  {
     term: "discern version",
     definition:
       "The `discern` binary's semantic version, shown by `discern --version`. A newer binary arrives by re-running the installer; `discern upgrade` then brings the _project_ into line with the binary it runs from.",
@@ -141,9 +136,15 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "What `discern coupling` reports: files that historically change together, so a change is pointed at the sibling it may be missing. Advisory only — it never blocks, and it self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).",
   },
   {
-    term: "Co-managed seed",
+    term: "Shared file",
     definition:
       "A tracked file discern shares with the project: `discern.toml` and the marked block in `.gitignore`. Your values and comments stay yours; `discern upgrade` restores missing fixed scaffold and managed banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)).",
+    retired: [
+      {
+        phrase: "co-managed seed",
+        pattern: String.raw`\bco-managed\s+seeds?\b`,
+      },
+    ],
   },
   {
     term: "Agent file",
@@ -191,9 +192,15 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no stack commands of its own; its verbs run the jobs, scopes, standards, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).",
   },
   {
-    term: "File dispositions",
+    term: "File ownership",
     definition:
-      "The ownership buckets that decide what `discern upgrade` may touch: [yours](#your-files--yours), [co-managed](#co-managed-seed), and [the binary's](#the-binarys-files). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.",
+      "The ownership buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.",
+    retired: [
+      {
+        phrase: "file dispositions",
+        pattern: String.raw`\bfile\s+dispositions?\b`,
+      },
+    ],
   },
   {
     term: "Gate",
@@ -203,7 +210,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Generated file",
     definition:
-      "A file a `discern` command produces and re-produces: to change one, you edit its source and rebuild. The [agent files](#agent-file) and the materialized skills are the set; the gate's currency check flags one that has drifted from its source ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).",
+      "An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you never edit it; the reviewable source is always yours. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).",
+    retired: [
+      {
+        phrase: "the binary's files",
+        pattern: String.raw`\bthe\s+binary(?:'s|’s)\s+files?\b`,
+      },
+    ],
   },
   {
     term: "Guidance source",
@@ -334,9 +347,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. Identity-dependent, they never run in the main checkout; checkout-generic convergence belongs in `[repository].ensure`. A fresh install declares none ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).",
   },
   {
-    term: "Your files / Yours",
+    term: "Project-owned file",
     definition:
-      "Files written once and then the project's: committed, edited in place, and left alone by `upgrade`. The [namespace](#namespace) content, the [map](#map), the ledger, and the provider settings merged into files you already had at setup.",
+      "A file written once and then owned by the project: committed, edited in place, and left alone by `discern upgrade`. This includes the [namespace](#namespace) content, the [map](#map), the ledger, and provider settings merged into files already present at setup.",
   },
 ];
 

@@ -6,7 +6,7 @@ _Almost everything in this repo is built to be driven by coding agents — the g
 
 discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guidance compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). An installed project receives that engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running the same engine from source (`discern done`), leaving a single implementation with no copy drift.
 
-An install puts `discern.toml` and `map/` at the root by default, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). Files split by disposition: _yours_ (the map and authored files under `discern/`), _co-managed_ (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ outputs (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file map is in [install-surface.md](install-surface.md), and the [dispositions](../00-orientation/glossary.md#file-dispositions) are defined in the glossary. Edit your files in place; regenerate the binary-owned outputs with `discern refresh` or `discern upgrade`.
+An install puts `discern.toml` and `map/` at the root by default, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [File ownership](../00-orientation/glossary.md#file-ownership) splits those paths into _project-owned_ files (the map and authored files under `discern/`), _shared_ files (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ files (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place; rebuild generated files with `discern refresh` or `discern upgrade`.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ Stack-specific setup (installing project dependencies, running the app) lives in
 
 - **[Worktrees](../00-orientation/glossary.md#worktree)** — agent worktrees default to a sibling directory (`<repo>.worktrees/`) outside the project and beyond IDE indexing; no action needed. (If you point `[worktree].root` back inside the repo, recent versions detect and hide git worktrees for you.)
 - **Colors** — the scopes are committed in [`.idea/scopes/`](../../../.idea/scopes/). Assign colors once in **Settings → Editor → File Colors**, ticking _Share_ so they travel with the repo: `Tests` → blue, `Templates` → green, `Managed and generated` (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` plus `.claude/skills/` and `.agents/skills/`) → rose or orange (your "don't touch" color).
-- **Optional** — to remove the binary's re-published artifacts from search, mark `.claude/skills/` and `.agents/skills/` as excluded. Use file colors when you want those folders visible and marked; excluded folders ignore file colors.
+- **Optional** — to remove generated files from search, mark `.claude/skills/` and `.agents/skills/` as excluded. Use file colors when you want those folders visible and marked; excluded folders ignore file colors.
 
 ### VS Code
 

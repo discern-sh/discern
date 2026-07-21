@@ -20,7 +20,7 @@ Use this section when you need the current contract rather than a guided workflo
 
 The command and configuration pages are generated from the same registries the binary uses. A changed verb, flag, section, key, type, or default therefore changes the reference through `deno task codegen`; committed-output tests fail if regeneration is missed. Search aliases come from those registries too, so command paths and dotted config keys remain searchable as the command set and config grow.
 
-The authored pages cover the contracts that need explanation. MCP tools share the same `DiscernResult` payload as CLI `--json`, wrapped in the protocol's text and structured channels. Files & ownership separates authored, co-managed, generated, tracked, and ignored artifacts. Platforms & prerequisites records the release targets, required executables, environment variables, identity selectors, and command-template tokens verified against the installer and runtime checks.
+The authored pages cover the contracts that need explanation. MCP tools share the same `DiscernResult` payload as CLI `--json`, wrapped in the protocol's text and structured channels. Files & ownership separates project-owned, shared, generated, tracked, and ignored artifacts. Platforms & prerequisites records the release targets, required executables, environment variables, identity selectors, and command-template tokens verified against the installer and runtime checks.
 
 For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality gate](../20-quality-gate/) or [Worktrees](../30-worktrees/); this tier stays organized for lookup.
 
