@@ -6,10 +6,11 @@
 
 import { designSystemAssetPath } from "../design_system.ts";
 import { DISCERN_FAVICON_PATH } from "../brand.ts";
-
-/** Applies the stored or preferred theme before first paint. */
-export const THEME_BOOTSTRAP =
-  `(function(){try{var t=localStorage.getItem("discern-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.dataset.discernTheme="dark"}}catch(_){}})();`;
+import {
+  THEME_BOOTSTRAP,
+  THEME_SCRIPT_PATH,
+  THEME_STYLESHEET_PATH,
+} from "../theme.ts";
 
 export interface PageDocument {
   /** The page-src file the output is generated from, for the marker comment. */
@@ -48,6 +49,8 @@ export function pageDocument(page: PageDocument): string {
 <link rel="icon" href="${DISCERN_FAVICON_PATH}" />
 <script>${THEME_BOOTSTRAP}</script>
 ${styles}
+<link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
+<script defer src="${THEME_SCRIPT_PATH}"></script>
 ${scripts}
 </head>
 <body>

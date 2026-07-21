@@ -259,6 +259,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed [capability](#capability) vocabulary makes an omitted capability knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).",
   },
   {
+    term: "Receipt",
+    definition:
+      "The review summary `discern done` emits after a clean, committed worktree passes the full gate. It identifies the branch and exact `HEAD`, lists the commits, changed files, check results, and held [standards](#standard), and can be reused by `discern accept` while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
+  },
+  {
     term: "Schema version",
     definition:
       "The integer in `[meta].schema_version` that anchors the [migration](#migration) chain. It bumps only when installed projects need a migration to stay correct, so most releases leave it untouched.",
@@ -288,6 +293,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Surface",
     definition:
       "A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term (command-line surface, MCP surface, write surface); bare “surface” names no component.",
+  },
+  {
+    term: "Test",
+    definition:
+      "A command that exercises the project's behavior and returns success or failure. `[capabilities.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).",
   },
   {
     term: "Trunk",

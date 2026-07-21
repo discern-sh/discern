@@ -94,7 +94,7 @@ Deno.test("permalink controls stay outside every heading accessible name", async
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: false, addEventListener: () => undefined }),
   });
-  dom.window.eval(client.replace(/^import .*?;\n/m, ""));
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
 
   const states = fixtures.map(([, id]) => {
     const heading = dom.window.document.getElementById(id);
@@ -137,7 +137,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: true, addEventListener: () => undefined }),
   });
-  dom.window.eval(client.replace(/^import .*?;\n/m, ""));
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
 
   const document = dom.window.document;
   const burger = document.querySelector<HTMLElement>("[data-drawer-toggle]");
@@ -229,6 +229,9 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
   const client = await Deno.readTextFile(
     new URL("../site/pages/assets/docs.js", import.meta.url),
   );
+  const themeClient = await Deno.readTextFile(
+    new URL("../site/pages/assets/theme.js", import.meta.url),
+  );
 
   const contracts = [
     [
@@ -268,7 +271,8 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
     ],
     [
       "theme state is exposed",
-      /aria-pressed/.test(client) && /Use light theme/.test(client),
+      /aria-pressed/.test(themeClient) &&
+      /Switch to the light theme/.test(themeClient),
     ],
     [
       "copy outcomes are live",

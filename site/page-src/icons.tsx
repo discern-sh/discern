@@ -6,6 +6,7 @@ export type PageIconName =
   | "branch"
   | "check"
   | "code"
+  | "github"
   | "human"
   | "map"
   | "spark";
@@ -30,6 +31,12 @@ export function PageIcon({ name }: { readonly name: PageIconName }) {
     ),
     check: <path d="m5 12 4 4L19 6" />,
     code: <path d="m9 7-5 5 5 5m6-10 5 5-5 5" />,
+    github: (
+      <>
+        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.7-1.6 6.7-7A5.4 5.4 0 0 0 19.2 3.7 5 5 0 0 0 19.1.2 7.5 7.5 0 0 0 15 1.5a14 14 0 0 0-6 0A7.5 7.5 0 0 0 4.9.2a5 5 0 0 0-.1 3.5 5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.4 6.6 6.7 7A4.8 4.8 0 0 0 9 18v4" />
+        <path d="M9 18c-4.5 2-5-2-7-2" />
+      </>
+    ),
     human: (
       <>
         <circle cx="12" cy="7" r="3.5" />

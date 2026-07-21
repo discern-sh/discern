@@ -1,9 +1,9 @@
 /**
  * The permanent discern.sh landing page, composed from the published design
- * system with the launch copy. Every terminal frame is genuine captured
- * output from this repository's own gate — elisions are marked, nothing is
- * altered. Rendered to static HTML by site/build.ts; landing.js adds the
- * staged playback and copy affordances as progressive enhancement.
+ * system with the launch copy. The proof section condenses a captured run from
+ * this repository into three reader-facing steps. Rendered to static HTML by
+ * site/build.ts; landing.js adds the copy affordance as progressive
+ * enhancement.
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
@@ -15,10 +15,11 @@ import {
   HeadingAccent,
   HeroBlock,
   Kicker,
+  ProcessSteps,
   SiteFooter,
   SiteHeader,
   SplitFeature,
-  Terminal,
+  ThemeToggle,
   Window,
 } from "discern-design-system/react";
 import type { ReactNode } from "react";
@@ -30,29 +31,6 @@ const INSTALL_COMMAND = "curl -fsSL https://discern.sh/install | sh";
 
 const AGENT_RELAY =
   `"I looked at discern: a local quality gate I can drive directly. Want me to set it up on a branch? It's reversible."`;
-
-/** One line of terminal output, toned for verdicts, elisions, and stages. */
-function Line(
-  { tone, children }: {
-    readonly tone?: "dim" | "danger" | "success" | "stage" | "cmd";
-    readonly children: ReactNode;
-  },
-) {
-  const cls = tone === undefined ? "landing-line" : `landing-line is-${tone}`;
-  if (tone === "cmd") {
-    return (
-      <span className={cls}>
-        <span className="landing-line__prompt" aria-hidden="true">$</span>{" "}
-        {children}
-      </span>
-    );
-  }
-  return <span className={cls}>{children}</span>;
-}
-
-function Gap() {
-  return <span className="landing-line">{" "}</span>;
-}
 
 /** The two-line install moment: the command, then the sentence to the agent. */
 function InstallMoment({ band = false }: { readonly band?: boolean }) {
@@ -155,221 +133,79 @@ function ThePattern() {
   );
 }
 
-/** One numbered frame of the staged catch. */
-function CatchFrame(
-  { index, title, caption, children, pass = false }: {
-    readonly index: string;
-    readonly title: string;
-    readonly caption: ReactNode;
-    readonly children: ReactNode;
-    readonly pass?: boolean;
-  },
-) {
+/** The recorded defect story, reduced to the three decisions a reader needs. */
+function TheCatch() {
   return (
-    <figure
-      className={pass ? "landing-frame landing-frame--pass" : "landing-frame"}
-      data-frame={index}
-    >
-      <div className="landing-frame__head">
-        <Kicker index={index}>{title}</Kicker>
-      </div>
-      {children}
-      <figcaption>{caption}</figcaption>
-    </figure>
+    <ProcessSteps
+      className="landing-catch"
+      id="the-catch"
+      eyebrow="A real gate run"
+      title="A one-character mistake, caught before it landed."
+      description={
+        <>
+          <p>
+            This recorded run came from discern’s own repository. One character
+            changed the path matcher, and the change looked healthy until the
+            full test suite ran.
+          </p>
+          <p className="landing-catch__source">Captured 18 July 2026.</p>
+        </>
+      }
+      steps={[
+        {
+          eyebrow: "The change",
+          title: "The code looked ready.",
+          description: (
+            <p>
+              Formatting, lint, and type checks passed. A quick review gave no
+              reason to stop.
+            </p>
+          ),
+          detail: (
+            <span className="landing-catch__fact">1 character changed</span>
+          ),
+        },
+        {
+          eyebrow: "The check",
+          title: "Two tests found the mistake.",
+          description: (
+            <p>
+              The result named the failed test and gave the agent the command to
+              reproduce it.
+            </p>
+          ),
+          detail: (
+            <span className="landing-catch__fact landing-catch__fact--failed">
+              1,951 passed · 2 failed
+            </span>
+          ),
+        },
+        {
+          eyebrow: "The fix",
+          title: "The agent fixed it and checked again.",
+          description: (
+            <p>
+              The same suite passed on the repaired tree, so the work was ready
+              for review.
+            </p>
+          ),
+          detail: (
+            <span className="landing-catch__fact landing-catch__fact--passed">
+              1,953 passed · 0 failed
+            </span>
+          ),
+        },
+      ]}
+    />
   );
 }
 
-/** The staged catch: a real defect, the red verdict, the data, the green. */
-function TheCatch() {
+function ThemeGlyphs() {
   return (
-    <section className="landing-catch" id="the-catch" data-catch-stage>
-      <div className="landing-catch__header">
-        <Kicker>The moment it exists for</Kicker>
-        <h2>
-          Watch it catch a <strong>real bug.</strong>
-        </h2>
-        <p>
-          A one-character mistake was planted in discern’s own code, the kind an
-          agent ships while announcing success. Every frame that follows is
-          genuine captured output from this repository’s checks. Elisions are
-          marked; nothing is altered.
-        </p>
-      </div>
-
-      <div className="landing-catch__frames">
-        <CatchFrame
-          index="01"
-          title="It looks finished"
-          caption={
-            <>
-              One character changed in the engine’s path matcher: the pattern
-              {" "}
-              <code>src/**</code>{" "}
-              now matches more than it should. The code still formats, lints,
-              and type-checks. Every quick look says it’s fine.
-            </>
-          }
-        >
-          <Terminal
-            className="landing-term"
-            title="the defect · src/engine/scopes/glob.ts"
-          >
-            <Line tone="danger">
-              {'-      const prefix = pat.slice(0, -2).replace(/^\\//, ""); // "src/**" → "src/"'}
-            </Line>
-            <Line tone="success">
-              {'+      const prefix = pat.slice(0, -3).replace(/^\\//, ""); // "src/**" → "src/"'}
-            </Line>
-          </Terminal>
-        </CatchFrame>
-
-        <CatchFrame
-          index="02"
-          title="The checks disagree"
-          caption={
-            <>
-              Two tests caught the one character: the hand-written case, and the
-              class-level contract guard behind it. The other 1,951 still
-              passed.
-            </>
-          }
-        >
-          <Terminal className="landing-term" title="discern done">
-            <Line tone="cmd">discern done</Line>
-            <Line>Applying fixers...</Line>
-            <Line tone="stage">── format ─ ok</Line>
-            <Line>Checked 732 files</Line>
-            <Line tone="dim">
-              [… build, lint, typecheck, prose: all ok — elided …]
-            </Line>
-            <Line tone="stage">── test ─ FAILED (exit 1)</Line>
-            <Line tone="dim">[… ~2,500 lines of passing tests elided …]</Line>
-            <Gap />
-            <Line>{" ERRORS "}</Line>
-            <Gap />
-            <Line>
-              {"prefix kinds: src/** and src/ => ./tests/scopes_glob_test.ts:8:6"}
-            </Line>
-            <Line tone="danger">
-              error: AssertionError: Values are not equal.
-            </Line>
-            <Gap />
-            <Line>{"    [Diff] Actual / Expected"}</Line>
-            <Gap />
-            <Line tone="danger">{"-   true"}</Line>
-            <Line tone="success">{"+   false"}</Line>
-            <Gap />
-            <Line tone="dim">[… assertion stack elided …]</Line>
-            <Gap />
-            <Line>{" FAILURES "}</Line>
-            <Gap />
-            <Line>
-              {"prefix kinds: src/** and src/ => ./tests/scopes_glob_test.ts:8:6"}
-            </Line>
-            <Line>
-              {"every pattern kind matches its contract at every path position => ./tests/scopes_glob_test.ts:99:6"}
-            </Line>
-            <Gap />
-            <Line tone="danger">
-              {"FAILED | 1951 passed (18 steps) | 2 failed (1m33s)"}
-            </Line>
-            <Line tone="dim">
-              [… smoke and standards, all ok — elided …]
-            </Line>
-            <Line tone="danger">✗ The check/test stage failed.</Line>
-            <Gap />
-            <Line>Failures (1)</Line>
-            <Line>{"  ✗ test — test failed (exit 1)"}</Line>
-            <Line>{"    reproduce: deno task test"}</Line>
-            <Line tone="danger">
-              ✗ done failed — 1 problem; reproduce: deno task test
-            </Line>
-          </Terminal>
-        </CatchFrame>
-
-        <CatchFrame
-          index="03"
-          title="The failure arrives as data"
-          caption={
-            <>
-              One failure, two readers. You get the story above; your agent gets
-              the structure: the failing tool, the command to reproduce it, and
-              the captured output.
-            </>
-          }
-        >
-          <Terminal className="landing-term" title="discern test --json">
-            <Line tone="cmd">discern test --json</Line>
-            <Line>{'"diagnostics": ['}</Line>
-            <Line>{"  {"}</Line>
-            <Line>{'    "tool": "test",'}</Line>
-            <Line>{'    "severity": "error",'}</Line>
-            <Line>{'    "message": "test failed (exit 1)",'}</Line>
-            <Line>{'    "reproduce_cmd": "deno task test",'}</Line>
-            <Line>
-              {'    "output": "'}
-              <span className="is-dim">[… elided to its final line …]</span>
-            </Line>
-            <Line tone="danger">
-              {'               FAILED | 1951 passed (18 steps) | 2 failed (1m39s)",'}
-            </Line>
-            <Line>{'    "truncated": true,'}</Line>
-            <Line>
-              {'    "output_path": '}
-              <span className="is-dim">
-                {'"[… local capture path elided …]"'}
-              </span>
-            </Line>
-            <Line>{"  }"}</Line>
-            <Line>{"]"}</Line>
-          </Terminal>
-        </CatchFrame>
-
-        <CatchFrame
-          index="04"
-          title="Done means done"
-          pass
-          caption={
-            <>
-              The agent’s loop: read{" "}
-              <code>diagnostics[]</code>, fix, run the checks again. A green run
-              on the final tree is the receipt.
-            </>
-          }
-        >
-          <Terminal className="landing-term" title="discern done">
-            <Line tone="cmd">discern done</Line>
-            <Line tone="dim">
-              [… the same run, on the fixed tree — elided …]
-            </Line>
-            <Line tone="stage">── test ─ ok</Line>
-            <Line tone="success">
-              {"ok | 1953 passed (18 steps) | 0 failed (1m36s)"}
-            </Line>
-            <Line tone="dim">[… smoke and standards, all ok — elided …]</Line>
-            <Gap />
-            <Line tone="success">
-              ✓ Everything built and all checks passed.
-            </Line>
-          </Terminal>
-        </CatchFrame>
-      </div>
-
-      <div className="landing-catch__foot">
-        <p>
-          Captured 18 July 2026 from this repository’s gate: the engine gating
-          the repo that ships it.
-        </p>
-        <button
-          type="button"
-          className="landing-replay"
-          data-catch-replay
-          hidden
-        >
-          replay the run
-        </button>
-      </div>
-    </section>
+    <>
+      <span data-theme-toggle-glyph="light">☀</span>
+      <span data-theme-toggle-glyph="dark">☾</span>
+    </>
   );
 }
 
@@ -600,21 +436,24 @@ function LandingPage() {
         navLabel="Primary navigation"
         actions={
           <>
-            <button
-              className="landing-theme"
-              type="button"
+            <ThemeToggle
+              theme="light"
+              onThemeChange={() => undefined}
               data-theme-toggle
-              aria-label="Toggle colour theme"
-            >
-              <span aria-hidden="true">◐</span>
-              <span data-theme-label>Dark</span>
-            </button>
+              aria-pressed="false"
+              lightGlyph={<ThemeGlyphs />}
+              darkGlyph={<ThemeGlyphs />}
+            />
             <Button
               href="https://github.com/jackwh/discern"
               size="sm"
               variant="secondary"
+              aria-label="GitHub"
+              title="GitHub"
             >
-              GitHub
+              <span className="landing-github__icon">
+                <PageIcon name="github" />
+              </span>
             </Button>
           </>
         }
@@ -627,9 +466,11 @@ function LandingPage() {
           surface="accent"
           title={
             <span className="landing-strapline">
-              You ask. It builds.
-              <br />
-              <HeadingAccent>discern checks.</HeadingAccent>
+              <span className="landing-strapline__line">You ask.</span>
+              <span className="landing-strapline__line">They build.</span>
+              <span className="landing-strapline__line">
+                <HeadingAccent>discern checks.</HeadingAccent>
+              </span>
             </span>
           }
           description={
@@ -878,7 +719,7 @@ function LandingPage() {
           title="Keep making things."
           description={<p>Set up in one conversation. Working in the next.</p>}
           visual={<InstallMoment band />}
-          tone="contrast"
+          tone="sunken"
           align="split"
         />
       </main>
@@ -925,7 +766,6 @@ function LandingPage() {
                 label: "Design system",
                 href: "https://github.com/discern-sh/design-system",
               },
-              { label: "Marketing atlas", href: "/design-system-demo" },
             ],
           },
         ]}

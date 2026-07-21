@@ -1,6 +1,7 @@
-/* discern.sh/docs — theme, modal navigation/search, contents scroll spy, and
-   prose enhancements. Plain local modules, no third-party dependencies, no
-   network beyond the one-way fetch of /docs/index.json. */
+/* discern.sh/docs — modal navigation/search, contents scroll spy, and prose
+   enhancements. Plain local modules, no third-party dependencies, no network
+   beyond the one-way fetch of /docs/index.json. */
+import { activeTocIndex } from "./docs-toc.js";
 import { searchPages } from "./search.js";
 
 (() => {
@@ -46,32 +47,6 @@ import { searchPages } from "./search.js";
       first.focus();
     }
   };
-
-  // ── Theme ────────────────────────────────────────────────────────────────
-
-  const themeToggle = $("[data-theme-toggle]");
-  const syncThemeControl = () => {
-    if (!themeToggle) return;
-    const dark = root.getAttribute("data-discern-theme") === "dark";
-    themeToggle.setAttribute("aria-pressed", String(dark));
-    themeToggle.setAttribute(
-      "aria-label",
-      dark ? "Use light theme" : "Use dark theme",
-    );
-  };
-  syncThemeControl();
-  themeToggle?.addEventListener("click", () => {
-    const next = root.getAttribute("data-discern-theme") === "dark"
-      ? "light"
-      : "dark";
-    root.setAttribute("data-discern-theme", next);
-    syncThemeControl();
-    try {
-      localStorage.setItem("discern-theme", next);
-    } catch {
-      /* private mode */
-    }
-  });
 
   // ── Drawer ───────────────────────────────────────────────────────────────
 
@@ -210,7 +185,7 @@ import { searchPages } from "./search.js";
   // ── Contents-rail scroll spy ─────────────────────────────────────────────
 
   const tocLinks = $$(".docs-toc a");
-  if (article && tocLinks.length > 0 && "IntersectionObserver" in globalThis) {
+  if (article && tocLinks.length > 0) {
     const byId = new Map(
       tocLinks.map((
         anchor,
@@ -229,17 +204,32 @@ import { searchPages } from "./search.js";
       active = link;
     };
 
-    const visible = new Set();
-    const spy = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) visible.add(entry.target);
-        else visible.delete(entry.target);
-      }
-      const top = headings.find((heading) => visible.has(heading));
-      if (top) mark(top.id);
-    }, { rootMargin: "-56px 0px -60% 0px" });
+    let queued = false;
+    const update = () => {
+      queued = false;
+      const scrollY = globalThis.scrollY;
+      const index = activeTocIndex({
+        headingTops: headings.map((heading) =>
+          heading.getBoundingClientRect().top + scrollY
+        ),
+        scrollY,
+        viewportHeight: globalThis.innerHeight,
+        documentHeight: doc.documentElement.scrollHeight,
+        headerOffset: 72,
+      });
+      const heading = headings[index];
+      if (heading) mark(heading.id);
+    };
+    const queue = () => {
+      if (queued) return;
+      queued = true;
+      globalThis.requestAnimationFrame(update);
+    };
 
-    for (const heading of headings) spy.observe(heading);
+    globalThis.addEventListener("scroll", queue, { passive: true });
+    globalThis.addEventListener("resize", queue);
+    globalThis.addEventListener("load", queue, { once: true });
+    update();
   }
 
   // ── Search palette ───────────────────────────────────────────────────────

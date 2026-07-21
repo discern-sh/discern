@@ -344,6 +344,24 @@ Deno.test("first eligible glossary mentions render the design-system hover-card 
   assert(links.includes("/docs/worktrees"));
   assert(!html.includes("../30-worktrees"));
   assert(!html.includes("ADR 0025"));
+
+  const glossaryLinks = [...document.querySelectorAll<HTMLAnchorElement>(
+    ".docs-glossary-link",
+  )];
+  assertEquals(
+    glossaryLinks.map((link) => link.getAttribute("href")),
+    [
+      "/docs/orientation/glossary#worktree-resource",
+      "/docs/orientation/glossary#worktree",
+    ],
+  );
+  assertEquals(
+    glossaryLinks.map((link) => link.getAttribute("aria-label")),
+    [
+      "Open Worktree resource in the glossary",
+      "Open worktree in the glossary",
+    ],
+  );
   dom.window.close();
 });
 
@@ -521,20 +539,40 @@ Deno.test("related decisions render exactly the collected citation set", async (
   for (const page of site.pages) {
     const res = await get(page.route, BROWSER);
     const html = await res.text();
-    const links = [
-      ...html.matchAll(/class="docs-related-decision" href="([^"]+)"/g),
-    ]
-      .map((match) => match[1] ?? "");
-    assertEquals(links.length, page.entry.citedAdrs.length, page.entry.path);
+    const dom = new JSDOM(html);
+    const links = [...dom.window.document.querySelectorAll<HTMLAnchorElement>(
+      ".docs-related-decision",
+    )];
+    const glossary = page.mapPath === "00-orientation/glossary.md";
+    const expectedCitations = glossary ? [] : page.entry.citedAdrs;
+    assertEquals(links.length, expectedCitations.length, page.entry.path);
     assertEquals(
-      links,
-      page.entry.citedAdrs.map((citation) => {
+      links.map((link) => link.getAttribute("href")),
+      expectedCitations.map((citation) => {
         const decision = site.decisions.byNumber.get(citation.number);
         assert(decision !== undefined, citation.number);
         return decision.route;
       }),
       page.entry.path,
     );
+    for (const [index, citation] of expectedCitations.entries()) {
+      const link = links[index];
+      const decision = site.decisions.byNumber.get(citation.number);
+      assert(link !== undefined && decision !== undefined);
+      assertEquals(link.textContent, `ADR ${citation.number}`);
+      assertEquals(link.closest("li")?.textContent, decision.entry.title);
+    }
+    if (glossary) {
+      assert(
+        page.entry.citedAdrs.length > 0,
+        "the glossary fixture carries decisions so its exception is exercised",
+      );
+      assertEquals(
+        dom.window.document.querySelector(".docs-related-decisions"),
+        null,
+      );
+    }
+    dom.window.close();
   }
 });
 

@@ -33,6 +33,15 @@ Deno.test("every term is unique and defined (the registry is a canon, not a list
   }
 });
 
+Deno.test("the glossary defines the receipt and test concepts directly", () => {
+  for (const term of ["Receipt", "Test"]) {
+    assert(
+      GLOSSARY.some((entry) => entry.term === term),
+      `the glossary must define ${term}`,
+    );
+  }
+});
+
 Deno.test("the rendered page alphabetizes every entry under its own heading", () => {
   const doc = renderGlossaryDoc();
   let at = -1;

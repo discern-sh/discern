@@ -35,6 +35,11 @@ import { GLOSSARY, type GlossaryEntry } from "../scripts/glossary_registry.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
+import {
+  THEME_BOOTSTRAP,
+  THEME_SCRIPT_PATH,
+  THEME_STYLESHEET_PATH,
+} from "./theme.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -578,7 +583,17 @@ function glossaryTermHtml(
   }
   const term = escapeMarkdownHtml(visible);
   const label = escapeMarkdownHtml(`${visible} definition`);
-  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${term}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><strong class="discern-glossary-term__term">${term}</strong><span class="discern-glossary-term__definition">${definitionHtml}</span></span></span></span>`;
+  const heading = renderMarkdownHtml(`### ${entry.term}`).headings[0];
+  if (heading === undefined) {
+    throw new Error(
+      `docs: glossary term has no rendered heading: ${entry.term}`,
+    );
+  }
+  const glossaryHref = `/docs/orientation/glossary#${heading.id}`;
+  const glossaryLabel = escapeMarkdownHtml(
+    `Open ${visible} in the glossary`,
+  );
+  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${term}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><span class="docs-glossary-heading"><strong class="discern-glossary-term__term">${term}</strong><a class="docs-glossary-link" href="${glossaryHref}" aria-label="${glossaryLabel}"><span aria-hidden="true">↗</span></a></span><span class="discern-glossary-term__definition">${definitionHtml}</span></span></span></span>`;
 }
 
 /**
@@ -804,19 +819,12 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
 <link rel="icon" href="${DISCERN_FAVICON_PATH}" />
-<script>
-(function () {
-  document.documentElement.classList.add("docs-js");
-  var stored = null;
-  try { stored = localStorage.getItem("discern-theme"); } catch (_) { /* file:// quirks */ }
-  var dark = stored === "dark" ||
-    (stored === null && matchMedia("(prefers-color-scheme: dark)").matches);
-  if (dark) document.documentElement.setAttribute("data-discern-theme", "dark");
-})();
-</script>
+<script>${THEME_BOOTSTRAP}</script>
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
+<link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
 <link rel="stylesheet" href="/assets/docs.css" />
+<script defer src="${THEME_SCRIPT_PATH}"></script>
 <script type="module" src="/assets/docs.js"></script>
 </head>
 <body>
@@ -829,9 +837,9 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
         aria-label="Open navigation" aria-expanded="false">
         <span class="discern-icon">${ICONS.menu}</span>
       </button>
-      <a class="docs-brand" href="/">
+      <span class="docs-brand-lockup"><a class="docs-brand" href="/">
         ${discernBrandHtml()}</a><a
-        class="docs-brand-docs discern-mono" href="/docs">/docs</a>
+        class="docs-brand-docs discern-mono" href="/docs">/docs</a></span>
     </div>
     <div class="discern-docs-header__middle">
       <button class="docs-search-btn" type="button" data-search-open
@@ -843,10 +851,10 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
     </div>
     <div class="discern-docs-header__actions">
       <button class="discern-theme-toggle docs-theme" type="button"
-        aria-label="Use dark theme" aria-pressed="false" data-theme-toggle>
+        aria-label="Switch to the dark theme" aria-pressed="false" data-theme-toggle>
         <span class="discern-theme-toggle__glyph docs-theme-glyphs" aria-hidden="true">
-          <span class="discern-icon docs-theme-icon docs-theme-sun">${ICONS.sun}</span>
-          <span class="discern-icon docs-theme-icon docs-theme-moon">${ICONS.moon}</span>
+          <span class="discern-icon docs-theme-icon docs-theme-sun" data-theme-toggle-glyph="light">${ICONS.sun}</span>
+          <span class="discern-icon docs-theme-icon docs-theme-moon" data-theme-toggle-glyph="dark">${ICONS.moon}</span>
         </span>
       </button>
     </div>
@@ -953,7 +961,9 @@ function sectionLeafIndexHtml(site: DocsSite, page: DocsPage): string {
 
 /** A public page's collected citations, linked to their on-site records. */
 function relatedDecisionsHtml(site: DocsSite, page: DocsPage): string {
-  if (page.entry.citedAdrs.length === 0) return "";
+  if (
+    page.mapPath === GLOSSARY_MAP_PATH || page.entry.citedAdrs.length === 0
+  ) return "";
   const items = page.entry.citedAdrs.map((citation) => {
     const decision = site.decisions.byNumber.get(citation.number);
     if (decision === undefined) {
@@ -961,9 +971,16 @@ function relatedDecisionsHtml(site: DocsSite, page: DocsPage): string {
         `docs: ${page.entry.path} cites missing decision ${citation.number}`,
       );
     }
+    const reference = `ADR ${citation.number}`;
+    const prefix = `${reference}: `;
+    const detail = decision.entry.title.startsWith(prefix)
+      ? decision.entry.title.slice(prefix.length)
+      : decision.entry.title;
     return `<li><a class="docs-related-decision" href="${decision.route}">${
-      esc(decision.entry.title)
-    }</a></li>`;
+      esc(reference)
+    }</a><span class="docs-related-decision-detail">: ${
+      esc(detail)
+    }</span></li>`;
   }).join("");
   return `<aside class="docs-related-decisions" aria-labelledby="related-decisions">
       <h2 id="related-decisions">Related decisions</h2>

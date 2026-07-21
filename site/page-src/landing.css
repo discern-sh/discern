@@ -31,29 +31,6 @@ html {
   left: 0.75rem;
 }
 
-.landing-theme {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--discern-space-2);
-  min-height: 34px;
-  padding-inline: var(--discern-space-3);
-  border: 1px solid var(--discern-color-border-strong);
-  border-radius: var(--discern-radius-md);
-  background: var(--discern-color-surface);
-  color: var(--discern-color-ink-muted);
-  cursor: pointer;
-  font-family: var(--discern-font-ui);
-  font-feature-settings: var(--discern-font-features-ui);
-  font-size: var(--discern-font-size-xs);
-}
-
-.landing-theme:hover,
-.landing-theme:focus-visible {
-  border-color: var(--discern-color-accent-500);
-  color: var(--discern-color-ink);
-  outline: none;
-}
-
 /* ── The hero: poster scale ─────────────────────────────────────────── */
 
 .landing-hero {
@@ -62,10 +39,17 @@ html {
 
 .landing-strapline {
   display: block;
-  font-size: clamp(2.6rem, 8vw, 5.75rem);
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+  font-size: clamp(2.25rem, 8vw, 5.75rem);
   line-height: 1.02;
   letter-spacing: -0.025em;
-  text-wrap: balance;
+}
+
+.landing-strapline__line {
+  display: block;
+  white-space: nowrap;
 }
 
 .landing-hero__links {
@@ -73,6 +57,19 @@ html {
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--discern-space-3);
+  width: min(100%, 44rem);
+  margin-inline: auto;
+}
+
+.landing-github__icon {
+  display: inline-flex;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+}
+
+.landing-github__icon svg {
+  inline-size: 100%;
+  block-size: 100%;
 }
 
 /* ── The install moment ─────────────────────────────────────────────── */
@@ -93,7 +90,11 @@ html {
   padding: var(--discern-space-3) var(--discern-space-4);
   border: 1px solid var(--discern-color-border-strong);
   border-radius: var(--discern-radius-md);
-  background: var(--discern-color-inverse-surface);
+  background: color-mix(
+    in oklab,
+    var(--discern-color-surface) 82%,
+    var(--discern-color-canvas)
+  );
   box-shadow: var(--discern-shadow-card, 0 1px 2px rgb(0 0 0 / 0.2));
 }
 
@@ -104,7 +105,7 @@ html {
   min-width: 0;
   contain: inline-size;
   overflow-x: auto;
-  color: var(--discern-color-inverse-ink);
+  color: var(--discern-color-ink);
   font-family: var(--discern-font-mono);
   font-size: var(--discern-font-size-md);
   white-space: nowrap;
@@ -120,15 +121,6 @@ html {
   cursor: pointer;
   font-family: var(--discern-font-ui);
   font-size: var(--discern-font-size-xs);
-}
-
-.landing-install__cmd .landing-copy {
-  border-color: color-mix(
-    in srgb,
-    var(--discern-color-inverse-ink) 35%,
-    transparent
-  );
-  color: var(--discern-color-inverse-ink);
 }
 
 .landing-copy:hover,
@@ -246,201 +238,43 @@ html {
   line-height: 1.6;
 }
 
-/* ── The catch: four frames, one verdict ────────────────────────────── */
+/* ── The catch: a three-step account of one real gate run ───────────── */
 
-.landing-catch {
-  max-width: 76rem;
-  margin-inline: auto;
-  padding-block: clamp(4rem, 9vw, 7.5rem);
-  padding-inline: clamp(1.25rem, 4vw, 2.5rem);
-}
-
-.landing-catch__header {
-  max-width: 46rem;
-  margin-bottom: clamp(2.5rem, 5vw, 4rem);
-  display: grid;
-  gap: var(--discern-space-4);
-}
-
-.landing-catch__header h2 {
-  margin: 0;
-  font-family: var(--discern-font-display);
-  font-size: clamp(2rem, 4.6vw, 3.4rem);
-  font-weight: 640;
-  letter-spacing: -0.02em;
-  line-height: 1.08;
-}
-
-.landing-catch__header h2 strong {
-  color: var(--discern-color-accent-600);
-}
-
-.landing-catch__header p {
-  margin: 0;
-  color: var(--discern-color-ink-muted);
-  font-size: var(--discern-font-size-lg);
-  line-height: 1.6;
-}
-
-.landing-catch__frames {
-  display: grid;
-  gap: var(--discern-space-5);
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 60rem) {
-  .landing-catch__frames {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "f1 f2"
-      "f3 f2"
-      "f4 f4";
-  }
-
-  .landing-frame[data-frame="01"] {
-    grid-area: f1;
-  }
-  .landing-frame[data-frame="02"] {
-    grid-area: f2;
-  }
-  .landing-frame[data-frame="03"] {
-    grid-area: f3;
-  }
-  .landing-frame[data-frame="04"] {
-    grid-area: f4;
-  }
-}
-
-.landing-frame {
-  display: grid;
-  align-content: start;
-  gap: var(--discern-space-3);
-  margin: 0;
-}
-
-.landing-frame__head {
-  display: flex;
-}
-
-.landing-frame figcaption {
-  max-width: 42rem;
-  color: var(--discern-color-ink-muted);
-  font-size: var(--discern-font-size-sm);
-  line-height: 1.55;
-}
-
-.landing-frame figcaption code {
-  font-family: var(--discern-font-mono);
-  font-size: 0.92em;
-}
-
-.landing-term {
-  width: 100%;
-}
-
-.landing-line {
-  display: block;
-  font-size: var(--discern-font-size-xs);
-  line-height: 1.55;
-}
-
-.landing-line__prompt {
-  color: var(--discern-color-accent-500);
-}
-
-.landing-line.is-cmd {
-  font-weight: 600;
-}
-
-.landing-line.is-dim {
+.landing-catch__source {
+  margin-top: var(--discern-space-3);
   color: var(--discern-color-ink-faint);
+  font-family: var(--discern-font-mono);
+  font-size: var(--discern-font-size-xs);
 }
 
-.landing-line.is-stage {
+.landing-catch__fact {
+  display: inline-flex;
+  width: fit-content;
+  padding: var(--discern-space-1) var(--discern-space-3);
+  border: 1px solid var(--discern-color-border);
+  border-radius: var(--discern-radius-sm);
+  background: var(--discern-color-surface-sunken);
   color: var(--discern-color-ink-muted);
+  font-family: var(--discern-font-mono);
+  font-size: var(--discern-font-size-xs);
 }
 
-.landing-line.is-danger {
+.landing-catch__fact--failed {
+  border-color: color-mix(
+    in oklab,
+    var(--discern-color-danger) 45%,
+    var(--discern-color-border)
+  );
   color: var(--discern-color-danger);
 }
 
-.landing-line.is-success {
+.landing-catch__fact--passed {
+  border-color: color-mix(
+    in oklab,
+    var(--discern-color-success) 45%,
+    var(--discern-color-border)
+  );
   color: var(--discern-color-success);
-}
-
-.landing-frame--pass .landing-line.is-success:last-child {
-  font-size: var(--discern-font-size-md);
-  font-weight: 700;
-}
-
-@media (min-width: 60rem) {
-  .landing-frame--pass .landing-line.is-success:last-child {
-    font-size: var(--discern-font-size-lg);
-  }
-}
-
-.landing-catch__foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--discern-space-3);
-  margin-top: var(--discern-space-5);
-}
-
-.landing-catch__foot p {
-  margin: 0;
-  color: var(--discern-color-ink-faint);
-  font-family: var(--discern-font-mono);
-  font-size: var(--discern-font-size-xs);
-}
-
-.landing-replay {
-  padding: var(--discern-space-1) var(--discern-space-3);
-  border: 1px solid var(--discern-color-border-strong);
-  border-radius: var(--discern-radius-sm);
-  background: transparent;
-  color: var(--discern-color-ink-muted);
-  cursor: pointer;
-  font-family: var(--discern-font-mono);
-  font-size: var(--discern-font-size-xs);
-}
-
-.landing-replay:hover,
-.landing-replay:focus-visible {
-  border-color: var(--discern-color-accent-500);
-  color: var(--discern-color-ink);
-  outline: none;
-}
-
-/* Playback: the frames are always present; while the stage is playing, a
-   backwards-filled keyframe lands them in sequence. Without JS, with reduced
-   motion, or if animations never run, the full sequence is simply there. */
-
-@keyframes landing-frame-land {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .landing-catch.is-playing .landing-frame {
-    animation: landing-frame-land 0.65s
-      var(--discern-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
-  }
-
-  .landing-catch.is-playing .landing-frame[data-frame="02"] {
-    animation-delay: 1.1s;
-  }
-
-  .landing-catch.is-playing .landing-frame[data-frame="03"] {
-    animation-delay: 2.2s;
-  }
-
-  .landing-catch.is-playing .landing-frame[data-frame="04"] {
-    animation-delay: 3.4s;
-  }
 }
 
 /* ── Built for both of you ──────────────────────────────────────────── */

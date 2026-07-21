@@ -1,0 +1,9 @@
+/* Shared static glyph state for the design-system Theme toggle. */
+[data-theme-toggle-glyph] {
+  display: none;
+}
+
+html[data-discern-theme="light"] [data-theme-toggle-glyph="dark"],
+html[data-discern-theme="dark"] [data-theme-toggle-glyph="light"] {
+  display: inline-flex;
+}

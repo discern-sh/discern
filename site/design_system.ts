@@ -45,6 +45,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "icon",
       "button",
       "icon-button",
+      "theme-toggle",
       "brand",
       "badge",
       "heading",

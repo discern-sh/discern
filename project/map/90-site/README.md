@@ -15,6 +15,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.              |
 | [`site/brand.ts`](../../../site/brand.ts)                 | Canonical text mark, favicon route, and drawn-mark geometry.              |
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
+| [`site/theme.ts`](../../../site/theme.ts)                 | Shared pre-paint theme bootstrap and asset paths for site and docs pages. |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.      |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.             |
@@ -96,6 +97,6 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 
 - Three older pages still name Tailwind's CDN and Google Fonts in their source. The production CSP admits neither origin, so no visitor request reaches them; their remote Tailwind compilation and fonts are consequently unavailable. [`project/TODO.md`](../../TODO.md) tracks their migration to local compiled assets as a separate launch blocker. `/` and both composition atlases already use compiled CSS and self-hosted assets.
 - `mockups/landing/` is the design archive. The two homepages replaced in July 2026 remain there as `previous-homepage-2026-07-16.html` and `previous-homepage-2026-07-18.html`; archived pages stay confined to the archive and preserve their historical content.
-- The generated landing page and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`, sharing one document skeleton (`document.ts`) that pairs `data-discern-root` with the theme attribute on `<html>`; `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
+- The generated landing page and two composition atlases are the exceptions to `site/pages/` being hand-authored and self-contained. Their sources live in `site/page-src/`, sharing one document skeleton (`document.ts`) and the same system-aware theme bootstrap and controller as the docs shell. `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
 - [design-system-consumption.md](design-system-consumption.md) records static page composition, retained atlases, build commands, and consumer guards.

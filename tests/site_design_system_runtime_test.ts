@@ -376,8 +376,32 @@ Deno.test("the public homepage is the static local-only landing composition", as
   );
   assertEquals(response.status, 200);
   const html = await response.text();
-  assertStringIncludes(html, "You ask. It builds.");
-  assertStringIncludes(html, "discern checks.");
+  assertStringIncludes(
+    html,
+    '<span class="landing-strapline__line">You ask.</span>' +
+      '<span class="landing-strapline__line">They build.</span>',
+  );
+  assertStringIncludes(
+    html,
+    '<span class="landing-strapline__line"><span class="discern-heading__accent">discern checks.</span></span>',
+  );
+  assertEquals(
+    [...html.matchAll(/class="landing-strapline__line/g)].length,
+    3,
+    "the desktop strapline owns exactly three explicit lines",
+  );
+  assertStringIncludes(html, "discern-process-steps");
+  assert(
+    !html.includes("landing-term") && !html.includes("data-catch-stage"),
+    "the proof story stays readable without terminal playback",
+  );
+  assertStringIncludes(html, "discern-theme-toggle");
+  assertStringIncludes(html, 'aria-label="GitHub"');
+  assertStringIncludes(html, "discern-cta-band--sunken");
+  assert(
+    !html.includes("Marketing atlas"),
+    "the retired atlas is absent from the footer",
+  );
   assertStringIncludes(html, "curl -fsSL https://discern.sh/install | sh");
   assertStringIncludes(html, "static HTML · local assets · no tracking");
   assert(
