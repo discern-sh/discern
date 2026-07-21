@@ -57,7 +57,7 @@ const CONFIG = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[capabilities]",
+  "[jobs]",
   'format = "sh fixer.sh"',
   "",
 ].join("\n");
@@ -226,7 +226,7 @@ for (const stage of MUTATING_STAGES) {
           "[repository]",
           'trunk = "main"',
           "",
-          "[capabilities]",
+          "[jobs]",
           stage.capability,
           "",
         ].join("\n"),

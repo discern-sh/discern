@@ -35,7 +35,7 @@ const CONFIG = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[capabilities]",
+  "[jobs]",
   `test = "echo ${MARKER}"`,
   "",
 ].join("\n");

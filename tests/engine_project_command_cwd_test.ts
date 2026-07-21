@@ -48,7 +48,7 @@ Deno.test("all gate command groups execute at the resolved root from a nested CL
       [
         ...BASE,
         ...STAGES.flatMap((stage) => [
-          `[checks.cwd_${stage}]`,
+          `[jobs.cwd_${stage}]`,
           `stage = "${stage}"`,
           `run = "pwd > cwd-${stage}.txt"`,
           "",
@@ -121,7 +121,7 @@ Deno.test("doctor validates relative project commands at its explicit root", asy
       dir,
       [
         ...BASE,
-        "[capabilities]",
+        "[jobs]",
         'lint = "./root-tool"',
         "",
       ].join("\n"),
@@ -132,7 +132,7 @@ Deno.test("doctor validates relative project commands at its explicit root", asy
     // source checkout. This is the same split an MCP `path` override creates.
     const result = await doctorResult(dir);
     const capabilityCommands = result.data?.checks.find((check) =>
-      check.name === "capability commands"
+      check.name === "job commands"
     );
     assertEquals(capabilityCommands?.ok, true);
   });

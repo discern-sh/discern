@@ -71,7 +71,7 @@ for (const sig of INTERRUPT_SIGNALS) {
           "[repository]",
           'trunk = "main"',
           "",
-          "[capabilities]",
+          "[jobs]",
           // The check-stage job records its own PID (the job group's leader)
           // and blocks, so the test can interrupt a genuinely in-flight gate
           // and then prove the group died.

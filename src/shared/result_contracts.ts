@@ -130,8 +130,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
     id: "config",
     commands: [
-      "config set-capability",
-      "config set-check",
+      "config set-job",
       "config set-scope",
       "config set-standard",
       "config set",

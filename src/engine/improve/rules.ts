@@ -15,6 +15,7 @@
 import { join } from "@std/path";
 import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { isKnownJob, type KnownJob } from "../../shared/capabilities.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
@@ -175,18 +176,21 @@ export async function buildContext(
 
 // ── small helpers the rules share ───────────────────────────────────────────
 
-/** Whether a capability is wired (a non-empty command after no-op filtering). */
-function capWired(
+/** Whether a known job is wired (a non-empty command after no-op filtering). */
+function knownJobWired(
   ctx: ImprovementContext,
-  name: keyof DiscernConfig["capabilities"],
+  name: KnownJob,
 ): boolean {
-  return toCommandList(ctx.config.capabilities[name]).length > 0;
+  return toCommandList(ctx.config.jobs[name]).length > 0;
 }
 
-/** Whether any wired `[checks.<name>]` runs in the given stage. */
-function checkInStage(ctx: ImprovementContext, stage: string): boolean {
-  return Object.values(ctx.config.checks).some(
-    (c) => c.stage === stage && toCommandList(c.run).length > 0,
+/** Whether any wired custom job runs in the given stage. */
+function customJobInStage(ctx: ImprovementContext, stage: string): boolean {
+  return Object.entries(ctx.config.jobs).some(
+    ([name, job]) =>
+      !isKnownJob(name) && typeof job === "object" && job !== null &&
+      !Array.isArray(job) && "stage" in job && job.stage === stage &&
+      toCommandList(job).length > 0,
   );
 }
 
@@ -209,17 +213,17 @@ const GATE: Category = {
       title: "Automated tests wired into the gate",
       weight: 3,
       fix:
-        'discern config set-capability test "<your test command>" (e.g. "npm test")',
+        'discern config set-job test "<your test command>" (e.g. "npm test")',
       teach:
         "A gate that runs no tests can't catch regressions — the single highest-" +
-        "leverage capability to wire. Add your suite as [capabilities].test (or a " +
-        "test-stage [checks.<name>]) so `discern done` runs it before work is called done.",
+        "valuable job to wire. Add your suite as [jobs].test (or a custom test-stage " +
+        "job) so `discern done` runs it before work is called done.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        capWired(ctx, "test") || checkInStage(ctx, "test")
+        knownJobWired(ctx, "test") || customJobInStage(ctx, "test")
           ? { status: "pass", detail: "a test-stage command is wired" }
           : {
             status: "fail",
-            detail: "no test capability or test-stage check is configured",
+            detail: "no test or custom test-stage job is configured",
           },
     },
     {
@@ -228,14 +232,14 @@ const GATE: Category = {
       title: "Static analysis wired (lint or type-check)",
       weight: 2,
       fix:
-        'discern config set-capability lint "<linter>" and/or typecheck "<type checker>"',
+        'discern config set-job lint "<linter>" and/or typecheck "<type checker>"',
       teach:
         "Static analysis catches a whole class of defects before tests run. Wire a " +
-        "linter ([capabilities].lint) and/or a type checker ([capabilities].typecheck) " +
+        "linter ([jobs].lint) and/or a type checker ([jobs].typecheck) " +
         "so the check stage has teeth.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        capWired(ctx, "lint") || capWired(ctx, "typecheck") ||
-          checkInStage(ctx, "check")
+        knownJobWired(ctx, "lint") || knownJobWired(ctx, "typecheck") ||
+          customJobInStage(ctx, "check")
           ? { status: "pass", detail: "a check-stage command is wired" }
           : {
             status: "fail",
@@ -248,12 +252,12 @@ const GATE: Category = {
       title: "Formatter wired (the fix stage)",
       weight: 1,
       fix:
-        'discern config set-capability format "<formatter>" (e.g. "prettier --write .")',
+        'discern config set-job format "<formatter>" (e.g. "prettier --write .")',
       teach:
         "A formatter in the fix stage keeps diffs about substance, not whitespace, " +
-        "and runs first so later stages see canonical code. Wire [capabilities].format.",
+        "and runs first so later stages see canonical code. Wire [jobs].format.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
-        capWired(ctx, "format") || checkInStage(ctx, "fix")
+        knownJobWired(ctx, "format") || customJobInStage(ctx, "fix")
           ? { status: "pass", detail: "a fix-stage command is wired" }
           : { status: "fail", detail: "no formatter is configured" },
     },
@@ -274,7 +278,7 @@ const GATE: Category = {
         "execution and a trustworthy green. Give each test its own temp dir / env / " +
         "fixtures, avoid shared global state, then enable your runner's parallel mode.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const cmd = toCommandList(ctx.config.capabilities.test).join(" && ");
+        const cmd = toCommandList(ctx.config.jobs.test).join(" && ");
         return cmd.trim().length > 0
           ? { source: "the configured test command", excerpt: cmd }
           : undefined;
@@ -295,7 +299,7 @@ const GATE: Category = {
         "enough that a red test explains the broken promise without coupling every test " +
         "to internal structure.",
       against: (ctx): { source: string; excerpt: string } | undefined => {
-        const cmd = toCommandList(ctx.config.capabilities.test).join(" && ");
+        const cmd = toCommandList(ctx.config.jobs.test).join(" && ");
         return cmd.trim().length > 0
           ? {
             source: "the test suite behind the configured command",

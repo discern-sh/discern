@@ -241,7 +241,7 @@ function coverageLine(a: SetupAssurance): string {
     case "minimal":
       return "No quality checks are wired yet, so nothing is caught automatically. Wiring your tests is the highest-value thing to add next.";
     case "partial": {
-      const notRunning = a.capabilities
+      const notRunning = a.known_jobs
         .filter((c) => c.state !== "enforced")
         .map((c) => c.name);
       const tail = notRunning.length > 0

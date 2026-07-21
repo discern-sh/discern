@@ -1,0 +1,31 @@
+[meta]
+schema_version = 21
+bootstrapped = true
+
+[project]
+slug = "schema-21"
+
+[repository]
+trunk = "main"
+branch_prefix = "agent/"
+ensure = []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [capabilities] — known gate work
+# ─────────────────────────────────────────────────────────────────────────────
+
+[capabilities]
+# Keep this comment with the list value.
+lint = ["deno lint", "deno fmt --check"]
+test = { run = "deno test", timeout = 1200 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [checks.<name>] — custom gate work
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Keep this comment with the custom table.
+[checks.licenses]
+stage = "check"
+run = ["scan licenses", "verify notices"]
+provides = "license audit"
+timeout = 90

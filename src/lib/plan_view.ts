@@ -71,7 +71,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       row(
         log,
         "discern.toml",
-        "the whole footprint — capabilities, scopes, worktree",
+        "the whole footprint — jobs, scopes, worktree",
       ),
     );
   }

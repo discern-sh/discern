@@ -7,7 +7,7 @@
  *   - `fresh`       — no `discern.toml` yet. A dual-addressed welcome: reassurance for
  *                     the human, and the `verify` funnel for the agent.
  *   - `in_progress` — `begin` scaffolded but `[meta].bootstrapped` is unset. Show the
- *                     DERIVED progress (markers + capabilities) and point at `done`.
+ *                     DERIVED progress (markers + known jobs) and point at `done`.
  *   - `done`        — bootstrapped. The router shows normal help instead; reached here
  *                     only by an explicit call, which we point at `status`.
  *
@@ -171,7 +171,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
           ? {
             progress: {
               pending_markers: progress.pendingMarkers,
-              capabilities: progress.capabilities,
+              known_jobs: progress.knownJobs,
             },
           }
           : {}),
@@ -534,7 +534,7 @@ function inProgressWelcome(progress: SetupProgress | undefined): string[] {
 
 /**
  * Render derived setup progress as human lines — what doc/guidance authoring is left
- * (files still carrying a marker) and which capabilities are wired. Shared shape with
+ * (files still carrying a marker) and which known jobs are wired. Shared shape with
  * `status`, which reads the same {@link SetupProgress}. Exported so `status` renders
  * it identically.
  */
@@ -552,13 +552,15 @@ export function renderProgressLines(progress: SetupProgress): string[] {
     }
   }
 
-  const wired = progress.capabilities.filter((c) => c.wired).map((c) => c.name);
-  const unset = progress.capabilities.filter((c) => !c.wired).map((c) =>
-    c.name
+  const wired = progress.knownJobs.filter((job) => job.wired).map((job) =>
+    job.name
+  );
+  const unset = progress.knownJobs.filter((job) => !job.wired).map((job) =>
+    job.name
   );
   const wiredPart = wired.length > 0 ? wired.join(", ") : "none yet";
   const unsetPart = unset.length > 0 ? ` · unset: ${unset.join(", ")}` : "";
-  lines.push(`  • capabilities wired: ${wiredPart}${unsetPart}`);
+  lines.push(`  • known jobs wired: ${wiredPart}${unsetPart}`);
 
   return lines;
 }

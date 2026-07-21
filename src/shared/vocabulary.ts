@@ -15,6 +15,8 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   ratchets: "standards",
   docs: "map",
   "config set-ratchet": "config set-standard",
+  "config set-capability": "config set-job",
+  "config set-check": "config set-job",
 };
 
 /** Retired top-level config keys and the canonical key each names now. */
@@ -22,6 +24,8 @@ export const RETIRED_CONFIG_KEY_REDIRECTS: Readonly<Record<string, string>> = {
   ratchets: "standards",
   docs: "map",
   recipes: "scripts",
+  capabilities: "jobs",
+  checks: "jobs",
 };
 
 /** The successor for a retired top-level config key, if `key` is one. */

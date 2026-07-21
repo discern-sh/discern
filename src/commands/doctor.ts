@@ -3,7 +3,7 @@
  * diagnostic: not just pass/fail, but the exact fix when something is wrong.
  *
  * With the engine compiled into the binary, the checks are in-process and few:
- * the config parses, the recorded schema is current, and the capabilities
+ * the config parses, the recorded schema is current, and the declared jobs
  * resolve through the engine's own config reader.
  */
 
@@ -36,7 +36,7 @@ import {
   providerFor,
   providersWithHooks,
 } from "../lib/providers.ts";
-import { capStage, isKnownCapability } from "../shared/capabilities.ts";
+import { isKnownJob, KNOWN_JOBS } from "../shared/capabilities.ts";
 import { commandExists, leadingCommandWord } from "../shared/subprocess.ts";
 import {
   gitVersion,
@@ -275,8 +275,8 @@ export async function runChecks(destDir: string): Promise<Check[]> {
 
   // 3. config schema — validate the WHOLE config against the typed schema, in ONE
   // parse. The one schema pass covers every structural check (an
-  // unknown capability key, a dead [worktree.db]/[worktree.dev_server] adapter, a
-  // bad check stage, an unknown section…): each surfaces as a path-qualified issue
+  // malformed job, a dead [worktree.db]/[worktree.dev_server] adapter, an unknown
+  // section…): each surfaces as a path-qualified issue
   // straight from the schema's own validator. The syntax was already verified
   // above, so `parseConfig` returns issues here rather than throwing.
   const { config, issues } = parseConfig(tomlText);
@@ -329,48 +329,49 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 4. capabilities — informational: which are wired (the unknown-key case is now
-  // a schema issue above, so a valid config only ever lists known capabilities).
+  // 4. known jobs — informational: which built-in names are wired, while naming
+  // custom jobs separately so the closed readiness vocabulary stays visible.
   // "Wired" means the SAME thing the gate, status, and improve mean: the command
   // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
   // wired). Re-deriving that with a looser predicate would let doctor call a no-op
-  // capability healthy while `discern done` runs nothing for it.
-  const wiredCaps = Object.entries(config.capabilities)
-    .filter(([, v]) => toCommandList(v).length > 0).map(([k]) => k);
+  // job healthy while `discern done` runs nothing for it.
+  const wiredKnownJobs = Object.keys(KNOWN_JOBS).filter((name) =>
+    toCommandList(config.jobs[name as keyof typeof KNOWN_JOBS]).length > 0
+  );
+  const wiredCustomJobs = Object.entries(config.jobs)
+    .filter(([name, value]) =>
+      !isKnownJob(name) && toCommandList(value).length > 0
+    )
+    .map(([name]) => name);
+  const customDetail = wiredCustomJobs.length === 0
+    ? "no custom jobs"
+    : `custom jobs: ${wiredCustomJobs.join(", ")}`;
   checks.push({
-    name: "capabilities",
-    ok: wiredCaps.length > 0,
-    detail: wiredCaps.length === 0
-      ? "none wired yet (gate passes without checking)"
-      : `wired: ${wiredCaps.join(", ")}`,
-    ...(wiredCaps.length === 0
+    name: "known jobs",
+    ok: wiredKnownJobs.length > 0,
+    detail: wiredKnownJobs.length === 0
+      ? `none wired yet (gate may pass without the built-in protections); ${customDetail}`
+      : `wired: ${wiredKnownJobs.join(", ")}; ${customDetail}`,
+    ...(wiredKnownJobs.length === 0
       ? {
         status: "warn" as const,
         fix:
-          "wire at least one [capabilities] command, or add a deliberate [checks.<name>] entry if the project uses only custom gate work",
+          "wire at least one known name under [jobs] (format, build, lint, typecheck, test, or smoke)",
       }
       : {}),
   });
 
-  // 5. capability/check commands resolve — the leading command word of each
+  // 5. job commands resolve — the leading command word of each
   // declared command (the word `sh -c` would execute, past any env-assignment
   // prefix, quotes resolved) resolves from the project root, so the gate will
   // not die with "command not found" (including a relative `./tool`).
   {
     const commands: { label: string; word: string }[] = [];
-    for (const [cap, value] of Object.entries(config.capabilities)) {
+    for (const [name, value] of Object.entries(config.jobs)) {
       for (const c of toCommandList(value)) {
         const word = leadingCommandWord(c);
         if (word !== undefined) {
-          commands.push({ label: cap, word });
-        }
-      }
-    }
-    for (const [chk, spec] of Object.entries(config.checks)) {
-      for (const c of toCommandList(spec.run)) {
-        const word = leadingCommandWord(c);
-        if (word !== undefined) {
-          commands.push({ label: chk, word });
+          commands.push({ label: name, word });
         }
       }
     }
@@ -383,7 +384,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     checks.push(
       missing.length === 0
         ? {
-          name: "capability commands",
+          name: "job commands",
           ok: true,
           // Honest about scope: only the LEADING command of each is probed, not
           // every word of a piped/`&&`-chained command, and a command whose
@@ -394,11 +395,10 @@ export async function runChecks(destDir: string): Promise<Check[]> {
             : "each command's leading binary resolves on PATH",
         }
         : {
-          name: "capability commands",
+          name: "job commands",
           ok: false,
           detail: `command not found: ${missing.join(", ")}`,
-          fix:
-            "install the tool, or fix the command in [capabilities]/[checks]",
+          fix: "install the tool, or fix the command under [jobs]",
         },
     );
   }
@@ -769,38 +769,7 @@ export async function runChecks(destDir: string): Promise<Check[]> {
     }
   }
 
-  // 11. capability-shaped checks (advisory). A [checks.<name>] whose name IS a
-  // standard capability and whose stage is that capability's canonical stage is
-  // almost certainly meant to be a [capabilities] entry — which doctor reports and
-  // `discern setup` fills, and a check does not. Nudge toward the free
-  // capability slot. Advisory only (still healthy): a custom-named check with a
-  // standard stage is legitimate when the label is the point.
-  {
-    const wired = new Set(wiredCaps.filter(isKnownCapability));
-    const misfiled = Object.entries(config.checks)
-      .filter(([chk, spec]) =>
-        isKnownCapability(chk) && !wired.has(chk) &&
-        spec.stage === capStage(chk)
-      )
-      .map(([chk]) => chk);
-    if (misfiled.length > 0) {
-      checks.push({
-        name: "capability-shaped checks",
-        ok: true,
-        warn: true,
-        detail: `${
-          misfiled.map((c) => `[checks.${c}]`).join(", ")
-        } match a standard capability at its canonical stage`,
-        fix: `wire as a capability instead (e.g. [capabilities].${
-          misfiled[0]
-        } = "…"), so doctor reports it and \`discern setup\` can fill it — unless the [checks.${
-          misfiled[0]
-        }] name is deliberate`,
-      });
-    }
-  }
-
-  // 12. worktree-resource commands resolve (advisory). The leading command word
+  // 11. worktree-resource commands resolve (advisory). The leading command word
   // of each declared create/destroy/ensure should resolve from the project
   // root, so a worktree round won't die with "command not found".
   {

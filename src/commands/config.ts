@@ -1,7 +1,7 @@
 /**
  * `discern config <subcommand>` — programmatic, comment-preserving edits to an
- * existing `discern.toml` (ADR 0005). Lets a scaffolder or CI set capabilities,
- * checks, scopes, standards, and arbitrary scalars without re-implementing TOML
+ * existing `discern.toml` (ADR 0005). Lets a scaffolder or CI set jobs, scopes,
+ * standards, and arbitrary scalars without re-implementing TOML
  * editing. Every subcommand honours `--json` and `--dry-run`.
  */
 
@@ -16,7 +16,7 @@ import {
   settableConfigValueKind,
   toCommandList,
 } from "../shared/config_schema.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "../lib/config.ts";
+import { isKnownJob, KNOWN_JOBS, STAGES } from "../lib/config.ts";
 import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
 import {
   tomlBool,
@@ -42,7 +42,7 @@ interface Edit {
   literal: string;
 }
 
-/** TOML bare-key shape, enforced for check/scope/standard names. */
+/** TOML bare-key shape, enforced for job/scope/standard names. */
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Emit a failure on the right surface and return exit code 1. */
@@ -165,59 +165,67 @@ async function applyEdits(
 }
 
 /**
- * `config set-capability <name> <command>`
+ * `config set-job <name> [command] [--stage <stage> --run <cmd>]`
  *
- * `<name>` must be a known capability (format/build/lint/typecheck/test/smoke);
- * the gate stage is derived by the engine. The CLI sets one command; the array
- * (multi-command) form is reachable via a config document.
+ * A known name takes the positional command and derives its stage. A custom
+ * name takes `--stage` and `--run`, producing the required table form.
  */
-export async function runConfigSetCapability(
+export async function runConfigSetJob(
   name: string,
-  command: string,
-  opts: ConfigOptions,
-): Promise<number> {
-  if (!Object.hasOwn(KNOWN_CAPABILITIES, name)) {
-    return fail(
-      opts,
-      `unknown capability "${name}". Known capabilities are: ${
-        Object.keys(KNOWN_CAPABILITIES).join(", ")
-      }. For custom work use \`config set-check\` with a stage.`,
-    );
-  }
-  // A no-op value (the same test the gate and the assurance summary use) means
-  // DEFERRED, not enforced — say so, rather than let a silent success read as
-  // "wired".
-  const deferred = toCommandList(command).length === 0;
-  return await applyEdits(
-    [{ key: `capabilities.${name}`, literal: tomlString(command) }],
-    opts,
-    `Set capability "${name}".`,
-    deferred
-      ? [
-        `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
-      ]
-      : [],
-  );
-}
-
-/**
- * `config set-check <name> --stage <stage> --run <cmd> [--provides <label>]`
- *
- * Custom gate work outside the known capability vocabulary: an explicit stage
- * (fix/build/check/test), a command, and an optional free-text label.
- */
-export async function runConfigSetCheck(
-  name: string,
+  command: string | undefined,
   opts: ConfigOptions & {
-    stage: string;
-    run: string;
+    stage?: string | undefined;
+    run?: string | undefined;
     provides?: string | undefined;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
     return fail(
       opts,
-      `check name must be letters, digits, '_' or '-' (got "${name}").`,
+      `job name must be letters, digits, '_' or '-' (got "${name}").`,
+    );
+  }
+  if (isKnownJob(name)) {
+    if (opts.stage !== undefined) {
+      return fail(
+        opts,
+        `known job "${name}" derives stage "${
+          KNOWN_JOBS[name]
+        }" from its name — remove --stage.`,
+      );
+    }
+    if (opts.run !== undefined || opts.provides !== undefined) {
+      return fail(
+        opts,
+        `known job "${name}" takes its command as the second argument; --run and --provides are for custom jobs.`,
+      );
+    }
+    // Cliffy normalizes an explicitly empty optional positional argument to
+    // undefined. Preserve the established "present but deferred" write by
+    // treating an omitted known-job command as the empty command.
+    const knownCommand = command ?? "";
+    const deferred = toCommandList(knownCommand).length === 0;
+    return await applyEdits(
+      [{ key: `jobs.${name}`, literal: tomlString(knownCommand) }],
+      opts,
+      `Set job "${name}".`,
+      deferred
+        ? [
+          `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
+        ]
+        : [],
+    );
+  }
+  if (command !== undefined) {
+    return fail(
+      opts,
+      `custom job "${name}" uses the table form — pass --stage and --run instead of a positional command.`,
+    );
+  }
+  if (opts.stage === undefined) {
+    return fail(
+      opts,
+      `custom job "${name}" needs --stage (${STAGES.join(", ")}) and --run.`,
     );
   }
   if (!(STAGES as readonly string[]).includes(opts.stage)) {
@@ -226,17 +234,20 @@ export async function runConfigSetCheck(
       `unknown stage "${opts.stage}". Use one of: ${STAGES.join(", ")}.`,
     );
   }
+  if (opts.run === undefined) {
+    return fail(opts, `custom job "${name}" needs --run.`);
+  }
   const edits: Edit[] = [
-    { key: `checks.${name}.stage`, literal: tomlString(opts.stage) },
-    { key: `checks.${name}.run`, literal: tomlString(opts.run) },
+    { key: `jobs.${name}.stage`, literal: tomlString(opts.stage) },
+    { key: `jobs.${name}.run`, literal: tomlString(opts.run) },
   ];
   if (opts.provides !== undefined) {
     edits.push({
-      key: `checks.${name}.provides`,
+      key: `jobs.${name}.provides`,
       literal: tomlString(opts.provides),
     });
   }
-  return await applyEdits(edits, opts, `Set check "${name}".`);
+  return await applyEdits(edits, opts, `Set job "${name}".`);
 }
 
 /** `config set-scope <name> <glob>... [--neutral] [--previewable] [--gate <cmd>]` */
@@ -350,7 +361,7 @@ export async function runConfigSet(
     }
     return fail(
       opts,
-      `unknown config key "${key}" — it is not part of the discern.toml schema (see \`discern help config-reference\`). For custom gate work use \`config set-check\`.`,
+      `unknown config key "${key}" — it is not part of the discern.toml schema (see \`discern help config-reference\`). For custom gate work use \`config set-job\` with --stage and --run.`,
       "unknown_key",
     );
   }

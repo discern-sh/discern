@@ -90,7 +90,7 @@ const FAILING_CHECK = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[capabilities]",
+  "[jobs]",
   `lint = "echo LINT-BROKE; exit 7"`,
   "",
 ].join("\n");
@@ -104,7 +104,7 @@ const FAILING_TEST = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[capabilities]",
+  "[jobs]",
   `test = "echo TEST-BROKE; exit 3"`,
   "",
 ].join("\n");

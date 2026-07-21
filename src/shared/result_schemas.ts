@@ -32,7 +32,7 @@ import {
   STEP_KINDS,
   STEP_OUTCOMES,
 } from "./result.ts";
-import { ASSURANCE_VERDICTS, CAPABILITY_STATES } from "./setup_assurance.ts";
+import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -576,8 +576,7 @@ export type StatusGit = z.infer<typeof statusGitSchema>;
 
 /** What the gate WOULD fire for the current change — enumerated, never run. */
 const statusGateSchema = z.strictObject({
-  capabilities: z.array(z.string()),
-  checks: z.array(z.string()),
+  jobs: z.array(z.string()),
   scope_gates: z.array(z.string()),
 });
 export type StatusGate = z.infer<typeof statusGateSchema>;
@@ -634,7 +633,7 @@ export const StatusDataSchema = z.strictObject({
   tracked_ignored_artifacts: z.array(z.string()).optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),
-    capabilities: z.array(
+    known_jobs: z.array(
       z.strictObject({ name: z.string(), wired: z.boolean() }),
     ),
   }).optional(),
@@ -960,19 +959,19 @@ export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
 // setup done ──────────────────────────────────────────────────────────────────
 
-/** One capability's honest coverage state at completion — mirrors
- * {@link import("./setup_assurance.ts").CapabilityAssurance}. The `state` enum is
- * DERIVED from `CAPABILITY_STATES` (the SSOT), so a new state enrolls here from one edit. */
-export const CapabilityAssuranceSchema = z.strictObject({
+/** One known job's coverage state at completion — mirrors
+ * {@link import("./setup_assurance.ts").KnownJobAssurance}. The `state` enum is
+ * DERIVED from `KNOWN_JOB_STATES` (the SSOT). */
+export const KnownJobAssuranceSchema = z.strictObject({
   name: z.string(),
-  state: z.enum(CAPABILITY_STATES),
+  state: z.enum(KNOWN_JOB_STATES),
   reason: z.string().optional(),
 });
 
-/** The rolled-up per-capability coverage `setup done` reports — mirrors
+/** The rolled-up known-job coverage `setup done` reports — mirrors
  * {@link import("./setup_assurance.ts").SetupAssurance}. */
 export const SetupAssuranceSchema = z.strictObject({
-  capabilities: z.array(CapabilityAssuranceSchema),
+  known_jobs: z.array(KnownJobAssuranceSchema),
   enforced: z.number(),
   total: z.number(),
   verdict: z.enum(ASSURANCE_VERDICTS),
@@ -1041,7 +1040,7 @@ const setupProjectSchema = z.strictObject({
 
 const setupProgressSchema = z.strictObject({
   pending_markers: z.array(z.string()),
-  capabilities: z.array(
+  known_jobs: z.array(
     z.strictObject({ name: z.string(), wired: z.boolean() }),
   ),
 });

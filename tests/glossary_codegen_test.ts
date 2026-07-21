@@ -4,7 +4,7 @@ import {
   renderGlossaryDoc,
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 // These prove the committed glossary page stays in lockstep with the term
@@ -53,14 +53,14 @@ Deno.test("the rendered page alphabetizes every entry under its own heading", ()
   }
 });
 
-Deno.test("the capability entry closes over exactly the live capability vocabulary", () => {
-  const entry = GLOSSARY.find((e) => e.term === "Capability");
-  assert(entry !== undefined, "the glossary must define Capability");
-  for (const name of Object.keys(KNOWN_CAPABILITIES)) {
+Deno.test("the gate job entry closes over exactly the live known-job vocabulary", () => {
+  const entry = GLOSSARY.find((e) => e.term === "Gate job");
+  assert(entry !== undefined, "the glossary must define Gate job");
+  for (const name of Object.keys(KNOWN_JOBS)) {
     assertStringIncludes(
       entry.definition,
       `\`${name}\``,
-      `the Capability entry must name the ${name} capability — it interpolates KNOWN_CAPABILITIES`,
+      `the Gate job entry must name the ${name} known job — it interpolates KNOWN_JOBS`,
     );
   }
 });

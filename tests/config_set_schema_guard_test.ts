@@ -10,7 +10,7 @@
  *
  *   - exit 0  ⇒ the resulting discern.toml parses as TOML and validates against
  *               the schema, bar the documented incomplete-record allowance (a
- *               required key still MISSING inside a `[checks.<n>]`-family entry);
+ *               required key still MISSING inside a `[jobs.<n>]`-family entry);
  *   - exit ≠0 ⇒ the file is byte-identical to what it was before.
  *
  * The oracle is independent of the production write-time check: raw @std/toml +

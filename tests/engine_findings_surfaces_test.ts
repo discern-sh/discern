@@ -149,7 +149,7 @@ function gateConfig(testCommand: "true" | "false", logbook = true): string {
     "[repository]",
     'trunk = "main"',
     "",
-    "[capabilities]",
+    "[jobs]",
     `test = "${testCommand}"`,
     "",
   ].join("\n");

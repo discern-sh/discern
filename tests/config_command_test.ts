@@ -39,11 +39,11 @@ function sectionKeys(text: string, section: string): string[] {
   return keys;
 }
 
-Deno.test("config set-capability fills a capability and preserves comments", async () => {
+Deno.test("config set-job fills a known job and preserves comments", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-capability", "test", "vitest run", "--json"],
+      ["config", "set-job", "test", "vitest run", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
@@ -51,9 +51,7 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
     assertEquals(result.ok, true);
     assertEquals(result.verb, "config");
     assert(
-      result.data.edits.some((e: { key: string }) =>
-        e.key === "capabilities.test"
-      ),
+      result.data.edits.some((e: { key: string }) => e.key === "jobs.test"),
     );
 
     const toml = await readToml(dir);
@@ -66,13 +64,13 @@ Deno.test("config set-capability fills a capability and preserves comments", asy
   });
 });
 
-Deno.test("config set-capability names an empty command as deferred, on both surfaces", async () => {
-  // `set-capability <name> ""` silently meant "deferred" — present but a no-op the
+Deno.test("config set-job names an empty command as deferred, on both surfaces", async () => {
+  // `set-job <name> ""` silently meant "deferred" — present but a no-op the
   // gate skips. The success output must say so, or a silent success reads as "wired".
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-capability", "test", "", "--json"],
+      ["config", "set-job", "test", "", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
@@ -83,13 +81,13 @@ Deno.test("config set-capability names an empty command as deferred, on both sur
       `expected a deferred hint: ${r.stdout}`,
     );
 
-    const human = await runCli(["config", "set-capability", "test", ""], dir);
+    const human = await runCli(["config", "set-job", "test", ""], dir);
     assertEquals(human.code, 0, human.stderr);
     assertStringIncludes(human.stderr + human.stdout, "deferred");
 
     // A real command carries no such hint.
     const wired = await runCli(
-      ["config", "set-capability", "test", "vitest run", "--json"],
+      ["config", "set-job", "test", "vitest run", "--json"],
       dir,
     );
     assertEquals(
@@ -100,25 +98,23 @@ Deno.test("config set-capability names an empty command as deferred, on both sur
   });
 });
 
-Deno.test("config set-capability round-trips the smoke capability (ADR 0090)", async () => {
-  // `smoke` is a first-class known capability (stage: test), so set-capability accepts
-  // it and the written line re-parses cleanly — the same path every capability takes.
+Deno.test("config set-job round-trips the smoke known job (ADR 0090)", async () => {
+  // `smoke` is a first-class known job (stage: test), so set-job accepts
+  // it and the written line re-parses cleanly — the same path every known job takes.
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       // `true` is a real, PATH-resolvable stand-in for a boot check (so doctor stays
       // green); the point is that `smoke` takes the same accept→write→load path as any
-      // known capability.
-      ["config", "set-capability", "smoke", "true", "--json"],
+      // known job.
+      ["config", "set-job", "smoke", "true", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
     assert(
-      result.data.edits.some((e: { key: string }) =>
-        e.key === "capabilities.smoke"
-      ),
+      result.data.edits.some((e: { key: string }) => e.key === "jobs.smoke"),
     );
     assertStringIncludes(await readToml(dir), 'smoke = "true"');
     // The install still loads cleanly with smoke wired.
@@ -179,27 +175,28 @@ Deno.test("config set allows a valid-but-incomplete path (incremental table buil
   });
 });
 
-Deno.test("config set-capability rejects an unknown capability name", async () => {
+Deno.test("config set-job requires the table form for a custom name", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-capability", "deploy", "deploy.sh", "--json"],
+      ["config", "set-job", "deploy", "deploy.sh", "--json"],
       dir,
     );
     assertEquals(r.code, 1);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "unknown capability");
+    assertStringIncludes(result.message, "table form");
+    assertStringIncludes(result.message, "--stage");
   });
 });
 
-Deno.test("config set-check writes a check table", async () => {
+Deno.test("config set-job writes a custom job table", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-check",
+        "set-job",
         "licenses",
         "--stage",
         "check",
@@ -216,22 +213,22 @@ Deno.test("config set-check writes a check table", async () => {
     assertEquals(result.ok, true);
     assert(
       result.data.edits.some((e: { key: string }) =>
-        e.key === "checks.licenses.run"
+        e.key === "jobs.licenses.run"
       ),
     );
     const toml = await readToml(dir);
-    assertStringIncludes(toml, "[checks.licenses]");
+    assertStringIncludes(toml, "[jobs.licenses]");
     assertStringIncludes(toml, 'stage = "check"');
     assertStringIncludes(toml, 'run = "license-scan"');
     assertStringIncludes(toml, 'provides = "license-audit"');
     assert(
-      toml.indexOf("# [checks.<name>]") <
-          toml.indexOf("\n[checks.licenses]\n") &&
-        toml.indexOf("\n[checks.licenses]\n") <
+      toml.indexOf("# [jobs]") <
+          toml.indexOf("\n[jobs.licenses]\n") &&
+        toml.indexOf("\n[jobs.licenses]\n") <
           toml.indexOf("# [scopes.<name>]"),
-      "the first check should land inside the checks region",
+      "the first custom job should land inside the jobs region",
     );
-    assertEquals(sectionKeys(toml, "checks.licenses"), [
+    assertEquals(sectionKeys(toml, "jobs.licenses"), [
       "stage",
       "run",
       "provides",
@@ -239,13 +236,13 @@ Deno.test("config set-check writes a check table", async () => {
   });
 });
 
-Deno.test("config set-check rejects an unknown stage", async () => {
+Deno.test("config set-job rejects an unknown stage", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
       [
         "config",
-        "set-check",
+        "set-job",
         "x",
         "--stage",
         "deploy",
@@ -259,6 +256,43 @@ Deno.test("config set-check rejects an unknown stage", async () => {
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertStringIncludes(result.message, "unknown stage");
+  });
+});
+
+Deno.test("config set-job forbids --stage on a known name", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-job",
+        "test",
+        "--stage",
+        "test",
+        "--run",
+        "vitest run",
+        "--json",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 1);
+    assertStringIncludes(JSON.parse(r.stdout).message, "derives stage");
+  });
+});
+
+Deno.test("retired job-setting subcommands hard-error with set-job", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (const retired of ["set-capability", "set-check"]) {
+      const r = await runCli(
+        ["config", retired, "test", "true", "--json"],
+        dir,
+      );
+      assertEquals(r.code, 1, `${retired}: ${r.stdout}${r.stderr}`);
+      const result = JSON.parse(r.stdout);
+      assertEquals(result.error, "renamed_command");
+      assertStringIncludes(result.message, "config set-job");
+    }
   });
 });
 
@@ -436,7 +470,7 @@ Deno.test("config set refuses a value the next read would reject, leaving the fi
     }[] = [
       // An enum-typed key names its closed vocabulary.
       {
-        args: ["config", "set", "checks.x.stage", "bogus"],
+        args: ["config", "set", "jobs.x.stage", "bogus"],
         includes: "must be one of: ",
       },
       // A non-number for a number key.
@@ -517,7 +551,7 @@ Deno.test("config --dry-run writes nothing", async () => {
     const r = await runCli(
       [
         "config",
-        "set-capability",
+        "set-job",
         "test",
         "vitest run",
         "--dry-run",
@@ -555,13 +589,13 @@ Deno.test("config errors to stderr (not JSON) when not initialized", async () =>
 Deno.test("config set-<record> rejects a malformed name in every record section", async () => {
   // Every `config set-<record>` subcommand validates its <name> through the same
   // rule. Sections derive from the schema SSOT (recordConfigPaths); the args differ
-  // per subcommand (scope takes globs, check takes --stage/--run, standard takes
+  // per subcommand (scope takes globs, job takes --stage/--run, standard takes
   // --limit/--run), so a fixture arg-list is mapped per kind and asserted to cover
   // exactly the sections — a new record section forces an entry here (or an
   // exemption). worktree.resources has no `set-resource` subcommand: a self-checking
   // exemption from the CLI record-writer set.
   const SET_RECORD_ARGS: Record<string, string[]> = {
-    check: ["--stage", "check", "--run", "x"],
+    job: ["--stage", "check", "--run", "x"],
     scope: ["src/**"],
     standard: ["--limit", "80", "--run", "m"],
   };

@@ -5,9 +5,9 @@
  *
  * Two layers:
  *   - unit, over {@link assessSetupAssurance}: the three-way classification
- *     (enforced / deferred / absent) is derived from the resolved `[capabilities]`
+ *     (enforced / deferred / absent) is derived from the resolved `[jobs]`
  *     alone, the verdict rolls them up, and the summary covers EXACTLY the
- *     {@link KNOWN_CAPABILITIES} SSOT — so a new capability auto-enrols (fix-the-class,
+ *     {@link KNOWN_JOBS} SSOT — so a new capability auto-enrols (fix-the-class,
  *     ADR 0051), never silently dropped from the report;
  *   - integration, over the real `setup done` CLI: the `--json` envelope carries the
  *     assurance block + verdict + the landing summary, and the human output names what
@@ -16,11 +16,11 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   assessSetupAssurance,
-  classifyCapability,
+  classifyKnownJob,
   deferralReason,
 } from "../src/shared/setup_assurance.ts";
 import { withTempDir } from "./helpers.ts";
@@ -32,45 +32,45 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
-// ── unit: classification + verdict, derived from [capabilities] alone ───────────
+// ── unit: classification + verdict, derived from [jobs] alone ───────────
 
 Deno.test("the assurance summary covers EXACTLY the known-capability SSOT", () => {
-  // Drive the guarantee off KNOWN_CAPABILITIES so a new capability auto-enrols in the
+  // Drive the guarantee off KNOWN_JOBS so a new capability auto-enrols in the
   // report (fix-the-class): the summary's names must equal the SSOT, in its order.
   const a = assessSetupAssurance(parseConfigOrThrow(""));
   assertEquals(
-    a.capabilities.map((c) => c.name),
-    Object.keys(KNOWN_CAPABILITIES),
+    a.known_jobs.map((job) => job.name),
+    Object.keys(KNOWN_JOBS),
   );
-  assertEquals(a.total, Object.keys(KNOWN_CAPABILITIES).length);
+  assertEquals(a.total, Object.keys(KNOWN_JOBS).length);
 });
 
-Deno.test("classifyCapability: enforced (real command) / deferred (no-op) / absent (omitted)", () => {
+Deno.test("classifyKnownJob: enforced (real command) / deferred (no-op) / absent (omitted)", () => {
   const config = parseConfigOrThrow(
     [
-      "[capabilities]",
+      "[jobs]",
       'format = "deno fmt"', // a real command → enforced
       'test = ":"', // the POSIX no-op → deferred
       'lint = ""', // an empty command → deferred
       // typecheck + build omitted → absent
     ].join("\n"),
   );
-  assertEquals(classifyCapability(config, "format"), "enforced");
-  assertEquals(classifyCapability(config, "test"), "deferred");
-  assertEquals(classifyCapability(config, "lint"), "deferred");
-  assertEquals(classifyCapability(config, "typecheck"), "absent");
-  assertEquals(classifyCapability(config, "build"), "absent");
+  assertEquals(classifyKnownJob(config, "format"), "enforced");
+  assertEquals(classifyKnownJob(config, "test"), "deferred");
+  assertEquals(classifyKnownJob(config, "lint"), "deferred");
+  assertEquals(classifyKnownJob(config, "typecheck"), "absent");
+  assertEquals(classifyKnownJob(config, "build"), "absent");
 });
 
 Deno.test("a list capability with only no-op items is deferred, not enforced", () => {
-  const config = parseConfigOrThrow('[capabilities]\ntest = ["", ":"]\n');
-  assertEquals(classifyCapability(config, "test"), "deferred");
+  const config = parseConfigOrThrow('[jobs]\ntest = ["", ":"]\n');
+  assertEquals(classifyKnownJob(config, "test"), "deferred");
 });
 
 Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", () => {
   const full = parseConfigOrThrow(
     [
-      "[capabilities]",
+      "[jobs]",
       'format = "fmt"',
       'build = "build"',
       'lint = "lint"',
@@ -82,25 +82,25 @@ Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", ()
   assertEquals(assessSetupAssurance(full).verdict, "full");
   assertEquals(assessSetupAssurance(full).enforced, 6);
 
-  const partial = parseConfigOrThrow('[capabilities]\ntest = "test"\n');
+  const partial = parseConfigOrThrow('[jobs]\ntest = "test"\n');
   assertEquals(assessSetupAssurance(partial).verdict, "partial");
   assertEquals(assessSetupAssurance(partial).enforced, 1);
 
   // A deferred capability does NOT count as enforced — coverage with only a no-op
   // is minimal, never partial.
-  const deferred = parseConfigOrThrow('[capabilities]\ntest = ":"\n');
+  const deferred = parseConfigOrThrow('[jobs]\ntest = ":"\n');
   assertEquals(assessSetupAssurance(deferred).verdict, "minimal");
   assertEquals(assessSetupAssurance(deferred).enforced, 0);
 
   assertEquals(assessSetupAssurance(parseConfigOrThrow("")).verdict, "minimal");
 });
 
-Deno.test("deferralReason extracts an inline comment, scoped to [capabilities]", () => {
+Deno.test("deferralReason extracts an inline comment, scoped to [jobs]", () => {
   const toml = [
-    "[checks.test]",
+    "[scopes.test]",
     'run = "x"  # not this comment', // a different section, ignored
     "",
-    "[capabilities]",
+    "[jobs]",
     'format = "deno fmt"',
     'test = ":"  # blocked by a runtime mismatch, see TODO.md',
   ].join("\n");
@@ -115,16 +115,15 @@ Deno.test("deferralReason extracts an inline comment, scoped to [capabilities]",
 });
 
 Deno.test("assessSetupAssurance attaches a deferred capability's reason from the raw toml", () => {
-  const toml =
-    '[capabilities]\ntest = ":"  # deferred until the runtime is fixed\n';
+  const toml = '[jobs]\ntest = ":"  # deferred until the runtime is fixed\n';
   const a = assessSetupAssurance(parseConfigOrThrow(toml), toml);
-  const test = a.capabilities.find((c) => c.name === "test");
+  const test = a.known_jobs.find((job) => job.name === "test");
   assertEquals(test?.state, "deferred");
   assertEquals(test?.reason, "deferred until the runtime is fixed");
   // Without the raw toml, the state is still correct; only the reason is omitted.
   const noRaw = assessSetupAssurance(parseConfigOrThrow(toml));
   assertEquals(
-    noRaw.capabilities.find((c) => c.name === "test")?.reason,
+    noRaw.known_jobs.find((job) => job.name === "test")?.reason,
     undefined,
   );
 });
@@ -140,7 +139,7 @@ const MIXED_CONFIG = [
   "[guidance]",
   'agents = ["claude_code"]',
   "",
-  "[capabilities]",
+  "[jobs]",
   'format = "deno fmt"',
   'lint = "deno lint"',
   'test = ":"  # tests blocked by a runtime mismatch, see TODO.md',
@@ -160,7 +159,7 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     assertEquals(a.enforced, 2);
     assertEquals(a.total, 6);
     const cap = (name: string): { state: string; reason?: string } => {
-      const c = a.capabilities.find((x: { name: string }) => x.name === name);
+      const c = a.known_jobs.find((x: { name: string }) => x.name === name);
       assert(c !== undefined, `assurance is missing capability "${name}"`);
       return c;
     };
@@ -238,7 +237,7 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
     await writeConfig(
       dir,
       [
-        "[capabilities]",
+        "[jobs]",
         'format = "deno fmt"',
         'lint = "deno lint"',
       ].join("\n"),
@@ -246,7 +245,7 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
     const res = JSON.parse(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
     );
-    const test = res.data.assurance.capabilities.find(
+    const test = res.data.assurance.known_jobs.find(
       (c: { name: string }) => c.name === "test",
     );
     assertEquals(test.state, "absent");

@@ -37,13 +37,13 @@ const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
  * needs. `willRun` is false for a configured-but-unchanged scope gate and for a
  * standard whose measurement is replayed or deferred (each listed and reported
- * with its `note`); capabilities and checks are always planned to run —
+ * with its `note`); declared jobs are always planned to run —
  * fail-fast skips can't be predicted at plan time (the dry-run honesty rule).
  */
 export interface PlannedJob {
   label: string;
   command: string;
-  kind: "capability" | "check" | "scope-gate" | "standard";
+  kind: "known" | "custom" | "scope-gate" | "standard";
   /** The stage reported in `jobs[].stage` (a real STAGE), or "scope_gates". */
   reportStage: Stage | "scope_gates";
   willRun: boolean;
@@ -102,7 +102,7 @@ export interface GatePlan {
 }
 
 /**
- * The capability/check jobs for a real gate stage (fix|build|check|test), as
+ * The declared jobs for a real gate stage (fix|build|check|test), as
  * planned jobs. Pure: derived from the typed config alone.
  */
 export function planStageJobs(cfg: DiscernConfig, stage: Stage): PlannedJob[] {
@@ -220,7 +220,7 @@ export function checkTestGroup(
 }
 
 /**
- * The capability/check job groups — fix (serial) → build → check∥test — derived
+ * The declared-job groups — fix (serial) → build → check∥test — derived
  * from the typed config alone. These are independent of the changed scopes, so the
  * executor can run them BEFORE classifying scopes (preserving the gate's original
  * timing, where a fix-stage edit is reflected in the scope classification).
@@ -419,8 +419,8 @@ function jobFailureMessage(label: string, r: JobResult): string {
 
 /**
  * Serialize executed job groups into {@link StepResult}s + {@link Diagnostic}s — the
- * projection shared by `done`, `prepare`, and `discern test`. Each capability/
- * check/scope-gate job becomes a step (looked up by label; missing → skipped), in
+ * projection shared by `done`, `prepare`, and `discern test`. Each declared job
+ * or scope-gate job becomes a step (looked up by label; missing → skipped), in
  * plan order. A genuine failure that captured output yields a Tier-0 diagnostic (the
  * command to reproduce it + its captured output), or — when the FULL captured output
  * is a recognized machine format (SARIF) — one Tier-1 diagnostic per finding
@@ -534,7 +534,7 @@ export async function buildGateResult(
  * check (ADR 0050), tracked-artifacts guard, then the guidance/skills currency
  * checks (ADR 0056) — followed by each job grouped under its stage, a firing job
  * `run`, an unchanged scope gate `skip`. Honest by construction:
- * capabilities/checks render as "run" — fail-fast may still skip some, which a
+ * declared jobs render as "run" — fail-fast may still skip some, which a
  * plan cannot predict.
  */
 export function gatePlanToEngine(plan: GatePlan): EnginePlan {

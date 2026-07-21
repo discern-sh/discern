@@ -15,7 +15,7 @@ const ANSWERS = JSON.stringify({
   version: "2",
   name: "Edge App",
   slug: "edge-app",
-  capabilities: { test: "vitest run" },
+  jobs: { test: "vitest run" },
 });
 
 // --- templates_not_found: resolveTemplatesDir throws ---
@@ -139,7 +139,7 @@ Deno.test("setup reports invalid --config fills to stderr without --json", async
       join(dir, "answers.json"),
       JSON.stringify({
         slug: "x",
-        checks: { t: { stage: "bogus", run: "x" } },
+        jobs: { t: { stage: "bogus", run: "x" } },
       }),
     );
     const { code, stdout, stderr } = await runCli(

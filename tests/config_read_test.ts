@@ -37,11 +37,11 @@ agents = ["claude_code", "codex"]
 [repository]
 trunk = "main"
 
-[capabilities]
+[jobs]
 format = "deno fmt"
 lint = ["eslint .", "stylelint ."]
 
-[checks.selfcheck]
+[jobs.selfcheck]
 stage = "check"
 run = "deno task selfcheck"
 
@@ -73,15 +73,15 @@ Deno.test("get reads scalars and stringifies non-strings", () => {
 
 Deno.test("array: array yields items, scalar yields one, absent yields []", () => {
   const c = new RawConfig(SAMPLE);
-  assertEquals(c.array("capabilities.lint"), ["eslint .", "stylelint ."]);
-  assertEquals(c.array("capabilities.format"), ["deno fmt"]);
+  assertEquals(c.array("jobs.lint"), ["eslint .", "stylelint ."]);
+  assertEquals(c.array("jobs.format"), ["deno fmt"]);
   assertEquals(c.array("project.agents"), ["claude_code", "codex"]);
   assertEquals(c.array("missing"), []);
 });
 
 Deno.test("subsections returns child table names only", () => {
   const c = new RawConfig(SAMPLE);
-  assertEquals(c.subsections("checks"), ["selfcheck"]);
+  assertEquals(c.subsections("jobs"), ["selfcheck"]);
   assertEquals(c.subsections("scopes"), ["docs"]);
   assertEquals(c.subsections("standards"), ["coverage"]);
   assertEquals(c.subsections("missing"), []);
@@ -89,7 +89,7 @@ Deno.test("subsections returns child table names only", () => {
 
 Deno.test("keys returns flat keys, excluding nested tables", () => {
   const c = new RawConfig(SAMPLE);
-  assertEquals(c.keys("capabilities").sort(), ["format", "lint"]);
+  assertEquals(c.keys("jobs").sort(), ["format", "lint"]);
   assertEquals(c.keys("project").sort(), ["agents", "slug"]);
   assertEquals(c.keys("repository"), ["trunk"]);
 });

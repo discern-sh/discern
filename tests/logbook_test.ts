@@ -253,7 +253,7 @@ Deno.test("epoch: a real standards edit flips exactly the standards section", ()
 Deno.test("epoch: a capability edit flips exactly the capabilities section", () => {
   const before = configEpoch(parseConfigOrThrow(""));
   const edited = configEpoch(
-    parseConfigOrThrow('[capabilities]\nlint = "deno lint"'),
+    parseConfigOrThrow('[jobs]\nlint = "deno lint"'),
   );
   assert(edited.fingerprint !== before.fingerprint);
   assertEquals(changedSections(before.sections, edited.sections), [

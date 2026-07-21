@@ -1,5 +1,5 @@
 /**
- * The `[checks.prose]` gate command: Vale at error severity over the map's
+ * The `[jobs.prose]` gate command: Vale at error severity over the map's
  * PROSE — a staged mirror with frontmatter blanked and `_private` skipped
  * (see scripts/prose_lib.ts), so a metadata block can never trip the gate
  * and a diagnostic still names the real file and line.

@@ -133,8 +133,8 @@ Deno.test("preset --dry-run writes nothing (files or fills)", async () => {
   });
 });
 
-/** Insert a real (uncommented) key under the scaffold's `[capabilities]`. */
-async function setUserCapability(
+/** Insert a real (uncommented) known job under the scaffold's `[jobs]`. */
+async function setUserJob(
   dir: string,
   key: string,
   value: string,
@@ -143,7 +143,7 @@ async function setUserCapability(
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
-    text.replace(/\[capabilities\]\n/, `[capabilities]\n${key} = "${value}"\n`),
+    text.replace(/\[jobs\]\n/, `[jobs]\n${key} = "${value}"\n`),
   );
 }
 
@@ -152,7 +152,7 @@ Deno.test("preset config fills never overwrite a value the user already set", as
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     // The user's own, stronger test command — possibly uncommitted tuning. The
     // example preset's fills carry a weaker `test`; it must not win.
-    await setUserCapability(dir, "test", "cargo test --workspace");
+    await setUserJob(dir, "test", "cargo test --workspace");
 
     const r = await runCli(
       ["preset", "example", "--yes", "--json"],
@@ -170,7 +170,7 @@ Deno.test("preset config fills never overwrite a value the user already set", as
       "the preset's weaker command must not replace the user's",
     );
     // The kept key is disclosed, and the remaining fills still landed.
-    assert(result.data.config_fills_skipped.includes("capabilities.test"));
+    assert(result.data.config_fills_skipped.includes("jobs.test"));
     assert(result.data.config_fills_applied.includes("standards.examplesize"));
     assertStringIncludes(toml, "[standards.examplesize]");
   });
@@ -179,7 +179,7 @@ Deno.test("preset config fills never overwrite a value the user already set", as
 Deno.test("preset --dry-run disclosures name each key filled and each kept", async () => {
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
-    await setUserCapability(dir, "test", "cargo test --workspace");
+    await setUserJob(dir, "test", "cargo test --workspace");
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
 
     const r = await runCli(
@@ -192,7 +192,7 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
     assertEquals(result.dry_run, true);
     // Per-key disclosure: what would be written, and what the user keeps.
     assert(result.data.config_fills_applied.includes("standards.examplesize"));
-    assert(result.data.config_fills_skipped.includes("capabilities.test"));
+    assert(result.data.config_fills_skipped.includes("jobs.test"));
     // Nothing was written.
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
 
@@ -205,7 +205,7 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
     assertEquals(human.code, 0, human.stderr);
     assertStringIncludes(human.stderr, "Would fill discern.toml:");
     assertStringIncludes(human.stderr, "standards.examplesize");
-    assertStringIncludes(human.stderr, "capabilities.test");
+    assertStringIncludes(human.stderr, "jobs.test");
   });
 });
 
@@ -230,7 +230,7 @@ Deno.test("re-applying a preset fills nothing and leaves discern.toml byte-ident
     // Every fill now exists, so the second pass writes no config at all.
     assertEquals(result.data.config_fills, false);
     assertEquals(result.data.config_fills_applied, []);
-    assert(result.data.config_fills_skipped.includes("capabilities.test"));
+    assert(result.data.config_fills_skipped.includes("jobs.test"));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       afterFirst,
@@ -342,7 +342,7 @@ Deno.test("preset --dry-run prints the plan as plain text and writes nothing", a
     assertStringIncludes(r.stdout, "discern/scripts/example-deploy");
     assertStringIncludes(r.stderr, 'Dry run — preset "example" would overlay');
     assertStringIncludes(r.stderr, "Would fill discern.toml:");
-    assertStringIncludes(r.stderr, "capabilities.test");
+    assertStringIncludes(r.stderr, "jobs.test");
     // Nothing was written.
     assert(!(await exists(join(dir, "discern/scripts/example-deploy"))));
     assertEquals(
@@ -414,7 +414,7 @@ Deno.test("preset rejects invalid config fills as plain text", async () => {
       // A check with an unknown stage — applyConfigDoc throws on it.
       "preset.json": JSON.stringify({
         version: "2",
-        checks: { broken: { stage: "nonsense", run: "true" } },
+        jobs: { broken: { stage: "nonsense", run: "true" } },
       }),
     });
 
@@ -435,7 +435,7 @@ Deno.test("preset rejects a preset.json with an unsupported version", async () =
     const { env } = await stagePreset(dir, "futurever", {
       "preset.json": JSON.stringify({
         version: "3",
-        capabilities: { test: "true" },
+        jobs: { test: "true" },
       }),
     });
 
@@ -494,8 +494,10 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
 function fillBearingKeys(): Set<string> {
   const maximal: DiscernConfigDoc = {
     map: { dir: "documentation/" },
-    capabilities: { test: "echo t" },
-    checks: { chk: { stage: "check", run: "echo c" } },
+    jobs: {
+      test: "echo t",
+      chk: { stage: "check", run: "echo c" },
+    },
     scopes: { sco: { paths: ["x/**"] } },
     standards: { rat: { direction: "up", limit: 1, run: "echo r" } },
   };
@@ -516,13 +518,14 @@ const SINGLE_FIELD_PRESETS: Record<
     fragment: { map: { dir: "documentation/" } },
     disclosed: "map.dir",
   },
-  capabilities: {
-    fragment: { capabilities: { test: "echo solo test" } },
-    disclosed: "capabilities.test",
-  },
-  checks: {
-    fragment: { checks: { solo: { stage: "check", run: "echo solo" } } },
-    disclosed: "checks.solo",
+  jobs: {
+    fragment: {
+      jobs: {
+        test: "echo solo test",
+        solo: { stage: "check", run: "echo solo" },
+      },
+    },
+    disclosed: "jobs.test",
   },
   scopes: {
     fragment: { scopes: { solo: { paths: ["solo/**"] } } },

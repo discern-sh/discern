@@ -11,7 +11,7 @@
  * `.vale/config/`), but the metric name stays implementation-neutral — "prose",
  * not "vale" — so the standard reads as a quality target, mirroring
  * `[standards.coverage]`. Only the command names the tool. Error-severity findings
- * additionally block the gate via `[checks.prose]`; this standard tracks the whole
+ * additionally block the gate via `[jobs.prose]`; this standard tracks the whole
  * advisory backlog (every severity) so the number shrinks over time rather than
  * merely not regressing past zero.
  *

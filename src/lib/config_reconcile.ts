@@ -47,7 +47,7 @@ export interface ConfigReconcileResult {
  * population — never key-backfilled by scaffold reconciliation, and the families
  * whose shape-doc banners it manages instead (ADR 0138). */
 export const RECORD_CONFIG_PATHS = [
-  "checks",
+  "jobs",
   "scopes",
   "standards",
   "worktree.resources",
@@ -312,9 +312,13 @@ export function reconcileConfigTextWithTemplate(
     RECORD_CONFIG_PATHS,
   );
   const bannerPass = reconcileManagedBanners(configText, banners);
+  const fixedBanners = fixedSectionBannersFromTemplate(renderedTemplate);
+  for (const recordPath of RECORD_CONFIG_PATHS) {
+    fixedBanners.delete(recordPath);
+  }
   const fixedBannerPass = reconcileFixedSectionBanners(
     bannerPass.text,
-    fixedSectionBannersFromTemplate(renderedTemplate),
+    fixedBanners,
   );
   const baseText = fixedBannerPass.text;
 

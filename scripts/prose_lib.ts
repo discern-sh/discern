@@ -2,7 +2,7 @@
  * Shared staging for the prose surfaces: Vale must measure PROSE, never
  * metadata, and it has no native way to skip Markdown frontmatter (its
  * BlockIgnores apply only to non-Markdown formats). So both prose surfaces —
- * the `[checks.prose]` gate check and the `[standards.prose]` metric — lint a
+ * the `[jobs.prose]` gate job and the `[standards.prose]` metric — lint a
  * staged mirror of the map instead of the tree itself:
  *
  *  - every `.md` file is copied with its frontmatter block replaced by the

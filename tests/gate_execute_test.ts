@@ -26,7 +26,13 @@ const RUN_OPTS: RunOptions = {
 };
 
 function job(label: string, command = "true"): PlannedJob {
-  return { label, command, kind: "check", reportStage: "check", willRun: true };
+  return {
+    label,
+    command,
+    kind: "custom",
+    reportStage: "check",
+    willRun: true,
+  };
 }
 
 function group(jobs: PlannedJob[]): JobGroup {

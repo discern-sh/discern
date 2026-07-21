@@ -3,16 +3,16 @@
  * the vocabulary itself (the ADR 0051 family, joining engine_verb_parity and
  * friends).
  *
- * Every member of the engine's closed sets — the capabilities, the stages, the
+ * Every member of the engine's closed sets — the known jobs, the stages, the
  * top-level verbs — must be in the glossary's vocabulary the moment it exists:
  * either NAMED by the glossary (a term of its own, or backticked inside a
- * definition — the Capability and Stage entries interpolate their sets, so
+ * definition — the Gate job and Stage entries interpolate their sets, so
  * those members auto-enrol) or recorded in `DELIBERATELY_ABSENT` with the
  * reason. Exactly one of the two: an unnamed, unrecorded member fails the gate
  * until someone decides, and an absence record for a member the glossary now
  * names fails as stale.
  *
- * The sets are read from their single sources (`KNOWN_CAPABILITIES`, `STAGES`,
+ * The sets are read from their single sources (`KNOWN_JOBS`, `STAGES`,
  * `KNOWN_VERBS`), never a hand-copied list, so a new member auto-enrols in the
  * check itself.
  */
@@ -23,12 +23,12 @@ import {
   GLOSSARY,
   type GlossaryEntry,
 } from "../scripts/glossary_registry.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 
 /** The closed sets the vocabulary must account for, from their single sources. */
 const CLOSED_SETS: Readonly<Record<string, readonly string[]>> = {
-  capability: Object.keys(KNOWN_CAPABILITIES),
+  job: Object.keys(KNOWN_JOBS),
   stage: STAGES,
   verb: [...KNOWN_VERBS].sort(),
 };
@@ -51,7 +51,7 @@ function namedBy(glossary: readonly GlossaryEntry[], member: string): boolean {
   return glossary.some((e) => mention.test(e.definition));
 }
 
-Deno.test("every capability, stage, and top-level verb is named by the glossary or recorded deliberately absent", () => {
+Deno.test("every known job, stage, and top-level verb is named by the glossary or recorded deliberately absent", () => {
   const offenders: string[] = [];
   for (const [set, members] of Object.entries(CLOSED_SETS)) {
     for (const member of members) {

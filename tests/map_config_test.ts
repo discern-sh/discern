@@ -9,7 +9,7 @@ const CONFIG = parseConfigOrThrow(`
 [map]
 dir = "docs/discern/"
 
-[checks.prose]
+[jobs.prose]
 stage = "check"
 run = "vale \\"\${map.dir}\\""
 

@@ -3,22 +3,22 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { cmdsInStage, jobsInStage } from "../src/engine/gate/stages.ts";
 
 const CFG = `
-[capabilities]
+[jobs]
 format = "deno fmt"
 lint = ["eslint .", "stylelint ."]
 typecheck = "tsc --noEmit"
 test = "vitest run"
 
-[checks.selfcheck]
+[jobs.selfcheck]
 stage = "check"
 run = "deno task selfcheck"
 
-[checks.noop]
+[jobs.noop]
 stage = "build"
 run = ":"
 `;
 
-Deno.test("jobsInStage: capabilities by derived stage, with array expansion", () => {
+Deno.test("jobsInStage: known jobs derive stage and arrays expand", () => {
   const c = parseConfigOrThrow(CFG);
   const check = jobsInStage(c, "check");
   assertEquals(check.map((j) => j.label), [
@@ -27,13 +27,13 @@ Deno.test("jobsInStage: capabilities by derived stage, with array expansion", ()
     "typecheck",
     "selfcheck",
   ]);
-  assertEquals(check.find((j) => j.label === "lint")?.kind, "capability");
-  assertEquals(check.find((j) => j.label === "selfcheck")?.kind, "check");
+  assertEquals(check.find((j) => j.label === "lint")?.kind, "known");
+  assertEquals(check.find((j) => j.label === "selfcheck")?.kind, "custom");
   assertEquals(jobsInStage(c, "fix").map((j) => j.label), ["format"]);
   assertEquals(jobsInStage(c, "test").map((j) => j.label), ["test"]);
 });
 
-Deno.test("jobsInStage: a ':' no-op check is skipped", () => {
+Deno.test("jobsInStage: a ':' no-op custom job is skipped", () => {
   const c = parseConfigOrThrow(CFG);
   assertEquals(jobsInStage(c, "build"), []);
 });

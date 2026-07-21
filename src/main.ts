@@ -22,7 +22,7 @@ import {
 } from "./shared/config_schema.ts";
 import type { EnvReader } from "./shared/env.ts";
 import { findRoot } from "./shared/env.ts";
-import { capabilityList } from "./shared/capabilities.ts";
+import { knownJobList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
   commandSynonymSuggestion,
@@ -51,8 +51,7 @@ import { runPreset } from "./commands/preset.ts";
 import { runHelp, runMap } from "./commands/docs.ts";
 import {
   runConfigSet,
-  runConfigSetCapability,
-  runConfigSetCheck,
+  runConfigSetJob,
   runConfigSetScope,
   runConfigSetStandard,
 } from "./commands/config.ts";
@@ -602,39 +601,23 @@ export function buildCli(
   // `config` — programmatic, comment-preserving edits to an existing
   // discern.toml. Each subcommand is a standalone Command instance attached via
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
-  const setCapability = new Command()
+  const setJob = new Command()
     .description(
-      `Set a capability — a configured project command for one known kind of work (${capabilityList()}).`,
+      `Set a declared gate job. Known names (${knownJobList()}) take a positional command and derive their stage; custom names take --stage and --run.`,
     )
-    .arguments("<name:string> <command:string>")
-    .option("--dry-run", "Print the edit and write nothing.")
-    .action(recordedExit(
-      "config set-capability",
-      async (options, name: string, command: string) =>
-        await runConfigSetCapability(name, command, {
-          ...globalFlags(options),
-          dryRun: options.dryRun ?? false,
-        }),
-    ));
-
-  const setCheck = new Command()
-    .description(
-      "Set a custom command in the gate — the project's full quality check.",
-    )
-    .arguments("<name:string>")
+    .arguments("<name:string> [command:string]")
     .option(
       "--stage <stage:string>",
-      "When it runs: fix|build|check|test.",
-      { required: true },
+      "Custom jobs only: when it runs (fix|build|check|test).",
     )
-    .option("--run <cmd:string>", "The check command.", { required: true })
-    .option("--provides <label:string>", "Optional free-text label.")
+    .option("--run <cmd:string>", "Custom jobs only: the command to run.")
+    .option("--provides <label:string>", "Custom jobs only: free-text label.")
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
       recordedExit(
-        "config set-check",
-        async (options, name: string) =>
-          await runConfigSetCheck(name, {
+        "config set-job",
+        async (options, name: string, command?: string) =>
+          await runConfigSetJob(name, command, {
             ...globalFlags(options),
             dryRun: options.dryRun ?? false,
             stage: options.stage,
@@ -775,8 +758,7 @@ export function buildCli(
     .action(recordedExit("config", function (this: Command): void {
       this.showHelp();
     }))
-    .command("set-capability", setCapability)
-    .command("set-check", setCheck)
+    .command("set-job", setJob)
     .command("set-scope", setScope)
     .command("set-standard", setStandard)
     .command("set", setScalar)

@@ -6,7 +6,7 @@
  *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `preset` overlay.
  *
- * Both apply the document's `capabilities` / `checks` / `scopes` / `standards` to
+ * Both apply the document's `jobs` / `scopes` / `standards` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/discern-config.schema.json`), it carries an optional `version` so it
@@ -14,9 +14,8 @@
  * a `$schema` pointer for editor validation.
  */
 
-import { KNOWN_CAPABILITIES, STAGES } from "./config.ts";
+import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
-  capabilityCheckNameCollisions,
   type CommandValue,
   CONFIG_DOC_VERSION,
   type DiscernConfigDoc,
@@ -33,7 +32,7 @@ import { TomlEditor } from "./toml_edit.ts";
 export { CONFIG_DOC_VERSION };
 export type { DiscernConfigDoc };
 
-/** A capability/check/gate value: one command, or a list run in order. */
+/** A job/gate value: one command, or a list run in order. */
 type CommandOrList = string | string[];
 
 /** TOML bare-key shape, enforced for slot/scope/side-gate/standard names. */
@@ -123,7 +122,7 @@ export function mergeDocIntoFlags(
  * do): the dotted config paths written, and — in fill-if-absent mode — those
  * left untouched because the project already sets them. */
 export interface ConfigFillReport {
-  /** Paths the fills wrote, e.g. `capabilities.test`, `checks.licenses`. */
+  /** Paths the fills wrote, e.g. `jobs.test`, `jobs.licenses`. */
   filled: string[];
   /** Paths kept as the project's own (only with `skipExisting`). */
   skipped: string[];
@@ -145,13 +144,13 @@ export function docHasFills(doc: DiscernConfigDoc): boolean {
 }
 
 /**
- * Apply a document's `capabilities`/`checks`/`scopes`/`standards` fills to a
+ * Apply a document's `jobs`/`scopes`/`standards` fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
- * enum-ish values (capability name, stage, direction) the same way the `config`
+ * enum-ish values (known job name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  *
  * With `skipExisting`, a fill whose target already carries a real value (a set
- * key, or a present `[checks.*]`/`[scopes.*]`/`[standards.*]` table) is skipped
+ * key, or a present `[jobs.*]`/`[scopes.*]`/`[standards.*]` table) is skipped
  * and reported instead of replacing it — a present value is the user's, so a
  * preset overlays config the way it overlays files: create-or-skip, never
  * overwrite. The default (used by `setup --config` over a freshly generated
@@ -184,62 +183,58 @@ export function applyConfigDoc(
     }
   }
 
-  // Capabilities: a known name mapped to a command (or list). The stage is
-  // derived by the engine, so none is written. An unknown name has no derivable
-  // stage — reject it, pointing the author at [checks].
-  for (const [name, run] of Object.entries(doc.capabilities ?? {})) {
-    if (!Object.hasOwn(KNOWN_CAPABILITIES, name)) {
+  // Jobs share one namespace. Known names use the compact command value and
+  // derive their stage; custom names require the stage-bearing table form. The
+  // document is loosely parsed, so validate both positions again here with the
+  // same actionable errors as the live config.
+  for (const [name, value] of Object.entries(doc.jobs ?? {})) {
+    assertName("job", name);
+    if (isKnownJob(name)) {
+      if (isRecord(value) && Object.hasOwn(value, "stage")) {
+        throw new Error(
+          `known job "${name}" derives stage "${
+            KNOWN_JOBS[name]
+          }" from its name; remove stage`,
+        );
+      }
+      const key = `jobs.${name}`;
+      write(key, editor.hasKey(key), () => {
+        setCommand(editor, key, value as CommandValue);
+      });
+      continue;
+    }
+    if (!isRecord(value)) {
       throw new Error(
-        `unknown capability "${name}" (known: ${
-          Object.keys(KNOWN_CAPABILITIES).join(", ")
-        }; use a [checks.<name>] table with a stage for custom work)`,
+        `custom job "${name}" must use the table form with stage and run`,
       );
     }
-    if (run === undefined) {
-      continue; // a known key present with no value — nothing to write
-    }
-    const key = `capabilities.${name}`;
-    write(key, editor.hasKey(key), () => {
-      setCommand(editor, key, run);
-    });
-  }
-
-  // Checks: an explicit stage (∈ STAGES) + a run command + an optional label. The
-  // document is loosely parsed (untrusted JSON), so each schema-required field is
-  // validated here with an author-friendly message rather than trusted from the type.
-  // A check sharing a declared capability's name is refused up front — the gate
-  // keys job results by label, so the written config would fail its next load.
-  const collisions = capabilityCheckNameCollisions({
-    capabilities: doc.capabilities ?? {},
-    checks: doc.checks ?? {},
-  });
-  if (collisions.length > 0) {
-    throw new Error(
-      `check "${collisions[0]}" shares its name with the "${
-        collisions[0]
-      }" capability — the gate keys each job's result by its label; rename the check or fold its command into the capability`,
-    );
-  }
-  for (const [name, spec] of Object.entries(doc.checks ?? {})) {
-    assertName("check", name);
-    const stage = spec.stage as string | undefined;
+    const stage = "stage" in value && typeof value.stage === "string"
+      ? value.stage
+      : undefined;
     if (stage === undefined) {
-      throw new Error(`check "${name}": a stage is required`);
+      throw new Error(`custom job "${name}": a stage is required`);
     }
     if (!(STAGES as readonly string[]).includes(stage)) {
       throw new Error(
-        `check "${name}": unknown stage "${stage}" (use ${STAGES.join(", ")})`,
+        `custom job "${name}": unknown stage "${stage}" (use ${
+          STAGES.join(", ")
+        })`,
       );
     }
-    const run = spec.run as CommandOrList | undefined;
+    const run = "run" in value
+      ? value.run as CommandOrList | undefined
+      : undefined;
     if (run === undefined) {
-      throw new Error(`check "${name}": a run command is required`);
+      throw new Error(`custom job "${name}": a run command is required`);
     }
-    write(`checks.${name}`, editor.hasSection(`checks.${name}`), () => {
-      editor.setString(`checks.${name}.stage`, stage);
-      setCommand(editor, `checks.${name}.run`, run);
-      if (spec.provides !== undefined) {
-        editor.setString(`checks.${name}.provides`, spec.provides);
+    write(`jobs.${name}`, editor.hasSection(`jobs.${name}`), () => {
+      editor.setString(`jobs.${name}.stage`, stage);
+      setCommand(editor, `jobs.${name}.run`, run);
+      if ("provides" in value && typeof value.provides === "string") {
+        editor.setString(`jobs.${name}.provides`, value.provides);
+      }
+      if (typeof value.timeout === "number") {
+        editor.setNumber(`jobs.${name}.timeout`, value.timeout);
       }
     });
   }
@@ -300,7 +295,7 @@ function setCommand(
   value: CommandValue,
 ): void {
   if (typeof value === "object" && !Array.isArray(value)) {
-    // The capability table form: rendered as an inline table. JSON string
+    // The known-job table form: rendered as an inline table. JSON string
     // escaping is valid TOML basic-string escaping, so the quoting is shared.
     const run = Array.isArray(value.run)
       ? `[${value.run.map((s) => JSON.stringify(s)).join(", ")}]`
@@ -316,6 +311,11 @@ function setCommand(
   } else {
     editor.setString(key, value);
   }
+}
+
+/** True for a non-null, non-array object. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Throw if `name` is not a TOML-bare-key-shaped identifier. */

@@ -54,7 +54,7 @@ export interface AcceptPlan {
   trunk: string;
   /** Shared checkout-convergence commands run in the trunk after landing. */
   repositoryEnsureSteps: string[];
-  /** Configured smoke capability jobs run in the trunk after convergence. */
+  /** Configured smoke jobs run in the trunk after convergence. */
   smokeSteps: Array<{
     label: string;
     command: string;

@@ -13,8 +13,8 @@
  *    parsing Markdown.
  *
  * Definitions whose prose states a fact another registry owns interpolate it
- * from that single source of truth — the capability vocabulary from
- * `KNOWN_CAPABILITIES`, the stage names from `STAGES`, the authored-source
+ * from that single source of truth — the known-job vocabulary from
+ * `KNOWN_JOBS`, the stage names from `STAGES`, the authored-source
  * default paths from `SOURCE_PATHS` — so adding a member or moving a default
  * updates the glossary in the same change; the page cannot silently disagree
  * with the engine.
@@ -24,7 +24,7 @@
  * own source tree (ADR 0164).
  */
 
-import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import {
   NAMESPACE_DIR,
   sourcePathDefault,
@@ -121,17 +121,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The `discern` binary's semantic version, shown by `discern --version`. A newer binary arrives by re-running the installer; `discern upgrade` then brings the _project_ into line with the binary it runs from.",
   },
   {
-    term: "Capability",
-    definition: `One of the ${
-      countWord(Object.keys(KNOWN_CAPABILITIES).length)
-    } known kinds of gate work a project can declare under \`[capabilities]\`: ${
-      codeList(Object.keys(KNOWN_CAPABILITIES), "and")
-    }. The engine derives each one's [stage](#stage) from its name, and an omitted capability is skipped without error ([ADR 0017](../_adr/0017-capabilities-model.md)). Covered in [the quality gate](../20-quality-gate/).`,
-  },
-  {
-    term: "Check",
+    term: "Gate job",
     definition:
-      "Custom gate work outside the capability vocabulary: a `[checks.<name>]` table with an explicit `stage` and a `run` command. A check runs as its own labeled job, the same way a capability does.",
+      `A labeled unit of work scheduled by the gate. A project declares its jobs under \`[jobs]\`: the ${
+        countWord(Object.keys(KNOWN_JOBS).length)
+      } known names ${
+        codeList(Object.keys(KNOWN_JOBS), "and")
+      } derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).`,
   },
   {
     term: "Co-change advisory",
@@ -180,7 +176,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Engine",
     definition:
-      "The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It knows no commands of its own; it runs the capabilities, checks, scopes, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).",
+      "The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no stack commands of its own; its verbs run the jobs, scopes, standards, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).",
   },
   {
     term: "File dispositions",
@@ -190,7 +186,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Gate",
     definition:
-      "The project's full quality check, run with `discern done`: in a worktree, the trunk-merged precondition first, then the fix and build [stages](#stage), then check and test in parallel, then any [scope](#scope) gates that fired. Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).",
+      "The project's full quality check, run with `discern done`: its preconditions, the declared [jobs](#gate-job) by [stage](#stage), any [scope](#scope) gates that fired, and the [standards](#standard). Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).",
   },
   {
     term: "Generated file",
@@ -256,7 +252,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Readiness",
     definition:
-      "`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed [capability](#capability) vocabulary makes an omitted capability knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).",
+      "`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed set of known [gate job](#gate-job) names makes an omitted known job knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).",
   },
   {
     term: "Receipt",
@@ -282,7 +278,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Stage",
     definition: `The scheduling bucket gate work runs in: ${
       codeList(STAGES, "or")
-    }. Derived from a [capability](#capability)'s name; declared explicitly for a [check](#check).`,
+    }. Derived from a known [job](#gate-job)'s name; declared explicitly for a custom one.`,
   },
   {
     term: "Standard",
@@ -297,7 +293,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Test",
     definition:
-      "A command that exercises the project's behavior and returns success or failure. `[capabilities.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).",
+      "A command that exercises the project's behavior and returns success or failure. `[jobs.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).",
   },
   {
     term: "Trunk",
@@ -334,11 +330,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
 
 /**
  * Closed-set members deliberately NOT in the glossary, each with the reason.
- * Keys are namespaced `<set>:<member>` — `verb:help`, `capability:lint` — so
+ * Keys are namespaced `<set>:<member>` — `verb:help`, `job:lint` — so
  * same-named members of different sets stay distinct.
  *
  * The enrolment guard (tests/glossary_enrolment_test.ts) holds every
- * capability, stage, and top-level verb to exactly one of: named by the
+ * known job, stage, and top-level verb to exactly one of: named by the
  * glossary, or recorded here. A new member fails the gate until someone
  * decides which — vocabulary at birth, not by accretion — and a record whose
  * member the glossary later names fails as stale.

@@ -27,7 +27,7 @@ import { z } from "@zod/zod";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "./capabilities.ts";
+import { isKnownJob, KNOWN_JOBS, STAGES } from "./capabilities.ts";
 import { isValidMapDir } from "./map_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { retiredConfigKeySuccessor } from "./vocabulary.ts";
@@ -72,7 +72,7 @@ export class ConfigParseError extends Error {
 
 // ── shared building blocks (reused by the live config AND the document) ────────
 
-/** TOML bare-key shape, enforced for check/scope/standard/resource names. The ONE
+/** TOML bare-key shape, enforced for job/scope/standard/resource names. The ONE
  * definition of record-key legality: the `z.record` key schema below applies it at
  * load, the generated JSON Schema carries it as `propertyNames.pattern`, and the
  * settable-path walker reads that pattern back — so `config set` can never write a
@@ -96,14 +96,14 @@ export const DEFAULT_AGENTS = [
   "codex",
 ] as const satisfies readonly (typeof AGENT_NAMES)[number][];
 
-/** A capability/check/gate/standard value: one command, or a list run in order. */
+/** A job/gate/standard value: one command, or a list run in order. */
 const commandOrList = z.union([z.string(), z.array(z.string())]).describe(
   "A single command, or a list of commands run in order.",
 );
 
 /** The per-job `timeout` override: replaces the global `[gate].timeout` budget for
- * this job only, in seconds; `0` disables the bound for it. Shared by the capability
- * table form and the `[checks]`/`[scopes]`/`[standards]` tables, so every job-bearing
+ * this job only, in seconds; `0` disables the bound for it. Shared by the known-job
+ * table form and the custom-job/`[scopes]`/`[standards]` tables, so every job-bearing
  * config value spells the override identically. */
 const jobTimeout = z.number().min(
   0,
@@ -112,9 +112,9 @@ const jobTimeout = z.number().min(
   "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
 );
 
-/** A capability value: the bare command-or-list, or the table form
+/** A known-job value: the bare command-or-list, or the table form
  * `{ run = "…", timeout = N }` when the job needs its own time budget. */
-const capabilityCommand = z.union([
+const knownJobCommand = z.union([
   z.string(),
   z.array(z.string()),
   z.strictObject({
@@ -126,7 +126,7 @@ const capabilityCommand = z.union([
 );
 
 /** A command-bearing config value in any of its shapes: a bare command, a list, or
- * the capability table form carrying per-job options. */
+ * the known-job table form carrying per-job options. */
 export type CommandValue = string | string[] | {
   run: string | string[];
   timeout?: number | undefined;
@@ -171,20 +171,27 @@ const perExtent = z.strictObject(
  * `per = { words = "${map.dir}**" }`. */
 const perValue = z.union([z.string(), perExtent]);
 
-/** The gate stages a `[checks.<name>].stage` may name. */
+/** The gate stages a custom job may name. */
 const stageEnum = z.enum(STAGES);
 
-/** A `[checks.<name>]` table — custom gate work with an explicit stage. */
-const checkValue = z.strictObject({
+/** A custom `[jobs.<name>]` table with an explicit stage. */
+const customJobValue = z.strictObject({
   stage: stageEnum.describe(
-    "When the check runs in the gate (fix|build|check|test).",
+    "When the custom job runs in the gate (fix|build|check|test).",
   ),
   run: commandOrList.describe("The command(s) to run."),
   provides: z.string().optional().describe(
     "Optional free-text label, for humans / audit.",
   ),
   timeout: jobTimeout,
-});
+}).describe(
+  "A custom job. Its name is open, but its stage and command are explicit.",
+);
+
+/** One custom `[jobs.<name>]` entry, fully defaulted. */
+export type CustomJobConfig = z.infer<typeof customJobValue>;
+/** One declared job, either a known-name command value or a custom job table. */
+export type JobConfig = CommandValue | CustomJobConfig;
 
 /** A `[scopes.<name>]` table — a named region with optional attributes. */
 const scopeValue = z.strictObject({
@@ -339,38 +346,36 @@ const mapSection = z.strictObject({
   "The project documentation tree discern scaffolds, validates, and browses.",
 );
 
-/** The closed [capabilities] object: the six known names, each an optional
- * command-or-list. Shared by the live config (prefaulted) AND the document
- * (optional), so both — and the generated JSON Schema — derive from one shape. */
-const capabilitiesObject = z.strictObject({
-  format: capabilityCommand.optional().describe(
+/** The single `[jobs]` object. Known names have their stage-derived flat form;
+ * every other legal name is parsed through the custom table form. Shared by the
+ * live config and config document so runtime validation, editor schemas, and the
+ * generated reference describe the same namespace. */
+const jobValuesObject = z.strictObject({
+  format: knownJobCommand.optional().describe(
     "fix stage — a formatter/codemod (mutating; runs first, serially).",
   ),
-  build: capabilityCommand.optional().describe(
+  build: knownJobCommand.optional().describe(
     "build stage — produce artifacts later stages read (compile, bundle).",
   ),
-  lint: capabilityCommand.optional().describe(
+  lint: knownJobCommand.optional().describe(
     "check stage — read-only static analysis.",
   ),
-  typecheck: capabilityCommand.optional().describe(
+  typecheck: knownJobCommand.optional().describe(
     "check stage — read-only type checking.",
   ),
-  test: capabilityCommand.optional().describe("test stage — the test suite."),
-  smoke: capabilityCommand.optional().describe(
+  test: knownJobCommand.optional().describe("test stage — the test suite."),
+  smoke: knownJobCommand.optional().describe(
     "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes.",
   ),
-});
-
-const capabilitiesSection = capabilitiesObject.prefault({}).describe(
-  "The core commands the gate runs, one per known capability; each maps to a gate stage automatically. The set is CLOSED — for custom work use a [checks.<name>] table with an explicit stage. OMIT a capability you don't have.",
+}).catchall(customJobValue);
+const jobsObject = z.intersection(
+  z.record(z.string().regex(NAME_RE), z.unknown()),
+  jobValuesObject,
 );
 
-const checksSection = z.record(z.string().regex(NAME_RE), checkValue).default(
-  {},
-)
-  .describe(
-    "[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label. A name also wired under [capabilities] is rejected: the gate keys each job's result by its label, so the two would collide.",
-  );
+const jobsSection = jobsObject.prefault({}).describe(
+  "The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.",
+);
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
   {},
@@ -402,14 +407,14 @@ const resourceValue = z.strictObject({
 
 /**
  * The Zod entry schema for each record-table family — the single source of truth
- * for the knobs a `[standards.<name>]` / `[checks.<name>]` / `[scopes.<name>]` /
+ * for the knobs a `[standards.<name>]` / `[jobs.<name>]` / `[scopes.<name>]` /
  * `[worktree.resources.<name>]` table accepts. Keyed by record family so the
  * managed-banner guard (ADR 0138) can assert every knob is documented in that
  * family's banner — the only channel by which a newly-added knob reaches an
  * existing install. A field added here auto-enrols in that check.
  */
 export const RECORD_ENTRY_SCHEMAS = {
-  checks: checkValue,
+  jobs: customJobValue,
   scopes: scopeValue,
   standards: standardValue,
   "worktree.resources": resourceValue,
@@ -464,7 +469,7 @@ const gateSection = z.strictObject({
     "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
   ),
   timeout: z.number().default(600).describe(
-    "Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
+    "Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
   ),
 }).prefault({}).describe(
   "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
@@ -496,8 +501,7 @@ export const configSchema = z.strictObject({
   guidance: guidanceSection,
   skills: skillsSection,
   map: mapSection,
-  capabilities: capabilitiesSection,
-  checks: checksSection,
+  jobs: jobsSection,
   scopes: scopesSection,
   worktree: worktreeSection,
   standards: standardsSection,
@@ -508,7 +512,12 @@ export const configSchema = z.strictObject({
 
 /** The fully-typed, fully-defaulted live config the engine reads. Internal alias
  * of the inferred Zod type — never part of the package's exported API. */
-export type DiscernConfig = z.infer<typeof configSchema>;
+type InferredDiscernConfig = z.infer<typeof configSchema>;
+export type DiscernConfig = Omit<InferredDiscernConfig, "jobs"> & {
+  /** Known and custom jobs share one runtime namespace. Position-sensitive
+   * validation decides which union arm a name may use. */
+  jobs: Record<string, JobConfig>;
+};
 
 /**
  * The provider names to emit guidance / materialize skills for: the configured
@@ -532,8 +541,6 @@ export function resolveConfiguredAgents(config: DiscernConfig): string[] {
   return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
 }
 
-/** One `[checks.<name>]` entry, fully defaulted. */
-export type CheckConfig = z.infer<typeof checkValue>;
 /** One `[scopes.<name>]` entry, fully defaulted. */
 export type ScopeConfig = z.infer<typeof scopeValue>;
 /** One `[standards.<name>]` entry, fully defaulted. */
@@ -589,11 +596,8 @@ export const configDocSchema = z.strictObject({
   map: mapSection.optional().describe(
     "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
-  capabilities: capabilitiesObject.optional().describe(
-    "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
-  ),
-  checks: z.record(z.string().regex(NAME_RE), checkValue).optional().describe(
-    "[checks.<name>] fills — custom gate work outside the known capability vocabulary.",
+  jobs: jobsObject.optional().describe(
+    "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
   ),
   scopes: z.record(z.string().regex(NAME_RE), scopeValue).optional().describe(
     "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
@@ -603,13 +607,18 @@ export const configDocSchema = z.strictObject({
       "[standards.<name>] tables. Coverage is just a conventional name.",
     ),
 }).describe(
-  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
 /** The config-document shape — the *input* view (what an author writes, before
  * defaults), so optional attributes (a scope's `neutral`, a standard's
  * `direction`) stay optional. Internal alias of the inferred Zod type. */
-export type DiscernConfigDoc = z.input<typeof configDocSchema>;
+type InferredDiscernConfigDoc = z.input<typeof configDocSchema>;
+export type DiscernConfigDoc = Omit<InferredDiscernConfigDoc, "jobs"> & {
+  /** The open document view: runtime validation applies the known-name/custom-
+   * name positional rule that TypeScript index signatures cannot express. */
+  jobs?: Record<string, JobConfig>;
+};
 
 // ── parse / validate / load ────────────────────────────────────────────────────
 
@@ -648,19 +657,11 @@ function summariseIssues(issues: ConfigIssue[]): string {
 }
 
 /** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints for
- * the closed [capabilities] vocabulary and dead worktree adapters. */
+ * retired config positions and dead worktree adapters. */
 function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
   const path = issue.path.map((p) => String(p)).join(".");
   if (issue.code === "unrecognized_keys") {
     const keys = issue.keys.join(", ");
-    if (path === "capabilities") {
-      return {
-        path,
-        message: `unknown capability ${keys} — rename to a known capability (${
-          Object.keys(KNOWN_CAPABILITIES).join(", ")
-        }) or move it under [checks.<name>] with a stage.`,
-      };
-    }
     if (path === "worktree" && issue.keys.includes("enabled")) {
       return {
         path,
@@ -700,7 +701,7 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
         return {
           path: retired,
           message:
-            `[${retired}] was renamed to [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
+            `[${retired}] became [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
         };
       }
     }
@@ -724,35 +725,30 @@ function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
   return { path, message: issue.message };
 }
 
-/**
- * The names declared under BOTH `[capabilities]` and `[checks.<name>]` — a
- * cross-section rule the per-section schemas can't express. The gate keys every
- * job result by its LABEL, and a capability job and a check job each carry their
- * bare name, so a shared name makes one job's result silently overwrite the
- * other's — destroying the failing job's captured output and diagnostics. The
- * other label namespaces are disjoint by construction (scope gates are prefixed
- * `scope:`, list-expansion labels carry `#`; neither character is in NAME_RE),
- * leaving this pair as the only possible collision.
- */
-export function capabilityCheckNameCollisions(cfg: {
-  capabilities: Record<string, unknown>;
-  checks: Record<string, unknown>;
-}): string[] {
-  const wired = new Set(
-    Object.entries(cfg.capabilities)
-      .filter(([, value]) => value !== undefined)
-      .map(([name]) => name),
-  );
-  return Object.keys(cfg.checks).filter((name) => wired.has(name));
-}
-
-/** The {@link ConfigIssue}s for every capability/check name collision. */
-function collisionIssues(config: DiscernConfig): ConfigIssue[] {
-  return capabilityCheckNameCollisions(config).map((name) => ({
-    path: `checks.${name}`,
-    message:
-      `shares its name with [capabilities].${name} — the gate keys each job's result by its label, so one job's outcome would silently overwrite the other's. Rename the check, or fold its command into the capability.`,
-  }));
+/** Position-sensitive `[jobs]` rules that JSON Schema cannot express alone. */
+function jobFormIssues(parsed: unknown): ConfigIssue[] {
+  if (!isRecord(parsed) || !isRecord(parsed.jobs)) {
+    return [];
+  }
+  const issues: ConfigIssue[] = [];
+  for (const [name, value] of Object.entries(parsed.jobs)) {
+    const declaresStage = isRecord(value) && Object.hasOwn(value, "stage");
+    if (isKnownJob(name) && declaresStage) {
+      issues.push({
+        path: `jobs.${name}.stage`,
+        message: `known job "${name}" derives stage "${
+          KNOWN_JOBS[name]
+        }" from its name — remove \`stage\`.`,
+      });
+    } else if (!isKnownJob(name) && !declaresStage) {
+      issues.push({
+        path: `jobs.${name}`,
+        message:
+          `custom job "${name}" must use the table form \`{ stage = "check", run = "…" }\` — \`stage\` is required.`,
+      });
+    }
+  }
+  return issues;
 }
 
 /**
@@ -771,15 +767,21 @@ export function parseConfig(
   } catch (err) {
     throw new ConfigParseError(tomlSyntaxHint(err));
   }
+  const formIssues = jobFormIssues(parsed);
   const result = configSchema.safeParse(parsed);
   if (result.success) {
-    const collisions = collisionIssues(result.data);
-    if (collisions.length > 0) {
-      return { config: undefined, issues: collisions };
+    if (formIssues.length > 0) {
+      return { config: undefined, issues: formIssues };
     }
-    return { config: result.data, issues: [] };
+    return { config: result.data as DiscernConfig, issues: [] };
   }
-  return { config: undefined, issues: result.error.issues.map(toConfigIssue) };
+  const formOwners = new Set(
+    formIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
+  );
+  const schemaIssues = result.error.issues.map(toConfigIssue).filter((issue) =>
+    !formOwners.has(issue.path.split(".").slice(0, 2).join("."))
+  );
+  return { config: undefined, issues: [...formIssues, ...schemaIssues] };
 }
 
 /**
@@ -835,9 +837,29 @@ function recordKeyPattern(node: Record<string, unknown>): RegExp | undefined {
   return new RegExp(propertyNames.pattern);
 }
 
+/** Merge object fragments from JSON Schema `allOf` for schema-guided config
+ * writes. `[jobs]` is the one hybrid node: fixed known-name properties plus an
+ * open custom-name value shape and a shared key-name pattern. */
+function objectSchemaView(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!Array.isArray(schema.allOf)) return schema;
+  const view: Record<string, unknown> = { ...schema };
+  delete view.allOf;
+  for (const part of schema.allOf) {
+    if (!isRecord(part)) continue;
+    const currentProps = isRecord(view.properties) ? view.properties : {};
+    const partProps = isRecord(part.properties) ? part.properties : {};
+    Object.assign(view, part, {
+      properties: { ...currentProps, ...partProps },
+    });
+  }
+  return view;
+}
+
 /**
  * Walk the live JSON Schema along a dotted key. `found` is whether every segment
- * resolved (a record section — `checks`, `scopes`, `standards`,
+ * resolved (a record section — `jobs`, `scopes`, `standards`,
  * `worktree.resources` — accepts a `<name>` segment matching the section's
  * `propertyNames.pattern`, descending into the value shape); `node` is the schema
  * node the path lands on. The ONE walk behind both {@link isSettableConfigPath}
@@ -847,7 +869,7 @@ function recordKeyPattern(node: Record<string, unknown>): RegExp | undefined {
  * The record-key pattern is enforced here so the walker refuses exactly the
  * `<name>` shapes the runtime `z.record` key schema would refuse — otherwise
  * `config set` would accept a key (a space, a slash, non-ASCII) it then writes as
- * a `[checks.<bad name>]` header the next load rejects.
+ * a `[jobs.<bad name>]` header the next load rejects.
  */
 function settableSchemaNode(
   dotted: string,
@@ -857,6 +879,7 @@ function settableSchemaNode(
     if (node === undefined) {
       return { found: false, node: undefined };
     }
+    node = objectSchemaView(node);
     const props: Record<string, unknown> | undefined = isRecord(node.properties)
       ? node.properties
       : undefined;
@@ -916,13 +939,14 @@ export type ConfigValueKind =
 export function settableConfigValueKind(
   dotted: string,
 ): ConfigValueKind | undefined {
-  const { found, node } = settableSchemaNode(dotted);
+  const { found, node: foundNode } = settableSchemaNode(dotted);
   if (!found) {
     return undefined;
   }
-  if (node === undefined) {
+  if (foundNode === undefined) {
     return { kind: "mixed" }; // unreachable for Zod-emitted schemas; stay lenient
   }
+  const node = objectSchemaView(foundNode);
   if (Array.isArray(node.anyOf) || Array.isArray(node.oneOf)) {
     return { kind: "mixed" };
   }
@@ -976,7 +1000,7 @@ function rawValueAt(raw: unknown, path: readonly PropertyKey[]): unknown {
 
 /**
  * Whether a schema issue is a MISSING key inside a record-family entry
- * (`[checks.<n>]`, `[scopes.<n>]`, `[standards.<n>]`, `[worktree.resources.<n>]`)
+ * (`[jobs.<n>]`, `[scopes.<n>]`, `[standards.<n>]`, `[worktree.resources.<n>]`)
  * — the one shape a programmatic write tolerates, because incremental table
  * construction is legitimate (`config set standards.cov.limit 80` before its
  * `run` exists), the same allowance {@link isSettableConfigPath} documents.

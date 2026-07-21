@@ -182,7 +182,7 @@ Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI
         "[project]",
         'slug = "color-contract"',
         "",
-        "[capabilities]",
+        "[jobs]",
         `format = "true"`,
         `lint = "true"`,
         `typecheck = "true"`,

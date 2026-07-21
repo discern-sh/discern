@@ -32,10 +32,7 @@ import {
   offTrunkStartHereHint,
   START_HERE_HINT,
 } from "../src/engine/status/status.ts";
-import {
-  type Capability,
-  KNOWN_CAPABILITIES,
-} from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 
@@ -55,7 +52,7 @@ const SCOPE_CONFIG = [
 ].join("\n");
 
 function statusGateFactsConfig(
-  wiredCapabilities: readonly Capability[],
+  wiredKnownJobs: readonly KnownJob[],
 ): string {
   return [
     "[project]",
@@ -64,10 +61,10 @@ function statusGateFactsConfig(
     "[repository]",
     'trunk = "main"',
     "",
-    "[capabilities]",
-    ...wiredCapabilities.map((name) => `${name} = "true"`),
+    "[jobs]",
+    ...wiredKnownJobs.map((name) => `${name} = "true"`),
     "",
-    "[checks.custom]",
+    "[jobs.custom]",
     'stage = "check"',
     'run = "true"',
     "",
@@ -460,31 +457,29 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
   });
 });
 
-Deno.test("status: gate facts exactly report wired capabilities, checks, and triggered scope gates", async () => {
+Deno.test("status: gate facts report declared jobs and triggered scope gates", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const allCapabilities = Object.keys(KNOWN_CAPABILITIES) as Capability[];
-    const wiredCapabilities = allCapabilities.filter((_, i) => i % 2 === 0);
+    const allKnownJobs = Object.keys(KNOWN_JOBS) as KnownJob[];
+    const wiredKnownJobs = allKnownJobs.filter((_, i) => i % 2 === 0);
     assert(
-      wiredCapabilities.length > 0 &&
-        wiredCapabilities.length < allCapabilities.length,
-      "the fixture must wire a real subset of the capability vocabulary",
+      wiredKnownJobs.length > 0 &&
+        wiredKnownJobs.length < allKnownJobs.length,
+      "the fixture must wire a real subset of the known-job vocabulary",
     );
-    await writeConfig(dir, statusGateFactsConfig(wiredCapabilities));
+    await writeConfig(dir, statusGateFactsConfig(wiredKnownJobs));
     await gitInit(dir);
     const wt = await addWorktree(dir, "alpha");
 
     const clean = parseStatus(
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
-    assertEquals(clean.data.gate.capabilities, wiredCapabilities);
-    assertEquals(clean.data.gate.checks, ["custom"]);
+    assertEquals(clean.data.gate.jobs, [...wiredKnownJobs, "custom"]);
     assertEquals(clean.data.gate.scope_gates, []);
 
     await writeExecutable(join(wt, "web/feature.txt"), "feature");
     const web = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
-    assertEquals(web.data.gate.capabilities, wiredCapabilities);
-    assertEquals(web.data.gate.checks, ["custom"]);
+    assertEquals(web.data.gate.jobs, [...wiredKnownJobs, "custom"]);
     assertEquals(web.data.gate.scope_gates, ["web"]);
   });
 });

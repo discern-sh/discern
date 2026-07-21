@@ -13,7 +13,7 @@ import {
   parseConfigOrThrow,
   resolveConfiguredAgents,
 } from "../src/shared/config_schema.ts";
-import { KNOWN_CAPABILITIES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
@@ -49,21 +49,28 @@ Deno.test("the generated editor schema fixes the two historical staleness bugs",
   assertEquals(schema.additionalProperties, false);
 });
 
-Deno.test("the generated capabilities object is closed and not all-required", () => {
+Deno.test("the generated jobs object exposes known names and the custom table arm", () => {
   const schema = JSON.parse(renderConfigDocSchemaJson()) as {
-    properties: { capabilities: Record<string, unknown> };
+    properties: { jobs: { allOf: Record<string, unknown>[] } };
   };
-  const caps = schema.properties.capabilities;
-  // A closed set (no unknown capability) …
-  assertEquals(caps.additionalProperties, false);
-  // … but every entry is optional — a doc may fill just one capability.
-  assertEquals(caps.required, undefined);
-  // The generated object closes over EXACTLY the known capability vocabulary —
-  // derived from KNOWN_CAPABILITIES, not a hand-copied list, so a new capability
-  // enrolls here automatically.
+  const jobs = schema.properties.jobs;
+  const named = jobs.allOf.find((arm) => isJsonObject(arm.properties));
+  assert(named !== undefined);
+  const properties = named.properties as Record<string, unknown>;
+  // The fixed properties enumerate EXACTLY the known-name vocabulary, while
+  // additionalProperties carries the stage-bearing custom table.
   assertEquals(
-    Object.keys(caps.properties as Record<string, unknown>).sort(),
-    Object.keys(KNOWN_CAPABILITIES).sort(),
+    Object.keys(properties).sort(),
+    Object.keys(KNOWN_JOBS).sort(),
+  );
+  assertEquals(named.required, undefined);
+  const custom = named.additionalProperties;
+  assert(isJsonObject(custom));
+  assertEquals(custom.required, ["stage", "run"]);
+  const patterned = jobs.allOf.find((arm) => isJsonObject(arm.propertyNames));
+  assert(
+    patterned !== undefined,
+    "job names must carry the shared key pattern",
   );
 });
 

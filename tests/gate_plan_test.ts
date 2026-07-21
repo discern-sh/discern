@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import {
   buildGatePlan,
   buildGateResult,
@@ -30,7 +30,7 @@ import {
 } from "../src/shared/result.ts";
 
 const FULL = parseConfigOrThrow(`
-[capabilities]
+[jobs]
 format = "deno fmt"
 build = "deno task build"
 lint = ["eslint .", "stylelint ."]
@@ -65,14 +65,14 @@ function jobResult(
 
 Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape tests cover the whole vocabulary)", () => {
   // The plan/shape assertions below hard-code capability labels off FULL's
-  // [capabilities]. Tie that fixture to the SSOT: a capability added to
-  // KNOWN_CAPABILITIES must be wired into FULL (and its gate shape asserted) rather
+  // [jobs]. Tie that fixture to the SSOT: a capability added to
+  // KNOWN_JOBS must be wired into FULL (and its gate shape asserted) rather
   // than silently escaping this fast unit coverage.
   assertEquals(
-    Object.keys(FULL.capabilities).sort(),
-    Object.keys(KNOWN_CAPABILITIES).sort(),
-    "the FULL fixture has drifted from KNOWN_CAPABILITIES — add the new capability to " +
-      "the [capabilities] block above and assert its gate-stage shape",
+    Object.keys(FULL.jobs).filter((name) => name in KNOWN_JOBS).sort(),
+    Object.keys(KNOWN_JOBS).sort(),
+    "the FULL fixture has drifted from KNOWN_JOBS — add the new capability to " +
+      "the [jobs] block above and assert its gate-stage shape",
   );
 });
 
@@ -80,15 +80,15 @@ Deno.test("gate job labels are unique across the whole plan (results are keyed b
   // The executor records every job result into ONE label-keyed map, and the
   // report looks each planned job up by label — so the plan's labels must be
   // unique across every job source. Exercise them all, driven off the
-  // KNOWN_CAPABILITIES / STAGES registries so a new capability, stage, or label
+  // KNOWN_JOBS / STAGES registries so a new capability, stage, or label
   // scheme auto-enrols: every capability as a LIST (bare + `#N` labels), a
   // check in every stage, and several scope gates.
   const toml = [
-    "[capabilities]",
-    ...Object.keys(KNOWN_CAPABILITIES).map((c) => `${c} = ["run-a", "run-b"]`),
+    "[jobs]",
+    ...Object.keys(KNOWN_JOBS).map((c) => `${c} = ["run-a", "run-b"]`),
     ...STAGES.flatMap((
       s,
-    ) => [`[checks.extra-${s}]`, `stage = "${s}"`, 'run = "x"']),
+    ) => [`[jobs.extra-${s}]`, `stage = "${s}"`, 'run = "x"']),
     "[scopes.widget]",
     'paths = ["widget/**"]',
     'gate = "echo w"',
@@ -259,7 +259,7 @@ Deno.test("buildGateResult: non-fix capability/check failures note a wired fix s
 
 Deno.test("buildGateResult: fix_available is absent without a fix-stage job and on scope-gates", async () => {
   const noFix = parseConfigOrThrow(`
-[capabilities]
+[jobs]
 lint = "eslint ."
 `);
   const noFixResult = await buildGateResult(

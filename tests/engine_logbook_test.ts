@@ -158,7 +158,7 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[capabilities]\ntest = "sh -c 'echo failing; exit 1'"\n`,
+      `[jobs]\ntest = "sh -c 'echo failing; exit 1'"\n`,
     );
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
@@ -322,7 +322,7 @@ Deno.test("logbook: a limit edit holds the epoch; a capability edit flips it and
     // A real reconfiguration: a capability appears.
     await writeConfig(
       dir,
-      STANDARDS_CONFIG(50, '[capabilities]\nlint = "true"\n\n'),
+      STANDARDS_CONFIG(50, '[jobs]\nlint = "true"\n\n'),
     );
     await runAgent(dir, ["status", "--json"]);
 

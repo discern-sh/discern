@@ -130,7 +130,7 @@ async function setAgents(dir: string, agents: string): Promise<void> {
   );
 }
 
-/** Add a key under the scaffold's existing `[capabilities]` table. */
+/** Add a key under the scaffold's existing `[jobs]` table. */
 async function addCapability(
   dir: string,
   key: string,
@@ -140,11 +140,11 @@ async function addCapability(
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
-    text.replace(/\[capabilities\]\n/, `[capabilities]\n${key} = "${value}"\n`),
+    text.replace(/\[jobs\]\n/, `[jobs]\n${key} = "${value}"\n`),
   );
 }
 
-/** Add a key under `[capabilities]` with a pre-rendered TOML value literal
+/** Add a key under `[jobs]` with a pre-rendered TOML value literal
  * (single-quoted, so the value itself may contain double quotes). */
 async function addCapabilityLiteral(
   dir: string,
@@ -156,13 +156,13 @@ async function addCapabilityLiteral(
   await Deno.writeTextFile(
     p,
     text.replace(
-      /\[capabilities\]\n/,
-      `[capabilities]\n${key} = '${literal}'\n`,
+      /\[jobs\]\n/,
+      `[jobs]\n${key} = '${literal}'\n`,
     ),
   );
 }
 
-/** Set a `[capabilities]` key to a RAW TOML value literal, verbatim — the caller
+/** Set a `[jobs]` key to a RAW TOML value literal, verbatim — the caller
  * writes the exact right-hand side (`""`, `[]`, `":"`, `["echo hi"]`), so a test can
  * exercise the no-op forms `toCommandList` drops, which the quote-wrapping helpers
  * above cannot express. */
@@ -176,13 +176,13 @@ async function setCapabilityRaw(
   await Deno.writeTextFile(
     p,
     text.replace(
-      /\[capabilities\]\n/,
-      `[capabilities]\n${key} = ${rawValue}\n`,
+      /\[jobs\]\n/,
+      `[jobs]\n${key} = ${rawValue}\n`,
     ),
   );
 }
 
-/** Append a `[checks.<name>]` table to the scaffold's config. */
+/** Append a `[jobs.<name>]` table to the scaffold's config. */
 async function addCheck(
   dir: string,
   name: string,
@@ -193,7 +193,7 @@ async function addCheck(
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
-    `${text}\n[checks.${name}]\nstage = "${stage}"\nrun = "${run}"\n`,
+    `${text}\n[jobs.${name}]\nstage = "${stage}"\nrun = "${run}"\n`,
   );
 }
 
@@ -206,7 +206,7 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
     assertEquals(payload.verb, "doctor");
     assertEquals(payload.data.kit_version, "1.0.0");
     for (
-      const name of ["discern.toml", "schema version", "capabilities", "git"]
+      const name of ["discern.toml", "schema version", "known jobs", "git"]
     ) {
       assertEquals(check(payload, name).ok, true, `${name} should pass`);
     }
@@ -216,11 +216,11 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
         `${c.name} should carry a closed status`,
       );
     }
-    const capabilities = check(payload, "capabilities");
+    const capabilities = check(payload, "known jobs");
     assertEquals(capabilities.status, "warn");
     assertEquals(capabilities.warn, true);
     assertStringIncludes(capabilities.detail, "none wired yet");
-    assertStringIncludes(capabilities.fix ?? "", "[capabilities]");
+    assertStringIncludes(capabilities.fix ?? "", "[jobs]");
     // The schema check names the current version.
     assertStringIncludes(check(payload, "schema version").detail, "current");
     // The git check reports the resolved version (triage context).
@@ -317,7 +317,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
-    assertStringIncludes(stderr, "capabilities: none wired yet");
+    assertStringIncludes(stderr, "known jobs: none wired yet");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
     const modelAt = stderr.indexOf("Execution model");
@@ -507,12 +507,10 @@ Deno.test("doctor: human output for a stale schema prints the fix and a failure 
   });
 });
 
-Deno.test("doctor: an unknown capability key is flagged with a rename fix", async () => {
+Deno.test("doctor: unknown-job shorthand is flagged with the custom table fix", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // Inject a capability key outside the known vocabulary. Still valid TOML, so
-    // the syntax check passes — but the schema check (the closed [capabilities]
-    // vocabulary) flags it with the rename/move-to-[checks] guidance.
+    // An unknown name is a custom job and therefore cannot use shorthand.
     await addCapability(dir, "bogus", "echo hi");
 
     const { code, payload } = await runDoctorJson(dir);
@@ -522,7 +520,8 @@ Deno.test("doctor: an unknown capability key is flagged with a rename fix", asyn
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
     assertStringIncludes(schema.detail, "bogus");
-    assertStringIncludes(schema.detail, "known capability");
+    assertStringIncludes(schema.detail, "table form");
+    assertStringIncludes(schema.detail, "stage");
   });
 });
 
@@ -532,7 +531,7 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
     // The default scaffold ships none wired; add a known one.
     await addCapability(dir, "test", "echo ok");
     const { payload } = await runDoctorJson(dir);
-    const caps = check(payload, "capabilities");
+    const caps = check(payload, "known jobs");
     assertEquals(caps.status, "ok");
     assertEquals(caps.ok, true);
     assertStringIncludes(caps.detail, "test");
@@ -565,7 +564,7 @@ for (const { label, raw } of NOOP_CAPABILITY_VALUES) {
       await setCapabilityRaw(dir, "test", raw);
       const { code, payload } = await runDoctorJson(dir);
       assertEquals(code, 0, JSON.stringify(payload.data.checks));
-      const caps = check(payload, "capabilities");
+      const caps = check(payload, "known jobs");
       // The scaffold wires no other capability, so a no-op `test` leaves zero wired.
       assertEquals(
         caps.status,
@@ -590,7 +589,7 @@ Deno.test("doctor: an env-assignment prefix probes the real command, not the ass
     await addCapability(dir, "test", "CI=1 echo ok");
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "capability commands").ok, true);
+    assertEquals(check(payload, "job commands").ok, true);
   });
 });
 
@@ -600,7 +599,7 @@ Deno.test("doctor: an env-prefixed MISSING command is still detected, naming the
     await addCapability(dir, "test", "CI=1 definitely-not-a-tool-xyz --flag");
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
-    const cmds = check(payload, "capability commands");
+    const cmds = check(payload, "job commands");
     assertEquals(cmds.ok, false);
     assertStringIncludes(cmds.detail, "test → definitely-not-a-tool-xyz");
   });
@@ -615,7 +614,7 @@ Deno.test("doctor: a quoted leading word (a path with spaces) resolves as one co
     await addCapabilityLiteral(dir, "test", '"./my tool.sh" --all');
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "capability commands").ok, true);
+    assertEquals(check(payload, "job commands").ok, true);
   });
 });
 
@@ -627,7 +626,7 @@ Deno.test("doctor: a dynamic leading word is skipped (advisory scope), never fai
     await addCapabilityLiteral(dir, "test", "$TOOL run");
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "capability commands").ok, true);
+    assertEquals(check(payload, "job commands").ok, true);
   });
 });
 
@@ -750,59 +749,29 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
   });
 });
 
-Deno.test("doctor: nudges a [checks.x] that mirrors a standard capability (advisory)", async () => {
+Deno.test("doctor: a known job that declares stage fails with the derivation rule", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A standard capability wired as a check: name `lint` at its canonical stage.
-    // `echo` resolves on PATH so the command check passes — isolating the nudge.
     await addCheck(dir, "lint", "check", "echo lint");
 
     const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0); // advisory — the install is healthy
-    assertEquals(payload.ok, true);
-    const nudge = check(payload, "capability-shaped checks");
-    assertEquals(nudge.status, "warn");
-    assertEquals(nudge.warn, true);
-    assertStringIncludes(nudge.detail, "[checks.lint]");
-    assertStringIncludes(nudge.fix ?? "", "[capabilities].lint");
+    assertEquals(code, 1);
+    const schema = check(payload, "config schema");
+    assertStringIncludes(schema.detail, "jobs.lint.stage");
+    assertStringIncludes(schema.detail, "derives stage");
   });
 });
 
-Deno.test("doctor: does NOT nudge a custom-named check, or one at a non-canonical stage", async () => {
+Deno.test("doctor reports custom jobs separately from known-job readiness", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // `licenses` is not a capability name; `lint` at stage `test` is not lint's
-    // canonical stage — neither is a misfiled capability.
-    await addCheck(dir, "licenses", "check", "license-scan");
-    await addCheck(dir, "lint", "test", "weird");
-
-    const { payload } = await runDoctorJson(dir);
-    assertEquals(
-      payload.data.checks.find((c) => c.name === "capability-shaped checks"),
-      undefined,
-      "no nudge for a legitimately custom check",
-    );
-  });
-});
-
-Deno.test("doctor: a [checks.<name>] colliding with a wired capability fails the config schema check", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // [capabilities].lint plus [checks.lint] is a job-label collision — the
-    // gate keys each job's result by its label, so the config is INVALID (not
-    // merely nudge-worthy) and doctor surfaces the parse issue.
-    await addCapability(dir, "lint", "resolve .");
-    await addCheck(dir, "lint", "check", "resolve .");
+    await addCheck(dir, "licenses", "check", "echo licenses");
 
     const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    assertEquals(payload.ok, false);
-    const schema = payload.data.checks.find((c) =>
-      c.name === "config schema" && c.status === "fail"
-    );
-    assert(schema !== undefined, JSON.stringify(payload.data.checks));
-    assertStringIncludes(schema.detail, "checks.lint");
-    assertStringIncludes(schema.detail, "[capabilities].lint");
+    assertEquals(code, 0);
+    const jobs = check(payload, "known jobs");
+    assertStringIncludes(jobs.detail, "none wired yet");
+    assertStringIncludes(jobs.detail, "custom jobs: licenses");
   });
 });
 
@@ -1033,9 +1002,9 @@ Deno.test("doctor --json: carries the execution model, each step marked project/
     assert(merge !== undefined, "finish should run the merge-check");
     assertEquals(merge.actor, "discern");
     assert((merge.hint ?? "").length > 0, "every step should carry a hint");
-    // The lint capability we wired is the user's own command.
+    // The lint job we wired is the user's own command.
     const lint = finish.steps.find((s) => s.label === "lint");
-    assert(lint !== undefined, "finish should run the lint capability");
+    assert(lint !== undefined, "finish should run the lint job");
     assertEquals(lint.actor, "project");
     assertEquals(lint.note, "echo lint");
   });

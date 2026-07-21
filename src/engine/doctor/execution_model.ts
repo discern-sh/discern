@@ -63,7 +63,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   job: {
     actor: "project",
     hint:
-      "A configured gate command (a capability or a check); its stage decides when it runs and what is expected of it.",
+      "A declared gate job; its stage decides when it runs and what is expected of it.",
   },
   "scope-gate": {
     actor: "project",
@@ -153,7 +153,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
  * its stage) rather than the generic `job` entry above, because the stage is what
  * tells a user the load-bearing expectation: the fix stage mutates and must be
  * committed; the check stage is the fast inner loop; tests are slow. Sourced from the
- * `[capabilities]` comments in the config template and ADR 0047 (the strand check).
+ * `[jobs]` comments in the config template and ADR 0047 (the strand check).
  */
 const STAGE_HINTS: Record<Stage, string> = {
   fix:
@@ -193,7 +193,7 @@ function step(
   };
 }
 
-/** Annotate one planned gate job (capability/check/scope-gate) — the shared
+/** Annotate one planned gate job (declared job/scope-gate) — the shared
  * projection the `done`/`prepare`/`test` derivations all funnel through, so a job's
  * label, command (the note), and stage-specific hint come from the real plan. */
 function annotateJob(job: PlannedJob): ExecutionStep {
@@ -212,7 +212,7 @@ function annotateJob(job: PlannedJob): ExecutionStep {
         : {}),
     });
   }
-  // A capability/check job's reportStage is always a real Stage (never "scope_gates").
+  // A declared job's reportStage is always a real Stage (never "scope_gates").
   return step("job", job.label, {
     note: job.command,
     hint: STAGE_HINTS[job.reportStage as Stage],
@@ -430,7 +430,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     }));
   }
   for (const job of planStageJobs(cfg, "test")) {
-    if (job.kind === "capability" && /^smoke(?:#\d+)?$/.test(job.label)) {
+    if (job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)) {
       steps.push(annotateJob(job));
     }
   }

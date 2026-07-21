@@ -6,7 +6,7 @@
  * `--json` SERIALIZES (plan, results) into the result rather than re-deriving it.
  *
  * The result is the universal {@link DiscernResult} envelope (ADR 0028) every verb
- * returns: each capability/check/scope-gate is a `steps[]` entry, a genuine failure
+ * returns: each declared job or scope gate is a `steps[]` entry, a genuine failure
  * also yields a `diagnostics[]` entry (the command to reproduce it + its captured
  * output, or — for a SARIF-emitting tool — normalized file/line/rule findings), and
  * the gate's own `failed_stage`/`scopes_changed` ride in `data`. Human text and
@@ -16,7 +16,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { capabilityList, STAGES } from "../../shared/capabilities.ts";
+import { knownJobList, STAGES } from "../../shared/capabilities.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
@@ -465,7 +465,7 @@ async function runGate(
     }
   }
 
-  // 2. Run the capability/check stage groups (fix → build → check∥test). These do
+  // 2. Run the declared job stage groups (fix → build → check∥test). These do
   //    not depend on the changed scopes, so they run before scope classification.
   //    ANY stage may mutate the tree — the fix stage by design, a build/test/scope
   //    gate by accident of wiring (a regenerated tracked artifact, a rewritten
@@ -520,7 +520,7 @@ async function runGate(
   const gateStandards = buildStandardJobs(root, resolved);
   const checkTest = checkTestGroup(cfg, gateStandards.jobs);
 
-  // 2b. The check∥test group — capabilities, checks, tests, AND the standards'
+  // 2b. The check∥test group — declared jobs AND the standards'
   //     measurement jobs, one parallel group under one scheduler (fail-fast,
   //     buffering, the per-job timeout). Replayed standards settle first: their
   //     synthesized results are seeded so the serialization reads them like any
@@ -898,10 +898,10 @@ function printSuccessTail(
   }
   if (unfilled === STAGES.length) {
     out.ok(
-      "Gate passed — but no capability or check is wired, so nothing was actually checked (a no-op gate).",
+      "Gate passed — but no job is wired, so nothing was actually checked (a no-op gate).",
     );
     out.warn(
-      `Add [capabilities] (${capabilityList()}) to discern.toml so the gate has something to run.`,
+      `Add a known job (${knownJobList()}) or a custom [jobs.<name>] table to discern.toml so the gate has something to run.`,
     );
   } else {
     out.ok("Everything built and all checks passed.");

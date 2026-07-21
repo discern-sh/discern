@@ -47,7 +47,7 @@ const CONFIG_CHECK = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[capabilities]",
+  "[jobs]",
   'lint = "sh check.sh"',
   "",
 ].join("\n");

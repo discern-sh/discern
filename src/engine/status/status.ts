@@ -42,10 +42,6 @@ import {
   NO_PROJECT_MESSAGE,
 } from "../../shared/env.ts";
 import {
-  type Capability,
-  KNOWN_CAPABILITIES,
-} from "../../shared/capabilities.ts";
-import {
   setupProgress,
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
@@ -298,14 +294,14 @@ export async function statusResult(
   // only while outstanding, mirroring `stale_generated`.
   let setupPending: string[] | undefined;
   if (!cfg.meta.bootstrapped) {
-    // Derived progress (ADR 0075): the markers still pending PLUS which capabilities
+    // Derived progress (ADR 0075): the markers still pending PLUS which known jobs
     // are wired — both read from the tree, unfakeable, so a half-done setup shows
     // what's left rather than relying on a self-reported step.
     const progress = await setupProgress(root, cfg);
     setupPending = progress.pendingMarkers;
     data.setup_unfinished = {
       pending_markers: progress.pendingMarkers,
-      capabilities: progress.capabilities,
+      known_jobs: progress.knownJobs,
     };
   }
 
@@ -511,19 +507,17 @@ async function fleetEntryFor(
   return entry;
 }
 
-/** What the gate would fire: the wired capabilities (canonical order), the declared
- * checks, and the scope gates the current change triggers — reusing the gate's own
+/** What the gate would fire: the wired declared jobs and the scope gates the current
+ * change triggers — reusing the gate's own
  * scope-gate selection (`planScopeGates`) so status and `done` agree. */
 function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
-  const capabilities = (Object.keys(KNOWN_CAPABILITIES) as Capability[])
-    .filter((c) => toCommandList(cfg.capabilities[c]).length > 0);
-  const checks = Object.entries(cfg.checks)
-    .filter(([, spec]) => toCommandList(spec.run).length > 0)
+  const jobs = Object.entries(cfg.jobs)
+    .filter(([, value]) => toCommandList(value).length > 0)
     .map(([name]) => name);
   const scope_gates = planScopeGates(cfg, changed)
     .filter((j) => j.willRun)
     .map((j) => j.label.replace(/^scope:/, ""));
-  return { capabilities, checks, scope_gates };
+  return { jobs, scope_gates };
 }
 
 // ── hints (advisory next-steps; never an unverified pass/fail) ───────────────────
@@ -1052,7 +1046,7 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
   // evidence is in data.setup_unfinished; this is its human face.)
   if (data.setup_unfinished !== undefined) {
     const pending = data.setup_unfinished.pending_markers;
-    const caps = data.setup_unfinished.capabilities;
+    const jobs = data.setup_unfinished.known_jobs;
     out.raw(
       `\n  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}\n`,
     );
@@ -1067,10 +1061,10 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
       );
     }
     {
-      const wired = caps.filter((cap) => cap.wired).map((cap) => cap.name);
-      const unset = caps.filter((cap) => !cap.wired).map((cap) => cap.name);
+      const wired = jobs.filter((job) => job.wired).map((job) => job.name);
+      const unset = jobs.filter((job) => !job.wired).map((job) => job.name);
       out.raw(
-        `  ${c.dim}Capabilities wired: ${
+        `  ${c.dim}Known jobs wired: ${
           wired.length > 0 ? wired.join(", ") : "none yet"
         }${
           unset.length > 0 ? ` · unset: ${unset.join(", ")}` : ""
@@ -1133,14 +1127,11 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
 
   if (data.gate !== undefined) {
     const g = data.gate;
-    const caps = g.capabilities.length > 0
-      ? g.capabilities.join(", ")
-      : "(none wired)";
-    const checks = g.checks.length > 0 ? `, ${g.checks.join(", ")}` : "";
+    const jobs = g.jobs.length > 0 ? g.jobs.join(", ") : "(none wired)";
     const sg = g.scope_gates.length > 0
       ? `${dot}scope gates: ${g.scope_gates.join(", ")}`
       : "";
-    out.raw(`  ${label("gate")}${caps}${checks}${sg}\n`);
+    out.raw(`  ${label("gate")}${jobs}${sg}\n`);
   }
 
   if (data.gate_receipt !== undefined) {

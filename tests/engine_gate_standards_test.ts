@@ -91,7 +91,7 @@ function covConfig(opts: {
     "[repository]",
     'trunk = "main"',
     "",
-    "[capabilities]",
+    "[jobs]",
     'lint = "true"',
     "",
     "[standards.cov]",
@@ -141,7 +141,7 @@ Deno.test("tier 1: a deleted standard is the ultimate loosening and fails the ga
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'lint = "true"',
         "",
       ].join("\n"),
@@ -336,7 +336,7 @@ Deno.test("tier 2: hint variants — no standards configured means no standards 
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'lint = "true"',
         "",
       ].join("\n"),
@@ -436,7 +436,7 @@ Deno.test("a green gate over a clean committed tree records the measurement rece
 Deno.test("zero cost when [standards] is empty: the gate plan is byte-identical to a standards-free gate", () => {
   const cfg = parseConfigOrThrow(
     [
-      "[capabilities]",
+      "[jobs]",
       'lint = "true"',
       'test = "true"',
       "",

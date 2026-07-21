@@ -6,8 +6,8 @@
  *
  * One core ({@link runTestGate}) runs the test group; {@link testResult} runs it
  * quiet and returns the {@link DiscernResult} the MCP server (and the CLI's `--json`)
- * render, while {@link runTestCapability} narrates the same run. An unconfigured
- * `test` capability is a trivial pass carrying a hint that nothing ran — like the
+ * render, while {@link runTestJob} narrates the same run. An unconfigured
+ * `test` job is a trivial pass carrying a hint that nothing ran — like the
  * gate treats an unwired stage.
  */
 
@@ -23,9 +23,9 @@ import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
 /** The line shown — as a human note and as an envelope hint — when no test
- * capability is wired, so a trivial pass is never mistaken for "tests ran". */
+ * job is wired, so a trivial pass is never mistaken for "tests ran". */
 const NO_TEST_CONFIGURED =
-  'No test capability is configured (set test = "<command>" under [capabilities] in discern.toml).';
+  'No test job is configured (set test = "<command>" under [jobs] in discern.toml).';
 
 /**
  * Run the test gate once: build the test stage's group and run it through the shared
@@ -115,7 +115,7 @@ export async function testResult(
 }
 
 /** Run `test`. Returns a process exit code. */
-export async function runTestCapability(
+export async function runTestJob(
   root: string,
   opts: { json?: boolean } = {},
 ): Promise<number> {

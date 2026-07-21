@@ -26,6 +26,24 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Flatten JSON Schema `allOf` object fragments into the view the reference and
+ * path walkers need. `[jobs]` uses an intersection so it can expose fixed known
+ * names while enforcing the same key pattern on custom names. */
+function objectView(schema: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(schema.allOf)) return schema;
+  const view: Record<string, unknown> = { ...schema };
+  delete view.allOf;
+  for (const part of schema.allOf) {
+    if (!isObject(part)) continue;
+    const currentProps = isObject(view.properties) ? view.properties : {};
+    const partProps = isObject(part.properties) ? part.properties : {};
+    Object.assign(view, part, {
+      properties: { ...currentProps, ...partProps },
+    });
+  }
+  return view;
+}
+
 /**
  * Build the editor JSON Schema for the config *document* from {@link
  * configDocSchema}. Uses the `input` view (defaults/optionals are NOT required,
@@ -74,6 +92,7 @@ function cell(text: string): string {
 /** A human type label for a JSON-schema node: `string`, `boolean`, `number`,
  * `string[]`, a `\|`-joined enum, or a `\|`-joined union (command-or-list). */
 function typeLabel(schema: Record<string, unknown>): string {
+  schema = objectView(schema);
   if (Array.isArray(schema.enum)) {
     return schema.enum.map((v) => `\`${String(v)}\``).join(" \\| ");
   }
@@ -99,6 +118,7 @@ function defaultLabel(schema: Record<string, unknown>): string {
 /** True for a nested container key (a sub-table or a `<name>` record), as opposed
  * to a scalar/array/enum leaf key. */
 function isContainer(schema: Record<string, unknown>): boolean {
+  schema = objectView(schema);
   return schema.type === "object" &&
     (isObject(schema.properties) || isObject(schema.additionalProperties));
 }
@@ -128,6 +148,7 @@ function renderSection(
   schema: Record<string, unknown>,
   level: number,
 ): string {
+  schema = objectView(schema);
   const props = isObject(schema.properties) ? schema.properties : undefined;
   const valueShape = isObject(schema.additionalProperties)
     ? schema.additionalProperties
@@ -151,9 +172,25 @@ function renderSection(
     const table = keyTable(props);
     if (table !== "") out.push("", table);
     for (const [key, child] of Object.entries(props)) {
-      if (isObject(child) && isContainer(child)) {
-        out.push("", renderSection(`${path}.${key}`, child, level + 1));
+      if (isObject(child) && isContainer(objectView(child))) {
+        out.push(
+          "",
+          renderSection(`${path}.${key}`, objectView(child), level + 1),
+        );
       }
+    }
+    // `[jobs]` is deliberately hybrid: fixed known-name values plus an open
+    // custom-name table shape. Render that custom arm as `[jobs.<name>]`.
+    if (valueShape !== undefined) {
+      const custom = objectView(valueShape);
+      out.push("", `${"#".repeat(level + 1)} \`[${path}.<name>]\``);
+      if (typeof custom.description === "string") {
+        out.push("", custom.description);
+      }
+      const table = keyTable(
+        isObject(custom.properties) ? custom.properties : {},
+      );
+      if (table !== "") out.push("", table);
     }
   }
   return out.join("\n");
@@ -161,20 +198,20 @@ function renderSection(
 
 /** Search aliases for every section and key in the live config schema. Named
  * tables keep their documented `<name>` placeholder, so a query such as
- * `checks.<name>.run` reaches the reference without a hand-maintained synonym
+ * `jobs.<name>.run` reaches the reference without a hand-maintained synonym
  * list. */
 function configSearchAliases(schema: Record<string, unknown>): string[] {
   const out: string[] = [];
   const walk = (node: Record<string, unknown>, prefix: string): void => {
+    node = objectView(node);
     const props = isObject(node.properties) ? node.properties : undefined;
     if (props !== undefined) {
       for (const [key, child] of Object.entries(props)) {
         if (!isObject(child)) continue;
         const path = prefix === "" ? key : `${prefix}.${key}`;
         out.push(path);
-        if (isContainer(child)) walk(child, path);
+        if (isContainer(objectView(child))) walk(objectView(child), path);
       }
-      return;
     }
     const valueShape = isObject(node.additionalProperties)
       ? node.additionalProperties
@@ -182,7 +219,7 @@ function configSearchAliases(schema: Record<string, unknown>): string[] {
     if (valueShape !== undefined) {
       const path = `${prefix}.<name>`;
       out.push(path);
-      walk(valueShape, path);
+      walk(objectView(valueShape), path);
     }
   };
   walk(schema, "");
@@ -227,7 +264,7 @@ export function renderConfigReferenceDoc(): string {
     "",
     "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.",
     "",
-    "The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.",
+    "The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.",
   ];
   for (const [section, schema] of Object.entries(props)) {
     if (isObject(schema)) {
@@ -249,11 +286,11 @@ export function configSectionNames(): string[] {
 
 /**
  * The dotted paths of the schema's open `<name>` tables — the `z.record` sections
- * (`checks`, `scopes`, `standards`, `worktree.resources`) whose entries are
+ * (`jobs`, `scopes`, `standards`, `worktree.resources`) whose entries are
  * user-population, not fixed keys. A node is one when it has a value shape under
  * `additionalProperties` but no fixed `properties`. Derived from the live schema so
  * a new record section auto-enrolls; the template↔config parity guard uses this to
- * treat those sub-trees as the customizable "extras" zone (a project's own checks /
+ * treat those sub-trees as the customizable "extras" zone (a project's own jobs /
  * scopes / standards / resources are never required to match the template's).
  */
 export function recordConfigPaths(): string[] {
@@ -263,17 +300,19 @@ export function recordConfigPaths(): string[] {
   >;
   const out: string[] = [];
   const walk = (node: Record<string, unknown>, prefix: string): void => {
+    node = objectView(node);
     const props = isObject(node.properties) ? node.properties : {};
     for (const [key, child] of Object.entries(props)) {
       if (!isObject(child)) {
         continue;
       }
       const path = prefix === "" ? key : `${prefix}.${key}`;
-      if (isObject(child.additionalProperties) && !isObject(child.properties)) {
+      const view = objectView(child);
+      if (isObject(view.additionalProperties)) {
         out.push(path); // an open <name> table — its entries are user-defined
         continue;
       }
-      walk(child, path);
+      walk(view, path);
     }
   };
   walk(root, "");

@@ -1507,7 +1507,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
         "[repository]",
         'trunk = "main"',
         "",
-        "[checks.cwd]",
+        "[jobs.cwd]",
         'stage = "check"',
         'run = "pwd > command.cwd"',
         "",
@@ -3187,7 +3187,7 @@ function sleeperConfig(): string {
     "[repository]",
     'trunk = "main"',
     "",
-    "[capabilities]",
+    "[jobs]",
     'lint = "echo $$ > gate.pid && sleep 30"',
   ].join("\n");
 }

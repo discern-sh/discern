@@ -640,7 +640,7 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         `test = "git -C ${dir} commit --allow-empty -q -m race-main --no-gpg-sign"`,
         "",
       ].join("\n"),

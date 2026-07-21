@@ -476,7 +476,7 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
       "# Real docs\n",
     );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
-    await runAgent(dir, ["config", "set-capability", "test", "true"]);
+    await runAgent(dir, ["config", "set-job", "test", "true"]);
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
 
@@ -590,7 +590,7 @@ async function readyForDone(dir: string, cmd: string): Promise<void> {
     join(dir, "discern/guidance.md"),
     "# Project guidance\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
   );
-  const wired = await runAgent(dir, ["config", "set-capability", "test", cmd]);
+  const wired = await runAgent(dir, ["config", "set-job", "test", cmd]);
   assertEquals(wired.code, 0, wired.output);
 }
 
@@ -807,7 +807,7 @@ Deno.test("setup done blocks when the gate is green here but red in a worktree �
     // here, but the file never travels into a fresh worktree.
     const wired = await runAgent(dir, [
       "config",
-      "set-capability",
+      "set-job",
       "smoke",
       "test -f PROBE_ANCHOR",
     ]);
@@ -1745,7 +1745,7 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
       "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
     );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
-    await runAgent(dir, ["config", "set-capability", "test", "true"]);
+    await runAgent(dir, ["config", "set-job", "test", "true"]);
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
     assertStringIncludes(

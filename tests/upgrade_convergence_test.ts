@@ -385,6 +385,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
           18,
           19,
           20,
+          21,
         ],
       );
 
@@ -395,7 +396,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       // …it ends up at the dissolved root footprint…
       assertEquals(await pathExists(older, "discern.toml"), true);
       assertEquals(await pathExists(older, ".discern"), false);
-      // …and the 1→2 backfill reached its schema-21 home and spelling.
+      // …and the 1→2 backfill reached its current home and spelling.
       assertStringIncludes(
         await readTarget(older, "discern.toml"),
         'trunk = "main"',
@@ -447,7 +448,7 @@ async function regressToV3(dir: string): Promise<void> {
   );
 }
 
-Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the current schema", async () => {
+Deno.test("a schema-3 [slots] install upgrades to the jobs shape and the current schema", async () => {
   await withTempDir(async (older) => {
     await withTempDir(async (fresh) => {
       await setup(older); // a fresh install at the current schema
@@ -456,17 +457,17 @@ Deno.test("a schema-3 [slots] install upgrades to the capabilities shape and the
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
       assertEquals(
         res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
       );
 
       await setup(fresh);
       // The migrated install reaches the same schema as a fresh one.
       assertEquals(await recordedSchema(older), await recordedSchema(fresh));
-      // The seed converges in shape at the dissolved footprint: capabilities
+      // The seed converges in shape at the dissolved footprint: jobs
       // present, the legacy structure gone, the new sections added.
       assertEquals(await pathExists(older, ".discern"), false);
       const toml = await readTarget(older, "discern.toml");
-      assertStringIncludes(toml, "[capabilities]");
+      assertStringIncludes(toml, "[jobs]");
       assertStringIncludes(toml, 'format = "deno fmt"');
       assert(!toml.includes("[slots."));
       assert(!toml.includes("[evidence]"));
@@ -532,7 +533,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     // The manifest anchored the chain at schema 4, so every later step runs.
     assertEquals(
       res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
     );
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.

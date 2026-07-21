@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 21
+schema_version = 22
 
 
 [project]
@@ -122,8 +122,8 @@ dir = "discern/skills"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [capabilities] — the core commands the gate runs, one per known capability.
-# Each maps to a gate stage automatically:
+# [jobs] — every command the gate runs, in one namespace. Known names derive
+# their gate stage automatically:
 #   format     fix    a formatter/codemod (mutating; runs first, serially)
 #   build      build  produce artifacts later stages read (compile, bundle)
 #   lint       check  read-only static analysis
@@ -135,22 +135,26 @@ dir = "discern/skills"
 # A job needing its own time budget takes the table form — the `timeout` (seconds)
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
 #   test = { run = "npm test", timeout = 1200 }
-# OMIT an individual capability you truly do not have yet. A config with zero wired
-# capabilities is only a bootstrap state: the gate can pass without checking anything,
-# so `discern doctor` reports it as a warning until at least one capability or custom
-# check is wired. `discern setup` has your coding agent fill these by sniffing the repo;
-# `discern doctor` shows which are wired.
+# OMIT an individual known job you truly do not have yet. A config with no known
+# jobs wired is only a bootstrap state: the gate can pass without its built-in
+# protections, so `discern doctor` reports it as a warning. `discern setup` has
+# your coding agent fill these by sniffing the repo; `discern doctor` shows which
+# known names and custom jobs are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
-# capabilities, and never builds or tests.
+# jobs, and never builds or tests.
 #
 # `smoke` is the project's fast readiness check — real config and essential shared
 # runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
 # `discern done` and `discern test` run it in the same fail-fast test group, so a
 # quick smoke failure cancels slower siblings.
+# Custom names use `[jobs.<name>]` and MUST declare `stage` (fix|build|check|test)
+# plus `run` (a command or list). `provides` is an optional free-text label;
+# `timeout` has the same per-job meaning as above. Known names MUST NOT declare
+# `stage`: their stage comes from the list above.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[capabilities]
+[jobs]
 # format    = "prettier --write ."   # or "ruff format ." or "gofmt -w ."
 # build     = "npm run build"        # or "cargo build"
 # lint      = "eslint ."             # or "ruff check ." or "golangci-lint run"
@@ -160,17 +164,7 @@ dir = "discern/skills"
 #                                    # framework about, or real-config load-and-exit
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [checks.<name>] — custom, non-standard gate work that isn't a known capability.
-# `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
-# list); `provides` an optional free-text label; `timeout` (seconds, optional)
-# replaces the global [gate].timeout for this job only (0 disables its bound).
-# Use this for anything outside the six capabilities above. A check may not
-# reuse a name wired under [capabilities] — the gate keys each job's result by
-# its label, so the two would collide.
-# ─────────────────────────────────────────────────────────────────────────────
-
-# [checks.licenses]
+# [jobs.licenses]
 # stage    = "check"
 # run      = "./scripts/check-licenses.sh"
 # provides = "license-audit"
@@ -414,7 +408,7 @@ stream = false
 fail_fast = true
 
 # Per-command time budget in SECONDS, applied to every job the gate runs (each
-# capability, check, scope gate, and standard measurement). A command that
+# declared job, scope gate, and standard measurement). A command that
 # doesn't exit within it is tree-killed and the stage fails with a plain-language
 # timeout diagnostic — so the gate can never hang. The usual culprit is a
 # watch-mode test runner or a dev server wired without its single-run form.

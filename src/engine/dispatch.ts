@@ -38,7 +38,7 @@ import { runImprovement } from "./improve/improve.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import { runMcpServer } from "./mcp/server.ts";
 import { runPrepare } from "./gate/prepare.ts";
-import { runTestCapability } from "./gate/test.ts";
+import { runTestJob } from "./gate/test.ts";
 import { runStandards } from "./gate/standards.ts";
 import { runImpact } from "./scopes/scopes.ts";
 import { runCoupling } from "./coupling/coupling.ts";
@@ -311,7 +311,7 @@ export function attachEngineCommands(
       recordedExit(
         "test",
         async (o) =>
-          await runTestCapability(await requireRoot(), {
+          await runTestJob(await requireRoot(), {
             json: o.json ?? false,
           }),
       ),
@@ -436,7 +436,7 @@ export function attachEngineCommands(
     .command("impact")
     .description(
       "Show which configured scopes the branch and working tree wake in the quality " +
-        "gate. Scopes are named regions of the repository with their own checks.",
+        "gate. Scopes are named regions of the repository with their own gate jobs.",
     )
     .option(
       "--json",

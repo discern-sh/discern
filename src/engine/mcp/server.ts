@@ -333,7 +333,7 @@ export const TOOLS: McpTool[] = orderTools([
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
       "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
-      "lists what the gate WOULD fire (wired capabilities, checks, triggered scope " +
+      "lists what the gate WOULD fire (declared jobs and triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
       "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt " +
       "carries the receipt markdown to relay to your owner at the review moment); " +
@@ -430,8 +430,7 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Run the tests",
     outputSchema: TestOutputSchema.shape,
     annotations: MUTATING,
-    description:
-      "Run the project's test capability — its configured test command — on its own " +
+    description: "Run the project's configured test job on its own " +
       "(the `test` stage, outside the " +
       "full gate) and return the result envelope. When no test command is configured " +
       "it is a trivial pass carrying a hint that says so.",
@@ -501,7 +500,7 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: READ_ONLY,
     description:
       "Verify the discern install and return each check as an actionable result: " +
-      "config validity, schema currency, whether the declared capability commands — " +
+      "config validity, schema currency, whether the declared job commands — " +
       "configured project commands such as format, lint, and test — " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
       "and — on failure — the exact fix. data.execution_model lists, per configurable " +

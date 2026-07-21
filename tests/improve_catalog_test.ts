@@ -57,7 +57,7 @@ function perfect(): ImprovementContext {
 bootstrapped = true
 [project]
 gotchas_doc = "docs/gotchas.md"
-[capabilities]
+[jobs]
 format = "true"
 lint = "true"
 test = "true"

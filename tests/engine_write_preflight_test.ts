@@ -106,7 +106,7 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         `test = "touch ${marker}"`,
         "",
       ].join("\n"),

@@ -1,12 +1,11 @@
 /**
  * Building the gate's jobs for a stage from `discern.toml`.
  *
- *   capabilities  every `[capabilities]` flat key that is known and whose derived
- *                 stage matches. An array-valued capability expands to one job
- *                 per element (first labelled with the bare name, later ones
- *                 `name#2`, `name#3`). kind = "capability".
- *   checks        every `[checks.<name>]` whose `stage` equals the stage; `run`
- *                 is a scalar. kind = "check".
+ *   known jobs    every known `[jobs]` name whose derived stage matches. A list
+ *                 expands to one job per element (first labelled with the bare
+ *                 name, later ones `name#2`, `name#3`). kind = "known".
+ *   custom jobs   every `[jobs.<name>]` whose declared `stage` matches. Its
+ *                 `run` list joins into one command. kind = "custom".
  *
  * Empty and `:` no-op commands are skipped.
  */
@@ -17,44 +16,54 @@ import {
   toCommand,
   toCommandList,
 } from "../../shared/config_schema.ts";
-import { capStage, type Stage } from "../../shared/capabilities.ts";
+import { isKnownJob, jobStage, type Stage } from "../../shared/capabilities.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 import { expandMapDirReference } from "../../shared/map_path.ts";
+
+/** The custom table shape after config validation. The key decides which arm of
+ * the jobs union applies, but TypeScript cannot correlate an object entry's key
+ * with its value, so preserve that invariant with a small runtime guard. */
+function isCustomJobSpec(
+  value: unknown,
+): value is { stage: Stage; run: string | string[]; timeout?: number } {
+  return typeof value === "object" && value !== null &&
+    Object.hasOwn(value, "stage") && Object.hasOwn(value, "run");
+}
 
 /** One gate job with the metadata `done --json` reports. */
 export interface StageJob {
   label: string;
   command: string;
-  kind: "capability" | "check";
+  kind: "known" | "custom";
   /** Per-job `timeout` override from the config value, replacing the global
    * `[gate].timeout` for this job only (`0` disables the bound for it). */
   timeoutS?: number;
 }
 
-/** The jobs that run in `stage`, capabilities first then checks, in declared order. */
+/** The declared jobs that run in `stage`, in config order. */
 export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
   const jobs: StageJob[] = [];
 
-  // (a) capabilities — each declared capability, placed by its derived stage. An
-  // array-valued capability expands to one job per element.
-  for (const [cap, value] of Object.entries(config.capabilities)) {
-    if (value === undefined || capStage(cap) !== stage) {
+  for (const [name, value] of Object.entries(config.jobs)) {
+    if (isKnownJob(name)) {
+      if (value === undefined || jobStage(name) !== stage) {
+        continue;
+      }
+      const timeoutS = commandTimeout(value);
+      toCommandList(value).forEach((command, i) => {
+        jobs.push({
+          label: i === 0 ? name : `${name}#${i + 1}`,
+          command: expandMapDirReference(command, config.map.dir),
+          kind: "known",
+          ...(timeoutS !== undefined ? { timeoutS } : {}),
+        });
+      });
       continue;
     }
-    const timeoutS = commandTimeout(value);
-    // A scalar yields one job; a list yields one per element (empties/":" dropped).
-    toCommandList(value).forEach((command, i) => {
-      jobs.push({
-        label: i === 0 ? cap : `${cap}#${i + 1}`,
-        command: expandMapDirReference(command, config.map.dir),
-        kind: "capability",
-        ...(timeoutS !== undefined ? { timeoutS } : {}),
-      });
-    });
-  }
-
-  // (b) checks — explicit stage; a list run joins into one job command.
-  for (const [chk, spec] of Object.entries(config.checks)) {
+    const spec = value;
+    if (!isCustomJobSpec(spec)) {
+      throw new Error(`custom job "${name}" has no stage-bearing table`);
+    }
     if (spec.stage !== stage) {
       continue;
     }
@@ -66,9 +75,9 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       continue;
     }
     jobs.push({
-      label: chk,
+      label: name,
       command: run,
-      kind: "check",
+      kind: "custom",
       ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
     });
   }

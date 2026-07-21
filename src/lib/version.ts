@@ -33,7 +33,7 @@ export const UPDATE_CHANNEL =
  * `upgrade` reads the recorded value, brings the install forward, and re-stamps.
  * Most releases need no migration and leave this untouched.
  *
- * The current shape is schema **21**. The chain: schema-1→2 backfills
+ * The current shape is schema **22**. The chain: schema-1→2 backfills
  * `[project].main_branch`; schema-2→3 consolidates the install surface under
  * `.discern/` (config + guidance seeds); schema-3→4 converts
  * `[slots]`→`[capabilities]`/`[checks]`, inlines ratchet runs, folds side-gates
@@ -82,8 +82,10 @@ export const UPDATE_CHANNEL =
  * preserves custom or colliding directory layouts (ADR 0137); schema-20→21 moves
  * the trunk and worktree branch-prefix settings from `[project]` to
  * `[repository]`, renames `main_branch` to `trunk`, and adds the shared checkout
- * convergence list `[repository].ensure` (ADR 0153). See `MIGRATIONS`. A config with no
+ * convergence list `[repository].ensure` (ADR 0153); schema-21→22 merges
+ * `[capabilities]` and `[checks]` into the single `[jobs]` namespace. See
+ * `MIGRATIONS`. A config with no
  * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
  * version), then migrated forward.
  */
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;

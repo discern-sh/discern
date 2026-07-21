@@ -192,7 +192,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // [worktree].graduate_to — accept always lands on the trunk), 17→18
   // ([ratchets] → [standards]), 18→19 ([docs] → [map], with the installed
   // directory pinned), 19→20 (Project Recipes → Project Scripts), and 20→21
-  // ([project] repository policy → [repository]).
+  // ([project] repository policy → [repository]), and 21→22 merges the declared
+  // gate work into [jobs].
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -214,6 +215,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     18,
     19,
     20,
+    21,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -1430,6 +1432,98 @@ Deno.test("migration 20→21 removes only known key comments and preserves user 
       1,
       "only the new canonical repository comment remains",
     );
+  });
+});
+
+Deno.test("migration 21→22 losslessly merges known and custom jobs and is idempotent", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[meta]",
+      "schema_version = 21",
+      "",
+      CONFIG_RULE,
+      "# [capabilities] — known gate work",
+      CONFIG_RULE,
+      "",
+      "[capabilities]",
+      "# A list and its explanation must survive.",
+      'lint = ["lint one", "lint two"]',
+      'test = { run = "test all", timeout = 1200 }',
+      "",
+      CONFIG_RULE,
+      "# [checks.<name>] — custom gate work",
+      CONFIG_RULE,
+      "",
+      "# A custom table comment must survive too.",
+      "[checks.licenses]",
+      'stage = "check"',
+      'run = ["scan", "verify"]',
+      'provides = "license audit"',
+      "timeout = 90",
+      "",
+    ].join("\n");
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(configPath, text);
+    const notes: string[] = [];
+
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 21,
+      to: 22,
+      onNote: (note) => notes.push(note),
+    });
+
+    const migrated = await Deno.readTextFile(configPath);
+    assertStringIncludes(migrated, "# [jobs] — known gate work");
+    assertStringIncludes(
+      migrated,
+      "# A list and its explanation must survive.",
+    );
+    assertStringIncludes(migrated, 'lint = ["lint one", "lint two"]');
+    assertStringIncludes(
+      migrated,
+      'test = { run = "test all", timeout = 1200 }',
+    );
+    assertStringIncludes(
+      migrated,
+      "# A custom table comment must survive too.",
+    );
+    assertStringIncludes(migrated, "[jobs.licenses]");
+    assertStringIncludes(migrated, 'run = ["scan", "verify"]');
+    assertStringIncludes(migrated, 'provides = "license audit"');
+    assertStringIncludes(migrated, "timeout = 90");
+    assert(!migrated.includes("[capabilities]"));
+    assert(!migrated.includes("[checks"));
+    assertEquals(notes, ["merged [capabilities] and [checks] into [jobs]"]);
+    assertEquals(parseConfig(migrated).issues, []);
+
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 21,
+      to: 22,
+      onNote: () => {},
+    });
+    assertEquals(await Deno.readTextFile(configPath), migrated);
+  });
+});
+
+Deno.test("migration 21→22 refuses a mixed retired/current job namespace", async () => {
+  await withTempDir(async (dir) => {
+    const text = '[capabilities]\ntest = "old"\n\n[jobs]\nlint = "new"\n';
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(configPath, text);
+    await assertRejects(
+      () =>
+        applyMigrationsUnchecked({
+          destDir: dir,
+          from: 21,
+          to: 22,
+          onNote: () => {},
+        }),
+      Error,
+      "Keep every intended entry under [jobs]",
+    );
+    assertEquals(await Deno.readTextFile(configPath), text);
   });
 });
 

@@ -58,8 +58,8 @@ export async function runGroup(
   // Tripwire: `results` is keyed by label, and the serialized report looks each
   // planned job up by label — a duplicate would silently overwrite one job's
   // outcome with its sibling's (losing the genuine failure's diagnostics).
-  // Labels are unique by construction (config validation rejects a check named
-  // after a wired capability; scope gates are prefixed `scope:`; list expansions
+  // Labels are unique by construction (declared jobs share one namespace; scope
+  // gates are prefixed `scope:`; list expansions
   // carry `#`), so a collision here is an engine bug — fail loudly, before
   // anything runs, rather than report a corrupted result.
   const seen = new Set(results.keys());

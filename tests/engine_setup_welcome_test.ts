@@ -192,16 +192,16 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
-    // Derived progress: the docs markers still pending and the (all-unset) capabilities.
+    // Derived progress: the docs markers still pending and all known jobs unset.
     assert(
       Array.isArray(d.progress.pending_markers) &&
         d.progress.pending_markers.length > 0,
       `expected pending markers: ${JSON.stringify(d.progress)}`,
     );
-    assertEquals(d.progress.capabilities.length, 6);
+    assertEquals(d.progress.known_jobs.length, 6);
     assert(
-      d.progress.capabilities.every((c: { wired: boolean }) => !c.wired),
-      "no capability is wired yet on a fresh scaffold",
+      d.progress.known_jobs.every((job: { wired: boolean }) => !job.wired),
+      "no known job is wired yet on a fresh scaffold",
     );
   });
 });

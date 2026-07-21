@@ -8,7 +8,7 @@
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
  *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
- *      `discern.toml` with capabilities unset, the compiled agent files, the
+ *      `discern.toml` with jobs unset, the compiled agent files, the
  *      merged settings, the MCP wiring.
  *   2. Lay the doc skeletons — only when the project has none, so an existing
  *      `docs/` tree is never disturbed.
@@ -1738,7 +1738,7 @@ async function commitCompletionMarker(
   }
   const configRel = relative(root, configPath);
   // The config change must be EXACTLY the marker line we just wrote, nothing else
-  // (e.g. capabilities the agent left uncommitted). Diff against HEAD so staged
+  // (e.g. jobs the agent left uncommitted). Diff against HEAD so staged
   // config edits are included in the check instead of sneaking into the commit.
   // "Anything else is unexpected", so fail open.
   const diff = await runGit(["diff", "HEAD", "--", configRel], { cwd: root });
@@ -1959,19 +1959,19 @@ function doneHints(
 function verdictSentence(a: SetupAssurance): string {
   switch (a.verdict) {
     case "full":
-      return "Quality coverage: full — every standard check is enforced, so `discern done` runs the complete recommended gate.";
+      return "Quality coverage: full — every known job is enforced, so `discern done` runs the complete recommended gate.";
     case "minimal":
-      return "Quality coverage: minimal — setup is complete, but no standard checks are enforced yet, so `discern done` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
+      return "Quality coverage: minimal — setup is complete, but no known jobs are enforced yet, so `discern done` can't catch regressions on its own. Wiring tests is the highest-leverage next step.";
     case "partial":
-      return `Quality coverage: partial — ${a.enforced} of ${a.total} standard checks enforced. Setup is complete, but not every recommended protection is active yet.`;
+      return `Quality coverage: partial — ${a.enforced} of ${a.total} known jobs enforced. Setup is complete, but not every recommended protection is active yet.`;
   }
 }
 
-/** The aligned per-capability assurance lines (A12) — each capability and its honest
+/** The aligned known-job assurance lines (A12) — each known job and its honest
  * state (enforced / deferred [+reason] / absent). */
 function assuranceLines(a: SetupAssurance): string[] {
-  const width = Math.max(...a.capabilities.map((c) => c.name.length));
-  return a.capabilities.map((c) => {
+  const width = Math.max(...a.known_jobs.map((job) => job.name.length));
+  return a.known_jobs.map((c) => {
     const name = c.name.padEnd(width);
     const mark = c.state === "enforced"
       ? "✓"
@@ -2078,7 +2078,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
   }
   if (assurance.verdict !== "full") {
     console.log(
-      '  (absent = no such command wired; deferred = deliberately off. Wire one with `discern config set-capability <name> "<command>"`.)',
+      '  (absent = no such command wired; deferred = deliberately off. Wire one with `discern config set-job <name> "<command>"`.)',
     );
   }
 
@@ -2206,7 +2206,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // Celebrate, assure, and steer (A11/A12). The agent files, MCP servers, and session
   // hooks were wired at `begin` but coding agents load them at SESSION START, so this
   // session can't see them yet — hence the reactivation handoff (ADR 0075). Alongside
-  // it: an honest per-capability coverage summary (so "gate proven" can't read as "every
+  // it: an honest per-known-job coverage summary (so "gate proven" can't read as "every
   // protection runs"), where the just-finished work lives + how to land it on the
   // integration branch, and a steer into ongoing use via the project coach. Reuse the
   // config proven loadable above (the marker write only flips a bool); re-read the raw
@@ -2286,7 +2286,7 @@ type GateProof =
  * Run the completion proof `discern setup done` requires before recording
  * `[meta].bootstrapped` (ADR 0065/0090): `refresh` (so the generated agent files are
  * current), then `doctor` (the install is healthy), then `done` (the gate is green
- * with whatever capabilities were just wired) — all in the main checkout — then a
+ * with whatever jobs were just wired) — all in the main checkout — then a
  * WORKTREE PROBE proving the project is also viable in a linked worktree, the copy
  * every future task runs in (the main checkout being the one place agents are told
  * never to work). The cores run BELOW the router/MCP setup gate, so they execute
@@ -2327,7 +2327,7 @@ async function proveGateGreen(
     };
   }
 
-  // 2. doctor — the install must be healthy (capability commands resolvable, the
+  // 2. doctor — the install must be healthy (job commands resolvable, the
   //    configured agents known, the gotchas doc resolving, …).
   if (!(await doctorResult(root)).ok) {
     return {
@@ -2340,7 +2340,7 @@ async function proveGateGreen(
     };
   }
 
-  // 3. finish — the gate must be green with the capabilities the agent wired.
+  // 3. finish — the gate must be green with the jobs the agent wired.
   if (!(await finishResult(root)).ok) {
     return {
       ok: false,

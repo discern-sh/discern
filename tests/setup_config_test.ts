@@ -1,6 +1,6 @@
 /**
  * CLI tests for `setup --config <file>` (ADR 0005): a JSON answers file drives a
- * fresh, non-interactive install, with capabilities/checks/scopes/standards
+ * fresh, non-interactive install, with jobs/scopes/standards
  * applied to the generated discern.toml (comments preserved). Run as
  * subprocesses.
  */
@@ -17,11 +17,9 @@ const ANSWERS = JSON.stringify({
   source_globs: ["src/**", "lib/**"],
   brief: "A declaratively-configured app.",
   agents: ["claude_code"],
-  capabilities: {
+  jobs: {
     test: "vitest run",
     format: "prettier --write .",
-  },
-  checks: {
     licenses: { stage: "check", run: "license-scan" },
   },
   scopes: { native: { paths: ["native/**"], gate: "make -C native check" } },
@@ -46,7 +44,7 @@ Deno.test("setup --config scaffolds from a JSON answers file", async () => {
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'test = "vitest run"'); // capability fill
-    assertStringIncludes(toml, "[checks.licenses]"); // check table
+    assertStringIncludes(toml, "[jobs.licenses]"); // check table
     assertStringIncludes(toml, 'paths = ["native/**"]'); // scope fill
     assertStringIncludes(toml, 'gate = "make -C native check"'); // folded-in gate
     assertStringIncludes(toml, "[standards.coverage]"); // coverage standard table
@@ -144,7 +142,7 @@ Deno.test("setup --config rejects an invalid fill (bad check stage)", async () =
       join(dir, "answers.json"),
       JSON.stringify({
         slug: "x",
-        checks: { t: { stage: "bogus", run: "x" } },
+        jobs: { t: { stage: "bogus", run: "x" } },
       }),
     );
     const r = await runCli(

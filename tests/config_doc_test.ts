@@ -77,13 +77,13 @@ Deno.test("loadConfigDoc reads and returns a valid document", async () => {
       name: "Demo",
       slug: "demo",
       agents: ["claude_code"],
-      capabilities: { lint: "deno lint" },
+      jobs: { lint: "deno lint" },
     };
     const path = await writeDoc(dir, doc);
     const loaded = await loadConfigDoc(path);
     assertEquals(loaded.name, "Demo");
     assertEquals(loaded.slug, "demo");
-    assertEquals(loaded.capabilities?.lint, "deno lint");
+    assertEquals(loaded.jobs?.lint, "deno lint");
   });
 });
 
@@ -146,15 +146,13 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes map, capabilities, checks, scopes and standards", () => {
+Deno.test("applyConfigDoc writes map, jobs, scopes and standards", () => {
   const ed = editor();
   applyConfigDoc(ed, {
     map: { dir: "docs/discern/" },
-    capabilities: {
+    jobs: {
       lint: "deno lint",
       test: ["deno test", "deno bench"], // array form: two commands
-    },
-    checks: {
       selfcheck: { stage: "check", run: "make selfcheck", provides: "drift" },
     },
     scopes: {
@@ -172,10 +170,10 @@ Deno.test("applyConfigDoc writes map, capabilities, checks, scopes and standards
   });
   const out = ed.toString();
   assert(out.includes('[map]\ndir = "docs/discern/"'));
-  // A scalar capability and an array capability.
+  // Scalar and array known jobs.
   assert(out.includes('lint = "deno lint"'));
   assert(out.includes('["deno test", "deno bench"]'));
-  // A check carries its stage, run and label — but no capability does.
+  // A custom job carries its stage, run and label — known jobs do not.
   assert(out.includes('stage = "check"'));
   assert(out.includes('run = "make selfcheck"'));
   assert(out.includes('provides = "drift"'));
@@ -193,11 +191,9 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
   const ed = editor();
   applyConfigDoc(ed, {
     map: { dir: "docs/discern/" },
-    capabilities: {
+    jobs: {
       lint: "deno lint --rules=\\d+",
       test: ["deno test", "echo trailing\\"],
-    },
-    checks: {
       quoted: {
         stage: "check",
         run: 'grep "needle" src\\win\\**',
@@ -224,10 +220,14 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
 
   assertEquals(issues, []);
   assert(config !== undefined);
-  assertEquals(config.capabilities.lint, "deno lint --rules=\\d+");
-  assertEquals(config.capabilities.test, ["deno test", "echo trailing\\"]);
-  assertEquals(config.checks.quoted?.run, 'grep "needle" src\\win\\**');
-  assertEquals(config.checks.quoted?.provides, "unicode-é");
+  assertEquals(config.jobs.lint, "deno lint --rules=\\d+");
+  assertEquals(config.jobs.test, ["deno test", "echo trailing\\"]);
+  const quoted = config.jobs.quoted;
+  assert(
+    typeof quoted === "object" && quoted !== null && !Array.isArray(quoted),
+  );
+  assertEquals(quoted.run, 'grep "needle" src\\win\\**');
+  assertEquals("provides" in quoted ? quoted.provides : undefined, "unicode-é");
   assertEquals(config.scopes.windows?.paths, [
     "src\\win\\**",
     'quote"/**',
@@ -263,8 +263,10 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
  * the fixture behind the class-level skip-existing guard below. */
 const FULL_FILL_DOC: DiscernConfigDoc = {
   map: { dir: "docs/x/" },
-  capabilities: { lint: "deno lint" },
-  checks: { c1: { stage: "check", run: "run-c1" } },
+  jobs: {
+    lint: "deno lint",
+    c1: { stage: "check", run: "run-c1" },
+  },
   scopes: { s1: { paths: ["s1/**"] } },
   standards: { r1: { limit: 1, run: "measure-r1" } },
 };
@@ -322,15 +324,15 @@ Deno.test("applyConfigDoc skipExisting never rewrites a present value, in ANY fi
 
 Deno.test("applyConfigDoc skipExisting keeps a user-authored value verbatim and reports it", () => {
   const ed = new TomlEditor(
-    '[project]\nslug = "demo"\n\n[capabilities]\n# the full suite, on purpose\ntest = "cargo test --workspace"\n',
+    '[project]\nslug = "demo"\n\n[jobs]\n# the full suite, on purpose\ntest = "cargo test --workspace"\n',
   );
   const report = applyConfigDoc(
     ed,
-    { capabilities: { test: "cargo test" } },
+    { jobs: { test: "cargo test" } },
     { skipExisting: true },
   );
   assertEquals(report.filled, []);
-  assertEquals(report.skipped, ["capabilities.test"]);
+  assertEquals(report.skipped, ["jobs.test"]);
   const out = ed.toString();
   assert(out.includes('test = "cargo test --workspace"'));
   assert(out.includes("# the full suite, on purpose"));
@@ -338,16 +340,16 @@ Deno.test("applyConfigDoc skipExisting keeps a user-authored value verbatim and 
 });
 
 Deno.test("applyConfigDoc skipExisting still fills past a commented-out template hint", () => {
-  // The scaffold ships capabilities commented out; a hint is not a value.
+  // The scaffold ships known jobs commented out; a hint is not a value.
   const ed = new TomlEditor(
-    '[project]\nslug = "demo"\n\n[capabilities]\n# test = "npm test"\n',
+    '[project]\nslug = "demo"\n\n[jobs]\n# test = "npm test"\n',
   );
   const report = applyConfigDoc(
     ed,
-    { capabilities: { test: "pytest" } },
+    { jobs: { test: "pytest" } },
     { skipExisting: true },
   );
-  assertEquals(report.filled, ["capabilities.test"]);
+  assertEquals(report.filled, ["jobs.test"]);
   assert(ed.toString().includes('test = "pytest"'));
 });
 
@@ -361,57 +363,51 @@ Deno.test("applyConfigDoc default mode still replaces (setup fills a fresh templ
 
 // ---- applyConfigDoc: validation branches -----------------------------------
 
-Deno.test("applyConfigDoc rejects an unknown capability name", () => {
-  // Deliberately malformed: a capability key outside the closed vocabulary. The
-  // schema-derived type forbids it, so the test casts past it to exercise the
-  // runtime guard's author-friendly message.
+Deno.test("applyConfigDoc requires a table and stage for a custom name", () => {
   assertThrows(
     () =>
       applyConfigDoc(
         editor(),
         {
-          capabilities: { deploy: "deploy.sh" },
+          jobs: { deploy: "deploy.sh" },
         } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'unknown capability "deploy"',
+    'custom job "deploy" must use the table form with stage and run',
   );
 });
 
-Deno.test("applyConfigDoc rejects a check with no stage or an unknown stage", () => {
+Deno.test("applyConfigDoc rejects a custom job with no stage or an unknown stage", () => {
   assertThrows(
     () =>
       applyConfigDoc(
         editor(),
-        { checks: { x: { run: "y" } } } as unknown as DiscernConfigDoc,
+        { jobs: { x: { run: "y" } } } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'check "x": a stage is required',
+    'custom job "x": a stage is required',
   );
   assertThrows(
     () =>
       applyConfigDoc(
         editor(),
         {
-          checks: { x: { stage: "deploy", run: "y" } },
+          jobs: { x: { stage: "deploy", run: "y" } },
         } as unknown as DiscernConfigDoc,
       ),
     Error,
-    'check "x": unknown stage "deploy"',
+    'custom job "x": unknown stage "deploy"',
   );
 });
 
-Deno.test("applyConfigDoc rejects a check sharing a declared capability's name", () => {
-  // The written config would collide the gate's job labels and fail its next
-  // load — refuse at apply time with the author-facing rationale instead.
+Deno.test("applyConfigDoc rejects a declared stage on a known job", () => {
   assertThrows(
     () =>
       applyConfigDoc(editor(), {
-        capabilities: { lint: "lint-tool ." },
-        checks: { lint: { stage: "check", run: "other-lint ." } },
+        jobs: { lint: { stage: "check", run: "other-lint ." } },
       }),
     Error,
-    'check "lint" shares its name with the "lint" capability',
+    'known job "lint" derives stage "check" from its name; remove stage',
   );
 });
 

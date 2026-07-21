@@ -1315,7 +1315,7 @@ async function buildAcceptPlan(
     repositoryEnsureSteps: ctx.config.repository.ensure,
     smokeSteps: planStageJobs(ctx.config, "test")
       .filter((job) =>
-        job.kind === "capability" && /^smoke(?:#\d+)?$/.test(job.label)
+        job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)
       )
       .map((job) => ({
         label: job.label,
@@ -1449,7 +1449,7 @@ async function assertAcceptBranchStillCurrent(
 }
 
 /**
- * Run only the configured smoke capability in the landing checkout. The full
+ * Run only the configured smoke job in the landing checkout. The full
  * gate already validated the commit in the worktree; this second, deliberately
  * narrow pass proves the main checkout's local runtime state is usable after its
  * repository convergence commands. It is non-fatal because the trunk has
@@ -1476,13 +1476,13 @@ async function runLandingSmoke(
     jobs: plan.smokeSteps.map((job) => ({
       label: job.label,
       command: job.command,
-      kind: "capability",
+      kind: "known",
       reportStage: "test",
       willRun: true,
       ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
     })),
   };
-  log.info("Running the smoke capability in the landing checkout...");
+  log.info("Running the smoke job in the landing checkout...");
   // Always keep the gate runner quiet here: accept owns stdout (especially its
   // JSON envelope), while serializeJobSteps retains failure output as structured
   // diagnostics exactly as the normal gate does.

@@ -22,7 +22,7 @@
  */
 
 import { join } from "@std/path";
-import { KNOWN_CAPABILITIES } from "./capabilities.ts";
+import { KNOWN_JOBS } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel } from "./paths_registry.ts";
@@ -75,12 +75,12 @@ async function readFileOr(
 export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
   {
     step: 2,
-    name: "capabilities",
-    describe: "at least one capability is wired in discern.toml.",
+    name: "known_jobs",
+    describe: "at least one known job is wired in discern.toml.",
     evaluate({ config }): Promise<boolean> {
-      const wired = Object.keys(KNOWN_CAPABILITIES).some(
+      const wired = Object.keys(KNOWN_JOBS).some(
         (name) =>
-          config.capabilities[name as keyof typeof config.capabilities] !==
+          config.jobs[name as keyof typeof KNOWN_JOBS] !==
             undefined,
       );
       return Promise.resolve(wired);

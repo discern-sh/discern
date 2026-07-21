@@ -2,7 +2,7 @@
 
 /** A unit of gate work: a labelled shell command. */
 export interface Job {
-  /** Stable label (a capability/check name, or `scope:<name>`). Carries no spaces. */
+  /** Stable label (a declared job name, or `scope:<name>`). Carries no spaces. */
   label: string;
   /** The command string, run via `sh -c`. An empty string becomes the `:` no-op. */
   command: string;

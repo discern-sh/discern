@@ -12,7 +12,7 @@
 
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
-import { KNOWN_CAPABILITIES } from "./capabilities.ts";
+import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
@@ -238,8 +238,8 @@ export async function findSkeletonMarkers(
   return leftover;
 }
 
-/** One known capability and whether a command is wired for it in `discern.toml`. */
-export interface CapabilityProgress {
+/** One known job and whether a command is wired for it in `discern.toml`. */
+export interface KnownJobProgress {
   name: string;
   wired: boolean;
 }
@@ -255,8 +255,8 @@ export interface CapabilityProgress {
 export interface SetupProgress {
   /** Scaffolded files still carrying a `<!-- setup fills this -->` / EXAMPLE marker. */
   pendingMarkers: string[];
-  /** Each known capability, in {@link KNOWN_CAPABILITIES} order, and whether it is wired. */
-  capabilities: CapabilityProgress[];
+  /** Each known job, in {@link KNOWN_JOBS} order, and whether it is wired. */
+  knownJobs: KnownJobProgress[];
   /** True once every skeleton marker is cleared (the authoring is structurally done). */
   markersCleared: boolean;
   /** True once `[meta].bootstrapped` is recorded (`setup done` passed). */
@@ -266,7 +266,7 @@ export interface SetupProgress {
 /**
  * Compute {@link SetupProgress} for `root`. Takes the already-loaded `config` (the
  * caller has it) so this stays a pure derivation — markers from the filesystem,
- * capability-wiring from the config, both read-only. The `wired` predicate mirrors
+ * known-job wiring from the config, both read-only. The `wired` predicate mirrors
  * `doctor`'s (`value !== undefined`), so the two surfaces agree on what "wired" means.
  */
 export async function setupProgress(
@@ -274,17 +274,17 @@ export async function setupProgress(
   config: DiscernConfig,
 ): Promise<SetupProgress> {
   const pendingMarkers = await findSkeletonMarkers(root, config);
-  const capabilities: CapabilityProgress[] = Object.keys(KNOWN_CAPABILITIES)
+  const knownJobs: KnownJobProgress[] = Object.keys(KNOWN_JOBS)
     .map(
       (name) => ({
         name,
-        wired: config.capabilities[name as keyof typeof config.capabilities] !==
+        wired: config.jobs[name as keyof typeof KNOWN_JOBS] !==
           undefined,
       }),
     );
   return {
     pendingMarkers,
-    capabilities,
+    knownJobs,
     markersCleared: pendingMarkers.length === 0,
     bootstrapped: config.meta.bootstrapped,
   };

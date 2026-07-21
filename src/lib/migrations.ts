@@ -27,10 +27,11 @@ import { parseDiscernToml, renderTomlStringList } from "./toml_render.ts";
 import {
   readConfigTemplate,
   renameRuledBannerIdentity,
+  scanRuledBanners,
   sectionBlockFromTemplate,
 } from "./config_template.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { KNOWN_CAPABILITIES } from "./config.ts";
+import { KNOWN_JOBS } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
 import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
@@ -495,10 +496,10 @@ export const MIGRATIONS: Migration[] = [
           const run = typeof slot.run === "string" ? slot.run : undefined;
           if (phase === undefined) continue; // a measurement slot — see ratchets below.
           const isNoop = run === undefined || run === ":";
-          const known = Object.hasOwn(KNOWN_CAPABILITIES, name);
+          const known = Object.hasOwn(KNOWN_JOBS, name);
           if (
             known &&
-            KNOWN_CAPABILITIES[name as keyof typeof KNOWN_CAPABILITIES] ===
+            KNOWN_JOBS[name as keyof typeof KNOWN_JOBS] ===
               phase
           ) {
             // A known capability at its canonical stage. A `:` no-op is dropped —
@@ -1483,7 +1484,84 @@ export const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    from: 21,
+    describe:
+      "merge [capabilities] and [checks.<name>] into the single [jobs] namespace",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      const hasCapabilities = raw.capabilities !== undefined;
+      const hasChecks = raw.checks !== undefined;
+      if (!hasCapabilities && !hasChecks) {
+        return;
+      }
+      if (raw.jobs !== undefined) {
+        throw new Error(
+          "discern.toml contains [jobs] together with retired [capabilities] or [checks]. Keep every intended entry under [jobs], remove the retired tables, then run `discern upgrade` again.",
+        );
+      }
+      if (hasCapabilities && !isRecord(raw.capabilities)) {
+        throw new Error(
+          "[capabilities] must be a table before it can become [jobs]. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      if (hasChecks && !isRecord(raw.checks)) {
+        throw new Error(
+          "[checks] must be a table before it can become [jobs]. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+
+      // The two old tables each carried a discern-owned ruled banner. Keep the
+      // known-job banner as the single [jobs] banner and remove the obsolete
+      // custom-check banner; comments attached to actual entries stay outside
+      // those ownership lines and survive the lexical table rename below.
+      let migrated = removeRuledBannerFamily(text, "checks");
+      migrated = renameTopLevelTomlKey(migrated, "capabilities", "jobs");
+      migrated = renameTopLevelTomlKey(migrated, "checks", "jobs");
+
+      let after: Record<string, unknown>;
+      try {
+        after = parseDiscernToml(migrated).raw;
+      } catch {
+        throw new Error(
+          "discern could not merge [capabilities] and [checks] safely. Move their entries under [jobs], then run `discern upgrade` again.",
+        );
+      }
+      if (
+        after.capabilities !== undefined || after.checks !== undefined ||
+        !isRecord(after.jobs)
+      ) {
+        throw new Error(
+          "discern.toml uses a retired job-table spelling this migration cannot rewrite. Move the entries under [jobs], then run `discern upgrade` again.",
+        );
+      }
+      await ctx.rewrite("discern.toml", () => migrated);
+      ctx.note("merged [capabilities] and [checks] into [jobs]");
+    },
+  },
 ];
+
+/** Remove discern's ruled banner for one retired record family, preserving every
+ * byte outside the owned rule pair. */
+function removeRuledBannerFamily(text: string, family: string): string {
+  const lines = text.split("\n");
+  const spans = scanRuledBanners(text).filter((span) =>
+    span.identity === family || span.identity.startsWith(`${family}.`)
+  );
+  for (const span of spans.sort((a, b) => b.start - a.start)) {
+    lines.splice(span.start, span.end - span.start + 1);
+  }
+  return lines.join("\n");
+}
 
 /**
  * Remove the `graduate_to` key line — the table form (`graduate_to =` under

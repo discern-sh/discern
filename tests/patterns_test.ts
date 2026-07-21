@@ -901,7 +901,7 @@ Deno.test("patterns attribution: a config change bounds the comparable window an
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assert(
-    finding.observed.includes("[capabilities]"),
+    finding.observed.includes("[jobs]"),
     `the attribution must name the section that moved: ${finding.observed}`,
   );
   assert(

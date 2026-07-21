@@ -22,7 +22,7 @@ import {
   toCommandList,
 } from "../src/shared/config_schema.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
-import { KNOWN_CAPABILITIES, STAGES } from "../src/shared/capabilities.ts";
+import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
@@ -47,8 +47,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.guidance.agents, undefined);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty
-  assertEquals(c.capabilities, {});
-  assertEquals(c.checks, {});
+  assertEquals(c.jobs, {});
   assertEquals(c.scopes, {});
   assertEquals(c.standards, {});
   assertEquals(c.worktree.resources, {});
@@ -284,15 +283,15 @@ Deno.test("parseConfig throws ConfigParseError on a TOML syntax error", () => {
   assertThrows(() => parseConfig("oops = [[["), ConfigParseError);
 });
 
-Deno.test("parseConfig collects schema issues without throwing", () => {
+Deno.test("parseConfig rejects unknown-job shorthand with the custom table fix", () => {
   const { config, issues } = parseConfig(
-    `[capabilities]\nfrobnicate = "x"\n`,
+    `[jobs]\nfrobnicate = "x"\n`,
   );
   assertEquals(config, undefined);
-  assert(issues.length >= 1);
-  assert(issues.some((i) => i.path === "capabilities"));
-  // the capability hint points at the known set + [checks]
-  assert(issues.some((i) => /known capability|\[checks/.test(i.message)));
+  const issue = issues.find((i) => i.path === "jobs.frobnicate");
+  assert(issue !== undefined, JSON.stringify(issues));
+  assertStringIncludes(issue.message, "table form");
+  assertStringIncludes(issue.message, "stage");
 });
 
 Deno.test("parseConfigOrThrow throws a ConfigValidationError carrying the issues", () => {
@@ -347,13 +346,13 @@ Deno.test("isSettableConfigPath: known leaf/record paths yes, typos no", () => {
   assert(isSettableConfigPath("gate.fail_fast"));
   assert(isSettableConfigPath("map.dir"));
   assert(isSettableConfigPath("standards.coverage.limit")); // valid-but-incomplete OK
-  assert(isSettableConfigPath("checks.x.stage"));
+  assert(isSettableConfigPath("jobs.x.stage"));
   assert(isSettableConfigPath("worktree.resources.db.create"));
   // Typos and unknown keys are not.
   assert(!isSettableConfigPath("project.frobnicate"));
   assert(!isSettableConfigPath("features.docs")); // the retired toggles (ADR 0101)
   assert(!isSettableConfigPath("worktree.enabled")); // retired with them
-  assert(!isSettableConfigPath("capabilities.deploy")); // closed vocabulary
+  assert(!isSettableConfigPath("jobs.bad name.stage"));
   assert(!isSettableConfigPath("nope.at.all"));
   assert(!isSettableConfigPath("standards.coverage.bogus"));
 });
@@ -415,7 +414,7 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
   });
   // Enum-typed strings carry their closed vocabulary, straight from the schema
   // constants — never a hand-copied list.
-  assertEquals(settableConfigValueKind("checks.x.stage"), {
+  assertEquals(settableConfigValueKind("jobs.x.stage"), {
     kind: "string",
     values: [...STAGES],
   });
@@ -424,7 +423,7 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
     values: ["up", "down"],
   });
   // Unions have no single required type.
-  assertEquals(settableConfigValueKind("capabilities.test"), { kind: "mixed" });
+  assertEquals(settableConfigValueKind("jobs.test"), { kind: "mixed" });
   assertEquals(settableConfigValueKind("standards.x.per"), { kind: "mixed" });
   // Section paths are tables, not keys.
   assertEquals(settableConfigValueKind("worktree.setup"), { kind: "table" });
@@ -449,10 +448,10 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
     JSON.stringify(wrongType),
   );
   const wrongEnum = configWriteIssues(
-    `[checks.x]\nstage = "bogus"\nrun = "y"\n`,
+    `[jobs.x]\nstage = "bogus"\nrun = "y"\n`,
   );
   assert(
-    wrongEnum.some((i) => i.path === "checks.x.stage"),
+    wrongEnum.some((i) => i.path === "jobs.x.stage"),
     JSON.stringify(wrongEnum),
   );
   // Anything wrong OUTSIDE a record entry is never excused: the allowance is
@@ -485,11 +484,11 @@ Deno.test("[map].dir round-trips and rejects paths outside the project", () => {
   );
 });
 
-Deno.test("a bad check stage and a bad standard direction are rejected", () => {
+Deno.test("a bad custom-job stage and a bad standard direction are rejected", () => {
   const badStage = parseConfig(
-    `[checks.x]\nstage = "lint"\nrun = "y"\n`,
+    `[jobs.x]\nstage = "lint"\nrun = "y"\n`,
   );
-  assert(badStage.issues.some((i) => i.path.startsWith("checks.x.stage")));
+  assert(badStage.issues.some((i) => i.path.startsWith("jobs.x.stage")));
   const badDir = parseConfig(
     `[standards.r]\ndirection = "sideways"\nlimit = 1\nrun = "y"\n`,
   );
@@ -507,52 +506,25 @@ Deno.test("the repo's own discern.toml validates with zero issues", async () => 
 
 // ── SSOT guards: the closed vocabularies and the schema agree ────────────────────
 
-Deno.test("every known capability is accepted; an unknown one is rejected", () => {
-  for (const name of Object.keys(KNOWN_CAPABILITIES)) {
-    const { issues } = parseConfig(`[capabilities]\n${name} = "x"\n`);
-    assertEquals(issues, [], `capability "${name}" should be accepted`);
+Deno.test("every known job derives its stage and forbids a declared one", () => {
+  for (const name of Object.keys(KNOWN_JOBS)) {
+    const { issues } = parseConfig(`[jobs]\n${name} = "x"\n`);
+    assertEquals(issues, [], `known job "${name}" should be accepted`);
+    const declared = parseConfig(
+      `[jobs.${name}]\nstage = "${
+        KNOWN_JOBS[name as keyof typeof KNOWN_JOBS]
+      }"\nrun = "x"\n`,
+    );
+    const issue = declared.issues.find((i) => i.path === `jobs.${name}.stage`);
+    assert(issue !== undefined, JSON.stringify(declared.issues));
+    assertStringIncludes(issue.message, "derives stage");
   }
-  assert(parseConfig(`[capabilities]\nnope = "x"\n`).issues.length > 0);
 });
 
-Deno.test("a [checks.<name>] sharing a wired capability's name is rejected (job labels must be unique)", () => {
-  // The class guard: the gate keys every job result by its LABEL, and a
-  // capability job and a [checks.<name>] job both carry their bare name — a
-  // shared name silently overwrites one job's result with the other's,
-  // destroying the genuine failure's diagnostics. Driven off KNOWN_CAPABILITIES
-  // (the label vocabulary's single source of truth) so a new capability
-  // auto-enrols in the collision rule.
-  for (const [name, stage] of Object.entries(KNOWN_CAPABILITIES)) {
-    // Colliding pair — rejected, at the check's path, with the label rationale.
-    // The check's stage doesn't matter: finish fuses check∥test into one group,
-    // and the result map spans every stage, so ANY shared name collides.
-    const { config, issues } = parseConfig(
-      `[capabilities]\n${name} = "x"\n[checks.${name}]\nstage = "${stage}"\nrun = "y"\n`,
-    );
-    assertEquals(config, undefined, `[checks.${name}] must be rejected`);
-    const issue = issues.find((i) => i.path === `checks.${name}`);
-    assert(issue !== undefined, JSON.stringify(issues));
-    assert(issue.message.includes("label"), issue.message);
-    assert(issue.message.includes(`[capabilities].${name}`), issue.message);
-
-    // The same check WITHOUT the capability stays legal (doctor nudges it as
-    // capability-shaped, but it produces a unique label — no collision).
-    const alone = parseConfig(
-      `[checks.${name}]\nstage = "${stage}"\nrun = "y"\n`,
-    );
-    assertEquals(alone.issues, [], `[checks.${name}] alone should be accepted`);
-  }
-  // A custom-named check beside a full capability set is untouched.
-  const custom = parseConfig(
-    `[capabilities]\ntest = "x"\n[checks.selfcheck]\nstage = "check"\nrun = "y"\n`,
-  );
-  assertEquals(custom.issues, []);
-});
-
-Deno.test("every gate stage is accepted as a check stage", () => {
+Deno.test("every gate stage is accepted for a custom job", () => {
   for (const stage of STAGES) {
     const { issues } = parseConfig(
-      `[checks.c]\nstage = "${stage}"\nrun = "x"\n`,
+      `[jobs.c]\nstage = "${stage}"\nrun = "x"\n`,
     );
     assertEquals(issues, [], `stage "${stage}" should be accepted`);
   }

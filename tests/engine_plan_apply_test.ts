@@ -42,7 +42,7 @@ Deno.test("done --dry-run lists the gate plan and runs nothing", async () => {
         "[project]",
         'slug = "engine-test"',
         "",
-        "[capabilities]",
+        "[jobs]",
         // A command that would fail IF it ran — dry-run must not run it.
         'lint = "exit 1"',
         "",
@@ -66,7 +66,7 @@ Deno.test("done --dry-run --json emits the plan, not a run report", async () => 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'test = "true"',
         "",
       ]
@@ -102,7 +102,7 @@ Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires 
         "[project]",
         'slug = "engine-test"',
         "",
-        "[capabilities]",
+        "[jobs]",
         // The fixer creates an untracked file inside the `gen` scope.
         'format = "mkdir -p generated && touch generated/new.txt"',
         "",

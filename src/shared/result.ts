@@ -45,7 +45,7 @@ export type StepDisposition = (typeof STEP_DISPOSITIONS)[number];
  * union AND the wire schema from one edit, never a hand-kept mirror that can lag.
  */
 export const STEP_KINDS = [
-  "job", // run a gate job (a capability or a check)
+  "job", // run a declared gate job
   "scope-gate", // run a scope's self-contained gate
   "merge-check", // assert the branch contains the integration branch
   "standards-limits-check", // assert no [standards] limit loosened vs the trunk
@@ -69,7 +69,7 @@ export type StepKind = (typeof STEP_KINDS)[number];
 /**
  * Who a step's command belongs to — the two-way split `discern doctor`'s execution
  * model marks every step with: `"project"` is a command from the project's own config
- * (a capability/check, a scope or standard command, a resource `create`/`destroy`, a
+ * (a declared job, a scope or standard command, a resource `create`/`destroy`, a
  * `[worktree.setup]` step), `"discern"` is a built-in operation discern performs
  * itself (a precondition check, a git mutation, an env/refresh step). A const tuple so
  * `result_schemas.ts` derives its Zod enum from it rather than hand-mirroring.
@@ -196,10 +196,10 @@ export type FailedStage = (typeof FAILED_STAGES)[number];
  *    combined stdout+stderr, terminal-normalized and capped) plus `output_path`
  *    when the full normalized capture was offloaded. No per-tool parsing; works
  *    everywhere.
- *  - **Tier 1 (opt-in):** when a capability/check declares a diagnostics `format`,
+ *  - **Tier 1 (opt-in):** when a job declares a diagnostics `format`,
  *    discern parses `output` into `file`/`line`/`col`/`rule`/`message`.
  *  - **Tier 2 (derived):** `fix_available` — a fixer is wired that may resolve a
- *    non-fix capability/check failure.
+ *    non-fix job failure.
  */
 
 /** A diagnostic's severity. A const tuple so `result_schemas.ts` derives its Zod
@@ -209,7 +209,7 @@ export const DIAGNOSTIC_SEVERITIES = ["error", "warning"] as const;
 export type DiagnosticSeverity = (typeof DIAGNOSTIC_SEVERITIES)[number];
 
 export interface Diagnostic {
-  /** The job/capability/check label that produced this failure (e.g. "lint", "scope:web"). */
+  /** The job label that produced this failure (e.g. "lint", "scope:web"). */
   tool: string;
   /** Tier-0 failures are always "error"; Tier-1 parsing may surface "warning". */
   severity: DiagnosticSeverity;

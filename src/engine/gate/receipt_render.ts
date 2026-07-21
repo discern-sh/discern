@@ -1,6 +1,6 @@
 /**
  * The **receipt** (v1) — the compact review summary a green gate hands the human
- * at the review moment: the branch, what ran (each capability/check with its
+ * at the review moment: the branch, what ran (each declared job with its
  * command, outcome, and duration), the diffstat vs the trunk, and the branch's
  * commit list, rendered as one screen of markdown an agent relays verbatim (and
  * that pastes cleanly into a PR body).
@@ -151,7 +151,7 @@ export function renderReceiptMarkdown(
       lines.push(stepRow(r));
     }
   } else {
-    lines.push("(no capability or check is wired — nothing ran)");
+    lines.push("(no job is wired — nothing ran)");
   }
 
   lines.push(...standardsSection(standards, limits));

@@ -113,7 +113,7 @@ gotchas_doc = "docs/80-development/done-gate-gotchas.md"
 bootstrapped = true
 schema_version = 8
 
-[capabilities]
+[jobs]
 format = "true"
 lint = "true"
 test = "true"

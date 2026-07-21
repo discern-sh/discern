@@ -10,7 +10,7 @@
  * The class guard (ADR 0051): the budget rides in one place and every stage runs
  * through the one executor, so a hung command in ANY stage kind must be killed. The
  * parameterized coverage below proves that off the STAGE REGISTRY (`STAGES` /
- * `KNOWN_CAPABILITIES`), plus a custom check and a scope gate — so a newly-added
+ * `KNOWN_JOBS`), plus a custom check and a scope gate — so a newly-added
  * stage kind has to time out too, or the gate fails here.
  *
  * Behavioural only: the watchdog reasons about "did the command exit?", never about
@@ -22,8 +22,8 @@ import { join } from "@std/path";
 import { runParallel } from "../src/engine/jobs/runner.ts";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
-  type Capability,
-  KNOWN_CAPABILITIES,
+  KNOWN_JOBS,
+  type KnownJob,
   type Stage,
   STAGES,
 } from "../src/shared/capabilities.ts";
@@ -176,7 +176,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'test = "sleep 9999"', // never exits — the watch-mode-runner hang, distilled
         "",
         "[gate]",
@@ -273,13 +273,13 @@ async function assertStageKindTimesOut(opts: {
   });
 }
 
-/** One representative capability per gate stage, derived from KNOWN_CAPABILITIES
+/** One representative capability per gate stage, derived from KNOWN_JOBS
  * (first-seen wins) — NOT a hand-copied list, so a new capability or stage enrols
  * automatically and the loop below must then prove it is bounded too. */
-const CAPABILITY_FOR_STAGE = new Map<Stage, Capability>();
+const CAPABILITY_FOR_STAGE = new Map<Stage, KnownJob>();
 for (
-  const [cap, stage] of Object.entries(KNOWN_CAPABILITIES) as [
-    Capability,
+  const [cap, stage] of Object.entries(KNOWN_JOBS) as [
+    KnownJob,
     Stage,
   ][]
 ) {
@@ -298,7 +298,7 @@ for (const stage of STAGES) {
       `no capability represents the "${stage}" stage — extend the timeout stage-coverage guard`,
     );
     await assertStageKindTimesOut({
-      wiring: ["[capabilities]", `${cap} = "sleep 9999"`],
+      wiring: ["[jobs]", `${cap} = "sleep 9999"`],
       jobLabel: cap,
     });
   });
@@ -312,7 +312,7 @@ for (const stage of STAGES) {
 Deno.test("gate timeout: a daemonizing command is bounded and diagnosed", async () => {
   await assertStageKindTimesOut({
     wiring: [
-      "[capabilities]",
+      "[jobs]",
       `test = ${JSON.stringify(escapedDaemonCommand(60))}`,
     ],
     jobLabel: "test",
@@ -320,10 +320,10 @@ Deno.test("gate timeout: a daemonizing command is bounded and diagnosed", async 
 });
 
 // The other job kinds the gate runs, which are NOT capability stages: a custom
-// [checks.<name>] and a changed scope's own gate.
+// [jobs.<name>] and a changed scope's own gate.
 Deno.test("gate timeout: a custom check is bounded", async () => {
   await assertStageKindTimesOut({
-    wiring: ["[checks.slowcheck]", 'stage = "check"', 'run = "sleep 9999"'],
+    wiring: ["[jobs.slowcheck]", 'stage = "check"', 'run = "sleep 9999"'],
     jobLabel: "slowcheck",
   });
 });
@@ -436,12 +436,12 @@ async function assertOverrideBoundsOwnJob(opts: {
 }
 
 // The override class, per job-bearing config shape — the capability TABLE form,
-// a [checks.<name>].timeout, and a [scopes.<name>].timeout — each proven to
+// a [jobs.<name>].timeout, and a [scopes.<name>].timeout — each proven to
 // bound its own job while a sibling keeps the global budget.
 Deno.test("timeout override: the capability table form { run, timeout } bounds its job", async () => {
   await assertOverrideBoundsOwnJob({
     wiring: [
-      "[capabilities]",
+      "[jobs]",
       'lint = "true"',
       'test = { run = "sleep 9999", timeout = 1 }',
     ],
@@ -449,13 +449,13 @@ Deno.test("timeout override: the capability table form { run, timeout } bounds i
   });
 });
 
-Deno.test("timeout override: [checks.<name>].timeout bounds its job", async () => {
+Deno.test("timeout override: [jobs.<name>].timeout bounds its job", async () => {
   await assertOverrideBoundsOwnJob({
     wiring: [
-      "[capabilities]",
+      "[jobs]",
       'lint = "true"',
       "",
-      "[checks.slowcheck]",
+      "[jobs.slowcheck]",
       'stage = "check"',
       'run = "sleep 9999"',
       "timeout = 1",
@@ -476,7 +476,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'lint = "true"',
         "",
         "[scopes.widget]",
@@ -541,7 +541,7 @@ Deno.test("timeout override: the bare command-or-list capability form parses and
         "[repository]",
         'trunk = "main"',
         "",
-        "[capabilities]",
+        "[jobs]",
         'lint = "true"',
         'test = ["true", "true"]',
         "",

@@ -21,21 +21,21 @@ import { neutralAgentScopePaths } from "./providers.ts";
 export const KNOWN_AGENTS = AGENT_NAMES;
 export type AgentName = (typeof AGENT_NAMES)[number];
 
-// The capability vocabulary, gate stages, and slug validation are defined once
+// The known-job vocabulary, gate stages, and slug validation are defined once
 // in the shared engine/installer module and re-exported here so existing
 // installer imports (`from "../lib/config.ts"`) keep resolving.
 export {
-  capabilityList,
-  capStage,
-  isKnownCapability,
+  isKnownJob,
   isValidSlug,
-  KNOWN_CAPABILITIES,
+  jobStage,
+  KNOWN_JOBS,
+  knownJobList,
   SLUG_RULE,
   stageIsValid,
   stageList,
   STAGES,
 } from "../shared/capabilities.ts";
-export type { Capability, Stage } from "../shared/capabilities.ts";
+export type { KnownJob, Stage } from "../shared/capabilities.ts";
 
 /** Default values for every wizard answer. */
 export const DEFAULTS = {

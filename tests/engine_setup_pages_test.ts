@@ -203,7 +203,7 @@ async function layMarkerFreeProject(
     join(dir, "discern/guidance.md"),
     "# Guidance\n\nA real pitch describing the project.\n\n## Conventions\n\nReal conventions.\n",
   );
-  await runAgent(dir, ["config", "set-capability", "test", "true"]);
+  await runAgent(dir, ["config", "set-job", "test", "true"]);
 }
 
 Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (anti-shallow-compliance)", async () => {
@@ -386,15 +386,15 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       return { root, config };
     },
   },
-  capabilities: {
-    // Reads config only — no capability wired vs one wired.
+  known_jobs: {
+    // Reads config only — no known job wired vs one wired.
     fail(root): Promise<EvalCtx> {
       return Promise.resolve({ root, config: baseConfig() });
     },
     pass(root): Promise<EvalCtx> {
       return Promise.resolve({
         root,
-        config: baseConfig({ capabilities: { test: "true" } }),
+        config: baseConfig({ jobs: { test: "true" } }),
       });
     },
   },

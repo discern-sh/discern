@@ -67,7 +67,7 @@ export interface PlannedStandard {
 
 /** The scheduler label for a standard measurement inside the gate. `:` is
  * outside the configured standard-name vocabulary, so this namespace cannot
- * collide with a capability, check, or scope job. Standalone standards use the
+ * collide with a declared or scope job. Standalone standards use the
  * plain standard name at their result boundary while sharing the same job
  * projection underneath. */
 export function standardJobLabel(name: string): string {

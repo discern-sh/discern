@@ -238,7 +238,7 @@ function assurance(verdict: SetupAssurance["verdict"]): SetupAssurance {
   ] as const;
   const enforcedCount = verdict === "full" ? 6 : verdict === "partial" ? 2 : 0;
   return {
-    capabilities: caps.map((name, i) => ({
+    known_jobs: caps.map((name, i) => ({
       name,
       state: i < enforcedCount ? "enforced" : "absent",
     })),
