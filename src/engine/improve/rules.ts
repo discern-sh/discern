@@ -25,6 +25,10 @@ import type {
   ImprovementContext,
   SubjectiveRule,
 } from "./types.ts";
+import {
+  improvementFindingData,
+  inlineFindingRoutes,
+} from "../logbook/surfaces.ts";
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
@@ -125,6 +129,11 @@ export async function buildContext(
   root: string,
   config: DiscernConfig,
 ): Promise<ImprovementContext> {
+  const historicalFindings = config.meta.bootstrapped
+    ? improvementFindingData(
+      (await inlineFindingRoutes(root, config)).improvement,
+    )
+    : [];
   const sources = await resolveGuidanceSources(root, config);
   let guidanceText = "";
   for (const src of sources) {
@@ -160,6 +169,7 @@ export async function buildContext(
     adrCount: await countAdrs(root, mapDir),
     agentFilePresent: await anyAgentFile(root),
     authoredSkills: await countAuthoredSkills(root, config),
+    historicalFindings,
   };
 }
 

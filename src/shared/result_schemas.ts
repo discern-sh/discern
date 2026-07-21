@@ -768,6 +768,9 @@ export const ImprovementDataSchema = z.strictObject({
   open_reviews: z.number(),
   next_action: nextActionSchema,
   categories: z.array(improvementCategorySchema),
+  history: z.strictObject({
+    findings: z.array(PatternsFindingSchema),
+  }),
 });
 export type ImprovementData = z.infer<typeof ImprovementDataSchema>;
 
@@ -783,6 +786,7 @@ export {
   DETECTOR_STATUSES,
   DETECTOR_TIERS,
   PatternsDataSchema,
+  PatternsFindingSchema,
   PatternsResetDataSchema,
 } from "./patterns_vocabulary.ts";
 export type {
@@ -797,6 +801,7 @@ export type {
 } from "./patterns_vocabulary.ts";
 import {
   PatternsDataSchema,
+  PatternsFindingSchema,
   PatternsResetDataSchema,
 } from "./patterns_vocabulary.ts";
 

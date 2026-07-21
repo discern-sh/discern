@@ -21,6 +21,7 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
 
 // ── the gathered facts a rule reads ─────────────────────────────────────────
 
@@ -56,6 +57,9 @@ export interface ImprovementContext {
   agentFilePresent: boolean;
   /** Count of authored skill directories under `[skills].dir`. */
   authoredSkills: number;
+  /** Ranked project-scope logbook findings. They are advisory context only:
+   * catalog rules, scores, and the selected static next action never read them. */
+  historicalFindings?: PatternsFinding[];
 }
 
 // ── the rule catalog shapes ─────────────────────────────────────────────────

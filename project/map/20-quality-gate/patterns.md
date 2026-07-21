@@ -25,6 +25,8 @@ discern patterns --json
 
 Findings arrive ranked by evidence strength. Each one states what was observed as a plain-count sentence ("`done` failed 4 consecutive runs on this branch"), names its scope (one branch, one conversation, or the project), and recommends a structural next step, often a bundled skill. Under the summary, one line states the driver split — how many analyzed runs read as agent-driven, interactive, or unknown, and which agent identities the recorded evidence names. The JSON form carries the same report in `data.findings`, plus `data.detectors` with every detector's status and `data.population` with the split.
 
+`patterns` remains the complete reader. Every detector runs here, including batch detectors that need longitudinal history. Inline detectors can also meet you on the working command their scope names: branch findings appear after a qualifying green receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. Those commands inspect at most the newest 200 events. The receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+
 An empty logbook is a normal state: the report says so and suggests checking back after some use. A repository that never recorded (or opted out with `[project].logbook = false`) still gets a readable answer.
 
 ## What the detectors watch
@@ -68,13 +70,16 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 | The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
 | The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
 | The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
+| Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
+| Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
 | Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
-| Registry-driven fixtures and behaviour   | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
 | Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
 
 ## Current state & gotchas
 
-- Findings surface only under this verb today; receipt and `status` surfacing is planned, and each detector already carries the `tier` and `scope` that routing will use.
+- A detector's `tier` and `scope` determine every working route. Batch findings stay under this verb.
 - Ranking mixes count-based strengths across detector kinds; treat the order as a reading order, and the `evidence` counts as the facts.
 - Events written before the current release may lack newer fields (a step's gate stage, for example); detectors count such runs out rather than guessing. Identity signals in particular exist only on events recorded since they were introduced, so the driver split starts sparse and fills in with use.
 - A torn or foreign line is skipped and counted in `data.logbook.unparsed`; reading continues.

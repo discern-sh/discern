@@ -23,9 +23,16 @@ Every successful run reports:
 - the count of objective rules that are `partial` or `fail`;
 - the number of qualitative reviews still open;
 - one `next_action` with the action and the reason it matters;
-- category detail, shown weakest first.
+- category detail, shown weakest first;
+- project-scope advice from the local logbook under `history.findings`.
 
 A deterministic rule checks a concrete fact such as whether tests are configured, guidance exists, or a standard is declared. A qualitative review asks an agent to inspect cited project material, such as whether tests isolate shared state or whether the map still matches the code. Those reviews remain open beside a `100/100` automated score because the binary does not claim judgments it cannot prove ([ADR 0029](../_adr/0029-best-practices-audit.md)).
+
+## Findings from the logbook
+
+The `From the logbook` group carries owner decisions discovered in recent history. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed guidance line, config change, class guard, or standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+
+This group is separate from the static catalogue. It changes no category score, weak-rule count, qualitative review, `next_action`, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
 
 ## How the next action is chosen
 
@@ -68,9 +75,11 @@ The result fields and Model Context Protocol wrapper are in [MCP tools & results
 | Category and rule catalog              | [`rules.ts`](../../../src/engine/improve/rules.ts)     |
 | Rule and report vocabulary             | [`types.ts`](../../../src/engine/improve/types.ts)     |
 | Scoring, prioritization, and rendering | [`improve.ts`](../../../src/engine/improve/improve.ts) |
+| Scope and tier routing                 | [`routing.ts`](../../../src/engine/logbook/routing.ts) |
 
 ## Current state & gotchas
 
 - The score covers deterministic rules only. Do not report it as a measure of overall project maturity.
 - `--min-score` enforces the automated floor; open qualitative reviews do not change `ok`.
+- Historical findings sit outside the score. They never change `--min-score` or replace the catalogue's selected next action.
 - The relevant source files contain no unfinished-work markers for coach behavior.

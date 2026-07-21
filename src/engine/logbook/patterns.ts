@@ -26,7 +26,6 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
   PatternsData,
-  PatternsFinding,
   PatternsPopulation,
   PatternsResetData,
 } from "../../shared/patterns_vocabulary.ts";
@@ -37,12 +36,12 @@ import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
 import {
   buildStreamFacts,
-  type DetectorReport,
   driverAgent,
   driverKind,
   runDetectors,
   type StreamFacts,
 } from "./detectors.ts";
+import { routeDetectorReports, routedFindingData } from "./routing.ts";
 
 /**
  * Score the analysis population's drivers — reader logic over the recorded
@@ -82,25 +81,6 @@ function noRepository(verb: string): DiscernResult<never> {
   };
 }
 
-/** Reduce the gated detector reports to the verb's ranked findings list. */
-function rankedFindings(reports: DetectorReport[]): PatternsFinding[] {
-  const findings = reports.flatMap((r) =>
-    r.findings.map((f): PatternsFinding => ({
-      detector: r.detector.id,
-      family: r.detector.family,
-      scope: r.detector.scope,
-      ...(f.subject !== undefined ? { subject: f.subject } : {}),
-      observed: f.observed,
-      evidence: f.evidence,
-      strength: f.strength,
-      next_step: f.next_step ?? r.detector.next_step,
-    }))
-  );
-  return findings.sort((a, b) =>
-    b.strength - a.strength || a.detector.localeCompare(b.detector)
-  );
-}
-
 /**
  * Compute the `patterns` {@link DiscernResult} without printing or exiting —
  * the core the MCP server renders. Reads the whole logbook tolerantly (torn
@@ -124,7 +104,9 @@ export async function patternsResult(
     resolveConfiguredAgents(config),
   );
   const reports = runDetectors(facts);
-  const findings = rankedFindings(reports);
+  const findings = routeDetectorReports(reports).patterns.map(
+    routedFindingData,
+  );
   const first = stream.events[0];
   const last = stream.events[stream.events.length - 1];
   const branches = new Set(

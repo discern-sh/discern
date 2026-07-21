@@ -18,6 +18,7 @@
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ImprovementData } from "../../shared/result_schemas.ts";
+import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
@@ -218,7 +219,10 @@ export interface ImprovementOptions {
 async function buildReport(
   root: string,
   opts: ImprovementOptions,
-): Promise<{ report: ImprovementReport } | { error: DiscernResult<never> }> {
+): Promise<
+  | { report: ImprovementReport; historicalFindings: PatternsFinding[] }
+  | { error: DiscernResult<never> }
+> {
   const config = await loadConfig(root);
   if (opts.category !== undefined && !isKnownCategory(opts.category)) {
     const known = CATEGORIES.map((c) => c.name).join(", ");
@@ -233,13 +237,19 @@ async function buildReport(
     };
   }
   const ctx = await buildContext(root, config);
-  return { report: evaluateReport(ctx, opts.category) };
+  return {
+    report: evaluateReport(ctx, opts.category),
+    historicalFindings: ctx.historicalFindings ?? [],
+  };
 }
 
 /** Reduce an {@link ImprovementReport} to the verb's `data` payload. Typed as the
  * schema-inferred {@link ImprovementData} (the SSOT in `result_schemas.ts`), so a drift
  * between this mapping and the advertised MCP `outputSchema` is a compile error. */
-function reportData(report: ImprovementReport): ImprovementData {
+function reportData(
+  report: ImprovementReport,
+  historicalFindings: PatternsFinding[],
+): ImprovementData {
   return {
     score: report.score,
     weak: report.weak,
@@ -264,6 +274,7 @@ function reportData(report: ImprovementReport): ImprovementData {
       rules: c.rules,
       reviews: c.reviews,
     })),
+    history: { findings: historicalFindings },
   };
 }
 
@@ -282,12 +293,12 @@ export async function improvementResult(
   if ("error" in built) {
     return built.error;
   }
-  const { report } = built;
+  const { report, historicalFindings } = built;
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
   return {
     ok: !belowMin,
     verb: "improvement",
-    data: reportData(report),
+    data: reportData(report, historicalFindings),
     ...(belowMin
       ? {
         error: "below_min_score",
@@ -472,6 +483,21 @@ function renderCategory(out: Out, cat: CategoryResult): void {
   }
 }
 
+/** Render the project-scope findings as a separate, unscored advisory group. */
+function renderHistory(out: Out, findings: PatternsFinding[]): void {
+  if (findings.length === 0) {
+    return;
+  }
+  const c = out.c;
+  out.heading("From the logbook");
+  for (const finding of findings) {
+    out.raw(
+      `  ${c.cyan}?${c.reset} ${finding.observed} ${c.dim}(${finding.detector})${c.reset}\n`,
+    );
+    out.raw(wrapLabelled("next: ", finding.next_step, "      "));
+  }
+}
+
 /** Whether an interactive drill-down may run (a real TTY both ways). */
 /** Drive the interactive drill-down: pick a category to expand, repeat until done. */
 async function interactiveDrilldown(
@@ -555,7 +581,7 @@ export async function runImprovement(
     out.error(built.error.message ?? "improvement failed.");
     return 1;
   }
-  const { report } = built;
+  const { report, historicalFindings } = built;
   const config = await loadConfig(root);
   const filtered = opts.category !== undefined;
 
@@ -577,6 +603,7 @@ export async function runImprovement(
       }
     }
   }
+  renderHistory(out, historicalFindings);
   renderFooter(out, report, filtered);
 
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;

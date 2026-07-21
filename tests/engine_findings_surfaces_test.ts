@@ -1,0 +1,398 @@
+/**
+ * End-to-end coverage for ADR 0160's working-surface routes. A single seeded
+ * logbook carries branch-, session-, and project-scope evidence; each real verb
+ * must expose only its own scope, through its normal envelope, without changing
+ * any outcome. The focused cases pin the green-only receipt rule, the one-line
+ * cap, the logbook toggle, and setup suppression.
+ */
+
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import {
+  addWorktree,
+  git,
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
+import {
+  LOGBOOK_SCHEMA_VERSION,
+  type VerbEvent,
+} from "../src/engine/logbook/schema.ts";
+
+interface ResultEnvelope {
+  ok: boolean;
+  verb: string;
+  error?: string;
+  hints?: string[];
+  data?: Record<string, unknown>;
+}
+
+interface HistoricalFinding {
+  detector: string;
+  observed: string;
+  evidence: Record<string, number>;
+  strength: number;
+  next_step: string;
+  scope: "branch" | "session" | "project";
+}
+
+/** A deterministic timestamp `n` minutes after the fixture epoch. */
+function at(n: number): string {
+  return new Date(Date.parse("2026-07-01T10:00:00.000Z") + n * 60_000)
+    .toISOString();
+}
+
+/** One agent-driven event with only the fields a detector needs overridden. */
+function event(n: number, over: Partial<VerbEvent>): VerbEvent {
+  return {
+    schema: LOGBOOK_SCHEMA_VERSION,
+    at: at(n),
+    kind: "verb",
+    verb: "done",
+    surface: "cli",
+    writer: "1.0.0",
+    driver: {
+      session: "cli:surface",
+      json: true,
+      tty: false,
+      ci: false,
+    },
+    branch: "agent/surface",
+    head: "abc1234",
+    clean: true,
+    outcome: "ok",
+    duration_ms: 100,
+    epoch: "epoch-1",
+    ...over,
+  };
+}
+
+/** Seed evidence for all three routed scopes in one recent month. */
+async function seedMixedLogbook(main: string): Promise<void> {
+  const events: VerbEvent[] = [];
+  // Branch: 4 consecutive red done runs plus one green clears both the
+  // detector threshold and the receipt's stricter one-extra-event bar.
+  for (let i = 0; i < 4; i += 1) {
+    events.push(event(i, {
+      outcome: "failed",
+      failed_stage: "check/test",
+    }));
+  }
+  events.push(event(4, {}));
+
+  // Session: one agent conversation repeats the same refusal 3 times.
+  for (let i = 0; i < 3; i += 1) {
+    events.push(event(10 + i, {
+      verb: "update",
+      outcome: "refused",
+      error: "behind_integration",
+    }));
+  }
+
+  // Project: 5 documentation lookups (including a repeated miss).
+  events.push(event(20, {
+    verb: "help",
+    target: "missing-guide",
+    outcome: "refused",
+    error: "not_found",
+  }));
+  events.push(event(21, {
+    verb: "help",
+    target: "missing-guide",
+    outcome: "refused",
+    error: "not_found",
+  }));
+  events.push(event(22, { verb: "help", target: "quickstart" }));
+  events.push(event(23, { verb: "map", target: "the-logbook" }));
+  events.push(event(24, { verb: "help", target: "standards" }));
+
+  // Project: one diagnostic class on 3 branches, with 5 readings of one
+  // standard. These same events feed recurring-diagnostic and trajectory.
+  const branches = ["agent/a", "agent/a", "agent/b", "agent/b", "agent/c"];
+  for (let i = 0; i < branches.length; i += 1) {
+    events.push(event(30 + i, {
+      branch: branches[i] ?? "agent/c",
+      outcome: "failed",
+      failed_stage: "check/test",
+      diagnostics: [{ tool: "lint", rule: "no-widget" }],
+      standards: [{
+        name: "coverage",
+        value: 80 + i,
+        limit: 80,
+        direction: "up",
+        verdict: "improved",
+      }],
+    }));
+  }
+
+  const dir = join(main, ".git", "discern", "logbook");
+  await Deno.mkdir(dir, { recursive: true });
+  await Deno.writeTextFile(
+    join(dir, "2026-07.jsonl"),
+    `${events.map((e) => JSON.stringify(e)).join("\n")}\n`,
+  );
+}
+
+/** A minimal real gate with a selectable verdict and logbook toggle. */
+function gateConfig(testCommand: "true" | "false", logbook = true): string {
+  return [
+    "[project]",
+    'slug = "surface-test"',
+    `logbook = ${logbook}`,
+    "",
+    "[meta]",
+    "bootstrapped = true",
+    "",
+    "[repository]",
+    'trunk = "main"',
+    "",
+    "[capabilities]",
+    `test = "${testCommand}"`,
+    "",
+  ].join("\n");
+}
+
+/** Create one committed branch ahead of main, ready to earn a receipt. */
+async function receiptBranch(
+  main: string,
+  testCommand: "true" | "false" = "true",
+  logbook = true,
+): Promise<string> {
+  await scaffoldEngine(main);
+  await writeConfig(main, gateConfig(testCommand, logbook));
+  await gitInit(main);
+  const worktree = await addWorktree(main, "surface");
+  await Deno.writeTextFile(join(worktree, "feature.txt"), "surface\n");
+  await git(worktree, "add", "feature.txt");
+  await git(worktree, "commit", "-m", "Add surface fixture");
+  return worktree;
+}
+
+function parse(stdout: string): ResultEnvelope {
+  return JSON.parse(stdout) as ResultEnvelope;
+}
+
+function history(result: ResultEnvelope): HistoricalFinding[] {
+  const group = result.data?.history as
+    | { findings?: HistoricalFinding[] }
+    | undefined;
+  return group?.findings ?? [];
+}
+
+function withoutHistory(data: Record<string, unknown> | undefined): unknown {
+  if (data === undefined) {
+    return undefined;
+  }
+  const copy = structuredClone(data);
+  delete copy.history;
+  return copy;
+}
+
+Deno.test("findings route end to end to done, status, improvement, and nowhere else", async () => {
+  await withTempDir(async (main) => {
+    const worktree = await receiptBranch(main);
+
+    // Capture the static improvement catalogue before history exists. The
+    // command records afterwards; the seed below replaces that month file.
+    const baselineRun = await runAgent(worktree, ["improvement", "--json"]);
+    assertEquals(baselineRun.code, 0, baselineRun.output);
+    const baseline = parse(baselineRun.stdout);
+    await seedMixedLogbook(main);
+
+    const doneRun = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(doneRun.code, 0, doneRun.output);
+    const done = parse(doneRun.stdout);
+    assertEquals(done.ok, true);
+    assertEquals(done.data?.failed_stage, null);
+    assert(
+      done.data?.receipt !== undefined,
+      "the green clean branch needs a receipt",
+    );
+    const receiptHints = (done.hints ?? []).filter((hint) =>
+      hint.startsWith("Logbook:")
+    );
+    assertEquals(receiptHints.length, 1, JSON.stringify(done.hints));
+    assertEquals(
+      (receiptHints[0] ?? "").includes("\n"),
+      false,
+      "the receipt advisory must stay one physical line",
+    );
+    assertStringIncludes(receiptHints[0] ?? "", "branch findings");
+    assertStringIncludes(receiptHints[0] ?? "", "consecutive runs");
+    assertStringIncludes(receiptHints[0] ?? "", "discern patterns");
+    assert(
+      !(receiptHints[0] ?? "").includes("refused"),
+      "session evidence must not reach done",
+    );
+    assert(
+      !(receiptHints[0] ?? "").includes("missing-guide"),
+      "project evidence must not reach done",
+    );
+
+    const statusRun = await runAgent(worktree, ["status", "--json"]);
+    assertEquals(statusRun.code, 0, statusRun.output);
+    const status = parse(statusRun.stdout);
+    const statusText = (status.hints ?? []).join("\n");
+    assertStringIncludes(statusText, "refused 3 times");
+    assertStringIncludes(statusText, "Read the refusal message");
+    assert(!statusText.includes("consecutive runs"));
+    assert(!statusText.includes("missing-guide"));
+
+    const improvementRun = await runAgent(worktree, [
+      "improvement",
+      "--json",
+    ]);
+    assertEquals(improvementRun.code, 0, improvementRun.output);
+    const improvement = parse(improvementRun.stdout);
+    assertEquals(improvement.ok, baseline.ok);
+    assertEquals(
+      withoutHistory(improvement.data),
+      withoutHistory(baseline.data),
+      "historical advice must leave the static catalogue untouched",
+    );
+    const projectFindings = history(improvement);
+    assertEquals(
+      projectFindings.map((finding) => finding.detector),
+      ["docs-gap", "recurring-diagnostic", "standard-trajectory"],
+      "project findings stay grouped and strongest-first",
+    );
+    assert(projectFindings.every((finding) => finding.scope === "project"));
+    assert(
+      projectFindings.every((finding) =>
+        Object.keys(finding.evidence).length > 0 && finding.next_step.length > 0
+      ),
+      "each project finding carries evidence and a next step",
+    );
+
+    const patternsRun = await runAgent(worktree, ["patterns", "--json"]);
+    assertEquals(patternsRun.code, 0, patternsRun.output);
+    const patterns = parse(patternsRun.stdout);
+    const patternData = patterns.data as
+      | { findings?: HistoricalFinding[] }
+      | undefined;
+    const ids = new Set((patternData?.findings ?? []).map((f) => f.detector));
+    for (
+      const id of [
+        "done-thrash",
+        "refusal-loop",
+        "docs-gap",
+        "recurring-diagnostic",
+        "standard-trajectory",
+      ]
+    ) {
+      assert(ids.has(id), `patterns must retain ${id}`);
+    }
+
+    const acceptRun = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(acceptRun.code, 0, acceptRun.output);
+    const accepted = parse(acceptRun.stdout);
+    const gateValidation = accepted.data?.gate_validation as
+      | { mode?: string }
+      | undefined;
+    assertEquals(
+      gateValidation?.mode,
+      "receipt",
+      "the advisory must leave the receipt honor path intact",
+    );
+  });
+});
+
+Deno.test("done finding line is absent on red, while quiet, and with recording off", async () => {
+  const cases = [
+    { name: "red", test: "false" as const, logbook: true, seed: true },
+    { name: "quiet", test: "true" as const, logbook: true, seed: false },
+    { name: "off", test: "true" as const, logbook: false, seed: true },
+  ];
+  for (const fixture of cases) {
+    await withTempDir(async (main) => {
+      const worktree = await receiptBranch(
+        main,
+        fixture.test,
+        fixture.logbook,
+      );
+      if (fixture.seed) {
+        await seedMixedLogbook(main);
+      }
+      const run = await runAgent(worktree, ["done", "--json"]);
+      const result = parse(run.stdout);
+      assertEquals(result.ok, fixture.test === "true", fixture.name);
+      assertEquals(
+        (result.hints ?? []).filter((hint) => hint.startsWith("Logbook:")),
+        [],
+        fixture.name,
+      );
+    });
+  }
+});
+
+Deno.test("status suppresses session findings until setup is bootstrapped", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const events = [0, 1, 2].map((n) =>
+      event(n, {
+        branch: "main",
+        verb: "update",
+        outcome: "refused",
+        error: "behind_integration",
+      })
+    );
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      `${events.map((e) => JSON.stringify(e)).join("\n")}\n`,
+    );
+
+    const run = await runAgent(dir, ["status", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = parse(run.stdout);
+    assert(
+      !(result.hints ?? []).some((hint) => hint.includes("refused 3 times")),
+      JSON.stringify(result.hints),
+    );
+    assert(result.data?.setup_unfinished !== undefined);
+  });
+});
+
+Deno.test("status does not correct an owner for interactive refusal history", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const events = [0, 1, 2].map((n) =>
+      event(n, {
+        branch: "main",
+        verb: "update",
+        outcome: "refused",
+        error: "behind_integration",
+        driver: {
+          session: "cli:owner",
+          json: false,
+          tty: true,
+          ci: false,
+        },
+      })
+    );
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      `${events.map((e) => JSON.stringify(e)).join("\n")}\n`,
+    );
+
+    const run = await runAgent(dir, ["status", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = parse(run.stdout);
+    assert(
+      !(result.hints ?? []).some((hint) => hint.includes("refused 3 times")),
+      JSON.stringify(result.hints),
+    );
+  });
+});

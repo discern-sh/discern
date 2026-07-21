@@ -1833,6 +1833,20 @@ export type DiscernImprovementResult = {
         };
       }>;
     }>;
+    history: {
+      findings: Array<{
+        detector: string;
+        family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
+        scope: "branch" | "session" | "project";
+        subject?: string;
+        observed: string;
+        evidence: {
+          [key: string]: number;
+        };
+        strength: number;
+        next_step: string;
+      }>;
+    };
   } | {
     issues: Array<{
       path: string;

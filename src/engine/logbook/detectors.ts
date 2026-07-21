@@ -403,7 +403,7 @@ const refusalLoop: Detector = {
   id: "refusal-loop",
   title: "Repeated refusals with one slug",
   family: "behaviour",
-  scope: "branch",
+  scope: "session",
   tier: "inline",
   // 3 refusals: two can be one honest retry; the third repeat of the same
   // refusal is an agent arguing with a precondition.
@@ -575,7 +575,7 @@ const docsGap: Detector = {
   title: "Documentation lookups and misses",
   family: "behaviour",
   scope: "project",
-  tier: "batch",
+  tier: "inline",
   // 5 lookups before reading anything into what gets looked up.
   threshold: 5,
   next_step:
@@ -1049,7 +1049,7 @@ const recurringDiagnostic: Detector = {
   title: "One diagnostic class across branches",
   family: "gate-fit",
   scope: "project",
-  tier: "batch",
+  tier: "inline",
   // 5 red events carrying diagnostics before reading cross-branch classes.
   threshold: 5,
   next_step:
@@ -1336,7 +1336,7 @@ const standardTrajectory: Detector = {
   title: "Each standard's value and limit over time",
   family: "trajectory",
   scope: "project",
-  tier: "batch",
+  tier: "inline",
   // 5 readings of one standard before drawing its line.
   threshold: 5,
   next_step:
