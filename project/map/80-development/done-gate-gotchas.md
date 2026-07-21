@@ -48,7 +48,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** A check or test fails while referencing code or assets that no longer match your source. The stale reference may be an old compiled output, a cached bundle, or a missing-from-manifest error.
 
-**Cause.** A `build` capability produces artifacts that a later `check`/`test` stage reads, and the artifacts on disk are from a previous run (or were half-written while something read them).
+**Cause.** A `build` job produces artifacts that a later `check`/`test` stage reads, and the artifacts on disk are from a previous run (or were half-written while something read them).
 
 **Fix.** Rebuild from clean and re-run. The gate orders `build` and `fix` before `check` and `test`, ensuring complete artifacts before anything reads them. This failure usually follows a manually out-of-order step or a partial build. Let `discern done` run the stages in order.
 
@@ -64,13 +64,13 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Symptom.** `discern done` sits on a stage with no further output. After `[gate].timeout` seconds (default 600), it fails that stage with a diagnostic that the command "timed out … and was killed". The command works when you run it by hand.
 
-**Cause.** A gate command fails to finish. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a capability. In your terminal it may choose a single run. The gate runs it with stdin closed, no TTY, and piped output, where many runners watch for file changes and wait indefinitely. The gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. Another variant occurs when the command exits but leaves a background process holding its output stream open. The watchdog handles it as a timeout and releases the held pipes after killing the group.
+**Cause.** A gate command fails to finish. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a job. In your terminal it may choose a single run. The gate runs it with stdin closed, no TTY, and piped output, where many runners watch for file changes and wait indefinitely. The gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. Another variant occurs when the command exits but leaves a background process holding its output stream open. The watchdog handles it as a timeout and releases the held pipes after killing the group.
 
 **Fix.** Wire the command in its **single-run form**, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command legitimately needs more time than the budget, raise `[gate].timeout`. Setting it to `0` disables the bound and permits another indefinite hang.
 
 ### A gate command fails with exit 127 (command not found)
 
-**Symptom.** A capability or check fails immediately with `exit 127` and a `sh: <cmd>: not found` line — a command that runs fine in the main checkout.
+**Symptom.** A job fails immediately with `exit 127` and a `sh: <cmd>: not found` line — a command that runs fine in the main checkout.
 
 **Cause.** A fresh worktree starts with only your tracked files. The command may depend on an untracked package `bin` directory, a local tools or cache directory, or a per-checkout language environment. Those directories appear only after setup, so the shell cannot find the command beforehand.
 
@@ -100,7 +100,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 This section is yours to grow. As you build and hit failures the error message alone did not explain, record them here as **symptom + cause + fix** — the same shape as the entries above. Good candidates:
 
-- A tool in one of your `[capabilities]` (or a `[checks.<name>]`) that fails for a reason its own output does not make clear.
+- A tool in one of your `[jobs]` that fails for a reason its own output does not make clear.
 - An ordering constraint specific to your build (an artifact one stage must produce before another reads it).
 - A test-isolation trap unique to your framework or test runner.
 - A toolchain step a merge can invalidate (a generated file, a native build, a cache) that needs regenerating before the gate is green.

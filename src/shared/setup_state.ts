@@ -51,7 +51,7 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  * `config`, …):
  *
  *   - the GATE PROOF verbs `done` / `prepare` / `test` / `standards`. The agent
- *     needs them to iterate while wiring capabilities — and to test a standard it
+ *     needs them to iterate while wiring jobs — and to test a standard it
  *     wires — during setup, so ADR 0065 un-gates them. Pre-setup they carry
  *     {@link SETUP_IN_PROGRESS_HINT}, so their output can't be mistaken for a
  *     finished project — the "false all-green" ADR 0036 feared is now covered by
@@ -139,7 +139,7 @@ export const NOT_SET_UP_MESSAGE =
 /**
  * The advisory a `done` / `prepare` / `test` / `standards` result carries while
  * setup is still outstanding (ADR 0065). Those verbs run pre-setup so the agent can
- * iterate while wiring capabilities — but their output must not read as a finished
+ * iterate while wiring jobs — but their output must not read as a finished
  * project, so each prepends this line until `[meta].bootstrapped` is recorded by
  * `discern setup done`.
  */
@@ -247,7 +247,7 @@ export interface KnownJobProgress {
 /**
  * Setup progress, DERIVED from the tree rather than self-reported (ADR 0075): which
  * scaffolded files still carry a skeleton marker (the doc/guidance authoring left to
- * do — the same predicate `setup done` gates on), and which known capabilities have a
+ * do — the same predicate `setup done` gates on), and which known jobs have a
  * command wired versus left unset. Unfakeable — a file either still carries its marker
  * or it doesn't — and free of any "mark step N done" round-trip. Rendered by the
  * welcome's in-progress state and by `status`.

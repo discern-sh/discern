@@ -55,14 +55,14 @@ person / coding agent
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
 │  project script (exec'd)     │        │        discern.toml           │
-│  discern/scripts/<name>      │        │  capabilities · checks ·      │
+│  discern/scripts/<name>      │        │  jobs · scopes (+ gates) ·    │
 │  with DISCERN_* exported     │ ─────► │  scopes (+ gates) · standards  │
-│  (built-in names are legal)  │ reads  │  · worktree settings          │
+│  (built-in names are legal)  │ reads  │  standards · worktree settings│
 └──────────────────────────────┘  via   └──────────────────────────────┘
                                  discern config get
 ```
 
-`discern done` checks the worktree's trunk precondition, then walks the stages in order, attributing each job to one capability or check:
+`discern done` checks the worktree's trunk precondition, then walks the declared jobs through their stages:
 
 ```
 trunk-merged  ───►  fix  ───►  build  ───►  check ∥ test  ───►  scope gates
@@ -82,5 +82,5 @@ main checkout ──discern start──► worktree ⟲ discern update
 
 - **No daemon, no server.** A verb spawns a process that runs and is gone when the command returns; work happens synchronously when you run `discern <verb>`.
 - **Persistent state lives in the repo.** `discern.toml` plus the git repository itself: branches, and linked worktrees in a sibling `<repo>.worktrees/` folder by default (configurable via `[worktree].root`). No manifest, no database, no external state.
-- **The only hard external dependency is `git`.** Your stack's own tools (the formatter, linter, test runner named as capabilities) are invoked by those capabilities; discern bundles none of them.
+- **The only hard external dependency is `git`.** Your stack's own tools (the formatter, linter, and test runner named as jobs) are invoked by those jobs; discern bundles none of them.
 - **Concurrency is in-process.** Inside `done`, the parallel stages run their jobs as concurrent child processes, collected before the stage returns; the first failure cancels its running siblings (see [the quality gate](../20-quality-gate/)).

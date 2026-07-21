@@ -2,23 +2,23 @@
 
 _The rules the tooling enforces, and the conventions to follow when writing code here._
 
-This doc is the detailed companion to the **Conventions** section of the project guidance (`project/guidance.md`). The guidance holds the short, agent-facing form; this doc holds the full reasoning. Keep both documents aligned with the `[capabilities]` and `[checks]` in `discern.toml`. The written and enforced rules must agree.
+This doc is the detailed companion to the **Conventions** section of the project guidance (`project/guidance.md`). The guidance holds the short, agent-facing form; this doc holds the full reasoning. Keep both documents aligned with `[jobs]` in `discern.toml`. The written and enforced rules must agree.
 
 ## What the gate enforces
 
-The capability and check tables in [`discern.toml`](../../../discern.toml) are the mechanical rules. `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` are known **Capabilities** (the engine derives their Stage from the name); `prose` is a custom check. Run `discern prepare` for the fix and check stages, or `discern done` for the complete set.
+The jobs in [`discern.toml`](../../../discern.toml) are the mechanical rules. `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` are known names whose stage the engine derives; `prose` is custom and declares its stage. Run `discern prepare` for the fix and check stages, or `discern done` for the complete set.
 
 Every configured gate command executes from the resolved project root. This is true when the CLI is invoked from a nested directory and when a long-lived MCP server targets a worktree other than its own process directory; formatter, check, test, and scope selection must all describe the same checkout.
 
-| Name        | Kind       | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                |
-| ----------- | ---------- | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format`    | capability | fix   | `deno fmt`               | Formats the authored TypeScript, JSON, and Markdown tree. The generated references, schemas, compiled agent files, distribution output, and fixtures listed in `deno.json` are excluded. It rewrites in place. |
-| `build`     | capability | build | `deno task codegen`      | Regenerates the CLI/config references, the glossary, result/config schemas, and TypeScript declaration files from their registries. Commit the generated changes with the source change.                       |
-| `lint`      | capability | check | `deno lint`              | Runs the repo's strict Deno lint rules across the authored source set, minus the explicit exclusions in `deno.json`. Fix the finding, or add a reasoned inline suppression.                                    |
-| `typecheck` | capability | check | `deno check`             | Type-checks the configured TypeScript graph under strict `deno.json` compiler options. Keep types sound; no `any` slipped through a cast.                                                                      |
-| `prose`     | check      | check | `scripts/prose_check.ts` | Runs Vale over the configured map after blanking frontmatter and excluding the private tree. Fix error-severity findings; review warnings with the page-level prose script.                                    |
+| Name        | Kind   | Stage | Command                  | What it checks / how to satisfy                                                                                                                                                                                |
+| ----------- | ------ | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`    | known  | fix   | `deno fmt`               | Formats the authored TypeScript, JSON, and Markdown tree. The generated references, schemas, compiled agent files, distribution output, and fixtures listed in `deno.json` are excluded. It rewrites in place. |
+| `build`     | known  | build | `deno task codegen`      | Regenerates the CLI/config references, the glossary, result/config schemas, and TypeScript declaration files from their registries. Commit the generated changes with the source change.                       |
+| `lint`      | known  | check | `deno lint`              | Runs the repo's strict Deno lint rules across the authored source set, minus the explicit exclusions in `deno.json`. Fix the finding, or add a reasoned inline suppression.                                    |
+| `typecheck` | known  | check | `deno check`             | Type-checks the configured TypeScript graph under strict `deno.json` compiler options. Keep types sound; no `any` slipped through a cast.                                                                      |
+| `prose`     | custom | check | `scripts/prose_check.ts` | Runs Vale over the configured map after blanking frontmatter and excluding the private tree. Fix error-severity findings; review warnings with the page-level prose script.                                    |
 
-There is no `selfcheck` or `shellcheck` check: with the engine compiled into the binary there is no second copy to drift and no portable shell to lint ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The gate's `build` capability is code generation; the release-only `deno task build` remains outside the gate. The `test` and `smoke` capabilities are covered in [testing.md](testing.md).
+There are no `selfcheck` or `shellcheck` jobs: with the engine compiled into the binary there is no second copy to drift and no portable shell to lint ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The gate's `build` job is code generation; the release-only `deno task build` remains outside the gate. The `test` and `smoke` jobs are covered in [testing.md](testing.md).
 
 ## Conventions to follow
 

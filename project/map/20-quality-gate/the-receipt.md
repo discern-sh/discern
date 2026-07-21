@@ -12,7 +12,7 @@ aliases:
 
 _A clean green gate records what ran and identifies the exact branch state ready for review._
 
-`discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. The receipt is discern's review summary. It lists the branch and trunk, each capability, check, and scope gate that ran, standard outcomes, commits, changed files, and the command that opens the full diff ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
+`discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. The receipt is discern's review summary. It lists the branch and trunk, each declared job and scope gate that ran, standard outcomes, commits, changed files, and the command that opens the full diff ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
 The receipt gives the reviewer a stable gate result for that `HEAD`. The trunk may advance. The agent relays it and waits. On approval, `discern accept --confirmed` checks the live refs and lands the branch.
 
@@ -31,7 +31,7 @@ The gate pins `HEAD` and worktree cleanliness before jobs, then checks both befo
 
 The gate can still pass when a review receipt is withheld for one of those identity or summary reasons. Its result explains why no receipt was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
-Write authority is different. Before any capability, check, test, or standard measurement starts, Discern performs a tiny real create/write/rename/remove probe beside its Git-admin marker files. If a sandbox or filesystem permission blocks that later write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a complete green gate from being discarded merely because its receipt could not be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+Write authority is different. Before any declared job or standard measurement starts, Discern performs a tiny real create/write/rename/remove probe beside its Git-admin marker files. If a sandbox or filesystem permission blocks that later write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a complete green gate from being discarded merely because its receipt could not be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 ## How later commands use it
 

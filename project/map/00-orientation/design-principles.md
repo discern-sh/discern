@@ -17,11 +17,11 @@ These aren't aspirations. Each principle is held by tests in discern's own gate,
 
 ### 1. The engine stays stack-neutral
 
-discern never hardcodes a language, test runner, or framework. The engine runs the capabilities, checks, and scope gates your `discern.toml` names; everything stack-specific lives in that file ([ADR 0017](../_adr/0017-capabilities-model.md)). The only place concrete ecosystems appear is setup's detection step, whose job is proposing fills for your review. That's what lets one binary serve any repository.
+discern never hardcodes a language, test runner, or framework. The engine runs the jobs and scope gates your `discern.toml` names; everything stack-specific lives in that file ([ADR 0168](../_adr/0168-the-gate-declares-jobs.md)). The only place concrete ecosystems appear is setup's detection step, whose job is proposing fills for your review. That's what lets one binary serve any repository.
 
 ### 2. Every fact has one home
 
-A fact is authored once and everything else derives from it: guidance compiles from one source set, the config reference generates from the config schema, and where a closed vocabulary (verbs, capabilities, agent providers) must appear in several places, a parity test ties every copy back to the source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the gate.
+A fact is authored once and everything else derives from it: guidance compiles from one source set, the config reference generates from the config schema, and where a closed vocabulary (verbs, known jobs, agent providers) must appear in several places, a parity test ties every copy back to the source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the gate.
 
 ### 3. Re-running is always safe
 

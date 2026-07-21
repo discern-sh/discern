@@ -39,13 +39,13 @@ There is no native Windows release. Run the Linux binary inside Windows Subsyste
 
 ## Required tools
 
-| Context                    | Requirement                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, and either `curl` or `wget`.                               |
-| Install destination        | A writable `DISCERN_BIN_DIR`, `~/.local/bin`, or `/usr/local/bin`; add the chosen directory to `PATH`.             |
-| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                               |
-| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.                 |
-| Project checks             | Every executable named by capabilities, checks, standards, setup steps, and resource commands available on `PATH`. |
+| Context                    | Requirement                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, and either `curl` or `wget`.                   |
+| Install destination        | A writable `DISCERN_BIN_DIR`, `~/.local/bin`, or `/usr/local/bin`; add the chosen directory to `PATH`. |
+| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                   |
+| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.     |
+| Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.     |
 
 The released binary is self-contained. A project does not need Deno or Node to run discern. Setup can create files outside a git repository, but `discern start` remains unavailable until the project is a repository with a first commit.
 
@@ -55,7 +55,7 @@ Run the live prerequisite and install checks from any directory inside the proje
 discern doctor
 ```
 
-`doctor` checks `discern.toml`, schema currency, `sh`, `git`, repository shape, configured capability commands, resource-command executables, generated guidance, skills, and provider integration state. A warning keeps the command green; a failed required check exits non-zero and carries a fix.
+`doctor` checks `discern.toml`, schema currency, `sh`, `git`, repository shape, configured job commands, resource-command executables, generated guidance, skills, and provider integration state. A warning keeps the command green; a failed required check exits non-zero and carries a fix.
 
 ## Installer environment variables
 

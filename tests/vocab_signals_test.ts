@@ -19,7 +19,7 @@ import {
 const FIXTURE: GlossaryEntry[] = [
   { term: "Gate", definition: "The full check." },
   { term: "Trunk", definition: "The shared branch." },
-  { term: "KnownJob", definition: "One kind of gate work." },
+  { term: "Gate job", definition: "One kind of gate work." },
   { term: "Widget", definition: "A term no page uses." },
 ];
 
@@ -37,7 +37,7 @@ Deno.test("vocab signals: dead terms, link-only references, plurals, and redefin
   const dir = await fixtureMap({
     // The definition site: excluded, so defining a term never counts as using it.
     [GLOSSARY_PAGE_REL]:
-      "# Glossary\n\n### Gate\n\n### Trunk\n\n### KnownJob\n\n### Widget\n",
+      "# Glossary\n\n### Gate\n\n### Trunk\n\n### Gate job\n\n### Widget\n",
     "10-topic/page.md": [
       "---",
       "title: Page",
@@ -45,7 +45,7 @@ Deno.test("vocab signals: dead terms, link-only references, plurals, and redefin
       "",
       "# Page",
       "",
-      "The gate runs the declared capabilities.",
+      "The gate runs the declared gate jobs.",
       "",
       "Land on the [shared branch](../00-orientation/glossary.md#trunk).",
       "",
@@ -71,7 +71,7 @@ Deno.test("vocab signals: dead terms, link-only references, plurals, and redefin
 Deno.test("vocab signals: reference matching drops a leading The, splits slashed terms, and wraps lines", () => {
   assert(referencePattern("The binary's files").test("the binary's\nfiles"));
   assert(referencePattern("Your files / Yours").test("it stays yours"));
-  assert(referencePattern("KnownJob").test("three capabilities"));
+  assert(referencePattern("Gate job").test("three gate jobs"));
   assert(
     !referencePattern("Gate").test("delegates delegate"),
     "a term inside another word is not a reference",

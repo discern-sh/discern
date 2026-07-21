@@ -24,9 +24,9 @@ Named record tables have one schema-driven layout rule across every writer. A ne
 
 A programmatic write must leave a config that the next read accepts. `config set` renders the TOML type the schema expects at the path (`settableConfigValueKind`). A numeric-looking slug stays a string, a single value for an array-of-strings key lands as a one-element array, and an enum-typed key names its closed vocabulary on a miss. Value-based inference is reserved for union-typed keys such as a command-or-list or a standard `per`.
 
-The path walk enforces the same record-key legality as the loader. A `[checks.<name>]`-family `<name>` must match the record-key pattern applied by the runtime `z.record` key schema, read back from the schema's `propertyNames`. This prevents `config set` from writing a header with a space, slash, or non-ASCII character that the next load would reject.
+The path walk enforces the same record-key legality as the loader. A custom `[jobs.<name>]` entry's `<name>` must match the record-key pattern applied by the runtime `z.record` key schema, read back from the schema's `propertyNames`. This prevents `config set` from writing a header with a space, slash, or non-ASCII character that the next load would reject.
 
-Every `config set*` edit is validated by `configWriteIssues` before it touches disk. The edited text must parse and satisfy the schema, with one allowance for incremental table construction: a required key may still be missing inside a record-family entry (`[checks.<n>]`, `[scopes.<n>]`, `[standards.<n>]`, `[worktree.resources.<n>]`). An edit that fails is refused with the specific issues and leaves the file untouched.
+Every `config set*` edit is validated by `configWriteIssues` before it touches disk. The edited text must parse and satisfy the schema, with one allowance for incremental table construction: a required key may still be missing inside a record-family entry (`[jobs.<n>]`, `[scopes.<n>]`, `[standards.<n>]`, `[worktree.resources.<n>]`). An edit that fails is refused with the specific issues and leaves the file untouched.
 
 The value renderers meet the same bar one level down. `tomlNumber` probes candidate literals against `@std/toml`, the parser that later reads the file. A JavaScript numeric spelling that TOML forbids, such as `.5` or `007`, is normalized before writing.
 

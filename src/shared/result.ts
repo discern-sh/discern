@@ -136,7 +136,7 @@ export interface StepResult {
  * never fall through to a generic "a stage failed".
  *
  * The members, by origin:
- *  - `fix` / `build` / `check` / `test` — one capability stage's job group failed
+ *  - `fix` / `build` / `check` / `test` — one declared-job stage group failed
  *    (`prepare` runs `check` alone; `discern test` runs `test` alone);
  *  - `check/test` — `done` fuses the read-only checks and the tests into ONE group,
  *    so their combined failure reports this label rather than `check` or `test`;

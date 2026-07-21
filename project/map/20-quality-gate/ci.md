@@ -17,7 +17,7 @@ CI enforces the gate even when a change did not pass through a local discern wor
 
 ## Add the workflow
 
-This example uses Deno for the project's own toolchain. Replace that setup step with the commands your capabilities need.
+This example uses Deno for the project's own toolchain. Replace that setup step with the commands your jobs need.
 
 Create `.github/workflows/discern-gate.yml`:
 

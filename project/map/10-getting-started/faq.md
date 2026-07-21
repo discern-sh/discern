@@ -53,7 +53,7 @@ Run discern under WSL2. Native Windows shells are not supported. macOS and Linux
 
 ## A monorepo needs different commands per component
 
-Use one discern install at the git root. Root capabilities cover shared checks. Add a scope for a component that needs its own gate:
+Use one discern install at the git root. Root jobs cover shared checks. Add a scope for a component that needs its own gate:
 
 ```toml
 [scopes.web]

@@ -9,8 +9,8 @@ This subtree documents the developer experience: getting set up locally, the tes
 The end-to-end loop is short and the same on every stack discern runs on:
 
 - `discern start` creates an isolated worktree for a change and moves you into it (see the worktree note in the project guidelines).
-- `discern prepare` is the fast inner loop — it applies the fix-stage capabilities, then the check-stage capabilities, and never builds or tests.
-- `discern done` is the full gate: it runs the fix/build-stage capabilities, then `check` and `test` in parallel, fires any scope `gate`s that fired, and (in a worktree) verifies your branch contains the latest `main`. Run it before declaring any change done; fix what it reports and re-run.
+- `discern prepare` is the fast inner loop — it applies the fix-stage jobs, then the check-stage jobs, and never builds or tests.
+- `discern done` is the full gate: it runs the fix/build-stage jobs, then the `check` and `test` stages in parallel, fires any scope `gate`s that fired, and (in a worktree) verifies your branch contains the latest `main`. Run it before declaring any change done; fix what it reports and re-run.
 
 ## Leaves
 

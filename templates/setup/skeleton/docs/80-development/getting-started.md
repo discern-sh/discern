@@ -11,12 +11,12 @@ This is the path from a fresh clone to a running project and a first green gate.
 These work the same regardless of language or framework:
 
 - **`discern start`** creates an isolated worktree for a change and moves you into it (see the worktree note in the project guidelines).
-- **`discern prepare`** is the fast inner loop — applies the fix-stage capabilities, then the check-stage capabilities; no build, no tests.
+- **`discern prepare`** is the fast inner loop — applies the fix-stage jobs, then the check-stage jobs; no build, no tests.
 - **`discern done`** is the full gate — (in a worktree) a fail-fast merge check first, then fixers and build, then checks and tests in parallel, then any scope `gate`s that fired. Run it before declaring a change done.
-- **`discern doctor`** verifies the install is sound (dispatcher executable, hooks present, every configured capability resolvable, git worktree support, required tools on PATH).
+- **`discern doctor`** verifies the install is sound (dispatcher executable, hooks present, every configured job resolvable, git worktree support, required tools on PATH).
 
 ## Setting up
 
 <!-- setup fills this -->
 
-_(The stack-specific steps: prerequisites to install, how to fetch dependencies, environment/config setup, how to start the app, and what a first `discern done` should produce. Keep these aligned with the `[capabilities]` and `[worktree]` settings in `discern.toml`.)_
+_(The stack-specific steps: prerequisites to install, how to fetch dependencies, environment/config setup, how to start the app, and what a first `discern done` should produce. Keep these aligned with the `[jobs]` and `[worktree]` settings in `discern.toml`.)_

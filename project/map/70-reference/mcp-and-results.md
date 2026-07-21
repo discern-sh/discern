@@ -52,7 +52,7 @@ The human, JSON, and MCP tool forms report the same settled result. `structuredC
 | `discern_start`       | Create and set up a new isolated worktree, then re-aim the server to it.     | Mutating; each successful call creates a new worktree.     |
 | `discern_done`        | Run the full gate and return steps, diagnostics, and an optional receipt.    | Runs project commands; fix-stage commands may rewrite.     |
 | `discern_prepare`     | Run the fix and check stages for the fast inner loop.                        | Runs project commands; fix-stage commands may rewrite.     |
-| `discern_test`        | Run the configured test capability on its own.                               | Runs a project command.                                    |
+| `discern_test`        | Run the configured test job on its own.                                      | Runs a project command.                                    |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files. | Mutating and idempotent for the same inputs.               |
 | `discern_standards`   | Measure standards, compare limits, and optionally pin improvements.          | Runs project commands; pinning changes and commits config. |
 | `discern_accept`      | Land an authorized worktree and tear down its resources and branch.          | Destructive; requires owner confirmation.                  |

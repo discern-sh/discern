@@ -1050,7 +1050,7 @@ export function configWriteIssues(text: string): ConfigIssue[] {
 
 /**
  * Normalise a command-bearing config value into the engine's job list: a scalar
- * becomes a one-element list, an absent value an empty list, the capability table
+ * becomes a one-element list, an absent value an empty list, the known-job table
  * form contributes its `run`, and empty / `:` no-op items are dropped (the
  * long-standing `config_array` semantics).
  */
@@ -1072,7 +1072,7 @@ export function toCommand(value: CommandValue | undefined): string {
 
 /** The per-job `timeout` override a command-bearing value carries, or undefined
  * when the value inherits the global `[gate].timeout` (the bare command-or-list
- * forms carry none; only the capability table form can). */
+ * forms carry none; only the known-job table form can). */
 export function commandTimeout(
   value: CommandValue | undefined,
 ): number | undefined {

@@ -17,7 +17,7 @@ _The mental model in one read: what discern is, the pieces it installs, and the 
 
 Your repo declares what "done" means once, in one file: `discern.toml`. It names the commands your project runs (format, lint, typecheck, test, build, smoke), and discern turns them into the rails every coding agent works within: a quality gate, an isolated [worktree](glossary.md#worktree) per change, and one set of instructions each agent reads.
 
-The engine inside discern never learns your stack. It runs "the test [capability](glossary.md#capability)" or "the gate for this [scope](glossary.md#scope)": names discovered from your config ([ADR 0017](../_adr/0017-capabilities-model.md)). Fill in the commands once and the same binary gates a Rust crate, a Rails app, or a monorepo holding both.
+The engine inside discern never learns your stack. It runs the [gate jobs](glossary.md#gate-job) and [scope](glossary.md#scope) gates named by your config. Fill in the commands once and the same binary gates a Rust crate, a Rails app, or a monorepo holding both.
 
 ## One binary, a small footprint
 
@@ -25,7 +25,7 @@ discern is a single self-contained binary on your `PATH`, and the only other thi
 
 ## The pieces
 
-**The gate is your definition of done.** `discern done` runs everything the config declares: the capabilities, any custom [checks](glossary.md#check), the scope gates for regions that changed, and the [standards](glossary.md#standard) — quality numbers that may only move in the right direction. Each runs as its own labeled job in a derived [stage](glossary.md#stage), so you never write a scheduling keyword, and a failure hands back the exact command and its output. `discern prepare` is the fast loop while iterating. Covered in [the quality gate](../20-quality-gate/).
+**The gate is your definition of done.** `discern done` runs the declared [jobs](glossary.md#gate-job), the scope gates for regions that changed, and the [standards](glossary.md#standard) — quality numbers that may only move in the right direction. Known job names derive their [stage](glossary.md#stage); custom names declare one. Every unit of work has a label, so a failure hands back the exact command and its output. `discern prepare` is the fast loop while iterating. Covered in [the quality gate](../20-quality-gate/).
 
 **Worktrees keep every change isolated.** `discern start` gives each task its own checkout and branch, so the main checkout stays clean while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares (a database, an emulator), created when it starts and destroyed when it lands. `discern update` merges the latest [trunk](glossary.md#trunk) in beneath the work; `discern accept` lands the reviewed branch and removes the worktree. Covered in [worktrees](../30-worktrees/).
 
@@ -43,12 +43,12 @@ From the main checkout, bare `discern` opens the [desk](glossary.md#desk), the h
 
 ## Where next
 
-| Want to understand…                                      | Read                                            |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| Install, setup, and upgrades                             | [Getting started](../10-getting-started/)       |
-| `discern done` — capabilities, checks, scopes, standards | [the quality gate](../20-quality-gate/)         |
-| The worktree lifecycle and its resources                 | [worktrees](../30-worktrees/)                   |
-| Guidance compilation                                     | [agent guidance](../40-agent-guidance/)         |
-| Bundled and project-authored Skills                      | [Skills](../45-skills/)                         |
-| The files discern writes for each coding agent           | [agent integrations](../60-agent-integrations/) |
-| Why the system is shaped this way                        | [design principles](design-principles.md)       |
+| Want to understand…                            | Read                                            |
+| ---------------------------------------------- | ----------------------------------------------- |
+| Install, setup, and upgrades                   | [Getting started](../10-getting-started/)       |
+| `discern done` — jobs, scopes, standards       | [the quality gate](../20-quality-gate/)         |
+| The worktree lifecycle and its resources       | [worktrees](../30-worktrees/)                   |
+| Guidance compilation                           | [agent guidance](../40-agent-guidance/)         |
+| Bundled and project-authored Skills            | [Skills](../45-skills/)                         |
+| The files discern writes for each coding agent | [agent integrations](../60-agent-integrations/) |
+| Why the system is shaped this way              | [design principles](design-principles.md)       |

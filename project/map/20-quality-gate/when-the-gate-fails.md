@@ -26,7 +26,7 @@ Your agent reads these fields directly and usually fixes the failure without hel
 | A standard's metric regressed                        | Move the metric back within its floor or ceiling. Never weaken the limit on the branch.                                                                                |
 | The branch loosened or deleted a standard            | Restore the trunk limit and tell the owner. Loosening a limit requires an owner decision on trunk.                                                                     |
 | Discern's write-access preflight was denied          | Grant this invocation access to the exact path in the diagnostic, then rerun the same command. The probe stopped before project jobs ran.                              |
-| A capability, check, test, or scope gate failed      | Run its `reproduce_cmd`, fix the reported problem, then return to `discern done`.                                                                                      |
+| A declared job or scope gate failed                  | Run its `reproduce_cmd`, fix the reported problem, then return to `discern done`.                                                                                      |
 | A job timed out                                      | Replace watch or server mode with a single-run command. Raise that job's `timeout` only when the command legitimately needs longer.                                    |
 | The gate left tracked changes                        | Review the named diff, commit the gate's output, and rerun on the clean commit ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).                 |
 
