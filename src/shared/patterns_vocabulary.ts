@@ -54,7 +54,7 @@ export type DetectorStatus = (typeof DETECTOR_STATUSES)[number];
 /** One `patterns` finding: which detector spoke, what it observed (one
  * plain-count sentence), the named counts behind it, and the recommended next
  * step. `strength` is the report's ranking key — unitless, never evidence. */
-const patternsFindingSchema = z.strictObject({
+export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
   family: z.enum(DETECTOR_FAMILIES),
   scope: z.enum(DETECTOR_SCOPES),
@@ -65,7 +65,7 @@ const patternsFindingSchema = z.strictObject({
   next_step: z.string(),
 });
 /** One patterns finding. */
-export type PatternsFinding = z.infer<typeof patternsFindingSchema>;
+export type PatternsFinding = z.infer<typeof PatternsFindingSchema>;
 
 /** One detector's run in a `patterns` report: its registry identity, how many
  * qualifying events it saw against its threshold, and how it turned out —
@@ -127,7 +127,7 @@ export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
 export const PatternsDataSchema = z.strictObject({
   logbook: patternsLogbookSchema,
   population: patternsPopulationSchema,
-  findings: z.array(patternsFindingSchema),
+  findings: z.array(PatternsFindingSchema),
   detectors: z.array(patternsDetectorSchema),
 });
 export type PatternsData = z.infer<typeof PatternsDataSchema>;

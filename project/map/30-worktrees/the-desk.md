@@ -1,7 +1,7 @@
 ---
 title: The desk
 description: Start work, open configured coding agents, and supervise every active worktree from discern's interactive fleet view.
-order: 50
+order: 60
 aliases:
   - discern desk
   - interactive worktree manager

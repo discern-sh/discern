@@ -6119,6 +6119,72 @@
                       "reviews"
                     ]
                   }
+                },
+                "history": {
+                  "type": "object",
+                  "properties": {
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "detector": {
+                            "type": "string"
+                          },
+                          "family": {
+                            "type": "string",
+                            "enum": [
+                              "behaviour",
+                              "gate-fit",
+                              "funnel",
+                              "trajectory"
+                            ]
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "branch",
+                              "session",
+                              "project"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "observed": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "number"
+                            }
+                          },
+                          "strength": {
+                            "type": "number"
+                          },
+                          "next_step": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "detector",
+                          "family",
+                          "scope",
+                          "observed",
+                          "evidence",
+                          "strength",
+                          "next_step"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "findings"
+                  ]
                 }
               },
               "required": [
@@ -6126,7 +6192,8 @@
                 "weak",
                 "open_reviews",
                 "next_action",
-                "categories"
+                "categories",
+                "history"
               ]
             },
             {

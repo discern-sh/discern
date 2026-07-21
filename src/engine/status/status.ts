@@ -94,6 +94,11 @@ import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
+import { addAdvisoryHints } from "../logbook/routing.ts";
+import {
+  inlineFindingRoutes,
+  statusFindingHints,
+} from "../logbook/surfaces.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -362,13 +367,23 @@ export async function statusResult(
     setupPending,
     gateReceipt,
   });
-
-  return {
+  const result: DiscernResult<StatusData> = {
     ok: true,
     verb: "status",
     data,
     ...(hints.length > 0 ? { hints } : {}),
   };
+  // Setup owns the session until bootstrapping completes. Afterwards, append
+  // only session-routed inline findings for this branch; detector scoring has
+  // already removed interactive human runs and CI noise from their population.
+  if (setupPending === undefined) {
+    const routes = await inlineFindingRoutes(root, cfg);
+    addAdvisoryHints(
+      result,
+      statusFindingHints(routes.status, git?.branch),
+    );
+  }
+  return result;
 }
 
 /** Resolve a worktree's identity block, degrading to null if identity can't be

@@ -39,7 +39,10 @@ import {
   readEpochState,
   writeEpochState,
 } from "../src/engine/logbook/store.ts";
-import { readLogbookStream } from "../src/engine/logbook/read.ts";
+import {
+  readLogbookStream,
+  readRecentLogbookStream,
+} from "../src/engine/logbook/read.ts";
 
 // ── the event schema ────────────────────────────────────────────────────────
 
@@ -452,6 +455,32 @@ Deno.test("reader: months merge chronologically and torn/foreign lines are count
         "2026-07-01T08:00:00.000Z",
         "2026-07-02T09:00:00.000Z",
       ],
+    );
+  });
+});
+
+Deno.test("reader: the inline tail is event-bounded and never opens an older month once full", async () => {
+  await withTempDir(async (dir) => {
+    const logDir = logbookDir(dir);
+    await Deno.mkdir(logDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(logDir, "2026-06.jsonl"),
+      `${JSON.stringify(verbEventAt("2026-06-30T23:59:00.000Z"))}\n`,
+    );
+    await Deno.writeTextFile(
+      join(logDir, "2026-07.jsonl"),
+      [
+        JSON.stringify(verbEventAt("2026-07-01T08:00:00.000Z")),
+        JSON.stringify(verbEventAt("2026-07-02T09:00:00.000Z")),
+        JSON.stringify(verbEventAt("2026-07-03T10:00:00.000Z")),
+      ].join("\n") + "\n",
+    );
+
+    const recent = await readRecentLogbookStream(dir, 2);
+    assertEquals(recent.months, ["2026-07.jsonl"]);
+    assertEquals(
+      recent.events.map((event) => event.at),
+      ["2026-07-02T09:00:00.000Z", "2026-07-03T10:00:00.000Z"],
     );
   });
 });

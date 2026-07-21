@@ -84,6 +84,11 @@ import {
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
+import { addAdvisoryHints } from "../logbook/routing.ts";
+import {
+  inlineFindingRoutes,
+  receiptFindingHints,
+} from "../logbook/surfaces.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   checkGuidanceCurrent,
@@ -761,6 +766,17 @@ async function runGate(
     failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
       ? await couplingGateHints(root)
       : [];
+  // Logbook findings share the coupling advisory's presentation boundary:
+  // green, bootstrapped, best-effort, and at the tail. A branch finding must
+  // also have a real receipt to sit beside, and the formatter caps the whole
+  // addition at one line after applying its stricter evidence margin.
+  const logbookHints = failedStage === null && cfg.meta.bootstrapped &&
+      emittedReceipt !== undefined
+    ? receiptFindingHints(
+      (await inlineFindingRoutes(root, cfg)).done,
+      emittedReceipt.branch,
+    )
+    : [];
   const receiptHint = gateReceiptHint(gateReceipt, failedStage);
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
@@ -785,6 +801,7 @@ async function runGate(
   if (hints.length > 0) {
     result.hints = hints;
   }
+  addAdvisoryHints(result, logbookHints);
   return { result, failedStage, cfg, out, changed };
 }
 
