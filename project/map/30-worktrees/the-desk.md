@@ -13,7 +13,7 @@ aliases:
 
 _Bare `discern` starts new work and opens the human decision surface over every active worktree._
 
-Agents use Model Context Protocol (MCP) tools and JSON results to operate their own worktree. A person starting or supervising several changes needs one fleet view. Run `discern` with no verb, or `discern desk`, from the main checkout to open the interactive picker ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
+Agents use Model Context Protocol (MCP) tools and JSON results to operate their own worktree. A person starting or supervising several changes needs one [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open the interactive picker ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
 
 ## Start a task
 

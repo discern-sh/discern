@@ -1,19 +1,18 @@
 ---
-title: Co-change coupling
+title: Coupling
 description: Use git history to find files that usually change with the work on your branch and may have been missed.
 order: 70
 aliases:
   - discern coupling
-  - co-change advisory
   - cochange
   - change partners
 ---
 
-# Co-change coupling
+# Coupling
 
 _`discern coupling` names files that usually move together, with the history behind each suggestion._
 
-Use the co-change advisory when a change may have a habitual sibling: a schema and its validator, a registry and its consumers, or an implementation and its test. The command mines the repository's own git history and reports the strongest relationships it finds. It exits successfully without changing the gate result; you decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
+Use [coupling](../00-orientation/glossary.md#coupling) when a change may have a habitual sibling: a schema and its validator, a registry and its consumers, or an implementation and its test. The command mines the repository's own git history and reports the strongest relationships it finds. It is an [advisory](../00-orientation/glossary.md#advisory), so you decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## Choose a mode
 

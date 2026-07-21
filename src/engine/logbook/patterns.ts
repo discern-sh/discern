@@ -153,8 +153,7 @@ export async function patternsResult(
     }
     if (findings.length > 0) {
       hints.push(
-        "Advisory only: nothing here blocks or gates. Standards are the " +
-          "enforcement surface; a finding's next step says how to get there.",
+        "Advisory findings: each next step says what to inspect or enforce.",
       );
     }
   }
@@ -261,7 +260,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     out.raw(`  ${c.dim}${accounting.join("; ")}.${c.reset}\n`);
   }
   out.raw(
-    `  ${c.dim}Advisory only: nothing here blocks. Standards are the enforcement surface.${c.reset}\n`,
+    `  ${c.dim}Advisory findings.${c.reset}\n`,
   );
 }
 

@@ -82,7 +82,7 @@ export function stripRepoPathPrefix(
  * (`-z`) and decoded by the shared parsers in `src/shared/git_paths.ts`, so a
  * path git would C-quote in line output arrives verbatim. Returns null to signal
  * fail-open (git
- * unavailable or no diff base). Exported so the co-change advisory ({@link
+ * unavailable or no diff base). Exported so the coupling ({@link
  * import("../coupling/coupling.ts").couplingResult}) reads the SAME current change
  * set the scope classifier does, rather than a parallel git query.
  */

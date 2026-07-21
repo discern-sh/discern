@@ -426,13 +426,12 @@ timeout = 600
 # coupling <path>` → one file's top partners, its blast radius; `discern coupling
 # <a> <b>` → the commits where both changed, to judge a coupling). It is
 # ZERO-CONFIG: it self-calibrates to your repo (commit size, cadence, scale), so
-# there are no thresholds to tune. Purely ADVISORY: it points at where to look
-# and never blocks.
+# there are no thresholds to tune. As an ADVISORY, it points at where to look.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [coupling]
 # Surface the advisory during the gate too — `discern done` AND the fast inner
-# loop `discern prepare` (as hints, at the tail — it never affects pass/fail), so
+# loop `discern prepare` (as hints at the tail), so
 # the nudge meets a change while it is hot. Off by default; opt in to get the
 # nudge in the gate as well as on demand.
 in_gate = false

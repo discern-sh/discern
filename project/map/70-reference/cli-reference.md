@@ -538,7 +538,7 @@ Usage: `discern impact [options]`
 
 ### `discern coupling`
 
-Report files that historically change together; this advisory does not block. With no args, report likely siblings missing from the change. With file, report its top partners. Add with to report commits where both changed.
+Report files that historically change together as a read-only advisory. With no args, report likely siblings missing from the change. With file, report its top partners. Add with to report commits where both changed.
 
 Usage: `discern coupling [file] [with] [options]`
 
@@ -548,7 +548,7 @@ Usage: `discern coupling [file] [with] [options]`
 
 ### `discern patterns`
 
-Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behaviour, gate fit, the task funnel, and each standard's trajectory. Advisory only; never blocks.
+Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behaviour, gate fit, the task funnel, and each standard's trajectory. A read-only advisory.
 
 Usage: `discern patterns [options]`
 

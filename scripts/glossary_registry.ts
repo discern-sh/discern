@@ -111,6 +111,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "What `discern accept` does: land a worktree's reviewed branch on the [trunk](#trunk) as a clean fast-forward, then tear the worktree down — resources destroyed, directory removed, the merged branch deleted ([ADR 0110](../_adr/0110-the-landing-model.md)). Covered in [worktrees](../30-worktrees/).",
   },
   {
+    term: "Advisory",
+    definition:
+      "A read-only finding surface: [coupling](../20-quality-gate/coupling.md), [patterns](../20-quality-gate/patterns.md), [impact](../70-reference/cli-reference.md#discern-impact), and [improvement](../20-quality-gate/improvement.md) point to work and never block. The [gate](#gate) and [standards](#standard) are the only enforcement surfaces.",
+  },
+  {
     term: "discern version",
     definition:
       "The `discern` binary's semantic version, shown by `discern --version`. A newer binary arrives by re-running the installer; `discern upgrade` then brings the _project_ into line with the binary it runs from.",
@@ -131,9 +136,15 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       } derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).`,
   },
   {
-    term: "Co-change advisory",
+    term: "Coupling",
     definition:
-      "What `discern coupling` reports: files that historically change together, so a change is pointed at the sibling it may be missing. Advisory only — it never blocks, and it self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).",
+      "What `discern coupling` reports: files that historically change together, pointing out a sibling the current change may be missing. It is [advisory](#advisory) only and self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).",
+    retired: [
+      {
+        phrase: "co-change advisory",
+        pattern: String.raw`\bco-change\s+advisor(?:y|ies)\b`,
+      },
+    ],
   },
   {
     term: "Shared file",
@@ -160,7 +171,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Desk",
     definition:
-      "The human's interactive surface over the worktree fleet, opened from the main checkout with bare `discern` or `discern desk`. It starts new tasks, opens configured coding-agent CLIs from `PATH`, and offers each worktree's valid actions. Covered in [the desk](../30-worktrees/the-desk.md).",
+      "The human's interactive surface over the worktree [fleet](#fleet), opened from the main checkout with bare `discern` or `discern desk`. It starts new tasks, opens configured coding-agent CLIs from `PATH`, and offers each worktree's valid actions. Covered in [the desk](../30-worktrees/the-desk.md).",
   },
   {
     term: "discern",
@@ -201,6 +212,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         pattern: String.raw`\bfile\s+dispositions?\b`,
       },
     ],
+  },
+  {
+    term: "Fleet",
+    definition:
+      "The set of worktrees the [desk](#desk) surveys and `discern status` reports from the main checkout. Covered in [worktrees](../30-worktrees/).",
   },
   {
     term: "Gate",
@@ -255,7 +271,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Patterns",
     definition:
-      "What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behaviour loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). Advisory only: it never blocks, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).",
+      "What `discern patterns` reports: findings mined from the [logbook](#logbook) by a registry of named detectors (behavior loops, gate fit, funnel flow, and each [standard](#standard)'s trajectory), each stated in plain counts with a recommended next step ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is [advisory](#advisory) only, and below a detector's evidence threshold it reports insufficient evidence instead of guessing. Covered in [practice patterns](../20-quality-gate/patterns.md).",
   },
   {
     term: "Placement is consent",

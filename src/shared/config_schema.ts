@@ -477,10 +477,10 @@ const gateSection = z.strictObject({
 
 const couplingSection = z.strictObject({
   in_gate: z.boolean().default(false).describe(
-    "Include the co-change advisory in `discern done` and the fast inner loop `discern prepare` as trailing hints, so it reaches the author during the change. Off by default and purely advisory; it does not affect pass/fail.",
+    "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. Off by default.",
   ),
 }).prefault({}).describe(
-  "Co-change coupling detection is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`. The advisory points at where to look and does not block.",
+  "Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.",
 );
 
 const scriptsSection = z.strictObject({

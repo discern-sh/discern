@@ -17,7 +17,7 @@ This subtree documents the public quality-gate workflow: fixing a failed run, th
 | `strand-detection.md`    | Concept page for tracked output left by a gate stage; `order: 40`.                         |
 | `ci.md`                  | Guide to enforcing `discern done` with GitHub Actions; `order: 50`.                        |
 | `improvement.md`         | Concept and command guide for the continuous-improvement coach; `order: 60`.               |
-| `coupling.md`            | Concept and command guide for the co-change advisory; `order: 70`.                         |
+| `coupling.md`            | Concept and command guide for coupling; `order: 70`.                                       |
 
 ## Source files to read
 

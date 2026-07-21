@@ -1,5 +1,5 @@
 /**
- * `coupling`: the co-change advisory — mine git history for the files that change
+ * `coupling`: the coupling — mine git history for the files that change
  * *together*, so a touched file's habitual sibling isn't forgotten.
  *
  * A coding agent has near-perfect LOCAL recall and almost no GLOBAL recall: it fixes
@@ -591,8 +591,8 @@ function couplingHints(
   const shown = data.partners.slice(0, maxPartners);
   if (data.mode === "diff") {
     hints.push(
-      "Co-change advisory (from git history; advisory only, never blocks, and NOT " +
-        "exhaustive) — files that usually change with what you've changed on this branch " +
+      "Coupling (from git history; advisory only and not exhaustive) — files that usually " +
+        "change with what you've changed on this branch " +
         "(vs the trunk, the shared landing branch) but aren't among those changes:",
     );
     for (const p of shown) {
@@ -782,7 +782,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     if (data.mode === "query") {
       out.raw(`No co-change partners found for \`${data.target ?? ""}\`.\n`);
     } else if (n === 0) {
-      out.raw("Nothing changed on this branch — no co-change advisory.\n");
+      out.raw("Nothing changed on this branch — no coupling findings.\n");
     } else {
       out.raw(`No co-change partners found for ${changedPhrase}.\n`);
     }
@@ -792,7 +792,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
     ...data.partners.map((p) => `${p.cochanges} of ${p.of}`.length),
   );
   const subtitle =
-    `${c.dim}advisory — from git history; never blocks, not exhaustive${c.reset}`;
+    `${c.dim}advisory — from git history; not exhaustive${c.reset}`;
 
   if (data.mode === "query") {
     out.heading(`Files that usually change with ${data.target ?? ""}`);
@@ -801,7 +801,7 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
       out.raw(partnerRow(p, "  ", countWidth, c));
     }
   } else {
-    out.heading("Co-change advisory");
+    out.heading("Coupling");
     out.raw(
       `  ${c.dim}Files that usually change with ${changedPhrase} (vs ` +
         `the trunk, the shared landing branch), but aren't among them.${c.reset}\n  ${subtitle}\n`,
@@ -859,7 +859,7 @@ export async function runCoupling(
 }
 
 /**
- * The diff-aware co-change advisory as gate hints, or `[]`. The gate appends these at
+ * The diff-aware coupling as gate hints, or `[]`. The gate appends these at
  * its TAIL (with strand detection — it reads the diff, so it is dependency-bearing,
  * never a fail-fast precondition; ADR 0084). Gated by the caller on
  * `[coupling].in_gate` and a bootstrapped install. Best-effort: any failure yields

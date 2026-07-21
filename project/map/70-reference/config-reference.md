@@ -256,11 +256,11 @@ Ergonomics for the parallel gate stages (and scope gates). These affect how `dis
 
 ## `[coupling]`
 
-Co-change coupling detection is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`. The advisory points at where to look and does not block.
+Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `in_gate` | boolean | `false` | Include the co-change advisory in `discern done` and the fast inner loop `discern prepare` as trailing hints, so it reaches the author during the change. Off by default and purely advisory; it does not affect pass/fail. |
+| `in_gate` | boolean | `false` | Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. Off by default. |
 
 ## `[scripts]`
 

@@ -11,7 +11,7 @@
  * prints a human tail. `--json` is quiet — the envelope is the entire stdout (ADR
  * 0030), with a failure's output captured into its diagnostic rather than streamed.
  *
- * On a GREEN, bootstrapped run it appends the diff-aware co-change advisory (ADR 0084)
+ * On a GREEN, bootstrapped run it appends the diff-aware coupling (ADR 0084)
  * at the tail — behind the same `[coupling].in_gate` flag `done` honours — so the
  * nudge meets the change while it is hot in the inner loop. Best-effort and advisory:
  * it touches only `hints`, never prepare's pass/fail, and is skipped on a failed run.
@@ -59,7 +59,7 @@ async function runPrepareGate(
     results,
   );
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The co-change advisory (ADR 0084) rides the fast inner loop too, behind the SAME
+  // The coupling (ADR 0084) rides the fast inner loop too, behind the SAME
   // [coupling].in_gate preference, so the nudge meets the change while it is hot — not
   // only at finish. Mirrors finish's discipline exactly: only on a GREEN, bootstrapped
   // run, best-effort, and touching ONLY `hints`, so it can never move

@@ -176,7 +176,7 @@ async function commitFiles(
   await git(repo, "commit", "-q", "-m", msg, "--no-gpg-sign");
 }
 
-Deno.test("nested root: the co-change advisory mines root-relative partners", async () => {
+Deno.test("nested root: the coupling mines root-relative partners", async () => {
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,

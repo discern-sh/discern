@@ -525,20 +525,19 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_coupling",
-    title: "Co-change partners",
+    title: "Coupling",
     outputSchema: CouplingOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Surface the files that historically change TOGETHER — a co-change advisory mined " +
-      "from git history — so a touched file's habitual sibling isn't forgotten. Three " +
+      "Surface the files that historically change TOGETHER as a read-only advisory " +
+      "mined from git history, so a touched file's habitual sibling isn't forgotten. Three " +
       "forms: with NO file it is DIFF-AWARE, reporting the files that co-change with your " +
       "current change set but are MISSING from it (the primary surface); pass `file` to " +
       "query ONE file's top co-change partners (its blast radius); pass `file` AND `with` " +
       "to drill into the shared history of TWO files — the commits where both changed, " +
       "with dates and subjects, to judge a coupling essential vs incidental. The partners " +
       "(data.partners) and the shared commits (data.commits) carry their evidence in plain " +
-      "counts, and the human-readable advisory rides in hints[]. Strictly ADVISORY: it " +
-      "points at where to look and NEVER blocks — you decide whether a strong coupling is " +
+      "counts, and the human-readable finding rides in hints[]. You decide whether a strong coupling is " +
       "an essential invariant to lock with a forcing-function, or incidental and " +
       "ignorable. The list is not exhaustive.",
     inputSchema: {
@@ -1592,8 +1591,7 @@ export function buildInstructions(): string {
     "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
     "- Ask discern_patterns how the practice is going over time: findings " +
     "from the local logbook of discern's own runs — behaviour loops, gate " +
-    "fit, funnel flow, and each standard's trajectory. Advisory only; it " +
-    "never blocks.",
+    "fit, funnel flow, and each standard's trajectory. A read-only advisory.",
     "- Quality standards — numbers that can never get worse — are enforced by " +
     "discern_done itself: every run verifies no limit loosened versus the " +
     "trunk and measures each standard alongside the tests. Use " +

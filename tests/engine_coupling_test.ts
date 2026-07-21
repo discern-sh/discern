@@ -1,5 +1,5 @@
 /**
- * Engine coverage for the `coupling` verb — the zero-config co-change advisory. Each
+ * Engine coverage for the `coupling` verb — the zero-config coupling. Each
  * test builds a temp repo with a KNOWN, deliberate commit history and asserts the mined
  * model both white-box (the `couplingResult` core) and black-box (`runAgent`
  * `coupling --json`). There are NO thresholds to set — the model self-calibrates — so the
@@ -513,7 +513,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
     assertEquals(off.ok, true);
     assertEquals(off.data?.failed_stage ?? null, null);
     assert(
-      !(off.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      !(off.hints ?? []).some((h) => h.includes("Coupling")),
       `no advisory when in_gate is off: ${JSON.stringify(off.hints)}`,
     );
 
@@ -542,7 +542,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
       `expected a coupling advisory naming b.ts: ${JSON.stringify(hints)}`,
     );
     // It rides at the TAIL of the hints.
-    const idx = hints.findIndex((h) => h.includes("Co-change advisory"));
+    const idx = hints.findIndex((h) => h.includes("Coupling"));
     assert(
       idx >= 0 && idx >= hints.length - 6,
       `coupling hints should sit at the tail: ${JSON.stringify(hints)}`,
@@ -581,7 +581,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
 
     const result = await finishResult(dir);
     assert(
-      !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      !(result.hints ?? []).some((h) => h.includes("Coupling")),
       `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
     );
   });
@@ -681,7 +681,7 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
     const off = await prepareResult(dir);
     assertEquals(off.ok, true);
     assert(
-      !(off.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      !(off.hints ?? []).some((h) => h.includes("Coupling")),
       `no advisory when in_gate is off: ${JSON.stringify(off.hints)}`,
     );
 
@@ -709,7 +709,7 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
       `expected a coupling advisory naming b.ts: ${JSON.stringify(hints)}`,
     );
     // It rides at the TAIL, as in finish — the same diff-aware advisory, in the hot loop.
-    const idx = hints.findIndex((h) => h.includes("Co-change advisory"));
+    const idx = hints.findIndex((h) => h.includes("Coupling"));
     assert(
       idx >= 0 && idx >= hints.length - 6,
       `coupling hints should sit at the tail: ${JSON.stringify(hints)}`,
@@ -747,7 +747,7 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
 
     const result = await prepareResult(dir);
     assert(
-      !(result.hints ?? []).some((h) => h.includes("Co-change advisory")),
+      !(result.hints ?? []).some((h) => h.includes("Coupling")),
       `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
     );
   });

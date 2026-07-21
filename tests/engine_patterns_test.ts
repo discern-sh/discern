@@ -217,7 +217,7 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertStringIncludes(r.output, "done-thrash");
     assertStringIncludes(r.output, "drivers:");
     assertStringIncludes(r.output, "Claude Code 1");
-    assertStringIncludes(r.output, "Advisory only");
+    assertStringIncludes(r.output, "Advisory findings");
     assertStringIncludes(r.output, "next");
   });
 });
