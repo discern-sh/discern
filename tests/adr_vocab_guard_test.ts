@@ -18,39 +18,26 @@
  * The replacement: keep the citation, move it to a code comment beside the
  * string (or to `docs/`), and let the shipped copy carry only the explanation
  * users can act on.
+ *
+ * Retired *vocabulary* (a phrase the canon replaced) is a different law with a
+ * different source of truth: the term registry declares each retired synonym,
+ * and `tests/vocab_drift_test.ts` polices the whole set from that data.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
-import {
-  isRepoMapPath,
-  REPO_AUTHORED_PATHS,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { stringLiterals } from "./vocab_scan.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
-const MAP = REPO_AUTHORED_PATHS.map;
-const ADRS = join(MAP, "_adr");
-const MOCKUPS = join(REPO_ROOT, "mockups");
-const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
-const SKILLS = REPO_AUTHORED_PATHS.skills;
-const TEMPLATE_FIXTURES = join(REPO_ROOT, "tests", "fixtures", "templates");
+const ADRS = join(REPO_AUTHORED_PATHS.map, "_adr");
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 /** A numbered ADR file path; the shipped skeleton's 0000-template is the one legal number. */
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
-/** Retired product-category wording; one README category phrase remains searchable. */
-const HARNESS_WORD = /\bharness(?:es|ing)?\b/gi;
-/**
- * Retired human-facing name for the shared branch; user copy calls it the trunk.
- * Multi-word retired phrases match across any whitespace, newlines included —
- * hard-wrapped prose (still present in fixtures and other fmt-excluded paths)
- * must not hide a phrase from the scan by splitting it over a line break.
- */
-const INTEGRATION_BRANCH = /\bintegration\s+branch\b/gi;
 /** Callable/config/artifact pointers that are legal only in reviewed history. */
 const RETIRED_ADR_POINTER =
   /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
@@ -61,177 +48,11 @@ const ADR_0120_AMENDMENT =
 const ADR_0137_AMENDMENT =
   "[ADR 0137](0137-project-scripts-live-under-the-script-command.md)";
 
-type Literal = { text: string; line: number };
-
-/**
- * Extract every string-literal chunk from TypeScript source, with the line it
- * starts on. Skips line and block comments; descends into template-literal
- * interpolations (whose code can itself hold strings and comments); consumes
- * regex literals so a quote inside one (e.g. `/["']/`) can't desync the scan.
- */
-function stringLiterals(source: string): Literal[] {
-  const out: Literal[] = [];
-  let i = 0;
-  let line = 1;
-  const n = source.length;
-
-  if (source.startsWith("#!")) {
-    while (i < n && source.charAt(i) !== "\n") i++;
-  }
-
-  /** The last non-whitespace char seen in code position, for the regex/division call. */
-  let prev = "";
-  /** Template-interpolation nesting: brace depth per open `${ … }` frame. */
-  const frames: number[] = [];
-
-  const step = (): void => {
-    if (source.charAt(i) === "\n") line++;
-    i++;
-  };
-
-  const consumeQuoted = (quote: string): void => {
-    const start = line;
-    step(); // opening quote
-    let text = "";
-    while (i < n) {
-      const ch = source.charAt(i);
-      if (ch === "\\") {
-        step();
-        if (i < n) {
-          text += source.charAt(i);
-          step();
-        }
-        continue;
-      }
-      if (ch === quote) {
-        step();
-        break;
-      }
-      if (ch === "\n" && quote !== "`") break; // unterminated — bail on the line
-      if (quote === "`" && ch === "$" && source.charAt(i + 1) === "{") {
-        out.push({ text, line: start });
-        text = "";
-        step();
-        step();
-        frames.push(0);
-        scan(); // interpolation code runs until its `}` pops the frame
-        continue;
-      }
-      text += ch;
-      step();
-    }
-    out.push({ text, line: start });
-    prev = quote; // a closed literal is an operand — `/` after it is division
-  };
-
-  const consumeRegex = (): void => {
-    step(); // opening slash
-    let inClass = false;
-    while (i < n) {
-      const ch = source.charAt(i);
-      if (ch === "\\") {
-        step();
-        step();
-        continue;
-      }
-      if (ch === "[") inClass = true;
-      else if (ch === "]") inClass = false;
-      else if (ch === "/" && !inClass) {
-        step();
-        break;
-      } else if (ch === "\n") break; // not a regex after all — resync
-      step();
-    }
-    prev = "/";
-  };
-
-  /** True when a `/` here starts a regex literal rather than division. */
-  const regexPosition = (): boolean =>
-    prev === "" || "(,=:[!&|?{};+-*%<>~^".includes(prev);
-
-  const scan = (): void => {
-    const frame = frames.length - 1;
-    while (i < n) {
-      const ch = source.charAt(i);
-      if (ch === "/" && source.charAt(i + 1) === "/") {
-        while (i < n && source.charAt(i) !== "\n") i++;
-        continue;
-      }
-      if (ch === "/" && source.charAt(i + 1) === "*") {
-        step();
-        step();
-        while (
-          i < n && !(source.charAt(i) === "*" && source.charAt(i + 1) === "/")
-        ) step();
-        step();
-        step();
-        continue;
-      }
-      if (ch === "'" || ch === '"' || ch === "`") {
-        consumeQuoted(ch);
-        continue;
-      }
-      if (ch === "/" && regexPosition()) {
-        consumeRegex();
-        continue;
-      }
-      if (frame >= 0) {
-        if (ch === "{") frames[frame] = (frames[frame] ?? 0) + 1;
-        if (ch === "}") {
-          if ((frames[frame] ?? 0) === 0) {
-            frames.pop();
-            step();
-            return; // interpolation over — back to the template literal
-          }
-          frames[frame] = (frames[frame] ?? 0) - 1;
-        }
-      }
-      if (!/\s/.test(ch)) prev = ch;
-      step();
-    }
-  };
-
-  scan();
-  return out;
-}
-
 function citationsIn(text: string): string[] {
   return [
     ...(text.match(ADR_CITATION) ?? []),
     ...(text.match(ADR_PATH) ?? []),
   ];
-}
-
-/** Visible Markdown text: link destinations are addresses, not rendered prose. */
-function visibleMarkdown(text: string): string {
-  return text.replace(/\]\([^)]*\)/g, "]");
-}
-
-/** Human-readable line findings for a retired word in a text artifact. */
-function harnessLines(rel: string, text: string): string[] {
-  const findings: string[] = [];
-  for (const [index, line] of text.split("\n").entries()) {
-    const hits = line.match(HARNESS_WORD) ?? [];
-    for (const hit of hits) {
-      findings.push(`${rel}:${index + 1} contains "${hit}"`);
-    }
-  }
-  return findings;
-}
-
-/**
- * Human-readable line findings for the retired shared-branch label. Scans the
- * whole text, not line by line, so a phrase wrapped across a line break still
- * matches; findings carry the line the match starts on.
- */
-function integrationBranchLines(rel: string, text: string): string[] {
-  const findings: string[] = [];
-  for (const match of text.matchAll(INTEGRATION_BRANCH)) {
-    const line = text.slice(0, match.index).split("\n").length;
-    const hit = match[0].replace(/\s+/g, " ");
-    findings.push(`${rel}:${line} contains "${hit}"`);
-  }
-  return findings;
 }
 
 Deno.test("src/ string literals never cite ADR numbers", async () => {
@@ -276,103 +97,6 @@ Deno.test("shipped templates/ never cite ADR numbers", async () => {
     [],
     "internal ADR citations leaked into the shipped surface — the copy must " +
       `stand alone for other projects:\n  ${offenders.join("\n  ")}`,
-  );
-});
-
-Deno.test("user-facing source strings never use the retired harness category", async () => {
-  const offenders: string[] = [];
-  for await (
-    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
-  ) {
-    const source = await Deno.readTextFile(entry.path);
-    const rel = relative(REPO_ROOT, entry.path);
-    for (const { text, line } of stringLiterals(source)) {
-      for (const hit of text.match(HARNESS_WORD) ?? []) {
-        offenders.push(`${rel}:${line} string contains "${hit}"`);
-      }
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `retired harness wording leaked into a user-facing source string:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-});
-
-Deno.test("shipped templates, template fixtures, skills, project scripts, and public map prose never use the retired harness category", async () => {
-  const offenders: string[] = [];
-  for (
-    const root of [TEMPLATES, TEMPLATE_FIXTURES, SKILLS, PROJECT_SCRIPTS, MAP]
-  ) {
-    for await (const entry of walk(root, { includeDirs: false })) {
-      const rel = relative(REPO_ROOT, entry.path);
-      if (isRepoMapPath(rel, "_adr") || isRepoMapPath(rel, "_private")) {
-        continue;
-      }
-      let contents: string;
-      try {
-        contents = await Deno.readTextFile(entry.path);
-      } catch {
-        continue;
-      }
-      offenders.push(...harnessLines(rel, visibleMarkdown(contents)));
-    }
-  }
-  assertEquals(
-    offenders,
-    [],
-    `retired harness wording leaked into shipped or public map prose:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-});
-
-Deno.test("configured guidance, config, and landing mockups retire harness; README keeps one category phrase", async () => {
-  const offenders: string[] = [];
-  for (
-    const path of [
-      join(REPO_ROOT, "CONTRIBUTING.md"),
-      join(REPO_ROOT, "discern.toml"),
-      ...REPO_AUTHORED_PATHS.guidance,
-    ]
-  ) {
-    const rel = relative(REPO_ROOT, path);
-    offenders.push(
-      ...harnessLines(
-        rel,
-        visibleMarkdown(await Deno.readTextFile(path)),
-      ),
-    );
-  }
-  for await (const entry of walk(MOCKUPS, { includeDirs: false })) {
-    // Archived shipped homepages are dated records, like _adr/: they keep the
-    // vocabulary they went live with. Only forward-looking mockups are held
-    // to the canon.
-    if (entry.name.startsWith("previous-homepage-")) continue;
-    const rel = relative(REPO_ROOT, entry.path);
-    offenders.push(...harnessLines(rel, await Deno.readTextFile(entry.path)));
-  }
-  assertEquals(
-    offenders,
-    [],
-    `retired harness wording leaked outside the README category exception:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-
-  const readme = visibleMarkdown(
-    await Deno.readTextFile(join(REPO_ROOT, "README.md")),
-  );
-  assertEquals(
-    readme.match(HARNESS_WORD) ?? [],
-    ["harness"],
-    "README.md keeps exactly one searchable category use",
-  );
-  assert(
-    /\bquality harness\b/i.test(readme),
-    'README.md\'s sole category use must read "quality harness"',
   );
 });
 
@@ -437,66 +161,6 @@ Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", 
   );
 });
 
-Deno.test("user-facing output consistently calls the shared branch the trunk", async () => {
-  const offenders: string[] = [];
-  for await (
-    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
-  ) {
-    const source = await Deno.readTextFile(entry.path);
-    const rel = relative(REPO_ROOT, entry.path);
-    for (const { text, line } of stringLiterals(source)) {
-      for (const hit of text.match(INTEGRATION_BRANCH) ?? []) {
-        offenders.push(
-          `${rel}:${line} string contains "${hit.replace(/\s+/g, " ")}"`,
-        );
-      }
-    }
-  }
-
-  for (const root of [TEMPLATES, PROJECT_SCRIPTS, MAP, MOCKUPS]) {
-    for await (const entry of walk(root, { includeDirs: false })) {
-      const rel = relative(REPO_ROOT, entry.path);
-      if (isRepoMapPath(rel, "_adr") || isRepoMapPath(rel, "_private")) {
-        continue;
-      }
-      let contents: string;
-      try {
-        contents = await Deno.readTextFile(entry.path);
-      } catch {
-        continue;
-      }
-      offenders.push(
-        ...integrationBranchLines(rel, visibleMarkdown(contents)),
-      );
-    }
-  }
-
-  for (
-    const path of [
-      join(REPO_ROOT, "README.md"),
-      join(REPO_ROOT, "CONTRIBUTING.md"),
-      join(REPO_ROOT, "discern.toml"),
-      ...REPO_AUTHORED_PATHS.guidance,
-    ]
-  ) {
-    const rel = relative(REPO_ROOT, path);
-    offenders.push(
-      ...integrationBranchLines(
-        rel,
-        visibleMarkdown(await Deno.readTextFile(path)),
-      ),
-    );
-  }
-
-  assertEquals(
-    offenders,
-    [],
-    `retired shared-branch wording leaked into user-facing output:\n  ${
-      offenders.join("\n  ")
-    }`,
-  );
-});
-
 // Positive controls: prove the detector detects, so the guard can't rot into
 // a test that passes because it sees nothing.
 
@@ -527,11 +191,7 @@ Deno.test("adr guard: template interpolation and regex hazards don't desync the 
   assert(hits.includes("ADR 0042"), `expected the nested leak, got: ${hits}`);
 });
 
-Deno.test("adr guard: a retired phrase wrapped across a line break still matches", () => {
-  const wrapped = "one\ntwo forked from the integration\nbranch yesterday";
-  assertEquals(integrationBranchLines("x.md", wrapped), [
-    'x.md:2 contains "integration branch"',
-  ]);
+Deno.test("adr guard: a retired pointer wrapped across a line break still matches", () => {
   assertEquals(
     ("call setup\nland now").match(RETIRED_ADR_POINTER),
     ["setup\nland"],
