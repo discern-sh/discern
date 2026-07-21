@@ -1,6 +1,6 @@
 # ADR 0053: A gate guard keeps comments in the present tense, not narrating the codebase's past
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; applies the [ADR 0049](0049-bug-class-discipline-built-in.md) fix-the-class discipline to a prose convention, and is the comment-side analogue of the retired-token guard in `tests/dev_vocab_guard_test.ts`. Reconciled with — and bounded by — [ADR 0051](0051-canonical-set-parity.md)'s "no denylist" stance (see _Reconciling_ below).
 
@@ -28,7 +28,7 @@ Enforce the convention with a tree-walking architectural test, `tests/comment_cu
 
 [ADR 0051](0051-canonical-set-parity.md) is emphatic that a canonical-set tie must be applied _at the source_, **not** as "a lint rule that bans domain words … [which] just relocates the same vocabulary into tracked test history". This guard _is_ a banned-phrase list, so the tension is real and worth meeting head-on. It is the **legitimate exception**, for three reasons:
 
-1. **There is no canonical source to derive from.** ADR 0051 governs _closed vocabularies with a single source_ (verbs, capabilities, agents) whose satellites should auto-enrol. English tense has no registry. The defect here is a _prose pattern_, and the only structural expression of a prose pattern is a predicate over the prose. The part that _can_ be derived — the set of files scanned — **is** derived (the tree walks plus the listed config files).
+1. **There is no canonical source to derive from.** ADR 0051 governs _closed vocabularies with a single source_ (verbs, known jobs, agents) whose satellites should auto-enrol. English tense has no registry. The defect here is a _prose pattern_, and the only structural expression of a prose pattern is a predicate over the prose. The part that _can_ be derived — the set of files scanned — **is** derived (the tree walks plus the listed config files).
 2. **The list is the rule, not relocated content.** ADR 0051's worry is that banning _domain words_ shoves the vocabulary you want to keep generic into test history, achieving nothing structural. Here the markers are not content we are trying to erase from the universe — they are the _definition_ of the predicate, exactly as `dev_vocab_guard_test.ts` already lists the retired command tokens (`selfsync`, `selfcheck`) it forbids. This guard is that accepted pattern, applied to comments.
 3. **It lives in the repo's own tests, never in `templates/`.** The shipped surface stays generic; the discern-specific marker vocabulary is confined to this repo's gate, like every other self-host guard.
 

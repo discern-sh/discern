@@ -1,6 +1,6 @@
 # ADR 0050: Run the merge check first, as a fail-fast precondition
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted. [ADR 0056](_superseded/0056-currency-checks-fail-fast.md) extends this pattern to the generated-artifact currency checks.
 
@@ -16,19 +16,19 @@ Crucially, the merge-base relationship is **invariant across a gate run**: `done
 
 ## Decision
 
-**Move the merge check to the first step of `runGate`, fail-fast.** When the branch is behind `main`, the gate sets `failed_stage = "merge"` and skips every downstream stage; the fix-set snapshot and the stage-group loop are guarded so nothing expensive runs. The result envelope is still assembled from the same plan, so the skipped capabilities/scope-gates serialize as `skipped` steps — an honest record that they were never reached.
+**Move the merge check to the first step of `runGate`, fail-fast.** When the branch is behind `main`, the gate sets `failed_stage = "merge"` and skips every downstream stage; the fix-set snapshot and the stage-group loop are guarded so nothing expensive runs. The result envelope is still assembled from the same plan, so the skipped jobs/scope-gates serialize as `skipped` steps — an honest record that they were never reached.
 
 Because the verdict is invariant across the run (above), this is a pure reordering, not a change to _what_ the gate decides — only to _when_, and to how much it spends before deciding. The `--dry-run` plan lists the `merge-check` step first to match the executed order.
 
 ## Consequences
 
-- **Behind `main`:** the gate stops before any capability runs, saving the whole fix/build/check∥test/scope-gate/currency sweep — the case that compounds across parallel agents.
+- **Behind `main`:** the gate stops before any job runs, saving the whole fix/build/check∥test/scope-gate/currency sweep — the case that compounds across parallel agents.
 - **Happy path in a worktree:** one extra `merge-base --is-ancestor` at the front, and nothing else.
 - **Main checkout / outside a worktree:** unchanged — `assertMainMerged` self-skips, so the precondition is a no-op there exactly as the trailing check was.
 - **The contract holds.** `failed_stage = "merge"` and the `DiscernResult` shape are unchanged; only the moment it is determined moves. When behind, steps serialize as `skipped` rather than `ok` (they genuinely did not run).
 - **The inner loop is unaffected.** `prepare` (fix + check) and `discern test` never ran the merge check, so an agent behind `main` can still iterate locally; only `done` — the "am I done?" gate — fails fast.
 - **Relationship to `fix_drift`** ([ADR 0047](0047-fix-stage-strand-detection.md)): the strand check no longer runs _before_ the merge check — the merge check now precedes it. 0047 is annotated accordingly.
-- **Regression guard.** A new engine test drives `done` in a worktree behind `main` and asserts `failed_stage = "merge"` with the expensive capability reported `skipped` (not run) — pinning the fail-fast order so a future change cannot quietly drop the merge check back to the end.
+- **Regression guard.** A new engine test drives `done` in a worktree behind `main` and asserts `failed_stage = "merge"` with the expensive job reported `skipped` (not run) — pinning the fail-fast order so a future change cannot quietly drop the merge check back to the end.
 
 ## Alternatives considered
 

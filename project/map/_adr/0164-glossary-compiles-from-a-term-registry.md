@@ -1,20 +1,22 @@
 # ADR 0164: The glossary compiles from a term registry
 
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`, `KNOWN_CAPABILITIES` → `KNOWN_JOBS`; the decision and reasoning are unchanged.
+
 **Status**: accepted
 
 ## Context
 
 The glossary is the map's vocabulary canon: every term defined once, every page using the names identically. Until now it was a hand-edited page, which left it the last vocabulary surface without a single source of truth in code. [ADR 0026](0026-typed-config-schema.md) and [ADR 0146](0146-docs-integrity-gate-and-generated-cli-reference.md) already moved the config reference and the CLI reference to generated pages held to their registries by sync tests, and [ADR 0051](0051-canonical-set-parity.md)'s forcing-function discipline expects a closed set's satellites to follow its single source automatically.
 
-The hand-edited page had two live drift risks. Definitions that state engine-owned closed sets in prose — the Capability entry naming the six capabilities, the Stage entry naming the four stages — would go stale silently if a member were added. And the page's terms were invisible to code: nothing could enumerate the canon, so search aliases, lookups, or vocabulary checks would each need a hand-copied list.
+The hand-edited page had two live drift risks. Definitions that state engine-owned closed sets in prose — the Gate job entry naming the six known jobs, the Stage entry naming the four stages — would go stale silently if a member were added. And the page's terms were invisible to code: nothing could enumerate the canon, so search aliases, lookups, or vocabulary checks would each need a hand-copied list.
 
 ## Decision
 
 **The glossary page is generated from a term registry, `scripts/glossary_registry.ts`, by `deno task codegen` — the same discipline as the config and CLI references.**
 
-- **The registry is the canon.** Each entry is the canonical term plus its definition as one Markdown paragraph; the renderer alphabetizes and emits the committed page with a generated-file banner. A sync test (`tests/glossary_codegen_test.ts`) fails the gate when the page drifts from the registry, and the build capability's codegen step regenerates it in every gate run.
+- **The registry is the canon.** Each entry is the canonical term plus its definition as one Markdown paragraph; the renderer alphabetizes and emits the committed page with a generated-file banner. A sync test (`tests/glossary_codegen_test.ts`) fails the gate when the page drifts from the registry, and the build job's codegen step regenerates it in every gate run.
 - **The registry lives under `scripts/`, not `src/`.** Its strings are map prose — the sanctioned home for internal ADR citations — and the vocab guard rightly bans those citations from string literals in the binary's source tree. Placing the registry beside the codegen script keeps that law intact without an exemption.
-- **Owned facts interpolate their source.** The Capability entry renders its list and count from `KNOWN_CAPABILITIES`; the Stage entry renders from `STAGES`; the default paths named by the Map, Guidance source, Project script, and Namespace entries render from the paths registry. Adding a member or moving a default updates the glossary in the same change, and the sync test asserts every member appears.
+- **Owned facts interpolate their source.** The Gate job entry renders its list and count from `KNOWN_JOBS`; the Stage entry renders from `STAGES`; the default paths named by the Map, Guidance source, Project script, and Namespace entries render from the paths registry. Adding a member or moving a default updates the glossary in the same change, and the sync test asserts every member appears.
 - **Every term is a search alias.** The renderer emits each term into the page's frontmatter `aliases`, so `discern map <term>` and the published site's search reach the glossary without a second list — the move the CLI reference already makes with command paths.
 - **The existing map gate keeps its role.** Links and anchors in definitions are validated by the map-integrity guard against the shared renderer, exactly as before; the registry adds a source of truth above the page, it does not duplicate the link checker.
 

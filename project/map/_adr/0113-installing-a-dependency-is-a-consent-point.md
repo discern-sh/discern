@@ -1,5 +1,7 @@
 # ADR 0113: installing a new dependency is a consent point in setup
 
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+
 **Status**: accepted. Refines the transparency-not-interrogation interaction model ([ADR 0077](0077-setup-agent-is-the-configuration-engine.md), revising [ADR 0044](0044-setup-involve-not-gate.md)) and extends the staged-consent handshake ([ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
 ## Context
@@ -14,7 +16,7 @@ The opposing pressure is real too: the interaction model exists because a wall o
 
 **Installing a new dependency is a genuine decision — one batched go-ahead, not a silent proceed and not a per-tool interrogation.**
 
-- The agent still proposes missing tools through the five beats, but where the proposal requires an install, it asks one clear go/no-go covering every proposed install ("adding a formatter here means installing ‹the tool› — OK?"), asked alongside the capability recommendation, and proceeds on the answer.
+- The agent still proposes missing tools through the five beats, but where the proposal requires an install, it asks one clear go/no-go covering every proposed install ("adding a formatter here means installing ‹the tool› — OK?"), asked alongside the job recommendation, and proceeds on the answer.
 - _Wiring a tool the project already has_ remains narrate-and-proceed — running and recording an existing command has none of an install's supply-chain surface.
 - The brief's Step 7 carries the boundary in its spine (`must_do` / `what_not_to_do`), so a paraphrasing agent still inherits it.
 

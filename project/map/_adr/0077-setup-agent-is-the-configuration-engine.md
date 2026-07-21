@@ -1,5 +1,7 @@
 # ADR 0077: The setup agent is the configuration engine — transparency over interrogation
 
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+
 **Status**: accepted; revises the _emphasis_ of [ADR 0044](0044-setup-involve-not-gate.md) (involve, don't gate) and preserves the incompleteness signaling of [ADR 0037](0037-setup-incompleteness-observable.md), the promise-keeping of [ADR 0065](0065-setup-keeps-its-promises.md), and the staged handshake of [ADR 0075](0075-setup-staged-handshake.md). Touches only the agent-facing surfaces those ADRs govern — the printed brief (`templates/setup/instructions.md`) and the read-only `verify`/welcome surfaces — never the engine or the phase set.
 
 ## Context
@@ -26,7 +28,7 @@ The unifying root is that ADR 0044 told the agent _how to behave_ (don't gate) w
 
 3. **WHY documentation is stated, twice.** Before authoring and again in the closing summary, the agent states that the docs and guidance are the single source of truth future sessions and discern work from — load-bearing infrastructure, not prose for human readers — so the novice understands the lengthy step is the point, not busywork.
 
-4. **Genuine touchpoints stay; reflexive permission goes.** The Step 1 discovery batch (2–3 questions the repo can't answer — purpose, audience, non-negotiables) remains an expected, collaborative step. The five-beat narration is reserved for genuine additions and forks; the obvious capabilities a stack plainly already has (formatter, linter, type-checker, tests) are batched into one concise recommendation, not five beats apiece — restoring ADR 0044's intent that the beats were for adding _new_ things.
+4. **Genuine touchpoints stay; reflexive permission goes.** The Step 1 discovery batch (2–3 questions the repo can't answer — purpose, audience, non-negotiables) remains an expected, collaborative step. The five-beat narration is reserved for genuine additions and forks; the obvious jobs a stack plainly already supports (formatter, linter, type-checker, tests) are batched into one concise recommendation, not five beats apiece — restoring ADR 0044's intent that the beats were for adding _new_ things.
 
 5. **The volume is tamed.** The loud header frame and the tail-survivable footer stay (the deliberate weak-model guards of ADR 0037/0065), but the mid-body restatements of the "this is work" warning are cut, and each `## Step N` block is made self-contained so `discern setup step <n>` serves it cleanly. The goal is a brief that survives a single read without losing the thread.
 

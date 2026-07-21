@@ -1,12 +1,12 @@
 # ADR 0076: The engine commits discern machinery it scaffolds
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
 ## Context
 
-`discern setup begin` scaffolds discern's own wiring into the project: the `discern.toml`, the co-managed `.gitignore` block, and — per configured agent — the MCP-server and session-hook files (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, `.gemini/settings.json`, …). On a fresh install it does this on a dedicated, throwaway `discern-setup` branch created off a clean tree ([ADR 0065](0065-setup-keeps-its-promises.md)), then hands the coding agent a brief to author the rest (capabilities, guidance, docs). Historically the engine _wrote_ those machinery files but left **committing** them to the agent — consistent with the setup interaction model, where the agent narrates its work and makes a per-stage atomic commit ([ADR 0044](0044-setup-involve-not-gate.md)).
+`discern setup begin` scaffolds discern's own wiring into the project: the `discern.toml`, the co-managed `.gitignore` block, and — per configured agent — the MCP-server and session-hook files (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, `.gemini/settings.json`, …). On a fresh install it does this on a dedicated, throwaway `discern-setup` branch created off a clean tree ([ADR 0065](0065-setup-keeps-its-promises.md)), then hands the coding agent a brief to author the rest (jobs, guidance, the map). Historically the engine _wrote_ those machinery files but left **committing** them to the agent — consistent with the setup interaction model, where the agent narrates its work and makes a per-stage atomic commit ([ADR 0044](0044-setup-involve-not-gate.md)).
 
 That split breaks in a real cold run. A coding agent's safety classifier refuses to commit `.mcp.json` / `.claude/settings.json`: pre-approving an MCP server (and committing pre-approved hooks) is a permission-widening change agents are correctly trained to be cautious about. So the agent punts to the human or strands the files, and `discern setup done` ends on a dirty tree with discern's own essential wiring uncommitted — the opposite of the seamless, promise-keeping setup [ADR 0036](0036-unify-setup.md) and [ADR 0065](0065-setup-keeps-its-promises.md) set out to deliver.
 

@@ -1,5 +1,7 @@
 # ADR 0078: setup steps are stateless machine-readable pages with derived per-step proof
 
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+
 **Status**: accepted; builds on [ADR 0075](0075-setup-staged-handshake.md) (the staged handshake, stateless derived progress, and the read-only `setup step <n>` re-serve), [ADR 0065](0065-setup-keeps-its-promises.md) (`setup done` is a proven gate), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope per verb), and [ADR 0041](0041-self-describing-mcp-surface.md) (schema-backed `data`). Reshapes the content of `templates/setup/instructions.md` and the `begin` / `step` / `done` surfaces.
 
 ## Context
@@ -24,7 +26,7 @@ Two constraints bound any fix. **Statelessness** (ADR 0075): setup tracks and re
 
 3. **`begin` emits the preamble + the first page only.** The operating principles and the "how to work with the user" sections lead; then page 0. Subsequent pages are pulled with `setup step <n>`, chained by each page's `next_action`. The repetition-as-insurance ("you are not done") is spread across pages and the tail-survivable footer instead of front-loaded.
 
-4. **`setup done` evaluates derived per-step predicates.** A small registry (`src/shared/setup_checks.ts`) re-computes, from repo state, that the authoring work each checkable step asked for is actually evident — `design-principles.md` holds ≥3 principles, `guidance.md` has a real pitch and a Conventions section, ≥1 capability is wired. These **supplement** (never replace) the marker + `refresh → doctor → done` proof, and a skipped step fails `done` with a diagnostic naming the unmet check. Each predicate's human `describe` is the same text as its step's `completion_check` spine field, tied by a forcing-function test (ADR 0051) so the two cannot drift.
+4. **`setup done` evaluates derived per-step predicates.** A small registry (`src/shared/setup_checks.ts`) re-computes, from repo state, that the authoring work each checkable step asked for is actually evident — `design-principles.md` holds ≥3 principles, `guidance.md` has a real pitch and a Conventions section, ≥1 job is wired. These **supplement** (never replace) the marker + `refresh → doctor → done` proof, and a skipped step fails `done` with a diagnostic naming the unmet check. Each predicate's human `describe` is the same text as its step's `completion_check` spine field, tied by a forcing-function test (ADR 0051) so the two cannot drift.
 
 The explicit *no*s:
 

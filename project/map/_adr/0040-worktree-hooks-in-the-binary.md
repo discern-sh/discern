@@ -1,6 +1,6 @@
 # ADR 0040: The worktree hooks parse their payload in the binary (no jq)
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged. **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced by a configurable sibling default (`[worktree].root`). The layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged. **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced by a configurable sibling default (`[worktree].root`). The layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -26,7 +26,7 @@ The two payload-bearing hooks become thin dispatches to the binary, which reads 
 
 **Layering.** The adapter lives in the FEATURE layer ([`src/lib/worktree_hooks.ts`](../../../src/lib/worktree_hooks.ts)), not the stack-neutral engine. The agent-agnosticism guard ([`tests/agent_agnostic_test.ts`](../../../tests/agent_agnostic_test.ts)) forbids any `.claude` path in `src/engine/**`; the `.claude/worktrees` convention and the coupling to Claude Code's hook JSON shape are Claude-Code-specific, so they sit beside `src/lib/skills.ts` (which already owns `.claude/skills` materialization). The engine keeps a convention-free `addWorktree(mainRepo, dir, branch)` git helper that the adapter calls with an explicit directory.
 
-**git stays a hard requirement and is now asserted.** `git` is irreducible to the worktree workflow, standards, acceptance, and `status`. `discern doctor` gained an explicit `git` check (it previously verified only `sh` and capability commands), reporting the resolved `git --version` as triage context, plus an environment summary line (discern version · os/arch · git) for bug reports.
+**git stays a hard requirement and is now asserted.** `git` is irreducible to the worktree workflow, standards, acceptance, and `status`. `discern doctor` gained an explicit `git` check (it previously verified only `sh` and configured job commands), reporting the resolved `git --version` as triage context, plus an environment summary line (discern version · os/arch · git) for bug reports.
 
 ## Consequences
 

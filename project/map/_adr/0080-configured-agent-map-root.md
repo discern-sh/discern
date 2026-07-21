@@ -1,6 +1,6 @@
 # ADR 0080: The agent map has one configured root
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `[map]` / `discern map` (formerly `[docs]` / `discern docs`) and `standards` (formerly `ratchets`); ADR 0120 later moved the fresh default to `map/`. The historical `docs/` examples below record the prior default; the configured-root decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `[map]` / `discern map` (formerly `[docs]` / `discern docs`) and `standards` (formerly `ratchets`); ADR 0120 later moved the fresh default to `map/`. The historical `docs/` examples below record the prior default; the configured-root decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; extends [ADR 0075](0075-setup-staged-handshake.md) (setup's staged handshake) and [ADR 0026](0026-typed-config-schema.md) (the typed config schema is the source of truth); the configured root's default moves inside the `discern/` namespace by [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md), and the tree's agent-first identity is formalized by [ADR 0100](0100-project-map-is-the-agents-map.md).
 
@@ -18,7 +18,7 @@ The quality-gate declarations make this more than an Installer flag. Writing a c
 
 `discern setup verify` remains read-only, as ADR 0075 requires. When it finds a pre-existing `docs/`, its consent checklist asks the human to choose a separate project-relative location and funnels that choice to `discern setup begin --map "<path>"`. `begin` persists the value as `[map].dir` before laying the skeleton.
 
-Config strings may contain the exact reference `${map.dir}`. The Engine expands it from the loaded config when it runs Capability and Check commands, Scope paths and gates, and Standard commands and extent globs. The hand-authored config template uses that reference for its prose check, docs Scope, and prose Standard, so changing `[map].dir` later keeps those declarations aligned without rewriting them.
+Config strings may contain the exact reference `${map.dir}`. The Engine expands it from the loaded config when it runs declared jobs, Scope paths and gates, and Standard commands and extent globs. The hand-authored config template uses that reference for its prose check, docs Scope, and prose Standard, so changing `[map].dir` later keeps those declarations aligned without rewriting them.
 
 The explicit noes:
 

@@ -1,6 +1,6 @@
 # ADR 0037: Setup-incompleteness is an observable state, not a prose handoff
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -8,7 +8,7 @@ Hardens the handoff introduced by [ADR 0036](0036-unify-setup.md) (unify init + 
 
 ## Context
 
-ADR 0036 made `discern setup` a single command: it scaffolds the machinery, lays the doc skeletons, prints an authoring brief for the agent in the loop, and exits 0. The project-specific work — principles, docs, capability fills — is the **agent's** job, and `discern setup done` is the gate that validates it (no skeleton markers left) and records `[meta].bootstrapped`.
+ADR 0036 made `discern setup` a single command: it scaffolds the machinery, lays the doc skeletons, prints an authoring brief for the agent in the loop, and exits 0. The project-specific work — principles, docs, job fills — is the **agent's** job, and `discern setup done` is the gate that validates it (no skeleton markers left) and records `[meta].bootstrapped`.
 
 In practice an agent ran `discern setup` and **stopped**, reporting the work as finished without doing it. The tell: the bullets it handed back were a near-verbatim echo of the brief's closing **"Done when"** checklist. It had read three signals, all pointing at "done" — exit 0, the green `✓`, and a closing checklist phrased as past-tense-able assertions — and mistook the brief's stop-conditions for a report of completed work. The brief said "this is your job" at the top (line 3), but the most salient artifacts at the moment of stopping all said "success."
 

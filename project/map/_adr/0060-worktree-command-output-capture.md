@@ -1,6 +1,6 @@
 # ADR 0060: Worktree shell commands adopt the gate's capture-on-failure output convention
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted. Resolves a leak surfaced by [ADR 0059](0059-worktree-setup-ensure.md), and aligns the worktree shell runner with the gate's job convention (`engine/jobs/command.ts`).
 
@@ -8,10 +8,10 @@
 
 discern ran project-supplied shell commands through **two** different output conventions:
 
-- **Gate jobs** (capabilities, `[checks.<name>]`) — `spawnJob` always pipes and **captures** stdout+stderr, and surfaces them **only on failure** (or streamed with a `── <label> │` prefix when `[gate].stream` is on). A successful gate job is silent.
+- **Declared gate jobs** (`[jobs.<name>]`) — `spawnJob` always pipes and **captures** stdout+stderr, and surfaces them **only on failure** (or streamed with a `── <label> │` prefix when `[gate].stream` is on). A successful gate job is silent.
 - **Worktree shell commands** (`[worktree.setup].steps`/`ensure`, resource `create`/`destroy`/`ensure`) — `runShellRouted` mirrored the logger's `humanStream`: it **inherited** the child's stdio live on stdout, and drained stdout→stderr only for the `worktree create` hook (which reserves stdout for the worktree path).
 
-[ADR 0059](0059-worktree-setup-ensure.md) made `[worktree.setup].ensure` **convergent** — it now runs at session start (the `SessionStart` hook → `worktree ensure`) and on `discern update`, not only at one-time creation. The `SessionStart` hook's **stdout is injected into the agent as context**. So a chatty `ensure` command — `vale sync`, which streams a download progress bar — leaked its raw output straight into **every session's agent context**. The same tool run as the `[checks.prose]` gate job never leaks, because the gate captures.
+[ADR 0059](0059-worktree-setup-ensure.md) made `[worktree.setup].ensure` **convergent** — it now runs at session start (the `SessionStart` hook → `worktree ensure`) and on `discern update`, not only at one-time creation. The `SessionStart` hook's **stdout is injected into the agent as context**. So a chatty `ensure` command — `vale sync`, which streams a download progress bar — leaked its raw output straight into **every session's agent context**. The same tool run as the `[jobs.prose]` gate job never leaks, because the gate captures.
 
 The root cause is the convention, not the stream: `runShellRouted` passed an automated, agent-context-bound command's output straight through. The leak is a symptom of the worktree runner using live-inherit where the gate uses capture-on-failure.
 

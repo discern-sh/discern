@@ -1,5 +1,7 @@
 # ADR 0148: Strand detection covers every gate stage
 
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+
 **Status**: accepted; extends [ADR 0047](0047-fix-stage-strand-detection.md), works with [ADR 0094](0094-final-lifecycle-checks-require-clean-trees.md) and [ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md)
 
 ## Context
@@ -8,7 +10,7 @@ ADR 0047 made `done` block when the **fix stage** strands changes on a committed
 
 Field use showed that residual gap has the exact failure mode ADR 0047 set out to remove. A project whose **build stage** (or a test, or a scope gate) regenerates a tracked artifact — a project generator rewriting a tracked manifest, a codegen step rewriting tracked schemas — dirties the tree _outside_ the fix-stage snapshot window. The gate goes green, the receipt silently refuses (`skipped_dirty`), and the only signal is a hint riding on a green result — the "advisory on green" pattern ADR 0047 itself rejected as the thing agents ignore. An agent watching a long gate paid the full run, got an ambiguous green, blamed the strand on "the formatter", and paid a second full run after a diagnosis loop. CI's diff guard never enters that local loop.
 
-discern's own repository carries the same shape: its build capability runs the codegen task, which rewrites tracked schema, type, and reference files.
+discern's own repository carries the same shape: its build job runs the codegen task, which rewrites tracked schema, type, and reference files.
 
 ## Decision
 

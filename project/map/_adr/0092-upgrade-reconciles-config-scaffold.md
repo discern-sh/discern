@@ -1,6 +1,6 @@
 # ADR 0092: `upgrade` reconciles the fixed `discern.toml` scaffold
 
-> **Banner ownership amendment ([ADR 0138](0138-all-ruled-config-banners-are-managed.md)):** ruled fixed-section banners now refresh wholesale; comments attached to keys and comments outside those regions remain project-owned. **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The fixed config section is now `[scripts]`; the decision and reasoning are unchanged.
+> **Banner ownership amendment ([ADR 0138](0138-all-ruled-config-banners-are-managed.md)):** ruled fixed-section banners now refresh wholesale; comments attached to keys and comments outside those regions remain project-owned. **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The fixed config section is now `[scripts]`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -24,7 +24,7 @@ It repairs only the fixed scaffold:
 - a missing active non-record section is inserted from the template, with its documentation block and canonical placement;
 - a missing fixed key inside an existing section is inserted from the template, with its attached comments and canonical key order;
 - existing values are never rewritten;
-- named record tables (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are treated as project-owned population and are not recreated merely because the template seeded an example/default entry.
+- named record tables (`[jobs.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are treated as project-owned population and are not recreated merely because the template seeded an example/default entry.
 
 `upgrade --check` reports pending reconciliation alongside pending migrations and exits non-zero when either exists. `upgrade --dry-run` previews the same operations. A second `upgrade` is byte-stable once the scaffold is current.
 
@@ -34,7 +34,7 @@ If the bundled config template cannot be resolved, the mutating upgrade refuses 
 
 `discern upgrade` again has one honest meaning: this project is brought into line with the installed binary, including the visible config scaffold, not only the schema integer. discern's own root config and downstream pre-launch test projects get the same repair path users will receive.
 
-The ownership model becomes more precise. `discern.toml` is no longer described as an entirely untouched seed. Its fixed scaffold is co-managed by the binary; its values, capabilities, checks, scopes, standards, resources, guidance sources, and project comments remain the project's. That is a deliberate narrowing of the old "seed files are never touched" phrasing.
+The ownership model becomes more precise. `discern.toml` is no longer described as an entirely untouched seed. Its fixed scaffold is co-managed by the binary; its values, jobs, scopes, standards, resources, guidance sources, and project comments remain the project's. That is a deliberate narrowing of the old "seed files are never touched" phrasing.
 
 This is not a full formatter. Stale comments beside already-present keys are not rewritten, sections are not reordered wholesale, and removed named record tables are treated as customization. Behaviour-changing default shifts still belong in explicit versioned migrations, where an old default can be recognized and a customized value preserved.
 

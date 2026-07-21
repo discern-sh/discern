@@ -1,6 +1,6 @@
 # ADR 0026: One typed (Zod) config schema as the single source of truth
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -8,7 +8,7 @@
 
 A project's entire discern footprint is one root `discern.toml`. The engine (`src/engine/**`), installer commands (`src/commands/**`), and shared core (`src/shared/**`) all read it. discern already lived by three principles that this file quietly violated:
 
-- a **closed, enumerable vocabulary** beats an open stringly bag ([ADR 0017](0017-capabilities-model.md), applied to `[capabilities]`);
+- a **closed, enumerable vocabulary** beats an open stringly bag ([ADR 0017](0017-capabilities-model.md), applied to the known-name subset of `[jobs]`);
 - **one source of truth, nothing to drift** ([ADR 0019](0019-single-binary-ts-engine.md));
 - the strict TypeScript engine exists precisely so a tool that preaches typechecking doesn't ship an un-typechecked core.
 
@@ -28,7 +28,7 @@ Those principles stopped at the config boundary:
 
 - **Per-call-site defaults collapse into the schema.** `[skills].dir`, `gate.fail_fast` (ON), the features-default-ON rule, a resource's `required`/`gc`/`retries`, the `paths.ts` `DEFAULT_*` constants — each is one `.default(...)`, defined once.
 
-- **Strict everywhere.** Unknown sections/keys, a dead `[worktree.db]`/`[worktree.dev_server]` adapter, a standard with no `run`, a non-boolean feature, a bad stage/direction — all fail at load with a path-qualified message. The closed `[capabilities]` vocabulary ([ADR 0017](0017-capabilities-model.md)) is now enforced by the type system, not a bespoke check.
+- **Strict everywhere.** Unknown sections/keys, a dead `[worktree.db]`/`[worktree.dev_server]` adapter, a standard with no `run`, a non-boolean feature, a bad stage/direction — all fail at load with a path-qualified message. The closed known-job vocabulary ([ADR 0017](0017-capabilities-model.md)) is now enforced by the type system, not a bespoke check.
 
 - **`doctor` folds its structural validation into the shared validator.** One "config schema" check reports the issue list; the config is parsed **once**, not ~10 times. Only the _semantic/liveness_ checks stay bespoke (is a command on PATH, does a Project Script source the retired shell library, does the gotchas doc exist, does another tool also automate worktrees).
 
@@ -42,7 +42,7 @@ Those principles stopped at the config boundary:
 
 ## The template-generation boundary (and why)
 
-The brief asked for the `discern.toml.tmpl` _prose_ to be generated from the schema's `.describe(...)` too. We deliberately did **not** fully generate the template, and instead **bound it to the schema with drift-guard tests**. The reason is [ADR 0005](0005-declarative-config.md): the legible, comment-annotated config is a _feature_. The template carries curated, domain-spanning examples (`# format = "prettier --write ."   # or "ruff format ." or "gofmt -w ."`), a capability→stage table, a per-token reference block, and a deliberate mix of active and commented lines. Mechanically rendering that from one-line `.describe()` strings would either flatten the legibility or force paragraph-long descriptions and presentation metadata into a runtime schema — degrading the template to satisfy generation, the exact trade the principle forbids.
+The brief asked for the `discern.toml.tmpl` _prose_ to be generated from the schema's `.describe(...)` too. We deliberately did **not** fully generate the template, and instead **bound it to the schema with drift-guard tests**. The reason is [ADR 0005](0005-declarative-config.md): the legible, comment-annotated config is a _feature_. The template carries curated, domain-spanning examples (`# format = "prettier --write ."   # or "ruff format ." or "gofmt -w ."`), a known-job→stage table, a per-token reference block, and a deliberate mix of active and commented lines. Mechanically rendering that from one-line `.describe()` strings would either flatten the legibility or force paragraph-long descriptions and presentation metadata into a runtime schema — degrading the template to satisfy generation, the exact trade the principle forbids.
 
 So the split is:
 

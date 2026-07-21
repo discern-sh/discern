@@ -1,6 +1,6 @@
 # ADR 0114: a green gate emits the receipt
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, and the gate-pass artifact → the receipt; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, and the gate-pass artifact → the receipt; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted. Builds on [ADR 0028](0028-result-envelope-and-diagnostics.md) (the one-object result rule) and [ADR 0067](0067-accept-validates-the-landed-tree.md) (the gate receipt vouch); the review moment it serves is the landing model's ([ADR 0110](0110-the-landing-model.md)) handoff point.
 
@@ -14,7 +14,7 @@ Naming note (10 July): the artifact is **the receipt** — "pass" is overloaded 
 
 **A green `done` over a clean committed tree ahead of the trunk renders the receipt — a compact, deterministic markdown review summary — derives it once from the result envelope, and every later surface relays that one artifact.**
 
-- **One derivation.** "What ran" (each capability/check/scope gate with its command, outcome, duration) is read from the envelope's `steps[]`; the git facts (branch, diffstat vs the trunk, the branch's commits, capped with pre-cap totals) are gathered once and carried structured in `data.receipt` beside the rendered `markdown`. Same tree, same result → same receipt, durations excepted; a golden test pins the exact rendering.
+- **One derivation.** "What ran" (each declared job or scope gate with its command, outcome, duration) is read from the envelope's `steps[]`; the git facts (branch, diffstat vs the trunk, the branch's commits, capped with pre-cap totals) are gathered once and carried structured in `data.receipt` beside the rendered `markdown`. Same tree, same result → same receipt, durations excepted; a golden test pins the exact rendering.
 - **Clean trees only.** A dirty green run earns no receipt: its diff vs the trunk would describe a different tree than the one the gate validated. The receipt therefore exists exactly when the ADR 0067 vouch records — and the marker now stores the markdown beside the validated sha, so `status` and `accept` surface the receipt without re-running the gate, under the same identity rule (any commit, amend, or edit silently invalidates both).
 - **No review verb.** Nobody calls "review": the receipt plus the hints are the affordance. `done` prints it and hints relay-then-wait; the review-ready `status` hint carries the stored receipt and the exact inspection command (`git diff <trunk>...<branch>`); `accept` prints it as the landing record, pasteable into a PR body.
 

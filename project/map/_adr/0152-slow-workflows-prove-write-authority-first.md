@@ -1,8 +1,8 @@
 # ADR 0152: Slow workflows prove predictable write authority before project work
 
-**Status**: accepted. Refines the gate receipt's best-effort write policy ([ADR 0067](0067-accept-validates-the-landed-tree.md)), extends the measurement-receipt flow ([ADR 0112](0112-standard-measurement-receipt.md)), and preserves `smoke` as the project's fast readiness capability ([ADR 0090](0090-setup-proves-worktree-viability.md)).
+> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Registry amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
 
-> **Registry amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
+**Status**: accepted. Refines the gate receipt's best-effort write policy ([ADR 0067](0067-accept-validates-the-landed-tree.md)), extends the measurement-receipt flow ([ADR 0112](0112-standard-measurement-receipt.md)), and preserves `smoke` as the project's fast readiness job ([ADR 0090](0090-setup-proves-worktree-viability.md)).
 
 ## Context
 
@@ -12,13 +12,13 @@ The receipt writer treated that denial as best-effort: the gate remained green a
 
 Permission metadata is not a reliable answer. In sandboxed processes, an `access(W_OK)` check can succeed while the actual write is denied. The proof has to exercise the real operation class during the invocation that will perform the later write.
 
-There are two different kinds of readiness to keep distinct. Discern knows its own future effects and their paths. The project knows whether its app, configuration, and runtime dependencies are ready. A new configurable `preflight` command would overlap the existing `smoke` capability while still asking users to predict Discern's internals.
+There are two different kinds of readiness to keep distinct. Discern knows its own future effects and their paths. The project knows whether its app, configuration, and runtime dependencies are ready. A new configurable `preflight` command would overlap the existing `smoke` job while still asking users to predict Discern's internals.
 
 ## Decision
 
 **Every potentially slow workflow proves its predictable Discern-owned write authority with a tiny real operation before it starts project work. Project-owned readiness continues to use `smoke`.**
 
-- `done` resolves every registered gate/measurement state path and creates, writes, renames, and removes a hidden temporary entry in the target Git-admin directory. An existing marker is also opened for write without changing its bytes. The probe runs after the existing cheap gate preconditions and before the first capability or check.
+- `done` resolves every registered gate/measurement state path and creates, writes, renames, and removes a hidden temporary entry in the target Git-admin directory. An existing marker is also opened for write without changing its bytes. The probe runs after the existing cheap gate preconditions and before the first declared job.
 - Ordinary `standards` performs the same validation-state probe before measuring. `standards --pin` additionally opens the installed config for write without truncating it and exercises a temporary create/rename/remove in Git's common directory before it measures or replays anything.
 - A denial is structured and immediate: `done` uses `failed_stage = "write_access"`; standards uses `error = "write_access"`; both attach a `write-access` diagnostic with the exact path and reproduce command. No provider-specific security setting is changed or recommended automatically.
 - Git-admin filenames live in one `ADMIN_STATE_FILES` registry. Its preflight iterates that registry, and successful preflight returns a branded authority token required by every state writer. A new state-file sibling therefore joins the probe from the single source and cannot be called through the typed writer API without authority.
@@ -37,7 +37,7 @@ There are two different kinds of readiness to keep distinct. Discern knows its o
 
 ## Alternatives considered
 
-- **Add a configurable `[preflight]` command.** Rejected because it duplicates `smoke` for shared project readiness and cannot safely infer command-specific requirements. The existing capability gets clearer guidance instead.
+- **Add a configurable `[preflight]` command.** Rejected because it duplicates `smoke` for shared project readiness and cannot safely infer command-specific requirements. The existing job gets clearer guidance instead.
 - **Change Codex or another provider's sandbox configuration.** Rejected because Discern must not widen a user's security policy. It reports the exact blocked path and leaves escalation to the user and provider.
 - **Check mode bits or `access(W_OK)`.** Rejected because sandbox policy can deny the actual operation after metadata says writable. The sentinel performs the real create/write/rename/remove sequence.
 - **Probe when the worktree is created.** Rejected because authority belongs to a command invocation and can differ between sessions. It would also warn far from the slow operation it protects.

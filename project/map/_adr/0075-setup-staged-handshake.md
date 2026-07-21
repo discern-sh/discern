@@ -1,6 +1,6 @@
 # ADR 0075: `discern setup` is a staged, consent-driven handshake
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; revises [ADR 0036](0036-unify-setup.md) (unify init + bootstrap into one `discern setup`), [ADR 0037](0037-setup-incompleteness-observable.md) (incompleteness is observable), [ADR 0044](0044-setup-involve-not-gate.md) (involve, don't gate), and [ADR 0065](0065-setup-keeps-its-promises.md) (setup keeps its promises). Builds on [ADR 0069](0069-agent-auto-detect-at-setup.md) (agent auto-detect), [ADR 0052](0052-worktree-sibling-placement.md) (worktree sibling placement), and the provider registry of [ADR 0031](0031-typed-provider-integration.md)/[ADR 0043](0043-registry-derived-agent-parity.md).
 
@@ -39,7 +39,7 @@ The read-only→destructive boundary sits exactly at `verify | begin`.
 
 **The funnel is soft; the outcome stays hard-gated.** Each phase's `next_action` points at the next, but no phase hard-refuses to run before its predecessor — there is no pre-`begin` state to gate on (on a fresh repo there is no `discern.toml` until `begin` writes it), and the _outcome_ is already gated where it cannot be faked: `setup done` refuses while any marker remains or the gate is red (ADR 0065). This extends ADR 0037's principle — make the state observable, not the path mandatory.
 
-**Progress is derived, not self-reported.** A new `setupProgress(root)` reads which scaffolded files still carry a skeleton marker (`findSkeletonMarkers`, already the `setup done` predicate) and which capabilities are wired versus unset, and the welcome's _in-progress_ state and `status` render it. Skipping a step becomes _visible_ without any self-reported "mark step N done" call an agent could fake.
+**Progress is derived, not self-reported.** A new `setupProgress(root)` reads which scaffolded files still carry a skeleton marker (`findSkeletonMarkers`, already the `setup done` predicate) and which jobs are wired versus unset, and the welcome's _in-progress_ state and `status` render it. Skipping a step becomes _visible_ without any self-reported "mark step N done" call an agent could fake.
 
 The explicit *no*s:
 

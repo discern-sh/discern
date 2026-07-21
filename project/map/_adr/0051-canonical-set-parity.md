@@ -1,12 +1,12 @@
 # ADR 0051: Every internal canonical set is tied to its satellites by a forcing function
 
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the closed root vocabulary and explicit Project Script namespace; the decision and reasoning are unchanged.
+> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the closed root vocabulary and explicit Project Script namespace; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`, `KNOWN_CAPABILITIES` → `KNOWN_JOBS`; the decision and reasoning are unchanged.
 
 **Status**: accepted; grounds design principle [§2 "One source of truth"](../00-orientation/design-principles.md), generalizes [ADR 0043](0043-registry-derived-agent-parity.md) (the agent registry) from one set to all, and applies the discipline of [ADR 0049](0049-bug-class-discipline-built-in.md).
 
 ## Context
 
-discern has many **canonical sets** — closed vocabularies that must stay in sync across the codebase: the CLI verbs (`KNOWN_ENGINE_VERBS`/`KNOWN_VERBS`), the gate capabilities (`KNOWN_CAPABILITIES`) and stages (`STAGES`), the failed-stage labels, the features (`FEATURES`), the agent providers (`AGENT_NAMES`), the result vocabulary (`StepKind`/`StepDisposition`/`StepOutcome`, diagnostic severity, status location), the MCP tool slugs, the worktree identity fields and adapter tokens, the scope markers, the audit rule statuses, the helper verbs, and more.
+discern has many **canonical sets** — closed vocabularies that must stay in sync across the codebase: the CLI verbs (`KNOWN_ENGINE_VERBS`/`KNOWN_VERBS`), the known gate jobs (`KNOWN_JOBS`) and stages (`STAGES`), the failed-stage labels, the features (`FEATURES`), the agent providers (`AGENT_NAMES`), the result vocabulary (`StepKind`/`StepDisposition`/`StepOutcome`, diagnostic severity, status location), the MCP tool slugs, the worktree identity fields and adapter tokens, the scope markers, the audit rule statuses, the helper verbs, and more.
 
 Each set has ONE source of truth — but many of its consumers ("satellites") **re-listed its members by hand**: a Cliffy `.command()` registration per verb, an MCP tool literal per slug, a `z.enum([...])` mirroring a TS union, a `switch` over a vocabulary with a catch-all `default`, a `--<field>` flag per identity field, a hand-copied `["build","format",…]` in a test, a hard-coded `4` for the stage count. A hand-copied set has no mechanical tie back to its source, so **adding or renaming a member silently leaves the satellite stale** — a dead MCP tool, an orphaned feature mapping, a `failMessage` that falls through to a generic "a stage failed", a help string that under-advertises an agent. The drift is invisible until something breaks, which is exactly what design principle §2 forbids.
 
@@ -24,7 +24,7 @@ Two tools, strongest first:
 
 The **derive-vs-tie** rule decides which per satellite:
 
-- **Derive** when the satellite SHOULD equal the set — replace the hand-list with the constant (a test fixture's capability list becomes `Object.keys(KNOWN_CAPABILITIES)`).
+- **Derive** when the satellite SHOULD equal the set — replace the hand-list with the constant (a test fixture's known-job list becomes `Object.keys(KNOWN_JOBS)`).
 - **Tie by test** when the satellite legitimately DIFFERS (an intentional subset/superset). Do NOT force equality — assert the RELATIONSHIP with **explicit, named, documented exception sets** (`ENGINE_VERBS_WITHOUT_TOOL`, `NON_ENGINE_TOOL_VERBS`, the suggestion-name drops/adds). A new member then forces a conscious choice — extend the satellite, or record why it is excepted — and can't silently drift. Collapsing a deliberate difference into false equality is a regression, not a fix.
 
 Every guard must have teeth: it is confirmed to FAIL on a deliberate mismatch (a bogus member, a renamed literal, a weakened schema) before it is trusted. A comment that claims a guard must be made true by an actual mechanism — the `features.ts` comment that promised a non-existent guard is now honest (the `satisfies` tie).
@@ -37,10 +37,10 @@ The explicit *no*s: this is **not** a new gate stage, and **not** a lint rule th
 - **The ceremony is real and deliberate.** A new canonical set now carries a cost: a constant tuple, a derived/total satellite or a parity test, and named exception sets for intentional differences. That cost buys the guarantee; it is paid once per set, at the source.
 - **Compile-time beats tests where both are possible.** Re-typing a hop to the set's union or making a satellite a total `Record` removes the need for a runtime guard entirely — the type checker is the forcing function, and a redundant test would be theatre. Tests are reserved for the satellites that genuinely cannot be compile-coupled.
 - **Intentional differences stay legible.** The exception sets document, in code, why a satellite diverges (which engine verbs have no MCP tool and why), so a future reader sees the deliberate gap instead of guessing whether it is a bug.
-- **This ADR sets the bar for future code.** New verbs, capabilities, features, agents, result kinds, and any future closed vocabulary are held to it: tie the satellites at the source, or the gate says no.
+- **This ADR sets the bar for future code.** New verbs, known jobs, features, agents, result kinds, and any future closed vocabulary are held to it: tie the satellites at the source, or the gate says no.
 
 ## Alternatives considered
 
-- **Trust the single-source-of-truth policy as prose.** Rejected: principle §2 was already the policy, and the satellites drifted anyway (a `failMessage` catch-all `default`, a `--agents` help string two providers stale, two capability help strings already in different orders). A policy without a forcing function is a hope.
+- **Trust the single-source-of-truth policy as prose.** Rejected: principle §2 was already the policy, and the satellites drifted anyway (a `failMessage` catch-all `default`, a `--agents` help string two providers stale, two known-job help strings already in different orders). A policy without a forcing function is a hope.
 - **A lint rule banning the vocabulary's literals outside its source.** Rejected: such a rule is brittle (it can't tell a legitimate value comparison from a re-list), and it relocates the same hand-maintained vocabulary into the lint config — a second source to keep in sync, exactly what this set out to eliminate. Driving each tie off the set itself is self-maintaining.
 - **One big parity test for everything.** Rejected in favour of preferring compile-time totality per set: a test that a total `Record` covers its key type can never fail, so it is theatre. The strongest tie a given set admits is used, and a test only where the compiler can't reach.

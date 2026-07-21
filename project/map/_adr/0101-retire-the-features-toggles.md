@@ -1,6 +1,6 @@
 # ADR 0101: Retire the `[features]` toggles
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (which introduced the `[features]` set) and completes the trajectory of [ADR 0045](0045-mcp-is-core-infrastructure.md) (which removed `mcp` from it)
 
@@ -18,7 +18,7 @@ There is also a live single-source-of-truth violation: `[worktree].enabled` dupl
 
 ## Decision
 
-- **The `[features]` section is removed entirely; every subsystem is core.** The feature/capability terminology split dissolves with it — `[capabilities]` remains what it always was, the gate's command table.
+- **The `[features]` section is removed entirely; every subsystem is core.** The feature/job terminology split dissolves with it — `[jobs]` is the gate's command table.
 - **Worktrees are discern's spine, not an option.** The isolated-worktree workflow is core to how discern works; "discern uses worktrees" is a product sentence with no configuration attached. Verbs, hooks, guidance, and doctor checks are always wired. Nothing forces a session to call `start` — not using the workflow remains the escape, configuring it away does not. The duplicate `[worktree].enabled` key retires at the same time.
 - **Standards activate by presence, not by toggle.** With no `[standards]` tables defined the subsystem is naturally inert; defining one is the act that turns it on. The standards guidance section compiles in only when at least one standard is configured — gating on configuration, not on a switch.
 - **Guidance, docs, and the coupling advisory are core.** Guidance is discern's only channel to agents — disabling it severed the nervous system. The map is the product ([ADR 0100](0100-project-map-is-the-agents-map.md)). Coupling is read-only, self-calibrating, and invoked on demand; its one real cost decision (`[coupling].in_gate`) is behavior configuration and stays.
@@ -28,7 +28,7 @@ There is also a live single-source-of-truth violation: `[worktree].enabled` dupl
 ## Consequences
 
 - The dispatcher, hook writers, guidance compiler, doctor, MCP server, and gate planner lose their feature-gating branches; the `VERB_FEATURE` map and its parity-test leg go with them. The test matrix roughly halves several times over.
-- `discern.toml` loses its most confusing section (the feature-vs-capability distinction has needed a warning comment since it existed) and the docs lose the concept.
+- `discern.toml` loses its most confusing section (the feature-vs-job distinction has needed a warning comment since it existed) and the docs lose the concept.
 - A future subsystem that genuinely passes the toggle test can get a toggle back compatibly; nothing re-opens by default.
 - Users who want less discern do it behaviorally (don't start worktrees, define no standards, exclude skills by name) — every escape remains, none of them configurational existence-switches.
 

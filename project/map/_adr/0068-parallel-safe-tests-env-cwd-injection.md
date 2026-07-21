@@ -1,6 +1,6 @@
 # ADR 0068: Tests inject env/cwd seams so the suite can run `--parallel`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current test pointer uses `standards` (formerly `ratchets`); the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** The current test pointer uses `standards` (formerly `ratchets`); the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make that safe, every function that consults ambient process state — an env override or the working directory — takes an injectable seam (an `EnvReader` defaulting to `Deno.env`, or an explicit `cwd`/`env` argument), so a unit test supplies the value directly instead of mutating the process. A forcing-function guard (in the lineage of [ADR 0051](0051-canonical-set-parity.md)) fails the gate if any test reintroduces a process-global mutation.
 
@@ -20,7 +20,7 @@ Convert the nine files to **inject** the value rather than mutate the process.
 - **The cwd** is passed explicitly: `runUpgrade`/`runUpgrade` gained an optional `cwd` (default `Deno.cwd()`), so the upgrade tests pass the temp dir instead of `Deno.chdir`-ing into it and back.
 - **The git subprocess env** is forwarded, not set on the process: `runGit`/ `worktreeState` gained an `env` option merged over the parent environment ([ADR 0054](0054-subprocess-single-source.md) keeps `runGit` the one git spawner), so `git_test` hands its isolation env — and the empty PATH for the not-found case — straight to the spawn.
 
-The test capability (`deno task test`) gains `--parallel`. A new architectural guard ([`tests/parallel_safety_test.ts`](../../../tests/parallel_safety_test.ts)) walks every `tests/*.ts` and fails if one contains `Deno.chdir(`, `Deno.env.set(`, or `Deno.env.delete(`, driven off the file glob so a new file auto-enrols — the same forcing-function discipline as [ADR 0051](0051-canonical-set-parity.md). Env _reads_ (`Deno.env.get`) are not flagged; they cannot race.
+The test job (`deno task test`) gains `--parallel`. A new architectural guard ([`tests/parallel_safety_test.ts`](../../../tests/parallel_safety_test.ts)) walks every `tests/*.ts` and fails if one contains `Deno.chdir(`, `Deno.env.set(`, or `Deno.env.delete(`, driven off the file glob so a new file auto-enrols — the same forcing-function discipline as [ADR 0051](0051-canonical-set-parity.md). Env _reads_ (`Deno.env.get`) are not flagged; they cannot race.
 
 ## Consequences
 

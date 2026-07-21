@@ -1,6 +1,6 @@
 # ADR 0028: One result envelope per verb, with normalized failure diagnostics
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; **supersedes [ADR 0004](_superseded/0004-structured-finish-json.md)**; extends [ADR 0027](0027-plan-apply-engine-execution.md)
 
@@ -46,7 +46,7 @@ output_path?, file?, line?, col?, rule?, fix_available?}`. It is layered by how 
 
 - **Tier 0 — capture (this ADR; stack-neutral, no parsing; refined by [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)).** Each failed gate command attaches its captured combined output (terminal-normalized and capped) and `reproduce_cmd` — which is just the command's own string, already in hand. When the normalized capture is truncated, `output_path` points at a best-effort temp file containing the full normalized capture. This alone flips the loop to act → read-error → fix, for every tool in every stack. A fail-fast- _cancelled_ sibling is excluded (it isn't a failure to fix).
 - **Tier 1 — normalize.** discern parses recognized machine formats into `file`/`line`/`col`/`rule` — one diagnostic per finding. The first format is **SARIF**, _auto-detected_: a project opts in simply by making its command emit SARIF (`eslint --format sarif .`), and discern recognizes the **format**, never the tool, so the neutral core stays neutral. Detection is unambiguous (valid JSON + a `runs` array + a 2.x/sarif marker), so a non-SARIF tool can never be misread; anything unrecognized falls back to the Tier-0 raw diagnostic. Declared _text_ formats (a per-check regex via a future `[diagnostics.<name>]` table) are the next slice — deferred because they need a config-surface decision, where SARIF needed none.
-- **Tier 2 — derive.** `fix_available: true` is attached to a failed capability/check diagnostic from a non-fix stage when the executed gate plan has a real fix-stage job wired. It is deliberately absent for scope gates, generated-artifact currency diagnostics, fix-stage failures themselves, and configs with no fixer.
+- **Tier 2 — derive.** `fix_available: true` is attached to a failed declared-job diagnostic from a non-fix stage when the executed gate plan has a real fix-stage job wired. It is deliberately absent for scope gates, generated-artifact currency diagnostics, fix-stage failures themselves, and configs with no fixer.
 
 ### MCP is a renderer, not a rewrite
 

@@ -1,6 +1,6 @@
 # ADR 0017: Declare capabilities, derive the gate — retire slots + phases
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Current-state note.** Lands together with its sibling [ADR 0018](0018-vocabulary-consolidation.md) (the four-layer vocabulary consolidation) — one 3→4 schema migration, best read as a pair. `KNOWN_CAPABILITIES` now lives in `src/shared/capabilities.ts` (the shell `capabilities.sh` mirror is gone — [ADR 0019](0019-single-binary-ts-engine.md)).
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Current-state note.** Lands together with its sibling [ADR 0018](0018-vocabulary-consolidation.md) (the four-layer vocabulary consolidation) — one 3→4 schema migration, best read as a pair. `KNOWN_JOBS` now lives in `src/shared/capabilities.ts` (the shell `capabilities.sh` mirror is gone — [ADR 0019](0019-single-binary-ts-engine.md)). **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`, `KNOWN_CAPABILITIES` → `KNOWN_JOBS`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 

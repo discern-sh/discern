@@ -1,6 +1,6 @@
 # ADR 0036: Unify setup under one zero-config `discern setup`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -18,13 +18,13 @@ Two problems with that shape:
 - **It asks the user to make decisions the agent is better placed to make.** The slug, the globs, the agent set, the brief — an agent reading the repo can propose all of them, and the wizard is friction between install and value. The product we want to sell is _zero-configuration_: the user makes no decisions; their coding agent asks them clarifying questions and does the rest.
 - **The split is an artifact, not a boundary.** `setup` (mechanical scaffold) and `setup` (agent authoring) are two halves of one event: "set this project up." Two verbs, two names to learn, two things to sequence — for one job.
 
-There is also a **model-capability** insight specific to setup. Setup is a one-time event whose output — the principles, the docs, the capability fills — every later session inherits. The single biggest lever on whether discern feels useful is whether that one-time pass was done by a _capable_ model. But the user chooses the model _before_ the agent reads any instructions, so the nudge to "use your most capable model" has to reach the user at the moment they kick the agent off, not only inside the prompt.
+There is also a **model-capability** insight specific to setup. Setup is a one-time event whose output — the principles, the docs, the job fills — every later session inherits. The single biggest lever on whether discern feels useful is whether that one-time pass was done by a _capable_ model. But the user chooses the model _before_ the agent reads any instructions, so the nudge to "use your most capable model" has to reach the user at the moment they kick the agent off, not only inside the prompt.
 
 ## Decision
 
 **Make `discern setup` the single, always-non-interactive setup surface, fronted by bare `discern`, and market it as zero-configuration.**
 
-- **One command.** `discern setup` scaffolds the machinery (a `discern.toml` with capabilities unset, the compiled agent files, the merged settings, the MCP wiring), lays the doc skeletons (only when the project has none), and prints the authoring instructions for the agent — in one invocation. `discern setup done` validates and records `[meta].bootstrapped`.
+- **One command.** `discern setup` scaffolds the machinery (a `discern.toml` with jobs unset, the compiled agent files, the merged settings, the MCP wiring), lays the doc skeletons (only when the project has none), and prints the authoring instructions for the agent — in one invocation. `discern setup done` validates and records `[meta].bootstrapped`.
 - **Bare `discern` is the entry point.** The install message is now "tell your coding agent to run `discern`." Bare `discern`, before setup is recorded, runs setup (in a project, or — to avoid scaffolding a stray directory — in any git work tree); once recorded, it shows help as before.
 - **Always non-interactive.** There is no wizard. Setup resolves everything from zero-config defaults (slug from the directory, the default agent set, no brief). The user makes no decisions at the CLI; the agent asks clarifying questions in chat. The declarative `--config`/`--brief`/flag path is retained for CI and presets.
 - **Pre-setup, the work verbs hard-redirect.** Until `[meta].bootstrapped` is recorded, `done` / `prepare` / `test` / `standards` / `accept` refuse and point at `discern setup` (exit non-zero; a structured `not_set_up` result under `--json`). This amends ADR 0024's "nudge, not gate" stance for these verbs: an empty gate pre-setup reports a false "all-green," which is worse than a clear redirect. `help` (discern's own documentation), `status`, `doctor`, `config`, the plumbing the hooks call, and `setup` itself stay open.
@@ -39,8 +39,8 @@ Rewriting the instructions was an opportunity to fix weaknesses the old prompt c
 - **Operating-principles preamble.** The non-negotiables (best model, ask-first, propose-don't-overwrite, stay-project-specific, safe-to-re-run) are front-loaded so a weaker model can't lose them mid-march.
 - **Ask up front, in a batch.** The old prompt read a `brief.md` and asked questions only as a last resort. Zero-config has no brief, so the agent now derives intent from the repo and asks the user a small batch of sharp questions early — not peppered across every step.
 - **Early health smoke-test.** Run `discern status`/`doctor` before authoring, so a broken install or PATH is caught before effort is spent.
-- **Structured proposal mechanism.** Use `discern config set-*` (comment- preserving, validated) to propose capability fills, rather than hand-editing TOML.
-- **Green-gate completion proof.** End by running `discern done` and confirming it is genuinely green with the activated capabilities — proof the discern setup is real, not merely that the config parses.
+- **Structured proposal mechanism.** Use `discern config set-*` (comment- preserving, validated) to propose job fills, rather than hand-editing TOML.
+- **Green-gate completion proof.** End by running `discern done` and confirming it is genuinely green with the activated jobs — proof the discern setup is real, not merely that the config parses.
 
 ## Consequences
 

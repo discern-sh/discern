@@ -1,6 +1,6 @@
 # ADR 0044: Setup involves the user and proceeds — it does not gate every step
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -10,13 +10,13 @@ Revises the setup-brief interaction model established by [ADR 0036](0036-unify-s
 
 `discern setup`'s headline user is someone building software **through** coding agents without the background to ship reliable software unaided — and, crucially, someone who gets spooked when an agent silently installs outside tools or changes their project without explanation. Setup is their first contact with discern; it sets the tone for whether `discern` reads as help or as a black box.
 
-The brief ADR 0036 wrote optimised for safety-by-consent: "propose, don't overwrite … show it and let them confirm rather than silently committing," and a stop-condition that capability fills are "committed only if the user confirms." Every routine, reversible step — wiring a formatter, adding a missing type-checker — became a "may I?" the user had to answer.
+The brief ADR 0036 wrote optimised for safety-by-consent: "propose, don't overwrite … show it and let them confirm rather than silently committing," and a stop-condition that job fills are "committed only if the user confirms." Every routine, reversible step — wiring a formatter, adding a missing type-checker — became a "may I?" the user had to answer.
 
 For that user the consent gate backfires three ways:
 
 - **Decision fatigue.** A novice asked to approve a dozen changes they don't yet understand has no basis to say yes — so the safe-feeling answer is "no," or a rubber-stamp "yes" that confers no real understanding. Either way the gate taught them nothing and slowed them down.
 - **It mistakes interrogation for control.** Being asked permission is not the same as being informed. The user can approve every step and still not know what changed, why, or how to undo it.
-- **It buries the teaching moment.** The most valuable thing setup can do for this user is explain _why_ a missing capability matters and that `discern` is the thing that will catch the problem later. A bare "add a linter? [y/N]" carries none of that.
+- **It buries the teaching moment.** The most valuable thing setup can do for this user is explain _why_ a missing job matters and that `discern` is the thing that will catch the problem later. A bare "add a linter? [y/N]" carries none of that.
 
 Meanwhile the safety the gate reached for is already available structurally. Every change setup makes is reversible, and discern's whole workflow is built on **atomic, revertible commits**. A commit _is_ an undo. The gate was guarding against an irreversibility that, for setup's changes, does not exist — while paying for that phantom guard in fatigue and silence.
 
@@ -28,7 +28,7 @@ Four parts:
 
 1. **A five-beat narration pattern** for each meaningful recommendation (adding a tool/dependency/config the project is missing): recommend it as a shared step; say why it helps in terms the user cares about; **name `discern` as the source** of the suggestion (so the user learns the tool is watching their back); preserve their authority and name the risk of skipping while pointing at the revert; then proceed and state the action. Warm, transparent, and _teaching_ — not a checkbox.
 
-2. **An atomic commit per stage.** Each coherent stage — the principles, the guidance, the orientation docs, each capability wired — lands as its own focused commit with a plain-language message, and the agent says so. This is the mechanism that makes "proceed without asking" safe: beat 4's "we can revert later" is literally true _because_ beat 5 made the change its own commit. The promise is **backed by** the commit, not merely asserted.
+2. **An atomic commit per stage.** Each coherent stage — the principles, the guidance, the orientation docs, each job wired — lands as its own focused commit with a plain-language message, and the agent says so. This is the mechanism that makes "proceed without asking" safe: beat 4's "we can revert later" is literally true _because_ beat 5 made the change its own commit. The promise is **backed by** the commit, not merely asserted.
 
 3. **Involve, don't gate — but interrupt for real decisions.** Default to proceeding (with narration) on reversible, low-stakes, single-obvious-answer changes. Stop and genuinely ask when a decision is hard to reverse, a real fork between legitimate alternatives only the user can choose, carries cost/security/privacy/data implications, or depends on intent the agent can't infer. The Step 1 discovery questions stay — that is information-gathering, not a permission gate; what goes away is the reflexive "may I?".
 
@@ -53,4 +53,4 @@ The explicit **no**s:
 - **Keep propose-and-confirm.** Rejected: for the target novice the consent gate produces fatigue and uninformed rubber-stamps and mistakes interrogation for control — while the reversibility it reaches for is already guaranteed by atomic commits.
 - **Proceed silently and let the diff speak.** Rejected: silent tool installation is precisely what spooks this user. The point is not to skip the conversation but to make it warm, explanatory, and non-blocking. The narration is the product, not overhead.
 - **A per-change approval toggle (gate level as config).** Rejected as premature: it re-introduces a decision (which level?) onto the user who least wants one, and the genuine-decision carve-out already routes the few truly user-owned choices to a prompt. Revisit only if real use shows the boundary is mis-drawn.
-- **Drop the consent framing without adding narration.** Rejected: that loses the teaching value — the single best thing setup can do for a non-expert is explain _why_ each capability matters and that `discern` is what enforces it.
+- **Drop the consent framing without adding narration.** Rejected: that loses the teaching value — the single best thing setup can do for a non-expert is explain _why_ each job matters and that `discern` is what enforces it.

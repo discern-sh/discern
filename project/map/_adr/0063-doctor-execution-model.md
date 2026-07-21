@@ -1,6 +1,6 @@
 # ADR 0063: `discern doctor` prints the execution model — facts, not judgments
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; **amended** — see the _Update_ sections below. Adds an `execution_model` section to `doctor` (human + the `--json` `data.execution_model`), derived from the same plan builders the gate runs ([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's `STEP_KINDS` vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)), pinned by forcing functions in the spirit of [ADR 0051](0051-canonical-set-parity.md).
 
@@ -36,7 +36,7 @@ The facts already exist, scattered: the gate verbs are pure functions of config 
 ## Consequences
 
 - **A confused user (or their agent) can self-serve.** `discern doctor` answers the ordering / ownership / idempotency / destructiveness questions directly, and the `--json` form lets an agent spot a real config mistake (a slow command in the fast inner loop) without discern hard-coding that verdict.
-- **The model cannot silently rot.** A new gate stage, step kind, or capability flows into the model from the SSOT it already extends; a new `STEP_KIND` fails the compile and the coverage test until annotated; a reordered gate plan fails the byte-derive test until the model tracks it. The forcing functions are the regression guard.
+- **The model cannot silently rot.** A new gate stage, step kind, or known job flows into the model from the SSOT it already extends; a new `STEP_KIND` fails the compile and the coverage test until annotated; a reordered gate plan fails the byte-derive test until the model tracks it. The forcing functions are the regression guard.
 - **Two derivation styles, by necessity.** Gate verbs are byte-derived (pure functions of config); worktree verbs are an authored conditional model (their real plans need runtime state). The coverage test spans both; only the gate verbs carry the stronger byte-derive guarantee. The worktree authoring is tied to reality by sourcing every user command live from config and mirroring the lifecycle executor.
 - **No behaviour changes.** This is a purely explanatory, read-only addition. No verb's execution path is altered; `execution_model` is omitted gracefully when no config can be read (the failing checks are the actionable report there).
 

@@ -1,6 +1,6 @@
 # ADR 0118: Preset config fills never overwrite a present value
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -9,11 +9,11 @@
 A preset is a file overlay plus config fills (ADR 0007/0018). The file half has always been create-or-skip: a present file is the user's and is never overwritten. The config half was not — `applyConfigDoc` wrote every fill through the comment-preserving editor's replace-existing path, so a preset whose `preset.json` carried `capabilities.test` silently replaced a user-authored `test` command in `discern.toml`. Nothing disclosed which keys would change: dry-run reported only a boolean, the confirm review one summary line. A user who had tuned their gate (`cargo test --workspace --all-features`) and applied a preset ended up with the weaker preset command and a silently narrower quality gate — with no per-key trail to notice it by.
 
 The replace-existing path was never needed by the legitimate flows: `setup
---config` applies fills to a freshly generated template (whose capability slots ship commented out), and a fresh overlay writes into empty slots. The path only ever fired against values a user had authored.
+--config` applies fills to a freshly generated template (whose known-job entries ship commented out), and a fresh overlay writes into empty slots. The path only ever fired against values a user had authored.
 
 ## Decision
 
-Preset config fills are **fill-if-absent, never overwrite** — the same rule as the file half. A fill whose target already carries a real value (a set key, or a present `[checks.*]` / `[scopes.*]` / `[standards.*]` table) is skipped; a commented-out template hint does not count as a value. `applyConfigDoc` gains a `skipExisting` mode and returns a per-path report (`filled` / `skipped`), which `preset` surfaces everywhere the user decides or reviews: the dry-run (JSON arrays `config_fills_applied` / `config_fills_skipped` and per-key human lines), the confirm review, and the apply result.
+Preset config fills are **fill-if-absent, never overwrite** — the same rule as the file half. A fill whose target already carries a real value (a set key, or a present `[jobs.*]` / `[scopes.*]` / `[standards.*]` table) is skipped; a commented-out template hint does not count as a value. `applyConfigDoc` gains a `skipExisting` mode and returns a per-path report (`filled` / `skipped`), which `preset` surfaces everywhere the user decides or reviews: the dry-run (JSON arrays `config_fills_applied` / `config_fills_skipped` and per-key human lines), the confirm review, and the apply result.
 
 Explicit *no*s:
 

@@ -1,6 +1,6 @@
 # ADR 0021: Migrations insert a new section's documented block at its canonical position
 
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The `[recipes]` references below record the historical migration. Live config now uses `[scripts]`; the documented-block decision is unchanged.
+> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The `[recipes]` references below record the historical migration. Live config now uses `[scripts]`; the documented-block decision is unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use `[capabilities]` / `[checks.<name>]` → `[jobs]` / `[jobs.<name>]`, gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted
 
@@ -28,7 +28,7 @@ The explicit **no**s:
 
 - **The safety contract is unchanged.** Insertion happens only when a section is _wholly absent_. A section already partly present falls back to a per-key, only-if-absent edit (never clobbering a hand edit); a section already present is left exactly as the user has it. An existing `[meta]` is never moved.
 - **No `discern config normalize` / `upgrade --reformat`.** A command that rewrites the whole config in template order was considered and rejected (see below): the papercut is about migration _output_, and fixing it at the point of insertion is lossless and simpler.
-- **No doctor-only nudge as the fix.** Pointing at a manual remedy fails the bar ("a user shouldn't have to hand-copy doc blocks"). `doctor` does gain a _separate, advisory_ nudge — a `[checks.<name>]` whose name and stage mirror a free standard capability — but that is symmetry with an existing check, not the remedy for this.
+- **No doctor-only nudge as the fix.** Pointing at a manual remedy fails the bar ("a user shouldn't have to hand-copy doc blocks"). `doctor` does gain a _separate, advisory_ nudge — a `[jobs.<name>]` whose name and stage mirror a free known job — but that is symmetry with an existing check, not the remedy for this.
 
 ## Consequences
 
