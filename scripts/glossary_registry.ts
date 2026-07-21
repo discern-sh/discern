@@ -244,7 +244,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Installer",
     definition:
-      "The scaffolding verbs of the binary: `setup`, `upgrade`, `doctor`, `config`, `preset`. Build-time work — they write or refresh a project's files and exit, and are never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).",
+      "The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](../70-reference/cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).",
   },
   {
     term: "Logbook",
@@ -291,11 +291,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       }\`), run as \`discern script <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
   },
   {
-    term: "Readiness",
-    definition:
-      "`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed set of known [gate job](#gate-job) names makes an omitted known job knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).",
-  },
-  {
     term: "Receipt",
     definition:
       "The review summary `discern done` emits after a clean, committed worktree passes the full gate. It identifies the branch and exact `HEAD`, lists the commits, changed files, check results, and held [standards](#standard), and can be reused by `discern accept` while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
@@ -324,17 +319,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Standard",
     definition:
-      "A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` is the on-demand pass; `--pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).",
-  },
-  {
-    term: "Surface",
-    definition:
-      "A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term (command-line surface, MCP surface, write surface); bare “surface” names no component.",
-  },
-  {
-    term: "Test",
-    definition:
-      "A command that exercises the project's behavior and returns success or failure. `[jobs.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).",
+      'A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Untouched `inputs` replay the recorded value, while `measure = "on-demand"` defers measurement to `discern standards`; the never-loosen limit check alone is unconditional. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).',
   },
   {
     term: "Trunk",
@@ -345,7 +330,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Update",
     definition:
-      "What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the inverse of [accept](#accept).",
+      "What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the complement of [accept](#accept): update brings trunk into the branch; accept lands the branch on trunk.",
   },
   {
     term: "Worktree",
@@ -356,11 +341,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Worktree resource",
     definition:
       "An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)).",
-  },
-  {
-    term: "Worktree settings",
-    definition:
-      "The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. Identity-dependent, they never run in the main checkout; checkout-generic convergence belongs in `[repository].ensure`. A fresh install declares none ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).",
   },
   {
     term: "Project-owned file",
@@ -381,6 +361,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
  * member the glossary later names fails as stale.
  */
 export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
+  "verb:doctor":
+    "checks an installation without changing it; the Installer entry carries the subsystem and the CLI reference documents the verb",
   "verb:help":
     "prints the manual; a utility verb with no concept behind it — the CLI reference documents it",
   "verb:identity":
@@ -392,7 +374,9 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:licenses":
     "prints the third-party notices; a utility verb with no concept behind it",
   "verb:mcp":
-    "starts the MCP server; the Surface entry names the MCP surface, and the verb is its plumbing",
+    "starts the MCP server; transport plumbing documented by the CLI and MCP references, not a product concept",
+  "verb:test":
+    "runs the configured test stage on its own; the Gate job and Stage entries carry the concepts, and the CLI reference documents the verb",
   "verb:uninstall":
     "removes what setup laid down; the Installer entry carries the concept, the CLI reference the verb",
 };

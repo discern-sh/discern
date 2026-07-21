@@ -6,11 +6,11 @@
  * Every member of the engine's closed sets — the known jobs, the stages, the
  * top-level verbs — must be in the glossary's vocabulary the moment it exists:
  * either NAMED by the glossary (a term of its own, or backticked inside a
- * definition — the Gate job and Stage entries interpolate their sets, so
- * those members auto-enrol) or recorded in `DELIBERATELY_ABSENT` with the
- * reason. Exactly one of the two: an unnamed, unrecorded member fails the gate
- * until someone decides, and an absence record for a member the glossary now
- * names fails as stale.
+ * definition for that set — the Gate job and Stage entries interpolate their
+ * own sets, so those members auto-enrol without enrolling same-named verbs) or
+ * recorded in `DELIBERATELY_ABSENT` with the reason. Exactly one of the two: an
+ * unnamed, unrecorded member fails the gate until someone decides, and an
+ * absence record for a member the glossary now names fails as stale.
  *
  * The sets are read from their single sources (`KNOWN_JOBS`, `STAGES`,
  * `KNOWN_VERBS`), never a hand-copied list, so a new member auto-enrols in the
@@ -27,7 +27,9 @@ import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 
 /** The closed sets the vocabulary must account for, from their single sources. */
-const CLOSED_SETS: Readonly<Record<string, readonly string[]>> = {
+type ClosedSet = "job" | "stage" | "verb";
+
+const CLOSED_SETS: Readonly<Record<ClosedSet, readonly string[]>> = {
   job: Object.keys(KNOWN_JOBS),
   stage: STAGES,
   verb: [...KNOWN_VERBS].sort(),
@@ -38,25 +40,39 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * True when the glossary names `member`: as a term of its own
+ * True when the glossary names `member` for `set`: as a term of its own
  * (case-insensitive — headings capitalize) or backticked inside a definition
  * (`` `member` `` or `` `discern member …` `` — exact case, code is verbatim).
  * A backtick followed by anything else (`` `[skills].exclude` `` for the
  * `skills` verb) is a different name and does not enrol.
+ *
+ * Gate job and Stage close over different sets that happen to share names with
+ * verbs. Their generated lists enrol only their own set; otherwise the `test`
+ * job and stage would silently enrol the unrelated `test` verb.
  */
-function namedBy(glossary: readonly GlossaryEntry[], member: string): boolean {
+function namedBy(
+  glossary: readonly GlossaryEntry[],
+  set: ClosedSet,
+  member: string,
+): boolean {
   const lower = member.toLowerCase();
   if (glossary.some((e) => e.term.toLowerCase() === lower)) return true;
   const mention = new RegExp(`\`(?:discern )?${escapeRegExp(member)}\\b`);
-  return glossary.some((e) => mention.test(e.definition));
+  const definitions = glossary.filter((entry) => {
+    if (set === "job") return entry.term === "Gate job";
+    if (set === "stage") return entry.term === "Stage";
+    return entry.term !== "Gate job" && entry.term !== "Stage";
+  });
+  return definitions.some((entry) => mention.test(entry.definition));
 }
 
 Deno.test("every known job, stage, and top-level verb is named by the glossary or recorded deliberately absent", () => {
   const offenders: string[] = [];
-  for (const [set, members] of Object.entries(CLOSED_SETS)) {
+  for (const set of Object.keys(CLOSED_SETS) as ClosedSet[]) {
+    const members = CLOSED_SETS[set];
     for (const member of members) {
       const key = `${set}:${member}`;
-      const named = namedBy(GLOSSARY, member);
+      const named = namedBy(GLOSSARY, set, member);
       const recorded = Object.hasOwn(DELIBERATELY_ABSENT, key);
       if (!named && !recorded) {
         offenders.push(
@@ -85,7 +101,9 @@ Deno.test("every deliberate-absence record points at a live closed-set member, w
     const at = key.indexOf(":");
     const set = at === -1 ? key : key.slice(0, at);
     const member = at === -1 ? "" : key.slice(at + 1);
-    const members = CLOSED_SETS[set];
+    const members = Object.hasOwn(CLOSED_SETS, set)
+      ? CLOSED_SETS[set as ClosedSet]
+      : undefined;
     assert(
       members !== undefined,
       `${key}: "${set}" is not a closed set the enrolment guard covers`,
@@ -112,12 +130,37 @@ Deno.test("enrolment guard: the naming predicate matches terms and backticked me
         "Run with `discern done`; declared under `[standards]`. The `desk` opens it.",
     },
   ];
-  assert(namedBy(fixture, "gate"), "a term of its own names the member");
-  assert(namedBy(fixture, "done"), "a `discern <verb>` mention names it");
-  assert(namedBy(fixture, "desk"), "a bare backticked mention names it");
   assert(
-    !namedBy(fixture, "standards"),
+    namedBy(fixture, "verb", "gate"),
+    "a term of its own names the member",
+  );
+  assert(
+    namedBy(fixture, "verb", "done"),
+    "a `discern <verb>` mention names it",
+  );
+  assert(
+    namedBy(fixture, "verb", "desk"),
+    "a bare backticked mention names it",
+  );
+  assert(
+    !namedBy(fixture, "verb", "standards"),
     "`[standards]` names the config table, not the standards verb",
   );
-  assert(!namedBy(fixture, "doctor"), "an unmentioned member is not named");
+  assert(
+    !namedBy(fixture, "verb", "doctor"),
+    "an unmentioned member is not named",
+  );
+});
+
+Deno.test("enrolment guard: interpolated sets do not cross-enrol same-named verbs", () => {
+  const fixture: GlossaryEntry[] = [
+    { term: "Gate job", definition: "Known jobs include `test`." },
+    { term: "Stage", definition: "The stages include `test`." },
+  ];
+  assert(namedBy(fixture, "job", "test"), "Gate job enrols the job");
+  assert(namedBy(fixture, "stage", "test"), "Stage enrols the stage");
+  assert(
+    !namedBy(fixture, "verb", "test"),
+    "job and stage lists do not enrol the verb",
+  );
 });

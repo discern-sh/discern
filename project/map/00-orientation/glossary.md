@@ -31,7 +31,6 @@ aliases:
   - preset
   - project script
   - project-owned file
-  - readiness
   - receipt
   - schema version
   - scope
@@ -39,13 +38,10 @@ aliases:
   - skill
   - stage
   - standard
-  - surface
-  - test
   - trunk
   - update
   - worktree
   - worktree resource
-  - worktree settings
   - compiled agent file
   - co-change advisory
   - harness
@@ -122,7 +118,7 @@ Your own agent instructions, at the paths named by `[guidance].sources` (default
 
 ### Installer
 
-The scaffolding verbs of the binary: `setup`, `upgrade`, `doctor`, `config`, `preset`. Build-time work — they write or refresh a project's files and exit, and are never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
+The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](../70-reference/cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
 
 ### Logbook
 
@@ -160,10 +156,6 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 A file written once and then owned by the project: committed, edited in place, and left alone by `discern upgrade`. This includes the [namespace](#namespace) content, the [map](#map), the ledger, and provider settings merged into files already present at setup.
 
-### Readiness
-
-`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed set of known [gate job](#gate-job) names makes an omitted known job knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).
-
 ### Receipt
 
 The review summary `discern done` emits after a clean, committed worktree passes the full gate. It identifies the branch and exact `HEAD`, lists the commits, changed files, check results, and held [standards](#standard), and can be reused by `discern accept` while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).
@@ -190,15 +182,7 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 
 ### Standard
 
-A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` is the on-demand pass; `--pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
-
-### Surface
-
-A named interface or boundary where discern accepts input, presents output, or writes files. The modifier is part of the term (command-line surface, MCP surface, write surface); bare “surface” names no component.
-
-### Test
-
-A command that exercises the project's behavior and returns success or failure. `[jobs.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).
+A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Untouched `inputs` replay the recorded value, while `measure = "on-demand"` defers measurement to `discern standards`; the never-loosen limit check alone is unconditional. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
 
 ### Trunk
 
@@ -206,7 +190,7 @@ The shared branch accepted work lands on: `[repository].trunk`, usually `main`. 
 
 ### Update
 
-What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the inverse of [accept](#accept).
+What `discern update` does: merge the latest trunk into the current worktree's branch and refresh the generated files, in one step ([ADR 0055](../_adr/0055-update-verb.md)). It is the move the gate's merge check points a behind branch at, and the complement of [accept](#accept): update brings trunk into the branch; accept lands the branch on trunk.
 
 ### Worktree
 
@@ -215,7 +199,3 @@ A separate checkout and branch for one change, created by `discern start`, so ag
 ### Worktree resource
 
 An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)).
-
-### Worktree settings
-
-The checkout-local configuration the engine calls but does not implement: `[worktree.resources.*]` plus the `inherit_env`, `port`, and `setup` keys. Identity-dependent, they never run in the main checkout; checkout-generic convergence belongs in `[repository].ensure`. A fresh install declares none ([ADR 0011](../_adr/0011-adopt-worktree-workflow.md)).
