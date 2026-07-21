@@ -205,6 +205,13 @@ body {
   padding-block: var(--discern-space-8) var(--discern-space-20);
 }
 
+/* Mono glyphs run optically smaller than the text face. Keep inline code just
+   below the surrounding type across every docs composition, while leaving
+   code sheets to their own fixed scale. */
+.docs-main :not(pre) > code {
+  font-size: 0.9em;
+}
+
 .docs-crumbs {
   margin-bottom: var(--discern-space-6);
 }
@@ -320,7 +327,6 @@ body {
   border-radius: var(--discern-radius-xs);
   background: var(--discern-color-surface-sunken);
   font-family: var(--discern-font-mono);
-  font-size: 0.8125em;
   overflow-wrap: break-word;
 }
 
@@ -657,10 +663,6 @@ body {
   color: var(--discern-color-accent-600);
 }
 
-.docs-colophon code {
-  font-size: 0.9em;
-}
-
 .docs-colophon-links {
   display: inline-flex;
   flex-wrap: wrap;
@@ -693,7 +695,6 @@ body {
   border-radius: var(--discern-radius-xs);
   background: var(--discern-color-surface-sunken);
   font-family: var(--discern-font-mono);
-  font-size: 0.8125em;
 }
 
 .docs-chapters {
