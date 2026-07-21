@@ -21,6 +21,8 @@ import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
@@ -413,6 +415,78 @@ Deno.test("the public homepage is the static local-only landing composition", as
     ),
     [],
   );
+});
+
+Deno.test("landing compositions derive layout from the content they render", async () => {
+  const dom = new JSDOM(renderLanding());
+  const document = dom.window.document;
+
+  const process = document.querySelector<HTMLElement>("#the-catch");
+  const processItems = process?.querySelectorAll(
+    ".discern-process-steps__list > li",
+  ) ?? [];
+  assert(process !== null);
+  assertEquals(
+    process.style.getPropertyValue("--discern-process-columns"),
+    String(processItems.length),
+    "every rendered process step must own one desktop column",
+  );
+
+  const cta = [...document.querySelectorAll<HTMLElement>(
+    ".discern-cta-band",
+  )].find((candidate) =>
+    candidate.textContent?.includes("Keep making things.")
+  );
+  assert(cta !== undefined);
+  assert(
+    cta.querySelector(".discern-cta-band__description .landing-install") !==
+      null,
+    "the full install command belongs in the CTA's readable content column",
+  );
+  assertEquals(
+    cta.querySelector(".discern-cta-band__visual .landing-install"),
+    null,
+  );
+
+  const css = await Deno.readTextFile(join(ROOT, "site/page-src/landing.css"));
+  const commandStart = css.indexOf(".landing-install__cmd > code {");
+  const commandEnd = css.indexOf("}", commandStart);
+  const commandRule = css.slice(commandStart, commandEnd + 1);
+  assertStringIncludes(commandRule, "overflow-wrap: anywhere");
+  assert(
+    !commandRule.includes("white-space: nowrap"),
+    "narrow install commands must expose the URL instead of clipping it",
+  );
+
+  dom.window.close();
+});
+
+Deno.test("landing header actions share one control treatment", async () => {
+  const dom = new JSDOM(renderLanding());
+  const actions = [...dom.window.document.querySelectorAll<HTMLElement>(
+    ".discern-site-header__actions > *",
+  )];
+  assertEquals(actions.length, 2);
+  assert(
+    actions.every((action) =>
+      action.classList.contains("landing-header-action")
+    ),
+    "theme and repository controls must share the same geometry and skin",
+  );
+  const githubMark = dom.window.document.querySelector(
+    '.discern-site-header__actions a[aria-label="GitHub"] path',
+  );
+  assertEquals(githubMark?.getAttribute("fill"), "currentColor");
+  assertEquals(githubMark?.getAttribute("stroke"), "none");
+
+  const css = await Deno.readTextFile(join(ROOT, "site/page-src/landing.css"));
+  const actionStart = css.indexOf(".landing-header-action {");
+  const actionEnd = css.indexOf("}", actionStart);
+  const actionRule = css.slice(actionStart, actionEnd + 1);
+  assertStringIncludes(actionRule, "inline-size: 40px");
+  assertStringIncludes(actionRule, "block-size: 40px");
+  assertStringIncludes(actionRule, "padding: 0");
+  dom.window.close();
 });
 
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {

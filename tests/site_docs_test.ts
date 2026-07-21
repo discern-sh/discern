@@ -404,6 +404,20 @@ Deno.test("the docs top bar aligns its children without vertical nudges", async 
   assertEquals(docsTopBarVerticalNudges(css), []);
 });
 
+Deno.test("inline code shares one readable optical scale across docs content", async () => {
+  const css = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.css", import.meta.url),
+  );
+  const ruleStart = css.indexOf(".docs-main :not(pre) > code {");
+  const ruleEnd = css.indexOf("}", ruleStart);
+  assert(ruleStart >= 0 && ruleEnd > ruleStart);
+  assertStringIncludes(css.slice(ruleStart, ruleEnd + 1), "font-size: 0.9em");
+  assert(
+    !css.includes("font-size: 0.8125em"),
+    "docs inline code must not regress to the undersized legacy scale",
+  );
+});
+
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {
   const site = await loadDocsSite();
   for (const page of site.pages) {

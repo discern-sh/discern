@@ -22,7 +22,7 @@ import {
   ThemeToggle,
   Window,
 } from "discern-design-system/react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { DiscernBrand } from "./branding.tsx";
 import { pageDocument } from "./document.ts";
 import { PageIcon } from "./icons.tsx";
@@ -33,13 +33,9 @@ const AGENT_RELAY =
   `"I looked at discern: a local quality gate I can drive directly. Want me to set it up on a branch? It's reversible."`;
 
 /** The two-line install moment: the command, then the sentence to the agent. */
-function InstallMoment({ band = false }: { readonly band?: boolean }) {
+function InstallMoment() {
   return (
-    <div
-      className={band
-        ? "landing-install landing-install--band"
-        : "landing-install"}
-    >
+    <div className="landing-install">
       <div className="landing-install__cmd">
         <code>{INSTALL_COMMAND}</code>
         <button
@@ -61,6 +57,50 @@ function InstallMoment({ band = false }: { readonly band?: boolean }) {
     </div>
   );
 }
+
+const CATCH_STEPS = [
+  {
+    eyebrow: "The change",
+    title: "The code looked ready.",
+    description: (
+      <p>
+        Formatting, lint, and type checks passed. A quick review gave no reason
+        to stop.
+      </p>
+    ),
+    detail: <span className="landing-catch__fact">1 character changed</span>,
+  },
+  {
+    eyebrow: "The check",
+    title: "Two tests found the mistake.",
+    description: (
+      <p>
+        The result named the failed test and gave the agent the command to
+        reproduce it.
+      </p>
+    ),
+    detail: (
+      <span className="landing-catch__fact landing-catch__fact--failed">
+        1,951 passed · 2 failed
+      </span>
+    ),
+  },
+  {
+    eyebrow: "The fix",
+    title: "The agent fixed it and checked again.",
+    description: (
+      <p>
+        The same suite passed on the repaired tree, so the work was ready for
+        review.
+      </p>
+    ),
+    detail: (
+      <span className="landing-catch__fact landing-catch__fact--passed">
+        1,953 passed · 0 failed
+      </span>
+    ),
+  },
+] as const;
 
 /** One beat of the lived pattern. */
 interface PatternBeat {
@@ -139,6 +179,9 @@ function TheCatch() {
     <ProcessSteps
       className="landing-catch"
       id="the-catch"
+      style={{
+        "--discern-process-columns": CATCH_STEPS.length,
+      } as CSSProperties}
       eyebrow="A real gate run"
       title="A one-character mistake, caught before it landed."
       description={
@@ -151,51 +194,7 @@ function TheCatch() {
           <p className="landing-catch__source">Captured 18 July 2026.</p>
         </>
       }
-      steps={[
-        {
-          eyebrow: "The change",
-          title: "The code looked ready.",
-          description: (
-            <p>
-              Formatting, lint, and type checks passed. A quick review gave no
-              reason to stop.
-            </p>
-          ),
-          detail: (
-            <span className="landing-catch__fact">1 character changed</span>
-          ),
-        },
-        {
-          eyebrow: "The check",
-          title: "Two tests found the mistake.",
-          description: (
-            <p>
-              The result named the failed test and gave the agent the command to
-              reproduce it.
-            </p>
-          ),
-          detail: (
-            <span className="landing-catch__fact landing-catch__fact--failed">
-              1,951 passed · 2 failed
-            </span>
-          ),
-        },
-        {
-          eyebrow: "The fix",
-          title: "The agent fixed it and checked again.",
-          description: (
-            <p>
-              The same suite passed on the repaired tree, so the work was ready
-              for review.
-            </p>
-          ),
-          detail: (
-            <span className="landing-catch__fact landing-catch__fact--passed">
-              1,953 passed · 0 failed
-            </span>
-          ),
-        },
-      ]}
+      steps={CATCH_STEPS}
     />
   );
 }
@@ -437,6 +436,7 @@ function LandingPage() {
         actions={
           <>
             <ThemeToggle
+              className="landing-header-action"
               theme="light"
               onThemeChange={() => undefined}
               data-theme-toggle
@@ -445,8 +445,8 @@ function LandingPage() {
               darkGlyph={<ThemeGlyphs />}
             />
             <Button
+              className="landing-header-action"
               href="https://github.com/jackwh/discern"
-              size="sm"
               variant="secondary"
               aria-label="GitHub"
               title="GitHub"
@@ -717,10 +717,13 @@ function LandingPage() {
 
         <CtaBand
           title="Keep making things."
-          description={<p>Set up in one conversation. Working in the next.</p>}
-          visual={<InstallMoment band />}
+          description={
+            <div className="landing-cta__body">
+              <p>Set up in one conversation. Working in the next.</p>
+              <InstallMoment />
+            </div>
+          }
           tone="sunken"
-          align="split"
         />
       </main>
 

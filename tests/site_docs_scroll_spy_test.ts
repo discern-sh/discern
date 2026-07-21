@@ -15,6 +15,35 @@ Deno.test("the contents spy reaches the final heading when the page tail is shor
   );
 });
 
+Deno.test("late headings each own an active interval in the final viewport", () => {
+  const headingTops = [300, 650, 980, 1280, 1550, 1810, 2050, 2280, 2490, 2680];
+  const indices = [1840, 1940, 2050].map((scrollY) =>
+    activeTocIndex({
+      headingTops,
+      scrollY,
+      viewportHeight: 900,
+      documentHeight: 3100,
+      headerOffset: 72,
+    })
+  );
+  assertEquals(indices, [7, 8, 9]);
+});
+
+Deno.test("an explicit contents choice wins while its anchor scroll settles", () => {
+  const pinned = {
+    headingTops: [300, 650, 980, 1280, 1550, 1810, 2050, 2280, 2490, 2680],
+    scrollY: 2200,
+    viewportHeight: 900,
+    documentHeight: 3100,
+    headerOffset: 72,
+    pinnedIndex: 8,
+  };
+  assertEquals(
+    activeTocIndex(pinned),
+    8,
+  );
+});
+
 Deno.test("the contents spy auto-enrols unrelated heading sets", () => {
   const cases = [
     {

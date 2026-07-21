@@ -61,8 +61,66 @@ html {
   margin-inline: auto;
 }
 
+.landing-header-action {
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  min-block-size: 40px;
+  padding: 0;
+  border: 2px solid light-dark(
+    var(--discern-color-ink),
+    var(--discern-color-border-strong)
+  );
+  border-radius: var(--discern-radius-md);
+  background: var(--discern-color-surface);
+  box-shadow: 2px 2px 0 light-dark(
+    var(--discern-color-ink),
+    var(--discern-shadow-color)
+  );
+  color: var(--discern-color-ink);
+  line-height: 1;
+  transition:
+    background var(--discern-duration-fast),
+    box-shadow var(--discern-duration-fast),
+    transform var(--discern-duration-fast);
+}
+
+.landing-header-action:hover {
+  border-color: light-dark(
+    var(--discern-color-ink),
+    var(--discern-color-border-strong)
+  );
+  background: color-mix(
+    in oklab,
+    var(--discern-color-accent-100) 55%,
+    var(--discern-color-surface)
+  );
+  color: var(--discern-color-ink);
+}
+
+.landing-header-action:active {
+  box-shadow: 1px 1px 0 light-dark(
+    var(--discern-color-ink),
+    var(--discern-shadow-color)
+  );
+  transform: translate(2px, 2px);
+}
+
+.landing-header-action:focus-visible {
+  color: var(--discern-color-ink);
+  outline: 3px solid color-mix(
+    in oklab,
+    var(--discern-color-accent-500) 35%,
+    transparent
+  );
+  outline-offset: 3px;
+}
+
 .landing-github__icon {
-  display: inline-flex;
+  display: inline-grid;
+  place-items: center;
   inline-size: 1.1rem;
   block-size: 1.1rem;
 }
@@ -98,17 +156,15 @@ html {
   box-shadow: var(--discern-shadow-card, 0 1px 2px rgb(0 0 0 / 0.2));
 }
 
-/* contain keeps the nowrap command out of every ancestor's intrinsic size,
-   so a narrow viewport scrolls the command instead of stretching the hero. */
+/* The command stays on one line when it fits and wraps only on genuinely
+   narrow screens, so the URL is always visible without widening the page. */
 .landing-install__cmd > code {
   flex: 1 1 0;
   min-width: 0;
-  contain: inline-size;
-  overflow-x: auto;
   color: var(--discern-color-ink);
   font-family: var(--discern-font-mono);
   font-size: var(--discern-font-size-md);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .landing-copy {
@@ -149,12 +205,15 @@ html {
   font-size: var(--discern-font-size-xs);
 }
 
-.landing-install--band {
-  justify-items: start;
+.landing-cta__body {
+  display: grid;
+  justify-items: center;
+  gap: var(--discern-space-5);
+  width: min(100%, 44rem);
 }
 
-.landing-install--band .landing-install__then {
-  text-align: left;
+.landing-cta__body > p {
+  margin: 0;
 }
 
 /* ── The trust strip: signage ───────────────────────────────────────── */

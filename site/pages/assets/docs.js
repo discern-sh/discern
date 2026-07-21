@@ -193,7 +193,12 @@ import { searchPages } from "./search.js";
     );
     const headings = $$(":is(h2, h3)[id]", article)
       .filter((heading) => byId.has(heading.id));
+    const headingIndexById = new Map(
+      headings.map((heading, index) => [heading.id, index]),
+    );
     let active = null;
+    let pinnedIndex = -1;
+    let releasePinTimer;
 
     const currentClass = "discern-table-of-contents__item--current";
     const mark = (id) => {
@@ -203,6 +208,33 @@ import { searchPages } from "./search.js";
       link.closest("li")?.classList.add(currentClass);
       active = link;
     };
+
+    const releasePinSoon = () => {
+      if (releasePinTimer !== undefined) {
+        globalThis.clearTimeout(releasePinTimer);
+      }
+      releasePinTimer = globalThis.setTimeout(() => {
+        pinnedIndex = -1;
+        releasePinTimer = undefined;
+      }, 180);
+    };
+
+    const pin = (id) => {
+      const index = headingIndexById.get(id);
+      if (index === undefined) return;
+      pinnedIndex = index;
+      mark(id);
+      releasePinSoon();
+    };
+
+    for (const link of tocLinks) {
+      link.addEventListener("click", () => {
+        pin(decodeURIComponent(link.hash.slice(1)));
+      });
+    }
+    globalThis.addEventListener("hashchange", () => {
+      pin(decodeURIComponent(globalThis.location.hash.slice(1)));
+    });
 
     let queued = false;
     const update = () => {
@@ -216,11 +248,13 @@ import { searchPages } from "./search.js";
         viewportHeight: globalThis.innerHeight,
         documentHeight: doc.documentElement.scrollHeight,
         headerOffset: 72,
+        pinnedIndex,
       });
       const heading = headings[index];
       if (heading) mark(heading.id);
     };
     const queue = () => {
+      if (pinnedIndex >= 0) releasePinSoon();
       if (queued) return;
       queued = true;
       globalThis.requestAnimationFrame(update);
@@ -229,6 +263,9 @@ import { searchPages } from "./search.js";
     globalThis.addEventListener("scroll", queue, { passive: true });
     globalThis.addEventListener("resize", queue);
     globalThis.addEventListener("load", queue, { once: true });
+    if (globalThis.location.hash) {
+      pin(decodeURIComponent(globalThis.location.hash.slice(1)));
+    }
     update();
   }
 
