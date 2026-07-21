@@ -30,19 +30,18 @@ aliases:
   - skills.exclude
   - map
   - map.dir
-  - capabilities
-  - capabilities.format
-  - capabilities.build
-  - capabilities.lint
-  - capabilities.typecheck
-  - capabilities.test
-  - capabilities.smoke
-  - checks
-  - checks.<name>
-  - checks.<name>.stage
-  - checks.<name>.run
-  - checks.<name>.provides
-  - checks.<name>.timeout
+  - jobs
+  - jobs.format
+  - jobs.build
+  - jobs.lint
+  - jobs.typecheck
+  - jobs.test
+  - jobs.smoke
+  - jobs.<name>
+  - jobs.<name>.stage
+  - jobs.<name>.run
+  - jobs.<name>.provides
+  - jobs.<name>.timeout
   - scopes
   - scopes.<name>
   - scopes.<name>.paths
@@ -97,7 +96,7 @@ The file that configures a discern install.
 
 Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.
 
-The named-table sections (`[checks.<name>]`, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 ## `[meta]`
 
@@ -158,9 +157,9 @@ The project documentation tree discern scaffolds, validates, and browses.
 | --- | --- | --- | --- |
 | `dir` | string | `"map/"` | Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default. |
 
-## `[capabilities]`
+## `[jobs]`
 
-The core commands the gate runs, one per known capability; each maps to a gate stage automatically. The set is CLOSED — for custom work use a [checks.<name>] table with an explicit stage. OMIT a capability you don't have.
+The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -171,13 +170,13 @@ The core commands the gate runs, one per known capability; each maps to a gate s
 | `test` | string \| string[] \| object | — | test stage — the test suite. |
 | `smoke` | string \| string[] \| object | — | test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes. |
 
-## `[checks.<name>]`
+### `[jobs.<name>]`
 
-[checks.<name>] — custom, non-standard gate work that isn't a known capability. `stage` (required) is one of fix|build|check|test; `run` the command (or list); `provides` an optional label. A name also wired under [capabilities] is rejected: the gate keys each job's result by its label, so the two would collide.
+A custom job. Its name is open, but its stage and command are explicit.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `stage` | `fix` \| `build` \| `check` \| `test` | — | When the check runs in the gate (fix\|build\|check\|test). |
+| `stage` | `fix` \| `build` \| `check` \| `test` | — | When the custom job runs in the gate (fix\|build\|check\|test). |
 | `run` | string \| string[] | — | The command(s) to run. |
 | `provides` | string | — | Optional free-text label, for humans / audit. |
 | `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
@@ -253,7 +252,7 @@ Ergonomics for the parallel gate stages (and scope gates). These affect how `dis
 | --- | --- | --- | --- |
 | `stream` | boolean | `false` | Stream each job's output live (line-prefixed) instead of buffering it until the stage finishes. Off by default (grouped). |
 | `fail_fast` | boolean | `true` | Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass. |
-| `timeout` | number | `600` | Per-command time budget in SECONDS, applied to every job the gate runs (each capability, check, and scope gate). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended. |
+| `timeout` | number | `600` | Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended. |
 
 ## `[coupling]`
 

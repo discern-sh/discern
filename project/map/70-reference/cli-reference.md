@@ -17,8 +17,7 @@ aliases:
   - discern map
   - discern help
   - discern config
-  - discern config set-capability
-  - discern config set-check
+  - discern config set-job
   - discern config set-scope
   - discern config set-standard
   - discern config set
@@ -367,27 +366,17 @@ Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.
 
 Usage: `discern config <subcommand>`
 
-#### `discern config set-capability`
+#### `discern config set-job`
 
-Set a capability — a configured project command for one known kind of work (format, build, lint, typecheck, test, smoke).
+Set a declared gate job. Known names (format, build, lint, typecheck, test, smoke) take a positional command and derive their stage; custom names take --stage and --run.
 
-Usage: `discern config set-capability <name> <command> [options]`
-
-| Option | Description |
-| --- | --- |
-| `--dry-run` | Print the edit and write nothing. |
-
-#### `discern config set-check`
-
-Set a custom command in the gate — the project's full quality check.
-
-Usage: `discern config set-check <name> [options]`
+Usage: `discern config set-job <name> [command] [options]`
 
 | Option | Description |
 | --- | --- |
-| `--stage <stage>` | When it runs: fix\|build\|check\|test. |
-| `--run <cmd>` | The check command. |
-| `--provides <label>` | Optional free-text label. |
+| `--stage <stage>` | Custom jobs only: when it runs (fix\|build\|check\|test). |
+| `--run <cmd>` | Custom jobs only: the command to run. |
+| `--provides <label>` | Custom jobs only: free-text label. |
 | `--dry-run` | Print the edit and write nothing. |
 
 #### `discern config set-scope`
@@ -538,7 +527,7 @@ Usage: `discern skills eject <name> [options]`
 
 ### `discern impact`
 
-Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own checks.
+Show which configured scopes the branch and working tree wake in the quality gate. Scopes are named regions of the repository with their own gate jobs.
 
 Usage: `discern impact [options]`
 

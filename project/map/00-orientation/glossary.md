@@ -10,8 +10,6 @@ aliases:
   - accept
   - binary version
   - the binary's files
-  - capability
-  - check
   - co-change advisory
   - co-managed seed
   - compiled agent file
@@ -20,6 +18,7 @@ aliases:
   - engine
   - file dispositions
   - gate
+  - gate job
   - generated file
   - guidance source
   - installer
@@ -70,14 +69,6 @@ The `discern` binary's semantic version, shown by `discern --version`. A newer b
 
 Artifacts the binary re-publishes and may always overwrite, because you never edit them: the materialized skills (gitignored) and the [compiled agent files](#compiled-agent-file) (committed). The reviewable source is always yours; drift between a generated copy and its source fails the gate ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
-### Capability
-
-One of the six known kinds of gate work a project can declare under `[capabilities]`: `format`, `build`, `lint`, `typecheck`, `test`, and `smoke`. The engine derives each one's [stage](#stage) from its name, and an omitted capability is skipped without error ([ADR 0017](../_adr/0017-capabilities-model.md)). Covered in [the quality gate](../20-quality-gate/).
-
-### Check
-
-Custom gate work outside the capability vocabulary: a `[checks.<name>]` table with an explicit `stage` and a `run` command. A check runs as its own labeled job, the same way a capability does.
-
 ### Co-change advisory
 
 What `discern coupling` reports: files that historically change together, so a change is pointed at the sibling it may be missing. Advisory only — it never blocks, and it self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).
@@ -100,7 +91,7 @@ The tool itself: one self-contained binary that scaffolds the system into a repo
 
 ### Engine
 
-The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It knows no commands of its own; it runs the capabilities, checks, scopes, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).
+The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no stack commands of its own; its verbs run the jobs, scopes, standards, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).
 
 ### File dispositions
 
@@ -108,7 +99,11 @@ The ownership buckets that decide what `discern upgrade` may touch: [yours](#you
 
 ### Gate
 
-The project's full quality check, run with `discern done`: in a worktree, the trunk-merged precondition first, then the fix and build [stages](#stage), then check and test in parallel, then any [scope](#scope) gates that fired. Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).
+The project's full quality check, run with `discern done`: its preconditions, the declared [jobs](#gate-job) by [stage](#stage), any [scope](#scope) gates that fired, and the [standards](#standard). Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).
+
+### Gate job
+
+A labeled unit of work scheduled by the gate. A project declares its jobs under `[jobs]`: the six known names `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).
 
 ### Generated file
 
@@ -156,7 +151,7 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 ### Readiness
 
-`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed [capability](#capability) vocabulary makes an omitted capability knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).
+`discern doctor`'s judgment of whether the gate is meaningfully wired. The closed set of known [gate job](#gate-job) names makes an omitted known job knowably absent rather than unknown, so the report is exact ([ADR 0017](../_adr/0017-capabilities-model.md)).
 
 ### Receipt
 
@@ -176,7 +171,7 @@ A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (a
 
 ### Stage
 
-The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Derived from a [capability](#capability)'s name; declared explicitly for a [check](#check).
+The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Derived from a known [job](#gate-job)'s name; declared explicitly for a custom one.
 
 ### Standard
 
@@ -188,7 +183,7 @@ A named interface or boundary where discern accepts input, presents output, or w
 
 ### Test
 
-A command that exercises the project's behavior and returns success or failure. `[capabilities.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).
+A command that exercises the project's behavior and returns success or failure. `[jobs.test]` declares the project's main test command; `discern test` runs the configured test [stage](#stage) on its own, while `discern done` includes it in the full [gate](#gate). A failure returns its command and captured output in `diagnostics[]`. Covered in [the quality gate](../20-quality-gate/).
 
 ### Trunk
 

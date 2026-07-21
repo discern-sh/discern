@@ -73,315 +73,319 @@
       },
       "additionalProperties": false
     },
-    "capabilities": {
-      "description": "[capabilities] fills — a known capability name mapped to a command (or list). The gate stage is derived from the name; the set is closed.",
-      "type": "object",
-      "properties": {
-        "format": {
-          "description": "fix stage — a formatter/codemod (mutating; runs first, serially).",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        },
-        "build": {
-          "description": "build stage — produce artifacts later stages read (compile, bundle).",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        },
-        "lint": {
-          "description": "check stage — read-only static analysis.",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        },
-        "typecheck": {
-          "description": "check stage — read-only type checking.",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        },
-        "test": {
-          "description": "test stage — the test suite.",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        },
-        "smoke": {
-          "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes.",
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "run": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  ],
-                  "description": "The command(s) to run."
-                },
-                "timeout": {
-                  "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "run"
-              ],
-              "additionalProperties": false
-            }
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
-    "checks": {
-      "description": "[checks.<name>] fills — custom gate work outside the known capability vocabulary.",
-      "type": "object",
-      "propertyNames": {
-        "type": "string",
-        "pattern": "^[A-Za-z0-9_-]+$"
-      },
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "stage": {
+    "jobs": {
+      "description": "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
+      "allOf": [
+        {
+          "type": "object",
+          "propertyNames": {
             "type": "string",
-            "enum": [
-              "fix",
-              "build",
-              "check",
-              "test"
-            ],
-            "description": "When the check runs in the gate (fix|build|check|test)."
+            "pattern": "^[A-Za-z0-9_-]+$"
           },
-          "run": {
-            "anyOf": [
-              {
+          "additionalProperties": {}
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "description": "fix stage — a formatter/codemod (mutating; runs first, serially).",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "build": {
+              "description": "build stage — produce artifacts later stages read (compile, bundle).",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "lint": {
+              "description": "check stage — read-only static analysis.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "typecheck": {
+              "description": "check stage — read-only type checking.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "test": {
+              "description": "test stage — the test suite.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "smoke": {
+              "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ],
+                      "description": "The command(s) to run."
+                    },
+                    "timeout": {
+                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "run"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string",
+                "enum": [
+                  "fix",
+                  "build",
+                  "check",
+                  "test"
+                ],
+                "description": "When the custom job runs in the gate (fix|build|check|test)."
+              },
+              "run": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "The command(s) to run."
+              },
+              "provides": {
+                "description": "Optional free-text label, for humans / audit.",
                 "type": "string"
               },
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
+              "timeout": {
+                "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                "type": "number",
+                "minimum": 0
               }
+            },
+            "required": [
+              "stage",
+              "run"
             ],
-            "description": "The command(s) to run."
-          },
-          "provides": {
-            "description": "Optional free-text label, for humans / audit.",
-            "type": "string"
-          },
-          "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
-            "type": "number",
-            "minimum": 0
+            "additionalProperties": false,
+            "description": "A custom job. Its name is open, but its stage and command are explicit."
           }
-        },
-        "required": [
-          "stage",
-          "run"
-        ],
-        "additionalProperties": false
-      }
+        }
+      ]
     },
     "scopes": {
       "description": "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
@@ -589,5 +593,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its capabilities/checks/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }

@@ -86,7 +86,7 @@ export type DiscernSetupResult = {
     human_framing?: string;
     progress?: {
       pending_markers: Array<string>;
-      capabilities: Array<{
+      known_jobs: Array<{
         name: string;
         wired: boolean;
       }>;
@@ -441,7 +441,7 @@ export type DiscernSetupDoneResult = {
     marker_commit_error?: string;
     leftover: Array<string>;
     assurance: {
-      capabilities: Array<{
+      known_jobs: Array<{
         name: string;
         state: "enforced" | "deferred" | "absent";
         reason?: string;
@@ -2577,8 +2577,7 @@ export type DiscernStatusResult = {
     } | null;
     scopes?: Array<string>;
     gate?: {
-      capabilities: Array<string>;
-      checks: Array<string>;
+      jobs: Array<string>;
       scope_gates: Array<string>;
     };
     standards: Array<string>;
@@ -2602,7 +2601,7 @@ export type DiscernStatusResult = {
     tracked_ignored_artifacts?: Array<string>;
     setup_unfinished?: {
       pending_markers: Array<string>;
-      capabilities: Array<{
+      known_jobs: Array<{
         name: string;
         wired: boolean;
       }>;
@@ -3569,8 +3568,7 @@ export interface DiscernResultByCommand {
   preset: DiscernPresetResult;
   map: DiscernMapResult;
   help: DiscernHelpResult;
-  "config set-capability": DiscernConfigResult;
-  "config set-check": DiscernConfigResult;
+  "config set-job": DiscernConfigResult;
   "config set-scope": DiscernConfigResult;
   "config set-standard": DiscernConfigResult;
   "config set": DiscernConfigResult;

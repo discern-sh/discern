@@ -270,7 +270,7 @@
                         "type": "string"
                       }
                     },
-                    "capabilities": {
+                    "known_jobs": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -291,7 +291,7 @@
                   },
                   "required": [
                     "pending_markers",
-                    "capabilities"
+                    "known_jobs"
                   ]
                 },
                 "already_set_up": {
@@ -1497,7 +1497,7 @@
                 "assurance": {
                   "type": "object",
                   "properties": {
-                    "capabilities": {
+                    "known_jobs": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -1539,7 +1539,7 @@
                     }
                   },
                   "required": [
-                    "capabilities",
+                    "known_jobs",
                     "enforced",
                     "total",
                     "verdict"
@@ -8690,13 +8690,7 @@
                 "gate": {
                   "type": "object",
                   "properties": {
-                    "capabilities": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "checks": {
+                    "jobs": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -8710,8 +8704,7 @@
                     }
                   },
                   "required": [
-                    "capabilities",
-                    "checks",
+                    "jobs",
                     "scope_gates"
                   ]
                 },
@@ -8788,7 +8781,7 @@
                         "type": "string"
                       }
                     },
-                    "capabilities": {
+                    "known_jobs": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -8809,7 +8802,7 @@
                   },
                   "required": [
                     "pending_markers",
-                    "capabilities"
+                    "known_jobs"
                   ]
                 },
                 "unlanded_branches": {
@@ -12439,8 +12432,7 @@
       "id": "config",
       "verb": "config",
       "commands": [
-        "config set-capability",
-        "config set-check",
+        "config set-job",
         "config set-scope",
         "config set-standard",
         "config set"
