@@ -271,7 +271,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Skill",
     definition:
-      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory, `discern skills list` shows it, and `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).",
+      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `discern skills list` shows it; `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).",
   },
   {
     term: "Stage",
@@ -282,7 +282,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Standard",
     definition:
-      "A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` runs deferred measurements on demand, and its `--pin` tightens an improved limit. Covered in [standards](../20-quality-gate/standards.md).",
+      "A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` is the on-demand pass; `--pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).",
   },
   {
     term: "Surface",
@@ -308,7 +308,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Worktree resource",
     definition:
-      "An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)). `discern identity` reads a worktree's provisioned values from inside it.",
+      "An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)).",
   },
   {
     term: "Worktree settings",
@@ -336,6 +336,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
 export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:help":
     "prints the manual; a utility verb with no concept behind it — the CLI reference documents it",
+  "verb:identity":
+    "reads a worktree's provisioned values from inside it; a verb the CLI reference and built-in guidance document, not a term of art",
   "verb:impact":
     "read-only advisory of what a change touches; no page uses it as a term of art",
   "verb:improvement":

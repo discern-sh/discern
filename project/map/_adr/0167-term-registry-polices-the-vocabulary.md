@@ -21,7 +21,7 @@
 ## Consequences
 
 - Retiring a phrase is one registry edit; the scan, the search aliases, and the exception list follow from the data. A liveness check fails an `allowed` path that no longer exists, and a self-match control fails a pattern that no longer matches its own phrase.
-- A new verb, capability, or stage fails the gate until someone decides its vocabulary — an entry, a mention, or a reasoned absence. Six utility and advisory verbs are recorded absent today; enrolment also pushed three genuine improvements into the Standard, Skill, and Worktree resource definitions.
+- A new verb, capability, or stage fails the gate until someone decides its vocabulary — an entry, a mention, or a reasoned absence. Seven utility and advisory verbs are recorded absent today; enrolment also pushed two genuine improvements into the Standard and Skill definitions.
 - The pre-existing usage debt (one dead term, two redefinitions) was fixed rather than folded into the limit, so the ceiling starts — and stays — at zero.
 - The README's single searchable "quality harness" category use survives as a companion assertion beside the drift scan, keyed to the registry's harness synonym rather than its own regex.
 
