@@ -16,9 +16,19 @@ Every other discern surface answers "what is true now". The logbook remembers ho
 
 The substrate's constraints:
 
-- **Metadata, never payloads.** No code, no prompts, no command output. The bar: any line is safe to read aloud.
+- **Metadata only.** No code, no prompts, no command output. The bar: any line is safe to read aloud.
 - **Local, forever.** An architectural test walks the subsystem's module graph and fails on any network API, so the trust claim is held by the gate rather than by intent.
 - **Recording never interferes.** A write failure of any kind degrades to silence; the verb's own result and exit code are untouched.
+
+## Finding routing
+
+[`routing.ts`](../../../src/engine/logbook/routing.ts) is the single policy seam. Every detector finding reaches `patterns`. An inline detector also reaches one working command according to its scope: `branch` to `done`, `session` to `status`, and `project` to `improvement`. Batch detectors have no working route.
+
+[`surfaces.ts`](../../../src/engine/logbook/surfaces.ts) reads at most the newest 200 parsed events, runs only the registry members whose tier is `inline`, and formats each consumer's addition. `done` adds a hint only after a green qualifying receipt. Its detector must have 1 more qualifying event than the normal registry threshold, and the formatter returns at most 1 line. `status` waits until `[meta].bootstrapped = true`, then carries up to 3 session hints for the current branch. Driver scoring excludes CI, previews, and interactive human runs before behavior detectors see the stream. `improvement` receives ranked project findings through `buildContext`; its static rules do not read them.
+
+The inline registry members record the policy at the source: `done-thrash`, `skipped-prepare`, and `dirty-done-churn` are branch-scoped; `refusal-loop` is session-scoped; `trunk-edits`, `docs-gap`, `recurring-diagnostic`, and `standard-trajectory` are project-scoped. Every other detector remains batch-only under `patterns`.
+
+All working text enters through `hints[]`, except `improvement`'s distinct `data.history.findings` group. The outcome guard exercises a populated envelope and proves advisory attachment changes only `hints[]`. End-to-end tests separately hold `ok`, `failed_stage`, scores, and receipt data constant while findings fire.
 
 ## Storage and rotation
 
@@ -52,21 +62,25 @@ Context (branch, commit, config, toggle) is gathered concurrently with the verb 
 
 ## Where it lives in code
 
-| Concept                         | File                                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------- |
-| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)               |
-| Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)             |
-| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts) |
-| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                 |
-| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                 |
-| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)               |
-| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                     |
-| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                   |
-| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)         |
-| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)           |
-| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)               |
-| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)       |
-| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)               |
+| Concept                         | File                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                     |
+| Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                   |
+| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)       |
+| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                       |
+| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                       |
+| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                     |
+| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                           |
+| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                         |
+| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)               |
+| Finding routing                 | [`src/engine/logbook/routing.ts`](../../../src/engine/logbook/routing.ts)                   |
+| Working-command collection      | [`src/engine/logbook/surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                 |
+| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)                 |
+| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                     |
+| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)             |
+| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                     |
+| Routing and outcome guards      | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                   |
+| Working-command tests           | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts) |
 
 ## See also
 

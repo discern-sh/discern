@@ -16,6 +16,10 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 The receipt gives the reviewer a stable gate result for that `HEAD`. The trunk may advance. The agent relays it and waits. On approval, `discern accept --confirmed` checks the live refs and lands the branch.
 
+After a qualifying receipt, `done` can print one `Logbook:` advisory line. It counts the branch findings that cleared the unsolicited-presentation bar, states the strongest observation, and points to `discern patterns` for the evidence and next steps. The detector needs 1 qualifying event beyond its normal threshold before this line appears. A red run, an unfinished setup, a disabled logbook, or a branch with no qualifying finding gets no line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+
+The line travels in the result envelope's `hints[]`. It does not enter the stored receipt markdown, change `ok`, or affect whether `accept` honors the receipt.
+
 ## When a receipt is recorded
 
 The gate pins `HEAD` and worktree cleanliness before jobs, then checks both before recording. It also rechecks the trunk. Movement warns you to update and rerun. A receipt is withheld when:
@@ -35,7 +39,7 @@ discern stores the validated commit and receipt markdown in the worktree's git a
 
 | Surface          | What it does with the receipt                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `discern done`   | Prints the markdown on a qualifying green run and returns it in `data.receipt`.                                     |
+| `discern done`   | Prints the markdown on a qualifying green run, returns it in `data.receipt`, then prints at most 1 branch finding.  |
 | `discern status` | Reports whether the marker still matches the clean current `HEAD` and returns the stored markdown when honored.     |
 | `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the landing receipt. Otherwise it reruns the gate. |
 
@@ -58,3 +62,4 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 - A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_receipt.status` before claiming the branch is ready.
 - The marker is a cache of a real gate result. If it is missing, stale, or unreadable, acceptance validates the tree again.
 - The preflight is a point-in-time proof. Receipt writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_receipt`.
+- A logbook hint is advice beside the receipt. The stored markdown and its commit identity remain unchanged.

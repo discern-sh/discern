@@ -18,6 +18,19 @@ discern keeps a logbook of its own use: every verb run through the command line 
 - **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
 - **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops; existing files stay until you reset them.
 
+## Where findings appear
+
+Each detector declares a scope and a tier. Scope selects the reader. Tier controls whether a working command may run it ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+
+| Reader                | Findings it carries                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `discern done`        | Inline branch findings after a qualifying green receipt, capped at 1 line and held to a higher bar. |
+| `discern status`      | Inline session findings as observation-plus-next-step hints after setup is complete.                |
+| `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                              |
+| `discern patterns`    | Every finding, including batch detectors and insufficient-evidence accounting.                      |
+
+The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision. Set `[project].logbook = false` to suppress every working-command finding as well as future recording.
+
 ## What a line contains
 
 Names and numbers only. No code, no prompts, no command output, no file contents.

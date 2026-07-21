@@ -11,18 +11,19 @@ aliases:
 
 _Every change gets its own checkout, branch, identity, and local dependencies._
 
-Worktrees are the spine of discern's daily workflow. `discern start` creates a separate git checkout and `agent/…` branch for one task, then tells the agent where to work. The main checkout stays available as the shared view of the repository while several changes proceed at once.
+`discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view.
 
-Isolation covers more than files. Each worktree gets a stable identity and deterministic development port. A project can also provision a database, emulator, container, or other external resource for the worktree's lifetime. Setup commands prepare the checkout once and converge it again after the trunk changes.
+Each worktree gets a stable identity, deterministic development port, and any declared external resources. Setup commands prepare the checkout and converge it again after the trunk changes.
 
 The lifecycle has one recommended path. Start from the main checkout, make and commit the change inside the new worktree, run `discern update` when the trunk advances, and finish with `discern done`. After review, `discern accept --confirmed` fast-forwards the validated commit onto the trunk, tears down its resources, removes the checkout, and deletes the merged branch.
 
-Treat every worktree as an occupied line of work, even when git reports it clean. `discern status` surveys the fleet without entering each directory. Bare `discern` opens the desk to start a new task or make human decisions across the fleet: open a configured coding agent, inspect, update, land, enter, or discard.
+Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to start tasks or make fleet decisions: open a coding agent, inspect, update, land, enter, or discard.
 
-| Order | Read next                                       | What's in it                                                         |
-| ----: | ----------------------------------------------- | -------------------------------------------------------------------- |
-|    10 | [Start, update, and accept](lifecycle.md)       | The full lifecycle, including cleanup and refusal paths.             |
-|    20 | [Per-worktree resources](the-resources.md)      | Provisioning, teardown, the resource ledger, and orphan cleanup.     |
-|    30 | [Identity and environment](identity-and-env.md) | Stable names, ports, env inheritance, and runtime discovery.         |
-|    40 | [Parallel and team work](team-workflow.md)      | Fleet ownership, branch composition, multiple repos, and new clones. |
-|    50 | [The desk](the-desk.md)                         | Start tasks, open agents, and supervise every active worktree.       |
+| Order | Read next                                       | What's in it                                                          |
+| ----: | ----------------------------------------------- | --------------------------------------------------------------------- |
+|    10 | [Start, update, and accept](lifecycle.md)       | The full lifecycle, including cleanup and refusal paths.              |
+|    20 | [Per-worktree resources](the-resources.md)      | Provisioning, teardown, the resource ledger, and orphan cleanup.      |
+|    30 | [Identity and environment](identity-and-env.md) | Stable names, ports, env inheritance, and runtime discovery.          |
+|    40 | [Parallel and team work](team-workflow.md)      | Fleet ownership, branch composition, multiple repos, and new clones.  |
+|    50 | [Status and session hints](status.md)           | Read current worktree or fleet state and the next actions it implies. |
+|    60 | [The desk](the-desk.md)                         | Start tasks, open agents, and supervise every active worktree.        |
