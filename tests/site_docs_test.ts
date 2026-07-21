@@ -18,6 +18,7 @@ import { fromFileUrl } from "@std/path";
 import { DISCERN_FAVICON_PATH } from "../site/brand.ts";
 import { handler } from "../site/serve.ts";
 import {
+  createGlossaryProseRenderer,
   docsLlmsSection,
   type DocsPage,
   loadDocsSite,
@@ -28,8 +29,11 @@ import {
 import type { DocEntry } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { helpResult } from "../src/commands/docs.ts";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -267,6 +271,94 @@ Deno.test("every published page renders for a browser, with title and shell", as
       `favicon on route ${page.route}`,
     );
   }
+});
+
+Deno.test("first eligible glossary mentions render the design-system hover-card contract", async () => {
+  const site = await loadDocsSite();
+  const { html } = renderMarkdownHtml(
+    [
+      "# Worktree resource",
+      "",
+      "`Worktree resource` [Worktree resource](/already-linked) **Worktree resource**",
+      "",
+      "Worktree resource pairs with a worktree. Worktree resource and worktree follow.",
+    ].join("\n"),
+    { renderProseText: createGlossaryProseRenderer(site) },
+  );
+  const dom = new JSDOM(`<article>${html}</article>`);
+  const document = dom.window.document;
+  const cards = [...document.querySelectorAll<HTMLElement>(
+    ".discern-glossary-term",
+  )];
+  const triggers = cards.map((card) => card.querySelector("dfn"));
+
+  assertEquals(cards.length, 2);
+  assertEquals(triggers.map((trigger) => trigger?.textContent), [
+    "Worktree resource",
+    "worktree",
+  ]);
+  assertEquals(
+    document.querySelector("h1 .discern-glossary-term"),
+    null,
+  );
+  assertEquals(
+    document.querySelector("code .discern-glossary-term"),
+    null,
+  );
+  assertEquals(
+    document.querySelector("a .discern-glossary-term"),
+    null,
+  );
+  assertEquals(
+    document.querySelector("strong .discern-glossary-term"),
+    null,
+  );
+
+  const panelIds = new Set<string>();
+  for (const [index, card] of cards.entries()) {
+    const trigger = triggers[index];
+    assert(trigger !== null && trigger !== undefined);
+    assertEquals(trigger.tagName, "DFN");
+    assertEquals(trigger.getAttribute("tabindex"), "0");
+    const panelId = trigger.getAttribute("aria-details");
+    assert(panelId !== null);
+    panelIds.add(panelId);
+    const panel = card.querySelector<HTMLElement>(`#${panelId}`);
+    assert(panel !== null);
+    assertEquals(panel.getAttribute("role"), "group");
+    assertEquals(
+      panel.getAttribute("aria-label"),
+      `${trigger.textContent} definition`,
+    );
+    assertEquals(
+      panel.querySelector(".discern-glossary-term__term")?.textContent,
+      trigger.textContent,
+    );
+  }
+  assertEquals(panelIds.size, cards.length);
+
+  const links = [...document.querySelectorAll<HTMLAnchorElement>(
+    ".discern-glossary-term__definition a",
+  )].map((link) => link.getAttribute("href"));
+  assert(links.includes("/docs/orientation/glossary#worktree-resource"));
+  assert(links.includes("/docs/worktrees"));
+  assert(!html.includes("../30-worktrees"));
+  assert(!html.includes("ADR 0025"));
+  dom.window.close();
+});
+
+Deno.test("published Markdown pages wire glossary cards into the docs shell", async () => {
+  const site = await loadDocsSite();
+  const worktrees = site.sections.find((section) =>
+    section.dir === "30-worktrees"
+  );
+  assert(worktrees !== undefined);
+  const response = await get(worktrees.index.route, BROWSER);
+  const html = await response.text();
+  assertStringIncludes(html, "discern-glossary-term");
+  assertStringIncludes(html, "discern-hover-card__panel");
+  assertStringIncludes(html, "discern-dotted-underline");
+  assertStringIncludes(html, "aria-details=");
 });
 
 Deno.test("rendered Markdown rules use the editorial discern mark", async () => {

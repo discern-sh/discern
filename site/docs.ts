@@ -26,7 +26,12 @@ import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
-import { renderMarkdownHtml } from "../src/lib/markdown.ts";
+import {
+  escapeHtml as escapeMarkdownHtml,
+  renderMarkdownHtml,
+  renderMarkdownInlineHtml,
+} from "../src/lib/markdown.ts";
+import { GLOSSARY, type GlossaryEntry } from "../scripts/glossary_registry.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
@@ -37,6 +42,7 @@ const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
 const ADR_DIR = join(MAP_DIR, "_adr");
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 const DECISIONS_ROUTE = "/docs/decisions";
+const GLOSSARY_MAP_PATH = "00-orientation/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
   import.meta.url,
@@ -488,6 +494,131 @@ export function rewriteLinks(
   }).join("\n");
 }
 
+interface GlossaryMention {
+  entry: GlossaryEntry;
+  text: string;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function glossaryMentions(): GlossaryMention[] {
+  const mentions: GlossaryMention[] = [];
+  const owners = new Map<string, string>();
+  for (const entry of GLOSSARY) {
+    for (const text of entry.term.split(/\s+\/\s+/)) {
+      const key = text.toLowerCase();
+      const prior = owners.get(key);
+      if (prior !== undefined && prior !== entry.term) {
+        throw new Error(
+          `docs: glossary mention ${text} belongs to both ${prior} and ${entry.term}`,
+        );
+      }
+      owners.set(key, entry.term);
+      mentions.push({ entry, text });
+    }
+  }
+  return mentions.toSorted((a, b) =>
+    b.text.length - a.text.length || a.text.localeCompare(b.text)
+  );
+}
+
+const GLOSSARY_MENTIONS = glossaryMentions();
+const GLOSSARY_BY_MENTION = new Map(
+  GLOSSARY_MENTIONS.map((mention) => [
+    mention.text.toLowerCase(),
+    mention.entry,
+  ]),
+);
+const GLOSSARY_MENTION_PATTERN = GLOSSARY_MENTIONS
+  .map((mention) => escapeRegExp(mention.text))
+  .join("|");
+const GLOSSARY_PANEL_IDS = new Map(
+  GLOSSARY.map((entry, index) => [
+    entry.term,
+    `docs-glossary-definition-${index + 1}`,
+  ]),
+);
+const glossaryDefinitionsCache = new WeakMap<
+  DocsSite,
+  ReadonlyMap<string, string>
+>();
+
+function glossaryDefinitions(site: DocsSite): ReadonlyMap<string, string> {
+  const cached = glossaryDefinitionsCache.get(site);
+  if (cached !== undefined) return cached;
+
+  const glossaryPage = site.byMapPath.get(GLOSSARY_MAP_PATH);
+  if (glossaryPage === undefined || glossaryPage.kind !== "guide") {
+    throw new Error(`docs: published glossary missing at ${GLOSSARY_MAP_PATH}`);
+  }
+  const definitions = new Map<string, string>();
+  for (const entry of GLOSSARY) {
+    const citationsStripped = stripAdrCitations(entry.definition);
+    const rootedAnchors = citationsStripped.replace(
+      /\]\((#[^()\s]+)\)/g,
+      `](${glossaryPage.route}$1)`,
+    );
+    const rewritten = rewriteLinks(rootedAnchors, glossaryPage, site);
+    definitions.set(entry.term, renderMarkdownInlineHtml(rewritten));
+  }
+  glossaryDefinitionsCache.set(site, definitions);
+  return definitions;
+}
+
+function glossaryTermHtml(
+  visible: string,
+  entry: GlossaryEntry,
+  definitionHtml: string,
+): string {
+  const panelId = GLOSSARY_PANEL_IDS.get(entry.term);
+  if (panelId === undefined) {
+    throw new Error(`docs: glossary term has no panel id: ${entry.term}`);
+  }
+  const term = escapeMarkdownHtml(visible);
+  const label = escapeMarkdownHtml(`${visible} definition`);
+  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${term}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><strong class="discern-glossary-term__term">${term}</strong><span class="discern-glossary-term__definition">${definitionHtml}</span></span></span></span>`;
+}
+
+/**
+ * Build one page-scoped prose renderer. Each canonical term's first eligible
+ * mention becomes the design system's Glossary term semantic HTML; later
+ * mentions remain plain text.
+ */
+export function createGlossaryProseRenderer(
+  site: DocsSite,
+): (text: string) => string {
+  const definitions = glossaryDefinitions(site);
+  const seen = new Set<string>();
+  const matcher = new RegExp(
+    `(?<![\\p{L}\\p{N}_])(?:${GLOSSARY_MENTION_PATTERN})(?![\\p{L}\\p{N}_])`,
+    "giu",
+  );
+
+  return (text: string): string => {
+    let html = "";
+    let cursor = 0;
+    for (const match of text.matchAll(matcher)) {
+      const visible = match[0];
+      const index = match.index;
+      const entry = GLOSSARY_BY_MENTION.get(visible.toLowerCase());
+      if (index === undefined || entry === undefined) continue;
+      html += escapeMarkdownHtml(text.slice(cursor, index));
+      const definition = definitions.get(entry.term);
+      if (!seen.has(entry.term) && definition !== undefined) {
+        seen.add(entry.term);
+        html += glossaryTermHtml(visible, entry, definition);
+      } else {
+        html += escapeMarkdownHtml(visible);
+      }
+      cursor = index + visible.length;
+    }
+    html += escapeMarkdownHtml(text.slice(cursor));
+    return html;
+  };
+}
+
 /**
  * Render one page (cached): frontmatter stripped, inline ADR citations
  * stripped (human-rendered prose; the raw `.md` edition keeps both), links
@@ -511,6 +642,7 @@ export async function renderDoc(
     : humanBody;
   const { html, headings } = renderMarkdownHtml(
     rewriteLinks(projectedBody, page, site),
+    { renderProseText: createGlossaryProseRenderer(site) },
   );
   const toc: TocItem[] = headings
     .filter((h) => h.depth === 2 || h.depth === 3)
