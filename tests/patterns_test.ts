@@ -109,6 +109,33 @@ function reading(
   return { name, value, limit, direction: "up", verdict: "improved" };
 }
 
+/** A driver bundle carrying one invocation-scoped identity signal. */
+function signalledDriver(agent: string, marker: string): VerbEvent["driver"] {
+  return {
+    session: "cli:1",
+    json: true,
+    tty: false,
+    ci: false,
+    agent_signals: [
+      { agent, source: "process-environment", markers: [marker] },
+    ],
+  };
+}
+
+/** An MCP call whose client declaration the recorder did not recognize. */
+function unknownMcpClient(name: string): Partial<VerbEvent> {
+  return {
+    surface: "mcp",
+    driver: {
+      session: "mcp:1",
+      json: false,
+      tty: false,
+      ci: false,
+      mcp_client: { name, version: "1.0.0" },
+    },
+  };
+}
+
 // ── the fixture table (keyed by detector id — the forcing tie) ──────────────
 
 /** A quiet state that cannot exist gets a recorded reason instead of events. */
@@ -121,6 +148,9 @@ interface DetectorFixtures {
   quiet: QuietFixture;
   /** Sits below the threshold (and carries no boundary to attribute). */
   sparse: LogbookEvent[];
+  /** Configured native providers the stream is read against, for detectors
+   * whose verdict depends on config context (shared by all three streams). */
+  configured_agents?: string[];
 }
 
 const FIXTURES: Record<string, DetectorFixtures> = {
@@ -248,6 +278,46 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       { verb: "accept", branch: "agent/calm" },
     ]),
     sparse: run([redDone()]),
+  },
+  "identity-gap": {
+    firing: run([
+      unknownMcpClient("mystery-agent"),
+      unknownMcpClient("mystery-agent"),
+      unknownMcpClient("mystery-agent"),
+      { driver: signalledDriver("claude", "CLAUDECODE") },
+      { driver: signalledDriver("claude", "CLAUDECODE") },
+    ]),
+    quiet: run([
+      { driver: signalledDriver("claude", "CLAUDECODE") },
+      { driver: signalledDriver("claude", "CLAUDECODE") },
+      { driver: signalledDriver("codex", "CODEX_THREAD_ID") },
+      { driver: signalledDriver("codex", "CODEX_THREAD_ID") },
+      { driver: signalledDriver("codex", "CODEX_THREAD_ID") },
+    ]),
+    sparse: run([
+      unknownMcpClient("mystery-agent"),
+      unknownMcpClient("mystery-agent"),
+      unknownMcpClient("mystery-agent"),
+      { driver: signalledDriver("claude", "CLAUDECODE") },
+    ]),
+  },
+  "provider-fit": {
+    configured_agents: ["codex"],
+    firing: run(
+      Array.from({ length: 5 }, () => ({
+        driver: signalledDriver("claude", "CLAUDECODE"),
+      })),
+    ),
+    quiet: run(
+      Array.from({ length: 5 }, () => ({
+        driver: signalledDriver("codex", "CODEX_THREAD_ID"),
+      })),
+    ),
+    sparse: run(
+      Array.from({ length: 4 }, () => ({
+        driver: signalledDriver("claude", "CLAUDECODE"),
+      })),
+    ),
   },
   "dominant-stage": {
     firing: run(
@@ -545,7 +615,10 @@ function fixturesOf(d: Detector): DetectorFixtures {
 }
 
 function report(d: Detector, events: LogbookEvent[]): DetectorReport {
-  return runDetector(d, buildStreamFacts(events, "main"));
+  return runDetector(
+    d,
+    buildStreamFacts(events, "main", fixturesOf(d).configured_agents ?? []),
+  );
 }
 
 for (const d of DETECTORS) {
@@ -747,6 +820,23 @@ Deno.test("patterns driver scoring: a signalled interactive-looking run re-enter
     events.length,
     "a terminal with an invocation-scoped signal is ambiguous, not human — " +
       "it must stay in the population",
+  );
+});
+
+Deno.test("patterns provider-fit: a signal-only identity has nothing to configure and stays quiet", () => {
+  const events = run(
+    Array.from({ length: 5 }, () => ({
+      driver: signalledDriver("replit", "REPL_ID"),
+    })),
+  );
+  const fit = DETECTORS.find((d) => d.id === "provider-fit");
+  assert(fit !== undefined);
+  const outcome = runDetector(fit, buildStreamFacts(events, "main", []));
+  assertEquals(outcome.considered, 5);
+  assertEquals(
+    outcome.findings,
+    [],
+    "an identity with no native integration must never be proposed as one",
   );
 });
 

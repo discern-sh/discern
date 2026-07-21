@@ -36,7 +36,10 @@
  * intended tuner.
  */
 
-import { AGENT_SIGNAL_SOURCE_LIFETIMES } from "../../shared/agent_catalogue.ts";
+import {
+  AGENT_CATALOGUE,
+  AGENT_SIGNAL_SOURCE_LIFETIMES,
+} from "../../shared/agent_catalogue.ts";
 import type {
   DetectorFamily,
   DetectorScope,
@@ -59,6 +62,10 @@ export interface StreamFacts {
   agentish: VerbEvent[];
   /** The trunk branch name (`[repository].trunk`) — the branch work must not land on directly. */
   trunk: string;
+  /** The native provider names guidance is compiled for (the configured
+   * `[guidance].agents`, resolved) — what the provider-fit detector reads the
+   * driver mix against. */
+  configuredAgents: readonly string[];
   /** The newest event's timestamp — the stream's own "now", so age-relative
    * detectors are pure functions of the stream (and deterministic in tests). */
   horizon: string | undefined;
@@ -124,6 +131,7 @@ export function driverAgent(e: VerbEvent): string | undefined {
 export function buildStreamFacts(
   events: LogbookEvent[],
   trunk: string,
+  configuredAgents: readonly string[] = [],
 ): StreamFacts {
   const verbs = events.filter((e): e is VerbEvent => e.kind === "verb")
     .filter((e) => e.driver?.ci !== true && e.dry_run !== true);
@@ -133,6 +141,7 @@ export function buildStreamFacts(
     verbs,
     agentish,
     trunk,
+    configuredAgents,
     horizon: events[events.length - 1]?.at,
   };
 }
@@ -738,6 +747,121 @@ const sequenceAnomaly: Detector = {
       });
     }
     return { considered: accepts.length + dones.length, findings };
+  },
+};
+
+const identityGap: Detector = {
+  id: "identity-gap",
+  title: "Drivers the catalogue can't name",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  // 5 identity-bearing runs before reading anything into the gaps.
+  threshold: 5,
+  next_step:
+    "Runs discern can't attribute to a known agent read as one anonymous cohort. A newer discern release may recognize the client; until then, weigh the other findings knowing part of the corpus is unattributed.",
+  detect(facts): DetectorOutcome {
+    // Identity evidence is about the corpus, not behaviour pathology, so the
+    // population is every analyzed run that carries any of it.
+    const bearing = facts.verbs.filter((e) =>
+      (e.driver?.agent_signals ?? []).length > 0 ||
+      e.driver?.mcp_client !== undefined
+    );
+    const unknownClients = new Map<string, number>();
+    let undeclared = 0;
+    for (const e of bearing) {
+      const signals = e.driver?.agent_signals ?? [];
+      const client = e.driver?.mcp_client;
+      // A client declaration with no matching mcp-client signal means the
+      // recorder's catalogue didn't recognize it — the raw name was retained
+      // exactly so a reader could say so.
+      if (
+        client !== undefined && !signals.some((s) => s.source === "mcp-client")
+      ) {
+        unknownClients.set(
+          client.name,
+          (unknownClients.get(client.name) ?? 0) + 1,
+        );
+      }
+      if (signals.some((s) => s.agent === "custom")) {
+        undeclared += 1;
+      }
+    }
+    const findings: DetectorFinding[] = [];
+    // 3 recurrences per gap: one visit is a stray, three is a regular driver.
+    const recurring = [...unknownClients.entries()]
+      .filter(([, count]) => count >= 3)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    for (const [name, count] of recurring) {
+      findings.push({
+        subject: name,
+        observed:
+          `\`${name}\` drove ${count} MCP calls but matches nothing in the identity catalogue.`,
+        evidence: { runs: count },
+        strength: count,
+      });
+    }
+    if (undeclared >= 3) {
+      findings.push({
+        observed:
+          `an agent declaring an \`AI_AGENT\` value discern doesn't recognize drove ${undeclared} runs.`,
+        evidence: { runs: undeclared },
+        strength: undeclared,
+      });
+    }
+    return { considered: bearing.length, findings };
+  },
+};
+
+const providerFit: Detector = {
+  id: "provider-fit",
+  title: "A returning agent without its native integration",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  // 5 identity-attributed runs before reading the driver mix at all; the
+  // firing bar is 3 runs from one identity — an agent that keeps coming back,
+  // not a stray visit.
+  threshold: 5,
+  next_step:
+    "discern can compile guidance and materialize skills for this agent natively — add it to [guidance].agents in discern.toml and run `discern refresh`, so the agents actually driving the project receive its guidance.",
+  detect(facts): DetectorOutcome {
+    const runsByIdentity = new Map<string, number>();
+    let attributed = 0;
+    for (const e of facts.agentish) {
+      const identity = driverAgent(e);
+      if (identity === undefined) {
+        continue;
+      }
+      attributed += 1;
+      runsByIdentity.set(identity, (runsByIdentity.get(identity) ?? 0) + 1);
+    }
+    const configured = new Set(facts.configuredAgents);
+    const findings: DetectorFinding[] = [];
+    const ranked = [...runsByIdentity.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    for (const [identity, runs] of ranked) {
+      if (runs < 3) {
+        continue;
+      }
+      const entry = AGENT_CATALOGUE.find((i) => i.id === identity);
+      // Only identities discern natively supports have anything to configure.
+      if (entry === undefined || !("nativeName" in entry)) {
+        continue;
+      }
+      if (configured.has(entry.nativeName)) {
+        continue;
+      }
+      findings.push({
+        subject: entry.label,
+        observed:
+          `${entry.label} drove ${runs} of ${attributed} identity-attributed runs, but isn't among the configured agent integrations.`,
+        evidence: { runs, attributed_runs: attributed },
+        strength: runs,
+      });
+    }
+    return { considered: attributed, findings };
   },
 };
 
@@ -1416,6 +1540,8 @@ export const DETECTORS: readonly Detector[] = [
   docsGap,
   abandonedWorktrees,
   sequenceAnomaly,
+  identityGap,
+  providerFit,
   dominantStage,
   durationCreep,
   fixStageIdle,

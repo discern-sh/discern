@@ -19,7 +19,10 @@
  */
 
 import { agentLabel } from "../../shared/agent_catalogue.ts";
-import { loadConfig } from "../../shared/config_schema.ts";
+import {
+  loadConfig,
+  resolveConfiguredAgents,
+} from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type {
   PatternsData,
@@ -115,7 +118,11 @@ export async function patternsResult(
     return noRepository("patterns");
   }
   const stream = await readLogbookStream(commonGitDir);
-  const facts = buildStreamFacts(stream.events, config.repository.trunk);
+  const facts = buildStreamFacts(
+    stream.events,
+    config.repository.trunk,
+    resolveConfiguredAgents(config),
+  );
   const reports = runDetectors(facts);
   const findings = rankedFindings(reports);
   const first = stream.events[0];
