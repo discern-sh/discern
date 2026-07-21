@@ -166,7 +166,7 @@ A named region of the repository, declared as `[scopes.<name>]` with path globs 
 
 ### Skill
 
-A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).
+A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory, `discern skills list` shows it, and `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).
 
 ### Stage
 
@@ -174,7 +174,7 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 
 ### Standard
 
-A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Covered in [standards](../20-quality-gate/standards.md).
+A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` runs deferred measurements on demand, and its `--pin` tightens an improved limit. Covered in [standards](../20-quality-gate/standards.md).
 
 ### Surface
 
@@ -194,7 +194,7 @@ A separate checkout and branch for one change, created by `discern start`, so ag
 
 ### Worktree resource
 
-An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)).
+An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)). `discern identity` reads a worktree's provisioned values from inside it.
 
 ### Worktree settings
 

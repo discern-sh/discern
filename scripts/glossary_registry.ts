@@ -271,7 +271,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Skill",
     definition:
-      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).",
+      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory, `discern skills list` shows it, and `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).",
   },
   {
     term: "Stage",
@@ -282,7 +282,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Standard",
     definition:
-      "A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Covered in [standards](../20-quality-gate/standards.md).",
+      "A quality number that can never get worse: a floor or ceiling declared under `[standards]`, measured by a command you write and held against the [trunk](#trunk) on every `discern done` run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). `discern standards` runs deferred measurements on demand, and its `--pin` tightens an improved limit. Covered in [standards](../20-quality-gate/standards.md).",
   },
   {
     term: "Surface",
@@ -308,7 +308,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Worktree resource",
     definition:
-      "An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)).",
+      "An external thing a worktree needs in isolation (a database, an emulator, a container), declared as `[worktree.resources.<name>]` with a `create` and a `destroy` command. Created once per worktree, destroyed at teardown, and reclaimed by `discern worktree prune` if orphaned ([ADR 0025](../_adr/0025-worktree-resources.md)). `discern identity` reads a worktree's provisioned values from inside it.",
   },
   {
     term: "Worktree settings",
@@ -321,6 +321,32 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Files written once and then the project's: committed, edited in place, and left alone by `upgrade`. The [namespace](#namespace) content, the [map](#map), the ledger, and the provider settings merged into files you already had at setup.",
   },
 ];
+
+/**
+ * Closed-set members deliberately NOT in the glossary, each with the reason.
+ * Keys are namespaced `<set>:<member>` — `verb:help`, `capability:lint` — so
+ * same-named members of different sets stay distinct.
+ *
+ * The enrolment guard (tests/glossary_enrolment_test.ts) holds every
+ * capability, stage, and top-level verb to exactly one of: named by the
+ * glossary, or recorded here. A new member fails the gate until someone
+ * decides which — vocabulary at birth, not by accretion — and a record whose
+ * member the glossary later names fails as stale.
+ */
+export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
+  "verb:help":
+    "prints the manual; a utility verb with no concept behind it — the CLI reference documents it",
+  "verb:impact":
+    "read-only advisory of what a change touches; no page uses it as a term of art",
+  "verb:improvement":
+    "read-only advisory of the ranked next action; no page uses it as a term of art",
+  "verb:licenses":
+    "prints the third-party notices; a utility verb with no concept behind it",
+  "verb:mcp":
+    "starts the MCP server; the Surface entry names the MCP surface, and the verb is its plumbing",
+  "verb:uninstall":
+    "removes what setup laid down; the Installer entry carries the concept, the CLI reference the verb",
+};
 
 /** Every retired synonym, paired with the canonical term that replaced it. */
 export function retiredSynonyms(): Array<
