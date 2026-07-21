@@ -1,8 +1,6 @@
 # ADR 0034: AGENTS.md is an untracked build artifact, guarded by a currency check
 
-> **Posture amendment ([ADR 0128](0128-enumerated-ownership-tracked-guidance.md)):** The tracking default is reversed — the compiled agent files (canonical and mirrors) are now **tracked** by default, and the managed ignore block enumerates only materialized/local paths. This ADR's surviving contributions are the banner removal, the stateless currency check, and the tracked-artifacts guard (now scoped to the enumerated block).
-
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`; the decision and reasoning are unchanged.
+> **Posture amendment ([ADR 0128](0128-enumerated-ownership-tracked-guidance.md)):** The tracking default is reversed — the compiled agent files (canonical and mirrors) are now **tracked** by default, and the managed ignore block enumerates only materialized/local paths. This ADR's surviving contributions are the banner removal, the stateless currency check, and the tracked-artifacts guard (now scoped to the enumerated block). **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`; the decision and reasoning are unchanged.
 
 **Status**: accepted; the tracking default is superseded by [ADR 0128](0128-enumerated-ownership-tracked-guidance.md) (the currency check and tracked-artifacts guard remain in force); supersedes the _tracking_ decision in — and **consolidates** — [ADR 0032](_superseded/0032-claude-md-imports-agents-md.md) (whose surviving contribution, the `@AGENTS.md` pointer, is described in §1–2 below), and revises the `tracked` flag from [ADR 0031](0031-typed-provider-integration.md). Builds on the orientation verb from [ADR 0033](0033-status-verb-and-location-aware-scope.md).
 

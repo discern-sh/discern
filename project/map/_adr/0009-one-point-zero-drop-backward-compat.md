@@ -1,6 +1,6 @@
 # ADR 0009: 1.0 — drop backward compatibility, with a one-shot `upgrade`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`; the decision and reasoning are unchanged. **Update ([ADR 0014](0014-versioned-migration-system.md)).** This one-shot, content-sniffing `upgrade` was retired in favour of a versioned migration chain anchored on a `schema_version`. `upgrade` now runs pending migrations automatically (no nudge), and `upgrade` became a read-only status command. The 0.x→1.0 rules below were not ported: the current shape is declared schema 1 and the chain starts clean. The rest of this ADR (the 1.0 shape itself) stands.
 
 **Status**: accepted
 
@@ -34,8 +34,6 @@ Cut **1.0**, lift the backward-compatibility constraint, and make the clean chan
 Ship a one-shot `discern upgrade` that rewrites a pre-1.0 `discern.toml` to the 1.0 shape in place (comment-preserving): `coverage_min` → a `[standards.coverage]` table, the `coverage` slot phase → a measurement slot, and `{{db}}` … → `@db@` …. It is idempotent (a clean 1.0 file reports nothing to do) and honours `--dry-run`/`--json`. It touches only `discern.toml`; the engine itself is refreshed by `discern upgrade`, as always.
 
 To close the loop, **`upgrade` and `doctor` detect a pre-1.0 config** (reusing the migrator's own change-detection) and point the user at `upgrade`. That matters most for the _silent_ breakage — a `coverage_min` the 1.0 engine no longer reads — which would otherwise pass unnoticed at upgrade time; `upgrade` still succeeds (the nudge is advisory), while `doctor` reports it as a fixable finding.
-
-> **Update ([ADR 0014](0014-versioned-migration-system.md)).** This one-shot, content-sniffing `upgrade` was retired in favour of a versioned migration chain anchored on a `schema_version`. `upgrade` now runs pending migrations automatically (no nudge), and `upgrade` became a read-only status command. The 0.x→1.0 rules above were not ported: the current shape is declared schema 1 and the chain starts clean. The rest of this ADR (the 1.0 shape itself) stands.
 
 The kit version moves to **1.0.0**.
 

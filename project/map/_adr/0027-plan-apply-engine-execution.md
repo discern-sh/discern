@@ -1,8 +1,6 @@
 # ADR 0027: Plan/apply as the engine's execution model
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb; the decision and reasoning are unchanged.
-
-> **Current-state note.** The plan vocabulary (`StepKind`, `EnginePlan`, `renderPlan`, `planToJson`) was consolidated into `src/shared/result.ts` alongside the result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)); the per-verb plan builders live in `src/engine/gate/plan.ts`, `src/engine/gate/standard_plan.ts`, and the worktree lifecycle. The decision stands; only the file locations moved (the cited `engine/plan/*` paths below are updated to match).
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb; the decision and reasoning are unchanged. **Current-state note.** The plan vocabulary (`StepKind`, `EnginePlan`, `renderPlan`, `planToJson`) was consolidated into `src/shared/result.ts` alongside the result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)); the per-verb plan builders live in `src/engine/gate/plan.ts`, `src/engine/gate/standard_plan.ts`, and the worktree lifecycle. The decision stands; only the file locations moved (the cited `engine/plan/*` paths below are updated to match).
 
 **Status**: accepted
 

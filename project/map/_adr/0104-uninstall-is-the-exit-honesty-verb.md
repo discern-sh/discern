@@ -1,8 +1,6 @@
 # ADR 0104: `discern uninstall` is the exit-honesty verb — registry-derived removal, CLI-only
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
 
 **Status**: accepted; implements [design principle 12](../00-orientation/design-principles.md) (exit honesty) and [13](../00-orientation/design-principles.md) (a provable footprint); inverts [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md) (the write-surface contract) and its guard [ADR 0102](0102-paths-registry-and-rendered-artifacts.md); follows [ADR 0027](0027-plan-apply-engine-execution.md) (plan/apply), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope), and [ADR 0051](0051-canonical-set-parity.md) (forcing functions).
 

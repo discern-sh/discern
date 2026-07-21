@@ -1,10 +1,8 @@
 # ADR 0090: setup proves the project runs in a worktree, and `smoke` joins the known capabilities
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged. **Readiness clarification ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** `smoke` also covers the essential shared config/runtime dependencies needed for that fast boot, and remains the project's configurable readiness check. Discern-owned predictable writes are probed internally rather than adding a second `[preflight]` concept; prerequisites unique to one custom command stay with that command.
 
 **Status**: accepted; builds on [ADR 0075](0075-setup-staged-handshake.md) (the staged handshake, stateless derived progress), [ADR 0078](0078-setup-pages-and-per-step-proof.md) (stateless pages, derived per-step proof, the two-lane rule), [ADR 0065](0065-setup-keeps-its-promises.md) (`setup done` is a proven gate), [ADR 0052](0052-worktree-sibling-placement.md) (worktree sibling placement), and [ADR 0017](0017-capabilities-model.md) (the closed capability vocabulary, tied to its satellites by the forcing functions of [ADR 0051](0051-canonical-set-parity.md)).
-
-> **Readiness clarification ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** `smoke` also covers the essential shared config/runtime dependencies needed for that fast boot, and remains the project's configurable readiness check. Discern-owned predictable writes are probed internally rather than adding a second `[preflight]` concept; prerequisites unique to one custom command stay with that command.
 
 ## Context
 

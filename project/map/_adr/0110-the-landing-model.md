@@ -1,8 +1,6 @@
 # ADR 0110: The landing model — pull from any ref, land only on the trunk
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar, the shared-branch label → the trunk; the decision and reasoning are unchanged.
-
-> **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The single landing target now lives at `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `graduate` → `accept`, `integrate` → `update`, the retired product-category wording → `discern`, the gate, or the bar, the shared-branch label → the trunk; the decision and reasoning are unchanged. **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The single landing target now lives at `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
 
 **Status**: accepted — supersedes the configurable-destination decision of [ADR 0046](_superseded/0046-graduate-destination-and-skill-removal.md) (its removal of the handoff-worktree skill stands), and extends the update verb of [ADR 0055](0055-update-verb.md) / [ADR 0064](0064-update-change-summary.md).
 

@@ -1,10 +1,8 @@
 # ADR 0040: The worktree hooks parse their payload in the binary (no jq)
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`; the decision and reasoning are unchanged. **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced by a configurable sibling default (`[worktree].root`). The layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver.
 
 **Status**: accepted
-
-> **Update ([ADR 0052](0052-worktree-sibling-placement.md)):** the `<cwd>/.claude/worktrees/<name>` placement this ADR encodes was later replaced by a configurable sibling default (`[worktree].root`). The layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver.
 
 ## Context
 

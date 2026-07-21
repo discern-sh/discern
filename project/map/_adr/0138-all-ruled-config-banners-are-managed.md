@@ -1,8 +1,6 @@
 # ADR 0138: All ruled config banners are managed regions
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** `[ratchets]` and `[docs]` below name historical schema inputs; current config uses `[standards]` and `[map]`.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** `[recipes]` below names the historical schema input; current config uses `[scripts]`.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** `[ratchets]` and `[docs]` below name historical schema inputs; current config uses `[standards]` and `[map]`. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** `[recipes]` below names the historical schema input; current config uses `[scripts]`.
 
 **Status**: accepted
 

@@ -1,10 +1,8 @@
 # ADR 0049: Ship the fix-the-class discipline as built-in guidance and a bundled skill
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since [ADR 0087](0087-prefix-and-expand-bundled-skills.md), which prefixed and expanded the bundled skill set. The discipline is unchanged.
 
 **Status**: accepted
-
-> **Renamed** — the `fix-a-bug-class` skill this ADR introduces ships as `discern-cure-a-bug` since [ADR 0087](0087-prefix-and-expand-bundled-skills.md), which prefixed and expanded the bundled skill set. The discipline is unchanged.
 
 ## Context
 

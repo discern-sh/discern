@@ -1,10 +1,6 @@
 # ADR 0007: The adapter contract — a file overlay plus config fills
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged.
-
-> **Current-state note.** The "adapter" is now the **preset** — `preset`, `preset.json`, `presets/` (renamed by [ADR 0018](0018-vocabulary-consolidation.md)); read every "adapter" below as "preset". The managed/`.new` overlay it builds on was removed with the single binary ([ADR 0019](0019-single-binary-ts-engine.md)) — seed files are now create-or-skip — but the mechanism (a directory overlay plus config fills through the shared editor) still ships.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The project-owned executable called a Recipe below is now a Project Script under `discern script`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Current-state note.** The "adapter" is now the **preset** — `preset`, `preset.json`, `presets/` (renamed by [ADR 0018](0018-vocabulary-consolidation.md)); read every "adapter" below as "preset". The managed/`.new` overlay it builds on was removed with the single binary ([ADR 0019](0019-single-binary-ts-engine.md)) — seed files are now create-or-skip — but the mechanism (a directory overlay plus config fills through the shared editor) still ships. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The project-owned executable called a Recipe below is now a Project Script under `discern script`; the decision and reasoning are unchanged.
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_ below.
 

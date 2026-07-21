@@ -1,8 +1,6 @@
 # ADR 0055: `discern update` — the third verb in the worktree lifecycle, bundling merge with re-materialize
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the shared-branch label → the trunk; the decision and reasoning are unchanged.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the suggestable-command list that replaced the old Recipe name satellite; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the shared-branch label → the trunk; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers reflect the suggestable-command list that replaced the old Recipe name satellite; the decision and reasoning are unchanged.
 
 **Status**: accepted. Completes the worktree lifecycle alongside [ADR 0011](0011-adopt-worktree-workflow.md), resolves the fail-fast merge check of [ADR 0050](0050-merge-check-fail-fast.md), and respects the no-auto-heal boundary of [ADR 0034](0034-agents-md-untracked-currency-check.md).
 

@@ -1,8 +1,6 @@
 # ADR 0019: Collapse into one binary with a TypeScript-native engine
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `scopes` → `impact` where it names the verb, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
-
-> **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The language-agnostic executable contract stands, but current files are Project Scripts under `[scripts].dir` and run through `discern script`; the root fall-through and engine-wins collision rule described below are superseded.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `scopes` → `impact` where it names the verb, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The language-agnostic executable contract stands, but current files are Project Scripts under `[scripts].dir` and run through `discern script`; the root fall-through and engine-wins collision rule described below are superseded.
 
 **Status**: accepted
 

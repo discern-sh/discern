@@ -1,14 +1,8 @@
 # ADR 0067: Accept validates the exact tree it lands, fast-pathed by a gate receipt
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the gate-pass artifact → the receipt; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`, `graduate` → `accept`, `integrate` → `update`, the gate-pass artifact → the receipt; the decision and reasoning are unchanged. **Note ([ADR 0110](0110-the-landing-model.md)):** `accept --to trunk` below is now plain `accept` — the configurable destination was removed and the trunk is the single landing target. The receipt-fast-pathed validation decided here stands unchanged. **Operational amendment ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** Receipt I/O remains best-effort against failures that arise after validation starts, but `done` now proves its Git-admin write authority before project jobs run. A known denial is a fail-fast gate precondition, not a green run without a receipt that acceptance has to repeat. **Path amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The worktree-local receipt now resolves as `discern/gate-receipt`, beneath Discern's Git-admin namespace. Its identity and lifetime are unchanged.
 
 **Status**: accepted. Supersedes [ADR 0061](_superseded/0061-graduate-fix-stage-fixed-point.md) (the fix-stage-only fixed-point guard in `accept`) and overturns its "run the whole gate in accept" rejection — the gate receipt removes the cost that rejection rested on. Reuses the merge precondition ([ADR 0050](0050-merge-check-fail-fast.md)) and the one result envelope ([ADR 0028](0028-result-envelope-and-diagnostics.md)).
-
-> **Note ([ADR 0110](0110-the-landing-model.md)):** `accept --to trunk` below is now plain `accept` — the configurable destination was removed and the trunk is the single landing target. The receipt-fast-pathed validation decided here stands unchanged.
-
-> **Operational amendment ([ADR 0152](0152-slow-workflows-prove-write-authority-first.md)):** Receipt I/O remains best-effort against failures that arise after validation starts, but `done` now proves its Git-admin write authority before project jobs run. A known denial is a fail-fast gate precondition, not a green run without a receipt that acceptance has to repeat.
-
-> **Path amendment ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)):** The worktree-local receipt now resolves as `discern/gate-receipt`, beneath Discern's Git-admin namespace. Its identity and lifetime are unchanged.
 
 ## Context
 

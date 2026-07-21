@@ -1,8 +1,6 @@
 # ADR 0054: One module owns process spawning — git and `sh -c` funnel through shared runners
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script for the former project Recipe surface; the decision and reasoning are unchanged.
 
 **Status**: accepted; extends [ADR 0051](0051-canonical-set-parity.md)'s drive-off-the-live-tree guard discipline to subprocess spawning, and clears the last open-coded remnants of the shell engine that preceded the single binary ([ADR 0019](0019-single-binary-ts-engine.md)).
 

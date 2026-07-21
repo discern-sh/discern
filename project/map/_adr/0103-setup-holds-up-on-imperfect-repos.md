@@ -1,8 +1,6 @@
 # ADR 0103: Setup grounds itself in the repo's real state — detected default branch, git-init-first without git, a welcome everywhere
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the shared-branch label → the trunk; the decision and reasoning are unchanged.
-
-> **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** Setup now stamps the detected branch into `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use the shared-branch label → the trunk; the decision and reasoning are unchanged. **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** Setup now stamps the detected branch into `[repository].trunk`; references below to `[project].main_branch` preserve the original schema spelling.
 
 **Status**: accepted; builds on [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md) (the served relay messages this makes honest), [ADR 0081](0081-setup-accept-command.md) (the landing command whose dead ends this closes), and [ADR 0100](0100-project-map-is-the-agents-map.md) (the single consent question whose promises this conditions)
 

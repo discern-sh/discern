@@ -1,8 +1,6 @@
 # ADR 0020: Dissolve `.discern/` — one root config file, config-driven point-and-override, feature toggles
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
-
-> **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The config-pointing and ownership rule now applies to `[scripts].dir`; Project Scripts live under `discern script`, not the root command namespace.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The config-pointing and ownership rule now applies to `[scripts].dir`; Project Scripts live under `discern script`, not the root command namespace.
 
 **Status**: accepted; **supersedes [ADR 0016](_superseded/0016-consolidate-install-surface.md)**; the single-root-file **config** footprint is narrowed for _runtime_ per-worktree state by [ADR 0025](0025-worktree-resources.md) (the resource ledger under `.git/`); the `[features]` set introduced here is later revised by [ADR 0045](0045-mcp-is-core-infrastructure.md) (which drops `mcp` — the MCP server became core infrastructure, not a toggle); the root-scatter defaults introduced here are consolidated under a visible `discern/` namespace by [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md), and the `[features]` set is retired outright by [ADR 0101](0101-retire-the-features-toggles.md) — this ADR's config-pointing and ownership rules stand
 

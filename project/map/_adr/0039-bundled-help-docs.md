@@ -1,8 +1,6 @@
 # ADR 0039: discern ships its own docs to every install via `discern help`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
->
-> **Decision-record amendment ([ADR 0142](0142-customer-binaries-carry-only-public-docs.md)):** Customer binaries still carry the public help manual, but no longer embed `_adr/`. Source checkouts keep local `help --adr`; installed binaries point readers to the public decisions archive and repository.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Decision-record amendment ([ADR 0142](0142-customer-binaries-carry-only-public-docs.md)):** Customer binaries still carry the public help manual, but no longer embed `_adr/`. Source checkouts keep local `help --adr`; installed binaries point readers to the public decisions archive and repository.
 
 **Status**: accepted
 

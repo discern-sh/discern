@@ -1,10 +1,6 @@
 # ADR 0099: Consolidate the authored surface under a visible `discern/` namespace
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** ADR 0120 supersedes this record's map-placement details, including the `[docs]` row and `docs/…` paths below: live config uses `[map]`, and a fresh tree defaults to `map/`. The remaining namespace decision and reasoning are unchanged.
-
-> **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The row originally named `[recipes].dir` is now `[scripts].dir`; its default moved from `discern/recipes` to `discern/scripts`. The placement rule stands.
-
-> **Self-hosting amendment (2026-07-13):** This repository now points every ongoing configurable authored source beneath `project/` — guidance, map, authored skills, project scripts, and ledger — to exercise every independent path override coherently. Fresh installations retain the defaults this record establishes, as amended for the map by ADR 0120.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** ADR 0120 supersedes this record's map-placement details, including the `[docs]` row and `docs/…` paths below: live config uses `[map]`, and a fresh tree defaults to `map/`. The remaining namespace decision and reasoning are unchanged. **Project Script amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The row originally named `[recipes].dir` is now `[scripts].dir`; its default moved from `discern/recipes` to `discern/scripts`. The placement rule stands. **Self-hosting amendment (2026-07-13):** This repository now points every ongoing configurable authored source beneath `project/` — guidance, map, authored skills, project scripts, and ledger — to exercise every independent path override coherently. Fresh installations retain the defaults this record establishes, as amended for the map by ADR 0120.
 
 **Status**: accepted; amends [ADR 0020](0020-dissolve-discern-dir.md) (its config-pointing and ownership rules stand; its root-scatter defaults are revised) and [ADR 0080](0080-configured-agent-map-root.md) (the docs default moves inside the namespace)
 

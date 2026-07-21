@@ -1,8 +1,6 @@
 # ADR 0005: Declarative config — a comment-preserving editor, `discern config`, and `setup --config`
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged.
-
-> **Current-state note.** `setup --config` is retired — `setup` redirects to `discern setup` ([ADR 0036](0036-unify-setup.md)). The comment-preserving `TomlEditor`, the `discern config` surface, and the published JSON Schema all still ship; the schema is now generated from one Zod definition ([ADR 0026](0026-typed-config-schema.md)), and the `set-slot`/`set-side-gate` verbs are now `set-capability`/`set-check`/`set-scope` ([ADR 0017](0017-capabilities-model.md)).
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`; the decision and reasoning are unchanged. **Current-state note.** `setup --config` is retired — `setup` redirects to `discern setup` ([ADR 0036](0036-unify-setup.md)). The comment-preserving `TomlEditor`, the `discern config` surface, and the published JSON Schema all still ship; the schema is now generated from one Zod definition ([ADR 0026](0026-typed-config-schema.md)), and the `set-slot`/`set-side-gate` verbs are now `set-capability`/`set-check`/`set-scope` ([ADR 0017](0017-capabilities-model.md)).
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_ below.
 

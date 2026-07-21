@@ -1,8 +1,6 @@
 # ADR 0035: A strict, config-only template engine for the built-in guidance
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the shared-branch label → the trunk, `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the decision and reasoning are unchanged.
-
-> **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The `branch_prefix` and `main_branch` template variables retain their wire names, but their committed sources are now `[repository].branch_prefix` and `[repository].trunk`.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `docs` → `map` where it names the command, config, or tree, the shared-branch label → the trunk, `MAIN_BRANCH` → `DISCERN_MAIN_BRANCH`; the decision and reasoning are unchanged. **Configuration amendment ([ADR 0153](0153-repository-owns-shared-checkout-convergence.md)):** The `branch_prefix` and `main_branch` template variables retain their wire names, but their committed sources are now `[repository].branch_prefix` and `[repository].trunk`.
 
 **Status**: accepted; builds on [ADR 0034](0034-agents-md-untracked-currency-check.md) (the generated agent files are untracked and gate-checked for currency) and the compile model of [ADR 0026](0026-typed-config-schema.md) (one typed config as the single source).
 

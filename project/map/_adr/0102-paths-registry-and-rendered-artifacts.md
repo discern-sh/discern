@@ -1,8 +1,6 @@
 # ADR 0102: One paths registry, rendered artifacts, and leakage guards
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged.
-
-> **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script and `[scripts].dir` for the former Recipe surface; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree; the decision and reasoning are unchanged. **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** Current pointers use Project Script and `[scripts].dir` for the former Recipe surface; the decision and reasoning are unchanged.
 
 **Status**: accepted; builds on [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md); extends [ADR 0026](0026-typed-config-schema.md) (the schema stays the config authority; path defaults gain their own registry beneath it) and [ADR 0051](0051-canonical-set-parity.md) (whose guard pattern this applies to paths)
 
