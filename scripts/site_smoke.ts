@@ -1,7 +1,7 @@
 /** Production-style crawl of the real site handler or a deployed release. */
 
 import { JSDOM } from "jsdom";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import {
   buildSiteRedirectTable,
@@ -377,7 +377,7 @@ export async function runSiteSmoke(
     }
     const related = [...rendered.querySelectorAll(".docs-related-decision")]
       .map((link) => link.getAttribute("href") ?? "");
-    const expected = page.entry.citedAdrs.map((citation) =>
+    const expected = relatedDecisionCitations(page).map((citation) =>
       site.decisions.byNumber.get(citation.number)?.route ?? ""
     );
     sameSequence(`${page.route} related decisions`, related, expected, fail);

@@ -25,7 +25,10 @@ import {
 import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { stripAdrCitations } from "../src/lib/adr_citations.ts";
+import {
+  type AdrCitation,
+  stripAdrCitations,
+} from "../src/lib/adr_citations.ts";
 import {
   escapeHtml as escapeMarkdownHtml,
   renderMarkdownHtml,
@@ -959,12 +962,18 @@ function sectionLeafIndexHtml(site: DocsSite, page: DocsPage): string {
     </section>`;
 }
 
-/** A public page's collected citations, linked to their on-site records. */
+/** Citations eligible for a page's browser-only related-decisions surface. */
+export function relatedDecisionCitations(
+  page: DocsPage,
+): readonly AdrCitation[] {
+  return page.mapPath === GLOSSARY_MAP_PATH ? [] : page.entry.citedAdrs;
+}
+
+/** A public page's eligible citations, linked to their on-site records. */
 function relatedDecisionsHtml(site: DocsSite, page: DocsPage): string {
-  if (
-    page.mapPath === GLOSSARY_MAP_PATH || page.entry.citedAdrs.length === 0
-  ) return "";
-  const items = page.entry.citedAdrs.map((citation) => {
+  const citations = relatedDecisionCitations(page);
+  if (citations.length === 0) return "";
+  const items = citations.map((citation) => {
     const decision = site.decisions.byNumber.get(citation.number);
     if (decision === undefined) {
       throw new Error(

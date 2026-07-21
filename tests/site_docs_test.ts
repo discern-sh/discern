@@ -23,6 +23,7 @@ import {
   type DocsPage,
   loadDocsSite,
   projectDocsPages,
+  relatedDecisionCitations,
   rewriteLinks,
   sectionSlugOf,
 } from "../site/docs.ts";
@@ -536,6 +537,7 @@ Deno.test("ADR links rewrite to decision routes", async () => {
 
 Deno.test("related decisions render exactly the collected citation set", async () => {
   const site = await loadDocsSite();
+  let ordinaryCitationCount = 0;
   for (const page of site.pages) {
     const res = await get(page.route, BROWSER);
     const html = await res.text();
@@ -544,7 +546,8 @@ Deno.test("related decisions render exactly the collected citation set", async (
       ".docs-related-decision",
     )];
     const glossary = page.mapPath === "00-orientation/glossary.md";
-    const expectedCitations = glossary ? [] : page.entry.citedAdrs;
+    const expectedCitations = relatedDecisionCitations(page);
+    if (!glossary) ordinaryCitationCount += expectedCitations.length;
     assertEquals(links.length, expectedCitations.length, page.entry.path);
     assertEquals(
       links.map((link) => link.getAttribute("href")),
@@ -574,6 +577,10 @@ Deno.test("related decisions render exactly the collected citation set", async (
     }
     dom.window.close();
   }
+  assert(
+    ordinaryCitationCount > 0,
+    "the policy must preserve citations on ordinary documentation pages",
+  );
 });
 
 Deno.test("unpublished tiers never surface under /docs", async () => {
