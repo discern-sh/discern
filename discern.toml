@@ -17,7 +17,7 @@
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 21
+schema_version = 22
 bootstrapped   = true
 
 [project]
@@ -112,8 +112,8 @@ agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 dir = "project/skills"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [capabilities] — the core commands the gate runs, one per known capability.
-# Each maps to a gate stage automatically:
+# [jobs] — every command the gate runs, in one namespace. Known names derive
+# their gate stage automatically:
 #   format     fix    a formatter/codemod (mutating; runs first, serially)
 #   build      build  produce artifacts later stages read (compile, bundle)
 #   lint       check  read-only static analysis
@@ -125,22 +125,26 @@ dir = "project/skills"
 # A job needing its own time budget takes the table form — the `timeout` (seconds)
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
 #   test = { run = "npm test", timeout = 1200 }
-# OMIT an individual capability you truly do not have yet. A config with zero wired
-# capabilities is only a bootstrap state: the gate can pass without checking anything,
-# so `discern doctor` reports it as a warning until at least one capability or custom
-# check is wired. `discern setup` has your coding agent fill these by sniffing the repo;
-# `discern doctor` shows which are wired.
+# OMIT an individual known job you truly do not have yet. A config with no known
+# jobs wired is only a bootstrap state: the gate can pass without its built-in
+# protections, so `discern doctor` reports it as a warning. `discern setup` has
+# your coding agent fill these by sniffing the repo; `discern doctor` shows which
+# known names and custom jobs are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage then the check-stage
-# capabilities, and never builds or tests.
+# jobs, and never builds or tests.
 #
 # `smoke` is the project's fast readiness check — real config and essential shared
 # runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
 # `discern done` and `discern test` run it in the same fail-fast test group, so a
 # quick smoke failure cancels slower siblings.
+# Custom names use `[jobs.<name>]` and MUST declare `stage` (fix|build|check|test)
+# plus `run` (a command or list). `provides` is an optional free-text label;
+# `timeout` has the same per-job meaning as above. Known names MUST NOT declare
+# `stage`: their stage comes from the list above.
 # ─────────────────────────────────────────────────────────────────────────────
 
-[capabilities]
+[jobs]
 format    = "deno fmt"
 build     = ["deno task codegen", "deno task site:build"]
 lint      = "deno lint"
@@ -148,21 +152,11 @@ typecheck = "deno check"
 test      = { run = "deno task test", timeout = 1200 }
 smoke     = "deno task dev --version"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [checks.<name>] — custom, non-standard gate work that isn't a known capability.
-# `stage` (REQUIRED) is one of fix|build|check|test; `run` the command (or a
-# list); `provides` an optional free-text label; `timeout` (seconds, optional)
-# replaces the global [gate].timeout for this job only (0 disables its bound).
-# Use this for anything outside the six capabilities above. A check may not
-# reuse a name wired under [capabilities] — the gate keys each job's result by
-# its label, so the two would collide.
-# ─────────────────────────────────────────────────────────────────────────────
-
 # `prose` lints the map with Vale at the check stage — error-severity findings block
 # the gate; the advisory tiers (warnings, suggestions) are held by the
 # [standards.prose] ceiling instead. The wrapper stages a frontmatter-blanked
 # mirror first (scripts/prose_lib.ts): Vale measures prose, never metadata.
-[checks.prose]
+[jobs.prose]
 stage    = "check"
 run      = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts \"${map.dir}\""
 provides = "docs prose lint (Vale; error-severity findings block the gate)"
@@ -403,7 +397,7 @@ measure   = "on-demand"
 # Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
 # `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
 # (every severity; error-severity findings are separately blocked by the gate via
-# [checks.prose]). `per` divides that count by the words in the map (discern counts
+# [jobs.prose]). `per` divides that count by the words in the map (discern counts
 # them itself), so the standard tracks alerts per 1,000 words — a *rate*: writing
 # more docs never breaches it, only writing nittier-than-average prose does. Held
 # by `discern standards`, enforced on every PR in CI. Lower the limit as the
