@@ -254,7 +254,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       editor.setStringArray("worktree.setup.ensure", [
         `echo ensure >> ${worktreeOnlyMarker}`,
       ]);
-      editor.setString("capabilities.smoke", `pwd >> ${smokeMarker}`);
+      editor.setString("jobs.smoke", `pwd >> ${smokeMarker}`);
       await Deno.writeTextFile(configPath, editor.toString());
       await commitCurrentWorktree(wt, "configure checkout convergence");
 
@@ -331,7 +331,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
     // A linked worktree has a .git FILE, while the main checkout has a .git
     // DIRECTORY. The acceptance gate therefore passes in the worktree and only
     // the post-landing smoke fails in the receiving checkout.
-    editor.setString("capabilities.smoke", "test -f .git");
+    editor.setString("jobs.smoke", "test -f .git");
     await Deno.writeTextFile(configPath, editor.toString());
     await commitCurrentWorktree(wt, "configure failing landing proof");
 

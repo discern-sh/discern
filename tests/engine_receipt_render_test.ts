@@ -137,6 +137,6 @@ Deno.test("receipt render: a no-op gate is stated honestly", () => {
   const md = renderReceiptMarkdown(FACTS, []);
   assertStringIncludes(
     md,
-    "(no capability or check is wired — nothing ran)",
+    "(no job is wired — nothing ran)",
   );
 });

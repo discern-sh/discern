@@ -108,7 +108,7 @@ Deno.test("deferralReason extracts an inline comment, scoped to [jobs]", () => {
     deferralReason(toml, "test"),
     "blocked by a runtime mismatch, see TODO.md",
   );
-  // A capability line without a comment yields nothing — the [checks] comment is never
+  // A job line without a comment yields nothing — another job's comment is never
   // mis-attributed.
   assertEquals(deferralReason(toml, "format"), undefined);
   assertEquals(deferralReason(toml, "lint"), undefined);

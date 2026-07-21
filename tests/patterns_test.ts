@@ -876,7 +876,7 @@ Deno.test("patterns attribution: a config change bounds the comparable window an
       at: t(5),
       kind: "config-change",
       branch: "agent/task",
-      sections: ["capabilities"],
+      sections: ["jobs"],
       epoch: "new2",
     },
     ...Array.from(

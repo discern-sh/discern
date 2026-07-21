@@ -11,7 +11,7 @@
  * Before this, the config's shape/defaults/prose were smeared across a stringly
  * accessor, wizard defaults, a hand-written JSON Schema, the closed vocabularies,
  * path defaults, and `doctor`'s ad-hoc checks — copies that had already drifted
- * (ADR 0017 gave `[capabilities]` a closed vocabulary; ADR 0019 made "one source,
+ * (ADR 0017 gave the known command names a closed vocabulary; ADR 0019 made "one source,
  * nothing to drift" the rule; this finishes the job at the config boundary).
  *
  * Two views share the same building blocks:

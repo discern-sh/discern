@@ -284,12 +284,14 @@ function escapeRegExp(value: string): string {
 /**
  * Compatibility records are the only non-ADR files allowed to spell a retired
  * launch name in a callable/config position. Historical fixtures preserve what
- * an old install really contained; the active brief/TODO keep the owner-approved
- * migration searchable until bookkeeping removes the completed entries.
+ * an old install really contained; private planning keeps approved migrations
+ * searchable; archived landing pages preserve what shipped.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
   return isRepoMapPath(rel, "_adr") ||
+    isRepoMapPath(rel, "_private") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
+    rel.startsWith("mockups/landing/previous-homepage-") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
     new Set([
       "src/shared/vocabulary.ts",
@@ -421,7 +423,7 @@ function retiredLaunchPositions(): ForbiddenPosition[] {
         retired,
         kind: "dotted config key",
         pattern: new RegExp(
-          `(?:^\\s*${spelling}|[\"']${key})\\s*\\.\\s*${dottedTail}\\b`,
+          `(?:^\\s*${spelling}|[\"']${key})\\s*\\.\\s*${dottedTail}\\b(?=[\\s=\\x60'\"\\],)]|$)`,
           "mu",
         ),
       },

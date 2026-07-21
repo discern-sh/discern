@@ -72,7 +72,7 @@ Deno.test("preset overlays the example preset's files and config fills", async (
 
     // Config fills landed in discern.toml, comments intact.
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(toml, 'test = "echo running example tests"'); // capability
+    assertStringIncludes(toml, 'test = "echo running example tests"'); // known job
     assertStringIncludes(toml, 'paths = ["example/**"]'); // scope paths
     assertStringIncludes(toml, 'gate = "echo example side gate"'); // scope gate
     assertStringIncludes(toml, "[standards.examplesize]"); // standard

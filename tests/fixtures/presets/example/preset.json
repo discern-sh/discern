@@ -2,10 +2,8 @@
   "$schema": "../../../../schema/discern-config.schema.json",
   "version": "2",
   "description": "A FAKE example preset (a toy 'stack') — exists only to exercise the preset contract end-to-end in tests. Not a real ecosystem; not shipped.",
-  "capabilities": {
-    "test": "echo running example tests"
-  },
-  "checks": {
+  "jobs": {
+    "test": "echo running example tests",
     "examplecheck": {
       "stage": "check",
       "run": "echo example check",

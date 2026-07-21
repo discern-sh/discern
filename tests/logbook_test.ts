@@ -178,7 +178,7 @@ Deno.test("logbook schema: config-change, pin, and prune events validate", () =>
     at: "2026-07-19T12:00:00.000Z",
     kind: "config-change",
     branch: "main",
-    sections: ["capabilities"],
+    sections: ["jobs"],
     epoch: "deadbeef",
   });
   assert(ok.success);
@@ -250,14 +250,14 @@ Deno.test("epoch: a real standards edit flips exactly the standards section", ()
   ]);
 });
 
-Deno.test("epoch: a capability edit flips exactly the capabilities section", () => {
+Deno.test("epoch: a job edit flips exactly the jobs section", () => {
   const before = configEpoch(parseConfigOrThrow(""));
   const edited = configEpoch(
     parseConfigOrThrow('[jobs]\nlint = "deno lint"'),
   );
   assert(edited.fingerprint !== before.fingerprint);
   assertEquals(changedSections(before.sections, edited.sections), [
-    "capabilities",
+    "jobs",
   ]);
 });
 

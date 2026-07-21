@@ -288,13 +288,13 @@ Deno.test("logbook: an unwritable logbook directory changes no verb's outcome", 
   });
 });
 
-const STANDARDS_CONFIG = (limit: number, capabilities: string): string =>
-  `${capabilities}[standards.cov]
+const STANDARDS_CONFIG = (limit: number, jobs: string): string =>
+  `${jobs}[standards.cov]
 limit = ${limit}
 run = "echo DISCERN_METRIC cov 50"
 `;
 
-Deno.test("logbook: a limit edit holds the epoch; a capability edit flips it and logs config-change", async () => {
+Deno.test("logbook: a limit edit holds the epoch; a job edit flips it and logs config-change", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, STANDARDS_CONFIG(10, ""));
@@ -319,7 +319,7 @@ Deno.test("logbook: a limit edit holds the epoch; a capability edit flips it and
       "a limit-only edit must log no config-change event",
     );
 
-    // A real reconfiguration: a capability appears.
+    // A real reconfiguration: a job appears.
     await writeConfig(
       dir,
       STANDARDS_CONFIG(50, '[jobs]\nlint = "true"\n\n'),
@@ -331,13 +331,13 @@ Deno.test("logbook: a limit edit holds the epoch; a capability edit flips it and
     assertEquals(verbs.length, 3);
     assert(
       verbs[2]?.epoch !== verbs[0]?.epoch,
-      "a capability edit must move the fingerprint",
+      "a job edit must move the fingerprint",
     );
     const changes = events.filter((e) => e.kind === "config-change");
     assertEquals(changes.length, 1);
     const change = changes[0];
     assert(change !== undefined && change.kind === "config-change");
-    assertEquals(change.sections, ["capabilities"]);
+    assertEquals(change.sections, ["jobs"]);
     assertEquals(change.branch, "main");
     assertEquals(change.epoch, verbs[2]?.epoch);
     // The marker precedes the verb event that observed the new epoch.

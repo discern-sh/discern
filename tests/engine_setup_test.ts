@@ -1837,7 +1837,7 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
   assertStringIncludes(brief, "not prose for human readers");
 
   // The five-beats/volume tension resolves to ONE rule: the full five beats only for
-  // genuine additions/forks; the obvious capabilities batch into one recommendation.
+  // genuine additions/forks; the obvious jobs batch into one recommendation.
   assertStringIncludes(brief, "Reserve the full five beats");
   assertStringIncludes(brief, "concise recommendation");
 });
@@ -1848,12 +1848,12 @@ Deno.test("the brief wires the gate before any authoring, with a refresh before 
   );
 
   // The gate step precedes every authoring step, so a setup session that dies
-  // mid-authoring still leaves the project protected — and the format capability's
+  // mid-authoring still leaves the project protected — and the format job's
   // whole-tree sweep lands on the unauthored scaffold, keeping later content
-  // commits clean. Guards against the capability step drifting back behind the
+  // commits clean. Guards against the job step drifting back behind the
   // authoring steps.
   const gateStep = brief.indexOf(
-    "## Step 2 — Sniff the stack and recommend the capabilities",
+    "## Step 2 — Sniff the stack and recommend the jobs",
   );
   const firstAuthoringStep = brief.indexOf(
     "## Step 4 — Draft the design principles",
@@ -1861,7 +1861,7 @@ Deno.test("the brief wires the gate before any authoring, with a refresh before 
   assert(gateStep !== -1 && firstAuthoringStep !== -1);
   assert(
     gateStep < firstAuthoringStep,
-    "the capability step must precede the authoring steps",
+    "the job step must precede the authoring steps",
   );
   assertStringIncludes(brief, "Wire `format` first");
 
