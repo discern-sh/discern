@@ -12,6 +12,7 @@ import {
   inlineToPlain,
   renderMarkdown,
   renderMarkdownHtml,
+  renderMarkdownInlineHtml,
 } from "../src/lib/markdown.ts";
 
 const plain = (md: string, width = 80) =>
@@ -75,6 +76,46 @@ Deno.test("HTML nested lists keep every child list inside its parent item", () =
     "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
       "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
       "<li>omega</li>\n</ul>",
+  );
+});
+
+Deno.test("HTML prose hooks cannot replace existing inline semantics or headings", () => {
+  const rendered = renderMarkdownHtml(
+    [
+      "# Heading",
+      "",
+      "plain **bold** [linked](/target) `coded`",
+      "",
+      "> quoted",
+      "",
+      "- listed",
+      "",
+      "| Column |",
+      "| --- |",
+      "| cell |",
+    ].join("\n"),
+    { renderProseText: (text) => `<mark>${text}</mark>` },
+  );
+
+  assertStringIncludes(rendered.html, '<h1 id="heading">Heading</h1>');
+  assertStringIncludes(rendered.html, "<mark>plain </mark>");
+  assertStringIncludes(rendered.html, "<strong>bold</strong>");
+  assertStringIncludes(rendered.html, '<a href="/target">linked</a>');
+  assertStringIncludes(rendered.html, "<code>coded</code>");
+  assertStringIncludes(rendered.html, "<blockquote><p><mark>quoted</mark></p>");
+  assertStringIncludes(rendered.html, "<li><mark>listed</mark></li>");
+  assertStringIncludes(rendered.html, "<th><mark>Column</mark></th>");
+  assertStringIncludes(rendered.html, "<td><mark>cell</mark></td>");
+  assert(!rendered.html.includes('<h1 id="heading"><mark>'));
+  assert(!rendered.html.includes("<strong><mark>"));
+  assert(!rendered.html.includes('<a href="/target"><mark>'));
+  assert(!rendered.html.includes("<code><mark>"));
+});
+
+Deno.test("inline HTML rendering escapes source text and preserves Markdown semantics", () => {
+  assertEquals(
+    renderMarkdownInlineHtml("Use `<unsafe>` with [the docs](/docs)."),
+    'Use <code>&lt;unsafe&gt;</code> with <a href="/docs">the docs</a>.',
   );
 });
 

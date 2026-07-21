@@ -769,8 +769,17 @@ export interface MarkdownHtml {
   headings: HtmlHeading[];
 }
 
+/**
+ * Optional rendering hook for unstyled prose text. The callback receives raw
+ * text and returns trusted HTML; links, code, emphasis, and headings bypass it
+ * so their existing semantics cannot be replaced accidentally.
+ */
+export interface MarkdownHtmlOptions {
+  renderProseText?: (text: string) => string;
+}
+
 /** Escape text content for HTML (attribute-safe). */
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -797,8 +806,12 @@ function slugify(text: string, taken: Set<string>): string {
 }
 
 /** Emit one styled segment as nested inline HTML. */
-function segToHtml(seg: Seg): string {
-  let html = escapeHtml(seg.text);
+function segToHtml(seg: Seg, options: MarkdownHtmlOptions): string {
+  const isPlain = seg.code !== true && seg.href === undefined &&
+    seg.italic !== true && seg.bold !== true && seg.strike !== true;
+  let html = isPlain && options.renderProseText !== undefined
+    ? options.renderProseText(seg.text)
+    : escapeHtml(seg.text);
   if (seg.code) html = `<code>${html}</code>`;
   if (seg.italic) html = `<em>${html}</em>`;
   if (seg.bold) html = `<strong>${html}</strong>`;
@@ -810,8 +823,18 @@ function segToHtml(seg: Seg): string {
 }
 
 /** Parse one logical line of inline Markdown straight to HTML. */
-function inlineToHtml(text: string): string {
-  return parseInline(text).map(segToHtml).join("");
+function inlineToHtml(
+  text: string,
+  options: MarkdownHtmlOptions = {},
+): string {
+  return parseInline(text).map((segment) => segToHtml(segment, options)).join(
+    "",
+  );
+}
+
+/** Render one Markdown inline run to escaped HTML without a block wrapper. */
+export function renderMarkdownInlineHtml(text: string): string {
+  return inlineToHtml(text);
 }
 
 interface HtmlListNode {
@@ -824,7 +847,11 @@ function htmlListTag(item: Pick<HtmlListNode, "marker">): "ul" | "ol" {
   return item.marker === "•" ? "ul" : "ol";
 }
 
-function renderHtmlListNodes(nodes: HtmlListNode[], out: string[]): void {
+function renderHtmlListNodes(
+  nodes: HtmlListNode[],
+  out: string[],
+  options: MarkdownHtmlOptions,
+): void {
   let index = 0;
   while (index < nodes.length) {
     const first = nodes[index];
@@ -835,10 +862,10 @@ function renderHtmlListNodes(nodes: HtmlListNode[], out: string[]): void {
       const node = nodes[index];
       if (node === undefined || htmlListTag(node) !== tag) break;
       if (node.children.length === 0) {
-        out.push(`<li>${inlineToHtml(node.text)}</li>`);
+        out.push(`<li>${inlineToHtml(node.text, options)}</li>`);
       } else {
-        out.push(`<li>${inlineToHtml(node.text)}`);
-        renderHtmlListNodes(node.children, out);
+        out.push(`<li>${inlineToHtml(node.text, options)}`);
+        renderHtmlListNodes(node.children, out, options);
         out.push("</li>");
       }
       index++;
@@ -847,7 +874,11 @@ function renderHtmlListNodes(nodes: HtmlListNode[], out: string[]): void {
   }
 }
 
-function listToHtml(items: ListItem[], out: string[]): void {
+function listToHtml(
+  items: ListItem[],
+  out: string[],
+  options: MarkdownHtmlOptions,
+): void {
   const roots: HtmlListNode[] = [];
   const ancestors: HtmlListNode[] = [];
   for (const item of items) {
@@ -865,21 +896,29 @@ function listToHtml(items: ListItem[], out: string[]): void {
     ancestors[depth] = node;
     ancestors.length = depth + 1;
   }
-  renderHtmlListNodes(roots, out);
+  renderHtmlListNodes(roots, out, options);
 }
 
-function tableToHtml(rows: string[][], out: string[]): void {
+function tableToHtml(
+  rows: string[][],
+  out: string[],
+  options: MarkdownHtmlOptions,
+): void {
   const [head, ...body] = rows;
   if (head === undefined) return;
   out.push("<table>");
   out.push("<thead><tr>");
-  for (const cell of head) out.push(`<th>${inlineToHtml(cell)}</th>`);
+  for (const cell of head) {
+    out.push(`<th>${inlineToHtml(cell, options)}</th>`);
+  }
   out.push("</tr></thead>");
   if (body.length > 0) {
     out.push("<tbody>");
     for (const row of body) {
       out.push("<tr>");
-      for (const cell of row) out.push(`<td>${inlineToHtml(cell)}</td>`);
+      for (const cell of row) {
+        out.push(`<td>${inlineToHtml(cell, options)}</td>`);
+      }
       out.push("</tr>");
     }
     out.push("</tbody>");
@@ -893,7 +932,10 @@ function tableToHtml(rows: string[][], out: string[]): void {
  * output is safe to serve as-is. Headings come back with the anchor ids the
  * markup carries, ready for a table of contents.
  */
-export function renderMarkdownHtml(md: string): MarkdownHtml {
+export function renderMarkdownHtml(
+  md: string,
+  options: MarkdownHtmlOptions = {},
+): MarkdownHtml {
   const src = md
     .replace(/\r\n?/g, "\n")
     .replace(/<!--[\s\S]*?-->/g, "");
@@ -965,7 +1007,7 @@ export function renderMarkdownHtml(md: string): MarkdownHtml {
         inner.push(cur.replace(/^\s*>\s?/, ""));
         i++;
       }
-      const nested = renderMarkdownHtml(inner.join("\n"));
+      const nested = renderMarkdownHtml(inner.join("\n"), options);
       out.push(`<blockquote>${nested.html}</blockquote>`);
       continue;
     }
@@ -983,7 +1025,7 @@ export function renderMarkdownHtml(md: string): MarkdownHtml {
         rows.push(splitRow(cur));
         i++;
       }
-      tableToHtml(rows, out);
+      tableToHtml(rows, out, options);
       continue;
     }
 
@@ -1018,7 +1060,7 @@ export function renderMarkdownHtml(md: string): MarkdownHtml {
           break;
         }
       }
-      listToHtml(items, out);
+      listToHtml(items, out, options);
       continue;
     }
 
@@ -1031,7 +1073,7 @@ export function renderMarkdownHtml(md: string): MarkdownHtml {
       para.push(cur);
       i++;
     }
-    out.push(`<p>${inlineToHtml(para.join(" "))}</p>`);
+    out.push(`<p>${inlineToHtml(para.join(" "), options)}</p>`);
   }
 
   return { html: out.join("\n"), headings };
