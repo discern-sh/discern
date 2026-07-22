@@ -44,6 +44,12 @@ import {
 } from "../src/lib/artifact_ownership.ts";
 import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import {
+  adrRecords,
+  discoverDocs,
+  renderAdrIndexBlocks,
+  replaceAdrIndexBlocks,
+} from "../src/lib/docs.ts";
+import {
   codegenWriteTargets,
   REGISTRY_ATLAS_PAGE_REL,
   renderRegistryAtlasDoc,
@@ -84,6 +90,8 @@ const registryAtlas = relative(
   repoRoot,
   join(mapDir, REGISTRY_ATLAS_PAGE_REL),
 );
+const adrDir = join(mapDir, "_adr");
+const adrIndex = relative(repoRoot, join(adrDir, "README.md"));
 
 type EquivalentText = (before: string, after: string) => boolean;
 
@@ -140,6 +148,23 @@ console.log(
   "Regenerating the feature canon from scripts/feature_registry.ts:",
 );
 await write(featureCanon, renderFeatureCanonDoc());
+console.log("Regenerating the ADR index from the records on disk:");
+const adrTree = await discoverDocs({
+  cwd: repoRoot,
+  dir: adrDir,
+  includeInternal: true,
+});
+if (adrTree === undefined) {
+  throw new Error(`Couldn't find the ADR directory at ${adrDir}`);
+}
+const adrIndexDoc = await Deno.readTextFile(join(repoRoot, adrIndex));
+await write(
+  adrIndex,
+  replaceAdrIndexBlocks(
+    adrIndexDoc,
+    await renderAdrIndexBlocks(adrRecords(adrTree.entries)),
+  ),
+);
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );

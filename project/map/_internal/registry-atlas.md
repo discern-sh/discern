@@ -142,6 +142,17 @@ The projection matrix deciding which map pages publish to each public surface.
 - Glossary: not enrolled — an engine projection table; the Map entry carries the reader-facing concept
 - Feature canon: described by the `publish-predicate` node
 
+## `adrs` — Architecture Decision Records
+
+The numbered decision records in the map, including records later superseded.
+
+- Source: `src/lib/docs.ts` — `adrRecords`
+- Members: 171
+- Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
+- Artifacts: `project/map/_adr/README.md`
+- Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
+- Feature canon: described by the `adr-discipline` node
+
 ## `project-artifacts` — Project artifacts
 
 Every project-tree path discern writes or maintains, with its ownership answer.
@@ -189,7 +200,7 @@ The generated third-party notice artifacts and their license cache.
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 18
+- Members: 19
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

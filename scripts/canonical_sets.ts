@@ -23,7 +23,7 @@
  * source, and the atlas page it renders is its artifact.
  */
 
-import { join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -451,6 +451,50 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("../src/lib/docs.ts")).PUBLIC_DOC_SURFACES.map(
         (surface) => surface.name,
       ),
+  },
+  {
+    id: "adrs",
+    title: "Architecture Decision Records",
+    what:
+      "The numbered decision records in the map, including records later superseded.",
+    source: {
+      kind: "module",
+      module: "src/lib/docs.ts",
+      exportName: "adrRecords",
+    },
+    guards: [
+      "tests/adr_index_test.ts",
+      "tests/adr_citation_form_test.ts",
+      "tests/adr_citations_test.ts",
+      "tests/improve_count_adrs_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/_adr/README.md",
+        kind: "maintained-block",
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the decision page explains this project practice; the glossary covers product vocabulary",
+      },
+      featureCanon: { nodeId: "adr-discipline" },
+    },
+    members: async () => {
+      const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+      const { loadConfig } = await import("../src/shared/config_schema.ts");
+      const { resolveMapDir } = await import("../src/lib/paths.ts");
+      const { adrRecords, discoverDocs } = await import("../src/lib/docs.ts");
+      const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+      const tree = await discoverDocs({
+        cwd: repoRoot,
+        dir: join(mapDir, "_adr"),
+        includeInternal: true,
+      });
+      if (tree === undefined) return [];
+      return adrRecords(tree.entries).map((record) => record.number);
+    },
   },
   {
     id: "project-artifacts",
