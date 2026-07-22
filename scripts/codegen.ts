@@ -43,6 +43,11 @@ import {
   replaceArtifactInventory,
 } from "../src/lib/artifact_ownership.ts";
 import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
+import {
+  codegenWriteTargets,
+  REGISTRY_ATLAS_PAGE_REL,
+  renderRegistryAtlasDoc,
+} from "./canonical_sets.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -75,8 +80,15 @@ const artifactOwnership = relative(
   repoRoot,
   join(mapDir, "70-reference", "artifact-ownership.md"),
 );
+const registryAtlas = relative(
+  repoRoot,
+  join(mapDir, REGISTRY_ATLAS_PAGE_REL),
+);
 
 type EquivalentText = (before: string, after: string) => boolean;
+
+/** Every path this script may touch, from the canonical-sets meta-registry. */
+const enrolledTargets = codegenWriteTargets();
 
 /** Write `text` unless the committed artifact is equivalent, then report it. */
 async function write(
@@ -84,6 +96,12 @@ async function write(
   text: string,
   equivalent: EquivalentText = (before, after) => before === after,
 ): Promise<void> {
+  if (!enrolledTargets.has(rel)) {
+    throw new Error(
+      `${rel} is not enrolled in the canonical-sets meta-registry — ` +
+        "declare it in scripts/canonical_sets.ts before codegen may write it",
+    );
+  }
   const path = join(repoRoot, rel);
   let before: string | undefined;
   try {
@@ -122,6 +140,10 @@ console.log(
   "Regenerating the feature canon from scripts/feature_registry.ts:",
 );
 await write(featureCanon, renderFeatureCanonDoc());
+console.log(
+  "Regenerating the registry atlas from scripts/canonical_sets.ts:",
+);
+await write(registryAtlas, await renderRegistryAtlasDoc());
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),
