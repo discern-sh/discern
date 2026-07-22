@@ -584,9 +584,9 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
     assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
-      name: "alpha",
+      total: 1,
+      names: ["alpha"],
       trunk: "main",
-      branch: "agent/alpha",
     });
   });
 });
@@ -625,7 +625,7 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertHasHint(
       parseStatus(fleet.stdout),
       HINTS["status-fleet-member-ready"],
-      { name: "alpha", trunk: "main", branch: "agent/alpha" },
+      { total: 1, names: ["alpha"], trunk: "main" },
     );
   });
 });
@@ -667,9 +667,9 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
     assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
-      name: "alpha",
+      total: 1,
+      names: ["alpha"],
       trunk: "main",
-      branch: "agent/alpha",
     });
   });
 });

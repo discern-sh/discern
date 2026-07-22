@@ -765,71 +765,80 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       hints.push(fire(HINTS["status-no-active-worktrees"]));
     } else if (ctx.fleet !== undefined) {
       const others = ctx.fleet.filter((e) => !e.is_main);
+      // Emit one hint per fleet class. The registry preserves each total and caps
+      // its name sample; every row and per-row fact remains in data.fleet.
       // `clean === false` — a row whose git state is UNAVAILABLE (clean absent)
       // is unknown, not dirty; it gets its own hint below.
       const dirty = others.filter((e) => e.clean === false);
       if (dirty.length > 0) {
         hints.push(
           fire(HINTS["status-dirty-fleet-members"], {
+            total: dirty.length,
             names: dirty.map((e) => e.id ?? e.branch),
           }),
         );
       }
+      const ready: StatusFleetEntry[] = [];
       for (const e of others) {
         const receiptHonored = (await inspectGateReceipt(e.path)).status ===
           "honored";
         if (isReadyToLand(e, receiptHonored)) {
-          hints.push(
-            fire(HINTS["status-fleet-member-ready"], {
-              name: e.id ?? e.branch,
-              trunk: main,
-              branch: e.branch,
-            }),
-          );
+          ready.push(e);
         }
+      }
+      if (ready.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-member-ready"], {
+            total: ready.length,
+            names: ready.map((e) => e.id ?? e.branch),
+            trunk: main,
+          }),
+        );
       }
       // Unreadable members: git could not run inside the checkout, so its work
       // state is unknown — say so, rather than letting the row pass as clean.
       // (`worktree drop` fails safe on the same rows: it refuses without
       // --force while the state is unverifiable.) A `broken` row already
       // carries its own hint with the same way out.
-      for (const e of others) {
-        if (e.git_unavailable === true && e.broken !== true) {
-          const name = e.id ?? basename(e.path);
-          hints.push(
-            fire(HINTS["status-fleet-member-unreadable"], { name }),
-          );
-        }
+      const unreadable = others.filter((e) =>
+        e.git_unavailable === true && e.broken !== true
+      );
+      if (unreadable.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-member-unreadable"], {
+            total: unreadable.length,
+            names: unreadable.map((e) => e.id ?? basename(e.path)),
+          }),
+        );
       }
       // Broken members: setup never completed, so the checkout may be incomplete —
       // not a healthy fleet entry, and not worth resuming. Name the removal path.
-      for (const e of others) {
-        if (e.broken === true) {
-          const name = e.id ?? basename(e.path);
-          hints.push(
-            fire(HINTS["status-fleet-member-broken"], { name }),
-          );
-        }
+      const broken = others.filter((e) => e.broken === true);
+      if (broken.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-member-broken"], {
+            total: broken.length,
+            names: broken.map((e) => e.id ?? basename(e.path)),
+          }),
+        );
       }
       // Stale members: idle for a while and still carrying work — surface the
       // abandonment before it fossilises, with both ways out.
-      for (const e of others) {
+      const stale = others.filter((e) => {
         const idleDays = idleDaysOf(e.last_activity);
-        if (
+        return (
           e.broken !== true && idleDays !== undefined &&
           idleDays >= STALE_WORKTREE_DAYS &&
           (e.clean === false || (e.ahead ?? 0) > 0)
-        ) {
-          hints.push(
-            fire(HINTS["status-fleet-member-stale"], {
-              name: e.id ?? basename(e.path),
-              idleDays,
-              clean: e.clean === true,
-              ahead: e.ahead,
-              changedFiles: e.changed_files,
-            }),
-          );
-        }
+        );
+      });
+      if (stale.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-member-stale"], {
+            total: stale.length,
+            names: stale.map((e) => e.id ?? basename(e.path)),
+          }),
+        );
       }
     }
     // Unlanded branches with no worktree — otherwise-invisible abandoned work.

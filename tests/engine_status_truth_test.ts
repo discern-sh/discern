@@ -57,7 +57,8 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
     assert(row !== undefined, JSON.stringify(result.data.fleet));
     assertEquals(row.broken, true, "a configless checkout is broken");
     assertHasHint(result, HINTS["status-fleet-member-broken"], {
-      name: "crashed",
+      total: 1,
+      names: ["crashed"],
     });
 
     // The human table says "broken", not "clean"/"changed".
@@ -109,7 +110,8 @@ Deno.test("status reports an unreadable worktree honestly — never as clean/0-a
     assertEquals(row.git_unavailable, true, JSON.stringify(row));
     assertEquals(row.clean, undefined, "unknown state must not claim clean");
     assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
-      name: "gone",
+      total: 1,
+      names: ["gone"],
     });
 
     // The human table says "unreadable", not "clean".
@@ -236,11 +238,8 @@ Deno.test("status hints that a stale worktree with work should be resumed or dro
 
     const result = await statusJson(dir);
     assertHasHint(result, HINTS["status-fleet-member-stale"], {
-      name: "dusty",
-      idleDays: 10,
-      clean: false,
-      ahead: 0,
-      changedFiles: 1,
+      total: 1,
+      names: ["dusty"],
     });
   });
 });
@@ -286,7 +285,8 @@ Deno.test("basename fallback: a broken worktree with no .env still gets a usable
     const result = await statusJson(dir);
     // The drop target is the directory basename — exactly what drop resolves.
     assertHasHint(result, HINTS["status-fleet-member-broken"], {
-      name: basename(wt),
+      total: 1,
+      names: [basename(wt)],
     });
   });
 });

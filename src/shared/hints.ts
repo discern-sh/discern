@@ -140,6 +140,18 @@ function restartSessionHint(leadIn: string): string {
   return `${leadIn} ${RESTART_SESSION_CORE}`;
 }
 
+/** Maximum fleet names rendered in one class summary. */
+const FLEET_HINT_NAME_CAP = 3;
+
+/** Render a bounded fleet-name sample while preserving the class's full count. */
+function fleetNameSummary(total: number, names: readonly string[]): string {
+  const shown = names.slice(0, FLEET_HINT_NAME_CAP);
+  const remaining = Math.max(0, total - shown.length);
+  return `${shown.join(", ")}${
+    remaining > 0 ? `, … (+${remaining} more)` : ""
+  }`;
+}
+
 /**
  * The registry. Entries land site-by-site as the emission sites migrate off
  * inline strings; once the last site moves, the closed-set guard pins this
@@ -470,81 +482,117 @@ export const HINTS = {
     template: (): string => "No active worktrees; start one to begin work.",
   }),
 
-  "status-dirty-fleet-members": defineHint<{ names: readonly string[] }>({
+  /** One bounded summary for every fleet member with uncommitted changes. */
+  "status-dirty-fleet-members": defineHint<{
+    total: number;
+    names: readonly string[];
+  }>({
     id: "status-dirty-fleet-members",
-    category: "notice",
+    category: "next-step",
     audience: "all",
-    example: { names: ["hint-registry", "docs-refresh"] },
-    template: ({ names }): string =>
-      `${names.length} worktree${names.length === 1 ? "" : "s"} ${
-        names.length === 1 ? "has" : "have"
-      } uncommitted changes: ${names.join(", ")}.`,
+    example: {
+      total: 5,
+      names: ["hint-registry", "docs-refresh", "gate-copy", "cli-help"],
+    },
+    template: ({ total, names }): string =>
+      `Review ${total} worktree${total === 1 ? "" : "s"} with uncommitted ` +
+      `changes: ${fleetNameSummary(total, names)}.`,
   }),
 
+  /** One bounded summary for every fleet member ready for owner review. */
   "status-fleet-member-ready": defineHint<{
-    name: string;
+    total: number;
+    names: readonly string[];
     trunk: string;
-    branch: string;
   }>({
     id: "status-fleet-member-ready",
     category: "next-step",
     audience: "all",
     example: {
-      name: "hint-registry",
+      total: 5,
+      names: ["hint-registry", "docs-refresh", "gate-copy", "cli-help"],
       trunk: "main",
-      branch: "agent/hint-registry",
     },
-    template: ({ name, trunk, branch }): string =>
-      `Worktree ${name} has committed work ready for owner review — inspect it with \`git diff ${trunk}...${branch}\`.`,
+    template: ({ total, names, trunk }): string =>
+      `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
+      `ready for owner review: ${
+        fleetNameSummary(total, names)
+      }. Use each branch ` +
+      `from \`data.fleet\` with \`git diff ${trunk}...<branch>\`.`,
   }),
 
-  "status-fleet-member-unreadable": defineHint<{ name: string }>({
+  /** One bounded summary for every fleet member whose git state is unreadable. */
+  "status-fleet-member-unreadable": defineHint<{
+    total: number;
+    names: readonly string[];
+  }>({
     id: "status-fleet-member-unreadable",
     category: "next-step",
     audience: "all",
-    example: { name: "broken-task" },
-    template: ({ name }): string =>
-      `Worktree ${name}'s git state could not be read — its checkout ` +
-      `is missing or damaged, so any unsaved work there is ` +
-      `unverifiable. Investigate it, or discard it with ` +
-      `\`discern worktree drop ${name}\` (refused without --force ` +
-      `while the state can't be read).`,
+    example: {
+      total: 5,
+      names: ["damaged", "missing", "unreadable", "no-access"],
+    },
+    template: ({ total, names }): string => {
+      const checkout = total === 1
+        ? "Its checkout may be"
+        : "Their checkouts may be";
+      return `Investigate ${total} worktree${
+        total === 1 ? "" : "s"
+      } whose git state cannot be read: ${fleetNameSummary(total, names)}. ` +
+        `${checkout} missing or damaged, so unsaved work is unverifiable. To ` +
+        "discard one, run `discern worktree drop <name>`. It refuses without " +
+        "`--force` while the git state cannot be read.";
+    },
   }),
 
-  "status-fleet-member-broken": defineHint<{ name: string }>({
+  /** One bounded summary for every fleet member whose setup never completed. */
+  "status-fleet-member-broken": defineHint<{
+    total: number;
+    names: readonly string[];
+  }>({
     id: "status-fleet-member-broken",
     category: "next-step",
     audience: "all",
-    example: { name: "incomplete-task" },
-    template: ({ name }): string =>
-      `Worktree ${name} never finished its setup — ` +
-      `its checkout may be incomplete. Discard it with ` +
-      `\`discern worktree drop ${name}\`.`,
+    example: {
+      total: 5,
+      names: ["incomplete", "crashed", "half-built", "no-config"],
+    },
+    template: ({ total, names }): string => {
+      const checkout = total === 1
+        ? "Its checkout may be"
+        : "Their checkouts may be";
+      return `Discard ${total} worktree${
+        total === 1 ? "" : "s"
+      } whose setup never completed: ${fleetNameSummary(total, names)}. ` +
+        `${checkout} incomplete. Run \`discern worktree drop <name>\` for each.`;
+    },
   }),
 
+  /** One bounded summary for every fleet member that looks abandoned. */
   "status-fleet-member-stale": defineHint<{
-    name: string;
-    idleDays: number;
-    clean: boolean;
-    ahead: number | undefined;
-    changedFiles: number | undefined;
+    total: number;
+    names: readonly string[];
   }>({
     id: "status-fleet-member-stale",
     category: "next-step",
     audience: "all",
     example: {
-      name: "stale-task",
-      idleDays: 14,
-      clean: true,
-      ahead: 2,
-      changedFiles: undefined,
+      total: 5,
+      names: ["stale-task", "old-fix", "paused-docs", "forgotten-test"],
     },
-    template: ({ name, idleDays, clean, ahead, changedFiles }): string => {
-      const work = clean
-        ? `${ahead} unlanded commit${ahead === 1 ? "" : "s"}`
-        : `${changedFiles} uncommitted change${changedFiles === 1 ? "" : "s"}`;
-      return `Worktree ${name} looks stale: idle ${idleDays}d, ${work} — resume a session ` +
-        `there, or discard it with \`discern worktree drop ${name}\`.`;
+    template: ({ total, names }): string => {
+      const subject = total === 1
+        ? "worktree that looks"
+        : "worktrees that look";
+      const sessions = total === 1 ? "its session" : "their sessions";
+      const discard = total === 1 ? "it" : "each";
+      return `Review ${total} ${subject} stale: ${
+        fleetNameSummary(total, names)
+      }. ` +
+        `Resume ${sessions} or discard ${discard} with ` +
+        "`discern worktree drop <name>`. `data.fleet` carries last activity and " +
+        "unlanded work.";
     },
   }),
 
