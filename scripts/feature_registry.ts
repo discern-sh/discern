@@ -58,8 +58,8 @@ export interface FeatureNode {
   agent?: string;
   /**
    * Registered hint ids this node's account leans on — soft references: the
-   * enrolment guard fails a citation of an id the hint registry no longer
-   * carries, but no hint demands a citation.
+   * enrolment guard fails a citation of an id the hint registry does not
+   * carry, but no hint demands a citation.
    */
   hints?: readonly string[];
   /**
