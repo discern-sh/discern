@@ -49,7 +49,6 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 Use a region as `target` for its index, or add `search` to scope a query. When unsure, search in task language, then fetch a result with its canonical `target`.
 
-<!-- discern:map-regions:begin -->
 - `00-orientation` — Orientation
 - `10-getting-started` — Getting started
 - `20-quality-gate` — The quality gate
@@ -61,7 +60,6 @@ Use a region as `target` for its index, or add `search` to scope a query. When u
 - `70-reference` — Reference
 - `80-development` — Working on this project
 - `90-site` — The public site — discern.sh
-<!-- discern:map-regions:end -->
 
 ---
 

@@ -9,9 +9,10 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
 import {
+  agentFileOwnershipPatterns,
   checkGuidanceCurrent,
   guidanceContext,
-  normalizeMapRegionGuidance,
+  matchesGuidanceOwnership,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -82,6 +83,24 @@ Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits 
         body.includes("A rule."),
         `${name} canonical guidance should carry the compiled body`,
       );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  }
+});
+
+Deno.test("renderAgentFiles: internal map slots never reach provider output", async () => {
+  // The provider registry is the enrollment source: a new integration that emits
+  // a full agent file joins this guard without adding its name here.
+  for (const name of AGENT_NAMES) {
+    const dir = await scaffold(`["${name}"]`);
+    try {
+      for (const [path, body] of await renderAgentFiles(dir)) {
+        assert(
+          !body.includes("discern:map-regions"),
+          `${name} leaked the internal map slot through ${path}`,
+        );
+      }
     } finally {
       await Deno.remove(dir, { recursive: true });
     }
@@ -205,15 +224,26 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
     assert(expanded !== undefined);
     assertStringIncludes(expanded, "`30-worktrees` — Worktrees");
     assert(expanded !== first, "a new top-level region must refresh guidance");
-    assertEquals(
-      normalizeMapRegionGuidance(expanded),
-      normalizeMapRegionGuidance(first),
-      "ownership comparison ignores the generated region payload",
+    const config = await loadConfig(dir);
+    const provider = providerFor("codex");
+    assert(provider !== undefined);
+    const patterns = await agentFileOwnershipPatterns(
+      dir,
+      config,
+      [provider.guidanceFile],
     );
     assert(
-      normalizeMapRegionGuidance(expanded.replace("# Mine", "# Changed")) !==
-        normalizeMapRegionGuidance(first),
-      "authored guidance outside the owned block must remain significant",
+      patterns.some((pattern) => matchesGuidanceOwnership(pattern, first)),
+      "ownership comparison accepts an older generated region payload",
+    );
+    assert(
+      !patterns.some((pattern) =>
+        matchesGuidanceOwnership(
+          pattern,
+          first.replace("# Mine", "# Changed"),
+        )
+      ),
+      "authored guidance outside the owned slot must remain significant",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

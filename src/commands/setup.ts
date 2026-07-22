@@ -60,9 +60,9 @@ import {
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
 import {
-  agentFileContents,
-  composeGuidanceBody,
-  normalizeMapRegionGuidance,
+  agentFileOwnershipPatterns,
+  type GuidanceOwnershipPattern,
+  matchesGuidanceOwnership,
 } from "../engine/guidance_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
@@ -784,14 +784,14 @@ async function scaffoldHarness(
  * or a deleted `discern-setup` branch. So a candidate is treated
  * as the USER's — its body folded into the source under a labelled heading,
  * deduped by content so identical mirrors migrate once — only when it does NOT
- * match a body discern's own render produces ({@link agentFileContents} over the
- * full registry is deterministic from config + sources, so the comparison is
- * exact and cheap, and recognizes a leftover pointer or full body whichever
- * agents the abandoned run had wired); a match is skipped and reported, never
- * re-imported as if it were authoring. The stub is laid only when the source is
- * absent, so a re-run never clobbers the agent's work; on a `--force` re-run the
- * user's content is already in the source from the first run, so migration is
- * skipped.
+ * match an ownership pattern discern's own render produces
+ * ({@link agentFileOwnershipPatterns} over the full registry is deterministic
+ * from config + sources). Pointer bodies match exactly; a full body may vary only
+ * at the map-region slot because that derived list can outlive its map. A match is
+ * skipped and reported, never re-imported as if it were authoring. The stub is
+ * laid only when the source is absent, so a re-run never clobbers the agent's
+ * work; on a `--force` re-run the user's content is already in the source from
+ * the first run, so migration is skipped.
  */
 async function seedGuidance(
   root: string,
@@ -815,16 +815,16 @@ async function seedGuidance(
     // so a survivor of an abandoned setup is recognized whichever agents that
     // run had wired. Unavailable (undefined) when the config can't load; the
     // migration then proceeds as before rather than blocking the scaffold.
-    let ownRenderBodies: Set<string> | undefined;
+    let ownRenderPatterns: GuidanceOwnershipPattern[] | undefined;
     try {
       const cfg = await loadConfig(root);
-      const composed = await composeGuidanceBody(root, cfg);
-      ownRenderBodies = new Set(
-        [...agentFileContents(allGuidanceFiles(), composed).values()]
-          .map((body) => normalizeMapRegionGuidance(body).trim()),
+      ownRenderPatterns = await agentFileOwnershipPatterns(
+        root,
+        cfg,
+        allGuidanceFiles(),
       );
     } catch {
-      ownRenderBodies = undefined;
+      ownRenderPatterns = undefined;
     }
     const seen = new Set<string>();
     for (const rel of allGuidanceFilePaths()) {
@@ -837,7 +837,11 @@ async function seedGuidance(
       if (body.length === 0 || seen.has(body)) {
         continue; // empty, or an identical mirror already captured
       }
-      if (ownRenderBodies?.has(normalizeMapRegionGuidance(body).trim())) {
+      if (
+        ownRenderPatterns?.some((pattern) =>
+          matchesGuidanceOwnership(pattern, body)
+        )
+      ) {
         // A survivor of an abandoned setup, not the user's authoring — importing
         // it would fold discern's own compiled guidance back into the source.
         skippedOwnRender.push(rel);

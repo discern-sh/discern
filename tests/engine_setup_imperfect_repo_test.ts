@@ -470,7 +470,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
 Deno.test("re-begin never imports a surviving agent file that matches discern's own render", async () => {
   // The harder abandonment: the setup branch was DELETED, so the install really
   // is fresh again — but the gitignored agent file survived on disk.
-  // The exact-match guard must recognize it as discern's own output and skip the
+  // The ownership guard must recognize it as discern's own output and skip the
   // "Imported from" migration (it is not the user's authoring), and say so.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
