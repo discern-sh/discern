@@ -9,6 +9,7 @@ import {
 import {
   DISCERN_MARK_FILLED_PATH,
   DISCERN_MARK_OUTLINE_PATH,
+  LANDING_TITLE,
 } from "../site/brand.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import {
@@ -241,7 +242,11 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     const description = descriptionOf(html);
     assert(title.length > 0, `${route} has a title`);
     if (route === "/") {
-      assertEquals(title, "discern");
+      assertEquals(title, LANDING_TITLE);
+      assert(
+        !title.endsWith(" · discern.sh docs"),
+        "the landing page carries its own exact title",
+      );
     } else {
       assert(
         title.endsWith(" · discern.sh docs"),

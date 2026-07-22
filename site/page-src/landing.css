@@ -1,1 +1,105 @@
-/* Add homepage-specific composition styles here. */
+/*
+ * Homepage composition styles. Consumer rules only: these selectors are all
+ * page-owned (.landing-*); component-owned .discern-* selectors stay with the
+ * design-system bundle. Values come from the theme's custom properties.
+ */
+
+/* ── The install one-liner ─────────────────────────────────────────────── */
+
+.landing-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--discern-space-2);
+  /* Keep the nowrap command from widening ancestor grid tracks; the
+   * command scrolls inside the row instead. */
+  contain: inline-size;
+  max-inline-size: 100%;
+  margin: 0;
+  padding: var(--discern-space-2) var(--discern-space-3);
+  border: 1px solid var(--discern-color-border);
+  border-radius: var(--discern-radius-md);
+  background: var(--discern-color-surface-sunken);
+}
+
+.landing-install__command {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  font-family: var(--discern-font-mono);
+  font-size: var(--discern-font-size-sm);
+  white-space: nowrap;
+  color: var(--discern-color-ink);
+}
+
+.landing-install__note {
+  margin: var(--discern-space-3) 0 0;
+  font-size: var(--discern-font-size-sm);
+  color: var(--discern-color-ink-muted);
+}
+
+/* The copy control is injected by landing.js; without it the command is
+ * still selectable text. */
+.landing-copy {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* ── The hero's agent-session window ───────────────────────────────────── */
+
+.landing-session__chat {
+  font-size: var(--discern-font-size-sm);
+}
+
+/* ── Page bands and editorial wrappers ─────────────────────────────────── */
+
+.landing-band {
+  padding-block: var(--discern-section-space);
+}
+
+.landing-band--sunken {
+  background: var(--discern-color-surface-sunken);
+}
+
+.landing-wrap {
+  max-inline-size: var(--discern-page-max);
+  margin-inline: auto;
+  padding-inline: var(--discern-space-6);
+}
+
+.landing-wrap--note {
+  padding-block-end: var(--discern-section-space);
+}
+
+.landing-wrap--note > * {
+  max-inline-size: var(--discern-measure);
+  margin-inline: auto;
+}
+
+.landing-band__close {
+  max-inline-size: var(--discern-measure);
+  margin: var(--discern-space-8) auto 0;
+  font-size: var(--discern-font-size-lg);
+  line-height: var(--discern-leading-body);
+  color: var(--discern-color-ink-muted);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* ── Trust band footnote ───────────────────────────────────────────────── */
+
+.landing-trust-note {
+  max-inline-size: var(--discern-measure);
+  margin: var(--discern-space-6) auto;
+  font-size: var(--discern-font-size-sm);
+  color: var(--discern-color-ink-muted);
+  text-align: center;
+}
+
+/* ── FAQ aside ─────────────────────────────────────────────────────────── */
+
+.landing-faq-aside {
+  margin: 0;
+  font-size: var(--discern-font-size-sm);
+  color: var(--discern-color-ink-muted);
+}

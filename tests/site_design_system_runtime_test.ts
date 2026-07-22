@@ -16,10 +16,7 @@ import {
 } from "../site/design_system.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import {
-  HOMEPAGE_PLACEHOLDER,
-  renderLanding,
-} from "../site/page-src/landing.tsx";
+import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 // @ts-types="@types/jsdom"
@@ -327,17 +324,30 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage is an empty design-system-connected shell", async () => {
+Deno.test("the public homepage is a composed static design-system page", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
   );
   assertEquals(response.status, 200);
   const html = await response.text();
-  assertStringIncludes(html, HOMEPAGE_PLACEHOLDER);
   const dom = new JSDOM(html);
-  assertEquals(dom.window.document.body.textContent?.trim(), "");
-  assertEquals(dom.window.document.body.children.length, 0);
+  const body = dom.window.document.body;
+
+  // One h1 carrying the promise, and the install command reachable as text.
+  assertEquals(body.querySelectorAll("h1").length, 1);
+  assertStringIncludes(
+    body.textContent ?? "",
+    "curl -fsSL https://discern.sh/install | sh",
+  );
+
+  // The composition is design-system markup with accessible page structure.
+  assertEquals(body.querySelectorAll("main#main").length, 1);
+  assert(body.querySelector(".discern-hero-block") !== null);
+  assert(body.querySelector(".discern-site-footer") !== null);
+  assert(body.querySelector(".discern-skip-link") !== null);
+
+  // Static output: local runtime assets only, and no React browser runtime.
   assert(
     runtimeAssetReferences(html).every((path) => path.startsWith("/")),
   );

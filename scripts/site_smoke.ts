@@ -1,6 +1,7 @@
 /** Production-style crawl of the real site handler or a deployed release. */
 
 import { JSDOM } from "jsdom";
+import { LANDING_TITLE } from "../site/brand.ts";
 import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
 import {
@@ -214,7 +215,7 @@ export async function runSiteSmoke(
     const document = dom.window.document;
     const title = document.title.trim();
     const titledForSite = route === "/"
-      ? title === "discern"
+      ? title === LANDING_TITLE
       : title.endsWith(" · discern.sh docs");
     if (title === "" || !titledForSite) {
       fail(`${route}: invalid title ${JSON.stringify(title)}`);
