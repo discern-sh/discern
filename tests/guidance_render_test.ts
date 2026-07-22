@@ -444,8 +444,12 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
     // MCP-first stance + the unreachable-server fallback are present...
     assert(body.includes("primary surface"), "states MCP-first");
     assert(
-      body.includes("MCP server is **unreachable**"),
+      body.includes("MCP server is unreachable"),
       "carries the fallback instruction",
+    );
+    assert(
+      body.includes("CLI isn't on PATH"),
+      "carries the fallback installation instruction",
     );
     assert(body.includes("discern_done"), "names the gate as a tool");
     // ...and the de-duplicated content is gone (cut, not relocated twice).

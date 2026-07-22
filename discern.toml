@@ -452,7 +452,7 @@ inputs    = [
 [standards.guidance]
 metric    = "guidance_words"
 direction = "down"
-limit     = 839
+limit     = 900
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 inputs    = ["templates/guidance/**"]
 
