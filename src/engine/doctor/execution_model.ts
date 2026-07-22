@@ -59,7 +59,7 @@ interface StepKindAnnotation {
  * `job` kind's hint is the generic fallback; a real gate job is annotated with its
  * STAGE's hint ({@link STAGE_HINTS}) instead, which is the more specific truth.
  */
-const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
+export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   job: {
     actor: "project",
     hint:
@@ -154,7 +154,7 @@ const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
  * committed; the check stage is the fast inner loop; tests are slow. Sourced from the
  * `[jobs]` comments in the config template and ADR 0047 (the strand check).
  */
-const STAGE_HINTS: Record<Stage, string> = {
+export const STAGE_HINTS: Record<Stage, string> = {
   fix:
     "Mutating; runs first, serially (a later fixer may build on an earlier one's edits). Commit its output — the fix-stage strand check refuses to land a run that left fixer output uncommitted.",
   build: "Produces the artifacts that later stages read.",

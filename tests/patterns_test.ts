@@ -13,10 +13,14 @@
  *  - **epoch/writer attribution**: a trend split by a config change or release
  *    names the boundary instead of comparing across it or going silent;
  *  - **coarse-history honesty**: rotation digests extend the red-rate series,
- *    marked coarse.
+ *    marked coarse;
+ *  - **writer/reader parity**: every event kind and top-level driver signal in
+ *    the tolerant schema is consumed by the reader layer or recorded as
+ *    deliberately unread with a reason — exactly one of the two.
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
 import {
   AGENT_SIGNAL_SOURCE_LIFETIMES,
   AGENT_SIGNAL_SOURCES,
@@ -34,13 +38,174 @@ import {
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
+  logbookEventSchema,
   type VerbEvent,
+  verbEventSchema,
 } from "../src/engine/logbook/schema.ts";
 import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
 } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+
+// ── writer/reader parity ───────────────────────────────────────────────────
+
+/** The reader layer whose source-level references account for the schema's
+ * event kinds and raw driver signals. This deliberately observes the existing
+ * seam; readers do not register themselves with a framework for the test. */
+const LOGBOOK_READER_MODULES = [
+  "src/engine/logbook/patterns.ts",
+  "src/engine/logbook/detectors.ts",
+] as const;
+
+/** Schema members a reader deliberately does not consume, each with its
+ * reason. Empty today: every live event kind and driver signal is read. */
+const DELIBERATELY_UNREAD_EVENT_KINDS: Readonly<Record<string, string>> = {};
+const DELIBERATELY_UNREAD_DRIVER_SIGNALS: Readonly<
+  Record<string, string>
+> = {};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Whether reader code branches on one event kind. */
+function readsEventKind(source: string, kind: string): boolean {
+  const literal = `["']${escapeRegExp(kind)}["']`;
+  return new RegExp(
+    `(?:\\.kind\\s*(?:===|!==)\\s*${literal}|case\\s+${literal})`,
+  ).test(source);
+}
+
+/** Whether reader code reads one top-level `driver` field. */
+function readsDriverSignal(source: string, field: string): boolean {
+  return new RegExp(
+    `\\.driver\\??\\.${escapeRegExp(field)}\\b`,
+  ).test(source);
+}
+
+/** Exactly-one-of coverage: a member is read or deliberately unread. */
+function readerCoverageOffenders(
+  members: readonly string[],
+  isRead: (member: string) => boolean,
+  deliberatelyUnread: Readonly<Record<string, string>>,
+  label: string,
+): string[] {
+  const live = new Set(members);
+  const offenders: string[] = [];
+  for (const member of members) {
+    const read = isRead(member);
+    const recorded = Object.hasOwn(deliberatelyUnread, member);
+    if (!read && !recorded) {
+      offenders.push(
+        `${label} "${member}" is not consumed by the logbook readers and ` +
+          "has no deliberate-unread reason",
+      );
+    }
+    if (read && recorded) {
+      offenders.push(
+        `${label} "${member}" is consumed by the logbook readers but also ` +
+          "recorded deliberately unread — delete the stale record",
+      );
+    }
+  }
+  for (const [member, reason] of Object.entries(deliberatelyUnread)) {
+    if (!live.has(member)) {
+      offenders.push(
+        `${label} "${member}" is recorded deliberately unread but is not ` +
+          "a live schema member — delete the stale record",
+      );
+    }
+    if (reason.trim().length === 0) {
+      offenders.push(`${label} "${member}" needs a deliberate-unread reason`);
+    }
+  }
+  return offenders;
+}
+
+async function logbookReaderSource(): Promise<string> {
+  return (await Promise.all(
+    LOGBOOK_READER_MODULES.map((path) =>
+      Deno.readTextFile(join(REPO_ROOT, path))
+    ),
+  )).join("\n");
+}
+
+Deno.test("patterns reader coverage: every event kind and driver signal is consumed or deliberately unread", async () => {
+  const source = await logbookReaderSource();
+  const eventKinds = logbookEventSchema.options.map((option) =>
+    option.shape.kind.value
+  );
+  const driverSignals = Object.keys(
+    verbEventSchema.shape.driver.unwrap().shape,
+  );
+  const offenders = [
+    ...readerCoverageOffenders(
+      eventKinds,
+      (kind) => readsEventKind(source, kind),
+      DELIBERATELY_UNREAD_EVENT_KINDS,
+      "event kind",
+    ),
+    ...readerCoverageOffenders(
+      driverSignals,
+      (field) => readsDriverSignal(source, field),
+      DELIBERATELY_UNREAD_DRIVER_SIGNALS,
+      "driver signal",
+    ),
+  ];
+  assertEquals(
+    offenders,
+    [],
+    "the logbook writer vocabulary and reader coverage drifted apart:\n  " +
+      offenders.join("\n  "),
+  );
+});
+
+Deno.test("patterns reader coverage control: synthetic event and driver members fail until read", () => {
+  const source = 'if (event.kind === "verb") event.driver?.json;';
+  const events = readerCoverageOffenders(
+    ["verb", "future-event"],
+    (kind) => readsEventKind(source, kind),
+    {},
+    "event kind",
+  );
+  assertEquals(events.length, 1, "an unread fifth event kind must offend");
+  assert(events[0]?.includes("future-event"));
+
+  const signals = readerCoverageOffenders(
+    ["json", "future_signal"],
+    (field) => readsDriverSignal(source, field),
+    {},
+    "driver signal",
+  );
+  assertEquals(signals.length, 1, "an unread driver field must offend");
+  assert(signals[0]?.includes("future_signal"));
+});
+
+Deno.test("patterns reader coverage control: deliberate unread reasons are exclusive and live", () => {
+  const source = 'if (event.kind === "verb") event.driver?.json;';
+  assertEquals(
+    readerCoverageOffenders(
+      ["future-event"],
+      (kind) => readsEventKind(source, kind),
+      { "future-event": "reserved for a future reader" },
+      "event kind",
+    ),
+    [],
+    "a live unread member with a reason is accounted for",
+  );
+  assertEquals(
+    readerCoverageOffenders(
+      ["verb"],
+      (kind) => readsEventKind(source, kind),
+      { verb: "stale reason" },
+      "event kind",
+    ).length,
+    1,
+    "a member cannot be both read and recorded unread",
+  );
+});
 
 // ── fixture builders ────────────────────────────────────────────────────────
 
