@@ -190,7 +190,7 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     assert(thrash !== undefined, "the seeded 3-streak must fire done-thrash");
     assertEquals(thrash.evidence.consecutive_failures, 3);
     assertStringIncludes(thrash.observed, "3 consecutive runs");
-    assertStringIncludes(thrash.next_step, "discern-diagnose-a-bug");
+    assertStringIncludes(thrash.next_step, "discern-cure-a-bug");
     assertEquals(thrash.scope, "branch");
 
     // The report stays honest about what it could NOT judge.

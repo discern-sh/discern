@@ -97,7 +97,7 @@ export function sectionBlockFromTemplate(
 
   // Doc block: scan up over the single separating blank, then the comment run.
   // If that run reaches the top of the file it is the preamble, not this
-  // section's documentation (the [meta] case) — drop it.
+  // section's documentation (the [project] case) — drop it.
   let i = headerIdx - 1;
   while (i >= 0) {
     const cur = lines[i];

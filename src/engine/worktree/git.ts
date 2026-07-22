@@ -674,6 +674,57 @@ export async function incomingOverlap(
   return overlapPaths(own, incoming, cap);
 }
 
+/** One cross-worktree collision: two branches whose fork diffs touch the same
+ * paths. `overlap` is capped; `total` is the true pre-cap count. */
+export interface FleetCollision {
+  branches: [string, string];
+  overlap: string[];
+  total: number;
+}
+
+/**
+ * Cross-worktree changed-file collisions — the fact only a fleet-wide view can
+ * hold: two efforts touching the same paths are a semantic collision in the
+ * making even when both would merge cleanly, and whoever lands second must
+ * update with extra care. Each branch's changed set is its fork diff vs the
+ * trunk (`merge-base(main, branch)..branch`, the same "own" side
+ * {@link incomingOverlap} reads), and pairs intersect via {@link overlapPaths}.
+ * Branches are repo-wide, so one checkout answers for the whole fleet.
+ * Read-only; every git read fails open to an empty result.
+ */
+export async function fleetCollisions(
+  cwd: string,
+  branches: string[],
+  mainBranch: string,
+  cap: number,
+): Promise<FleetCollision[]> {
+  const changed: [string, string[]][] = [];
+  for (const branch of [...new Set(branches)]) {
+    const baseRun = await git(["merge-base", mainBranch, branch], cwd);
+    if (!baseRun.success) {
+      continue;
+    }
+    const base = baseRun.stdout.trim();
+    if (base === "") {
+      continue;
+    }
+    const paths = await diffNames(cwd, base, branch);
+    if (paths.length > 0) {
+      changed.push([branch, paths]);
+    }
+  }
+  const out: FleetCollision[] = [];
+  for (const [i, [a, aPaths]] of changed.entries()) {
+    for (const [b, bPaths] of changed.slice(i + 1)) {
+      const { overlap, total } = overlapPaths(aPaths, bPaths, cap);
+      if (total > 0) {
+        out.push({ branches: [a, b], overlap, total });
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Compute an integration's content summary from its {@link IntegrationAnchors} (plus
  * `after` on an apply). Commits are those main authored since the fork (`before..main`

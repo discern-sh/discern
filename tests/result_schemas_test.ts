@@ -757,6 +757,16 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
       await mapResult(dir, { target: "no-such-doc" }),
       "map not-found",
     );
+    expectValid(
+      MapOutputSchema,
+      await mapResult(dir, { search: "core ideas" }),
+      "map search",
+    );
+    expectValid(
+      MapOutputSchema,
+      await mapResult(dir, { target: "00-orientation" }),
+      "map region",
+    );
 
     // help reads discern's OWN bundled docs (always present in this repo's build).
     expectValid(HelpOutputSchema, await helpResult(dir), "help index");
@@ -769,6 +779,11 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
       HelpOutputSchema,
       await helpResult(dir, { target: "no-such-doc" }),
       "help not-found",
+    );
+    expectValid(
+      HelpOutputSchema,
+      await helpResult(dir, { search: "worktree resources" }),
+      "help search",
     );
   });
 });

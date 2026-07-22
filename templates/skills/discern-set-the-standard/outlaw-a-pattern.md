@@ -1,14 +1,6 @@
----
-name: discern-outlaw-a-pattern
-description: Make a legacy pattern illegal in the codebase — detector, falling standard, removal as fast as the work allows, then a permanent gate rule at zero. Use when the user wants to migrate off, phase out, deprecate, ban, or eliminate a pattern, API, idiom, or dependency codebase-wide ("stop using X", "move everything to Y", "get rid of the old way"), or when a half-finished migration keeps regressing. Bundled with discern.
-metadata:
-  author: "discern | https://discern.sh"
-  version: "1.0"
----
-
 # Outlaw a pattern
 
-A codebase-wide migration fails in a predictable way: the sweep converts most of the instances, the stragglers hide, and next month someone pastes the old idiom back in — nothing made the old way _illegal_, so the migration never actually ends. This skill ends it by legislation: the pattern is outlawed **today** (a detector counts it, a standard forbids the count from ever rising), removal proceeds as fast as you can afford — one sweep if it fits, tranches if it doesn't — and at zero the ban becomes a permanent rule of the gate.
+A codebase-wide migration fails in a predictable way: the sweep converts most of the instances, the stragglers hide, and next month someone pastes the old idiom back in — nothing made the old way _illegal_, so the migration never actually ends. This procedure ends it by legislation: the pattern is outlawed **today** (a detector counts it, a standard forbids the count from ever rising), removal proceeds as fast as you can afford — one sweep if it fits, tranches if it doesn't — and at zero the ban becomes a permanent rule of the gate.
 
 The standard's role here is not gradualism. It is a **one-way door**: from the moment it lands, no new instance can enter and no landing can be undone by a later one. Whether enforcement then takes one branch or six weeks is a scheduling choice the guarantee doesn't depend on.
 
@@ -32,7 +24,7 @@ Make the detector runnable as one repo command — it's about to become the stan
 
 ## 3. Pass the law: standard the count down
 
-Wire the detector's count as a `direction = "down"` standard — the `discern-standard-a-metric` skill has the full procedure and the config shape; the short of it is a `[standards.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern standards` run as needed on a clean tree.
+Wire the detector's count as a `direction = "down"` standard — the main procedure in this skill's `SKILL.md` has the full detail and the config shape; the short of it is a `[standards.<name>]` table whose `run` prints `DISCERN_METRIC <name> <count>`, with `limit` set to **today's census**, and `discern standards` run as needed on a clean tree.
 
 This is the moment the pattern becomes illegal: any branch that _adds_ an instance now fails the standard, whoever writes it, however unrelated their task. Announce the law where the next writer will look — the project guidance or conventions doc names the outlawed pattern and its replacement, so the standard is the enforcement and not the documentation.
 

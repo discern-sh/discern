@@ -1,7 +1,7 @@
 /**
  * Build the no-argument `discern map` overview from the map itself.
  *
- * Regions are the public top-level subtrees already discovered by `docs.ts`.
+ * Regions are the non-internal top-level subtrees discovered by `docs.ts`.
  * Their descriptions come from each subtree's README. Markdown links from that
  * region to specific tracked files outside the map define its freshness
  * coverage, and Git counts commits to those files after the region's most
@@ -11,7 +11,7 @@
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { runGit } from "../shared/subprocess.ts";
-import type { DocEntry, DocsTree } from "./docs.ts";
+import { type DocEntry, docRegions, type DocsTree } from "./docs.ts";
 
 /** Git-only freshness facts for one map region, jointly absent when unknown. */
 export interface MapRegionFreshness {
@@ -19,7 +19,7 @@ export interface MapRegionFreshness {
   code_changes_since?: number;
 }
 
-/** One public top-level subtree in the map overview. */
+/** One non-internal top-level subtree in the map overview. */
 export interface MapRegion extends MapRegionFreshness {
   name: string;
   title: string;
@@ -120,18 +120,11 @@ async function regionFreshness(
   };
 }
 
-/** Build every public top-level map region in deterministic reading order. */
+/** Build every non-internal map region in deterministic reading order. */
 export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
-  const bySection = new Map<string, DocEntry[]>();
-  for (const entry of tree.entries) {
-    if (!entry.section || entry.section.startsWith("_")) continue;
-    const group = bySection.get(entry.section) ?? [];
-    group.push(entry);
-    bySection.set(entry.section, group);
-  }
-
   const regions: MapRegion[] = [];
-  for (const [name, entries] of bySection) {
+  for (const region of docRegions(tree.entries)) {
+    const entries = region.entries;
     const sources = new Map<string, string>();
     for (const entry of entries) {
       try {
@@ -140,22 +133,13 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
         sources.set(entry.path, "");
       }
     }
-    const readme = entries.find((entry) =>
-      entry.slug.toLowerCase() === "readme"
-    ) ??
-      entries[0];
-    if (readme === undefined) continue;
-    const title = readme.title;
-    // The model already derived the one-line description (frontmatter
-    // override, else lead paragraph) — reuse it, never re-derive.
-    const description = readme.description || title;
     const codePaths = await linkedCodePaths(tree, entries, sources);
     const freshness = await regionFreshness(tree, entries, codePaths);
     regions.push({
-      name,
-      title,
-      description,
-      page_count: entries.length,
+      name: region.name,
+      title: region.title,
+      description: region.description,
+      page_count: region.page_count,
       ...freshness,
     });
   }

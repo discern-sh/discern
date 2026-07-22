@@ -15,6 +15,7 @@ import {
   NAME_RE,
   parseConfig,
   parseConfigOrThrow,
+  projectDisplayName,
   RECORD_ENTRY_SCHEMAS,
   resolveConfiguredAgents,
   settableConfigValueKind,
@@ -33,6 +34,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.repository.trunk, "main");
   assertEquals(c.repository.branch_prefix, "agent/");
   assertEquals(c.repository.ensure, []);
+  assertEquals(c.project.name, "");
   assertEquals(c.project.slug, "");
   assertEquals(c.project.gotchas_doc, "");
   // The path defaults are the registry's (ADR 0102) — asserted against it, so
@@ -55,6 +57,20 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.setup.ensure, []);
   assertEquals(c.worktree.inherit_env, []);
   assertEquals(c.worktree.ignored_file_drift, true);
+});
+
+Deno.test("projectDisplayName: [project].name, else the slug verbatim, else a neutral stand-in", () => {
+  const named = parseConfigOrThrow(
+    '[project]\nname = "ListOfListsOfLists"\nslug = "listoflistsoflists"\n',
+  );
+  assertEquals(projectDisplayName(named), "ListOfListsOfLists");
+  // The slug is never re-cased into a fabricated title.
+  const slugOnly = parseConfigOrThrow('[project]\nslug = "my-app"\n');
+  assertEquals(projectDisplayName(slugOnly), "my-app");
+  // Whitespace-only counts as unset at each step of the chain.
+  const blank = parseConfigOrThrow('[project]\nname = " "\nslug = " "\n');
+  assertEquals(projectDisplayName(blank), "this project");
+  assertEquals(projectDisplayName(parseConfigOrThrow("")), "this project");
 });
 
 Deno.test("repository owns the trunk, branch prefix, and shared convergence commands", () => {

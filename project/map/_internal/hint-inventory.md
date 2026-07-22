@@ -448,6 +448,19 @@ Rendered example:
 Start this worktree's dev server to view the previewable change.
 ```
 
+## `gate-prove-it-works`
+
+- Category: `guardrail`
+- Audience: `agent`
+- Family: —
+- Emitting context: A green gate emits a receipt — before the agent offers it as done.
+
+Rendered example:
+
+```text
+A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.
+```
+
 ## `gate-receipt-clear-failed`
 
 - Category: `next-step`
@@ -1226,6 +1239,19 @@ Rendered example:
 
 ```text
 Use `discern prepare` or targeted tests while iterating on changes in code, docs. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
+```
+
+## `status-fleet-collisions`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A fleet survey finds worktree pairs whose changes touch the same files.
+
+Rendered example:
+
+```text
+Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
 ```
 
 ## `status-fleet-member-broken`

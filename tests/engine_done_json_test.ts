@@ -1121,7 +1121,9 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
       "Inspect: `git diff main...agent/alpha`",
     );
 
-    // The relay affordance rides the envelope's hints.
+    // The relay affordance rides the envelope's hints, led by the
+    // prove-before-claiming guardrail that replaced the prove-it-works skill.
+    assertHasHint(obj, HINTS["gate-prove-it-works"]);
     assertHasHint(obj, HINTS["gate-relay-receipt"]);
 
     // The marker stores the markdown beside the sha it vouches for, so status and
@@ -1175,5 +1177,6 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
       reason: dirty.data.gate_receipt.reason,
     });
     assertLacksHint(dirty, HINTS["gate-relay-receipt"]);
+    assertLacksHint(dirty, HINTS["gate-prove-it-works"]);
   });
 });

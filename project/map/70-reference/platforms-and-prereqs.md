@@ -92,7 +92,7 @@ Run `discern identity` inside a linked worktree. With no selector it prints the 
 | ------------------- | ----------------------------------------------------------------------- |
 | `--id`              | Stable worktree id.                                                     |
 | `--branch`          | Branch prefix plus the id.                                              |
-| `--port`            | Deterministic development port, `13000 + cksum(id) % 2000`.             |
+| `--port`            | Deterministic development port, `17290 + cksum(id) % 2000`.             |
 | `--site`            | DNS-safe project slug plus id, fitted to 63 characters.                 |
 | `--db`              | Database-safe project slug plus id, using underscores.                  |
 | `--worktree`        | Generic project-slug-plus-id handle.                                    |

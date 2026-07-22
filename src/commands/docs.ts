@@ -37,6 +37,7 @@ import { colourEnabled, Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
 import { terminalWidth } from "../lib/text.ts";
 import {
+  canonicalDocTarget,
   discoverDocs,
   type DocEntry,
   type DocsTree,
@@ -45,8 +46,11 @@ import {
   groupDocs,
   publicDocs,
   resolveDoc,
+  resolveDocRegion,
   suggestDocs,
 } from "../lib/docs.ts";
+import { searchPages } from "../lib/docs_search.js";
+import { searchPageFromMarkdown } from "../lib/docs_search.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import {
@@ -55,7 +59,11 @@ import {
   resolveBundledDocsDir,
 } from "../lib/paths.ts";
 import type { DiscernResult } from "../shared/result.ts";
-import type { DocRecord, DocsData } from "../shared/result_schemas.ts";
+import type {
+  DocRecord,
+  DocsData,
+  DocSearchResult,
+} from "../shared/result_schemas.ts";
 import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
 import {
   ageSince,
@@ -264,6 +272,8 @@ export interface DocsOptions {
   width?: number | undefined;
   /** A specific doc to open (slug, `section/slug`, or path). */
   target?: string | undefined;
+  /** Search the admitted tree, optionally within `target`. */
+  search?: string | undefined;
   /** `help` only: also surface the bundled ADR subtree (hidden by default). */
   adr?: boolean | undefined;
   /** Concatenate docs to stdout or `output`. */
@@ -271,6 +281,9 @@ export interface DocsOptions {
   /** Write an export to this path instead of stdout. */
   output?: string | undefined;
 }
+
+/** Agent-facing search results stay compact even when the corpus is large. */
+const SEARCH_RESULT_LIMIT = 5;
 
 /** The machine-readable record for one doc (sans content). Frontmatter values
  * travel here as structured fields — never inside `content` — and only when
@@ -321,6 +334,107 @@ function notFoundMessage(
   return `${base} Closest match${labels.length === 1 ? "" : "es"}: ${
     labels.join(", ")
   }.`;
+}
+
+/** A tree narrowed to one region or one document for scoped search. */
+type SearchScopeResolution =
+  | { kind: "found"; tree: DocsTree; target: string }
+  | { kind: "ambiguous"; entries: DocEntry[] }
+  | { kind: "none" };
+
+/** Resolve a search scope without treating the project-selecting `path` as one. */
+function resolveSearchScope(
+  tree: DocsTree,
+  target: string,
+  cwd: string,
+): SearchScopeResolution {
+  const region = resolveDocRegion(tree, target, cwd);
+  if (region !== undefined) {
+    return {
+      kind: "found",
+      tree: { ...tree, entries: region.entries },
+      target: region.name,
+    };
+  }
+  const doc = resolveDoc(tree, target, cwd);
+  if (doc.kind === "found") {
+    return {
+      kind: "found",
+      tree: { ...tree, entries: [doc.entry] },
+      target: canonicalDocTarget(doc.entry),
+    };
+  }
+  return doc;
+}
+
+/** Project one ranked hit without exposing its internal score. */
+function toSearchResult(
+  entry: DocEntry,
+  snippet: string,
+  heading?: string | undefined,
+): DocSearchResult {
+  return {
+    target: canonicalDocTarget(entry),
+    path: entry.path,
+    section: entry.section,
+    title: entry.title,
+    description: entry.description,
+    ...(heading !== undefined ? { heading } : {}),
+    snippet,
+  };
+}
+
+/** Build a ranked search payload over one already-admitted tree. */
+async function searchData(
+  desc: DocsVerb,
+  tree: DocsTree,
+  query: string,
+  scope?: string | undefined,
+): Promise<DocsData> {
+  const entriesByTarget = new Map(
+    tree.entries.map((entry) => [canonicalDocTarget(entry), entry]),
+  );
+  const pages = await Promise.all(tree.entries.map(async (entry) => {
+    let source = "";
+    try {
+      source = await Deno.readTextFile(entry.absPath);
+    } catch {
+      // Discovery keeps an unreadable leaf in the index with metadata fallbacks.
+      // Search preserves that contract: metadata can still find it, while its
+      // unavailable body contributes no full-text terms.
+    }
+    const content = renderableBody(desc, source);
+    return searchPageFromMarkdown({
+      route: canonicalDocTarget(entry),
+      section: entry.section,
+      entry,
+    }, content);
+  }));
+  const ranked = searchPages(pages, query, tree.entries.length);
+  let results: DocSearchResult[];
+  if (ranked.length > 0) {
+    results = ranked.flatMap((match) => {
+      const entry = entriesByTarget.get(match.page.route);
+      return entry === undefined ? [] : [toSearchResult(
+        entry,
+        match.snippet,
+        match.heading?.text,
+      )];
+    });
+  } else {
+    // Full-text misses get the document model's typo-tolerant metadata fallback.
+    // This widens recall without changing the site's pinned matcher behavior.
+    results = suggestDocs(tree, query, tree.entries.length).map(({ entry }) =>
+      toSearchResult(entry, entry.description)
+    );
+  }
+  return {
+    query: query.trim(),
+    ...(scope !== undefined ? { scope } : {}),
+    count: results.length,
+    truncated: results.length > SEARCH_RESULT_LIMIT,
+    results: results.slice(0, SEARCH_RESULT_LIMIT),
+  };
 }
 
 /** Path of `abs` relative to `cwd`, for display (falls back to `abs`). */
@@ -576,6 +690,44 @@ function printMapOverview(
   console.log(lines.join("\n"));
 }
 
+/** Print compact ranked hits with their reusable targets and context. */
+function printSearchResults(
+  verb: string,
+  data: DocsData,
+  color: boolean,
+): void {
+  const paint = (fn: (s: string) => string, value: string) =>
+    color ? fn(value) : value;
+  const query = data.query ?? "";
+  const results = data.results ?? [];
+  const scope = data.scope === undefined ? "" : ` in ${data.scope}`;
+  if (results.length === 0) {
+    console.log(`No ${verb} docs matched "${query}"${scope}.`);
+    return;
+  }
+  const count = data.count ?? results.length;
+  const lines = [
+    `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
+  ];
+  for (const result of results) {
+    const heading = result.heading === undefined ? "" : ` · ${result.heading}`;
+    lines.push("");
+    lines.push(
+      `${paint(colors.bold.cyan, result.target)}  ${result.title}${heading}`,
+    );
+    if (result.snippet !== "") {
+      lines.push(`  ${paint(colors.dim, result.snippet)}`);
+    }
+  }
+  if (data.truncated === true) {
+    lines.push("");
+    lines.push(
+      paint(colors.dim, `Showing the first ${results.length} results.`),
+    );
+  }
+  console.log(lines.join("\n"));
+}
+
 /**
  * Concatenate a selected docs scope and emit it atomically from the command's
  * point of view: every source is read before stdout or the output file changes.
@@ -704,6 +856,7 @@ async function treeResult(
   cwd: string,
   opts: {
     target?: string | undefined;
+    search?: string | undefined;
     dir?: string | undefined;
     internal?: boolean | readonly string[] | undefined;
     adr?: boolean | undefined;
@@ -738,12 +891,95 @@ async function treeResult(
       message: desc.missingTree(opts),
     };
   }
+  if (opts.search !== undefined && opts.search.trim() === "") {
+    return {
+      ok: false,
+      verb: desc.verb,
+      error: "invalid_arguments",
+      message: "`search` must contain at least one non-space character.",
+    };
+  }
   if (tree.entries.length === 0) {
+    if (opts.search !== undefined) {
+      if (opts.target !== undefined && opts.target !== "") {
+        return {
+          ok: false,
+          verb: desc.verb,
+          error: "not_found",
+          message: notFoundMessage(opts.target, []),
+        };
+      }
+      return {
+        ok: true,
+        verb: desc.verb,
+        data: await searchData(desc, tree, opts.search),
+      };
+    }
     return {
       ok: true,
       verb: desc.verb,
       data: await indexData(desc, tree, cwd),
     };
+  }
+
+  if (opts.search !== undefined) {
+    let searchTree = tree;
+    let scope: string | undefined;
+    if (opts.target !== undefined && opts.target !== "") {
+      const resolvedScope = resolveSearchScope(tree, opts.target, cwd);
+      if (resolvedScope.kind === "none") {
+        const suggestions = suggestDocs(tree, opts.target).map((item) =>
+          item.entry
+        );
+        return {
+          ok: false,
+          verb: desc.verb,
+          error: "not_found",
+          message: notFoundMessage(opts.target, suggestions),
+          ...(suggestions.length > 0
+            ? {
+              data: {
+                suggestions: suggestions.map(toRecord),
+              } satisfies DocsData,
+            }
+            : {}),
+        };
+      }
+      if (resolvedScope.kind === "ambiguous") {
+        return {
+          ok: false,
+          verb: desc.verb,
+          error: "ambiguous",
+          message:
+            `"${opts.target}" matches ${resolvedScope.entries.length} docs.`,
+          data: {
+            candidates: resolvedScope.entries.map((entry) => entry.path),
+          } satisfies DocsData,
+        };
+      }
+      searchTree = resolvedScope.tree;
+      scope = resolvedScope.target;
+    }
+    return {
+      ok: true,
+      verb: desc.verb,
+      data: await searchData(desc, searchTree, opts.search, scope),
+    };
+  }
+
+  // A region named → its compact, filtered index.
+  if (opts.target !== undefined && opts.target !== "") {
+    const region = resolveDocRegion(tree, opts.target, cwd);
+    if (region !== undefined) {
+      return {
+        ok: true,
+        verb: desc.verb,
+        data: {
+          ...await indexData(desc, { ...tree, entries: region.entries }, cwd),
+          scope: region.name,
+        },
+      };
+    }
   }
 
   // A specific doc named → that one's record + content.
@@ -811,7 +1047,11 @@ async function treeResult(
  */
 export function mapResult(
   cwd: string,
-  opts: { target?: string | undefined; dir?: string | undefined } = {},
+  opts: {
+    target?: string | undefined;
+    search?: string | undefined;
+    dir?: string | undefined;
+  } = {},
 ): Promise<DiscernResult<DocsData>> {
   return treeResult(MAP_VERB, cwd, opts);
 }
@@ -823,7 +1063,7 @@ export function mapResult(
  */
 export function helpResult(
   cwd: string,
-  opts: { target?: string | undefined } = {},
+  opts: { target?: string | undefined; search?: string | undefined } = {},
 ): Promise<DiscernResult<DocsData>> {
   return treeResult(HELP_VERB, cwd, opts);
 }
@@ -903,6 +1143,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
     const conflicts = [
       options.target !== undefined ? "a target" : undefined,
+      options.search !== undefined ? "--search" : undefined,
       options.json ? "--json" : undefined,
       options.raw ? "--raw" : undefined,
       options.list ? "--list" : undefined,
@@ -942,12 +1183,25 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   // (and every `map` browse, and the MCP path) stays public-only.
   const internal = internalScope(desc, options);
 
+  if (options.search !== undefined && (options.raw || options.list)) {
+    const conflicts = [
+      options.raw ? "--raw" : undefined,
+      options.list ? "--list" : undefined,
+    ].filter((value): value is string => value !== undefined);
+    return invalidOptions(
+      log,
+      desc.verb,
+      `--search cannot be combined with ${conflicts.join(", ")}.`,
+    );
+  }
+
   // `--json`: the entire machine-readable surface (index, single doc, or error)
   // is {@link treeResult} — the one shape the MCP server also renders. The human,
   // raw, and interactive renderings below never run under `--json`.
   if (options.json) {
     const result = await treeResult(desc, cwd, {
       target: options.target,
+      search: options.search,
       dir: options.dir,
       internal,
       adr: options.adr,
@@ -974,17 +1228,81 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     log.error(desc.missingTree(options));
     return 1;
   }
+  if (options.search !== undefined && options.search.trim() === "") {
+    log.error("--search must contain at least one non-space character.");
+    return 1;
+  }
   if (tree.entries.length === 0) {
+    if (options.search !== undefined) {
+      if (options.target !== undefined && options.target !== "") {
+        log.error(notFoundMessage(options.target, []));
+        return 1;
+      }
+      printSearchResults(
+        desc.verb,
+        await searchData(desc, tree, options.search),
+        colourEnabled(options.noColor),
+      );
+      return 0;
+    }
     log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
     return 0;
   }
 
-  // 1. A specific doc was named → render / raw-dump just that one.
+  if (options.search !== undefined) {
+    let searchTree = tree;
+    let scope: string | undefined;
+    if (options.target !== undefined && options.target !== "") {
+      const resolvedScope = resolveSearchScope(
+        tree,
+        options.target,
+        cwd,
+      );
+      if (resolvedScope.kind === "none") {
+        const suggestions = suggestDocs(tree, options.target).map((item) =>
+          item.entry
+        );
+        log.error(notFoundMessage(options.target, suggestions));
+        return 1;
+      }
+      if (resolvedScope.kind === "ambiguous") {
+        log.error(
+          `"${options.target}" matches ${resolvedScope.entries.length} docs. ` +
+            "Qualify it with a section or path.",
+        );
+        return 1;
+      }
+      searchTree = resolvedScope.tree;
+      scope = resolvedScope.target;
+    }
+    printSearchResults(
+      desc.verb,
+      await searchData(desc, searchTree, options.search, scope),
+      colourEnabled(options.noColor),
+    );
+    return 0;
+  }
+
+  // 1. A region was named → print its compact table of contents.
+  if (options.target !== undefined && options.target !== "") {
+    const region = resolveDocRegion(tree, options.target, cwd);
+    if (region !== undefined) {
+      printToc(
+        desc.verb,
+        { ...tree, entries: region.entries },
+        cwd,
+        colourEnabled(options.noColor),
+      );
+      return 0;
+    }
+  }
+
+  // 2. A specific doc was named → render / raw-dump just that one.
   if (options.target !== undefined && options.target !== "") {
     return await viewTarget(desc, tree, options, log, cwd, options.target);
   }
 
-  // 2. `map` earns its name with a region overview before any drill-in. A pipe
+  // 3. `map` earns its name with a region overview before any drill-in. A pipe
   // gets the overview alone; a TTY continues into the existing picker.
   const interactive = !options.list && canPrompt(false);
   if (desc.verb === "map" && !options.list) {
@@ -998,12 +1316,12 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     if (!interactive) return 0;
   }
 
-  // 3. A real terminal and no `--list` → the interactive browser.
+  // 4. A real terminal and no `--list` → the interactive browser.
   if (interactive) {
     return await browse(desc, tree, options, cwd);
   }
 
-  // 4. Otherwise (help off a TTY, or explicit `--list`) → a plain TOC.
+  // 5. Otherwise (help off a TTY, or explicit `--list`) → a plain TOC.
   printToc(desc.verb, tree, cwd, colourEnabled(options.noColor));
   return 0;
 }

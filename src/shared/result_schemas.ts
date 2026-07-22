@@ -615,6 +615,16 @@ const statusFleetEntrySchema = z.strictObject({
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
+/** One cross-worktree collision: two fleet branches whose fork diffs vs the
+ * trunk touch the same paths — a semantic collision in the making even when
+ * both merge cleanly. `overlap` is capped; `total` is the true count. */
+const statusFleetCollisionSchema = z.strictObject({
+  branches: z.tuple([z.string(), z.string()]),
+  overlap: z.array(z.string()),
+  total: z.number(),
+});
+export type StatusFleetCollision = z.infer<typeof statusFleetCollisionSchema>;
+
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
@@ -642,6 +652,10 @@ export const StatusDataSchema = z.strictObject({
    * non-empty). */
   unlanded_branches: z.array(z.string()).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
+  /** Cross-worktree changed-file collisions (fleet view; present when
+   * non-empty): pairs of fleet branches whose fork diffs touch the same
+   * paths. */
+  fleet_collisions: z.array(statusFleetCollisionSchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
 
@@ -838,12 +852,26 @@ const mapRegionSchema = z.strictObject({
   code_changes_since: z.number().optional(),
 });
 
+/** One ranked documentation hit. `target` is the canonical value a caller can
+ * pass back to the same verb; ranking scores stay private implementation detail. */
+const docSearchResultSchema = z.strictObject({
+  target: z.string(),
+  path: z.string(),
+  section: z.string(),
+  title: z.string(),
+  description: z.string(),
+  heading: z.string().optional(),
+  snippet: z.string(),
+});
+export type DocSearchResult = z.infer<typeof docSearchResultSchema>;
+
 /**
  * `map`/`help` — the documentation payload, across every mode: the index
  * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
  * (`count:0`), a single doc (`doc` with content), an ambiguous match
- * (`candidates`), or nearest-match guidance for a not-found (`suggestions`).
- * Modeled as one object with mode-specific optionals.
+ * (`candidates`), nearest-match guidance for a not-found (`suggestions`), or a
+ * ranked search (`query`/`results`, optionally narrowed to `scope`). Modeled as
+ * one object with mode-specific optionals.
  */
 export const DocsDataSchema = z.strictObject({
   map_dir: z.string().optional(),
@@ -856,6 +884,10 @@ export const DocsDataSchema = z.strictObject({
   }).optional(),
   candidates: z.array(z.string()).optional(),
   suggestions: z.array(docRecordSchema).optional(),
+  query: z.string().optional(),
+  scope: z.string().optional(),
+  results: z.array(docSearchResultSchema).optional(),
+  truncated: z.boolean().optional(),
 });
 export type DocsData = z.infer<typeof DocsDataSchema>;
 

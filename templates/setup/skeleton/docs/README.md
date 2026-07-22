@@ -33,16 +33,16 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ### Reference material
 
-| Path           | What's in it                                                                                                                                                                                                               |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                                  |
-| `_internal/`   | Created when you first run the `discern-document-subsystem` skill — the documenter brief and per-subtree scope manifests for writing and refreshing this tree. Not part of the user-facing docs; kept for reproducibility. |
+| Path           | What's in it                                                                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                                |
+| `_internal/`   | Seeded by `discern setup` — the documenter brief and per-subtree scope manifests the `discern-document-subsystem` skill writes and refreshes this tree from. Not part of the user-facing docs; kept for reproducibility. |
 
 ---
 
 ## How the map is produced and kept current
 
-The map is seeded once by `discern setup`, then grown subtree-by-subtree with the `discern-document-subsystem` skill, which follows the brief it materializes at `_internal/documenter-agent-brief.md` the first time you run it. A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
+The map is seeded once by `discern setup` — the `_internal/` documenter brief included — then grown subtree-by-subtree with the `discern-document-subsystem` skill, which follows that brief at `_internal/documenter-agent-brief.md`. A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
 
 Because the map is the canonical account, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
 

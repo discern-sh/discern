@@ -3,6 +3,9 @@
  *
  *   deno task codegen
  *
+ * This includes the browser search module copied from its authored `src/lib`
+ * source, alongside the registry- and schema-derived reference artifacts.
+ *
  * (The `discern.toml` template is NOT regenerated — it stays hand-authored for
  * legibility per ADR 0005, bound to the schema by drift-guard tests instead.)
  *
@@ -18,6 +21,10 @@ import {
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
+import {
+  FEATURE_CANON_PAGE_REL,
+  renderFeatureCanonDoc,
+} from "./feature_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderResultJsonSchema,
@@ -35,6 +42,18 @@ import {
   renderArtifactInventory,
   replaceArtifactInventory,
 } from "../src/lib/artifact_ownership.ts";
+import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
+import {
+  adrRecords,
+  discoverDocs,
+  renderAdrIndexBlocks,
+  replaceAdrIndexBlocks,
+} from "../src/lib/docs.ts";
+import {
+  codegenWriteTargets,
+  REGISTRY_ATLAS_PAGE_REL,
+  renderRegistryAtlasDoc,
+} from "./canonical_sets.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -55,6 +74,10 @@ const glossary = relative(
   repoRoot,
   join(mapDir, "00-orientation", "glossary.md"),
 );
+const featureCanon = relative(
+  repoRoot,
+  join(mapDir, FEATURE_CANON_PAGE_REL),
+);
 const installSurface = relative(
   repoRoot,
   join(mapDir, "80-development", "install-surface.md"),
@@ -63,8 +86,17 @@ const artifactOwnership = relative(
   repoRoot,
   join(mapDir, "70-reference", "artifact-ownership.md"),
 );
+const registryAtlas = relative(
+  repoRoot,
+  join(mapDir, REGISTRY_ATLAS_PAGE_REL),
+);
+const adrDir = join(mapDir, "_adr");
+const adrIndex = relative(repoRoot, join(adrDir, "README.md"));
 
 type EquivalentText = (before: string, after: string) => boolean;
+
+/** Every path this script may touch, from the canonical-sets meta-registry. */
+const enrolledTargets = codegenWriteTargets();
 
 /** Write `text` unless the committed artifact is equivalent, then report it. */
 async function write(
@@ -72,6 +104,12 @@ async function write(
   text: string,
   equivalent: EquivalentText = (before, after) => before === after,
 ): Promise<void> {
+  if (!enrolledTargets.has(rel)) {
+    throw new Error(
+      `${rel} is not enrolled in the canonical-sets meta-registry — ` +
+        "declare it in scripts/canonical_sets.ts before codegen may write it",
+    );
+  }
   const path = join(repoRoot, rel);
   let before: string | undefined;
   try {
@@ -93,10 +131,44 @@ await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
+console.log(
+  "Regenerating the browser docs-search module from its shared source:",
+);
+await write(
+  "site/pages/assets/search.js",
+  renderBrowserSearchModule(
+    await Deno.readTextFile(join(repoRoot, "src/lib/docs_search.js")),
+  ),
+);
 console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
+console.log(
+  "Regenerating the feature canon from scripts/feature_registry.ts:",
+);
+await write(featureCanon, renderFeatureCanonDoc());
+console.log("Regenerating the ADR index from the records on disk:");
+const adrTree = await discoverDocs({
+  cwd: repoRoot,
+  dir: adrDir,
+  includeInternal: true,
+});
+if (adrTree === undefined) {
+  throw new Error(`Couldn't find the ADR directory at ${adrDir}`);
+}
+const adrIndexDoc = await Deno.readTextFile(join(repoRoot, adrIndex));
+await write(
+  adrIndex,
+  replaceAdrIndexBlocks(
+    adrIndexDoc,
+    await renderAdrIndexBlocks(adrRecords(adrTree.entries)),
+  ),
+);
+console.log(
+  "Regenerating the registry atlas from scripts/canonical_sets.ts:",
+);
+await write(registryAtlas, await renderRegistryAtlasDoc());
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),

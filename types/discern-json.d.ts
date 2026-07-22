@@ -1157,6 +1157,18 @@ export type DiscernMapResult = {
       order?: number;
       aliases?: Array<string>;
     }>;
+    query?: string;
+    scope?: string;
+    results?: Array<{
+      target: string;
+      path: string;
+      section: string;
+      title: string;
+      description: string;
+      heading?: string;
+      snippet: string;
+    }>;
+    truncated?: boolean;
   } | {
     issues: Array<{
       path: string;
@@ -1291,6 +1303,18 @@ export type DiscernHelpResult = {
       order?: number;
       aliases?: Array<string>;
     }>;
+    query?: string;
+    scope?: string;
+    results?: Array<{
+      target: string;
+      path: string;
+      section: string;
+      title: string;
+      description: string;
+      heading?: string;
+      snippet: string;
+    }>;
+    truncated?: boolean;
   } | {
     issues: Array<{
       path: string;
@@ -2621,6 +2645,11 @@ export type DiscernStatusResult = {
       id?: string;
       port?: number;
       broken?: boolean;
+    }>;
+    fleet_collisions?: Array<{
+      branches: unknown;
+      overlap: Array<string>;
+      total: number;
     }>;
   } | {
     issues: Array<{

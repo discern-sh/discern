@@ -7,9 +7,16 @@
  * the index names it.
  */
 
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
+import {
+  type AdrRecord,
+  adrRecords,
+  discoverDocs,
+  renderAdrIndexBlocks,
+  replaceAdrIndexBlocks,
+} from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
@@ -25,6 +32,16 @@ async function adrFiles(dir: string): Promise<string[]> {
   return names.sort();
 }
 
+async function adrRecordsIn(dir: string): Promise<AdrRecord[]> {
+  const tree = await discoverDocs({
+    cwd: dir,
+    dir,
+    includeInternal: true,
+  });
+  assert(tree !== undefined, `ADR directory does not exist: ${dir}`);
+  return adrRecords(tree.entries);
+}
+
 Deno.test("ADR index: every active ADR on disk is linked from the README index", async () => {
   const readme = await Deno.readTextFile(join(ADR_DIR, "README.md"));
   const missing = (await adrFiles(ADR_DIR))
@@ -35,6 +52,17 @@ Deno.test("ADR index: every active ADR on disk is linked from the README index",
     `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md must index every active ADR — add: ${
       missing.join(", ")
     }`,
+  );
+});
+
+Deno.test("ADR index: generated record lists match the records on disk", async () => {
+  const readme = await Deno.readTextFile(join(ADR_DIR, "README.md"));
+  const blocks = await renderAdrIndexBlocks(await adrRecordsIn(ADR_DIR));
+  assertEquals(
+    readme,
+    replaceAdrIndexBlocks(readme, blocks),
+    `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md is stale — run ` +
+      "`deno task codegen`",
   );
 });
 
@@ -89,19 +117,69 @@ Deno.test("ADR record: every relative Markdown-file link resolves", async () => 
   );
 });
 
-Deno.test("ADR numbers are never reused across the active and superseded sets", async () => {
-  const all = [
-    ...await adrFiles(ADR_DIR),
-    ...await adrFiles(join(ADR_DIR, "_superseded")),
-  ].filter((name) => name !== "0000-template.md");
+interface NumberedAdrPath {
+  number: string;
+  path: string;
+}
+
+function duplicateAdrNumberOffenders(
+  records: readonly NumberedAdrPath[],
+): string[] {
   const seen = new Map<string, string>();
-  for (const name of all) {
-    const number = name.slice(0, 4);
-    const prior = seen.get(number);
-    assert(
-      prior === undefined,
-      `ADR number ${number} is used twice: ${prior} and ${name}`,
+  const offenders: string[] = [];
+  for (const record of records) {
+    const prior = seen.get(record.number);
+    if (prior !== undefined) {
+      offenders.push(
+        `ADR number ${record.number} is used twice: ${prior} and ${record.path}`,
+      );
+    } else {
+      seen.set(record.number, record.path);
+    }
+  }
+  return offenders;
+}
+
+Deno.test("ADR numbers are never reused across the active and superseded sets", async () => {
+  const offenders = duplicateAdrNumberOffenders(
+    (await adrRecordsIn(ADR_DIR)).map((record) => ({
+      number: record.number,
+      path: record.entry.relToDocs,
+    })),
+  );
+  assertEquals(
+    offenders,
+    [],
+    `ADR numbers must be unique:\n${offenders.join("\n")}`,
+  );
+});
+
+Deno.test("control: a duplicate active and superseded ADR number offends", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-control-" });
+  try {
+    await Deno.mkdir(join(dir, "_superseded"));
+    await Deno.writeTextFile(
+      join(dir, "4242-new-direction.md"),
+      "# ADR 4242: A new direction\n",
     );
-    seen.set(number, name);
+    await Deno.writeTextFile(
+      join(dir, "_superseded", "4242-retired-direction.md"),
+      "# ADR 4242: A retired direction\n",
+    );
+    const offenders = duplicateAdrNumberOffenders(
+      (await adrRecordsIn(dir)).map((record) => ({
+        number: record.number,
+        path: record.entry.relToDocs,
+      })),
+    );
+    assertEquals(
+      offenders,
+      [
+        "ADR number 4242 is used twice: 4242-new-direction.md and " +
+        "_superseded/4242-retired-direction.md",
+      ],
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
   }
 });

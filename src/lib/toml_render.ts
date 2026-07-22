@@ -39,6 +39,7 @@ export function renderTomlStringList(items: string[]): string {
 /** A minimally-validated view of a parsed `discern.toml`. */
 export interface DiscernToml {
   project: {
+    name?: string | undefined;
     slug?: string | undefined;
     agents?: string[] | undefined;
     gotchas_doc?: string | undefined;
@@ -73,6 +74,7 @@ export function parseDiscernToml(text: string): DiscernToml {
   const repository = isRecord(raw.repository) ? raw.repository : {};
   return {
     project: {
+      name: typeof project.name === "string" ? project.name : undefined,
       slug: typeof project.slug === "string" ? project.slug : undefined,
       agents: Array.isArray(project.agents)
         ? project.agents.filter((a): a is string => typeof a === "string")

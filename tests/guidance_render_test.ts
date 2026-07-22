@@ -9,8 +9,10 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { compileGuidelines } from "../src/engine/guidelines.ts";
 import {
+  agentFileOwnershipPatterns,
   checkGuidanceCurrent,
   guidanceContext,
+  matchesGuidanceOwnership,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -39,7 +41,7 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
     assert(
-      agents.startsWith("# Working with discern"),
+      agents.startsWith("# Working in this project"),
       "the canonical file opens with the guidance — no banner",
     );
     assertStringIncludes(
@@ -49,6 +51,37 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     );
     assert(agents.includes("A rule."), "the user source is appended");
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: the compiled file opens as the project's own — [project].name, else the slug", async () => {
+  const dir = await scaffold();
+  try {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+    );
+    let files = await renderAgentFiles(dir);
+    let agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assert(
+      agents.startsWith("# Working in voyager-2"),
+      "with no [project].name the H1 carries the slug verbatim",
+    );
+
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+    );
+    files = await renderAgentFiles(dir);
+    agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assert(
+      agents.startsWith("# Working in Voyager 2"),
+      "[project].name wins over the slug in the H1",
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -81,6 +114,24 @@ Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits 
         body.includes("A rule."),
         `${name} canonical guidance should carry the compiled body`,
       );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  }
+});
+
+Deno.test("renderAgentFiles: internal map slots never reach provider output", async () => {
+  // The provider registry is the enrollment source: a new integration that emits
+  // a full agent file joins this guard without adding its name here.
+  for (const name of AGENT_NAMES) {
+    const dir = await scaffold(`["${name}"]`);
+    try {
+      for (const [path, body] of await renderAgentFiles(dir)) {
+        assert(
+          !body.includes("discern:map-regions"),
+          `${name} leaked the internal map slot through ${path}`,
+        );
+      }
     } finally {
       await Deno.remove(dir, { recursive: true });
     }
@@ -153,10 +204,9 @@ Deno.test("compile converges when [guidance].sources globs the generated files' 
   }
 });
 
-Deno.test("renderAgentFiles: two renders of the same config are byte-identical (deterministic)", async () => {
-  // The built-in sections are templated against a context built purely from
-  // committed config (ADR 0034), so the compile output cannot vary run-to-run on
-  // the same commit — the property the stateless currency check relies on.
+Deno.test("renderAgentFiles: two renders of the same committed inputs are byte-identical (deterministic)", async () => {
+  // Built-in sections read committed config and the map's top-level structure,
+  // so the compile output cannot vary between runs over the same tree.
   const dir = await scaffold();
   try {
     const a = await renderAgentFiles(dir);
@@ -165,6 +215,67 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
     for (const [path, body] of a) {
       assertEquals(b.get(path), body, `${path} must render identically twice`);
     }
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn", async () => {
+  const dir = await scaffold('["codex"]');
+  try {
+    await Deno.mkdir(join(dir, "map", "20-quality-gate"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "map", "20-quality-gate", "README.md"),
+      "# Quality gate\n\nHow the project proves changes.\n",
+    );
+    const first = (await renderAgentFiles(dir)).get("AGENTS.md");
+    assert(first !== undefined);
+    assertStringIncludes(first, "`20-quality-gate` — Quality gate");
+
+    // A leaf joins search and the region index, but the compact generated list
+    // depends only on the top-level region and its front-door title.
+    await Deno.writeTextFile(
+      join(dir, "map", "20-quality-gate", "jobs.md"),
+      "# Jobs\n\nOne leaf.\n",
+    );
+    assertEquals(
+      (await renderAgentFiles(dir)).get("AGENTS.md"),
+      first,
+      "adding a leaf inside an existing region must not churn agent guidance",
+    );
+
+    await Deno.mkdir(join(dir, "map", "30-worktrees"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "map", "30-worktrees", "README.md"),
+      "# Worktrees\n\nIsolated checkouts.\n",
+    );
+    const expanded = (await renderAgentFiles(dir)).get("AGENTS.md");
+    assert(expanded !== undefined);
+    assertStringIncludes(expanded, "`30-worktrees` — Worktrees");
+    assert(expanded !== first, "a new top-level region must refresh guidance");
+    const config = await loadConfig(dir);
+    const provider = providerFor("codex");
+    assert(provider !== undefined);
+    const patterns = await agentFileOwnershipPatterns(
+      dir,
+      config,
+      [provider.guidanceFile],
+    );
+    assert(
+      patterns.some((pattern) => matchesGuidanceOwnership(pattern, first)),
+      "ownership comparison accepts an older generated region payload",
+    );
+    assert(
+      !patterns.some((pattern) =>
+        matchesGuidanceOwnership(
+          pattern,
+          first.replace("# Mine", "# Changed"),
+        )
+      ),
+      "authored guidance outside the owned slot must remain significant",
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -333,8 +444,12 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
     // MCP-first stance + the unreachable-server fallback are present...
     assert(body.includes("primary surface"), "states MCP-first");
     assert(
-      body.includes("MCP server is **unreachable**"),
+      body.includes("MCP server is unreachable"),
       "carries the fallback instruction",
+    );
+    assert(
+      body.includes("CLI isn't on PATH"),
+      "carries the fallback installation instruction",
     );
     assert(body.includes("discern_done"), "names the gate as a tool");
     // ...and the de-duplicated content is gone (cut, not relocated twice).
@@ -369,6 +484,10 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
     string,
     { toml: string; expect?: string; contextOnly?: boolean }
   > = {
+    project_name: {
+      toml: '[project]\nname = "ZZ Probe"\n[guidance]\nagents = ["codex"]\n',
+      expect: "ZZ Probe",
+    },
     branch_prefix: {
       toml:
         '[repository]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',

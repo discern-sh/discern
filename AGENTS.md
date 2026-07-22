@@ -1,17 +1,17 @@
-# Working with discern
+# Working in discern
 
-This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** — returning structured results.
-
-This file is compiled — discern's built-in operating guidance first, then the project's own guidance, the more specific authority: it wins on any conflict.
+The second half of this file is discern's own project guidance. discern's built-in guidance comes first, so you understand how to work correctly with discern's tools and conventions. The project guidance wins on any conflict.
 
 ## Operating discern
+
+This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** — returning structured results.
 
 - **Orient first.** Call **`discern_status`** at session start for a cheap, read-only account of what's true and next.
 - **Starting a task? Get your own worktree — a separate checkout and branch for one change — first.** From the main checkout, run **`discern_start`**; it creates one and returns its path. Move into it and work only there, never on the trunk — the shared landing branch — or in another effort's worktree.
 - **`discern_done` is the bar for "done".** It runs the gate — the project's full quality check; call a change finished only when the final tree passes. Iterate with **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just the tests). On failure, read `diagnostics[]` for the command and output, then fix it.
 - **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
-If the MCP server is **unreachable**, tell the user and use the **`discern` CLI** with `--json` meanwhile — never `tail` its agent-optimised output. Offer to fix the connection with `discern help` / `discern doctor` afterwards.
+**Troubleshooting**: If the MCP server is unreachable, tell the user and use the **`discern` CLI** with `--json` in the meantime (never `tail` or parse a subset of the CLI's agent-optimized JSON output, you will miss contextual hints). Offer to fix the connection with `discern help` / `discern doctor` afterwards. If the `discern` CLI isn't on PATH: stop and notify the user, then offer to either continue working without discern (ensuring the user is aware of the risk), or help them install discern's single self-contained binary before continuing (you can `curl discern.sh` for the agent-optimized plaintext installation guide).
 
 ## Generated files — don't hand-edit
 
@@ -45,7 +45,21 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The map & decisions
 
-The tree at `project/map/` is the **map** — the agent-maintained account of this codebase, browsable with **`discern_map`**. Agents write it and keep it current; humans read it to audit what their agents understand; a stale map is a defect. Never touch documentation the user didn't point discern at — the map is the only tree discern maintains. Record significant or hard-to-reverse decisions as **Architecture Decision Records** under `project/map/_adr/`.
+`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Keep it current; staleness is a defect. Humans audit agent understanding. Maintain no documentation outside it unless the user asks. Put significant, hard-to-reverse decisions in **Architecture Decision Records** under `project/map/_adr/`.
+
+Use a region as `target` for its index, or add `search` to scope a query. When unsure, search in task language, then fetch a result with its canonical `target`.
+
+- `00-orientation` — Orientation
+- `10-getting-started` — Getting started
+- `20-quality-gate` — The quality gate
+- `30-worktrees` — Worktrees
+- `40-agent-guidance` — Agent guidance
+- `45-skills` — Skills
+- `50-engine-internals` — Engine internals
+- `60-agent-integrations` — Agent integrations
+- `70-reference` — Reference
+- `80-development` — Working on this project
+- `90-site` — The public site — discern.sh
 
 ---
 

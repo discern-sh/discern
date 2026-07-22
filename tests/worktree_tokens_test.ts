@@ -47,14 +47,14 @@ Deno.test("expandTokens resolves only the tokens that appear", async () => {
     {
       db: "mydb",
       site: "mysite",
-      port: "13999",
+      port: "18729",
       project_slug: "slug",
       dir: "/wt",
     },
     asked,
   );
   const out = await expandTokens("psql @db@ on @port@", resolver);
-  assertEquals(out, "psql mydb on 13999");
+  assertEquals(out, "psql mydb on 18729");
   // Only db and port were present; site/project_slug/dir must not be resolved.
   assertEquals(asked.sort(), ["db", "port"]);
 });

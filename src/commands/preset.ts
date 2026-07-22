@@ -180,7 +180,7 @@ export async function runPreset(
 
   // A preset is scaffolded exactly like the base templates tree.
   const config: SetupConfig = {
-    projectName: toml.project.slug ?? "app",
+    projectName: (toml.project.name?.trim() || toml.project.slug) ?? "app",
     slug: toml.project.slug ?? "app",
     branchPrefix: toml.repository.branch_prefix ?? DEFAULTS.branchPrefix,
     sourceGlobs: [...DEFAULTS.sourceGlobs],

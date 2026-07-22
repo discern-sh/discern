@@ -3921,6 +3921,52 @@
                       "description"
                     ]
                   }
+                },
+                "query": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string"
+                },
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "target": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "section": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "heading": {
+                        "type": "string"
+                      },
+                      "snippet": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "target",
+                      "path",
+                      "section",
+                      "title",
+                      "description",
+                      "snippet"
+                    ]
+                  }
+                },
+                "truncated": {
+                  "type": "boolean"
                 }
               }
             },
@@ -4379,6 +4425,52 @@
                       "description"
                     ]
                   }
+                },
+                "query": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string"
+                },
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "target": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "section": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "heading": {
+                        "type": "string"
+                      },
+                      "snippet": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "target",
+                      "path",
+                      "section",
+                      "title",
+                      "description",
+                      "snippet"
+                    ]
+                  }
+                },
+                "truncated": {
+                  "type": "boolean"
                 }
               }
             },
@@ -8861,6 +8953,39 @@
                       "is_main",
                       "is_current",
                       "branch"
+                    ]
+                  }
+                },
+                "fleet_collisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "branches": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "overlap": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "total": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "branches",
+                      "overlap",
+                      "total"
                     ]
                   }
                 }
