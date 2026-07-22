@@ -11,6 +11,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { defineHint, fire, HINTS, hintTexts } from "../src/shared/hints.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 const STATIC_HINT = defineHint({
   id: "test-static",
@@ -53,6 +54,21 @@ Deno.test("hintTexts projects the wire shape in firing order", () => {
     "Branch is 1 behind main; run `discern update`.",
     "A fixed guardrail sentence.",
   ]);
+});
+
+Deno.test("hint assertions render registry entries with supplied or example params", () => {
+  const params = { branch: "release", behind: 2 };
+  const result = {
+    hints: [fire(PARAM_HINT, params).text],
+  };
+  assertEquals(
+    assertHasHint(result, PARAM_HINT, params),
+    fire(PARAM_HINT, params).text,
+  );
+  assertLacksHint(result, STATIC_HINT);
+
+  const exampleResult = { hints: [fire(PARAM_HINT, PARAM_HINT.example).text] };
+  assertHasHint(exampleResult, PARAM_HINT);
 });
 
 Deno.test("registry ids are unique, kebab-case, and match their keys", () => {
