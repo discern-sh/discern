@@ -168,6 +168,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0174 — Agent document discovery is regions, search, then canonical targets](0174-agent-document-discovery-funnel.md)
 - [0175 — The feature canon compiles from a feature registry](0175-the-feature-canon-compiles-from-a-feature-registry.md)
 - [0176 — The closed sets are a closed set](0176-the-closed-sets-are-a-closed-set.md)
+- [0177 — The compiled agent file opens as the project's own document](0177-compiled-agent-file-opens-as-the-projects-own.md)
 
 ## Superseded records
 

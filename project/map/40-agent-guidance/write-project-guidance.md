@@ -12,7 +12,7 @@ aliases:
 
 _Put durable project rules in the configured guidance sources so every coding agent receives the same instructions._
 
-discern places its built-in operating guidance first. Your sources follow it with project-specific facts and rules. Record how to run the project, which files discern generates, where decisions live, and which practices the gate cannot infer from commands alone. The default source is `discern/guidance.md`.
+The compiled file opens as your project's own document: the heading names the project (`[project].name`, or the slug when it is unset), and the first line states that your guidance is the final authority ([ADR 0177](../_adr/0177-compiled-agent-file-opens-as-the-projects-own.md)). discern's built-in operating guidance comes first so your rules can override it; your sources follow with project-specific facts. Record how to run the project, which files discern generates, where decisions live, and which practices the gate cannot infer from commands alone. The default source is `discern/guidance.md`.
 
 ## Configure the sources
 
