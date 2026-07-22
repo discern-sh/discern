@@ -64,6 +64,7 @@ dotdir
 dotenv
 dotfile
 dotfolder
+dprint
 effectful
 else
 enum
@@ -89,6 +90,7 @@ gitlinks?
 globbing
 hardcod(e|es|ed|ing)
 Hono
+idempotence
 idempotency
 idempotently
 Infracost
@@ -221,9 +223,11 @@ untrack(ed|ing|s)
 untrusted
 uppercased
 validators?
+vendored
 Vercel('s)?
 vhost
 walkthrough(s)?
+WASMs?
 wget
 Wilcoxon
 worktrees?

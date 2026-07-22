@@ -1,5 +1,7 @@
 # ADR 0176: The closed sets are a closed set
 
+> **Formatter amendment ([ADR 0178](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)):** Generated Markdown artifacts are now required to be canonical under the embedded formatter, and codegen formats them at its write chokepoint. The fmt-exclusion sweep described below retired with the four page-level exclusions; the meta-registry decision and its remaining sweeps stand.
+
 **Status**: accepted
 
 ## Context
