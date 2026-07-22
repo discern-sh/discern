@@ -25,7 +25,9 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   git,
   gitInit,
@@ -396,12 +398,10 @@ Deno.test("coupling ranks strongest-first, keeps strongest under the cap, and ti
         JSON.stringify(data.partners)
       }`,
     );
-    assert(
-      (result.hints ?? []).some((h) => h.includes("almost every time")),
-      `a >=0.85 confidence pair should trigger the invariant tip: ${
-        JSON.stringify(result.hints)
-      }`,
-    );
+    assertHasHint(result, HINTS["coupling-strong-pair"], {
+      from: "hub.ts",
+      path: "always.ts",
+    });
   });
 });
 
@@ -423,12 +423,10 @@ Deno.test("coupling near-invariant tip stays quiet below 0.85 confidence", async
     const data = result.data as CouplingData;
     assertEquals(data.partners[0]?.path, "steady.ts");
     assertEquals(data.partners[0]?.confidence, 0.8);
-    assert(
-      !(result.hints ?? []).some((h) => h.includes("almost every time")),
-      `a <0.85 confidence pair must not trigger the invariant tip: ${
-        JSON.stringify(result.hints)
-      }`,
-    );
+    assertLacksHint(result, HINTS["coupling-strong-pair"], {
+      from: "hub.ts",
+      path: "steady.ts",
+    });
   });
 });
 
@@ -450,10 +448,14 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
       qObj.data.partners.some((p: { path: string }) => p.path === "b.ts"),
       q.stdout,
     );
-    assert(
-      Array.isArray(qObj.hints) && qObj.hints.length > 0,
-      "query mode carries advisory hints",
-    );
+    assertHasHint(qObj, HINTS["coupling-query-header"], { target: "a.ts" });
+    assertHasHint(qObj, HINTS["coupling-query-partner"], {
+      path: "b.ts",
+      target: "a.ts",
+      cochanges: 4,
+      of: 4,
+      confidence: 1,
+    });
 
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
     const d = await runAgent(dir, ["coupling", "--json"]);
@@ -464,6 +466,14 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
       dObj.data.partners.some((p: { path: string }) => p.path === "b.ts"),
       d.stdout,
     );
+    assertHasHint(dObj, HINTS["coupling-diff-header"]);
+    assertHasHint(dObj, HINTS["coupling-diff-partner"], {
+      from: "a.ts",
+      path: "b.ts",
+      cochanges: 4,
+      of: 4,
+      confidence: 1,
+    });
   });
 });
 
@@ -512,10 +522,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
     const off = await finishResult(dir);
     assertEquals(off.ok, true);
     assertEquals(off.data?.failed_stage ?? null, null);
-    assert(
-      !(off.hints ?? []).some((h) => h.includes("Coupling")),
-      `no advisory when in_gate is off: ${JSON.stringify(off.hints)}`,
-    );
+    assertLacksHint(off, HINTS["coupling-diff-header"]);
 
     // Flip it on.
     await writeConfig(
@@ -536,13 +543,17 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
       "the advisory must not change the gate's pass/fail",
     );
     assertEquals(on.data?.failed_stage ?? null, null);
-    const hints = on.hints ?? [];
-    assert(
-      hints.some((h) => h.includes("b.ts")),
-      `expected a coupling advisory naming b.ts: ${JSON.stringify(hints)}`,
-    );
+    const expectedHeader = assertHasHint(on, HINTS["coupling-diff-header"]);
+    assertHasHint(on, HINTS["coupling-diff-partner"], {
+      from: "a.ts",
+      path: "b.ts",
+      cochanges: 4,
+      of: 4,
+      confidence: 1,
+    });
     // It rides at the TAIL of the hints.
-    const idx = hints.findIndex((h) => h.includes("Coupling"));
+    const hints = on.hints ?? [];
+    const idx = hints.indexOf(expectedHeader);
     assert(
       idx >= 0 && idx >= hints.length - 6,
       `coupling hints should sit at the tail: ${JSON.stringify(hints)}`,
@@ -580,10 +591,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
     const result = await finishResult(dir);
-    assert(
-      !(result.hints ?? []).some((h) => h.includes("Coupling")),
-      `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
-    );
+    assertLacksHint(result, HINTS["coupling-diff-header"]);
   });
 });
 
@@ -653,10 +661,13 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
       (obj.data.commits as { subject: string }[]).map((c) => c.subject),
       ["ab-again", "ab-decision"],
     );
-    assert(
-      Array.isArray(obj.hints) && obj.hints.length > 0,
-      "evidence mode carries advisory hints",
-    );
+    assertHasHint(obj, HINTS["coupling-evidence-summary"], {
+      a: "a.ts",
+      b: "b.ts",
+      together: 2,
+      ofA: 2,
+      ofB: 2,
+    });
 
     // human: the rendered view names the pair and lists the shared commit subjects.
     const h = await runAgent(dir, ["coupling", "a.ts", "b.ts"]);
@@ -680,10 +691,7 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
     // in_gate off (the default): the fast loop is green and carries NO coupling advisory.
     const off = await prepareResult(dir);
     assertEquals(off.ok, true);
-    assert(
-      !(off.hints ?? []).some((h) => h.includes("Coupling")),
-      `no advisory when in_gate is off: ${JSON.stringify(off.hints)}`,
-    );
+    assertLacksHint(off, HINTS["coupling-diff-header"]);
 
     // Flip it on — the SAME flag finish honours.
     await writeConfig(
@@ -703,13 +711,17 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
       true,
       "the advisory must not change prepare's pass/fail",
     );
-    const hints = on.hints ?? [];
-    assert(
-      hints.some((h) => h.includes("b.ts")),
-      `expected a coupling advisory naming b.ts: ${JSON.stringify(hints)}`,
-    );
+    const expectedHeader = assertHasHint(on, HINTS["coupling-diff-header"]);
+    assertHasHint(on, HINTS["coupling-diff-partner"], {
+      from: "a.ts",
+      path: "b.ts",
+      cochanges: 4,
+      of: 4,
+      confidence: 1,
+    });
     // It rides at the TAIL, as in finish — the same diff-aware advisory, in the hot loop.
-    const idx = hints.findIndex((h) => h.includes("Coupling"));
+    const hints = on.hints ?? [];
+    const idx = hints.indexOf(expectedHeader);
     assert(
       idx >= 0 && idx >= hints.length - 6,
       `coupling hints should sit at the tail: ${JSON.stringify(hints)}`,
@@ -746,9 +758,6 @@ Deno.test("prepare suppresses the coupling advisory until the install is bootstr
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
     const result = await prepareResult(dir);
-    assert(
-      !(result.hints ?? []).some((h) => h.includes("Coupling")),
-      `no advisory before setup completion: ${JSON.stringify(result.hints)}`,
-    );
+    assertLacksHint(result, HINTS["coupling-diff-header"]);
   });
 });
