@@ -12,7 +12,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   git,
   gitInit,
@@ -297,10 +299,10 @@ Deno.test("start on a dirty main checkout says the changes stay behind", async (
       data: { path: string };
       hints?: string[];
     };
-    assert(
-      (result.hints ?? []).some((h) => h.includes("stay in the main checkout")),
-      `expected the dirty-main advisory in hints\n${r.stdout}`,
-    );
+    assertHasHint(result, HINTS["start-main-changes-stay"], {
+      changes: 1,
+      startPoint: "main",
+    });
     assertEquals(
       await exists(join(result.data.path, "wip.txt")),
       false,

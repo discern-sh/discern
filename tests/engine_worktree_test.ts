@@ -18,7 +18,9 @@ import {
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -1172,12 +1174,7 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
     // …and it is checked out on its own branch.
     assertEquals(await gitOut(path, "branch", "--show-current"), `agent/${id}`);
     // The result carries the re-root instruction (the agent must move into the path).
-    assert(
-      result.hints.some((h) =>
-        h.includes(path) && /session rooted|cd /.test(h)
-      ),
-      `expected a re-root hint naming ${path}: ${JSON.stringify(result.hints)}`,
-    );
+    assertHasHint(result, HINTS["start-re-root"], { id, dir: path, branch });
   });
 });
 
@@ -1206,14 +1203,12 @@ Deno.test("start --name: derives the branch from the name and reports the normal
     assertEquals(await gitOut(path, "branch", "--show-current"), branch);
     // The normalisation is surfaced in the data AND leads the hints, so the caller
     // sees what the worktree was actually named.
-    assert(
-      name_note !== undefined && name_note.includes("fix-the-upload-retry"),
-      `expected a name_note naming the slug: ${name_note}`,
-    );
-    assert(
-      result.hints[0] === name_note,
-      `name_note should lead the hints: ${JSON.stringify(result.hints)}`,
-    );
+    const expected = assertHasHint(result, HINTS["start-name-normalized"], {
+      name: "Fix the Upload Retry!",
+      slug: "fix-the-upload-retry",
+    });
+    assertEquals(name_note, expected);
+    assertEquals(result.hints[0], expected, "name_note should lead the hints");
   });
 });
 

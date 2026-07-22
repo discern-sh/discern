@@ -26,6 +26,8 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up discern";
@@ -559,12 +561,7 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
         res.error !== "not_set_up",
         `${verb} must not redirect to setup pre-setup: ${r.output}`,
       );
-      assert(
-        (res.hints ?? []).some((h: string) =>
-          h.includes("Setup is not finished")
-        ),
-        `${verb} must carry the setup-in-progress hint: ${r.stdout}`,
-      );
+      assertHasHint(res, HINTS["setup-unfinished-gate"]);
     }
   });
 });

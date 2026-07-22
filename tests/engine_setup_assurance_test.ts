@@ -18,6 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import {
   assessSetupAssurance,
   classifyKnownJob,
@@ -31,6 +32,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 // ── unit: classification + verdict, derived from [jobs] alone ───────────
 
@@ -194,15 +196,15 @@ Deno.test("setup done --json carries the landing summary + coach pointer", async
     assertEquals(res.data.coach.verb, "improvement");
     assertStringIncludes(res.data.coach.command, "discern improvement --json");
     // The ordered next-action hints name landing and the coach.
-    const hints: string[] = res.hints ?? [];
-    assert(
-      hints.some((h) => h.includes("discern setup accept")),
-      `hints should point at landing: ${JSON.stringify(hints)}`,
-    );
-    assert(
-      hints.some((h) => h.includes("discern improvement --json")),
-      `hints should point at the coach: ${JSON.stringify(hints)}`,
-    );
+    assertHasHint(res, HINTS["setup-done-land-dedicated"], {
+      branch: "discern-setup",
+      target: "main",
+      acceptCommand: "discern setup accept",
+    });
+    assertHasHint(res, HINTS["setup-run-coach"], {
+      coachVerb: "improvement",
+      todoRel: "discern/TODO.md",
+    });
   });
 });
 

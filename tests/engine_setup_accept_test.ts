@@ -12,6 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { HINTS } from "../src/shared/hints.ts";
 import {
   git,
   gitInit,
@@ -20,6 +21,7 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** Scaffold a bootstrapped project in a hermetic git repo, then branch to
  * `discern-setup` with one commit — the post-`setup done` shape `land` acts on. */
@@ -208,13 +210,17 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
     const obj = JSON.parse(done.stdout);
     assertEquals(obj.data.landing.branch, "feature-x");
     assertEquals(obj.data.landing.on_setup_branch, false);
-    const hints: string[] = obj.hints ?? [];
-    assert(
-      !hints.some((h) => h.includes("land it with")),
-      `done must not recommend landing a non-setup branch: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertLacksHint(obj, HINTS["setup-done-land-dedicated"], {
+      branch: "feature-x",
+      target: "main",
+      acceptCommand: "discern setup accept",
+    });
+    assertHasHint(obj, HINTS["setup-done-land-manually"], {
+      branch: "feature-x",
+      target: "main",
+      acceptCommand: "discern setup accept",
+      setupBranch: "discern-setup",
+    });
     assertStringIncludes(
       obj.data.guidance,
       "usual way",

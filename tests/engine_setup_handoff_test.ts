@@ -26,6 +26,8 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
 const INSTRUCTIONS_H1 = "# Set up discern";
@@ -86,10 +88,7 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
 
     // Machine view: the same qualifier rides the hints.
     const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
-    assert(
-      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
-      `expected the mid-setup hint: ${JSON.stringify(j.hints)}`,
-    );
+    assertHasHint(j, HINTS["setup-unfinished-doctor"]);
   });
 
   await withTempDir(async (dir) => {
@@ -100,10 +99,7 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
       "a recorded setup must not re-raise the mid-setup banner",
     );
     const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
-    assertEquals(
-      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
-      false,
-    );
+    assertLacksHint(j, HINTS["setup-unfinished-doctor"]);
   });
 });
 
@@ -147,21 +143,17 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
         j.data.setup_unfinished.pending_markers.length > 0,
       `expected pending markers: ${JSON.stringify(j.data.setup_unfinished)}`,
     );
-    assert(
-      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
-      `expected a lead setup hint: ${JSON.stringify(j.hints)}`,
-    );
+    assertHasHint(j, HINTS["setup-unfinished-status"], {
+      pendingCount: j.data.setup_unfinished.pending_markers.length,
+    });
 
     // Once setup is recorded, the signal is gone — and the marker walk is skipped.
     await runAgent(dir, ["setup", "done", "--force"]);
     const done = JSON.parse((await runAgent(dir, ["status", "--json"])).stdout);
     assertEquals(done.data.setup_unfinished, undefined);
-    assertEquals(
-      (done.hints ?? []).some((h: string) =>
-        h.includes("Setup is NOT finished")
-      ),
-      false,
-    );
+    assertLacksHint(done, HINTS["setup-unfinished-status"], {
+      pendingCount: 0,
+    });
   });
 });
 
@@ -180,12 +172,9 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
       j.data.setup_unfinished !== undefined,
       "setup-unfinished must surface from a worktree, not only from main",
     );
-    assert(
-      (j.hints ?? []).some((h: string) => h.includes("Setup is NOT finished")),
-      `expected the lead setup hint from a worktree: ${
-        JSON.stringify(j.hints)
-      }`,
-    );
+    assertHasHint(j, HINTS["setup-unfinished-status"], {
+      pendingCount: j.data.setup_unfinished.pending_markers.length,
+    });
   });
 });
 

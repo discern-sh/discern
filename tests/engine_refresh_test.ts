@@ -16,7 +16,9 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
 Deno.test("engine refresh: a skills-dir failure is isolated — agent files and MCP still refresh (ADR 0065)", async () => {
@@ -129,18 +131,16 @@ Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-a
 
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
-    const firstHints: string[] = JSON.parse(first.stdout.trim()).hints ?? [];
-    assert(
-      firstHints.some((h) => h.toLowerCase().includes("restart")),
-      `first refresh should carry the restart hint\n${first.stdout}`,
+    assertHasHint(
+      JSON.parse(first.stdout.trim()),
+      HINTS["refresh-mcp-first-install"],
     );
 
     // Re-applying over the existing install must NOT repeat the restart hint.
     const second = await runAgent(dir, ["refresh", "--json"]);
-    const secondHints: string[] = JSON.parse(second.stdout.trim()).hints ?? [];
-    assert(
-      !secondHints.some((h) => h.toLowerCase().includes("restart")),
-      `a re-apply must not repeat the restart hint\n${second.stdout}`,
+    assertLacksHint(
+      JSON.parse(second.stdout.trim()),
+      HINTS["refresh-mcp-first-install"],
     );
   });
 });

@@ -22,6 +22,8 @@ import {
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
 async function repoOnBranch(dir: string, branch: string): Promise<void> {
@@ -502,10 +504,13 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
       `discern's own compiled output was imported into guidance:\n${guidance}`,
     );
     // …and the skip is reported, not silent.
-    const hints: string[] = JSON.parse(re.stdout).hints ?? [];
-    assert(
-      hints.some((h) => h.includes("discern's own compiled output")),
-      `expected a skip hint: ${JSON.stringify(hints)}`,
+    assertHasHint(
+      JSON.parse(re.stdout),
+      HINTS["setup-guidance-own-render-skipped"],
+      {
+        paths: ["CLAUDE.md"],
+        guidanceRel: SOURCE_PATHS.guidance.defaultPath,
+      },
     );
   });
 });

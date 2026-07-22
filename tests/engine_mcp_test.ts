@@ -25,6 +25,7 @@ import {
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import {
   type LogbookEvent,
   parseLogbookLine,
@@ -43,6 +44,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -581,9 +583,9 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(test.result.isError, false);
     assertEquals(test.result.structuredContent.verb, "test");
     assertEquals(test.result.structuredContent.ok, true);
-    assert(
-      Array.isArray(test.result.structuredContent.hints),
-      "an unconfigured test carries a hint that nothing ran",
+    assertHasHint(
+      test.result.structuredContent,
+      HINTS["test-job-not-configured"],
     );
 
     // an unknown tool is reported as an error result (the SDK answers tools/call
@@ -1110,11 +1112,9 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
     const finish = await mcp.recv();
     assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
-    assert(
-      (finish.result.structuredContent.hints ?? []).some((h: string) =>
-        h.includes("Setup is not finished")
-      ),
-      "finish must carry the setup-in-progress hint pre-setup",
+    assertHasHint(
+      finish.result.structuredContent,
+      HINTS["setup-unfinished-gate"],
     );
 
     // `discern_help` stays open pre-setup — discern's own docs are what you need now.
@@ -2144,26 +2144,10 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
     // now follow the new worktree automatically, AND the agent must still move its own
     // file context there (alluded to, not a vendor tool name) or its edits and the gate
     // diverge. The hint names the new path so the agent knows where to go.
-    const hint = (started.result.structuredContent.hints as string[]).join(
-      "\n",
-    );
-    assert(
-      hint.includes(wtPath),
-      `the start hint must name the new path: ${hint}`,
-    );
-    assert(
-      /aimed|operate on it/i.test(hint),
-      `the hint must say the discern tools now follow the worktree: ${hint}`,
-    );
-    assert(
-      /move your own|your own file/i.test(hint) && /diverge/i.test(hint),
-      `the hint must say to move the agent's own file context, or edits/gate diverge: ${hint}`,
-    );
-    // Vendor-neutral: the agent-agnostic server alludes to the capability, never names
-    // one client's command.
-    assert(
-      !/EnterWorktree|\/worktree/.test(hint),
-      `the hint must stay vendor-neutral: ${hint}`,
+    assertHasHint(
+      started.result.structuredContent,
+      HINTS["start-mcp-re-root"],
+      { path: wtPath },
     );
 
     // …so a plain discern_status (no path) now reports the worktree and its exact root.
@@ -2188,11 +2172,17 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
   // discern_start MCP result hint, or the MCP server instructions. Hold all three
   // to both halves at once, driven off the same predicate, so none can teach
   // half the pattern.
+  const mcpHint = mcpStartHint("/wt/x");
+  assertHasHint(
+    { hints: [mcpHint] },
+    HINTS["start-mcp-re-root"],
+    { path: "/wt/x" },
+  );
   const surfaces: Record<string, string> = {
     "compiled guidance (worktrees.md)": Deno.readTextFileSync(
       new URL("../templates/guidance/worktrees.md", import.meta.url),
     ),
-    "discern_start MCP hint": mcpStartHint("/wt/x"),
+    "discern_start MCP hint": mcpHint,
     "MCP server instructions": buildInstructions(),
   };
   for (const [name, text] of Object.entries(surfaces)) {
