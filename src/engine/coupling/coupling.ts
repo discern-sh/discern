@@ -39,6 +39,7 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   collectPaths,
@@ -538,7 +539,7 @@ function share(together: number, of: number): string {
  * one decision vs incidental from the dates and subjects. When the two never co-changed
  * it still reports each file's own count, so "no shared history" is an answer, not silence.
  */
-function evidenceHints(data: CouplingData): string[] {
+function evidenceHints(data: CouplingData): FiredHint[] {
   const a = data.a ?? "";
   const b = data.b ?? "";
   const together = data.together ?? 0;
@@ -546,24 +547,25 @@ function evidenceHints(data: CouplingData): string[] {
   const ofB = data.of_b ?? 0;
   if (together === 0) {
     return [
-      `\`${a}\` and \`${b}\` have not changed together in recent history ` +
-      `(from git history; \`${a}\`: ${ofA} commit(s), \`${b}\`: ${ofB} commit(s)).`,
+      fire(HINTS["coupling-evidence-none"], { a, b, ofA, ofB }),
     ];
   }
   const hints = [
-    `\`${a}\` and \`${b}\` changed together in ${together} commit(s) — ${together} of ` +
-    `\`${a}\`'s ${ofA}${
-      share(together, ofA)
-    } and ${together} of \`${b}\`'s ${ofB}` +
-    `${share(together, ofB)} recent commits (from git history):`,
+    fire(HINTS["coupling-evidence-summary"], {
+      a,
+      b,
+      together,
+      ofA,
+      ofB,
+    }),
   ];
   const commits = data.commits ?? [];
   for (const c of commits) {
-    hints.push(`  ${c.sha}  ${c.date}  ${c.subject}`);
+    hints.push(fire(HINTS["coupling-evidence-commit"], c));
   }
   const more = together - commits.length;
   if (more > 0) {
-    hints.push(`… and ${more} more shared commit(s).`);
+    hints.push(fire(HINTS["coupling-evidence-more"], { more }));
   }
   return hints;
 }
@@ -580,60 +582,65 @@ function evidenceHints(data: CouplingData): string[] {
 function couplingHints(
   data: CouplingData,
   maxPartners = HINT_PARTNERS,
-): string[] {
+): FiredHint[] {
   if (data.mode === "evidence") {
     return evidenceHints(data);
   }
   if (data.partners.length === 0) {
     return [];
   }
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   const shown = data.partners.slice(0, maxPartners);
   if (data.mode === "diff") {
     hints.push(
-      "Coupling (from git history; advisory only and not exhaustive) — files that usually " +
-        "change with what you've changed on this branch " +
-        "(vs the trunk, the shared landing branch) but aren't among those changes:",
+      fire(HINTS["coupling-diff-header"]),
     );
     for (const p of shown) {
       hints.push(
-        `You changed \`${p.from}\` but not \`${p.path}\` — which changed in ${p.cochanges} ` +
-          `of the ${p.of} recent commits that touched \`${p.from}\` (${
-            pct(p.confidence)
-          }). ` +
-          `Worth a look, or intentional?`,
+        fire(HINTS["coupling-diff-partner"], {
+          from: p.from,
+          path: p.path,
+          cochanges: p.cochanges,
+          of: p.of,
+          confidence: p.confidence,
+        }),
       );
     }
   } else {
     const target = data.target ?? "";
     hints.push(
-      `Files that usually change with \`${target}\` (from git history; advisory, NOT ` +
-        "exhaustive):",
+      fire(HINTS["coupling-query-header"], { target }),
     );
     for (const p of shown) {
       hints.push(
-        `\`${p.path}\` — changed together in ${p.cochanges} of \`${target}\`'s ${p.of} ` +
-          `recent commits (${pct(p.confidence)}).`,
+        fire(HINTS["coupling-query-partner"], {
+          path: p.path,
+          target,
+          cochanges: p.cochanges,
+          of: p.of,
+          confidence: p.confidence,
+        }),
       );
     }
   }
   const remaining = data.partners.length - shown.length;
   if (remaining > 0) {
-    const arg = data.mode === "query" && data.target !== undefined
-      ? ` ${data.target}`
-      : "";
     // The gate is the consumer that benefits from this pointer (it surfaces only the
     // terse hints, not the full data); the standalone verb renders every partner itself.
     hints.push(
-      `… and ${remaining} more — \`discern coupling${arg}\` lists them all.`,
+      fire(HINTS["coupling-more-partners"], {
+        remaining,
+        queryTarget: data.mode === "query" ? data.target : undefined,
+      }),
     );
   }
   const strongest = data.partners[0];
   if (strongest !== undefined && strongest.confidence >= STRONG_CONFIDENCE) {
     hints.push(
-      `\`${strongest.from}\` and \`${strongest.path}\` change together almost every time. ` +
-        "If that reflects an essential invariant, consider locking it with a forcing-function " +
-        "(see the `discern-cure-a-bug` skill) rather than relying on memory.",
+      fire(HINTS["coupling-strong-pair"], {
+        from: strongest.from,
+        path: strongest.path,
+      }),
     );
   }
   return hints;
@@ -677,7 +684,7 @@ export async function couplingResult(
     ok: true,
     verb: "coupling",
     data,
-    ...(hints.length > 0 ? { hints } : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
 }
 
@@ -876,10 +883,12 @@ export async function couplingGateHints(
     if (data === undefined || data.mode !== "diff") {
       return [];
     }
-    return couplingHints({
-      ...data,
-      partners: data.partners.filter(isGateHintPartner),
-    }, GATE_HINT_PARTNERS);
+    return hintTexts(
+      couplingHints({
+        ...data,
+        partners: data.partners.filter(isGateHintPartner),
+      }, GATE_HINT_PARTNERS),
+    );
   } catch {
     return [];
   }

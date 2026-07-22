@@ -436,6 +436,145 @@ export const HINTS = {
       `\`discern update --from <branch>\` from an existing worktree), or ` +
       `delete it with \`git branch -D <branch>\`.`,
   }),
+
+  /** Pair evidence when the files have never co-changed in the mined window. */
+  "coupling-evidence-none": defineHint<{
+    a: string;
+    b: string;
+    ofA: number;
+    ofB: number;
+  }>({
+    id: "coupling-evidence-none",
+    category: "notice",
+    audience: "all",
+    family: "coupling-evidence",
+    template: ({ a, b, ofA, ofB }): string =>
+      `\`${a}\` and \`${b}\` have not changed together in recent history ` +
+      `(from git history; \`${a}\`: ${ofA} commit(s), \`${b}\`: ${ofB} commit(s)).`,
+  }),
+
+  /** Pair evidence summary before the individual shared-commit rows. */
+  "coupling-evidence-summary": defineHint<{
+    a: string;
+    b: string;
+    together: number;
+    ofA: number;
+    ofB: number;
+  }>({
+    id: "coupling-evidence-summary",
+    category: "notice",
+    audience: "all",
+    family: "coupling-evidence",
+    template: ({ a, b, together, ofA, ofB }): string => {
+      const shareA = ofA > 0 ? ` (${Math.round((together / ofA) * 100)}%)` : "";
+      const shareB = ofB > 0 ? ` (${Math.round((together / ofB) * 100)}%)` : "";
+      return `\`${a}\` and \`${b}\` changed together in ${together} commit(s) — ${together} of ` +
+        `\`${a}\`'s ${ofA}${shareA} and ${together} of \`${b}\`'s ${ofB}` +
+        `${shareB} recent commits (from git history):`;
+    },
+  }),
+
+  "coupling-evidence-commit": defineHint<{
+    sha: string;
+    date: string;
+    subject: string;
+  }>({
+    id: "coupling-evidence-commit",
+    category: "notice",
+    audience: "all",
+    family: "coupling-evidence",
+    template: ({ sha, date, subject }): string =>
+      `  ${sha}  ${date}  ${subject}`,
+  }),
+
+  "coupling-evidence-more": defineHint<{ more: number }>({
+    id: "coupling-evidence-more",
+    category: "notice",
+    audience: "all",
+    family: "coupling-evidence",
+    template: ({ more }): string => `… and ${more} more shared commit(s).`,
+  }),
+
+  "coupling-diff-header": defineHint({
+    id: "coupling-diff-header",
+    category: "notice",
+    audience: "all",
+    family: "coupling-partners",
+    template: (): string =>
+      "Coupling (from git history; advisory only and not exhaustive) — files that usually " +
+      "change with what you've changed on this branch " +
+      "(vs the trunk, the shared landing branch) but aren't among those changes:",
+  }),
+
+  "coupling-diff-partner": defineHint<{
+    from: string;
+    path: string;
+    cochanges: number;
+    of: number;
+    confidence: number;
+  }>({
+    id: "coupling-diff-partner",
+    category: "notice",
+    audience: "all",
+    family: "coupling-partners",
+    template: ({ from, path, cochanges, of, confidence }): string =>
+      `You changed \`${from}\` but not \`${path}\` — which changed in ${cochanges} ` +
+      `of the ${of} recent commits that touched \`${from}\` (${
+        Math.round(confidence * 100)
+      }%). ` +
+      `Worth a look, or intentional?`,
+  }),
+
+  "coupling-query-header": defineHint<{ target: string }>({
+    id: "coupling-query-header",
+    category: "notice",
+    audience: "all",
+    family: "coupling-partners",
+    template: ({ target }): string =>
+      `Files that usually change with \`${target}\` (from git history; advisory, NOT ` +
+      "exhaustive):",
+  }),
+
+  "coupling-query-partner": defineHint<{
+    path: string;
+    target: string;
+    cochanges: number;
+    of: number;
+    confidence: number;
+  }>({
+    id: "coupling-query-partner",
+    category: "notice",
+    audience: "all",
+    family: "coupling-partners",
+    template: ({ path, target, cochanges, of, confidence }): string =>
+      `\`${path}\` — changed together in ${cochanges} of \`${target}\`'s ${of} ` +
+      `recent commits (${Math.round(confidence * 100)}%).`,
+  }),
+
+  "coupling-more-partners": defineHint<{
+    remaining: number;
+    queryTarget: string | undefined;
+  }>({
+    id: "coupling-more-partners",
+    category: "next-step",
+    audience: "all",
+    family: "coupling-partners",
+    template: ({ remaining, queryTarget }): string => {
+      const arg = queryTarget === undefined ? "" : ` ${queryTarget}`;
+      return `… and ${remaining} more — \`discern coupling${arg}\` lists them all.`;
+    },
+  }),
+
+  "coupling-strong-pair": defineHint<{ from: string; path: string }>({
+    id: "coupling-strong-pair",
+    category: "next-step",
+    audience: "all",
+    family: "coupling-partners",
+    template: ({ from, path }): string =>
+      `\`${from}\` and \`${path}\` change together almost every time. ` +
+      "If that reflects an essential invariant, consider locking it with a forcing-function " +
+      "(see the `discern-cure-a-bug` skill) rather than relying on memory.",
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */
