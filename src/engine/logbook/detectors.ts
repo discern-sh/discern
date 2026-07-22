@@ -377,7 +377,7 @@ const doneThrash: Detector = {
   // keeps a brand-new branch's first stumbles out of the report.
   threshold: 4,
   next_step:
-    "A red `done` loop is usually symptom-chasing — run the `discern-diagnose-a-bug` skill to prove the cause, and iterate with `discern prepare` between attempts instead of paying the full gate each time.",
+    "A red `done` loop is usually symptom-chasing — run the `discern-cure-a-bug` skill's diagnose procedure to prove the cause, and iterate with `discern prepare` between attempts instead of paying the full gate each time.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -1136,7 +1136,7 @@ const sameTreeFlake: Detector = {
   // 2 repeat runs of some exact tree — the smallest set that can diverge.
   threshold: 2,
   next_step:
-    "A test that flips verdict on an identical tree is flaky. Diagnose the test itself (`discern-diagnose-a-bug`); quarantining it beats retrying until green, which teaches agents that red is negotiable.",
+    "A test that flips verdict on an identical tree is flaky. Diagnose the test itself (`discern-cure-a-bug`, diagnose procedure); quarantining it beats retrying until green, which teaches agents that red is negotiable.",
   detect(facts): DetectorOutcome {
     const gateRuns = facts.verbs.filter((e) =>
       e.verb === "done" || e.verb === "test"
@@ -1192,7 +1192,7 @@ const loopsToGreen: Detector = {
   // 2 branches that reached green — one branch has nothing to stand out from.
   threshold: 2,
   next_step:
-    "A high loop count on a small change points at guesswork — a falsifying diagnosis loop (`discern-diagnose-a-bug`) is a cheaper probe than the full gate.",
+    "A high loop count on a small change points at guesswork — a falsifying diagnosis loop (`discern-cure-a-bug`, diagnose procedure) is a cheaper probe than the full gate.",
   detect(facts): DetectorOutcome {
     const loop = facts.agentish.filter((e) =>
       e.verb === "done" || e.verb === "prepare" || e.verb === "test"

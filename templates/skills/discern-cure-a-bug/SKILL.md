@@ -1,6 +1,6 @@
 ---
 name: discern-cure-a-bug
-description: Cure a bug — fix every instance of the underlying defect and leave a permanent guard so it can never return; patching only the instance you were shown is symptomatic relief. Use when fixing any bug, or when asked to fix something "properly", "at the root cause", "everywhere", or "for good" — any time a fix should eliminate a class of defect, not a single occurrence. Bundled with discern.
+description: Cure a bug — fix every instance of the underlying defect and leave a permanent guard so it can never return; patching only the instance you were shown is symptomatic relief. Carries the whole discipline in three procedures — diagnose first when the cause is unproven (reproduce the failure, falsify hypotheses, prove the cause instead of patching a guess), then cure the class, and audit existing tests and guards for coverage that guards less than it appears to. Use when fixing any bug or asked to fix something "properly", "at the root cause", or "for good"; when investigating why something is happening, what's causing a failure, or why a previous fix didn't hold; or when asked to audit or harden the test suite, hunt duplicated or copy-pasted tests, or check that tests guard the class rather than the instance. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -10,7 +10,11 @@ metadata:
 
 A bug is rarely alone. Define its _class_ by the **generative mechanism that permits the defect**, not by the name, container, feature, or location where it was first observed. Patching only what you were shown is symptomatic relief: the siblings resurface later, and "fixed at the root cause" becomes a claim nobody can check. A **cure** is different, and this skill makes it an executable one: characterize the class, ship a detector that fails on every current member and a plausible future sibling, fix to green, and leave the detector in the gate so the defect can never silently return.
 
-A cure starts from a **proven cause**. If all you have is a symptom — the failure is reproducible but the mechanism behind it is still a guess — run the `discern-diagnose-a-bug` skill first; a cure prescribed before the diagnosis just treats the guess.
+This skill carries the whole discipline in three procedures — enter at the one that matches:
+
+- **Cause still unproven?** A symptom without a demonstrated mechanism is a guess. Work through [diagnose-the-cause.md](diagnose-the-cause.md) first — reproduce on demand, falsify hypotheses, prove the cause both directions — and stop there when diagnosis is all that was asked; a cure prescribed before the diagnosis just treats the guess.
+- **Cause proven?** Continue below: name the class, detector first, fix to green, guard in the gate.
+- **No fresh incident — auditing the tests and guards the project already has?** Work through [audit-the-suite.md](audit-the-suite.md): find the coverage that guards less than it appears to, and close each finding with a class guard.
 
 ---
 

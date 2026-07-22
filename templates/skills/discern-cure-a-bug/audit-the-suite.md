@@ -1,18 +1,10 @@
----
-name: discern-audit-the-suite
-description: Audit the test suite for coverage that guards less than it appears to — instance-pinned clusters (sibling test cases that each hand-check one member of a shared invariant no class-level test guards) and under-scoped guards (checks pinned to the names, members, or containers they were written against, which a renamed or relocated recurrence slips past) — and convert each finding into a guard driven off the single source of truth so new members and new containers auto-enrol. Use when asked to audit or harden the test suite, hunt duplicated or copy-pasted tests, check whether tests guard the class rather than the instance, retroactively audit past bug fixes and their regression guards for over-specificity, or after a defect shipped in a member whose siblings were all tested — or returned under a new name a guard should have caught. Bundled with discern.
-metadata:
-  author: "discern | https://discern.sh"
-  version: "1.0"
----
-
 # Audit the suite — find the checks that guard less than they appear to
 
 A test suite can look thorough while guarding almost nothing. The first tell is a _cluster_: several tests that each hand-check the **same property of a different member** of some enumerable class — one per command, one per output format, one per plugin — with no test that checks the property across the _whole_ class. Every existing member is covered; the class is wide open. The member added next month ships with zero coverage of the very property its siblings are all tested for, and the suite stays green.
 
 The second tell is easier to miss because a guard _is_ present: the **under-scoped guard**. A past fix left a check behind — a regression test, a table of cases, a lint or structural rule — but scoped it to the population it was written against: the incident's identifiers, a hand-listed set of members, one container of the several that can host the same mistake. Every name the guard knows is covered; the _mechanism_ is wide open. The defect returns under a fresh name or in a new parallel container, the guard stays green, and the suite's history even records the class as cured.
 
-Both are the test-suite face of "fix the class, not the instance" (`discern-cure-a-bug`): the same recall failure, hiding inside the checks themselves. This skill is the executable audit — sweep the suite for both, and close each finding with a guard the next member, however named and wherever placed, can't escape.
+Both are the test-suite face of "fix the class, not the instance" (the cure procedure in this skill's `SKILL.md`): the same recall failure, hiding inside the checks themselves. This procedure is the executable audit — sweep the suite for both, and close each finding with a guard the next member, however named and wherever placed, can't escape.
 
 ---
 
@@ -27,7 +19,7 @@ There are two kinds of finding. A test case is an **uncovered invariant** exactl
 A guard is an **under-scoped guard** exactly when both hold:
 
 1. It exists to hold an invariant over a class — usually the residue of a past bug fix — but derives the cases it checks from something narrower than the class: a hand-maintained list, a denylist of specific tokens, the identifiers of one past incident, or a single container when a parallel container hosting the same mechanism can be created without joining it.
-2. It fails the **fresh-name test** (`discern-cure-a-bug`): the same mechanism reintroduced tomorrow under unrelated names, or in a new container, would not make the guard fire without someone first editing the guard.
+2. It fails the **fresh-name test** (the cure procedure, `SKILL.md` step 1): the same mechanism reintroduced tomorrow under unrelated names, or in a new container, would not make the guard fire without someone first editing the guard.
 
 Just as important, a finding is **not**:
 
@@ -77,7 +69,7 @@ Group the classified cases by (_X_, _P_). Two or more members with the same prop
 
 Re-read each member test before reporting it. Confirm the property really is the _same_ ∀-statement (not two properties that merely rhyme), the members really are _different_, and the escape is concrete: state which future member would dodge which check. Label each cluster's confidence honestly — a verified cluster with a named escape is a finding; anything less is a suspicion and must say so.
 
-Verify an under-scoped guard the same way, with two extra obligations. First, the escape must be stated as a mechanism, not a hunch: describe the fresh-named sibling or new parallel container that reproduces what the guard exists to stop while leaving it green. Second, hunt for members _already_ outside the guard's scope: state the universe the mechanism can inhabit, then search it structurally — by shape, not spelling, since the siblings most worth finding share no token with the guarded cases (`discern-cure-a-bug`, step 4). A live, unguarded member found this way is the audit's highest-value result — not a coverage gap but an open defect — and it gets reported and fixed ahead of everything else.
+Verify an under-scoped guard the same way, with two extra obligations. First, the escape must be stated as a mechanism, not a hunch: describe the fresh-named sibling or new parallel container that reproduces what the guard exists to stop while leaving it green. Second, hunt for members _already_ outside the guard's scope: state the universe the mechanism can inhabit, then search it structurally — by shape, not spelling, since the siblings most worth finding share no token with the guarded cases (the cure procedure, step 4). A live, unguarded member found this way is the audit's highest-value result — not a coverage gap but an open defect — and it gets reported and fixed ahead of everything else.
 
 ## 7. Report so completeness can be checked
 
@@ -85,7 +77,7 @@ For each uncovered invariant, report: the **invariant** as a ∀-statement; the 
 
 For each under-scoped guard, report: the **mechanism** the guard exists to stop; what it **currently derives its cases from**; the concrete **escape**; any **live members** found outside its scope; and a **confidence** label. Guards you judged sound get a line too, with the demonstrated boundary claim — a reviewer must be able to check the acquittals as well as the convictions.
 
-Close with the tally — every file examined and its case count, every baseline guard and its verdict — so "audited the whole suite" is a falsifiable claim, the same discipline `discern-cure-a-bug` demands of a fix's residual scope.
+Close with the tally — every file examined and its case count, every baseline guard and its verdict — so "audited the whole suite" is a falsifiable claim, the same discipline the cure procedure demands of a fix's residual scope.
 
 ## 8. Scale the sweep honestly
 
@@ -96,7 +88,7 @@ A small suite is a solo pass. For a large one, partition the files by subsystem 
 
 ## 9. Close each finding with a class guard
 
-The fix for a verified cluster is one test that derives the members from the single source of truth and asserts the property over all of them — a new member then auto-enrols the moment it is registered. Where a member legitimately differs, record it in an explicit, named **exception set** that the guard also asserts is still honest (each exception must still _be_ a member, still differing for the stated reason) — an exception that can go stale is a second hand-copied list. Keep the member-specific tests that assert genuinely unique behaviour; delete the ones the guard subsumes. Wire the guard into the gate, and if the class had no source of truth, create the registry first and point both the code and the guard at it — the full discipline is `discern-cure-a-bug`, steps 2–6.
+The fix for a verified cluster is one test that derives the members from the single source of truth and asserts the property over all of them — a new member then auto-enrols the moment it is registered. Where a member legitimately differs, record it in an explicit, named **exception set** that the guard also asserts is still honest (each exception must still _be_ a member, still differing for the stated reason) — an exception that can go stale is a second hand-copied list. Keep the member-specific tests that assert genuinely unique behaviour; delete the ones the guard subsumes. Wire the guard into the gate, and if the class had no source of truth, create the registry first and point both the code and the guard at it — the full discipline is the cure procedure (`SKILL.md`), steps 2–6.
 
 Close an under-scoped guard by **widening, never narrowing**: restate what it protects as a name-independent predicate that passes the fresh-name test, then rebuild the guard to derive its cases from the broadest set a new manifestation cannot avoid joining — so new members _and_ new containers both auto-enrol. Run the widened guard **before** fixing anything: its failures are the class's current population, and every live member it surfaces gets fixed to green as part of the close. Prove the widening with an adversarial future-sibling fixture — the mechanism rebuilt under unrelated names that the guard must reject without a case-table edit. If the widened guard reveals more than this pass can fix, fix what you can and hold the remainder behind an explicit ratchet that may only shrink — never a silent skip, and never a re-narrowed guard.
 
