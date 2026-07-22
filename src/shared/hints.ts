@@ -1348,6 +1348,63 @@ export const HINTS = {
     template: ({ name }): string =>
       `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
   }),
+
+  /** The optional canonical suggestion in an unknown-command refusal. */
+  "unknown-command-suggestion": defineHint<{ command: string }>({
+    id: "unknown-command-suggestion",
+    category: "next-step",
+    audience: "all",
+    family: "unknown-command",
+    template: ({ command }): string => `Did you mean \`discern ${command}\`?`,
+  }),
+
+  /** The standing documentation pointer closing every unknown-command refusal. */
+  "unknown-command-help": defineHint({
+    id: "unknown-command-help",
+    category: "next-step",
+    audience: "all",
+    family: "unknown-command",
+    template: (): string =>
+      "Run `discern help` for the documentation, or `discern --help` to list the commands.",
+  }),
+
+  /**
+   * The MCP-specific start re-root story. The live server re-aims discern's tools
+   * automatically, but cannot move the client's own file operations; without that
+   * second move, edits land on the trunk while the gate runs in the worktree.
+   */
+  "start-mcp-re-root": defineHint<{ path: string }>({
+    id: "start-mcp-re-root",
+    category: "guardrail",
+    audience: "all",
+    family: "start-result",
+    template: ({ path }): string =>
+      `discern's tools are now aimed at the new worktree at ${path} — your ` +
+      `discern_done / discern_update / discern_accept calls operate on it ` +
+      `automatically hereafter. You must STILL move your own file operations into ` +
+      `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
+      `capability). If you can't change your working root: prefix every shell ` +
+      `command with \`cd ${path} && …\`, and pass path="${path}" to every discern ` +
+      `MCP tool. You MUST do this, otherwise your edits will land on the trunk ` +
+      `whilst the gate runs in the worktree, and the two states will diverge.`,
+  }),
+
+  /**
+   * The long-lived MCP server is stale after the installed discern binary changes.
+   * Until the agent restarts it, old engine/templates can conflict with the current
+   * CLI and make generated files oscillate between builds.
+   */
+  "mcp-version-mismatch": defineHint<{
+    serverVersion: string;
+    installedVersion: string;
+  }>({
+    id: "mcp-version-mismatch",
+    category: "next-step",
+    audience: "all",
+    family: "restart-session",
+    template: ({ serverVersion, installedVersion }): string =>
+      `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern done can rewrite generated files back and forth).`,
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */

@@ -62,15 +62,6 @@ export function unknownCommandMessage(word: string): string {
   return `unknown command "${word}".`;
 }
 
-/** The did-you-mean hint naming a canonical command. */
-export function didYouMeanHint(command: string): string {
-  return `Did you mean \`discern ${command}\`?`;
-}
-
-/** The standing pointer closing every unknown-command refusal. */
-export const UNKNOWN_COMMAND_POINTER =
-  "Run `discern help` for the documentation, or `discern --help` to list the commands.";
-
 /** Irregular grammatical forms that are safe to normalize silently. */
 export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {
   improve: "improvement",

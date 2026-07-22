@@ -7,16 +7,19 @@ import {
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
   COMMAND_SYNONYM_SUGGESTIONS,
-  didYouMeanHint,
   normalizeVerbVariant,
   RETIRED_COMMAND_REDIRECTS,
   retiredCommandMessage,
-  UNKNOWN_COMMAND_POINTER,
   unknownCommandMessage,
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
+import { fire, HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+
+const didYouMeanHint = (command: string): string =>
+  fire(HINTS["unknown-command-suggestion"], { command }).text;
+const UNKNOWN_COMMAND_POINTER = fire(HINTS["unknown-command-help"]).text;
 
 function firstTopLevelRedirect(): [string, string] {
   const entry = Object.entries(RETIRED_COMMAND_REDIRECTS).find(([command]) =>

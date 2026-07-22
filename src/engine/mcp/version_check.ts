@@ -28,6 +28,7 @@
  */
 
 import { KIT_VERSION } from "../../lib/version.ts";
+import { fire, HINTS } from "../../shared/hints.ts";
 
 /**
  * Build the restart hint when the running server's version and the on-disk
@@ -41,7 +42,10 @@ export function versionMismatchHint(
   if (installedVersion === undefined || installedVersion === serverVersion) {
     return undefined;
   }
-  return `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern done can rewrite generated files back and forth).`;
+  return fire(HINTS["mcp-version-mismatch"], {
+    serverVersion,
+    installedVersion,
+  }).text;
 }
 
 /** A cheap change-key for a file (inode + mtime + size), or `undefined` when the

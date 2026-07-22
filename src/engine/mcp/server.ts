@@ -97,6 +97,7 @@ import {
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
+import { fire, HINTS } from "../../shared/hints.ts";
 import {
   createInstalledVersionResolver,
   versionMismatchHint,
@@ -990,14 +991,7 @@ async function startToolResult(
  * share). Exported so the parity guard can hold it to that shared wording.
  */
 export function mcpStartHint(path: string): string {
-  return `discern's tools are now aimed at the new worktree at ${path} — your ` +
-    `discern_done / discern_update / discern_accept calls operate on it ` +
-    `automatically hereafter. You must STILL move your own file operations into ` +
-    `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
-    `capability). If you can't change your working root: prefix every shell ` +
-    `command with \`cd ${path} && …\`, and pass path="${path}" to every discern ` +
-    `MCP tool. You MUST do this, otherwise your edits will land on the trunk ` +
-    `whilst the gate runs in the worktree, and the two states will diverge.`;
+  return fire(HINTS["start-mcp-re-root"], { path }).text;
 }
 
 /** The verb slug behind a tool name (`discern_impact` → `impact`),
