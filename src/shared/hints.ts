@@ -108,44 +108,52 @@ function updateOverflowAdvice(
   return actions.length === 0 ? "" : ` ${actions.join(" ")}`;
 }
 
-/** Shared action for every unfinished-setup context. */
+/** Shared non-negotiable action for every unfinished-setup context. */
 const SETUP_UNFINISHED_CORE =
-  "Run `discern setup begin` to print or reprint the brief without changing your " +
-  "work, complete it, then run `discern setup done`; do not report setup complete " +
-  "until that command passes.";
+  "Setup is NOT finished. Do not stop or hand the setup brief back as a report. " +
+  "Complete it in this agent session: run `discern setup begin` to print or " +
+  "reprint it without changing your work, complete every step, then run `discern " +
+  "setup done`. Tell the user setup is complete only after `discern setup done` " +
+  "passes.";
 
-/** Add one context-specific lead-in to the canonical unfinished-setup action. */
-function setupUnfinishedHint(leadIn: string): string {
-  return `${leadIn} ${SETUP_UNFINISHED_CORE}`;
+/** Append one context-specific reason to the canonical unfinished-setup action. */
+function setupUnfinishedHint(context: string): string {
+  return `${SETUP_UNFINISHED_CORE} ${context}`;
 }
 
 /** Shared remedy for every missing or stale discern-managed artifact. */
 const GENERATED_DRIFT_CORE =
   "Run `discern refresh` to restore discern-managed artifacts.";
 
-/** Add one artifact-specific lead-in and optional source-ownership instruction. */
-function generatedDriftHint(leadIn: string, followUp?: string): string {
-  return `${leadIn} ${GENERATED_DRIFT_CORE}${
+/** Add one artifact-specific context and optional source-ownership instruction. */
+function generatedDriftHint(context: string, followUp?: string): string {
+  return `${GENERATED_DRIFT_CORE} ${context}${
     followUp === undefined ? "" : ` ${followUp}`
   }`;
 }
 
 /** Shared lifecycle fact behind every restart-session action. */
 const RESTART_SESSION_CORE =
-  "Agent sessions load discern's MCP server, engine, and templates only when they " +
-  "start or reload their MCP servers.";
+  "An open agent session does not discover a newly registered or upgraded discern " +
+  "MCP server automatically. Restarting the session or reloading its MCP servers " +
+  "loads the current server, engine, and templates.";
 
 /** Add one context-specific restart action to the canonical lifecycle fact. */
 function restartSessionHint(leadIn: string): string {
   return `${leadIn} ${RESTART_SESSION_CORE}`;
 }
 
-/** Maximum fleet names rendered in one class summary. */
-const FLEET_HINT_NAME_CAP = 3;
+/** Shared diagnostic loop for gate stages whose machine facts carry the detail. */
+const GATE_DIAGNOSTIC_REMEDY_CORE =
+  "Run the reproduce command from each diagnostic, fix the reported problems, " +
+  "then re-run the current discern command.";
 
-/** Render a bounded fleet-name sample while preserving the class's full count. */
-function fleetNameSummary(total: number, names: readonly string[]): string {
-  const shown = names.slice(0, FLEET_HINT_NAME_CAP);
+/** Maximum names rendered in one hint summary. */
+const HINT_NAME_CAP = 3;
+
+/** Render a bounded name sample while preserving the class's full count. */
+function boundedNameSummary(total: number, names: readonly string[]): string {
+  const shown = names.slice(0, HINT_NAME_CAP);
   const remaining = Math.max(0, total - shown.length);
   return `${shown.join(", ")}${
     remaining > 0 ? `, … (+${remaining} more)` : ""
@@ -158,7 +166,7 @@ function fleetNameSummary(total: number, names: readonly string[]): string {
  * table as the only source `hints[]` accepts.
  */
 export const HINTS = {
-  /** Status lead-in to the shared unfinished-setup action, including marker count. */
+  /** Status context for the shared unfinished-setup action, including marker count. */
   "setup-unfinished-status": defineHint<{ pendingCount: number }>({
     id: "setup-unfinished-status",
     category: "next-step",
@@ -166,15 +174,12 @@ export const HINTS = {
     family: "setup-unfinished",
     example: { pendingCount: 2 },
     template: ({ pendingCount }): string => {
-      const tail = pendingCount > 0
-        ? ` ${pendingCount} ${
+      const context = pendingCount > 0
+        ? `${pendingCount} ${
           pendingCount === 1 ? "file still carries" : "files still carry"
         } skeleton markers.`
-        : "";
-      return setupUnfinishedHint(
-        "Finish setup in this session instead of handing it back as a report." +
-          tail,
-      );
+        : "No skeleton markers remain, but setup completion has not been recorded.";
+      return setupUnfinishedHint(context);
     },
   }),
 
@@ -185,9 +190,9 @@ export const HINTS = {
     audience: "all",
     example: { branch: "main" },
     template: ({ branch }): string =>
-      `The merge check could not run because the trunk branch '${branch}' is ` +
-      `not available locally. Create that local branch, or set ` +
-      `[repository].trunk to the branch this project uses, then re-run.`,
+      `Create the local trunk branch '${branch}', or set [repository].trunk to ` +
+      `the branch this project uses, then re-run. The merge check cannot run ` +
+      `until that branch is available locally.`,
   }),
 
   /**
@@ -208,12 +213,13 @@ export const HINTS = {
       changedFiles: 2,
     },
     template: ({ cwd, mainRepo, changedFiles }): string =>
-      `This worktree is untouched (no changes, no commits), but the main ` +
-      `checkout at ${mainRepo} has ${changedFiles} uncommitted change` +
-      `${changedFiles === 1 ? "" : "s"}. If those are your edits, they are ` +
-      `landing on the trunk while discern runs here — work INSIDE this worktree: ` +
-      `prefix every shell command with \`cd ${cwd} && …\` and pass ` +
-      `path="${cwd}" to discern's MCP tools.`,
+      `If the ${changedFiles} uncommitted change${
+        changedFiles === 1 ? "" : "s"
+      } in the main checkout at ${mainRepo} ${
+        changedFiles === 1 ? "is" : "are"
+      } yours, WORK INSIDE this untouched worktree. Prefix every shell command ` +
+      `with \`cd ${cwd} && …\` and pass \`path="${cwd}"\` to every discern MCP ` +
+      `tool. Otherwise, your edits land on the trunk while discern runs here.`,
   }),
 
   /**
@@ -232,7 +238,8 @@ export const HINTS = {
       repairCommand: "git rm -r --cached .claude/skills",
     },
     template: ({ pathSummary, repairCommand }): string =>
-      `Discern-managed ignored artifacts are tracked by Git (${pathSummary}); remove them from the index with \`${repairCommand}\`, then run \`discern refresh\`.`,
+      `Run \`${repairCommand}\` to remove the discern-managed ignored artifacts ` +
+      `from the Git index, then run \`discern refresh\`. Affected paths: ${pathSummary}.`,
   }),
 
   /**
@@ -245,12 +252,12 @@ export const HINTS = {
     audience: "all",
     example: { paths: ["AGENTS.md", "CLAUDE.md"] },
     template: ({ paths }): string =>
-      `The agent files are untracked (${
+      `Commit the untracked Agent files (${
         paths.join(", ")
-      }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
+      }) so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
   }),
 
-  /** Missing agent-file lead-in to the shared generated-drift remedy. */
+  /** Missing agent-file context for the shared generated-drift remedy. */
   "generated-agent-files-missing": defineHint<{ paths: string }>({
     id: "generated-agent-files-missing",
     category: "next-step",
@@ -258,10 +265,10 @@ export const HINTS = {
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
-      generatedDriftHint(`Restore the missing agent files (${paths}).`),
+      generatedDriftHint(`Agent files are missing (${paths}).`),
   }),
 
-  /** Stale agent-file lead-in plus its authored-source instruction. */
+  /** Stale agent-file context plus its authored-source instruction. */
   "generated-agent-files-stale": defineHint<{ paths: string }>({
     id: "generated-agent-files-stale",
     category: "next-step",
@@ -270,12 +277,12 @@ export const HINTS = {
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
       generatedDriftHint(
-        `Rebuild the out-of-date agent files (${paths}).`,
-        "Edit [guidance].sources. Refresh overwrites the generated agent files.",
+        `Agent files are out of date (${paths}).`,
+        "Make intended guidance changes in [guidance].sources. Refresh overwrites Agent files.",
       ),
   }),
 
-  /** Missing materialized-skills lead-in to the shared generated-drift remedy. */
+  /** Missing materialized-skills context for the shared generated-drift remedy. */
   "materialized-skills-missing": defineHint<{ dirs: string }>({
     id: "materialized-skills-missing",
     category: "next-step",
@@ -283,10 +290,10 @@ export const HINTS = {
     family: "generated-drift",
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
-      generatedDriftHint(`Materialize the missing skills (${dirs}).`),
+      generatedDriftHint(`Materialized skills are missing (${dirs}).`),
   }),
 
-  /** Stale materialized-skills lead-in plus its authored-source instruction. */
+  /** Stale materialized-skills context plus its authored-source instruction. */
   "materialized-skills-stale": defineHint<{ dirs: string }>({
     id: "materialized-skills-stale",
     category: "next-step",
@@ -295,12 +302,12 @@ export const HINTS = {
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
       generatedDriftHint(
-        `Re-materialize the out-of-date skills (${dirs}).`,
-        "Edit [skills].dir. Refresh overwrites the materialized copies.",
+        `Materialized skills are out of date (${dirs}).`,
+        "Make intended skill changes in [skills].dir. Refresh overwrites the materialized copies.",
       ),
   }),
 
-  /** Missing provider-integration lead-in to the shared generated-drift remedy. */
+  /** Missing provider-integration context for the shared generated-drift remedy. */
   "provider-integrations-missing": defineHint<{ paths: string }>({
     id: "provider-integrations-missing",
     category: "next-step",
@@ -309,11 +316,11 @@ export const HINTS = {
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
       generatedDriftHint(
-        `Restore the missing provider integration files (${paths}).`,
+        `Provider integration files are missing (${paths}).`,
       ),
   }),
 
-  /** Provider-integration drift lead-in plus its malformed-file recovery. */
+  /** Provider-integration drift context plus its malformed-file recovery. */
   "provider-integrations-stale": defineHint<{ paths: string }>({
     id: "provider-integrations-stale",
     category: "next-step",
@@ -322,7 +329,7 @@ export const HINTS = {
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
       generatedDriftHint(
-        `Repair the provider integration files that need attention (${paths}).`,
+        `Provider integration files need attention (${paths}).`,
         "If refresh reports a malformed settings file, repair it and run `discern refresh` again.",
       ),
   }),
@@ -356,12 +363,11 @@ export const HINTS = {
     example: { branch: "agent/hints", trunk: "main" },
     template: ({ branch, trunk }): string => {
       const label = branch === "" ? "(detached)" : `'${branch}'`;
-      return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
-        `That's fine while you work with ${label} deliberately — new worktrees ` +
-        `still fork from the trunk — but \`discern accept\` can't land until the checkout ` +
-        `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
-        `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
-        `worktree — each belongs to another line of work).`;
+      return `Run \`git switch ${trunk}\` in the main checkout before ` +
+        `\`discern accept\`. The checkout is parked on ${label}, while '${trunk}' ` +
+        `is the trunk. New worktrees still fork from the trunk, so you can run ` +
+        `\`discern start\` meanwhile. Never adopt an existing worktree. Each belongs ` +
+        `to another line of work.`;
     },
   }),
 
@@ -376,11 +382,11 @@ export const HINTS = {
     example: { branch: "develop", trunk: "main" },
     template: ({ branch, trunk }): string => {
       const label = branch === "" ? "(detached)" : `'${branch}'`;
-      return `The configured trunk ('${trunk}', [repository].trunk) doesn't ` +
-        `exist in this repository — the main checkout is on ${label}. Worktrees ` +
-        `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
-        `[repository].trunk to the branch this project actually uses, or ` +
-        `create the trunk (\`git branch ${trunk}\`).`;
+      return `Set [repository].trunk to the branch this project uses, or create ` +
+        `the configured trunk with \`git branch ${trunk}\`. The '${trunk}' branch ` +
+        `does not exist, and the main checkout is on ${label}. Worktrees cannot ` +
+        `fork and \`discern accept\` cannot land until the configuration and ` +
+        `repository agree.`;
     },
   }),
 
@@ -391,9 +397,10 @@ export const HINTS = {
     family: "status-dirty-worktree",
     example: { scopes: ["code", "docs"] },
     template: ({ scopes }): string =>
-      `Changes in ${
+      `Use \`discern prepare\` or targeted tests while iterating on changes in ${
         scopes.join(", ")
-      }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern done\` on the clean HEAD before calling work done.`,
+      }. Then commit the intended final tree and run \`discern done\` on the ` +
+      `clean HEAD before calling work done.`,
   }),
 
   "status-dirty-worktree": defineHint({
@@ -403,7 +410,7 @@ export const HINTS = {
     family: "status-dirty-worktree",
     example: undefined,
     template: (): string =>
-      "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
+      "Use `discern prepare` or targeted tests while iterating on uncommitted changes. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
   }),
 
   "status-branch-behind": defineHint<{
@@ -424,11 +431,17 @@ export const HINTS = {
     },
     template: ({ behind, trunk, overlap }): string => {
       const overlapNote = overlap !== undefined && overlap.total > 0
-        ? ` ${overlap.total} of your changed file(s) also changed upstream (${
+        ? ` Re-check ${overlap.total} changed file${
+          overlap.total === 1 ? "" : "s"
+        } after updating. They also changed upstream (${
           overlap.paths.slice(0, 3).join(", ")
-        }${overlap.total > 3 ? ", …" : ""}) — re-check those after updating.`
+        }${overlap.total > 3 ? ", …" : ""}).`
         : "";
-      return `Branch is ${behind} behind ${trunk}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`;
+      return `Run \`discern update\` directly. This branch is ${behind} commit${
+        behind === 1 ? "" : "s"
+      } behind ${trunk}, and the command is idempotent and checks its own git ` +
+        `preconditions.${overlapNote} Run \`discern done\` before handing off or a ` +
+        `user-requested landing.`;
     },
   }),
 
@@ -439,7 +452,8 @@ export const HINTS = {
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
-      `Committed and up to date with ${trunk}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
+      `Commit or stash the main checkout's tracked changes before a ` +
+      `user-requested landing. This branch is committed and up to date with ${trunk}.`,
   }),
 
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
@@ -449,7 +463,10 @@ export const HINTS = {
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
-      `Committed, up to date with ${trunk}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${trunk}...${branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
+      `Relay the honored receipt in data.gate_receipt.receipt to your owner and ` +
+      `wait. This clean HEAD is committed and up to date with ${trunk}. Inspect ` +
+      `the raw diff with \`git diff ${trunk}...${branch}\`. Run \`discern accept\` ` +
+      `only after the user explicitly asks you to land it.`,
   }),
 
   "status-missing-done-receipt": defineHint<{ trunk: string }>({
@@ -459,7 +476,9 @@ export const HINTS = {
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
-      `Committed and up to date with ${trunk}, but this clean HEAD has no honored receipt from \`discern done\`; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
+      `Run \`discern done\` before reporting the branch ready for review or a ` +
+      `user-requested landing. This clean HEAD is committed and up to date with ` +
+      `${trunk}, but it has no honored gate receipt.`,
   }),
 
   /**
@@ -481,7 +500,8 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     example: undefined,
-    template: (): string => "No active worktrees; start one to begin work.",
+    template: (): string =>
+      "Run `discern start` to begin work. There are no active worktrees.",
   }),
 
   /** One bounded summary for every fleet member with uncommitted changes. */
@@ -498,7 +518,7 @@ export const HINTS = {
     },
     template: ({ total, names }): string =>
       `Review ${total} worktree${total === 1 ? "" : "s"} with uncommitted ` +
-      `changes: ${fleetNameSummary(total, names)}.`,
+      `changes: ${boundedNameSummary(total, names)}.`,
   }),
 
   /** One bounded summary for every fleet member ready for owner review. */
@@ -518,7 +538,7 @@ export const HINTS = {
     template: ({ total, names, trunk }): string =>
       `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
       `ready for owner review: ${
-        fleetNameSummary(total, names)
+        boundedNameSummary(total, names)
       }. Use each branch ` +
       `from \`data.fleet\` with \`git diff ${trunk}...<branch>\`.`,
   }),
@@ -541,7 +561,7 @@ export const HINTS = {
         : "Their checkouts may be";
       return `Investigate ${total} worktree${
         total === 1 ? "" : "s"
-      } whose git state cannot be read: ${fleetNameSummary(total, names)}. ` +
+      } whose git state cannot be read: ${boundedNameSummary(total, names)}. ` +
         `${checkout} missing or damaged, so unsaved work is unverifiable. To ` +
         "discard one, run `discern worktree drop <name>`. It refuses without " +
         "`--force` while the git state cannot be read.";
@@ -566,7 +586,7 @@ export const HINTS = {
         : "Their checkouts may be";
       return `Discard ${total} worktree${
         total === 1 ? "" : "s"
-      } whose setup never completed: ${fleetNameSummary(total, names)}. ` +
+      } whose setup never completed: ${boundedNameSummary(total, names)}. ` +
         `${checkout} incomplete. Run \`discern worktree drop <name>\` for each.`;
     },
   }),
@@ -590,7 +610,7 @@ export const HINTS = {
       const sessions = total === 1 ? "its session" : "their sessions";
       const discard = total === 1 ? "it" : "each";
       return `Review ${total} ${subject} stale: ${
-        fleetNameSummary(total, names)
+        boundedNameSummary(total, names)
       }. ` +
         `Resume ${sessions} or discard ${discard} with ` +
         "`discern worktree drop <name>`. `data.fleet` carries last activity and " +
@@ -604,13 +624,12 @@ export const HINTS = {
     audience: "all",
     example: { branches: ["agent/old-task", "agent/paused-task"] },
     template: ({ branches }): string =>
-      `${branches.length} branch${branches.length === 1 ? "" : "es"} hold${
-        branches.length === 1 ? "s" : ""
-      } unlanded work with no worktree: ${
-        branches.join(", ")
-      }. Pull one into new work with \`discern start --from <branch>\` (or ` +
-      `\`discern update --from <branch>\` from an existing worktree), or ` +
-      `delete it with \`git branch -D <branch>\`.`,
+      `Resume one with \`discern start --from <branch>\`, or use ` +
+      `\`discern update --from <branch>\` from an existing worktree. Delete an ` +
+      `abandoned branch with \`git branch -D <branch>\`. ${branches.length} branch${
+        branches.length === 1 ? "" : "es"
+      } ${branches.length === 1 ? "holds" : "hold"} unlanded work with no ` +
+      `worktree: ${boundedNameSummary(branches.length, branches)}.`,
   }),
 
   /** Pair evidence when the files have never co-changed in the mined window. */
@@ -631,8 +650,10 @@ export const HINTS = {
       ofB: 4,
     },
     template: ({ a, b, ofA, ofB }): string =>
-      `\`${a}\` and \`${b}\` have not changed together in recent history ` +
-      `(from git history; \`${a}\`: ${ofA} commit(s), \`${b}\`: ${ofB} commit(s)).`,
+      `\`${a}\` and \`${b}\` have not changed together in recent history. ` +
+      `The history examined includes ${ofA} commit${ofA === 1 ? "" : "s"} ` +
+      `touching \`${a}\` and ${ofB} commit${ofB === 1 ? "" : "s"} touching ` +
+      `\`${b}\`.`,
   }),
 
   /** Pair evidence summary; the commit rows themselves stay in `data.commits`. */
@@ -784,8 +805,8 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "The logbook is empty. discern records one event per verb run, locally " +
-      "under the repository's git directory — check back after some use.",
+      "Check back after more discern use. The logbook is empty, and discern " +
+      "records one local event per verb run under the repository's git directory.",
   }),
 
   "patterns-insufficient-evidence": defineHint<{
@@ -798,7 +819,7 @@ export const HINTS = {
     example: { young: 4, total: 10 },
     template: ({ young, total }): string =>
       `The logbook is too young for ${young} of ${total} ` +
-      `detectors — each reports insufficient evidence rather than guessing.`,
+      `detectors. Each reports insufficient evidence rather than guessing.`,
   }),
 
   "patterns-advisory-findings": defineHint({
@@ -807,7 +828,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "Advisory findings: each next step says what to inspect or enforce.",
+      "Inspect or enforce the next step in each advisory finding.",
   }),
 
   "patterns-recording-off": defineHint({
@@ -817,7 +838,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Recording is off ([project].logbook = false), so new runs aren't " +
-      "recorded; this report reads the history that already exists.",
+      "recorded. This report reads the history that already exists.",
   }),
 
   "patterns-reset-empty": defineHint({
@@ -826,7 +847,8 @@ export const HINTS = {
     audience: "all",
     family: "patterns-reset",
     example: undefined,
-    template: (): string => "No logbook to remove — nothing has been recorded.",
+    template: (): string =>
+      "No logbook exists to remove because nothing has been recorded.",
   }),
 
   "patterns-reset-preview": defineHint({
@@ -836,7 +858,7 @@ export const HINTS = {
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
-      "A preview — nothing was removed. Run without --dry-run to delete.",
+      "Run without `--dry-run` to delete the logbook. This preview removed nothing.",
   }),
 
   "patterns-reset-recording-resumes": defineHint({
@@ -846,8 +868,8 @@ export const HINTS = {
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
-      "The history is gone; recording starts again on the next verb run. " +
-      "Set [project].logbook = false to stop recording entirely.",
+      "Set [project].logbook = false to stop recording. Otherwise, recording " +
+      "resumes on the next verb run after this reset.",
   }),
 
   /**
@@ -867,8 +889,8 @@ export const HINTS = {
       observed: "This branch has repeated the same failed stage.",
     },
     template: ({ count, observed }): string =>
-      `Logbook: ${count} branch finding${count === 1 ? "" : "s"}; ` +
-      `${observed} Run \`discern patterns\` for full evidence and next steps.`,
+      `Run \`discern patterns\` for full evidence and next steps. The logbook ` +
+      `has ${count} branch finding${count === 1 ? "" : "s"}. ${observed}`,
   }),
 
   /** A session-scoped finding rendered as its observation and next step. */
@@ -885,12 +907,12 @@ export const HINTS = {
       next: "Inspect its current branch and receipt.",
     },
     template: ({ observed, next }): string =>
-      `Logbook: ${observed} Next: ${next}`,
+      `${next} Logbook finding: ${observed}`,
   }),
 
   /**
-   * Gate-context lead-in to the shared unfinished-setup action. Gate verbs run
-   * during setup, but their output is not the final project verdict yet.
+   * Gate context for the shared unfinished-setup action. Gate verbs run during
+   * setup, but their output is not the final project verdict yet.
    */
   "setup-unfinished-gate": defineHint({
     id: "setup-unfinished-gate",
@@ -900,7 +922,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       setupUnfinishedHint(
-        "Finish setup before treating this gate output as the final verdict.",
+        "Gate commands are useful during setup, but their output is provisional. Only `discern setup done` validates the gate and records setup completion.",
       ),
   }),
 
@@ -922,9 +944,12 @@ export const HINTS = {
     },
     template: ({ label, errorLikeLines, outputLines, outputPath }): string => {
       const where = outputPath === undefined
-        ? ""
-        : ` - output at ${outputPath}`;
-      return `${label} passed but printed ${errorLikeLines} error-like line(s) across ${outputLines} output line(s)${where}.`;
+        ? "captured output"
+        : `output at ${outputPath}`;
+      return `Review ${label}'s ${where}. It passed but printed ` +
+        `${errorLikeLines} error-like line${
+          errorLikeLines === 1 ? "" : "s"
+        } across ${outputLines} output line${outputLines === 1 ? "" : "s"}.`;
     },
   }),
 
@@ -935,7 +960,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      'No test job is configured (set test = "<command>" under [jobs] in discern.toml).',
+      'Set [jobs].test = "<command>" in discern.toml to run tests. No test job is configured.',
   }),
 
   "gate-trunk-advanced": defineHint({
@@ -944,9 +969,9 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "The trunk advanced while the gate ran, so this branch is behind it now. " +
-      "The gate still passed for this HEAD. Run `discern update`, then " +
-      "`discern done` again before `discern accept`.",
+      "Run `discern update`, then `discern done` again before `discern accept`. " +
+      "The trunk advanced while the gate ran, so this branch is behind even " +
+      "though the gate passed for this HEAD.",
   }),
 
   "gate-standards-limits-unverified": defineHint<{
@@ -959,7 +984,10 @@ export const HINTS = {
     family: "standards-limits-unverified",
     example: { reason: "the local branch is missing", trunk: "main" },
     template: ({ reason, trunk }): string =>
-      `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${reason}). Fetch the trunk where the gate runs (in CI: \`git fetch origin ${trunk}:${trunk}\`) so limits are verified.`,
+      `Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so ` +
+      `the limits can be verified. In CI, ` +
+      `run \`git fetch origin ${trunk}:${trunk}\`. The never-loosen check could ` +
+      `not read the trunk (${reason}).`,
   }),
 
   "gate-receipt-skipped-dirty": defineHint<{
@@ -971,9 +999,10 @@ export const HINTS = {
     family: "gate-receipt",
     example: { reason: "2 tracked files changed" },
     template: ({ reason }): string =>
-      `Gate passed, but no gate receipt was recorded because the worktree is dirty${
-        reasonSuffix(reason)
-      }. Use \`discern prepare\` or \`discern test\` while iterating, then commit the intended final tree and re-run \`discern done\` on the clean HEAD before handoff or acceptance.`,
+      `Use \`discern prepare\` or \`discern test\` while iterating. Then commit ` +
+      `the intended final tree and re-run \`discern done\` on the clean HEAD before ` +
+      `handoff or acceptance. The gate passed but recorded no receipt because ` +
+      `the worktree is dirty${reasonSuffix(reason)}.`,
   }),
 
   "gate-receipt-head-moved": defineHint<{ reason: string | undefined }>({
@@ -983,9 +1012,10 @@ export const HINTS = {
     family: "gate-receipt",
     example: { reason: "HEAD changed from a1b2c3d to d4e5f6a" },
     template: ({ reason }): string =>
-      `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${
+      `Re-run \`discern done\` on the final commit before handoff or acceptance. ` +
+      `The gate passed but recorded no receipt because HEAD moved while it ran${
         reasonSuffix(reason)
-      } — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`,
+      }. A receipt can vouch only for the exact tree the gate tested.`,
   }),
 
   "gate-receipt-record-failed": defineHint<{
@@ -997,9 +1027,9 @@ export const HINTS = {
     family: "gate-receipt",
     example: { reason: "the receipt file could not be written" },
     template: ({ reason }): string =>
-      `Gate passed, but discern could not record the gate receipt${
-        reasonSuffix(reason)
-      }; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`,
+      `Run \`discern done\` again later to record a gate receipt. The gate passed, ` +
+      `but discern could not record one${reasonSuffix(reason)}. Until then, ` +
+      `\`discern accept\` will re-run the gate.`,
   }),
 
   "gate-receipt-unavailable": defineHint<{ reason: string | undefined }>({
@@ -1011,7 +1041,7 @@ export const HINTS = {
     template: ({ reason }): string =>
       `Gate passed, but discern could not prepare the gate receipt${
         reasonSuffix(reason)
-      }; \`discern accept\` may need to re-run the gate.`,
+      }. \`discern accept\` may need to re-run the gate.`,
   }),
 
   "gate-receipt-clear-failed": defineHint<{
@@ -1023,9 +1053,8 @@ export const HINTS = {
     family: "gate-receipt",
     example: { reason: "the receipt file could not be removed" },
     template: ({ reason }): string =>
-      `The gate failed, and discern could not clear the previous gate receipt${
-        reasonSuffix(reason)
-      }; re-run \`discern done\` after fixing the failure.`,
+      `Fix the failure, then re-run \`discern done\`. discern could not clear the ` +
+      `previous gate receipt${reasonSuffix(reason)}.`,
   }),
 
   "gate-failure-gotchas": defineHint<{ doc: string }>({
@@ -1037,64 +1066,64 @@ export const HINTS = {
       `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
   }),
 
-  /** A failed fix stage needs no more specific recovery than the stage verdict. */
+  /** The diagnostic-driven remedy for a failed fix stage. */
   "gate-failure-fix": defineHint({
     id: "gate-failure-fix",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "The fix stage failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
-  /** A failed build stage needs no more specific recovery than the stage verdict. */
+  /** The diagnostic-driven remedy for a failed build stage. */
   "gate-failure-build": defineHint({
     id: "gate-failure-build",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "The build stage failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
-  /** The standalone prepare check-stage failure remedy. */
+  /** The diagnostic-driven remedy for a standalone check-stage failure. */
   "gate-failure-check": defineHint({
     id: "gate-failure-check",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "The check stage failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
-  /** The standalone test-stage failure remedy. */
+  /** The diagnostic-driven remedy for a standalone test-stage failure. */
   "gate-failure-test": defineHint({
     id: "gate-failure-test",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "The test stage failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
-  /** The combined check/test stage used by the full gate. */
+  /** The diagnostic-driven remedy for the full gate's combined check/test stage. */
   "gate-failure-check-test": defineHint({
     id: "gate-failure-check-test",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "The check/test stage failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
-  /** One or more changed-scope checks rejected the tree. */
+  /** The diagnostic-driven remedy for failed changed-scope checks. */
   "gate-failure-scope-gates": defineHint({
     id: "gate-failure-scope-gates",
     category: "next-step",
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => "One or more scope gates failed.",
+    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
   }),
 
   /** A gate stage changed a committed-clean tracked file. */
@@ -1105,7 +1134,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "The gate left uncommitted changes on tracked files — commit the gate's own output (the diagnostic names the stage that produced it), then re-run.",
+      "Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.",
   }),
 
   /** Discern-managed ignored output was committed to the repository. */
@@ -1116,7 +1145,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
+      "Remove the discern-managed ignored artifacts named by the diagnostics from the Git index, run `discern refresh`, then re-run the current discern command.",
   }),
 
   /** Compiled agent guidance differs from its authored sources. */
@@ -1127,7 +1156,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
+      "Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites Agent files.",
   }),
 
   /** Materialized skills differ from the effective authored set. */
@@ -1138,7 +1167,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
+      "Run `discern refresh`, then re-run the current discern command. If a skill must change, edit its source in `[skills].dir`. Refresh overwrites materialized copies.",
   }),
 
   /** An effective skill cannot be read by supported agent runtimes. */
@@ -1149,7 +1178,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "A skill's SKILL.md frontmatter is invalid — agent runtimes could not read it. The diagnostics name each file and problem; edit the skill's source, then re-run.",
+      "Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Agent runtimes cannot read invalid frontmatter.",
   }),
 
   /** The worktree branch does not contain the current trunk. */
@@ -1160,7 +1189,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
+      "Run `discern update` to bring the trunk into this branch and re-materialize, then re-run `discern done`.",
   }),
 
   /** A branch attempted to weaken a standard held by the trunk. */
@@ -1171,7 +1200,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "A [standards] limit failed verification against the trunk — a limit only tightens on a branch; the diagnostics name each standard and both values.",
+      "Follow the standards diagnostics, then re-run the current discern command. Do not weaken a trunk limit on this branch. Moving a limit is an owner decision made on the trunk.",
   }),
 
   /** The gate cannot persist its Discern-owned state. */
@@ -1182,7 +1211,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Discern cannot write the state this gate will persist — grant this command the write access named in diagnostics, then re-run.",
+      "Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.",
   }),
 
   "gate-relay-receipt": defineHint({
@@ -1191,7 +1220,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "If this completes the task, relay the receipt to your owner and stop; run `discern accept` only once they accept.",
+      "If this completes the task, relay the receipt to your owner and stop. Run `discern accept` only after they accept.",
   }),
 
   "gate-update-docs": defineHint({
@@ -1200,7 +1229,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "If you changed documented behaviour, update the docs to match before you finish.",
+      "If you changed documented behavior, update the docs to match before you finish.",
   }),
 
   "gate-deferred-standards": defineHint<{ names: readonly string[] }>({
@@ -1209,9 +1238,12 @@ export const HINTS = {
     audience: "all",
     example: { names: ["coverage", "binary_size"] },
     template: ({ names }): string =>
-      `${names.length} standard(s) deferred from the gate (measure = "on-demand"): ${
-        names.join(", ")
-      } — the never-loosen limit check still ran; measure them with \`discern standards\` as needed.`,
+      `Measure ${names.length} deferred standard${
+        names.length === 1 ? "" : "s"
+      } with \`discern standards\` as needed: ${
+        boundedNameSummary(names.length, names)
+      }. Their ` +
+      `measurements are on demand, but the never-loosen limit check still ran.`,
   }),
 
   "gate-previewable-change": defineHint({
@@ -1220,7 +1252,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "A previewable change landed — start this worktree's dev server to view it.",
+      "Start this worktree's dev server to view the previewable change.",
   }),
 
   /** The pin pass has no configured metric to measure or tighten. */
@@ -1242,10 +1274,9 @@ export const HINTS = {
     family: "standards-pin",
     example: undefined,
     template: (): string =>
-      "A pin dry-run measures nothing. `discern standards` (the plain check) " +
-      "measures once and names any pinnable slack in its hints; " +
-      "`discern standards --pin` on the same clean commit then reuses those " +
-      "measurements to capture it.",
+      "Run `discern standards` to measure once and find pinnable slack. Then run " +
+      "`discern standards --pin` on the same clean commit to reuse those " +
+      "measurements. A pin dry-run measures nothing.",
   }),
 
   /** A same-commit check receipt supplied every measurement for the pin pass. */
@@ -1256,7 +1287,7 @@ export const HINTS = {
     family: "standards-pin",
     example: undefined,
     template: (): string =>
-      "Reused the green check's measurements for this commit — nothing was re-measured.",
+      "Reused the green check's measurements for this commit. Nothing was re-measured.",
   }),
 
   /** A red standard blocks the whole pin rather than capturing a failing state. */
@@ -1270,11 +1301,14 @@ export const HINTS = {
     example: { failingNames: ["coverage", "bundle_size"] },
     template: ({ failingNames }): string => {
       const named = failingNames.length > 0
-        ? failingNames.join(", ")
+        ? boundedNameSummary(failingNames.length, failingNames)
         : "a standard";
-      return `Not pinning: ${named} ${
-        failingNames.length === 1 ? "is" : "are"
-      } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern standards --pin\` once green.`;
+      const singular = failingNames.length <= 1;
+      return `Fix ${named}, then re-run \`discern standards --pin\` once green. ${
+        singular ? "It is" : "They are"
+      } failing, and diagnostics[] carries ${
+        singular ? "the reason" : "each reason"
+      }. No limits were pinned.`;
     },
   }),
 
@@ -1286,7 +1320,7 @@ export const HINTS = {
     family: "standards-pin",
     example: undefined,
     template: (): string =>
-      "Nothing to pin — every standard asked for already sits at its measured value (within its margin).",
+      "Nothing to pin. Every selected standard already sits at its measured value within its margin.",
   }),
 
   /** The limits-only pin commit inherited the honored receipt for its parent. */
@@ -1297,7 +1331,7 @@ export const HINTS = {
     family: "standards-pin-receipt",
     example: undefined,
     template: (): string =>
-      "Carried the gate receipt forward — `discern accept` will skip the redundant gate re-run.",
+      "The gate receipt now follows this pin commit. `discern accept` will skip the redundant gate re-run.",
   }),
 
   /** The pin commit had no honored receipt available to carry forward. */
@@ -1308,7 +1342,7 @@ export const HINTS = {
     family: "standards-pin-receipt",
     example: undefined,
     template: (): string =>
-      "No current gate receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
+      "Run `discern done` before accepting, or acceptance will re-run the gate. No current gate receipt was available to carry forward.",
   }),
 
   /** Standalone standards could not verify the branch limits against the trunk. */
@@ -1321,9 +1355,9 @@ export const HINTS = {
     family: "standards-limits-unverified",
     example: { reason: "the local trunk is missing" },
     template: ({ reason }): string =>
-      `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
-        reason ?? "unknown"
-      }). Fetch the trunk where standards run so the limits can be verified.`,
+      `Standards limits are UNVERIFIED. Fetch the trunk where standards run so ` +
+      `the limits can be verified. The never-loosen check could not read it (` +
+      `${reason ?? "unknown"}).`,
   }),
 
   /** Pinning a branch behind the trunk may capture limits that an update invalidates. */
@@ -1338,9 +1372,9 @@ export const HINTS = {
     example: { behind: "2", trunk: "main" },
     template: ({ behind, trunk }): string => {
       const commits = behind === "1" ? "commit" : "commits";
-      return `This worktree is ${behind} ${commits} behind the trunk (${trunk}). ` +
-        "The measured values describe this tree, and limits pinned now may not survive `discern update`. " +
-        "Run `discern update` first to pin against the latest trunk.";
+      return "Run `discern update` before pinning against the latest trunk. " +
+        `This worktree is ${behind} ${commits} behind ${trunk}, so its measured ` +
+        "values may not survive the update.";
     },
   }),
 
@@ -1351,7 +1385,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "No standards configured. Add a [standards.<name>] table to measure one.",
+      "Add a [standards.<name>] table to measure a standard. None are configured.",
   }),
 
   /** A green check found tighter limits that the pin pass can capture. */
@@ -1379,15 +1413,21 @@ export const HINTS = {
       receipted: true,
     },
     template: ({ standards, receipted }): string => {
-      const slack = standards.map((standard) =>
-        `${standard.name} (${standard.bound} ${standard.limit}, measured ${standard.measured} — would pin to ${standard.newLimit})`
+      const shown = standards.slice(0, HINT_NAME_CAP);
+      const slack = shown.map((standard) =>
+        `${standard.name} (${standard.bound} ${standard.limit}, measured ${standard.measured}, pinning to ${standard.newLimit})`
       );
-      return `Pinnable slack: ${
-        slack.join("; ")
-      }. Capture it with \`discern standards --pin\` — ${
+      const summary = slack.length > 0
+        ? slack.join("; ")
+        : "review data.standards";
+      const remaining = Math.max(0, standards.length - shown.length);
+      const overflow = remaining > 0
+        ? ` Review ${remaining} more in data.standards.`
+        : "";
+      return `Run \`discern standards --pin\` to capture pinnable slack: ${summary}.${overflow} ${
         receipted
-          ? "on this commit it reuses this check's measurements (measure once, pin once)"
-          : "this check already measured, no pin dry-run needed"
+          ? "On this commit, the pin reuses this check's measurements"
+          : "This check already measured, so no pin dry-run is needed"
       }.`;
     },
   }),
@@ -1403,7 +1443,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       restartSessionHint(
-        "Restart your coding agent to make the newly registered discern tools available.",
+        "Restart your coding agent now, or reload its MCP servers, before trying to use the discern tools. This refresh registered the server for the first time, and the registration persists after restart.",
       ),
   }),
 
@@ -1428,7 +1468,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "Edit it there; `discern skills list` confirms the override.",
+      "Edit the override there. `discern skills list` confirms its location.",
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -1440,7 +1480,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Re-run `discern accept --confirmed` once your owner has accepted this " +
-      "landing — the flag attests that acceptance, so a pre-authorized landing " +
+      "landing. The flag attests that acceptance, so a pre-authorized landing " +
       "still takes one call.",
   }),
 
@@ -1452,7 +1492,7 @@ export const HINTS = {
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      "`discern status` carries the honored receipt to relay " +
+      "Run `discern status` to get the honored receipt to relay " +
       "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
       "change.",
   }),
@@ -1465,8 +1505,8 @@ export const HINTS = {
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
-      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
-      `run \`discern refresh\` in ${mainRepo}.`,
+      `Run \`discern refresh\` in ${mainRepo}. Acceptance landed on ${trunk}, ` +
+      `but the post-landing refresh failed.`,
   }),
 
   /** Post-landing convergence changed tracked files in the receiving checkout. */
@@ -1480,8 +1520,8 @@ export const HINTS = {
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
-      `Acceptance landed on ${trunk}, but post-landing convergence changed ` +
-      `tracked files in ${mainRepo}; review \`git status\` there.`,
+      `Review \`git status\` in ${mainRepo}. Acceptance landed on ${trunk}, but ` +
+      `post-landing convergence changed tracked files there.`,
   }),
 
   /** A successful acceptance exposes its receipt as the durable landing record. */
@@ -1491,7 +1531,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "The receipt (data.receipt) is the landing record — relay it to your owner; it pastes cleanly into a PR body.",
+      "Relay the landing receipt in data.receipt to your owner. It pastes cleanly into a PR body.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
@@ -1601,7 +1641,7 @@ export const HINTS = {
     family: "start-name",
     example: { name: "✨" },
     template: ({ name }): string =>
-      `Could not derive a branch-safe name from '${name}' — used a random codename instead.`,
+      `Used a random codename because '${name}' has no branch-safe characters.`,
   }),
 
   /** A supplied start name was normalized into its branch-safe slug. */
@@ -1612,7 +1652,7 @@ export const HINTS = {
     family: "start-name",
     example: { name: "Hint Registry", slug: "hint-registry" },
     template: ({ name, slug }): string =>
-      `Normalised the worktree name '${name}' → '${slug}'.`,
+      `Normalized the worktree name '${name}' to '${slug}'.`,
   }),
 
   /** The CLI cannot relocate the caller, so it gives the re-root instruction. */
@@ -1640,18 +1680,18 @@ export const HINTS = {
     template: ({ changes, startPoint }): string =>
       `${changes} uncommitted change${
         changes === 1 ? "" : "s"
-      } stay in the main checkout — the new worktree branches from '${startPoint}'.`,
+      } stay in the main checkout. The new worktree branches from '${startPoint}'.`,
   }),
 
-  /** Setup's refresh core reports each artifact it could not complete. */
+  /** Setup's refresh core reports each failed artifact with its next action. */
   "setup-refresh-artifact-failed": defineHint<{ message: string }>({
     id: "setup-refresh-artifact-failed",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "setup-refresh",
     example: { message: "could not write .codex/config.toml" },
     template: ({ message }): string =>
-      `setup could not complete a refresh artifact: ${message}`,
+      `Fix the setup refresh error, then run \`discern refresh\`: ${message}`,
   }),
 
   /** Existing authored agent guidance was preserved in the canonical source. */
@@ -1668,9 +1708,10 @@ export const HINTS = {
       guidanceRel: SOURCE_PATHS.guidance.defaultPath,
     },
     template: ({ paths, guidanceRel }): string =>
-      `Preserved your existing ${
+      `Fold the guidance migrated from ${
         paths.join(", ")
-      } by migrating it into ${guidanceRel} — fold it into the conventions and delete the import note.`,
+      } into your conventions, then delete the import note from ${guidanceRel}. ` +
+      `Setup preserved the existing guidance there.`,
   }),
 
   /** A pre-existing agent file matched discern's own prior compiled output. */
@@ -1689,7 +1730,8 @@ export const HINTS = {
     template: ({ paths, guidanceRel }): string =>
       `Skipped importing ${
         paths.join(", ")
-      } into ${guidanceRel} — it matches discern's own compiled output (a leftover of an earlier setup), not your authoring.`,
+      } into ${guidanceRel}. It matches discern's own compiled output from an ` +
+      `earlier setup, not your authoring.`,
   }),
 
   /** A completed setup on the dedicated setup branch is ready to land. */
@@ -1708,7 +1750,8 @@ export const HINTS = {
       acceptCommand: "discern setup accept",
     },
     template: ({ branch, target, acceptCommand }): string =>
-      `Your setup is on branch \`${branch}\`, not yet on \`${target}\` — land it with \`${acceptCommand}\` (or leave it for review).`,
+      `Land setup with \`${acceptCommand}\`, or leave it for review. It is on ` +
+      `\`${branch}\`, not yet on \`${target}\`.`,
   }),
 
   /** A setup performed on another feature branch must use the project's normal merge. */
@@ -1729,7 +1772,8 @@ export const HINTS = {
       setupBranch: "discern-setup",
     },
     template: ({ branch, target, acceptCommand, setupBranch }): string =>
-      `Your setup is on branch \`${branch}\`, not yet on \`${target}\` — \`${acceptCommand}\` only lands the \`${setupBranch}\` branch, so merge this branch your usual way when ready.`,
+      `Merge \`${branch}\` into \`${target}\` your usual way when ready. ` +
+      `\`${acceptCommand}\` only lands the \`${setupBranch}\` branch.`,
   }),
 
   /** Provider integrations load at session start, so setup hands off reactivation. */
@@ -1740,7 +1784,7 @@ export const HINTS = {
     family: "setup-done-next",
     example: undefined,
     template: (): string =>
-      "discern's MCP tools (discern_*), session hooks, and project rules are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+      "Before continuing, reactivate every configured coding agent using the provider-specific steps below. The current session cannot load newly wired MCP tools, session hooks, or project rules automatically:",
   }),
 
   /** Setup's final coaching route for deepening the newly-wired project. */
@@ -1758,8 +1802,8 @@ export const HINTS = {
   }),
 
   /**
-   * Doctor-context lead-in to the shared unfinished-setup action. Healthy install
-   * checks are not proof that the authored setup is complete.
+   * Doctor context for the shared unfinished-setup action. Doctor is a required
+   * setup check, but a healthy result is not proof that setup is complete.
    */
   "setup-unfinished-doctor": defineHint({
     id: "setup-unfinished-doctor",
@@ -1769,7 +1813,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       setupUnfinishedHint(
-        "Finish setup before treating these healthy install checks as proof of completion.",
+        "Running `discern doctor` is a required setup step. A healthy result proves install health only. It does not complete the setup brief or record setup completion.",
       ),
   }),
 
@@ -1780,7 +1824,8 @@ export const HINTS = {
     audience: "all",
     example: { updateChannel: "run the installer again" },
     template: ({ updateChannel }): string =>
-      `discern never checks the network for updates; to get a newer discern, ${updateChannel}.`,
+      `To get a newer discern, ${updateChannel}. discern never checks the ` +
+      `network for updates.`,
   }),
 
   /** Post-upgrade lead-in to the shared restart-session lifecycle fact. */
@@ -1792,7 +1837,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       restartSessionHint(
-        "Restart any open agent session to use this discern build.",
+        "Restart every open agent session now, or reload its MCP servers, before continuing with this discern build. A server process started before the upgrade still runs the old build.",
       ),
   }),
 
@@ -1803,7 +1848,9 @@ export const HINTS = {
     audience: "all",
     example: { name: "integration" },
     template: ({ name }): string =>
-      `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
+      `Add an inline # comment explaining why "${name}" is deferred, or set a ` +
+      `real command to enforce it. An empty command is present but a no-op, so ` +
+      `the gate skips it.`,
   }),
 
   /** The optional canonical suggestion in an unknown-command refusal. */
@@ -1863,9 +1910,10 @@ export const HINTS = {
     example: { serverVersion: "1.4.0", installedVersion: "1.5.0" },
     template: ({ serverVersion, installedVersion }): string =>
       restartSessionHint(
-        `Restart your agent session to replace MCP server v${serverVersion} with ` +
-          `installed v${installedVersion}. Until then, its results can conflict ` +
-          `with the current CLI and rewrite generated files from different builds.`,
+        `Restart your agent session or reload its MCP servers to replace MCP ` +
+          `server v${serverVersion} with installed v${installedVersion}. Until ` +
+          `then, its results can conflict with the current CLI and rewrite ` +
+          `generated files from different builds.`,
       ),
   }),
 } as const;
