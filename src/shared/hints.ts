@@ -40,6 +40,8 @@ export interface HintDef<P = undefined> {
   readonly id: string;
   readonly category: HintCategory;
   readonly audience: HintAudience;
+  /** One-line emitting condition shown in the generated inventory. */
+  readonly when?: string;
   /**
    * Groups variants of one underlying fact (the restart-session family, the
    * generated-file-drift family) so wording reviews see them side by side.
@@ -212,6 +214,8 @@ export const HINTS = {
     id: "setup-unfinished-status",
     category: "next-step",
     audience: "all",
+    when:
+      "Status finds setup incomplete or finds skeleton markers still present.",
     family: "setup-unfinished",
     example: { pendingCount: 2 },
     template: ({ pendingCount }): string => {
@@ -229,6 +233,7 @@ export const HINTS = {
     id: "missing-integration-branch",
     category: "next-step",
     audience: "all",
+    when: "The configured trunk branch is unavailable for the merge check.",
     example: { branch: "main" },
     template: ({ branch }): string =>
       `Create the local trunk branch '${branch}', or set [repository].trunk to ` +
@@ -248,6 +253,8 @@ export const HINTS = {
     id: "silent-worktree-divergence",
     category: "guardrail",
     audience: "all",
+    when:
+      "A clean worktree coincides with uncommitted changes in the main checkout.",
     example: {
       cwd: "/workspace/project.worktrees/task",
       mainRepo: "/workspace/project",
@@ -274,6 +281,7 @@ export const HINTS = {
     id: "tracked-ignored-artifacts",
     category: "next-step",
     audience: "all",
+    when: "Git tracks discern-managed ignored artifacts.",
     example: {
       pathSummary: ".claude/skills",
       repairCommand: "git rm -r --cached .claude/skills",
@@ -291,6 +299,7 @@ export const HINTS = {
     id: "untracked-agent-files",
     category: "next-step",
     audience: "all",
+    when: "Agent files are untracked and not ignored.",
     example: { paths: ["AGENTS.md", "CLAUDE.md"] },
     template: ({ paths }): string =>
       `Commit the untracked Agent files (${
@@ -303,6 +312,7 @@ export const HINTS = {
     id: "generated-agent-files-missing",
     category: "next-step",
     audience: "all",
+    when: "A generated Agent file is missing.",
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
@@ -314,6 +324,7 @@ export const HINTS = {
     id: "generated-agent-files-stale",
     category: "next-step",
     audience: "all",
+    when: "A generated Agent file differs from its authored sources.",
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
@@ -328,6 +339,7 @@ export const HINTS = {
     id: "materialized-skills-missing",
     category: "next-step",
     audience: "all",
+    when: "A materialized skill directory is missing.",
     family: "generated-drift",
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
@@ -339,6 +351,7 @@ export const HINTS = {
     id: "materialized-skills-stale",
     category: "next-step",
     audience: "all",
+    when: "A materialized skill differs from its authored source.",
     family: "generated-drift",
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
@@ -353,6 +366,7 @@ export const HINTS = {
     id: "provider-integrations-missing",
     category: "next-step",
     audience: "all",
+    when: "A provider integration file is missing.",
     family: "generated-drift",
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
@@ -366,6 +380,7 @@ export const HINTS = {
     id: "provider-integrations-stale",
     category: "next-step",
     audience: "all",
+    when: "A provider integration file is stale or malformed.",
     family: "generated-drift",
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
@@ -385,6 +400,7 @@ export const HINTS = {
     id: "status-start-on-trunk",
     category: "guardrail",
     audience: "agent",
+    when: "`status` runs in the main checkout while it is on the trunk.",
     family: "status-start-here",
     example: undefined,
     template: (): string =>
@@ -400,6 +416,7 @@ export const HINTS = {
     id: "status-start-off-trunk",
     category: "guardrail",
     audience: "agent",
+    when: "`status` runs in the main checkout while it is off the trunk.",
     family: "status-start-here",
     example: { branch: "agent/hints", trunk: "main" },
     template: ({ branch, trunk }): string => {
@@ -420,6 +437,7 @@ export const HINTS = {
     id: "status-missing-trunk",
     category: "next-step",
     audience: "all",
+    when: "`status` cannot find the configured trunk branch.",
     example: { branch: "develop", trunk: "main" },
     template: ({ branch, trunk }): string => {
       const label = branch === "" ? "(detached)" : `'${branch}'`;
@@ -435,6 +453,7 @@ export const HINTS = {
     id: "status-dirty-worktree-scoped",
     category: "next-step",
     audience: "all",
+    when: "`status` finds scoped, uncommitted changes in the current worktree.",
     family: "status-dirty-worktree",
     example: { scopes: ["code", "docs"] },
     template: ({ scopes }): string =>
@@ -448,6 +467,7 @@ export const HINTS = {
     id: "status-dirty-worktree",
     category: "next-step",
     audience: "all",
+    when: "`status` finds uncommitted changes whose scopes are unavailable.",
     family: "status-dirty-worktree",
     example: undefined,
     template: (): string =>
@@ -462,6 +482,7 @@ export const HINTS = {
     id: "status-branch-behind",
     category: "next-step",
     audience: "all",
+    when: "`status` finds the current branch behind the trunk.",
     example: {
       behind: 2,
       trunk: "main",
@@ -490,6 +511,8 @@ export const HINTS = {
     id: "status-main-checkout-dirty",
     category: "next-step",
     audience: "all",
+    when:
+      "Changes in the main checkout prevent an otherwise ready branch from landing.",
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
@@ -501,6 +524,7 @@ export const HINTS = {
     id: "status-ready-for-review",
     category: "next-step",
     audience: "all",
+    when: "A clean, current branch has an honored gate receipt.",
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
@@ -514,6 +538,7 @@ export const HINTS = {
     id: "status-missing-done-receipt",
     category: "next-step",
     audience: "all",
+    when: "A clean, current branch has no honored gate receipt.",
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
@@ -531,6 +556,7 @@ export const HINTS = {
     id: "fleet-ownership",
     category: "guardrail",
     audience: "agent",
+    when: "A fleet survey includes worktrees owned by other lines of work.",
     example: undefined,
     template: (): string =>
       "Never work in a fleet worktree you didn't create. Each belongs to another line of work, and a clean tree may still be in use.",
@@ -540,6 +566,7 @@ export const HINTS = {
     id: "status-no-active-worktrees",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds no active worktrees.",
     example: undefined,
     template: (): string =>
       "Run `discern start` to begin work. There are no active worktrees.",
@@ -553,6 +580,7 @@ export const HINTS = {
     id: "status-dirty-fleet-members",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds worktrees with uncommitted changes.",
     example: {
       total: 5,
       names: ["hint-registry", "docs-refresh", "gate-copy", "cli-help"],
@@ -571,6 +599,7 @@ export const HINTS = {
     id: "status-fleet-member-ready",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds worktrees ready for owner review.",
     example: {
       total: 5,
       names: ["hint-registry", "docs-refresh", "gate-copy", "cli-help"],
@@ -592,6 +621,7 @@ export const HINTS = {
     id: "status-fleet-member-unreadable",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey cannot read one or more worktree states.",
     example: {
       total: 5,
       names: ["damaged", "missing", "unreadable", "no-access"],
@@ -617,6 +647,7 @@ export const HINTS = {
     id: "status-fleet-member-broken",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds worktrees whose setup never completed.",
     example: {
       total: 5,
       names: ["incomplete", "crashed", "half-built", "no-config"],
@@ -640,6 +671,7 @@ export const HINTS = {
     id: "status-fleet-member-stale",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds worktrees that appear inactive.",
     example: {
       total: 5,
       names: ["stale-task", "old-fix", "paused-docs", "forgotten-test"],
@@ -663,6 +695,7 @@ export const HINTS = {
     id: "status-unlanded-branches",
     category: "next-step",
     audience: "all",
+    when: "A fleet survey finds unlanded branches with no worktree.",
     example: { branches: ["agent/old-task", "agent/paused-task"] },
     template: ({ branches }): string =>
       `Resume one with \`discern start --from <branch>\`, or use ` +
@@ -683,6 +716,7 @@ export const HINTS = {
     id: "coupling-evidence-none",
     category: "notice",
     audience: "all",
+    when: "A coupling query finds no shared commit history for the pair.",
     family: "coupling-evidence",
     example: {
       a: "src/main.ts",
@@ -708,6 +742,7 @@ export const HINTS = {
     id: "coupling-evidence-summary",
     category: "next-step",
     audience: "all",
+    when: "A coupling query finds shared commit history for the pair.",
     family: "coupling-evidence",
     example: {
       a: "src/main.ts",
@@ -731,6 +766,7 @@ export const HINTS = {
     id: "coupling-evidence-more",
     category: "next-step",
     audience: "all",
+    when: "Shared coupling evidence exceeds the result cap.",
     family: "coupling-evidence",
     example: { more: 3 },
     template: ({ more }): string =>
@@ -743,6 +779,8 @@ export const HINTS = {
     id: "coupling-diff-header",
     category: "next-step",
     audience: "all",
+    when:
+      "Diff-aware coupling finds habitual partners missing from the change.",
     family: "coupling-partners",
     example: undefined,
     template: (): string =>
@@ -761,6 +799,7 @@ export const HINTS = {
     id: "coupling-diff-partner",
     category: "next-step",
     audience: "all",
+    when: "Diff-aware coupling selects the strongest missing partner.",
     family: "coupling-partners",
     example: {
       from: "src/main.ts",
@@ -781,6 +820,7 @@ export const HINTS = {
     id: "coupling-query-header",
     category: "next-step",
     audience: "all",
+    when: "A path coupling query finds one or more habitual partners.",
     family: "coupling-partners",
     example: { target: "src/main.ts" },
     template: ({ target }): string =>
@@ -799,6 +839,7 @@ export const HINTS = {
     id: "coupling-query-partner",
     category: "next-step",
     audience: "all",
+    when: "A path coupling query selects the strongest partner.",
     family: "coupling-partners",
     example: {
       path: "tests/main_test.ts",
@@ -819,6 +860,7 @@ export const HINTS = {
     id: "coupling-more-partners",
     category: "next-step",
     audience: "all",
+    when: "A coupling result has more ranked partners than it displays.",
     family: "coupling-partners",
     example: { remaining: 3, queryTarget: "src/main.ts" },
     template: ({ remaining, queryTarget }): string => {
@@ -832,6 +874,8 @@ export const HINTS = {
     id: "coupling-strong-pair",
     category: "next-step",
     audience: "all",
+    when:
+      "A coupling pair changes together often enough to suggest an invariant.",
     family: "coupling-partners",
     example: { from: "src/main.ts", path: "tests/main_test.ts" },
     template: ({ from, path }): string =>
@@ -844,6 +888,7 @@ export const HINTS = {
     id: "patterns-logbook-empty",
     category: "notice",
     audience: "all",
+    when: "`patterns` finds no recorded logbook events.",
     example: undefined,
     template: (): string =>
       "Check back after more discern use. The logbook is empty, and discern " +
@@ -857,6 +902,7 @@ export const HINTS = {
     id: "patterns-insufficient-evidence",
     category: "notice",
     audience: "all",
+    when: "One or more pattern detectors lack their minimum evidence.",
     example: { young: 4, total: 10 },
     template: ({ young, total }): string =>
       `The logbook is too young for ${young} of ${total} ` +
@@ -867,6 +913,7 @@ export const HINTS = {
     id: "patterns-advisory-findings",
     category: "next-step",
     audience: "all",
+    when: "`patterns` reports one or more advisory findings.",
     example: undefined,
     template: (): string =>
       "Inspect or enforce the next step in each advisory finding.",
@@ -876,6 +923,7 @@ export const HINTS = {
     id: "patterns-recording-off",
     category: "notice",
     audience: "all",
+    when: "`patterns` runs while logbook recording is off.",
     example: undefined,
     template: (): string =>
       "Recording is off ([project].logbook = false), so new runs aren't " +
@@ -886,6 +934,7 @@ export const HINTS = {
     id: "patterns-reset-empty",
     category: "notice",
     audience: "all",
+    when: "`patterns reset` finds no logbook to remove.",
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
@@ -896,6 +945,7 @@ export const HINTS = {
     id: "patterns-reset-preview",
     category: "next-step",
     audience: "all",
+    when: "`patterns reset --dry-run` previews a logbook deletion.",
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
@@ -906,6 +956,8 @@ export const HINTS = {
     id: "patterns-reset-recording-resumes",
     category: "notice",
     audience: "all",
+    when:
+      "`patterns reset` deletes the logbook while recording remains enabled.",
     family: "patterns-reset",
     example: undefined,
     template: (): string =>
@@ -924,6 +976,8 @@ export const HINTS = {
     id: "logbook-receipt-finding",
     category: "next-step",
     audience: "all",
+    when:
+      "A gate receipt carries the strongest current-branch logbook finding.",
     family: "logbook-inline-finding",
     example: {
       count: 2,
@@ -942,6 +996,7 @@ export const HINTS = {
     id: "logbook-status-finding",
     category: "next-step",
     audience: "all",
+    when: "`status` carries a session-scoped logbook finding.",
     family: "logbook-inline-finding",
     example: {
       observed: "The same worktree has been refused 3 times.",
@@ -959,6 +1014,7 @@ export const HINTS = {
     id: "setup-unfinished-gate",
     category: "guardrail",
     audience: "all",
+    when: "A gate verb runs before setup has completed.",
     family: "setup-unfinished",
     example: undefined,
     template: (): string =>
@@ -977,6 +1033,7 @@ export const HINTS = {
     id: "gate-job-loud-success",
     category: "notice",
     audience: "all",
+    when: "A gate job passes after producing substantial error-like output.",
     example: {
       label: "lint",
       errorLikeLines: 12,
@@ -999,6 +1056,7 @@ export const HINTS = {
     id: "test-job-not-configured",
     category: "notice",
     audience: "all",
+    when: "`test` runs with no configured test-stage job.",
     example: undefined,
     template: (): string =>
       'Set [jobs].test = "<command>" in discern.toml to run tests. No test job is configured.',
@@ -1008,6 +1066,7 @@ export const HINTS = {
     id: "gate-trunk-advanced",
     category: "next-step",
     audience: "all",
+    when: "The trunk advances while the gate is running.",
     example: undefined,
     template: (): string =>
       "Run `discern update`, then `discern done` again before `discern accept`. " +
@@ -1022,6 +1081,7 @@ export const HINTS = {
     id: "gate-standards-limits-unverified",
     category: "next-step",
     audience: "all",
+    when: "The gate cannot compare standard limits with the trunk.",
     family: "standards-limits-unverified",
     example: { reason: "the local branch is missing", trunk: "main" },
     template: ({ reason, trunk }): string =>
@@ -1037,6 +1097,7 @@ export const HINTS = {
     id: "gate-receipt-skipped-dirty",
     category: "next-step",
     audience: "all",
+    when: "A green gate cannot record a receipt because the worktree is dirty.",
     family: "gate-receipt",
     example: { reason: "2 tracked files changed" },
     template: ({ reason }): string =>
@@ -1050,6 +1111,7 @@ export const HINTS = {
     id: "gate-receipt-head-moved",
     category: "next-step",
     audience: "all",
+    when: "A green gate cannot record a receipt because the branch tip moved.",
     family: "gate-receipt",
     example: { reason: "HEAD changed from a1b2c3d to d4e5f6a" },
     template: ({ reason }): string =>
@@ -1065,6 +1127,7 @@ export const HINTS = {
     id: "gate-receipt-record-failed",
     category: "next-step",
     audience: "all",
+    when: "A green gate cannot write its receipt.",
     family: "gate-receipt",
     example: { reason: "the receipt file could not be written" },
     template: ({ reason }): string =>
@@ -1077,6 +1140,7 @@ export const HINTS = {
     id: "gate-receipt-unavailable",
     category: "notice",
     audience: "all",
+    when: "A green gate cannot prepare receipt state.",
     family: "gate-receipt",
     example: { reason: "write authority was not established" },
     template: ({ reason }): string =>
@@ -1091,6 +1155,7 @@ export const HINTS = {
     id: "gate-receipt-clear-failed",
     category: "next-step",
     audience: "all",
+    when: "The gate cannot clear an obsolete receipt.",
     family: "gate-receipt",
     example: { reason: "the receipt file could not be removed" },
     template: ({ reason }): string =>
@@ -1102,6 +1167,8 @@ export const HINTS = {
     id: "gate-failure-gotchas",
     category: "next-step",
     audience: "all",
+    when:
+      "A gate failure occurs and the project configures a gotchas document.",
     example: { doc: "docs/when-the-gate-fails.md" },
     template: ({ doc }): string =>
       `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
@@ -1112,6 +1179,7 @@ export const HINTS = {
     id: "gate-failure-fix",
     category: "next-step",
     audience: "all",
+    when: "The gate's fix stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
@@ -1122,6 +1190,7 @@ export const HINTS = {
     id: "gate-failure-build",
     category: "next-step",
     audience: "all",
+    when: "The gate's build stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
@@ -1132,6 +1201,7 @@ export const HINTS = {
     id: "gate-failure-check",
     category: "next-step",
     audience: "all",
+    when: "A standalone gate check fails.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
@@ -1142,6 +1212,7 @@ export const HINTS = {
     id: "gate-failure-test",
     category: "next-step",
     audience: "all",
+    when: "A standalone test run fails.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
@@ -1152,6 +1223,7 @@ export const HINTS = {
     id: "gate-failure-check-test",
     category: "next-step",
     audience: "all",
+    when: "The full gate's combined check and test stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
@@ -1162,6 +1234,7 @@ export const HINTS = {
     id: "gate-failure-scope-gates",
     category: "next-step",
     audience: "all",
+    when: "One or more changed-scope gates fail.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1173,6 +1246,7 @@ export const HINTS = {
     id: "gate-failure-tree-drift",
     category: "next-step",
     audience: "all",
+    when: "A gate stage changes a tracked file from a committed-clean tree.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1184,6 +1258,7 @@ export const HINTS = {
     id: "gate-failure-tracked-artifacts",
     category: "next-step",
     audience: "all",
+    when: "The gate finds tracked discern-managed ignored artifacts.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1195,6 +1270,7 @@ export const HINTS = {
     id: "gate-failure-guidance",
     category: "next-step",
     audience: "all",
+    when: "The gate finds compiled guidance drift.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1206,6 +1282,7 @@ export const HINTS = {
     id: "gate-failure-skills",
     category: "next-step",
     audience: "all",
+    when: "The gate finds materialized skill drift.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1217,6 +1294,7 @@ export const HINTS = {
     id: "gate-failure-skill-frontmatter",
     category: "next-step",
     audience: "all",
+    when: "The gate finds invalid frontmatter in an effective skill.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1228,6 +1306,7 @@ export const HINTS = {
     id: "gate-failure-merge",
     category: "next-step",
     audience: "all",
+    when: "The worktree branch does not contain the current trunk.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1239,6 +1318,7 @@ export const HINTS = {
     id: "gate-failure-standards",
     category: "next-step",
     audience: "all",
+    when: "The branch weakens a standard limit held by the trunk.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1250,6 +1330,7 @@ export const HINTS = {
     id: "gate-failure-write-access",
     category: "next-step",
     audience: "all",
+    when: "The gate cannot write Discern-owned state.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
@@ -1260,6 +1341,7 @@ export const HINTS = {
     id: "gate-relay-receipt",
     category: "next-step",
     audience: "all",
+    when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
       "If this completes the task, relay the receipt to your owner and stop. Run `discern accept` only after they accept.",
@@ -1269,6 +1351,7 @@ export const HINTS = {
     id: "gate-update-docs",
     category: "next-step",
     audience: "all",
+    when: "A gate run succeeds.",
     example: undefined,
     template: (): string =>
       "If you changed documented behavior, update the docs to match before you finish.",
@@ -1278,6 +1361,7 @@ export const HINTS = {
     id: "gate-deferred-standards",
     category: "next-step",
     audience: "all",
+    when: "A successful gate leaves one or more standards deferred.",
     example: { names: ["coverage", "binary_size"] },
     template: ({ names }): string =>
       `Measure ${names.length} deferred standard${
@@ -1292,6 +1376,7 @@ export const HINTS = {
     id: "gate-previewable-change",
     category: "next-step",
     audience: "all",
+    when: "A successful gate includes a change that has a configured preview.",
     example: undefined,
     template: (): string =>
       "Start this worktree's dev server to view the previewable change.",
@@ -1302,6 +1387,7 @@ export const HINTS = {
     id: "standards-pin-empty",
     category: "notice",
     audience: "all",
+    when: "`standards --pin` finds no configured standards.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -1313,6 +1399,7 @@ export const HINTS = {
     id: "standards-pin-dry-run",
     category: "next-step",
     audience: "all",
+    when: "`standards --pin --dry-run` previews without measuring.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -1326,6 +1413,8 @@ export const HINTS = {
     id: "standards-pin-reused-measurements",
     category: "notice",
     audience: "all",
+    when:
+      "`standards --pin` reuses measurements from a same-commit check receipt.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -1339,6 +1428,7 @@ export const HINTS = {
     id: "standards-pin-blocked",
     category: "next-step",
     audience: "all",
+    when: "`standards --pin` finds one or more failing standards.",
     family: "standards-pin",
     example: { failingNames: ["coverage", "bundle_size"] },
     template: ({ failingNames }): string => {
@@ -1359,6 +1449,7 @@ export const HINTS = {
     id: "standards-pin-no-slack",
     category: "notice",
     audience: "all",
+    when: "`standards --pin` finds no tighter limit to capture.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -1370,6 +1461,7 @@ export const HINTS = {
     id: "standards-pin-carried-receipt",
     category: "notice",
     audience: "all",
+    when: "A limits-only pin commit inherits its parent's gate receipt.",
     family: "standards-pin-receipt",
     example: undefined,
     template: (): string =>
@@ -1381,6 +1473,7 @@ export const HINTS = {
     id: "standards-pin-no-receipt",
     category: "next-step",
     audience: "all",
+    when: "A pin commit has no honored gate receipt to carry forward.",
     family: "standards-pin-receipt",
     example: undefined,
     template: (): string =>
@@ -1394,6 +1487,7 @@ export const HINTS = {
     id: "standards-limits-unverified",
     category: "next-step",
     audience: "all",
+    when: "`standards` cannot compare branch limits with the trunk.",
     family: "standards-limits-unverified",
     example: { reason: "the local trunk is missing" },
     template: ({ reason }): string =>
@@ -1410,6 +1504,7 @@ export const HINTS = {
     id: "standards-pin-behind",
     category: "next-step",
     audience: "all",
+    when: "`standards --pin` runs on a branch behind the trunk.",
     family: "standards-pin",
     example: { behind: "2", trunk: "main" },
     template: ({ behind, trunk }): string => {
@@ -1425,6 +1520,7 @@ export const HINTS = {
     id: "standards-none-configured",
     category: "next-step",
     audience: "all",
+    when: "`standards` finds no configured standards.",
     example: undefined,
     template: (): string =>
       "Add a [standards.<name>] table to measure a standard. No standards configured.",
@@ -1444,6 +1540,7 @@ export const HINTS = {
     id: "standards-pinnable-slack",
     category: "next-step",
     audience: "all",
+    when: "`standards` finds measured slack that can tighten a limit.",
     example: {
       standards: [{
         name: "coverage",
@@ -1481,6 +1578,8 @@ export const HINTS = {
     id: "refresh-mcp-first-install",
     category: "next-step",
     audience: "all",
+    when:
+      "`refresh` registers the Model Context Protocol server for the first time.",
     family: "restart-session",
     example: undefined,
     template: (): string =>
@@ -1497,6 +1596,7 @@ export const HINTS = {
     id: "refresh-commit-tracked-artifacts",
     category: "next-step",
     audience: "all",
+    when: "`refresh` changes tracked generated artifacts.",
     family: "refresh-result",
     example: undefined,
     template: (): string =>
@@ -1508,6 +1608,7 @@ export const HINTS = {
     id: "skills-eject-edit-override",
     category: "next-step",
     audience: "all",
+    when: "`skills eject` creates an authored override.",
     example: undefined,
     template: (): string =>
       "Edit the override there. `discern skills list` confirms its location.",
@@ -1518,6 +1619,7 @@ export const HINTS = {
     id: "accept-awaiting-confirmation",
     category: "next-step",
     audience: "all",
+    when: "`accept` waits for explicit owner confirmation.",
     family: "accept-consent",
     example: undefined,
     template: (): string =>
@@ -1531,6 +1633,7 @@ export const HINTS = {
     id: "accept-review-via-status",
     category: "next-step",
     audience: "all",
+    when: "`accept` needs the receipt and diff surfaced by `status`.",
     family: "accept-consent",
     example: undefined,
     template: (): string =>
@@ -1544,6 +1647,7 @@ export const HINTS = {
     id: "accept-refresh-failed",
     category: "next-step",
     audience: "all",
+    when: "Landing succeeds but the post-landing refresh fails.",
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
@@ -1559,6 +1663,8 @@ export const HINTS = {
     id: "accept-convergence-changed-tracked",
     category: "next-step",
     audience: "all",
+    when:
+      "Post-landing convergence changes tracked files in the receiving checkout.",
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
@@ -1571,6 +1677,7 @@ export const HINTS = {
     id: "accept-relay-landing-receipt",
     category: "next-step",
     audience: "all",
+    when: "`accept` lands successfully and returns a landing receipt.",
     example: undefined,
     template: (): string =>
       "Relay the landing receipt in data.receipt to your owner. It pastes cleanly into a PR body.",
@@ -1584,6 +1691,7 @@ export const HINTS = {
     id: "update-summary-fallback",
     category: "next-step",
     audience: "all",
+    when: "`update` cannot build its detailed integration summary.",
     family: "update-summary",
     example: { source: "main", predicted: false },
     template: ({ source, predicted }): string =>
@@ -1609,6 +1717,7 @@ export const HINTS = {
     id: "update-overlap",
     category: "next-step",
     audience: "all",
+    when: "`update` finds overlap between incoming and branch-owned files.",
     family: "update-summary",
     example: {
       source: "main",
@@ -1657,6 +1766,7 @@ export const HINTS = {
     id: "update-no-overlap",
     category: "next-step",
     audience: "all",
+    when: "`update` finds no overlap between incoming and branch-owned files.",
     family: "update-summary",
     example: {
       source: "main",
@@ -1680,6 +1790,7 @@ export const HINTS = {
     id: "start-name-fallback",
     category: "notice",
     audience: "all",
+    when: "A requested worktree name has no branch-safe characters.",
     family: "start-name",
     example: { name: "✨" },
     template: ({ name }): string =>
@@ -1691,6 +1802,7 @@ export const HINTS = {
     id: "start-name-normalized",
     category: "notice",
     audience: "all",
+    when: "A requested worktree name needs normalization.",
     family: "start-name",
     example: { name: "Hint Registry", slug: "hint-registry" },
     template: ({ name, slug }): string =>
@@ -1702,6 +1814,7 @@ export const HINTS = {
     id: "start-re-root",
     category: "next-step",
     audience: "all",
+    when: "`start` creates a worktree but cannot relocate the CLI caller.",
     family: "start-result",
     example: { dir: "/workspace/project.worktrees/hint-registry" },
     template: ({ dir }): string =>
@@ -1717,6 +1830,7 @@ export const HINTS = {
     id: "start-main-changes-stay",
     category: "notice",
     audience: "all",
+    when: "`start` leaves uncommitted main-checkout changes behind.",
     family: "start-result",
     example: { changes: 2, startPoint: "main" },
     template: ({ changes, startPoint }): string =>
@@ -1730,6 +1844,7 @@ export const HINTS = {
     id: "setup-refresh-artifact-failed",
     category: "next-step",
     audience: "all",
+    when: "Setup cannot refresh one of its generated artifacts.",
     family: "setup-refresh",
     example: { message: "could not write .codex/config.toml" },
     template: ({ message }): string =>
@@ -1744,6 +1859,8 @@ export const HINTS = {
     id: "setup-guidance-preserved",
     category: "next-step",
     audience: "all",
+    when:
+      "Setup migrates existing authored guidance into the canonical source.",
     family: "setup-guidance-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
@@ -1764,6 +1881,7 @@ export const HINTS = {
     id: "setup-guidance-own-render-skipped",
     category: "notice",
     audience: "all",
+    when: "Setup recognizes an Agent file as its own prior compiled output.",
     family: "setup-guidance-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
@@ -1785,6 +1903,7 @@ export const HINTS = {
     id: "setup-done-land-dedicated",
     category: "next-step",
     audience: "all",
+    when: "Setup completes on the dedicated setup branch.",
     family: "setup-done-next",
     example: {
       branch: "discern-setup",
@@ -1806,6 +1925,7 @@ export const HINTS = {
     id: "setup-done-land-manually",
     category: "next-step",
     audience: "all",
+    when: "Setup completes on another feature branch.",
     family: "setup-done-next",
     example: {
       branch: "feature/project-setup",
@@ -1823,6 +1943,7 @@ export const HINTS = {
     id: "setup-reactivate-tools",
     category: "next-step",
     audience: "all",
+    when: "Setup completes but configured providers need session reactivation.",
     family: "setup-done-next",
     example: undefined,
     template: (): string =>
@@ -1834,6 +1955,7 @@ export const HINTS = {
     id: "setup-run-coach",
     category: "next-step",
     audience: "all",
+    when: "Setup completes and offers the project coaching follow-up.",
     family: "setup-done-next",
     example: {
       coachVerb: "improvement",
@@ -1851,6 +1973,7 @@ export const HINTS = {
     id: "setup-unfinished-doctor",
     category: "guardrail",
     audience: "all",
+    when: "`doctor` runs while setup remains incomplete.",
     family: "setup-unfinished",
     example: undefined,
     template: (): string =>
@@ -1864,6 +1987,7 @@ export const HINTS = {
     id: "upgrade-newer-discern",
     category: "notice",
     audience: "all",
+    when: "`upgrade` reports the installed update channel.",
     example: { updateChannel: "run the installer again" },
     template: ({ updateChannel }): string =>
       `To get a newer discern, ${updateChannel}. discern never checks the ` +
@@ -1875,6 +1999,7 @@ export const HINTS = {
     id: "upgrade-restart-session",
     category: "next-step",
     audience: "all",
+    when: "`upgrade` completes while agent sessions still run the old server.",
     family: "restart-session",
     example: undefined,
     template: (): string =>
@@ -1888,6 +2013,7 @@ export const HINTS = {
     id: "config-job-deferred",
     category: "next-step",
     audience: "all",
+    when: "A known job has an empty command.",
     example: { name: "integration" },
     template: ({ name }): string =>
       `Add an inline # comment explaining why "${name}" is deferred, or set a ` +
@@ -1900,6 +2026,7 @@ export const HINTS = {
     id: "unknown-command-suggestion",
     category: "next-step",
     audience: "all",
+    when: "An unknown command has a canonical suggestion.",
     family: "unknown-command",
     example: { command: "status" },
     template: ({ command }): string => `Did you mean \`discern ${command}\`?`,
@@ -1910,6 +2037,7 @@ export const HINTS = {
     id: "unknown-command-help",
     category: "next-step",
     audience: "all",
+    when: "An unknown command refusal needs its documentation route.",
     family: "unknown-command",
     example: undefined,
     template: (): string =>
@@ -1925,6 +2053,8 @@ export const HINTS = {
     id: "start-mcp-re-root",
     category: "guardrail",
     audience: "all",
+    when:
+      "`start` runs through the Model Context Protocol and the client must re-root before editing.",
     family: "start-result",
     example: { path: "/workspace/project.worktrees/hint-registry" },
     template: ({ path }): string =>
@@ -1948,6 +2078,8 @@ export const HINTS = {
     id: "mcp-version-mismatch",
     category: "next-step",
     audience: "all",
+    when:
+      "The running Model Context Protocol server version differs from the installed build.",
     family: "restart-session",
     example: { serverVersion: "1.4.0", installedVersion: "1.5.0" },
     template: ({ serverVersion, installedVersion }): string =>
