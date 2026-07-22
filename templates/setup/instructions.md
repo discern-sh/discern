@@ -149,7 +149,7 @@ discern config set-standard coverage --direction up --limit 80 --run "<coverage 
 
 The format job already contains `discern tidy`. Keep it there. If the project has its own formatter, make the value a list with that formatter first and discern's formatter last:
 
-```toml
+```text
 format = ["<the project's formatter>", "discern tidy"]
 ```
 

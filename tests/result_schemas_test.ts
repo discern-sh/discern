@@ -18,7 +18,6 @@ import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
-  engineEnv,
   git,
   gitInit,
   scaffoldEngine,
@@ -851,22 +850,6 @@ async function commitFiles(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-async function withLocalEnginePath<T>(action: () => Promise<T>): Promise<T> {
-  const previousPath = Deno.env.get("PATH");
-  const localEnginePath = (await engineEnv()).PATH;
-  assert(localEnginePath !== undefined);
-  Deno.env.set("PATH", localEnginePath);
-  try {
-    return await action();
-  } finally {
-    if (previousPath === undefined) {
-      Deno.env.delete("PATH");
-    } else {
-      Deno.env.set("PATH", previousPath);
-    }
-  }
-}
-
 Deno.test("update result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -899,6 +882,10 @@ Deno.test("update result is faithful (dry-run prediction and applied data-bearin
 Deno.test("accept result is faithful (dry-run plan and applied gate-validation data)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad");
     const ctx = await lifecycleContext(
@@ -912,6 +899,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-rerun");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
@@ -919,9 +910,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const applied = await withLocalEnginePath(() =>
-      acceptResult(ctx, { confirmed: true })
-    );
+    const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
     expectValid(AcceptOutputSchema, applied, "accept applied rerun");
@@ -929,10 +918,14 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-receipt");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
-    const finish = await withLocalEnginePath(() => finishResult(wt));
+    const finish = await finishResult(wt);
     assertEquals(finish.ok, true);
     const ctx = await lifecycleContext(
       wt,

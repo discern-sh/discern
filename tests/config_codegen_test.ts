@@ -16,6 +16,7 @@ import {
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
@@ -77,12 +78,11 @@ Deno.test("the generated jobs object exposes known names and the custom table ar
 // ── docs config-reference ────────────────────────────────────────────────────
 
 Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    `${REPO_AUTHORED_PATHS.map}/70-reference/config-reference.md`,
-  );
+  const path = `${REPO_AUTHORED_PATHS.map}/70-reference/config-reference.md`;
+  const committed = await Deno.readTextFile(path);
   assertEquals(
     committed,
-    renderConfigReferenceDoc(),
+    await canonicalGeneratedMarkdown(path, renderConfigReferenceDoc()),
     `${REPO_AUTHORED_PATHS.mapRel}/70-reference/config-reference.md is stale — run \`deno task codegen\``,
   );
 });

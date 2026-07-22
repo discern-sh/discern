@@ -18,6 +18,7 @@ import {
   replaceAdrIndexBlocks,
 } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
 
@@ -58,9 +59,13 @@ Deno.test("ADR index: every active ADR on disk is linked from the README index",
 Deno.test("ADR index: generated record lists match the records on disk", async () => {
   const readme = await Deno.readTextFile(join(ADR_DIR, "README.md"));
   const blocks = await renderAdrIndexBlocks(await adrRecordsIn(ADR_DIR));
+  const path = join(ADR_DIR, "README.md");
   assertEquals(
     readme,
-    replaceAdrIndexBlocks(readme, blocks),
+    await canonicalGeneratedMarkdown(
+      path,
+      replaceAdrIndexBlocks(readme, blocks),
+    ),
     `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md is stale — run ` +
       "`deno task codegen`",
   );

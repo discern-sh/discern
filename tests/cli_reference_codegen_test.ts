@@ -21,6 +21,7 @@ import {
 } from "../src/shared/cli_reference_codegen.ts";
 import { validateFrontmatter } from "../src/lib/frontmatter.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const root = buildCli(false) as unknown as Command;
 const rendered = renderCliReferenceDoc(root);
@@ -33,9 +34,10 @@ async function committedReference(): Promise<string> {
 }
 
 Deno.test("the configured map's CLI reference matches the generator (run `deno task codegen`)", async () => {
+  const path = `${REPO_AUTHORED_PATHS.map}/70-reference/cli-reference.md`;
   assertEquals(
     await committedReference(),
-    rendered,
+    await canonicalGeneratedMarkdown(path, rendered),
     `${REPO_AUTHORED_PATHS.mapRel}/70-reference/cli-reference.md is stale — run \`deno task codegen\``,
   );
 });

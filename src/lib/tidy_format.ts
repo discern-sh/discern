@@ -18,6 +18,17 @@ export const MARKDOWN_CONFIG = {
 
 export const TOML_CONFIG = {} as const;
 
+/** A TOML formatter refusal, distinct from filesystem and migration failures. */
+export class TomlFormatError extends Error {
+  constructor(
+    readonly filePath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TomlFormatError";
+  }
+}
+
 let markdownFormatter: Promise<Formatter> | undefined;
 let tomlFormatter: Promise<Formatter> | undefined;
 
@@ -95,7 +106,7 @@ interface ProtectedFencedCode {
 }
 
 function protectFencedCode(fileText: string): ProtectedFencedCode {
-  let namespace = "discern-tidy-fenced-code";
+  let namespace = "tidy-fenced-code-block";
   while (fileText.includes(namespace)) {
     namespace += "-next";
   }
@@ -150,7 +161,15 @@ export async function formatTomlText(
   filePath: string,
   fileText: string,
 ): Promise<string> {
-  return (await toml()).formatText({ filePath, fileText });
+  try {
+    return (await toml()).formatText({ filePath, fileText });
+  } catch (error) {
+    if (error instanceof TomlFormatError) {
+      throw error;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new TomlFormatError(filePath, detail);
+  }
 }
 
 /**

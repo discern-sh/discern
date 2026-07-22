@@ -10,6 +10,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -51,9 +52,10 @@ async function declareResource(
   markers: string,
   body: string,
 ): Promise<void> {
-  const cfg = await Deno.readTextFile(join(wt, "discern.toml"));
-  await Deno.writeTextFile(
-    join(wt, "discern.toml"),
+  const path = join(wt, "discern.toml");
+  const cfg = await Deno.readTextFile(path);
+  await writeDiscernToml(
+    path,
     `${cfg}\n[worktree.resources.thing]\n${
       body.replaceAll("@MARKERS@", markers)
     }\n`,

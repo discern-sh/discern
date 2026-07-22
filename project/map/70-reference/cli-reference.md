@@ -34,6 +34,7 @@ aliases:
   - discern script
   - discern standards
   - discern refresh
+  - discern tidy
   - discern skills
   - discern skills list
   - discern skills eject
@@ -131,6 +132,17 @@ Usage: `discern test [options]`
 | Option   | Description                                                          |
 | -------- | -------------------------------------------------------------------- |
 | `--json` | Emit the result as a JSON DiscernResult on stdout (output → stderr). |
+
+### `discern tidy`
+
+Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both.
+
+Usage: `discern tidy [type] [options]`
+
+| Option      | Description                                        |
+| ----------- | -------------------------------------------------- |
+| `--json`    | Emit the result as a JSON DiscernResult on stdout. |
+| `--dry-run` | List the files that would change; touch nothing.   |
 
 ## Worktree lifecycle
 

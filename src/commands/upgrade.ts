@@ -63,7 +63,7 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
-import { writeDiscernToml } from "../lib/tidy_format.ts";
+import { TomlFormatError, writeDiscernToml } from "../lib/tidy_format.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -342,13 +342,34 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
 
   // 1. Run the migration chain. Steps are idempotent; for a pre-6 install the
   // schema 5→6 step dissolves `.discern/` into the new single-file layout.
-  const applied = await applyMigrations({
-    destDir,
-    from: migrateFrom,
-    to: SCHEMA_VERSION,
-    registry: options.registry,
-    onNote: (m) => log.detail(m),
-  });
+  let applied: Awaited<ReturnType<typeof applyMigrations>>;
+  try {
+    applied = await applyMigrations({
+      destDir,
+      from: migrateFrom,
+      to: SCHEMA_VERSION,
+      registry: options.registry,
+      onNote: (m) => log.detail(m),
+    });
+  } catch (error) {
+    if (!(error instanceof TomlFormatError)) {
+      throw error;
+    }
+    const message =
+      `a migration produced invalid TOML; schema was not stamped: ${error.message}`;
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "upgrade",
+        error: "invalid_migrated_config",
+        message,
+        data: { schema: { from: migrateFrom, current: SCHEMA_VERSION } },
+      });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
 
   // 1b. Prove the migrated config parses and validates BEFORE any softer
   // refresh work. Guideline compilation remains best-effort (ADR 0065), but a

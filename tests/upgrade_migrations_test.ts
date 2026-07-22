@@ -233,13 +233,14 @@ Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async
       apply: (ctx) =>
         ctx.rewrite("discern.toml", (text) => `${text}\nbad = "\\q"\n`),
     }];
+    const before = await readTarget(dir, "discern.toml");
 
     const run = await upgradeJsonIn(dir, chain);
     assertEquals(run.code, 1);
     const res = JSON.parse(run.stdout);
     assertEquals(res.error, "invalid_migrated_config");
     assertStringIncludes(res.message, "schema was not stamped");
-    assertStringIncludes(await readTarget(dir, "discern.toml"), 'bad = "\\q"');
+    assertEquals(await readTarget(dir, "discern.toml"), before);
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION - 1);
   });
 });

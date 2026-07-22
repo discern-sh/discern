@@ -18,6 +18,10 @@ import {
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import {
+  formatMarkdownText,
+  writeDiscernToml,
+} from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -73,7 +77,10 @@ async function commitGuidanceMarker(
   const existing = await Deno.readTextFile(guidance).catch(() => "");
   await Deno.writeTextFile(
     guidance,
-    `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
+    await formatMarkdownText(
+      guidance,
+      `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
+    ),
   );
   await git(wt, "add", "discern/guidance.md");
   await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
@@ -257,7 +264,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
         `echo ensure >> ${worktreeOnlyMarker}`,
       ]);
       editor.setString("jobs.smoke", `pwd >> ${smokeMarker}`);
-      await Deno.writeTextFile(configPath, editor.toString());
+      await writeDiscernToml(configPath, editor.toString());
       await commitCurrentWorktree(wt, "configure checkout convergence");
 
       const mainRoot = await Deno.realPath(dir);
@@ -334,7 +341,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
     // DIRECTORY. The acceptance gate therefore passes in the worktree and only
     // the post-landing smoke fails in the receiving checkout.
     editor.setString("jobs.smoke", "test -f .git");
-    await Deno.writeTextFile(configPath, editor.toString());
+    await writeDiscernToml(configPath, editor.toString());
     await commitCurrentWorktree(wt, "configure failing landing proof");
 
     const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
@@ -1324,7 +1331,7 @@ async function mainWithSetup(
   if (setup.repositoryEnsure !== undefined) {
     editor.setStringArray("repository.ensure", setup.repositoryEnsure);
   }
-  await Deno.writeTextFile(cfgPath, editor.toString());
+  await writeDiscernToml(cfgPath, editor.toString());
   await gitInit(dir);
   return await addWorktree(dir, name);
 }

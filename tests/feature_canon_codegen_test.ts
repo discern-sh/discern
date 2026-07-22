@@ -10,6 +10,7 @@ import {
 } from "../scripts/feature_registry.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 // These prove the committed canon page stays in lockstep with the feature
 // registry (the same drift-guard discipline as the glossary and the CLI and
@@ -17,12 +18,11 @@ import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 // (`deno task codegen`) fails here, in the gate's test stage.
 
 Deno.test("the configured map's feature canon matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    join(REPO_AUTHORED_PATHS.map, FEATURE_CANON_PAGE_REL),
-  );
+  const path = join(REPO_AUTHORED_PATHS.map, FEATURE_CANON_PAGE_REL);
+  const committed = await Deno.readTextFile(path);
   assertEquals(
     committed,
-    renderFeatureCanonDoc(),
+    await canonicalGeneratedMarkdown(path, renderFeatureCanonDoc()),
     `${
       join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_PAGE_REL)
     } is stale — run \`deno task codegen\``,

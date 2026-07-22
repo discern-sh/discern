@@ -36,6 +36,7 @@ import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -409,13 +410,13 @@ Deno.test("the meta-registry enrols itself", () => {
 });
 
 Deno.test("the committed registry atlas matches the renderer", async () => {
-  const committed = await fileText(
-    join(REPO_AUTHORED_PATHS.mapRel, REGISTRY_ATLAS_PAGE_REL),
-  );
+  const rel = join(REPO_AUTHORED_PATHS.mapRel, REGISTRY_ATLAS_PAGE_REL);
+  const path = join(REPO_ROOT, rel);
+  const committed = await fileText(rel);
   assert(committed !== undefined, "the registry atlas page is not committed");
   assertEquals(
     committed,
-    await renderRegistryAtlasDoc(),
+    await canonicalGeneratedMarkdown(path, await renderRegistryAtlasDoc()),
     "the committed registry atlas has drifted from the meta-registry — run " +
       "`deno task codegen` and commit the result",
   );

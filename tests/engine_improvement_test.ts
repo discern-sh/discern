@@ -176,10 +176,11 @@ Deno.test("improvement --json: a fresh install scores low and leads with one fix
     assert(payload.data.next_action.action.length > 0);
     assert(payload.data.next_action.why.length > 0);
 
-    // The gate category is fully unwired → all three rules fail, each with a fix.
+    // The embedded formatter is wired, while the project's checks remain unset.
     const gate = cat(payload, "gate");
-    assertEquals(gate.score, 0);
-    for (const id of ["gate.test", "gate.static-analysis", "gate.format"]) {
+    assertEquals(gate.score, 17);
+    assertEquals(rule(gate, "gate.format").status, "pass");
+    for (const id of ["gate.test", "gate.static-analysis"]) {
       const r = rule(gate, id);
       assertEquals(r.status, "fail");
       assert(

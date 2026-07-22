@@ -302,6 +302,23 @@ function standardsVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
+/** `tidy` — the embedded formatter's two closed surface classes. */
+function tidyVerb(): VerbPlan {
+  return {
+    verb: "tidy",
+    when:
+      "Directly, or when the project's format job invokes it during the gate.",
+    steps: [
+      step("tidy", "configured Markdown", {
+        condition: "when Markdown is selected and a target would change",
+      }),
+      step("tidy", "root discern.toml", {
+        condition: "when TOML is selected and the root config would change",
+      }),
+    ],
+  };
+}
+
 // ── worktree verbs (authored conditional model; user commands pulled live) ──
 
 /** This project's declared resources, in document order. */
@@ -510,6 +527,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     prepareVerb(cfg),
     testVerb(cfg),
     standardsVerb(cfg),
+    tidyVerb(),
     startVerb(cfg),
     ensureVerb(cfg),
     updateVerb(cfg),
