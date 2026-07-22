@@ -87,6 +87,27 @@ function reasonSuffix(reason: string | undefined): string {
   return reason === undefined ? "" : ` (${reason})`;
 }
 
+/** Append full-list commands to an update summary without adding pagination hints. */
+function updateOverflowAdvice(
+  filesRange: string | undefined,
+  commitsRange: { before: string; main: string } | undefined,
+): string {
+  const actions: string[] = [];
+  if (filesRange !== undefined) {
+    actions.push(
+      `Use \`git diff --stat ${filesRange}\` for the full file list and ` +
+        `\`git diff ${filesRange} -- <path>\` for one file.`,
+    );
+  }
+  if (commitsRange !== undefined) {
+    actions.push(
+      `Use \`git log --oneline ${commitsRange.before}..${commitsRange.main}\` ` +
+        `for the full commit list.`,
+    );
+  }
+  return actions.length === 0 ? "" : ` ${actions.join(" ")}`;
+}
+
 /**
  * The registry. Entries land site-by-site as the emission sites migrate off
  * inline strings; once the last site moves, the closed-set guard pins this
@@ -521,7 +542,7 @@ export const HINTS = {
       `(from git history; \`${a}\`: ${ofA} commit(s), \`${b}\`: ${ofB} commit(s)).`,
   }),
 
-  /** Pair evidence summary before the individual shared-commit rows. */
+  /** Pair evidence summary; the commit rows themselves stay in `data.commits`. */
   "coupling-evidence-summary": defineHint<{
     a: string;
     b: string;
@@ -530,7 +551,7 @@ export const HINTS = {
     ofB: number;
   }>({
     id: "coupling-evidence-summary",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-evidence",
     example: {
@@ -543,51 +564,38 @@ export const HINTS = {
     template: ({ a, b, together, ofA, ofB }): string => {
       const shareA = ofA > 0 ? ` (${Math.round((together / ofA) * 100)}%)` : "";
       const shareB = ofB > 0 ? ` (${Math.round((together / ofB) * 100)}%)` : "";
-      return `\`${a}\` and \`${b}\` changed together in ${together} commit(s) — ${together} of ` +
-        `\`${a}\`'s ${ofA}${shareA} and ${together} of \`${b}\`'s ${ofB}` +
-        `${shareB} recent commits (from git history):`;
+      return `Review the shared commits in data.commits. \`${a}\` and \`${b}\` ` +
+        `changed together in ${together} recent commits: ${together} of the ` +
+        `${ofA}${shareA} that touched \`${a}\`, and ${together} of the ` +
+        `${ofB}${shareB} that touched \`${b}\`.`;
     },
   }),
 
-  "coupling-evidence-commit": defineHint<{
-    sha: string;
-    date: string;
-    subject: string;
-  }>({
-    id: "coupling-evidence-commit",
-    category: "notice",
-    audience: "all",
-    family: "coupling-evidence",
-    example: {
-      sha: "a1b2c3d",
-      date: "2026-07-22",
-      subject: "Update command routing",
-    },
-    template: ({ sha, date, subject }): string =>
-      `  ${sha}  ${date}  ${subject}`,
-  }),
-
+  /** Evidence overflow stays explicit after per-commit hint rows are removed. */
   "coupling-evidence-more": defineHint<{ more: number }>({
     id: "coupling-evidence-more",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-evidence",
     example: { more: 3 },
-    template: ({ more }): string => `… and ${more} more shared commit(s).`,
+    template: ({ more }): string =>
+      `Review the most recent shared commits in data.commits. ${more} older ` +
+      `commit${more === 1 ? " is" : "s are"} outside its cap.`,
   }),
 
+  /** Diff-aware summary before the single strongest missing partner. */
   "coupling-diff-header": defineHint({
     id: "coupling-diff-header",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-partners",
     example: undefined,
     template: (): string =>
-      "Coupling (from git history; advisory only and not exhaustive) — files that usually " +
-      "change with what you've changed on this branch " +
-      "(vs the trunk, the shared landing branch) but aren't among those changes:",
+      "Review the strongest habitual partner missing from this branch's changes. " +
+      "Coupling is advisory, based on recent git history, and not exhaustive.",
   }),
 
+  /** The strongest diff-aware partner; all ranked partner rows stay in data. */
   "coupling-diff-partner": defineHint<{
     from: string;
     path: string;
@@ -596,7 +604,7 @@ export const HINTS = {
     confidence: number;
   }>({
     id: "coupling-diff-partner",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-partners",
     example: {
@@ -607,24 +615,25 @@ export const HINTS = {
       confidence: 0.8,
     },
     template: ({ from, path, cochanges, of, confidence }): string =>
-      `You changed \`${from}\` but not \`${path}\` — which changed in ${cochanges} ` +
-      `of the ${of} recent commits that touched \`${from}\` (${
+      `Start with \`${path}\`: it changed in ${cochanges} of the ${of} recent ` +
+      `commits that touched \`${from}\` (${
         Math.round(confidence * 100)
-      }%). ` +
-      `Worth a look, or intentional?`,
+      }%), and this branch changed \`${from}\` without it.`,
   }),
 
+  /** Query summary before the single strongest co-change partner. */
   "coupling-query-header": defineHint<{ target: string }>({
     id: "coupling-query-header",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-partners",
     example: { target: "src/main.ts" },
     template: ({ target }): string =>
-      `Files that usually change with \`${target}\` (from git history; advisory, NOT ` +
-      "exhaustive):",
+      `Review the strongest file that usually changes with \`${target}\`. ` +
+      "Coupling is advisory, based on recent git history, and not exhaustive.",
   }),
 
+  /** The strongest query partner; all ranked partner rows stay in data. */
   "coupling-query-partner": defineHint<{
     path: string;
     target: string;
@@ -633,7 +642,7 @@ export const HINTS = {
     confidence: number;
   }>({
     id: "coupling-query-partner",
-    category: "notice",
+    category: "next-step",
     audience: "all",
     family: "coupling-partners",
     example: {
@@ -644,8 +653,8 @@ export const HINTS = {
       confidence: 0.8,
     },
     template: ({ path, target, cochanges, of, confidence }): string =>
-      `\`${path}\` — changed together in ${cochanges} of \`${target}\`'s ${of} ` +
-      `recent commits (${Math.round(confidence * 100)}%).`,
+      `Start with \`${path}\`: it changed in ${cochanges} of the ${of} recent ` +
+      `commits that touched \`${target}\` (${Math.round(confidence * 100)}%).`,
   }),
 
   "coupling-more-partners": defineHint<{
@@ -659,7 +668,8 @@ export const HINTS = {
     example: { remaining: 3, queryTarget: "src/main.ts" },
     template: ({ remaining, queryTarget }): string => {
       const arg = queryTarget === undefined ? "" : ` ${queryTarget}`;
-      return `… and ${remaining} more — \`discern coupling${arg}\` lists them all.`;
+      return `Run \`discern coupling${arg}\` to review ${remaining} more ranked ` +
+        `partner${remaining === 1 ? "" : "s"}.`;
     },
   }),
 
@@ -670,9 +680,9 @@ export const HINTS = {
     family: "coupling-partners",
     example: { from: "src/main.ts", path: "tests/main_test.ts" },
     template: ({ from, path }): string =>
-      `\`${from}\` and \`${path}\` change together almost every time. ` +
-      "If that reflects an essential invariant, consider locking it with a forcing-function " +
-      "(see the `discern-cure-a-bug` skill) rather than relying on memory.",
+      `Add a forcing-function if \`${from}\` and \`${path}\` share an essential ` +
+      "invariant. They change together almost every time. The `discern-cure-a-bug` " +
+      "skill covers the pattern.",
   }),
 
   "patterns-logbook-empty": defineHint({
@@ -1378,24 +1388,34 @@ export const HINTS = {
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
-  "update-summary-fallback": defineHint<{ source: string }>({
+  "update-summary-fallback": defineHint<{
+    source: string;
+    predicted: boolean;
+  }>({
     id: "update-summary-fallback",
     category: "next-step",
     audience: "all",
     family: "update-summary",
-    example: { source: "main" },
-    template: ({ source }): string =>
-      `Updated ${source} and re-materialized the agent files — run ` +
-      `\`discern done\` to verify against the merged tree.`,
+    example: { source: "main", predicted: false },
+    template: ({ source, predicted }): string =>
+      predicted
+        ? `Run \`discern update\` to apply ${source}, then \`discern done\`. The ` +
+          "detailed preview summary was unavailable."
+        : `Run \`discern done\` to verify the merged tree. The detailed ${source} ` +
+          "integration summary was unavailable.",
   }),
 
-  /** Integration headline when incoming changes overlap the branch's own files. */
+  /**
+   * Integration action when incoming changes overlap the branch's own files.
+   * Full-list commands join this same hint when either data list is capped.
+   */
   "update-overlap": defineHint<{
     source: string;
-    behind: number;
     overlap: readonly string[];
     overlapTotal: number;
     predicted: boolean;
+    filesRange: string | undefined;
+    commitsRange: { before: string; main: string } | undefined;
   }>({
     id: "update-overlap",
     category: "next-step",
@@ -1403,38 +1423,47 @@ export const HINTS = {
     family: "update-summary",
     example: {
       source: "main",
-      behind: 3,
       overlap: ["src/main.ts", "tests/main_test.ts"],
       overlapTotal: 2,
       predicted: false,
+      filesRange: "HEAD~2..HEAD",
+      commitsRange: { before: "HEAD~2", main: "main" },
     },
     template: (
-      { source, behind, overlap, overlapTotal, predicted },
+      {
+        source,
+        overlap,
+        overlapTotal,
+        predicted,
+        filesRange,
+        commitsRange,
+      },
     ): string => {
-      const verb = predicted ? "Would update" : "Updated";
-      const next = predicted
-        ? "run `discern update` to apply, then `discern done`."
-        : "run `discern done` to verify against the merged tree.";
-      const shown = overlap.slice(0, 5).join(", ");
+      const shown = overlap.slice(0, 5).map((path) => `\`${path}\``).join(", ");
       const more = overlapTotal > 5 ? `, … (+${overlapTotal - 5} more)` : "";
-      const caveat = predicted
-        ? "git would merge these cleanly, but they may still conflict semantically — " +
-          "re-read them after updating, then "
-        : "git merged these cleanly, but re-read them for semantic conflicts a clean " +
-          "merge can't catch, then ";
-      return `⚠ ${verb} ${source}: +${behind} commit(s) beneath your work. ` +
-        `${overlapTotal} file(s) you've changed are also changed by ` +
-        `${source}: ${shown}${more} — ${caveat}${next}`;
+      const files = `${overlapTotal} overlapping file${
+        overlapTotal === 1 ? "" : "s"
+      }: ${shown}${more}.`;
+      const action = predicted
+        ? `Run \`discern update\` to apply, then re-read the ${files}`
+        : `Re-read the ${files}`;
+      return `${action} This branch and ${source} ${
+        predicted ? "both touch" : "both changed"
+      } them, and a clean merge cannot catch semantic conflicts. Run ` +
+        `\`discern done\` after reviewing them.` +
+        updateOverflowAdvice(filesRange, commitsRange);
     },
   }),
 
-  /** Integration headline when incoming and branch-owned files do not overlap. */
+  /**
+   * Integration action when incoming and branch-owned files do not overlap.
+   * Full-list commands join this same hint when either data list is capped.
+   */
   "update-no-overlap": defineHint<{
     source: string;
-    behind: number;
-    filesTotal: number;
-    ownTotal: number;
     predicted: boolean;
+    filesRange: string | undefined;
+    commitsRange: { before: string; main: string } | undefined;
   }>({
     id: "update-no-overlap",
     category: "next-step",
@@ -1442,54 +1471,19 @@ export const HINTS = {
     family: "update-summary",
     example: {
       source: "main",
-      behind: 3,
-      filesTotal: 8,
-      ownTotal: 2,
       predicted: false,
+      filesRange: "HEAD~2..HEAD",
+      commitsRange: { before: "HEAD~2", main: "main" },
     },
-    template: ({ source, behind, filesTotal, ownTotal, predicted }): string => {
-      const verb = predicted ? "Would update" : "Updated";
+    template: (
+      { source, predicted, filesRange, commitsRange },
+    ): string => {
       const next = predicted
-        ? "run `discern update` to apply, then `discern done`."
-        : "run `discern done` to verify against the merged tree.";
-      return `${verb} ${source}: +${behind} commit(s), ${filesTotal} ` +
-        `file(s) changed beneath your work. None overlap the ${ownTotal} file(s) ` +
-        `you've changed — ${next}`;
+        ? "Run `discern update` to apply, then `discern done`."
+        : "Run `discern done` to verify the merged tree.";
+      return `${next} No files changed by this branch overlap ${source}'s ` +
+        `incoming changes.` + updateOverflowAdvice(filesRange, commitsRange);
     },
-  }),
-
-  /** Escape hatch to the full incoming file list when the envelope caps it. */
-  "update-files-truncated": defineHint<{
-    shown: number;
-    total: number;
-    diffRange: string;
-  }>({
-    id: "update-files-truncated",
-    category: "next-step",
-    audience: "all",
-    family: "update-summary",
-    example: { shown: 20, total: 34, diffRange: "HEAD..main" },
-    template: ({ shown, total, diffRange }): string =>
-      `Showing ${shown} of ${total} changed files. Full ` +
-      `list: \`git diff --stat ${diffRange}\`. Inspect one: ` +
-      `\`git diff ${diffRange} -- <path>\`.`,
-  }),
-
-  /** Escape hatch to the full incoming commit list when the envelope caps it. */
-  "update-commits-truncated": defineHint<{
-    shown: number;
-    total: number;
-    before: string;
-    main: string;
-  }>({
-    id: "update-commits-truncated",
-    category: "next-step",
-    audience: "all",
-    family: "update-summary",
-    example: { shown: 10, total: 18, before: "HEAD", main: "main" },
-    template: ({ shown, total, before, main }): string =>
-      `Showing ${shown} of ${total} commits. Full ` +
-      `log: \`git log --oneline ${before}..${main}\`.`,
   }),
 
   /** A supplied start name reduced to no branch-safe characters. */

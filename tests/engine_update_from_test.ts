@@ -72,10 +72,9 @@ Deno.test("update --from <branch>: that branch's commits arrive in the worktree"
     );
     assertHasHint(result, HINTS["update-no-overlap"], {
       source: "phase-one",
-      behind: 1,
-      filesTotal: 1,
-      ownTotal: 0,
       predicted: false,
+      filesRange: undefined,
+      commitsRange: undefined,
     });
   });
 });

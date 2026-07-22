@@ -1,7 +1,8 @@
 /**
  * Engine coverage for `update`'s "what landed beneath you" summary (ADR 0064):
  * the `UpdateData` payload (commits/files/overlap/scopes/range), the overlap hot
- * zone, the capping + git escape-hatch hints, and predicted `--dry-run` parity.
+ * zone, capped-list commands folded into one summary hint, and predicted
+ * `--dry-run` parity.
  * Each test drives a REAL linked worktree in a hermetic git repo and reads the
  * `--json` envelope an agent would.
  */
@@ -166,10 +167,11 @@ Deno.test("update: overlap names the files you AND main both changed (clean merg
     // The headline hint warns and names the overlap (the DX payoff).
     assertHasHint(result, HINTS["update-overlap"], {
       source: "main",
-      behind: 1,
       overlap: ["shared.txt"],
       overlapTotal: 1,
       predicted: false,
+      filesRange: undefined,
+      commitsRange: undefined,
     });
 
     // The clean merge genuinely combined both regions in the worktree.
@@ -206,19 +208,22 @@ Deno.test("update: a large merge caps the lists and hands back a git escape-hatc
     assertEquals(data.files.length, 20);
     assertEquals(data.files_truncated, true);
 
-    // The escape hatch: the FULL list in one call, anchors pre-substituted — no
-    // guessing the range. (Apply → two-dot before..after; full-list log → before..main.)
-    assertHasHint(result, HINTS["update-files-truncated"], {
-      shown: 20,
-      total: 36,
-      diffRange: `${data.range.before}..${data.range.after}`,
+    // Both full-list commands are folded into the one summary hint, with anchors
+    // pre-substituted. Pagination therefore adds no extra hint rows.
+    const summary = assertHasHint(result, HINTS["update-no-overlap"], {
+      source: "main",
+      predicted: false,
+      filesRange: `${data.range.before}..${data.range.after}`,
+      commitsRange: {
+        before: data.range.before,
+        main: data.range.main,
+      },
     });
-    assertHasHint(result, HINTS["update-commits-truncated"], {
-      shown: 10,
-      total: 12,
-      before: data.range.before,
-      main: data.range.main,
-    });
+    assertEquals(
+      result.hints?.filter((hint) => hint === summary).length,
+      1,
+      "the full-list commands share one update summary hint",
+    );
   });
 });
 

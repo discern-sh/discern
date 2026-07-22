@@ -402,6 +402,20 @@ Deno.test("coupling ranks strongest-first, keeps strongest under the cap, and ti
       from: "hub.ts",
       path: "always.ts",
     });
+    const second = data.partners[1];
+    assert(second !== undefined, "expected a second ranked partner in data");
+    assertLacksHint(result, HINTS["coupling-query-partner"], {
+      path: second.path,
+      target: "hub.ts",
+      cochanges: second.cochanges,
+      of: second.of,
+      confidence: second.confidence,
+    });
+    assertEquals(
+      result.hints?.length,
+      4,
+      "summary, strongest partner, forcing-function advice, and overflow only",
+    );
   });
 });
 
@@ -668,6 +682,11 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
       ofA: 2,
       ofB: 2,
     });
+    assertEquals(
+      obj.hints?.length,
+      1,
+      "shared commit rows stay in data.commits, not hints",
+    );
 
     // human: the rendered view names the pair and lists the shared commit subjects.
     const h = await runAgent(dir, ["coupling", "a.ts", "b.ts"]);

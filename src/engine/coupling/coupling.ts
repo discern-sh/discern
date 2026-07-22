@@ -79,12 +79,6 @@ const MIN_BASKETS_FOR_FENCE = 12;
  * likeliest siblings, not an exhaustive list (top-k keeps the volume sane on any repo).
  * Exported so a test can assert the cap without hard-coding the number. */
 export const MAX_PARTNERS = 10;
-/** Cap on the per-partner hint LINES — the advisory text stays tight (the full ranked
- * set lives in `data.partners` / a direct `discern coupling` call). */
-const HINT_PARTNERS = 5;
-/** Cap on automatic gate hint partner lines. The gate is unsolicited context, so it is
- * terser than the direct `coupling` result (which stays exploratory). */
-const GATE_HINT_PARTNERS = 3;
 /** Cap on the evidence-mode commit list — a coupled pair's shared history is usually
  * short, but a hub pair can run long; show the most recent this many and report the full
  * `together` count alongside, so the list never floods a caller's context. */
@@ -534,10 +528,10 @@ function share(together: number, of: number): string {
 }
 
 /**
- * Evidence-mode hint lines: the shared history of two files in plain counts, then the
- * actual commits (sha, date, subject) where both changed. No verdict — the reader judges
- * one decision vs incidental from the dates and subjects. When the two never co-changed
- * it still reports each file's own count, so "no shared history" is an answer, not silence.
+ * Evidence-mode hints: one shared-history summary and, when capped, one overflow
+ * notice. The actual sha/date/subject rows stay in `data.commits`. When the files
+ * never co-changed it still reports each file's own count, so "no shared history"
+ * remains an answer rather than silence.
  */
 function evidenceHints(data: CouplingData): FiredHint[] {
   const a = data.a ?? "";
@@ -550,7 +544,7 @@ function evidenceHints(data: CouplingData): FiredHint[] {
       fire(HINTS["coupling-evidence-none"], { a, b, ofA, ofB }),
     ];
   }
-  const hints = [
+  const hints: FiredHint[] = [
     fire(HINTS["coupling-evidence-summary"], {
       a,
       b,
@@ -560,9 +554,6 @@ function evidenceHints(data: CouplingData): FiredHint[] {
     }),
   ];
   const commits = data.commits ?? [];
-  for (const c of commits) {
-    hints.push(fire(HINTS["coupling-evidence-commit"], c));
-  }
   const more = together - commits.length;
   if (more > 0) {
     hints.push(fire(HINTS["coupling-evidence-more"], { more }));
@@ -571,18 +562,14 @@ function evidenceHints(data: CouplingData): FiredHint[] {
 }
 
 /**
- * The advisory hint lines for a co-change result — the ONE human-facing surface
- * (rendered to human text, `--json`, and MCP alike). Flat, no severity tiers (ADR
- * 0063): each partner is shown with its evidence in plain counts ("N of the M recent
- * commits"), the framing states the list is NOT exhaustive, and every line is
- * observation-plus-suggestion, never a verdict. A single discovery→enforcement pointer
- * is appended when the strongest pair is a near-invariant. Empty when there are no
- * partners (the advisory stays quiet). Evidence mode delegates to {@link evidenceHints}.
+ * The bounded advisory for a co-change result: one summary, the strongest partner,
+ * the forcing-function suggestion when that pair clears {@link STRONG_CONFIDENCE},
+ * and one overflow pointer. Every ranked row stays in `data.partners`; the gate,
+ * which does not carry coupling data, gets the same command pointer to the full view.
+ * Empty when there are no partners. Evidence mode delegates to
+ * {@link evidenceHints}.
  */
-function couplingHints(
-  data: CouplingData,
-  maxPartners = HINT_PARTNERS,
-): FiredHint[] {
+function couplingHints(data: CouplingData): FiredHint[] {
   if (data.mode === "evidence") {
     return evidenceHints(data);
   }
@@ -590,56 +577,48 @@ function couplingHints(
     return [];
   }
   const hints: FiredHint[] = [];
-  const shown = data.partners.slice(0, maxPartners);
+  const strongest = data.partners[0];
+  if (strongest === undefined) {
+    return hints;
+  }
   if (data.mode === "diff") {
     hints.push(
       fire(HINTS["coupling-diff-header"]),
+      fire(HINTS["coupling-diff-partner"], {
+        from: strongest.from,
+        path: strongest.path,
+        cochanges: strongest.cochanges,
+        of: strongest.of,
+        confidence: strongest.confidence,
+      }),
     );
-    for (const p of shown) {
-      hints.push(
-        fire(HINTS["coupling-diff-partner"], {
-          from: p.from,
-          path: p.path,
-          cochanges: p.cochanges,
-          of: p.of,
-          confidence: p.confidence,
-        }),
-      );
-    }
   } else {
     const target = data.target ?? "";
     hints.push(
       fire(HINTS["coupling-query-header"], { target }),
-    );
-    for (const p of shown) {
-      hints.push(
-        fire(HINTS["coupling-query-partner"], {
-          path: p.path,
-          target,
-          cochanges: p.cochanges,
-          of: p.of,
-          confidence: p.confidence,
-        }),
-      );
-    }
-  }
-  const remaining = data.partners.length - shown.length;
-  if (remaining > 0) {
-    // The gate is the consumer that benefits from this pointer (it surfaces only the
-    // terse hints, not the full data); the standalone verb renders every partner itself.
-    hints.push(
-      fire(HINTS["coupling-more-partners"], {
-        remaining,
-        queryTarget: data.mode === "query" ? data.target : undefined,
+      fire(HINTS["coupling-query-partner"], {
+        path: strongest.path,
+        target,
+        cochanges: strongest.cochanges,
+        of: strongest.of,
+        confidence: strongest.confidence,
       }),
     );
   }
-  const strongest = data.partners[0];
-  if (strongest !== undefined && strongest.confidence >= STRONG_CONFIDENCE) {
+  if (strongest.confidence >= STRONG_CONFIDENCE) {
     hints.push(
       fire(HINTS["coupling-strong-pair"], {
         from: strongest.from,
         path: strongest.path,
+      }),
+    );
+  }
+  const remaining = data.partners.length - 1;
+  if (remaining > 0) {
+    hints.push(
+      fire(HINTS["coupling-more-partners"], {
+        remaining,
+        queryTarget: data.mode === "query" ? data.target : undefined,
       }),
     );
   }
@@ -886,7 +865,7 @@ export async function couplingGateHints(
     return couplingHints({
       ...data,
       partners: data.partners.filter(isGateHintPartner),
-    }, GATE_HINT_PARTNERS);
+    });
   } catch {
     return [];
   }

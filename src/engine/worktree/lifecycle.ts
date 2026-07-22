@@ -2081,7 +2081,7 @@ async function summarizeIntegration(
 ): Promise<{ data: UpdateData | undefined; hints: FiredHint[] }> {
   const { source, predicted } = opts;
   const fallback = [
-    fire(HINTS["update-summary-fallback"], { source }),
+    fire(HINTS["update-summary-fallback"], { source, predicted }),
   ];
   // Nothing to diff against without the two load-bearing anchors.
   if (anchors.before === "" || anchors.main === "") {
@@ -2120,7 +2120,7 @@ async function summarizeIntegration(
     };
     return {
       data,
-      hints: updateHints(data, source, delta.ownPaths.length, predicted),
+      hints: updateHints(data, source, predicted),
     };
   } catch {
     return { data: undefined, hints: fallback };
@@ -2130,66 +2130,42 @@ async function summarizeIntegration(
 /**
  * The agent-facing hints for an integration — overlap-first. The headline either
  * flags the files the branch and the incoming source BOTH changed (re-read these;
- * a clean merge can't catch a semantic conflict) or reassures that none overlap.
- * When a list was capped, a follow-up hint carries the exact `git` command —
- * anchors pre-substituted — that pulls the full set in one call (two-dot
- * `before..after` on an apply, three-dot `before...<source>` on a preview), so an
- * overflow is never a dead end.
+ * a clean merge can't catch a semantic conflict) or reports that none overlap.
+ * When a data list is capped, its exact full-list command joins that same summary
+ * hint rather than creating another pagination line.
  */
 function updateHints(
   data: UpdateData,
   source: string,
-  ownTotal: number,
   predicted: boolean,
 ): FiredHint[] {
-  const hints: FiredHint[] = [];
-
-  if (data.overlap.length > 0) {
-    hints.push(
-      fire(HINTS["update-overlap"], {
-        source,
-        behind: data.behind,
-        overlap: data.overlap,
-        overlapTotal: data.overlap_total,
-        predicted,
-      }),
-    );
-  } else {
-    hints.push(
-      fire(HINTS["update-no-overlap"], {
-        source,
-        behind: data.behind,
-        filesTotal: data.files_total,
-        ownTotal,
-        predicted,
-      }),
-    );
-  }
-
   const { before, main, after } = data.range;
   const diffRange = after === undefined
     ? `${before}...${main}`
     : `${before}..${after}`;
-  if (data.files_truncated) {
-    hints.push(
-      fire(HINTS["update-files-truncated"], {
-        shown: data.files.length,
-        total: data.files_total,
-        diffRange,
+  const filesRange = data.files_truncated ? diffRange : undefined;
+  const commitsRange = data.commits_truncated ? { before, main } : undefined;
+
+  if (data.overlap.length > 0) {
+    return [
+      fire(HINTS["update-overlap"], {
+        source,
+        overlap: data.overlap,
+        overlapTotal: data.overlap_total,
+        predicted,
+        filesRange,
+        commitsRange,
       }),
-    );
+    ];
   }
-  if (data.commits_truncated) {
-    hints.push(
-      fire(HINTS["update-commits-truncated"], {
-        shown: data.commits.length,
-        total: data.commits_total,
-        before,
-        main,
-      }),
-    );
-  }
-  return hints;
+  return [
+    fire(HINTS["update-no-overlap"], {
+      source,
+      predicted,
+      filesRange,
+      commitsRange,
+    }),
+  ];
 }
 
 /**
