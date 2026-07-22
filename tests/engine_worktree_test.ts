@@ -1137,6 +1137,7 @@ Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is no
 interface StartResult {
   ok: boolean;
   verb: string;
+  message: string;
   data: { id: string; branch: string; path: string; name_note?: string };
   hints: string[];
 }
@@ -1153,6 +1154,10 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
     assertEquals(result.verb, "start");
 
     const { id, branch, path } = result.data;
+    assertEquals(
+      result.message,
+      `Created worktree '${id}' at ${path} (branch ${branch}).`,
+    );
     // The branch is the fresh agent/<id> the worktree was created on.
     assertEquals(branch, `agent/${id}`);
     // It lands in the SIBLING placement (never nested inside the repo), exactly where
@@ -1174,7 +1179,7 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
     // …and it is checked out on its own branch.
     assertEquals(await gitOut(path, "branch", "--show-current"), `agent/${id}`);
     // The result carries the re-root instruction (the agent must move into the path).
-    assertHasHint(result, HINTS["start-re-root"], { id, dir: path, branch });
+    assertHasHint(result, HINTS["start-re-root"], { dir: path });
   });
 });
 

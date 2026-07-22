@@ -2837,8 +2837,9 @@ export async function startResult(
       outcome: "ok",
     },
   ]);
+  result.message = `Created worktree '${id}' at ${dir} (branch ${branch}).`;
   result.data = data;
-  const reRoot = fire(HINTS["start-re-root"], { id, dir, branch });
+  const reRoot = fire(HINTS["start-re-root"], { dir });
   // A normalisation/fallback note leads the hints, so the caller — and the human
   // reading over its shoulder — see what the worktree was actually named.
   result.hints = hintTexts([

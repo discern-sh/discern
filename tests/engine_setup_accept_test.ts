@@ -47,7 +47,9 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
-    const data = JSON.parse(res.stdout).data;
+    const result = JSON.parse(res.stdout);
+    assertEquals(result.message, "Setup landed onto main.");
+    const data = result.data;
     assertEquals(data.landed, true);
     assertEquals(data.fast_forward, true);
     assertEquals(data.branch, "discern-setup");

@@ -1514,21 +1514,16 @@ export const HINTS = {
       `Normalised the worktree name '${name}' → '${slug}'.`,
   }),
 
-  /** Start cannot relocate the caller, so it names the newly-created root. */
-  "start-re-root": defineHint<{ id: string; dir: string; branch: string }>({
+  /** The CLI cannot relocate the caller, so it gives the re-root instruction. */
+  "start-re-root": defineHint<{ dir: string }>({
     id: "start-re-root",
     category: "next-step",
     audience: "all",
     family: "start-result",
-    example: {
-      id: "hint-registry",
-      dir: "/workspace/project.worktrees/hint-registry",
-      branch: "agent/hint-registry",
-    },
-    template: ({ id, dir, branch }): string =>
-      `Created worktree '${id}' at ${dir} (branch ${branch}). Nothing was relocated ` +
-      `for you — start a session rooted at ${dir} (or cd there) to continue, and do ` +
-      `not keep working in the main checkout.`,
+    example: { dir: "/workspace/project.worktrees/hint-registry" },
+    template: ({ dir }): string =>
+      `Start a session rooted at ${dir} (or cd there) to continue. Do not keep ` +
+      `working in the main checkout.`,
   }),
 
   /** Uncommitted main-checkout work stays behind when start forks a commit. */
@@ -1659,15 +1654,6 @@ export const HINTS = {
     },
     template: ({ coachVerb, todoRel }): string =>
       `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
-  }),
-
-  /** The setup-only landing command completed against its target branch. */
-  "setup-accept-landed": defineHint<{ target: string }>({
-    id: "setup-accept-landed",
-    category: "notice",
-    audience: "all",
-    example: { target: "main" },
-    template: ({ target }): string => `Setup landed onto ${target}.`,
   }),
 
   /**

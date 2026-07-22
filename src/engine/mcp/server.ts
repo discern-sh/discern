@@ -958,8 +958,9 @@ async function startToolResult(
     // engine hint (e.g. the dirty-main-checkout advisory) is carried through.
     const data = result.data;
     if (result.ok && result.dry_run !== true && data !== undefined) {
+      const cliReRoot = fire(HINTS["start-re-root"], { dir: data.path }).text;
       const carried = (result.hints ?? []).filter((h) =>
-        h !== data.name_note && !h.startsWith(`Created worktree '`)
+        h !== data.name_note && h !== cliReRoot
       );
       result.hints = [
         ...(data.name_note !== undefined ? [data.name_note] : []),
