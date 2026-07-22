@@ -49,6 +49,7 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -1159,6 +1160,18 @@ async function applyPinEdits(
   return undefined;
 }
 
+interface StandardsResultBuild {
+  result: DiscernResult;
+  firedHints: FiredHint[];
+}
+
+function standardsBuild(
+  result: DiscernResult,
+  firedHints: FiredHint[] = [],
+): StandardsResultBuild {
+  return { result, firedHints };
+}
+
 /**
  * Apply `standards --pin` (ADR 0106): measure every standard, and for each one asked for
  * — all of them, or the named subset — that improved past its limit by more than its
@@ -1183,29 +1196,28 @@ async function pinStandardsResult(
     verification?: TrunkLimitsVerification;
     signal?: AbortSignal;
   },
-): Promise<DiscernResult> {
+): Promise<StandardsResultBuild> {
   if (
     plan.standards.length === 0 &&
     !(opts.verification?.blocking ?? false)
   ) {
-    return {
-      ...appliedResult("standards", []),
-      hints: ["No standards configured, so there is nothing to pin."],
-    };
+    return standardsBuild(appliedResult("standards", []), [
+      fire(HINTS["standards-pin-empty"]),
+    ]);
   }
 
   // A named standard that doesn't exist would otherwise pin nothing, silently.
   const known = new Set(plan.standards.map((r) => r.name));
   const unknown = opts.names.filter((n) => !known.has(n));
   if (unknown.length > 0) {
-    return {
+    return standardsBuild({
       ok: false,
       verb: "standards",
       error: "unknown_standard",
       message: `no standard named ${
         unknown.join(", ")
       }. Configured standards: ${[...known].join(", ")}.`,
-    };
+    });
   }
 
   // Which standards a pin considers: all of them, or the named subset.
@@ -1228,37 +1240,36 @@ async function pinStandardsResult(
           r.direction === "up" ? "floor" : "ceiling"
         } past ${r.limit} by any slack beyond margin ${r.margin}`,
       }));
-    return {
-      ...previewResult("standards", {
+    return standardsBuild(
+      previewResult("standards", {
         title: "Pin plan",
         details: [],
         steps,
       }),
-      hints: [
-        "A pin dry-run measures nothing. `discern standards` (the plain check) " +
-        "measures once and names any pinnable slack in its hints; " +
-        "`discern standards --pin` on the same clean commit then reuses those " +
-        "measurements to capture it.",
+      [
+        fire(HINTS["standards-pin-dry-run"]),
       ],
-    };
+    );
   }
 
   // Pinning writes and commits, so it needs a clean tree.
   const dirty = await standardsPinCleanTreeMessage(root);
   if (dirty !== undefined) {
-    return {
+    return standardsBuild({
       ok: false,
       verb: "standards",
       error: "dirty_worktree",
       message: dirty,
-    };
+    });
   }
 
   const writePreflight = await preflightPinWrites(root);
   if (!writePreflight.ok) {
-    return standardsWriteAccessFailure(
-      writePreflight,
-      "discern standards --pin",
+    return standardsBuild(
+      standardsWriteAccessFailure(
+        writePreflight,
+        "discern standards --pin",
+      ),
     );
   }
   const writeAuthority = writePreflight.authority;
@@ -1289,21 +1300,15 @@ async function pinStandardsResult(
     });
   const { ok, outcomes } = execution;
   const reuseHint = reused !== undefined
-    ? "Reused the green check's measurements for this commit — nothing was re-measured."
+    ? fire(HINTS["standards-pin-reused-measurements"])
     : undefined;
 
   // A red standard blocks the whole pin: don't capture a state the gate wouldn't hold.
   if (!ok) {
     const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
-    const named = failing.length > 0 ? failing.join(", ") : "a standard";
-    return {
-      ...standardExecutionResult(execution),
-      hints: [
-        `Not pinning: ${named} ${
-          failing.length === 1 ? "is" : "are"
-        } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern standards --pin\` once green.`,
-      ],
-    };
+    return standardsBuild(standardExecutionResult(execution), [
+      fire(HINTS["standards-pin-blocked"], { failingNames: failing }),
+    ]);
   }
 
   const considered = filter === undefined
@@ -1339,35 +1344,34 @@ async function pinStandardsResult(
   }
 
   if (pins.length === 0) {
-    return {
+    return standardsBuild({
       ...appliedResult("standards", steps),
       ...(execution.readings.length > 0
         ? { data: { standards: execution.readings } satisfies StandardsData }
         : {}),
-      hints: [
-        ...(reuseHint !== undefined ? [reuseHint] : []),
-        "Nothing to pin — every standard asked for already sits at its measured value (within its margin).",
-      ],
-    };
+    }, [
+      ...(reuseHint !== undefined ? [reuseHint] : []),
+      fire(HINTS["standards-pin-no-slack"]),
+    ]);
   }
 
   const treeChanged = await pinTreeChangeMessage(root, treePin);
   if (treeChanged !== undefined) {
-    return {
+    return standardsBuild({
       ok: false,
       verb: "standards",
       error: "pin_failed",
       message: treeChanged,
-    };
+    });
   }
   const failure = await applyPinEdits(root, pins, writeAuthority);
   if (failure !== undefined) {
-    return {
+    return standardsBuild({
       ok: false,
       verb: "standards",
       error: "pin_failed",
       message: failure,
-    };
+    });
   }
 
   // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
@@ -1378,7 +1382,7 @@ async function pinStandardsResult(
     priorReceipt?.status === "honored",
   );
   const carried = receipt?.status === "recorded";
-  return {
+  return standardsBuild({
     ...appliedResult("standards", steps),
     data: {
       ...(execution.readings.length > 0
@@ -1391,22 +1395,21 @@ async function pinStandardsResult(
         measured: p.measured,
       })),
     } satisfies StandardsData,
-    hints: [
-      ...(reuseHint !== undefined ? [reuseHint] : []),
-      carried
-        ? "Carried the gate receipt forward — `discern accept` will skip the redundant gate re-run."
-        : "No current gate receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
-    ],
-  };
+  }, [
+    ...(reuseHint !== undefined ? [reuseHint] : []),
+    carried
+      ? fire(HINTS["standards-pin-carried-receipt"])
+      : fire(HINTS["standards-pin-no-receipt"]),
+  ]);
 }
 
 function unverifiedTrunkHint(
   verification: TrunkLimitsVerification,
-): string | undefined {
+): FiredHint | undefined {
   return verification.summary.status === "unverified"
-    ? `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
-      verification.summary.reason ?? "unknown"
-    }). Fetch the trunk where standards run so the limits can be verified.`
+    ? fire(HINTS["standards-limits-unverified"], {
+      reason: verification.summary.reason,
+    })
     : undefined;
 }
 
@@ -1440,6 +1443,7 @@ export async function standardsResult(
   const cfg = await loadConfig(root);
   const plan = buildStandardPlan(cfg);
   let result: DiscernResult;
+  const firedHints: FiredHint[] = [];
   let verification: TrunkLimitsVerification | undefined;
   const unpinnedNames = (opts.pinNames?.length ?? 0) > 0 &&
     !(opts.pin ?? false);
@@ -1463,27 +1467,28 @@ export async function standardsResult(
         "standard names only apply with --pin. Re-run as `discern standards --pin <name>…`, or drop the names to check every standard.",
     };
   } else if (opts.pin ?? false) {
-    let behindHint: string | undefined;
+    let behindHint: FiredHint | undefined;
     if (!(opts.dryRun ?? false)) {
       const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
         cfg.repository.trunk;
       const merged = await assertMainMerged(root, mainBranch);
       if (merged.kind === "behind") {
-        const commits = merged.behind === "1" ? "commit" : "commits";
-        behindHint =
-          `This worktree is ${merged.behind} ${commits} behind the trunk (${mainBranch}). ` +
-          "The measured values describe this tree, and limits pinned now may not survive `discern update`. " +
-          "Run `discern update` first to pin against the latest trunk.";
+        behindHint = fire(HINTS["standards-pin-behind"], {
+          behind: merged.behind,
+          trunk: mainBranch,
+        });
       }
     }
-    result = await pinStandardsResult(root, cfg, plan, {
+    const built = await pinStandardsResult(root, cfg, plan, {
       dryRun: opts.dryRun ?? false,
       names: opts.pinNames ?? [],
       ...(verification !== undefined ? { verification } : {}),
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     });
+    result = built.result;
+    firedHints.push(...built.firedHints);
     if (behindHint !== undefined) {
-      result.hints = [...(result.hints ?? []), behindHint];
+      firedHints.push(behindHint);
     }
   } else if (opts.dryRun ?? false) {
     result = previewResult("standards", standardPlanToEngine(plan));
@@ -1494,12 +1499,8 @@ export async function standardsResult(
       );
     }
     if (plan.standards.length === 0 && !verification.blocking) {
-      result = {
-        ...appliedResult("standards", []),
-        hints: [
-          "No standards configured. Add a [standards.<name>] table to measure one.",
-        ],
-      };
+      result = appliedResult("standards", []);
+      firedHints.push(fire(HINTS["standards-none-configured"]));
     } else {
       const dirtyMessage = (opts.force ?? false)
         ? undefined
@@ -1554,24 +1555,26 @@ export async function standardsResult(
               if (newLimit === undefined) {
                 return [];
               }
-              const bound = standard.direction === "up" ? "floor" : "ceiling";
+              const bound: "floor" | "ceiling" = standard.direction === "up"
+                ? "floor"
+                : "ceiling";
               return [
-                `${standard.name} (${bound} ${standard.limit}, measured ${
-                  fmtRate(o.value)
-                } — would pin to ${newLimit})`,
+                {
+                  name: standard.name,
+                  bound,
+                  limit: standard.limit,
+                  measured: fmtRate(o.value),
+                  newLimit,
+                },
               ];
             });
             if (slack.length > 0) {
-              result.hints = [
-                ...(result.hints ?? []),
-                `Pinnable slack: ${
-                  slack.join("; ")
-                }. Capture it with \`discern standards --pin\` — ${
-                  receipted
-                    ? "on this commit it reuses this check's measurements (measure once, pin once)"
-                    : "this check already measured, no pin dry-run needed"
-                }.`,
-              ];
+              firedHints.push(
+                fire(HINTS["standards-pinnable-slack"], {
+                  standards: slack,
+                  receipted,
+                }),
+              );
             }
           }
         }
@@ -1581,14 +1584,17 @@ export async function standardsResult(
   if (verification !== undefined) {
     const warning = unverifiedTrunkHint(verification);
     if (warning !== undefined) {
-      result.hints = [...(result.hints ?? []), warning];
+      firedHints.push(warning);
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): standards is
   // un-gated during setup, so its output must not read as a finished project.
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   if (inProgress !== undefined) {
-    result.hints = [inProgress.text, ...(result.hints ?? [])];
+    firedHints.unshift(inProgress);
+  }
+  if (firedHints.length > 0) {
+    result.hints = hintTexts(firedHints);
   }
   return result;
 }

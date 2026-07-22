@@ -735,6 +735,7 @@ export const HINTS = {
     id: "gate-standards-limits-unverified",
     category: "next-step",
     audience: "all",
+    family: "standards-limits-unverified",
     template: ({ reason, trunk }): string =>
       `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${reason}). Fetch the trunk where the gate runs (in CI: \`git fetch origin ${trunk}:${trunk}\`) so limits are verified.`,
   }),
@@ -840,6 +841,155 @@ export const HINTS = {
     audience: "all",
     template: (): string =>
       "A previewable change landed — start this worktree's dev server to view it.",
+  }),
+
+  /** The pin pass has no configured metric to measure or tighten. */
+  "standards-pin-empty": defineHint({
+    id: "standards-pin-empty",
+    category: "notice",
+    audience: "all",
+    family: "standards-pin",
+    template: (): string =>
+      "No standards configured, so there is nothing to pin.",
+  }),
+
+  /** Pin previews honor the universal dry-run contract and measure nothing. */
+  "standards-pin-dry-run": defineHint({
+    id: "standards-pin-dry-run",
+    category: "next-step",
+    audience: "all",
+    family: "standards-pin",
+    template: (): string =>
+      "A pin dry-run measures nothing. `discern standards` (the plain check) " +
+      "measures once and names any pinnable slack in its hints; " +
+      "`discern standards --pin` on the same clean commit then reuses those " +
+      "measurements to capture it.",
+  }),
+
+  /** A same-commit check receipt supplied every measurement for the pin pass. */
+  "standards-pin-reused-measurements": defineHint({
+    id: "standards-pin-reused-measurements",
+    category: "notice",
+    audience: "all",
+    family: "standards-pin",
+    template: (): string =>
+      "Reused the green check's measurements for this commit — nothing was re-measured.",
+  }),
+
+  /** A red standard blocks the whole pin rather than capturing a failing state. */
+  "standards-pin-blocked": defineHint<{
+    failingNames: readonly string[];
+  }>({
+    id: "standards-pin-blocked",
+    category: "next-step",
+    audience: "all",
+    family: "standards-pin",
+    template: ({ failingNames }): string => {
+      const named = failingNames.length > 0
+        ? failingNames.join(", ")
+        : "a standard";
+      return `Not pinning: ${named} ${
+        failingNames.length === 1 ? "is" : "are"
+      } failing (diagnostics[] carries each reason). Fix them, then re-run \`discern standards --pin\` once green.`;
+    },
+  }),
+
+  /** Every selected standard already equals its measured, margin-adjusted limit. */
+  "standards-pin-no-slack": defineHint({
+    id: "standards-pin-no-slack",
+    category: "notice",
+    audience: "all",
+    family: "standards-pin",
+    template: (): string =>
+      "Nothing to pin — every standard asked for already sits at its measured value (within its margin).",
+  }),
+
+  /** The limits-only pin commit inherited the honored receipt for its parent. */
+  "standards-pin-carried-receipt": defineHint({
+    id: "standards-pin-carried-receipt",
+    category: "notice",
+    audience: "all",
+    family: "standards-pin-receipt",
+    template: (): string =>
+      "Carried the gate receipt forward — `discern accept` will skip the redundant gate re-run.",
+  }),
+
+  /** The pin commit had no honored receipt available to carry forward. */
+  "standards-pin-no-receipt": defineHint({
+    id: "standards-pin-no-receipt",
+    category: "next-step",
+    audience: "all",
+    family: "standards-pin-receipt",
+    template: (): string =>
+      "No current gate receipt to carry forward — run `discern done` before accepting, or accept re-runs the gate.",
+  }),
+
+  /** Standalone standards could not verify the branch limits against the trunk. */
+  "standards-limits-unverified": defineHint<{
+    reason: string | undefined;
+  }>({
+    id: "standards-limits-unverified",
+    category: "next-step",
+    audience: "all",
+    family: "standards-limits-unverified",
+    template: ({ reason }): string =>
+      `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
+        reason ?? "unknown"
+      }). Fetch the trunk where standards run so the limits can be verified.`,
+  }),
+
+  /** Pinning a branch behind the trunk may capture limits that an update invalidates. */
+  "standards-pin-behind": defineHint<{
+    behind: string;
+    trunk: string;
+  }>({
+    id: "standards-pin-behind",
+    category: "next-step",
+    audience: "all",
+    family: "standards-pin",
+    template: ({ behind, trunk }): string => {
+      const commits = behind === "1" ? "commit" : "commits";
+      return `This worktree is ${behind} ${commits} behind the trunk (${trunk}). ` +
+        "The measured values describe this tree, and limits pinned now may not survive `discern update`. " +
+        "Run `discern update` first to pin against the latest trunk.";
+    },
+  }),
+
+  /** The standalone check has no configured standards to measure. */
+  "standards-none-configured": defineHint({
+    id: "standards-none-configured",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "No standards configured. Add a [standards.<name>] table to measure one.",
+  }),
+
+  /** A green check found tighter limits that the pin pass can capture. */
+  "standards-pinnable-slack": defineHint<{
+    standards: readonly {
+      name: string;
+      bound: "floor" | "ceiling";
+      limit: number;
+      measured: string;
+      newLimit: number;
+    }[];
+    receipted: boolean;
+  }>({
+    id: "standards-pinnable-slack",
+    category: "next-step",
+    audience: "all",
+    template: ({ standards, receipted }): string => {
+      const slack = standards.map((standard) =>
+        `${standard.name} (${standard.bound} ${standard.limit}, measured ${standard.measured} — would pin to ${standard.newLimit})`
+      );
+      return `Pinnable slack: ${
+        slack.join("; ")
+      }. Capture it with \`discern standards --pin\` — ${
+        receipted
+          ? "on this commit it reuses this check's measurements (measure once, pin once)"
+          : "this check already measured, no pin dry-run needed"
+      }.`;
+    },
   }),
 } as const;
 
