@@ -335,6 +335,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       exportName: "HINTS",
     },
     guards: [
+      "tests/hint_audience_guard_test.ts",
       "tests/hint_closed_set_guard_test.ts",
       "tests/hint_command_guard_test.ts",
       "tests/hint_inventory_codegen_test.ts",

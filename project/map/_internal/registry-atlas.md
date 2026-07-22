@@ -104,7 +104,7 @@ The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
 - Members: 118
-- Guards: `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`
+- Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
 - Feature canon: described by the `hints` node
