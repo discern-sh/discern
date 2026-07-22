@@ -84,6 +84,39 @@ function parseStatus(stdout: string): any {
   return obj;
 }
 
+Deno.test("status: the fleet view surfaces cross-worktree file collisions", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const alpha = await addWorktree(dir, "alpha");
+    const beta = await addWorktree(dir, "beta");
+    // Both efforts change the same file since their fork — a semantic
+    // collision in the making even though each merges cleanly on its own.
+    await Deno.writeTextFile(join(alpha, "shared.txt"), "alpha\n");
+    await git(alpha, "add", "-A");
+    await git(alpha, "commit", "-q", "-m", "alpha shared", "--no-gpg-sign");
+    await Deno.writeTextFile(join(beta, "shared.txt"), "beta\n");
+    await git(beta, "add", "-A");
+    await git(beta, "commit", "-q", "-m", "beta shared", "--no-gpg-sign");
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    const collisions = obj.data.fleet_collisions;
+    assert(
+      Array.isArray(collisions) && collisions.length === 1,
+      `expected exactly one collision pair: ${r.stdout}`,
+    );
+    assertEquals(collisions[0].overlap, ["shared.txt"]);
+    assertEquals(collisions[0].total, 1);
+    const [first, second] = collisions[0].branches;
+    assertHasHint(obj, HINTS["status-fleet-collisions"], {
+      total: 1,
+      pairs: [`${first} ↔ ${second}`],
+    });
+  });
+});
+
 Deno.test("status: from the main checkout, the default leads with the fleet (and a main row)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

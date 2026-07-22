@@ -23,7 +23,7 @@ discern status
 
 `refresh` combines discern's built-in guidance with `[guidance].sources`. It also reconciles Skills and agent integration artifacts, so the generated copies agree after one command. `status` reports any generated guidance or materialized Skills that still differ from the current sources.
 
-The built-in map section also derives a compact region list from the configured map ([ADR 0173](../_adr/0173-agent-document-discovery-funnel.md)). Each non-internal top-level directory contributes its exact region target and front-door title. Adding or renaming a region, or changing its front-door title, changes the agent files; adding, moving, or editing other leaves inside an existing region does not change that list. Run `discern refresh` after either kind of source change: the currency check decides whether the tracked outputs moved.
+The built-in map section also derives a compact region list from the configured map ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). Each non-internal top-level directory contributes its exact region target and front-door title. Adding or renaming a region, or changing its front-door title, changes the agent files; adding, moving, or editing other leaves inside an existing region does not change that list. Run `discern refresh` after either kind of source change: the currency check decides whether the tracked outputs moved.
 
 The configured agent set decides which instruction files exist:
 

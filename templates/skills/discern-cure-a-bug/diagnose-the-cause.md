@@ -1,14 +1,6 @@
----
-name: discern-diagnose-a-bug
-description: Diagnose a bug before fixing it — reproduce the failure, run a falsifying hypothesis loop, and prove the cause instead of patching a plausible guess. Use when investigating any bug, failure, or odd behaviour whose cause isn't proven yet, when a previous fix didn't hold, or when asked "why is this happening?", "what's causing this?", or to "look into" a defect. Bundled with discern.
-metadata:
-  author: "discern | https://discern.sh"
-  version: "1.0"
----
-
 # Diagnose before you fix
 
-The most expensive way to debug is to guess: change something plausible and see whether the symptom goes away. When it does, you've learned almost nothing — a symptom can vanish for the wrong reason (masked by a retry, shifted timing, an unrelated side effect) while the real defect ships on. This skill makes the cause **proven** before any fix is written: reproduce the failure on demand, run experiments designed to _falsify_ your hypotheses, demonstrate cause and effect, and separate the incident-specific causal chain from the generative mechanism that could produce siblings — then hand both to the `discern-cure-a-bug` skill.
+The most expensive way to debug is to guess: change something plausible and see whether the symptom goes away. When it does, you've learned almost nothing — a symptom can vanish for the wrong reason (masked by a retry, shifted timing, an unrelated side effect) while the real defect ships on. This procedure makes the cause **proven** before any fix is written: reproduce the failure on demand, run experiments designed to _falsify_ your hypotheses, demonstrate cause and effect, and separate the incident-specific causal chain from the generative mechanism that could produce siblings — then hand both to the cure procedure in this skill's `SKILL.md`.
 
 Diagnosis and treatment stay separate on purpose. The moment you catch yourself "trying a fix to see if it helps," you have stopped diagnosing and started guessing.
 
@@ -88,7 +80,7 @@ Hand over two falsifiable statements with the reproduction command attached:
 
 Include the necessary, incidental, and untested details from the minimized reproduction. The cure workflow decides the final class boundary and enumerates it, but it must not have to infer which parts of the diagnosis were merely names or circumstances of the first occurrence.
 
-If the defect genuinely is a one-off — a lone typo with no siblings and no pattern — say so explicitly, fix it, and still keep the reproduction as a permanent regression test. That claim ("a singleton") is part of the diagnosis, and the cure skill's enumeration step is how it gets checked rather than assumed.
+If the defect genuinely is a one-off — a lone typo with no siblings and no pattern — say so explicitly, fix it, and still keep the reproduction as a permanent regression test. That claim ("a singleton") is part of the diagnosis, and the cure procedure's enumeration step is how it gets checked rather than assumed.
 
 ---
 
@@ -99,4 +91,4 @@ If the defect genuinely is a one-off — a lone typo with no siblings and no pat
 - the cause is **demonstrated both directions** — condition present → failure appears; only that condition changed → failure gone;
 - the trigger, proximal mechanism, enabling conditions, and generative mechanism are stated separately;
 - necessary, incidental, and untested reproduction details are recorded;
-- the diagnosis is handed to `discern-cure-a-bug` as both an incident diagnosis and a name-independent class-predicate seed (or the one-off claim is stated explicitly, with the reproduction kept as a regression test).
+- the diagnosis is handed to the cure procedure (`SKILL.md`) as both an incident diagnosis and a name-independent class-predicate seed (or the one-off claim is stated explicitly, with the reproduction kept as a regression test).

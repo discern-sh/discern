@@ -832,6 +832,7 @@ function buildGateHints(
   }
   const hints = receiptEmitted
     ? [
+      fire(HINTS["gate-prove-it-works"]),
       fire(HINTS["gate-relay-receipt"]),
     ]
     : [];

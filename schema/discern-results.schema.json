@@ -8955,6 +8955,39 @@
                       "branch"
                     ]
                   }
+                },
+                "fleet_collisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "branches": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "overlap": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "total": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "branches",
+                      "overlap",
+                      "total"
+                    ]
+                  }
                 }
               },
               "required": [

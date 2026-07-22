@@ -71,7 +71,7 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 ### Find a map or help page
 
-`discern_map` and `discern_help` expose the same discovery funnel ([ADR 0173](../_adr/0173-agent-document-discovery-funnel.md)):
+`discern_map` and `discern_help` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):
 
 | Inputs                 | Result                                                                                                |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |

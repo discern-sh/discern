@@ -458,6 +458,27 @@ limit     = 827
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 inputs    = ["templates/guidance/**"]
 
+# Bundled-skills surface — every skill description rides in every agent session
+# of every project discern is installed in, so the surface is held from growing
+# back after the seven-skill trim: the bundled count and the words across every
+# SKILL.md frontmatter block (descriptions plus a small fixed identity overhead
+# per skill) are both ceilings. Frontmatter is measured rather than the
+# description line alone so a multi-line description can never slip under the
+# count. Growing either number is an owner decision, taken on the trunk.
+[standards.skills_count]
+metric    = "skills_count"
+direction = "down"
+limit     = 7
+run       = "echo DISCERN_METRIC skills_count $(ls templates/skills | wc -l)"
+inputs    = ["templates/skills/**"]
+
+[standards.skills_words]
+metric    = "skills_words"
+direction = "down"
+limit     = 717
+run       = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
+inputs    = ["templates/skills/**"]
+
 # Binary-size standard — hold one representative release artifact at or below a
 # falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
 # resulting dist/discern-* binary, avoiding macOS codesigning noise while still

@@ -1,14 +1,16 @@
 ---
-name: discern-standard-a-metric
-description: Put a quality metric behind a standard — a number that can never get worse. Choose a defendable number, wire it into [standards] in discern.toml, set the limit at today's value, and know what to do when it fires. Use when the user wants to set, defend, or hold a standard for a metric (coverage, bundle size, lint suppressions, TODO count, uses of a deprecated pattern), wants to stop a number regressing, or when a standard has fired and the way forward is unclear. Bundled with discern.
+name: discern-set-the-standard
+description: Set the standard — put a quality number behind a limit that can never get worse. Choose a defendable metric, wire it into [standards] in discern.toml, set the limit at today's value, and know what to do when it fires; includes the outlaw procedure for making a legacy pattern illegal — detector, falling ceiling, then a permanent gate rule at zero. Use when the user wants to set, defend, or hold a standard for a metric (coverage, bundle size, lint suppressions, TODO count), wants to stop a number regressing, when a standard has fired and the way forward is unclear, or to migrate off, phase out, ban, or eliminate a pattern, API, or dependency codebase-wide ("stop using X", "get rid of the old way"). Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
 ---
 
-# Hold a metric to a standard
+# Set the standard
 
 Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a _no-backsliding guarantee_: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgement around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
+
+Driving a legacy pattern out of the codebase entirely? That migration mode — the same standard machinery pointed at a pattern's count, ending in a permanent ban — is [outlaw-a-pattern.md](outlaw-a-pattern.md) in this skill.
 
 ---
 
@@ -74,7 +76,7 @@ The one legitimate exception is a limit that was _set wrong_ — mis-measured, o
 
 ## 6. Plan the end state
 
-A `down` standard that reaches **zero** has finished its job as a standard — don't leave it idling there. Move the rule into the always-on gate (a check or test that fails on the _first_ new instance) and retire the standard table: the standard was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is the `discern-outlaw-a-pattern` skill, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
+A `down` standard that reaches **zero** has finished its job as a standard — don't leave it idling there. Move the rule into the always-on gate (a check or test that fails on the _first_ new instance) and retire the standard table: the standard was the transition, the gate is the law. This journey — detector, falling ceiling, permanent ban — is this skill's [outlaw-a-pattern.md](outlaw-a-pattern.md) procedure, when what you're driving to zero is a pattern in the code. A floor (coverage) usually has no end state; it just holds, rising as the project improves.
 
 ---
 
