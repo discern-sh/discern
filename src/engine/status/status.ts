@@ -74,6 +74,8 @@ import {
 import {
   assertMainMerged,
   detectSilentDivergence,
+  type FleetCollision,
+  fleetCollisions,
   type FleetWorktree,
   gitSnapshot,
   hasUncommittedTrackedChanges,
@@ -333,6 +335,7 @@ async function buildStatusResult(
   // files when recorded, else DERIVED from the worktree's own identity, so a
   // project with no env file still gets real ids (never a truncated branch name).
   let fleet: StatusFleetEntry[] | undefined;
+  let fleetCollisionPairs: FleetCollision[] | undefined;
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
@@ -342,6 +345,26 @@ async function buildStatusResult(
       fleetRows.map((row) => fleetEntryFor(row, here, cfg, settings)),
     );
     data.fleet = fleet;
+    // Cross-worktree changed-file collisions — the one fleet fact no single
+    // row can carry: pairs of efforts whose fork diffs touch the same paths.
+    const collisionBranches = fleet
+      .filter((e) =>
+        !e.is_main && e.broken !== true && e.git_unavailable !== true &&
+        e.branch !== ""
+      )
+      .map((e) => e.branch);
+    if (collisionBranches.length >= 2) {
+      const collisions = await fleetCollisions(
+        root,
+        collisionBranches,
+        mainBranch,
+        STATUS_OVERLAP_CAP,
+      );
+      if (collisions.length > 0) {
+        data.fleet_collisions = collisions;
+        fleetCollisionPairs = collisions;
+      }
+    }
   }
 
   // Unlanded `<branch_prefix>*` branches with NO worktree — abandoned work that
@@ -378,6 +401,7 @@ async function buildStatusResult(
     divergence,
     unlandedBranches,
     fleet,
+    fleetCollisions: fleetCollisionPairs,
     liveCount,
     guidanceDrift,
     skillsDrift,
@@ -564,6 +588,9 @@ interface HintContext {
   /** Unlanded `<branch_prefix>*` branches with no worktree (main view only). */
   unlandedBranches: string[] | undefined;
   fleet: StatusFleetEntry[] | undefined;
+  /** Cross-worktree changed-file collisions (fleet view; hint fodder — the
+   * rows themselves ride `data.fleet_collisions`). */
+  fleetCollisions: FleetCollision[] | undefined;
   liveCount: number;
   /** Agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
@@ -838,6 +865,17 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           fire(HINTS["status-fleet-member-stale"], {
             total: stale.length,
             names: stale.map((e) => e.id ?? basename(e.path)),
+          }),
+        );
+      }
+      // Cross-worktree collisions — the check only the fleet-wide view can
+      // make; the pairs and their shared paths ride data.fleet_collisions.
+      const collisions = ctx.fleetCollisions ?? [];
+      if (collisions.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-collisions"], {
+            total: collisions.length,
+            pairs: collisions.map((c) => `${c.branches[0]} ↔ ${c.branches[1]}`),
           }),
         );
       }

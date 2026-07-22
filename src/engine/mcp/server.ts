@@ -362,7 +362,10 @@ export const TOOLS: McpTool[] = orderTools([
       "completed — every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); " +
       "data.unlanded_branches lists branches holding unlanded work with no " +
-      "worktree. Set all=true " +
+      "worktree; data.fleet_collisions lists pairs of fleet branches whose " +
+      "changes touch the same files — both may merge cleanly and still " +
+      "conflict semantically, so whoever lands second updates with extra " +
+      "care. Set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
       "advisory next-steps (e.g. run discern_done, ready for owner review, or — when on " +
       "the trunk — run discern_start to begin in your own isolated worktree) — never " +

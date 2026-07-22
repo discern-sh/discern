@@ -2622,6 +2622,11 @@ export type DiscernStatusResult = {
       port?: number;
       broken?: boolean;
     }>;
+    fleet_collisions?: Array<{
+      branches: unknown;
+      overlap: Array<string>;
+      total: number;
+    }>;
   } | {
     issues: Array<{
       path: string;

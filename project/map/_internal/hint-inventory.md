@@ -1241,6 +1241,19 @@ Rendered example:
 Use `discern prepare` or targeted tests while iterating on changes in code, docs. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
 ```
 
+## `status-fleet-collisions`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A fleet survey finds worktree pairs whose changes touch the same files.
+
+Rendered example:
+
+```text
+Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
+```
+
 ## `status-fleet-member-broken`
 
 - Category: `next-step`
