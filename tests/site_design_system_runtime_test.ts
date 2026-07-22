@@ -325,15 +325,6 @@ Deno.test("generated output is ignored and reproducible from its selections", as
       output,
     );
   }
-
-  const previousHomepage = await Deno.readTextFile(
-    join(ROOT, "mockups/landing/previous-homepage-2026-07-16.html"),
-  );
-  assertStringIncludes(previousHomepage, "Don't take your agent's word for it");
-  const practitionerHomepage = await Deno.readTextFile(
-    join(ROOT, "mockups/landing/previous-homepage-2026-07-20.html"),
-  );
-  assertStringIncludes(practitionerHomepage, "Code got fast.");
 });
 
 Deno.test("the public homepage is an empty design-system-connected shell", async () => {

@@ -10,7 +10,7 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 ## The homepage placeholder
 
-The public `/` homepage is an empty generated document in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx). Its body contains one replacement comment. The document keeps the full compositions bundle, theme bootstrap, favicon, `landing.css`, and `landing.js` connected so the next homepage can start at the composition layer. The bundle retains the Marketing and Editorial groups for that design work. Replaced homepages are preserved under `mockups/landing/`, outside the served tree.
+The public `/` homepage is an empty generated document in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx). Its body contains one replacement comment. The document keeps the full compositions bundle, theme bootstrap, favicon, `landing.css`, and `landing.js` connected so the next homepage can start at the composition layer. The bundle retains the Marketing and Editorial groups for that design work.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 

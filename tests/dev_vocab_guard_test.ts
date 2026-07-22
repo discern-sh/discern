@@ -29,7 +29,6 @@ import {
 
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
-const MOCKUPS = join(REPO_ROOT, "mockups");
 const SCRIPTS = join(REPO_ROOT, "scripts");
 const SKILLS = REPO_AUTHORED_PATHS.skills;
 const GITHUB = join(REPO_ROOT, ".github");
@@ -203,7 +202,6 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
       TESTS,
       MAP,
       TEMPLATES,
-      MOCKUPS,
       SCRIPTS,
       PROJECT_SCRIPTS,
       SKILLS,
@@ -285,13 +283,12 @@ function escapeRegExp(value: string): string {
  * Compatibility records are the only non-ADR files allowed to spell a retired
  * launch name in a callable/config position. Historical fixtures preserve what
  * an old install really contained; private planning keeps approved migrations
- * searchable; archived landing pages preserve what shipped.
+ * searchable.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
   return isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
-    rel.startsWith("mockups/landing/previous-homepage-") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
     new Set([
       "src/shared/vocabulary.ts",

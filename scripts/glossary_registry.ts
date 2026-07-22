@@ -32,7 +32,7 @@ import {
 
 /** A place a retired phrase may still legally appear, and why. */
 export interface RetiredException {
-  /** Repo-relative path prefix ("README.md", "mockups/landing/previous-homepage-"). */
+  /** Repo-relative path prefix (for example, "README.md"). */
   path: string;
   /** Why the phrase stays legal there — dated record, searchability, etc. */
   reason: string;
@@ -209,11 +209,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
             path: "README.md",
             reason:
               "keeps exactly one searchable category use, asserted separately",
-          },
-          {
-            path: "mockups/landing/previous-homepage-",
-            reason:
-              "archived shipped homepages are dated records and keep the vocabulary they went live with",
           },
         ],
       },

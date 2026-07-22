@@ -6,7 +6,7 @@
  * (`retired` on `scripts/glossary_registry.ts`); this guard bans every such
  * phrase from the live prose surfaces — the binary's user-facing string
  * literals, the shipped templates and their fixtures, the skills, the project
- * scripts, the public map, the mockups, and the root prose files. Retiring a
+ * scripts, the public map, and the root prose files. Retiring a
  * phrase is now a registry edit, not a new hand-rolled regex and scan: the
  * class-not-instance move applied to language itself.
  *
@@ -45,7 +45,6 @@ const PROSE_TREES = [
   REPO_AUTHORED_PATHS.skills,
   REPO_AUTHORED_PATHS.scripts,
   REPO_AUTHORED_PATHS.map,
-  join(REPO_ROOT, "mockups"),
 ];
 
 /** The root prose files held to the canon alongside the trees. */

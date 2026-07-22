@@ -90,7 +90,6 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 
 ## Current state & gotchas
 
-- `mockups/landing/` is the design archive. The two homepages replaced in July 2026 remain there as `previous-homepage-2026-07-16.html` and `previous-homepage-2026-07-18.html`; archived pages stay confined to the archive and preserve their historical content.
 - The generated homepage shell lives in `site/page-src/` and uses the same system-aware theme bootstrap and controller as the docs shell. `deno task site:build` owns its ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
 - [design-system-consumption.md](design-system-consumption.md) records static page composition, build commands, and consumer guards.
