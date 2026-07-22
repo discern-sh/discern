@@ -62,7 +62,7 @@
   margin-block-start: 0;
 }
 
-.landing-opening-heading h3 {
+.landing-prose > h3:first-child {
   margin-block-start: 0;
 }
 
@@ -72,57 +72,4 @@
 
 .landing-prose h3 {
   text-wrap: balance;
-}
-
-/* ── Footnote markers ──────────────────────────────────────────────────── */
-
-.landing-fnref {
-  font-family: var(--discern-font-mono);
-  font-size: 0.7em;
-  line-height: 0;
-}
-
-.landing-fnref a {
-  color: var(--discern-color-accent-600);
-  text-decoration: none;
-}
-
-.landing-fnref a:hover,
-.landing-fnref a:focus-visible {
-  text-decoration: underline;
-}
-
-/* ── Figure and session window ─────────────────────────────────────────── */
-
-.landing-session__chat {
-  font-size: var(--discern-font-size-sm);
-}
-
-/* ── The closing install moment ────────────────────────────────────────── */
-
-.landing-install {
-  display: flex;
-  flex-direction: column;
-  gap: var(--discern-space-4);
-  max-inline-size: var(--discern-measure);
-  margin-inline: auto;
-}
-
-/* The copy control injected by landing.js docks into the terminal's bar. */
-.landing-install__terminal-host {
-  position: relative;
-}
-
-.landing-install__terminal-host .landing-copy {
-  position: absolute;
-  inset-block-start: var(--discern-space-2);
-  inset-inline-end: var(--discern-space-3);
-  margin-inline-start: 0;
-}
-
-.landing-install__note {
-  margin: 0;
-  font-size: var(--discern-font-size-sm);
-  color: var(--discern-color-ink-muted);
-  text-align: center;
 }

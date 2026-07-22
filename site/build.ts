@@ -31,7 +31,6 @@ export const GENERATED_SITE_OUTPUTS = [
 /** Page-owned assets copied verbatim into the compositions bundle. */
 export const COPIED_PAGE_ASSETS = [
   "landing.css",
-  "landing.js",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */

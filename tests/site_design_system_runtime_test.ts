@@ -323,7 +323,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage is the composed static essay", async () => {
+Deno.test("the public homepage is the composed static placeholder", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
@@ -333,18 +333,22 @@ Deno.test("the public homepage is the composed static essay", async () => {
   const dom = new JSDOM(html);
   const body = dom.window.document.body;
 
-  // One h1 carrying the promise, and the install command reachable as text.
+  // One h1 carries the retained promise; the body is explicit placeholder copy.
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertStringIncludes(
     body.textContent ?? "",
-    "curl -fsSL https://discern.sh/install | sh",
+    "Lorem ipsum dolor sit amet",
   );
 
-  // The essay is design-system markup with accessible page structure.
+  // The placeholder is design-system markup with accessible page structure.
   assertEquals(body.querySelectorAll("main#main").length, 1);
   assert(body.querySelector(".discern-article-header") !== null);
   assert(body.querySelector(".discern-article-layout") !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
+  assertEquals(
+    body.querySelector(".discern-article-header__eyebrow")?.textContent,
+    "Placeholder",
+  );
 
   // The masthead, opening, calls to action, logo cloud, and footer all use
   // their design-system contracts rather than page-owned approximations.
@@ -367,27 +371,54 @@ Deno.test("the public homepage is the composed static essay", async () => {
   );
   assertEquals(
     actions.map((action) => action.getAttribute("href")),
-    ["#one-command", "/docs"],
+    ["/docs/getting-started/quickstart", "/docs"],
   );
-  for (
-    const id of [
-      "the-ask",
-      "the-pattern",
-      "the-habits",
-      "the-agent-equipped",
-      "what-you-keep",
-      "one-command",
-    ]
-  ) {
+  const toc = body.querySelector(".discern-table-of-contents");
+  assert(toc !== null);
+  assertEquals(
+    toc.querySelector(".discern-table-of-contents__title")?.textContent,
+    "Placeholder",
+  );
+  assertEquals(
+    [...toc.querySelectorAll("a")].map((link) => [
+      link.lastChild?.textContent?.trim(),
+      link.getAttribute("href"),
+    ]),
+    [
+      ["The ask", "#the-ask"],
+      ["The pattern", "#the-pattern"],
+      ["The habits", "#the-habits"],
+    ],
+  );
+  for (const id of ["the-ask", "the-pattern", "the-habits"]) {
     assertEquals(body.querySelector(`#${id}`)?.tagName, "H3", id);
   }
+  assertEquals(body.querySelectorAll(".landing-prose h3[id]").length, 3);
+  assertEquals(
+    [
+      ...body.querySelectorAll(
+        "#the-pattern, .discern-pull-quote, #the-habits",
+      ),
+    ].map((element) =>
+      element.id ||
+      (element.classList.contains("discern-pull-quote") ? "pull-quote" : "")
+    ),
+    ["the-pattern", "pull-quote", "the-habits"],
+  );
   const dropCap = body.querySelector(".discern-prose--drop-cap");
   assert(dropCap !== null);
   assertEquals(dropCap.firstElementChild?.tagName, "P");
   assertStringIncludes(
     dropCap.firstElementChild?.textContent ?? "",
-    "Somewhere",
+    "Lorem ipsum",
   );
+  assertEquals(
+    body.querySelectorAll(
+      ".discern-related-content, .discern-data-figure, .discern-terminal, .discern-footnotes",
+    ).length,
+    0,
+  );
+  assertEquals(html.includes("landing.js"), false);
   assertEquals(body.querySelectorAll(".discern-logo-cloud li").length, 6);
   assert(body.querySelector(".discern-site-footer") !== null);
   assertEquals(
@@ -403,23 +434,6 @@ Deno.test("the public homepage is the composed static essay", async () => {
   );
   assertStringIncludes(landingCss, "scroll-behavior: smooth");
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
-
-  // One h1, the install command as text, and the footnote apparatus: every
-  // in-prose marker resolves to a note, and every note links back.
-  const markers = [...body.querySelectorAll(".landing-fnref a")];
-  const notes = body.querySelectorAll(".discern-footnotes li[id]");
-  assert(markers.length > 0, "the essay carries footnote markers");
-  assertEquals(notes.length, markers.length);
-  for (const marker of markers) {
-    const target = marker.getAttribute("href") ?? "";
-    assert(target.startsWith("#"), `marker href ${target}`);
-    const noteItem = body.querySelector(target);
-    assert(noteItem !== null, `note ${target} exists`);
-    const back = noteItem.querySelector(
-      `a[href="#${marker.parentElement?.id}"]`,
-    );
-    assert(back !== null, `note ${target} links back to its marker`);
-  }
 
   // Static output: local runtime assets only, and no React browser runtime.
   assert(
