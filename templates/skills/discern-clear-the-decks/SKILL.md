@@ -1,6 +1,6 @@
 ---
 name: discern-clear-the-decks
-description: Clear the decks — sweep out the clutter agent-built codebases accumulate: duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding, convention drift, and the rest of the stack-agnostic agentic smells. Every cut proven safe, landed as small behaviour-preserving commits, with the entropy capped by a standard so the mess can only shrink. Use when asked to clean up, tidy, simplify, or de-slop a codebase, to remove dead code or duplication, when a project "is getting messy" after many agent sessions, or as periodic maintenance between features. Bundled with discern.
+description: Clear the decks — sweep out the clutter agent-built codebases accumulate, the stack-agnostic agentic smells — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding, convention drift. Every cut proven safe, landed as small behaviour-preserving commits, with the entropy capped by a standard so the mess can only shrink. Use when asked to clean up, tidy, simplify, or de-slop a codebase, to remove dead code or duplication, when a project "is getting messy" after many agent sessions, or as periodic maintenance between features. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
