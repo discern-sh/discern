@@ -944,6 +944,16 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "Every canonical set — verbs, tools, jobs, providers, config schema, terms, hints, features — is tied to its satellites by guards that fail the gate when a member is added without its counterparts.",
         why: "The system cannot disagree with itself and stay green.",
+        children: [
+          {
+            id: "canonical-sets",
+            title: "The closed set of closed sets",
+            what:
+              "A meta-registry records every canonical set — its single source, its guard tests, its generated artifacts, and its enrolment in the glossary and this canon — and convention sweeps fail the gate when a guard test or generated artifact belongs to no declared set.",
+            why:
+              "The registry discipline is itself a checked invariant: a new closed set cannot arrive without declaring who guards it and where it is documented.",
+          },
+        ],
       },
       {
         id: "dogfooding",

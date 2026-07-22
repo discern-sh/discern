@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list._
 
-10 pillars · 108 nodes · 9 benefit statements · 64 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 109 nodes · 9 benefit statements · 64 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -184,6 +184,7 @@ The properties the rest of the product stands on — each one a design commitmen
 - **Evidence stays local** *(benefit)* — The logbook and every advisory reader run entirely on the machine; recording is on by default because local metadata costs nothing to keep and everything to lose.
 - **Every subsystem is core** *(benefit)* — There are no feature toggles: every verb attaches unconditionally, and configuration tunes behavior rather than enabling it. *Every install is the same product, so guidance, docs, and habits transfer between projects verbatim.*
 - **Forcing-function parity** *(benefit)* — Every canonical set — verbs, tools, jobs, providers, config schema, terms, hints, features — is tied to its satellites by guards that fail the gate when a member is added without its counterparts. *The system cannot disagree with itself and stay green.*
+  - **The closed set of closed sets** — A meta-registry records every canonical set — its single source, its guard tests, its generated artifacts, and its enrolment in the glossary and this canon — and convention sweeps fail the gate when a guard test or generated artifact belongs to no declared set. *The registry discipline is itself a checked invariant: a new closed set cannot arrive without declaring who guards it and where it is documented.*
 - **Run on itself** *(benefit)* — The discern repository develops under its own gate, worktrees, standards, map, and logbook; a regression in the engine surfaces in discern's own `discern done`. *The vendor feels every sharp edge before a user does.*
 - **Clean under interruption** *(benefit)* — Cancellation reaches the gate's detached process groups, temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune. *A killed session leaves a machine you'd still want to work on.*
 
