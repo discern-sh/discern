@@ -13,6 +13,7 @@ aliases:
   - meta.setup_model
   - meta.setup_version
   - project
+  - project.name
   - project.slug
   - project.gotchas_doc
   - project.todo
@@ -115,6 +116,7 @@ Project identity and authored project paths.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
+| `name` | string | `""` | Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug. |
 | `slug` | string | `""` | Short, lowercase, dash-separated identity. Used for worktree/site/branch names. |
 | `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
 | `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |

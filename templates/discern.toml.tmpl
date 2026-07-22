@@ -21,6 +21,10 @@ schema_version = 22
 
 
 [project]
+# Display name (free text), used where compiled guidance addresses the project.
+# Empty falls back to the slug.
+name = "{{project_name}}"
+
 # Short, lowercase, dash-separated identity. Used for worktree/site/branch names.
 slug = "{{project_slug}}"
 

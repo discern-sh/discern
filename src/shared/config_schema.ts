@@ -281,6 +281,9 @@ const metaSection = z.strictObject({
 );
 
 const projectSection = z.strictObject({
+  name: z.string().default("").describe(
+    "Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.",
+  ),
   slug: z.string().default("").describe(
     "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
   ),
@@ -539,6 +542,20 @@ export function resolveConfiguredAgents(config: DiscernConfig): string[] {
   }
   const legacy = config.project.agents ?? [];
   return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
+}
+
+/**
+ * How prose addresses this project: `[project].name`, else the slug verbatim
+ * (no case fabrication — "my-app" must not become "My App"), else a neutral
+ * stand-in a config with neither identity field can still render.
+ */
+export function projectDisplayName(config: DiscernConfig): string {
+  const name = config.project.name.trim();
+  if (name !== "") {
+    return name;
+  }
+  const slug = config.project.slug.trim();
+  return slug !== "" ? slug : "this project";
 }
 
 /** One `[scopes.<name>]` entry, fully defaulted. */
