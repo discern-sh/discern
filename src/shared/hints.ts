@@ -622,7 +622,8 @@ export const HINTS = {
     id: "status-fleet-collisions",
     category: "notice",
     audience: "all",
-    when: "A fleet survey finds worktree pairs whose changes touch the same files.",
+    when:
+      "A fleet survey finds worktree pairs whose changes touch the same files.",
     example: {
       total: 2,
       pairs: ["hint-registry ↔ docs-refresh", "gate-copy ↔ cli-help"],
