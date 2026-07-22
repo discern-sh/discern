@@ -13,7 +13,11 @@
 import type { Job, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
-import { killProcessTree } from "../process_signals.ts";
+import {
+  KILL_GRACE_MS,
+  KILLED_PIPE_GRACE_MS,
+  killProcessTree,
+} from "../process_signals.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
@@ -97,19 +101,6 @@ function concat(chunks: Uint8Array[]): Uint8Array {
   }
   return out;
 }
-
-/**
- * How long after a kill (fail-fast, external abort, or the timeout watchdog)
- * the drains may keep waiting for pipe EOF before the pending reads are
- * cancelled. Longer than the SIGTERM→SIGKILL escalation (2s), so a child that
- * catches SIGTERM and exits slowly still flushes its output and closes its
- * pipes naturally; only a pipe held by a process the tree-kill cannot reach —
- * a descendant that re-parented into its own session (a self-daemonizing
- * tool) — is clipped. Without this bound, such an escapee keeps the write
- * ends open and the drain-to-EOF would block for the daemon's whole lifetime,
- * hanging the gate past its budget (forever, for a never-exiting daemon).
- */
-const KILLED_PIPE_GRACE_MS = 2500;
 
 /**
  * Iterate a child stream through an explicit reader registered in `readers`,
@@ -197,7 +188,10 @@ export async function spawnJob(
   const onAbort = (): void => {
     killProcessTree(pid, "SIGTERM");
     // Escalate if it ignores SIGTERM; cleared once the process is reaped.
-    killTimer = setTimeout(() => killProcessTree(pid, "SIGKILL"), 2000);
+    killTimer = setTimeout(
+      () => killProcessTree(pid, "SIGKILL"),
+      KILL_GRACE_MS,
+    );
     // Bound the drains: a descendant that escaped the process group (its own
     // session) survives the tree-kill holding the pipe write ends, so EOF may
     // never come. Give the pipes a grace to flush, then cancel the pending
