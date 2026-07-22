@@ -25,6 +25,8 @@ import type {
   PatternsData,
   PatternsResetData,
 } from "../src/shared/result_schemas.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
 function seededEvent(at: string, outcome: "ok" | "failed"): string {
@@ -154,12 +156,7 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
       data.detectors.every((d) => d.status === "insufficient-evidence"),
       "with no history every detector reports insufficient evidence",
     );
-    assert(
-      (parsed.hints ?? []).some((h) => h.includes("logbook is empty")),
-      `the empty state needs its helpful message, got: ${
-        JSON.stringify(parsed.hints)
-      }`,
-    );
+    assertHasHint(parsed, HINTS["patterns-logbook-empty"]);
   });
 });
 
@@ -313,9 +310,6 @@ Deno.test("patterns reset: with nothing recorded it says so and succeeds", async
     const parsed = PatternsResetOutputSchema.parse(JSON.parse(r.stdout));
     assertEquals(parsed.ok, true);
     assertEquals((parsed.data as PatternsResetData).removed, []);
-    assert(
-      (parsed.hints ?? []).some((h) => h.includes("No logbook to remove")),
-      `the empty reset needs its message, got: ${JSON.stringify(parsed.hints)}`,
-    );
+    assertHasHint(parsed, HINTS["patterns-reset-empty"]);
   });
 });

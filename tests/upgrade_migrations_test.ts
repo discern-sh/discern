@@ -12,7 +12,9 @@ import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 async function setup(dir: string): Promise<void> {
   assertEquals(
@@ -258,14 +260,7 @@ Deno.test("upgrade (json) carries the restart-your-agents hint on the applied re
     await setup(dir); // a fresh install: nothing to migrate, but the apply still runs
     const run = await upgradeJsonIn(dir);
     assertEquals(run.code, 0, run.stdout);
-    const hints = JSON.parse(run.stdout).hints as string[];
-    assert(
-      Array.isArray(hints) &&
-        hints.some((h) => h.includes("restart it so its discern MCP server")),
-      `applied upgrade JSON must carry the restart hint: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertHasHint(JSON.parse(run.stdout), HINTS["upgrade-restart-session"]);
   });
 });
 

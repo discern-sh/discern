@@ -9,7 +9,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -68,10 +70,13 @@ Deno.test("update --from <branch>: that branch's commits arrive in the worktree"
       await gitOut(dir, "rev-parse", "phase-one"),
       `range.main must anchor the incoming ref's tip\n${r.stdout}`,
     );
-    assert(
-      (result.hints ?? []).some((h) => h.includes("phase-one")),
-      `the summary hints must name the source ref\n${r.stdout}`,
-    );
+    assertHasHint(result, HINTS["update-no-overlap"], {
+      source: "phase-one",
+      behind: 1,
+      filesTotal: 1,
+      ownTotal: 0,
+      predicted: false,
+    });
   });
 });
 

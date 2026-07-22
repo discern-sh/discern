@@ -19,7 +19,7 @@ import {
   planStageJobs,
 } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
-import { fire, GATE_FAILURE_REMEDIES } from "../src/shared/hints.ts";
+import { GATE_FAILURE_REMEDIES } from "../src/shared/hints.ts";
 import {
   CAPTURE_CAP,
   type EnginePlan,
@@ -31,6 +31,7 @@ import {
   serializeResult,
   type StepResult,
 } from "../src/shared/result.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 const FULL = parseConfigOrThrow(`
 [jobs]
@@ -238,25 +239,14 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
 
 Deno.test("buildGateResult: every failed stage carries its remedy in the JSON envelope", async () => {
   const plan = buildGatePlan(FULL, []);
-  const missing: string[] = [];
   for (const stage of FAILED_STAGES) {
     const result = await buildGateResult(
       plan,
       new Map<string, JobResult>(),
       stage,
     );
-    const hints = serializeResult(result).hints as string[] | undefined;
-    if (!(hints ?? []).includes(fire(GATE_FAILURE_REMEDIES[stage]).text)) {
-      missing.push(stage);
-    }
+    assertHasHint(serializeResult(result), GATE_FAILURE_REMEDIES[stage]);
   }
-  assertEquals(
-    missing,
-    [],
-    `failed stages whose JSON envelopes omit their remedies: ${
-      missing.join(", ")
-    }`,
-  );
 });
 
 Deno.test("buildGateResult: non-fix capability/check failures note a wired fix stage", async () => {

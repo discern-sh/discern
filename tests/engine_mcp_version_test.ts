@@ -7,7 +7,7 @@
  * runTool.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   createInstalledVersionResolver,
   parseDiscernVersion,
@@ -15,8 +15,10 @@ import {
 } from "../src/engine/mcp/version_check.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", () => {
   // Matching versions and an unresolvable on-disk version both stay silent — the
@@ -26,9 +28,11 @@ Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", 
 
   const hint = versionMismatchHint("1.0.0", "1.1.0");
   assert(hint !== undefined, "a genuine mismatch must produce a hint");
-  assertStringIncludes(hint, "v1.0.0"); // what this server runs
-  assertStringIncludes(hint, "v1.1.0"); // what a restart would load
-  assertStringIncludes(hint, "Restart your agent session");
+  assertHasHint(
+    { hints: [hint] },
+    HINTS["mcp-version-mismatch"],
+    { serverVersion: "1.0.0", installedVersion: "1.1.0" },
+  );
 });
 
 Deno.test("parseDiscernVersion: accepts discern's own shape, rejects everything else", () => {
@@ -116,15 +120,10 @@ Deno.test("runTool: a stale on-disk version appends the restart hint to every re
       undefined,
       () => Promise.resolve(staleVersion),
     );
-    const hints = stale.structuredContent.hints as string[];
-    assert(
-      Array.isArray(hints) &&
-        hints.some((h) => h.includes("Restart your agent session")),
-      `a stale server must append the restart hint: ${JSON.stringify(hints)}`,
-    );
-    assert(
-      hints.some((h) => h.includes(staleVersion)),
-      "the hint names the installed version a restart would load",
+    assertHasHint(
+      stale.structuredContent,
+      HINTS["mcp-version-mismatch"],
+      { serverVersion: KIT_VERSION, installedVersion: staleVersion },
     );
     // The verb still ran: its own result is intact under the appended hint.
     assertEquals(stale.structuredContent.verb, "done");
@@ -146,12 +145,10 @@ Deno.test("runTool: a matching on-disk version appends no hint", async () => {
       undefined,
       () => Promise.resolve(KIT_VERSION),
     );
-    const hints = (fresh.structuredContent.hints as string[]) ?? [];
-    assert(
-      !hints.some((h) => h.includes("Restart your agent session")),
-      `a current server must not append the restart hint: ${
-        JSON.stringify(hints)
-      }`,
+    assertLacksHint(
+      fresh.structuredContent,
+      HINTS["mcp-version-mismatch"],
+      { serverVersion: KIT_VERSION, installedVersion: KIT_VERSION },
     );
   });
 });

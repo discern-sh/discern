@@ -8,8 +8,10 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { runCli, withTempDir } from "./helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -76,24 +78,25 @@ Deno.test("config set-job names an empty command as deferred, on both surfaces",
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, true);
-    assert(
-      (result.hints ?? []).some((h: string) => h.includes("deferred")),
-      `expected a deferred hint: ${r.stdout}`,
+    const expected = assertHasHint(
+      result,
+      HINTS["config-job-deferred"],
+      { name: "test" },
     );
 
     const human = await runCli(["config", "set-job", "test", ""], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stderr + human.stdout, "deferred");
+    assertStringIncludes(human.stderr + human.stdout, expected);
 
     // A real command carries no such hint.
     const wired = await runCli(
       ["config", "set-job", "test", "vitest run", "--json"],
       dir,
     );
-    assertEquals(
-      (JSON.parse(wired.stdout).hints ?? []).length,
-      0,
-      "a real command must not be called deferred",
+    assertLacksHint(
+      JSON.parse(wired.stdout),
+      HINTS["config-job-deferred"],
+      { name: "test" },
     );
   });
 });
