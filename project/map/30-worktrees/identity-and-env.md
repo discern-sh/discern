@@ -23,7 +23,7 @@ Run `discern identity` inside a linked worktree with one selector:
 | ------------------- | ----------------------------------------------------------------------------- |
 | `--id`              | Stable worktree id.                                                           |
 | `--branch`          | `<branch_prefix><id>`, usually `agent/<id>`.                                  |
-| `--port`            | `13000 + cksum(id) % 2000`.                                                   |
+| `--port`            | `17290 + cksum(id) % 2000`.                                                   |
 | `--site`            | Domain Name System (DNS)-safe `<project-slug>-<id>`, fitted to 63 characters. |
 | `--db`              | Database-safe `<project_slug>_<id>`.                                          |
 | `--worktree`        | Generic `<project-slug>-<id>` handle.                                         |

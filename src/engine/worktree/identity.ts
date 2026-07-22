@@ -30,8 +30,13 @@ import {
   stripQuotes,
 } from "./env_file.ts";
 
-/** The dev-server port band: 13000–14999, clear of common local services. */
-const PORT_BASE = 13000;
+/**
+ * The dev-server port band: 17290–19289, clear of common local services and
+ * below the Linux/macOS ephemeral ranges. Based at 1729 × 10 — the taxicab
+ * number Hardy dismissed as dull and Ramanujan discerned as the smallest
+ * expressible as a sum of two cubes in two ways (1³+12³ = 9³+10³).
+ */
+const PORT_BASE = 17290;
 /** The width of the port band hashed into. */
 const PORT_SPAN = 2000;
 /** The DNS label length limit a site/host name must fit within. */
@@ -47,7 +52,7 @@ export interface WorktreeIdentity {
   site: string;
   /** The default branch name, e.g. `agent/wt-feature`. */
   branch: string;
-  /** The deterministic dev-server port, e.g. `13742`. */
+  /** The deterministic dev-server port, e.g. `18729`. */
   port: number;
   /** The database-name-safe identity, e.g. `my_app_wt_feature`. */
   db: string;
@@ -128,7 +133,7 @@ export function dbNameForId(slug: string, id: string): string {
 }
 
 /**
- * Derive the deterministic dev-server port from the id: `13000 + cksum(id) %
+ * Derive the deterministic dev-server port from the id: `17290 + cksum(id) %
  * 2000`. Hashing the id into a fixed band gives every worktree its own port with
  * no shared registry.
  */

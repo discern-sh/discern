@@ -30,5 +30,5 @@ Deno.test("empty input is 0xFFFFFFFF (POSIX cksum, not zlib crc32)", () => {
 });
 
 Deno.test("derived dev-server port uses the production identity helper", () => {
-  assertEquals(portForId("wt-feature"), 14200);
+  assertEquals(portForId("wt-feature"), 18490);
 });
