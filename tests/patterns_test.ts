@@ -40,6 +40,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
 } from "../src/shared/result_schemas.ts";
+import { HINTS } from "../src/shared/hints.ts";
 
 // ── fixture builders ────────────────────────────────────────────────────────
 
@@ -173,6 +174,28 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     sparse: run([
       { verb: "update", outcome: "refused", error: "dirty_worktree" },
       { verb: "update", outcome: "refused", error: "dirty_worktree" },
+    ]),
+  },
+  "hint-follow-through": {
+    firing: run([
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+    ]),
+    quiet: run([
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "update" },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "update" },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "update" },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+    ]),
+    sparse: run([
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
     ]),
   },
   "skipped-prepare": {

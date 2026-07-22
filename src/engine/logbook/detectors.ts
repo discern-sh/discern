@@ -46,6 +46,7 @@ import type {
   DetectorStatus,
   DetectorTier,
 } from "../../shared/patterns_vocabulary.ts";
+import { HINTS } from "../../shared/hints.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
@@ -438,6 +439,49 @@ const refusalLoop: Detector = {
       }
     }
     return { considered: refused.length, findings };
+  },
+};
+
+const hintFollowThrough: Detector = {
+  id: "hint-follow-through",
+  title: "Repeated update advice without an update",
+  family: "behaviour",
+  scope: "session",
+  tier: "inline",
+  // 3 repeats: one reminder is ordinary, and a second can follow another state
+  // read; the third recurrence in one session is a loop worth reporting.
+  threshold: 3,
+  next_step:
+    "Run `discern update`. It is idempotent and checks its own preconditions, so repeating `status` cannot resolve a branch that remains behind.",
+  detect(facts): DetectorOutcome {
+    const hintId = HINTS["status-branch-behind"].id;
+    const firings = facts.agentish.filter((event) =>
+      (event.hint_ids ?? []).includes(hintId)
+    );
+    const findings: DetectorFinding[] = [];
+    for (const [branch, events] of byBranch(facts.agentish)) {
+      for (const session of bySession(events)) {
+        let repeats = 0;
+        for (const event of session) {
+          if (event.verb === "update") {
+            repeats = 0;
+          } else if ((event.hint_ids ?? []).includes(hintId)) {
+            repeats += 1;
+          }
+        }
+        if (repeats >= 3) {
+          findings.push({
+            subject: branch,
+            observed:
+              `\`${hintId}\` fired ${repeats} times in one session on ` +
+              `\`${branch}\` since its latest \`update\` run.`,
+            evidence: { hint_fires: repeats, update_runs: 0 },
+            strength: repeats,
+          });
+        }
+      }
+    }
+    return { considered: firings.length, findings };
   },
 };
 
@@ -1533,6 +1577,7 @@ const redRateHistory: Detector = {
 export const DETECTORS: readonly Detector[] = [
   doneThrash,
   refusalLoop,
+  hintFollowThrough,
   skippedPrepare,
   dirtyDoneChurn,
   trunkEdits,
