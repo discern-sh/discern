@@ -28,19 +28,13 @@ import {
 } from "discern-design-system/react";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
+import {
+  INSTALL_COMMAND,
+  InstallCommand,
+  SETUP_SENTENCE,
+} from "./install-command.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
-const INSTALL_COMMAND = "curl -fsSL https://discern.sh/install | sh";
-const SETUP_SENTENCE = "Set this project up with discern.";
-
-/** The one-line install command with a progressive-enhancement copy slot. */
-function InstallCommand() {
-  return (
-    <p className="landing-install" data-copy-command={INSTALL_COMMAND}>
-      <code className="landing-install__command">{INSTALL_COMMAND}</code>
-    </p>
-  );
-}
 
 /** Static theme toggle wired at runtime by the shared /assets/theme.js. */
 function LandingThemeToggle() {
