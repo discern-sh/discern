@@ -19,7 +19,7 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import { hintTexts } from "../../shared/hints.ts";
+import { hintTexts, interactiveHintTexts } from "../../shared/hints.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
@@ -124,7 +124,7 @@ export async function runPrepare(
   }
   out.ok("Prepare complete — fixers applied and checks passed.");
   // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
-  for (const hint of result.hints ?? []) {
+  for (const hint of interactiveHintTexts(result.hints)) {
     out.info(hint);
   }
   return 0;

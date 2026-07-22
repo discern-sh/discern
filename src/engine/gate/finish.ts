@@ -79,7 +79,13 @@ import {
 } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   inlineFindingRoutes,
@@ -855,7 +861,8 @@ function buildGateHints(
 
 /** Print the informational success tail (non-`--json`): the pass line + gate-health
  * note, the receipt when one was emitted (the same markdown the envelope carries),
- * then the same `hints` the envelope carries (so human and machine agree). */
+ * then the envelope's `hints` through the interactive projection (agent-audience
+ * entries stay wire-only; everything shown matches the envelope verbatim). */
 function printSuccessTail(
   cfg: DiscernConfig,
   out: Out,
@@ -886,7 +893,7 @@ function printSuccessTail(
   if (receiptMarkdown !== undefined) {
     out.raw(`\n${receiptMarkdown}\n\n`);
   }
-  for (const hint of hints) {
+  for (const hint of interactiveHintTexts(hints)) {
     out.info(hint);
   }
 }
@@ -965,7 +972,8 @@ export async function runFinish(
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
-    const headline = result.hints?.[0] ?? "The gate failed.";
+    const headline = interactiveHintTexts(result.hints)[0] ??
+      "The gate failed.";
     renderFailureTail(out, {
       cfg,
       root,

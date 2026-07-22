@@ -12,7 +12,12 @@ import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
-import { fire, HINTS, hintTexts } from "../shared/hints.ts";
+import {
+  fire,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import {
   findSkeletonMarkers,
@@ -1039,7 +1044,7 @@ function renderSkillsEjectResult(
   log.ok(
     `Ejected "${data.name}" -> ${data.dest_rel} (it now overrides the built-in).`,
   );
-  for (const hint of result.hints ?? []) {
+  for (const hint of interactiveHintTexts(result.hints)) {
     log.info(hint);
   }
 }

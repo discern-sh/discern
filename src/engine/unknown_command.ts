@@ -1,7 +1,13 @@
 /** Render the shared unknown-command refusal on human and JSON surfaces. */
 
 import { emitResult } from "../shared/emit.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  interactiveHints,
+} from "../shared/hints.ts";
 import { unknownCommandMessage } from "../shared/vocabulary.ts";
 
 /** Report an unknown top-level word with an optional canonical suggestion. */
@@ -27,7 +33,7 @@ export function reportUnknownCommand(
     return;
   }
   console.error(`discern: ${unknownCommandMessage(word)}`);
-  for (const hint of hints) {
+  for (const hint of interactiveHints(hints)) {
     console.error(`       ${hint.text}`);
   }
 }

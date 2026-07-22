@@ -30,9 +30,9 @@ import { observeResult } from "../../shared/result_capture.ts";
 import {
   fire,
   type FiredHint,
-  hintHasAudience,
   HINTS,
   hintTexts,
+  interactiveHintTexts,
 } from "../../shared/hints.ts";
 import type {
   GateReceiptCheckData,
@@ -133,33 +133,18 @@ export interface StatusOptions {
  * is reserved for an operational refusal (conflicting flags). `root` is used as the
  * cwd for every git read and identity derivation, matching the other verb cores.
  */
-interface StatusResultBuild {
-  result: DiscernResult<StatusData>;
-  firedHints: FiredHint[];
-}
-
 export async function statusResult(
   root: string,
   opts: StatusOptions = {},
 ): Promise<DiscernResult<StatusData>> {
-  return (await buildStatusResult(root, opts)).result;
-}
-
-async function buildStatusResult(
-  root: string,
-  opts: StatusOptions = {},
-): Promise<StatusResultBuild> {
   const all = opts.all ?? false;
   const local = opts.local ?? false;
   if (all && local) {
     return {
-      result: {
-        ok: false,
-        verb: "status",
-        error: "conflicting_flags",
-        message: "--all and --local cannot be combined — pick one.",
-      },
-      firedHints: [],
+      ok: false,
+      verb: "status",
+      error: "conflicting_flags",
+      message: "--all and --local cannot be combined — pick one.",
     };
   }
 
@@ -427,7 +412,7 @@ async function buildStatusResult(
       statusFindingHints(routes.status, git?.branch),
     );
   }
-  return { result, firedHints: hints };
+  return result;
 }
 
 /** Resolve a worktree's identity block, degrading to null if identity can't be
@@ -951,7 +936,7 @@ export async function runStatus(
     }
     return 1;
   }
-  const { result, firedHints } = await buildStatusResult(root, {
+  const result = await statusResult(root, {
     all: opts.all,
     local: opts.local,
   });
@@ -960,7 +945,7 @@ export async function runStatus(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  renderStatusHuman(result, firedHints);
+  renderStatusHuman(result);
   return result.ok ? 0 : 1;
 }
 
@@ -1029,7 +1014,6 @@ export function relativeAge(
  * `--json`, which never calls this). */
 function renderStatusHuman(
   result: DiscernResult<StatusData>,
-  firedHints: readonly FiredHint[],
 ): void {
   const out = makeOut(colorEnabled());
   if (!result.ok || result.data === undefined) {
@@ -1153,16 +1137,10 @@ function renderStatusHuman(
     renderFleetTable(out, data.fleet);
   }
 
-  // Status owns these fired hints until the wire projection, so the interactive
-  // renderer can filter the agent-only audience by registry metadata. Advisory
-  // findings appended after that projection follow the status hints and render for
-  // both audiences.
-  for (const hint of firedHints) {
-    if (!hintHasAudience(hint, "agent")) {
-      out.info(hint.text);
-    }
-  }
-  for (const hint of (result.hints ?? []).slice(firedHints.length)) {
+  // The interactive projection: agent-audience hints stay wire-only. It covers
+  // the status-owned hints and the advisory findings appended after them alike,
+  // recovering each entry's identity from the envelope's own array.
+  for (const hint of interactiveHintTexts(result.hints)) {
     out.info(hint);
   }
 }

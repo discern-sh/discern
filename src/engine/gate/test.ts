@@ -13,7 +13,12 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
@@ -143,7 +148,7 @@ export async function runTestJob(
     return 1;
   }
   out.ok("Tests passed.");
-  for (const hint of result.hints ?? []) {
+  for (const hint of interactiveHintTexts(result.hints)) {
     out.info(hint);
   }
   return 0;

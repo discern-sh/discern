@@ -18,7 +18,13 @@ import {
 } from "../shared/config_schema.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "../lib/config.ts";
 import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  interactiveHints,
+} from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import {
@@ -143,7 +149,7 @@ async function applyEdits(
       for (const edit of edits) {
         log.line(`  ${edit.key} = ${edit.literal}`);
       }
-      for (const hint of hints) {
+      for (const hint of interactiveHints(hints)) {
         log.info(hint.text);
       }
     }
@@ -165,7 +171,7 @@ async function applyEdits(
     for (const edit of edits) {
       log.line(`  ${edit.key} = ${edit.literal}`);
     }
-    for (const hint of hints) {
+    for (const hint of interactiveHints(hints)) {
       log.info(hint.text);
     }
   }

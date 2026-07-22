@@ -49,7 +49,13 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -1628,7 +1634,7 @@ function renderStandardsResult(
     }
     out.error(diagnostic.message);
   }
-  for (const hint of result.hints ?? []) {
+  for (const hint of interactiveHintTexts(result.hints)) {
     if (hint.startsWith("Standards limits are UNVERIFIED")) {
       out.warn(hint);
     } else {

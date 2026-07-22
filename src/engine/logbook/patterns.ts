@@ -31,7 +31,13 @@ import type {
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
@@ -385,7 +391,7 @@ export async function runPatternsReset(
       result.dry_run === true ? " — nothing removed" : ""
     }.\n`,
   );
-  for (const hint of result.hints ?? []) {
+  for (const hint of interactiveHintTexts(result.hints)) {
     out.raw(`${c.dim}${hint}${c.reset}\n`);
   }
   return 0;

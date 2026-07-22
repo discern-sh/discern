@@ -2168,3 +2168,34 @@ export function hintHasAudience(
   }[];
   return defs.some((def) => def.id === fired.id && def.audience === audience);
 }
+
+/**
+ * The fired entries an interactive human renderer prints: agent-audience
+ * entries drop, everything else passes in order. The single projection every
+ * human surface uses — the wire envelope always carries the full channel.
+ */
+export function interactiveHints(
+  fired: readonly FiredHint[],
+): FiredHint[] {
+  return fired.filter((hint) => !hintHasAudience(hint, "agent"));
+}
+
+/**
+ * Project a result's wire hints for an interactive human renderer. Entries
+ * whose recovered in-process identity is agent-audience drop; texts with no
+ * identity pass through unchanged. Pass the envelope's own `hints` array —
+ * identity recovery keys on the exact array object, so a copy loses it.
+ */
+export function interactiveHintTexts(
+  texts: readonly string[] | undefined,
+): string[] {
+  if (texts === undefined) {
+    return [];
+  }
+  const drop = new Set(
+    firedHintsFromTexts(texts)
+      .filter((hint) => hintHasAudience(hint, "agent"))
+      .map((hint) => hint.text),
+  );
+  return texts.filter((text) => !drop.has(text));
+}
