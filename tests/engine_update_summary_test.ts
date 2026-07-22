@@ -10,7 +10,9 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import type { z } from "@zod/zod";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -146,7 +148,8 @@ Deno.test("update: overlap names the files you AND main both changed (clean merg
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const { data, hints } = parse(r.stdout);
+    const result = parse(r.stdout);
+    const { data } = result;
     assert(data !== undefined, r.stdout);
 
     // shared.txt merged cleanly, yet it is the OVERLAP — both sides touched it.
@@ -161,11 +164,13 @@ Deno.test("update: overlap names the files you AND main both changed (clean merg
     ]);
 
     // The headline hint warns and names the overlap (the DX payoff).
-    assert(
-      hints !== undefined &&
-        hints.some((h) => h.includes("⚠") && h.includes("shared.txt")),
-      `overlap hint missing:\n${JSON.stringify(hints, null, 2)}`,
-    );
+    assertHasHint(result, HINTS["update-overlap"], {
+      source: "main",
+      behind: 1,
+      overlap: ["shared.txt"],
+      overlapTotal: 1,
+      predicted: false,
+    });
 
     // The clean merge genuinely combined both regions in the worktree.
     const merged = await Deno.readTextFile(join(wt, "shared.txt"));
@@ -189,8 +194,9 @@ Deno.test("update: a large merge caps the lists and hands back a git escape-hatc
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const { data, hints } = parse(r.stdout);
-    assert(data !== undefined && hints !== undefined, r.stdout);
+    const result = parse(r.stdout);
+    const { data } = result;
+    assert(data !== undefined, r.stdout);
 
     // Capped inline, but the totals + truncation flags tell the agent the full size.
     assertEquals(data.commits_total, 12);
@@ -202,21 +208,17 @@ Deno.test("update: a large merge caps the lists and hands back a git escape-hatc
 
     // The escape hatch: the FULL list in one call, anchors pre-substituted — no
     // guessing the range. (Apply → two-dot before..after; full-list log → before..main.)
-    const filesCmd =
-      `git diff --stat ${data.range.before}..${data.range.after}`;
-    assert(
-      hints.some((h) => h.includes(filesCmd)),
-      `files escape-hatch (${filesCmd}) missing:\n${
-        JSON.stringify(hints, null, 2)
-      }`,
-    );
-    const logCmd = `git log --oneline ${data.range.before}..${data.range.main}`;
-    assert(
-      hints.some((h) => h.includes(logCmd)),
-      `commits escape-hatch (${logCmd}) missing:\n${
-        JSON.stringify(hints, null, 2)
-      }`,
-    );
+    assertHasHint(result, HINTS["update-files-truncated"], {
+      shown: 20,
+      total: 36,
+      diffRange: `${data.range.before}..${data.range.after}`,
+    });
+    assertHasHint(result, HINTS["update-commits-truncated"], {
+      shown: 10,
+      total: 12,
+      before: data.range.before,
+      main: data.range.main,
+    });
   });
 });
 

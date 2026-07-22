@@ -6,7 +6,7 @@
  * cap, the logbook toggle, and setup suppression.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -21,6 +21,17 @@ import {
   LOGBOOK_SCHEMA_VERSION,
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+
+const BRANCH_OBSERVED =
+  "`done` failed 4 consecutive runs on `agent/surface` (5 runs in the conversation).";
+const SESSION_OBSERVED =
+  "`update` refused 3 times on `agent/surface` with the same slug (`behind_integration`).";
+const MAIN_SESSION_OBSERVED =
+  "`update` refused 3 times on `main` with the same slug (`behind_integration`).";
+const SESSION_NEXT =
+  "A refusal means the verb declined — repeating the call won't change its answer. Read the refusal message for the precondition it names; if agents keep hitting it, capture the lesson with the `discern-teach-the-project` skill.";
 
 interface ResultEnvelope {
   ok: boolean;
@@ -211,35 +222,24 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
       done.data?.receipt !== undefined,
       "the green clean branch needs a receipt",
     );
-    const receiptHints = (done.hints ?? []).filter((hint) =>
-      hint.startsWith("Logbook:")
+    const receiptHint = assertHasHint(
+      done,
+      HINTS["logbook-receipt-finding"],
+      { count: 2, observed: BRANCH_OBSERVED },
     );
-    assertEquals(receiptHints.length, 1, JSON.stringify(done.hints));
     assertEquals(
-      (receiptHints[0] ?? "").includes("\n"),
+      receiptHint.includes("\n"),
       false,
       "the receipt advisory must stay one physical line",
-    );
-    assertStringIncludes(receiptHints[0] ?? "", "branch findings");
-    assertStringIncludes(receiptHints[0] ?? "", "consecutive runs");
-    assertStringIncludes(receiptHints[0] ?? "", "discern patterns");
-    assert(
-      !(receiptHints[0] ?? "").includes("refused"),
-      "session evidence must not reach done",
-    );
-    assert(
-      !(receiptHints[0] ?? "").includes("missing-guide"),
-      "project evidence must not reach done",
     );
 
     const statusRun = await runAgent(worktree, ["status", "--json"]);
     assertEquals(statusRun.code, 0, statusRun.output);
     const status = parse(statusRun.stdout);
-    const statusText = (status.hints ?? []).join("\n");
-    assertStringIncludes(statusText, "refused 3 times");
-    assertStringIncludes(statusText, "Read the refusal message");
-    assert(!statusText.includes("consecutive runs"));
-    assert(!statusText.includes("missing-guide"));
+    assertHasHint(status, HINTS["logbook-status-finding"], {
+      observed: SESSION_OBSERVED,
+      next: SESSION_NEXT,
+    });
 
     const improvementRun = await runAgent(worktree, [
       "improvement",
@@ -323,11 +323,10 @@ Deno.test("done finding line is absent on red, while quiet, and with recording o
       const run = await runAgent(worktree, ["done", "--json"]);
       const result = parse(run.stdout);
       assertEquals(result.ok, fixture.test === "true", fixture.name);
-      assertEquals(
-        (result.hints ?? []).filter((hint) => hint.startsWith("Logbook:")),
-        [],
-        fixture.name,
-      );
+      assertLacksHint(result, HINTS["logbook-receipt-finding"], {
+        count: 2,
+        observed: BRANCH_OBSERVED,
+      });
     });
   }
 });
@@ -354,10 +353,10 @@ Deno.test("status suppresses session findings until setup is bootstrapped", asyn
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
     const result = parse(run.stdout);
-    assert(
-      !(result.hints ?? []).some((hint) => hint.includes("refused 3 times")),
-      JSON.stringify(result.hints),
-    );
+    assertLacksHint(result, HINTS["logbook-status-finding"], {
+      observed: MAIN_SESSION_OBSERVED,
+      next: SESSION_NEXT,
+    });
     assert(result.data?.setup_unfinished !== undefined);
   });
 });
@@ -390,9 +389,9 @@ Deno.test("status does not correct an owner for interactive refusal history", as
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
     const result = parse(run.stdout);
-    assert(
-      !(result.hints ?? []).some((hint) => hint.includes("refused 3 times")),
-      JSON.stringify(result.hints),
-    );
+    assertLacksHint(result, HINTS["logbook-status-finding"], {
+      observed: MAIN_SESSION_OBSERVED,
+      next: SESSION_NEXT,
+    });
   });
 });
