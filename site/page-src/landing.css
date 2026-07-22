@@ -47,6 +47,10 @@
   margin-block-start: var(--discern-space-10);
 }
 
+.landing-flow > .landing-opening-copy {
+  margin-block-start: 0;
+}
+
 .landing-prose p {
   text-wrap: pretty;
 }
@@ -106,30 +110,4 @@
   font-size: var(--discern-font-size-sm);
   color: var(--discern-color-ink-muted);
   text-align: center;
-}
-
-/* ── Colophon ──────────────────────────────────────────────────────────── */
-
-.landing-colophon {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--discern-space-3);
-  max-inline-size: var(--discern-page-max);
-  margin-inline: auto;
-  padding: var(--discern-space-6);
-  border-block-start: 1px solid var(--discern-color-border);
-}
-
-.landing-colophon__brand {
-  font-family: var(--discern-font-mono);
-  color: inherit;
-  text-decoration: none;
-}
-
-.landing-colophon__meta {
-  margin: 0;
-  font-size: var(--discern-font-size-sm);
-  color: var(--discern-color-ink-muted);
 }

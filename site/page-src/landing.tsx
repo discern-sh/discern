@@ -10,12 +10,15 @@ import {
   ArticleHeader,
   ArticleLayout,
   Brand,
+  Button,
   DataFigure,
   Footnotes,
   HeadingAccent,
+  LogoCloud,
   Prose,
   PullQuote,
   RelatedContent,
+  SiteFooter,
   SkipLink,
   TableOfContents,
   Terminal,
@@ -139,7 +142,7 @@ function LandingPage() {
       <SkipLink href="#main">Skip to content</SkipLink>
       <header className="landing-masthead">
         <a href="/" className="landing-masthead__brand">
-          <Brand mark={DISCERN_MARK} name="discern" size="sm" typeface="mono" />
+          <Brand mark={DISCERN_MARK} name="discern" size="lg" typeface="mono" />
         </a>
         <nav className="landing-masthead__nav" aria-label="Site">
           <a href="/docs">Docs</a>
@@ -158,6 +161,12 @@ function LandingPage() {
           }
           standfirst="Anyone can ask a coding agent for software and watch it appear. The harder question arrives later: whether a project made of many asks stays sound. That discipline can belong to the agent, and this essay is about how."
           meta={["discern.sh", "July 2026"]}
+          actions={
+            <>
+              <Button href="#one-command">Install discern</Button>
+              <Button href="/docs" variant="secondary">Read the manual</Button>
+            </>
+          }
         />
         <ArticleLayout
           className="landing-body"
@@ -177,8 +186,10 @@ function LandingPage() {
           }
         >
           <div className="landing-flow">
-            <Prose dropCap className="landing-prose">
+            <Prose className="landing-prose">
               <h2 id="the-ask">The ask</h2>
+            </Prose>
+            <Prose dropCap className="landing-prose landing-opening-copy">
               <p>
                 Somewhere in the past two years, building software stopped
                 requiring you to write it. You describe what you want: a booking
@@ -194,7 +205,6 @@ function LandingPage() {
                 feature, the redesign that can't disturb payments, the fiftieth
                 ask that has to live peacefully with the forty-nine before it.
               </p>
-
               <h2 id="the-pattern">The pattern</h2>
               <p>
                 Projects built by asking tend to fray in a recognizable order. A
@@ -400,6 +410,19 @@ function LandingPage() {
           </div>
         </ArticleLayout>
 
+        <LogoCloud
+          label="Placeholder logos"
+          aria-label="Six placeholder logos"
+          items={[
+            { name: "Logo 01", mark: "◮" },
+            { name: "Logo 02", mark: "◆" },
+            { name: "Logo 03", mark: "●" },
+            { name: "Logo 04", mark: "■" },
+            { name: "Logo 05", mark: "✦" },
+            { name: "Logo 06", mark: "◇" },
+          ]}
+        />
+
         <RelatedContent
           className="landing-related"
           eyebrow="Keep reading"
@@ -430,14 +453,41 @@ function LandingPage() {
           ]}
         />
       </main>
-      <footer className="landing-colophon">
-        <a href="/" className="landing-colophon__brand">
-          <span aria-hidden="true">{DISCERN_MARK}</span> discern
-        </a>
-        <p className="landing-colophon__meta">
-          Apache-2.0 · no network calls · no telemetry
-        </p>
-      </footer>
+      <SiteFooter
+        brand="discern"
+        brandMark={DISCERN_MARK}
+        brandTypeface="mono"
+        brandMarkTreatment="plain"
+        description="One binary that gives your repository a definition of done, an isolated worktree per change, and one set of instructions every agent reads."
+        groups={[
+          {
+            title: "Documentation",
+            links: [
+              {
+                label: "Quickstart",
+                href: "/docs/getting-started/quickstart",
+              },
+              { label: "Concepts", href: "/docs/orientation/concepts" },
+              { label: "The quality gate", href: "/docs/quality-gate" },
+              {
+                label: "Trust & your data",
+                href: "/docs/orientation/trust-and-data",
+              },
+            ],
+          },
+          {
+            title: "Project",
+            links: [
+              { label: "GitHub", href: GITHUB },
+              { label: "Releases", href: `${GITHUB}/releases/latest` },
+              { label: "Decisions", href: "/docs/decisions" },
+              { label: "FAQ", href: "/docs/getting-started/faq" },
+            ],
+          },
+        ]}
+        legal="Open source under Apache-2.0."
+        meta="macOS · Linux · WSL2"
+      />
     </>
   );
 }

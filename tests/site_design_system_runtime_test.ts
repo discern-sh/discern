@@ -346,6 +346,34 @@ Deno.test("the public homepage is the composed static essay", async () => {
   assert(body.querySelector(".discern-article-layout") !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
 
+  // The masthead, opening, calls to action, logo cloud, and footer all use
+  // their design-system contracts rather than page-owned approximations.
+  assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
+  const actions = [
+    ...body.querySelectorAll(".discern-article-header__actions a"),
+  ];
+  assertEquals(
+    actions.map((action) => action.textContent?.trim()),
+    ["Install discern", "Read the manual"],
+  );
+  assertEquals(
+    actions.map((action) => action.getAttribute("href")),
+    ["#one-command", "/docs"],
+  );
+  const dropCap = body.querySelector(".discern-prose--drop-cap");
+  assert(dropCap !== null);
+  assertEquals(dropCap.firstElementChild?.tagName, "P");
+  assertStringIncludes(
+    dropCap.firstElementChild?.textContent ?? "",
+    "Somewhere",
+  );
+  assertEquals(body.querySelectorAll(".discern-logo-cloud li").length, 6);
+  assert(body.querySelector(".discern-site-footer") !== null);
+  assertEquals(
+    body.querySelectorAll(".discern-site-footer__nav > div").length,
+    2,
+  );
+
   // One h1, the install command as text, and the footnote apparatus: every
   // in-prose marker resolves to a note, and every note links back.
   const markers = [...body.querySelectorAll(".landing-fnref a")];
