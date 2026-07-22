@@ -97,7 +97,7 @@
       "dist/",
       "project/map/70-reference/config-reference.md",
       "project/map/00-orientation/glossary.md",
-      "project/map/_private/maintainer/feature-canon.md",
+      "project/map/_internal/feature-canon.md",
       "GEMINI.md",
       "PLAN.md",
       "project/map/70-reference/cli-reference.md",

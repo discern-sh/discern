@@ -6,7 +6,7 @@
  *
  * Three consumers:
  *  - `scripts/codegen.ts` renders {@link renderFeatureCanonDoc} into the map's
- *    committed `_private/maintainer/feature-canon.md`; a sync test asserts the
+ *    committed `_internal/feature-canon.md`; a sync test asserts the
  *    committed file equals the generator output, so a feature change that
  *    isn't regenerated fails the gate.
  *  - the enrolment guards (`tests/feature_canon_enrolment_test.ts`) hold every
@@ -182,7 +182,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "strand-detection",
             title: "Strand detection",
             what:
-              "`discern done` fails any stage that leaves uncommitted changes behind, instead of letting a fixer's rewrites sit unreviewed in the tree.",
+              "`discern done` fails any stage that leaves uncommitted changes behind, instead of letting a fixer's rewrites sit in the tree without review.",
             why:
               "What the gate verified and what gets committed are the same tree.",
           },
@@ -263,7 +263,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     what:
       "Named quality numbers held under `[standards]`: each declares a metric, a direction, and a limit, and every gate run verifies no limit loosened versus the trunk.",
     why:
-      "Quality limits move in one direction. A floor may only rise, a ceiling may only fall, and a branch cannot quietly undo either.",
+      "Quality limits move in one direction. A floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate.",
     surfaces: ["verb:standards", "config:standards"],
     children: [
       {
@@ -943,7 +943,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         title: "Forcing-function parity",
         what:
           "Every canonical set — verbs, tools, jobs, providers, config schema, terms, hints, features — is tied to its satellites by guards that fail the gate when a member is added without its counterparts.",
-        why: "The system cannot silently disagree with itself.",
+        why: "The system cannot disagree with itself and stay green.",
       },
       {
         id: "dogfooding",
@@ -1051,8 +1051,7 @@ export function allSurfaceClaims(
 
 /** Where the generated canon page lives inside the map. */
 export const FEATURE_CANON_PAGE_REL: string = join(
-  "_private",
-  "maintainer",
+  "_internal",
   "feature-canon.md",
 );
 
@@ -1099,7 +1098,7 @@ function renderCoverage(): string[] {
     lines.push("");
   }
   const absent = Object.entries(FEATURES_DELIBERATELY_ABSENT);
-  lines.push("### Deliberately absent", "");
+  lines.push("### Recorded absences", "");
   if (absent.length === 0) {
     lines.push("- None: every closed-set member is claimed by a node.", "");
   } else {
