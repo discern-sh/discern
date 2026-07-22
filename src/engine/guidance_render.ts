@@ -24,6 +24,7 @@ import { join } from "@std/path";
 import {
   type DiscernConfig,
   loadConfig,
+  projectDisplayName,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { resolveGuidanceSources, resolveTemplatesDir } from "../lib/paths.ts";
@@ -130,6 +131,9 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
   const agentFiles = emittedGuidancePaths(guidanceFilesFor(agents));
   return {
     vars: {
+      // How the compiled guidance addresses the project: `[project].name`, else
+      // the slug — so the file the user's agents read opens as the project's own.
+      project_name: projectDisplayName(config),
       branch_prefix: config.repository.branch_prefix,
       map_dir: normalizeMapDir(config.map.dir),
       // The deferred-work ledger's configured location. No built-in guidance

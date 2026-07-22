@@ -1,10 +1,10 @@
-# Working with discern
+# Working in {{project_name}}
 
-This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** — returning structured results.
-
-This file is compiled — discern's built-in operating guidance first, then the project's own guidance, the more specific authority: it wins on any conflict.
+The second half of this file is {{project_name}}'s own guidance — the final authority here. It wins on any conflict. discern's built-in guidance comes first so that it can.
 
 ## Operating discern
+
+This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …) — the **primary surface** — returning structured results.
 
 - **Orient first.** Call **`discern_status`** at session start for a cheap, read-only account of what's true and next.
 - **Starting a task? Get your own worktree — a separate checkout and branch for one change — first.** From the main checkout, run **`discern_start`**; it creates one and returns its path. Move into it and work only there, never on the trunk — the shared landing branch — or in another effort's worktree.

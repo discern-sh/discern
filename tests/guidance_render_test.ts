@@ -41,7 +41,7 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
     assert(
-      agents.startsWith("# Working with discern"),
+      agents.startsWith("# Working in this project"),
       "the canonical file opens with the guidance — no banner",
     );
     assertStringIncludes(
@@ -51,6 +51,37 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     );
     assert(agents.includes("A rule."), "the user source is appended");
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: the compiled file opens as the project's own — [project].name, else the slug", async () => {
+  const dir = await scaffold();
+  try {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+    );
+    let files = await renderAgentFiles(dir);
+    let agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assert(
+      agents.startsWith("# Working in voyager-2"),
+      "with no [project].name the H1 carries the slug verbatim",
+    );
+
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+    );
+    files = await renderAgentFiles(dir);
+    agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assert(
+      agents.startsWith("# Working in Voyager 2"),
+      "[project].name wins over the slug in the H1",
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -449,6 +480,10 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
     string,
     { toml: string; expect?: string; contextOnly?: boolean }
   > = {
+    project_name: {
+      toml: '[project]\nname = "ZZ Probe"\n[guidance]\nagents = ["codex"]\n',
+      expect: "ZZ Probe",
+    },
     branch_prefix: {
       toml:
         '[repository]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',

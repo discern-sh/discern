@@ -54,7 +54,7 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
     // attention spot is real guidance, not a deterrent (ADR 0034).
     const agentsMd = await Deno.readTextFile(join(tmp, "AGENTS.md"));
     assert(
-      agentsMd.startsWith("# Working with discern"),
+      agentsMd.startsWith("# Working in this project"),
       "expected the guidance itself at the top — no banner",
     );
     assert(
