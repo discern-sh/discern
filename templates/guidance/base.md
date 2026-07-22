@@ -1,6 +1,6 @@
 # Working in {{project_name}}
 
-The second half of this file is {{project_name}}'s own guidance — the final authority here. It wins on any conflict. discern's built-in guidance comes first so that it can.
+The second half of this file is {{project_name}}'s own project guidance. discern's built-in guidance comes first, so you understand how to work correctly with discern's tools and conventions, but the project guidance wins on any conflict.
 
 ## Operating discern
 

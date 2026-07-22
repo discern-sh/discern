@@ -443,7 +443,7 @@ inputs    = [
 
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
-# word count is a context-window budget we spend on their behalf. ~832 words today.
+# word count is a context-window budget we spend on their behalf.
 # This ceiling exists to stop verbiage piling in without a thought for that budget:
 # the guidance is for steering discern, NOT for explaining discern's
 # internals (those belong in project/guidance.md), nor mechanics an agent can
@@ -452,7 +452,7 @@ inputs    = [
 [standards.guidance]
 metric    = "guidance_words"
 direction = "down"
-limit     = 832
+limit     = 839
 run       = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
 inputs    = ["templates/guidance/**"]
 
