@@ -76,6 +76,25 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
+Deno.test("parity: tidy apply formats nothing the dry-run did not list", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.mkdir(join(dir, "map"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "map", "README.md"),
+      "# Map\n\n-   item\n",
+    );
+
+    const dry = await runAgent(dir, ["tidy", "md", "--dry-run", "--json"]);
+    assertEquals(dry.code, 0, dry.output);
+    const apply = await runAgent(dir, ["tidy", "md", "--json"]);
+    assertEquals(apply.code, 0, apply.output);
+
+    assert(appliedSet(apply.stdout).size > 0, "fixture formatted nothing");
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, "tidy");
+  });
+});
+
 Deno.test("parity: worktree prune apply removes nothing the dry-run didn't list", async () => {
   await withTempDir(async (dir) => {
     // A live, clean, fully-merged worktree → a real removal candidate.

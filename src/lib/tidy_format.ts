@@ -1,0 +1,175 @@
+import { createFromBuffer, type Formatter } from "@dprint/formatter";
+
+/** Pinned embedded plugin versions. An upgrade changes discern's convention. */
+export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
+export const TOML_PLUGIN_VERSION = "0.7.0";
+
+/** Fixed cross-plugin convention. These settings are not project-configurable. */
+const GLOBAL_CONFIG = {
+  indentWidth: 2,
+  lineWidth: 80,
+  newLineKind: "lf",
+  useTabs: false,
+} as const;
+
+export const MARKDOWN_CONFIG = {
+  textWrap: "never",
+} as const;
+
+export const TOML_CONFIG = {} as const;
+
+let markdownFormatter: Promise<Formatter> | undefined;
+let tomlFormatter: Promise<Formatter> | undefined;
+
+async function loadFormatter(
+  asset: string,
+  pluginConfig: Readonly<Record<string, unknown>>,
+): Promise<Formatter> {
+  const bytes = await Deno.readFile(
+    new URL(`./tidy_plugins/${asset}`, import.meta.url),
+  );
+  const formatter = createFromBuffer(bytes);
+  formatter.setConfig(GLOBAL_CONFIG, pluginConfig);
+  const diagnostics = formatter.getConfigDiagnostics();
+  if (diagnostics.length > 0) {
+    throw new Error(
+      `Invalid embedded formatter configuration: ${
+        JSON.stringify(diagnostics)
+      }`,
+    );
+  }
+  return formatter;
+}
+
+async function markdown(): Promise<Formatter> {
+  markdownFormatter ??= loadFormatter(
+    `markdown-${MARKDOWN_PLUGIN_VERSION}.wasm`,
+    MARKDOWN_CONFIG,
+  );
+  return await markdownFormatter;
+}
+
+async function toml(): Promise<Formatter> {
+  tomlFormatter ??= loadFormatter(
+    `toml-${TOML_PLUGIN_VERSION}.wasm`,
+    TOML_CONFIG,
+  );
+  return await tomlFormatter;
+}
+
+/**
+ * Format Markdown without formatting the contents of fenced code blocks.
+ *
+ * The Markdown plugin can recursively format a fence whose info string names a
+ * language it understands. `discern tidy` deliberately owns Markdown structure
+ * only, so each fence receives a collision-proof, per-call ignore directive. The
+ * directive is removed after formatting; the fenced block stays byte-for-byte
+ * unchanged.
+ */
+export async function formatMarkdownText(
+  filePath: string,
+  fileText: string,
+): Promise<string> {
+  const protectedCode = protectFencedCode(fileText);
+  const formatted = (await markdown()).formatText({
+    filePath,
+    fileText: protectedCode.text,
+  });
+  const output: string[] = [];
+  for (const line of formatted.split("\n")) {
+    const preserved = protectedCode.blocks.find(({ marker }) =>
+      line.includes(marker)
+    );
+    if (preserved === undefined) {
+      output.push(line);
+    } else {
+      output.push(...preserved.lines);
+    }
+  }
+  return output.join("\n");
+}
+
+interface ProtectedFencedCode {
+  text: string;
+  blocks: Array<{ marker: string; lines: string[] }>;
+}
+
+function protectFencedCode(fileText: string): ProtectedFencedCode {
+  let namespace = "discern-tidy-fenced-code";
+  while (fileText.includes(namespace)) {
+    namespace += "-next";
+  }
+
+  const output: string[] = [];
+  const blocks: ProtectedFencedCode["blocks"] = [];
+  let active:
+    | {
+      char: "`" | "~";
+      length: number;
+      prefix: string;
+      lines: string[];
+    }
+    | undefined;
+  for (const line of fileText.split("\n")) {
+    const match = /^((?:[ \t]{0,3}>[ \t]?)*[ \t]*)(`{3,}|~{3,})(.*)$/
+      .exec(line);
+    const prefix = match?.[1] ?? "";
+    const run = match?.[2];
+    const tail = match?.[3] ?? "";
+    if (active === undefined && run !== undefined) {
+      const char = run[0];
+      if (char === "`" || char === "~") {
+        active = { char, length: run.length, prefix, lines: [line] };
+        continue;
+      }
+    }
+    if (active !== undefined) {
+      active.lines.push(line);
+      if (
+        run !== undefined && run[0] === active.char &&
+        run.length >= active.length && tail.trim() === ""
+      ) {
+        const marker = `<!-- ${namespace}-${blocks.length} -->`;
+        output.push(`${active.prefix}${marker}`);
+        blocks.push({ marker, lines: active.lines });
+        active = undefined;
+      }
+      continue;
+    }
+    output.push(line);
+  }
+  if (active !== undefined) {
+    const marker = `<!-- ${namespace}-${blocks.length} -->`;
+    output.push(`${active.prefix}${marker}`);
+    blocks.push({ marker, lines: active.lines });
+  }
+  return { text: output.join("\n"), blocks };
+}
+
+export async function formatTomlText(
+  filePath: string,
+  fileText: string,
+): Promise<string> {
+  return (await toml()).formatText({ filePath, fileText });
+}
+
+/**
+ * Write root `discern.toml` bytes through the same convention `discern tidy
+ * toml` applies. Every production config writer uses this boundary so a setup,
+ * migration, pin, or programmatic edit is canonical before the next gate run.
+ */
+export async function writeDiscernToml(
+  filePath: string,
+  fileText: string,
+): Promise<void> {
+  await Deno.writeTextFile(filePath, await formatTomlText(filePath, fileText));
+}
+
+/** Canonicalize UTF-8 config bytes for a generic filesystem plan writer. */
+export async function formatDiscernTomlBytes(
+  filePath: string,
+  bytes: Uint8Array,
+): Promise<Uint8Array> {
+  const text = new TextDecoder().decode(bytes);
+  return new TextEncoder().encode(await formatTomlText(filePath, text));
+}

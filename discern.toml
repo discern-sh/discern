@@ -143,7 +143,7 @@ dir = "project/skills"
 # ─────────────────────────────────────────────────────────────────────────────
 
 [jobs]
-format    = "deno fmt"
+format    = ["deno fmt", "discern tidy"]
 build     = ["deno task codegen", "deno task site:build"]
 lint      = "deno lint"
 typecheck = "deno check"

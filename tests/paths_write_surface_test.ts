@@ -69,20 +69,17 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "src/commands/setup.ts",
     "setup: the guidance seed, the docs/TODO skeletons (registry-resolved), config provenance",
   ],
-  ["src/commands/config.ts", "the discern.toml writer (config set)"],
-  ["src/commands/upgrade.ts", "the discern.toml writer (migration re-stamp)"],
   [
     "src/commands/uninstall.ts",
     "the uninstall executor: removes registry-declared generated files and strips co-owned files (the write-surface inverse)",
   ],
-  ["src/commands/preset.ts", "the discern.toml writer (preset overlay)"],
   [
-    "src/engine/dispatch.ts",
-    "skills eject: the discern.toml writer + the configured skills dir",
+    "src/lib/tidy_format.ts",
+    "the canonical discern.toml writer shared by every config mutation path",
   ],
   [
-    "src/engine/gate/standards.ts",
-    "the discern.toml writer (standards --pin re-pins a standard limit)",
+    "src/engine/tidy/tidy.ts",
+    "the configured map, guidance, TODO, and root discern.toml formatter",
   ],
   [
     "src/lib/migrations.ts",

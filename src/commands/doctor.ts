@@ -132,6 +132,11 @@ function normalizeChecks(checks: DraftCheck[]): Check[] {
   return checks.map(normalizeCheck);
 }
 
+/** Whether a format-job command invokes bare or type-selected `discern tidy`. */
+function invokesDiscernTidy(command: string): boolean {
+  return /(?:^|[\s;&|/])discern[\t ]+tidy(?=$|[\s;&|])/.test(command);
+}
+
 /** `git --version` trimmed for a compact display ("git version 2.5.0" → "2.5.0").
  * The full string is preserved verbatim in the `--json` environment block. */
 function gitDisplayVersion(raw: string): string {
@@ -362,6 +367,36 @@ export async function runChecks(destDir: string): Promise<Check[]> {
       }
       : {}),
   });
+
+  // The template prewires discern's own formatter into the project's format job.
+  // Before setup completes, its absence almost certainly means the setup agent
+  // replaced the seed while adding a stack formatter, so fail loudly. Afterwards,
+  // removal is the documented opt-out: report the fact without warning or failure.
+  const tidyInFormatJob = toCommandList(config.jobs.format).some(
+    invokesDiscernTidy,
+  );
+  checks.push(
+    tidyInFormatJob
+      ? {
+        name: "tidy format job",
+        ok: true,
+        detail: "the format job includes `discern tidy`",
+      }
+      : config.meta.bootstrapped
+      ? {
+        name: "tidy format job",
+        ok: true,
+        detail:
+          "not in the format job (the project has opted out of automatic formatting for discern surfaces)",
+      }
+      : {
+        name: "tidy format job",
+        ok: false,
+        detail: "the format job does not invoke `discern tidy` during setup",
+        fix:
+          "restore `discern tidy` as the last format command; put the project's formatter before it",
+      },
+  );
 
   // 5. job commands resolve — the leading command word of each
   // declared command (the word `sh -c` would execute, past any env-assignment

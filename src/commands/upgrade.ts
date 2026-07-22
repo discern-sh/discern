@@ -63,6 +63,7 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
+import { writeDiscernToml } from "../lib/tidy_format.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -650,7 +651,7 @@ async function stampSchema(
 ): Promise<void> {
   const editor = new TomlEditor(await Deno.readTextFile(configPath));
   stampSchemaVersion(editor, version);
-  await Deno.writeTextFile(configPath, editor.toString());
+  await writeDiscernToml(configPath, editor.toString());
 }
 
 function operationToJson(op: ConfigReconcileOperation): {
@@ -699,7 +700,7 @@ async function reconcileConfigFile(
     };
   }
   if (result.text !== before) {
-    await Deno.writeTextFile(configPath, result.text);
+    await writeDiscernToml(configPath, result.text);
   }
   return {
     operations: result.operations,

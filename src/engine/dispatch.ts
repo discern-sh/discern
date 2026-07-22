@@ -33,6 +33,7 @@ import {
 import type { SkillsEjectData } from "../shared/result_schemas.ts";
 import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
+import { writeDiscernToml } from "../lib/tidy_format.ts";
 import { Logger } from "../lib/log.ts";
 import { runFinish } from "./gate/finish.ts";
 import { runImprovement } from "./improve/improve.ts";
@@ -93,6 +94,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "improvement",
   "standards",
   "refresh",
+  "tidy",
   "impact",
   "coupling",
   "patterns",
@@ -147,6 +149,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "improvement",
   "standards",
   "refresh",
+  "tidy",
   "impact",
   "coupling",
   "patterns",
@@ -429,6 +432,30 @@ export function attachEngineCommands(
         emitResult(res);
       }
       return res.ok ? 0 : 1;
+    }));
+
+  root
+    .command("tidy [type:string]")
+    .description(
+      "Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both.",
+    )
+    .option(
+      "--json",
+      "Emit the result as a JSON DiscernResult on stdout.",
+    )
+    .option(
+      "--dry-run",
+      "List the files that would change; touch nothing.",
+    )
+    .action(recordedExit("tidy", async (o, type: string | undefined) => {
+      // Keep the formatter host and embedded WASMs off every other verb's module
+      // path. The WASMs are read and instantiated only when tidy formats a file.
+      const { runTidy } = await import("./tidy/tidy.ts");
+      return await runTidy(await requireRoot(), {
+        ...(type !== undefined ? { type } : {}),
+        json: o.json ?? false,
+        dryRun: o.dryRun ?? false,
+      });
     }));
 
   attachSkillsCommand(root);
@@ -949,7 +976,7 @@ async function skillsEjectResult(
     if (!new RawConfig(text).has("skills.dir")) {
       const editor = new TomlEditor(text);
       editor.setString("skills.dir", cfg.skills.dir);
-      await Deno.writeTextFile(path, editor.toString());
+      await writeDiscernToml(path, editor.toString());
       skillsDirPersisted = true;
     }
     // Re-materialize so each agent's skills dir reflects the ejected override now

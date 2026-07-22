@@ -35,6 +35,7 @@ import {
   StartOutputSchema,
   StatusOutputSchema,
   TestOutputSchema,
+  TidyOutputSchema,
   UninstallOutputSchema,
   UpdateOutputSchema,
   UpgradeOutputSchema,
@@ -179,6 +180,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "refresh",
     schema: RefreshOutputSchema,
     mcpTool: "discern_refresh",
+  },
+  {
+    id: "tidy",
+    commands: ["tidy"],
+    verb: "tidy",
+    schema: TidyOutputSchema,
   },
   {
     id: "impact",

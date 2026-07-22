@@ -28,6 +28,7 @@ import {
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up discern";
@@ -372,6 +373,7 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
     );
+    await assertDiscernTomlTidy(dir, "setup completion marker");
   });
 });
 

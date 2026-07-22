@@ -28,6 +28,7 @@ import {
   tomlString,
   tomlStringArray,
 } from "../lib/toml_edit.ts";
+import { writeDiscernToml } from "../lib/tidy_format.ts";
 
 /** Options shared by every `config` subcommand (global flags folded in). */
 export interface ConfigOptions {
@@ -149,7 +150,7 @@ async function applyEdits(
     return 0;
   }
 
-  await Deno.writeTextFile(path, result);
+  await writeDiscernToml(path, result);
   const envelope: DiscernResult = {
     ok: true,
     verb: "config",

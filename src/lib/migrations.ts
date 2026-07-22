@@ -41,6 +41,8 @@ import {
   type SourcePathEntry,
   type SourcePathName,
 } from "../shared/paths_registry.ts";
+import { writeDiscernToml } from "./tidy_format.ts";
+import { CONFIG_REL } from "../shared/env.ts";
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2422,7 +2424,11 @@ export function createMigrationContext(
 
   async function writeText(rel: string, content: string): Promise<void> {
     await ensureDir(dirname(abs(rel)));
-    await Deno.writeTextFile(abs(rel), content);
+    if (rel === CONFIG_REL) {
+      await writeDiscernToml(abs(rel), content);
+    } else {
+      await Deno.writeTextFile(abs(rel), content);
+    }
   }
 
   async function remove(rel: string): Promise<void> {
@@ -2463,7 +2469,11 @@ export function createMigrationContext(
     }
     const next = fn(text);
     if (next !== text) {
-      await Deno.writeTextFile(abs(rel), next);
+      if (rel === CONFIG_REL) {
+        await writeDiscernToml(abs(rel), next);
+      } else {
+        await Deno.writeTextFile(abs(rel), next);
+      }
     }
   }
 
@@ -2488,7 +2498,11 @@ export function createMigrationContext(
     }
     const editor = new TomlEditor(text);
     fn(editor);
-    await Deno.writeTextFile(abs(rel), editor.toString());
+    if (rel === CONFIG_REL) {
+      await writeDiscernToml(abs(rel), editor.toString());
+    } else {
+      await Deno.writeTextFile(abs(rel), editor.toString());
+    }
   }
 
   async function mergeSettingsInto(

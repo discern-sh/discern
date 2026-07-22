@@ -29,6 +29,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 interface StandardSpec {
   name: string;
@@ -125,6 +126,7 @@ Deno.test("pin: tightens an up-standard floor to the measured value and commits"
     const cfg = await readConfig(dir);
     assertEquals(limitOf(cfg, "coverage"), "95");
     assertStringIncludes(cfg, "# hand-tuned baseline");
+    await assertDiscernTomlTidy(dir, "standards --pin");
 
     // Exactly one new commit, touching only discern.toml, with an audit body.
     const after = await gitOut(dir, "rev-parse", "HEAD");

@@ -1,0 +1,281 @@
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
+import { ensureDir, walk } from "@std/fs";
+import { dirname, fromFileUrl, join } from "@std/path";
+import { formatMarkdownText, formatTomlText } from "../src/lib/tidy_format.ts";
+import { planTidy, tidyResult } from "../src/engine/tidy/tidy.ts";
+import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
+import { scanRuledBanners } from "../src/lib/config_banners.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+
+const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
+
+function fencedBlocks(text: string): string[] {
+  const lines = text.split("\n");
+  const blocks: string[] = [];
+  let start: number | undefined;
+  let fence: { char: string; length: number } | undefined;
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i]?.trimStart() ?? "";
+    const run = /^(`{3,}|~{3,})/.exec(trimmed)?.[0];
+    if (fence === undefined && run !== undefined) {
+      start = i;
+      fence = { char: run[0] ?? "", length: run.length };
+    } else if (
+      fence !== undefined && run !== undefined && run[0] === fence.char &&
+      run.length >= fence.length && trimmed.slice(run.length).trim() === ""
+    ) {
+      blocks.push(lines.slice(start, i + 1).join("\n"));
+      start = undefined;
+      fence = undefined;
+    }
+  }
+  return blocks;
+}
+
+function commentLines(text: string): string[] {
+  return text.split("\n").filter((line) => line.trimStart().startsWith("#"));
+}
+
+async function write(path: string, text: string): Promise<void> {
+  await ensureDir(dirname(path));
+  await Deno.writeTextFile(path, text);
+}
+
+async function seedTidyProject(root: string): Promise<void> {
+  await write(
+    join(root, "discern.toml"),
+    [
+      "[meta]",
+      "bootstrapped=true",
+      "",
+      "[project]",
+      'todo="notes/TODO.md"',
+      "",
+      "[guidance]",
+      'sources=["instructions/*.md"]',
+      "",
+      "[skills]",
+      'dir="docs/skills"',
+      "",
+      "[map]",
+      'dir="docs/"',
+      "",
+    ].join("\n"),
+  );
+  await write(join(root, "docs", "README.md"), "# Map\n\n-   item\n");
+  await write(join(root, "notes", "TODO.md"), "# Todo\n\n-   item\n");
+  await write(
+    join(root, "instructions", "one.md"),
+    "# Guidance\n\n-   item\n",
+  );
+  await write(join(root, "docs", "skills", "one.md"), "#Skill\n");
+  await write(join(root, "discern", "brief.md"), "#Brief\n");
+}
+
+Deno.test("embedded formatters are deterministic and preserve fenced code and TOML comments", async () => {
+  const markdown = [
+    "# Heading  ",
+    "",
+    "```md",
+    "#Inner stays compact",
+    "-   fence spacing stays",
+    "```",
+    "",
+    "> ```js",
+    "> const nested={spacing:   'stays'};",
+    "> ```",
+    "",
+  ].join("\n");
+  const markdownOnce = await formatMarkdownText("example.md", markdown);
+  assertMatch(markdownOnce, /^# Heading$/m);
+  assertEquals(fencedBlocks(markdownOnce), fencedBlocks(markdown));
+  assertStringIncludes(
+    markdownOnce,
+    "> ```js\n> const nested={spacing:   'stays'};\n> ```",
+  );
+  assertEquals(
+    await formatMarkdownText("example.md", markdownOnce),
+    markdownOnce,
+  );
+
+  const toml = [
+    "# ── ruled banner ───────────────────────────",
+    "[project] # table comment",
+    'slug="example" # value comment',
+    "",
+  ].join("\n");
+  const tomlOnce = await formatTomlText("discern.toml", toml);
+  assertEquals(commentLines(tomlOnce), commentLines(toml));
+  assertEquals(await formatTomlText("discern.toml", tomlOnce), tomlOnce);
+});
+
+Deno.test("fresh setup writes tidy TOML without breaking ruled-banner regions", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { bootstrapped: false });
+    await assertDiscernTomlTidy(root, "setup scaffold");
+    const text = await Deno.readTextFile(join(root, "discern.toml"));
+    const identities = scanRuledBanners(text).map((banner) => banner.identity);
+    assert(
+      identities.length > 10,
+      "the scaffold should retain its ruled banners",
+    );
+    assert(identities.includes("jobs"));
+    assert(identities.includes("meta"));
+  });
+});
+
+Deno.test("tidy plans configured Markdown only, previews without writes, and becomes a no-op", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const originalMap = await Deno.readTextFile(
+      join(root, "docs", "README.md"),
+    );
+
+    const plan = await planTidy(root, "md");
+    assertEquals(
+      plan.changes.map((change) => change.display),
+      ["docs/README.md", "instructions/one.md", "notes/TODO.md"],
+    );
+
+    const preview = await tidyResult(root, { type: "md", dryRun: true });
+    assertEquals(preview.ok, true);
+    assertEquals(preview.dry_run, true);
+    assertEquals(preview.plan?.steps.length, 3);
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      originalMap,
+    );
+
+    const applied = await tidyResult(root, { type: "md" });
+    assertEquals(applied.ok, true);
+    assertEquals(applied.steps?.map((step) => step.outcome), [
+      "ok",
+      "ok",
+      "ok",
+    ]);
+    assertMatch(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      /^# Map/m,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "skills", "one.md")),
+      "#Skill\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, "discern", "brief.md")),
+      "#Brief\n",
+    );
+
+    const settled = await tidyResult(root, { type: "md" });
+    assertEquals(settled.ok, true);
+    assertEquals(settled.steps, []);
+  });
+});
+
+Deno.test("missing configured Markdown paths are a no-op success", async () => {
+  await withTempDir(async (root) => {
+    await write(
+      join(root, "discern.toml"),
+      [
+        "[project]",
+        'todo = "missing/TODO.md"',
+        "",
+        "[guidance]",
+        'sources = ["missing/guidance/*.md"]',
+        "",
+        "[map]",
+        'dir = "missing/map/"',
+        "",
+      ].join("\n"),
+    );
+
+    const result = await tidyResult(root, { type: "md" });
+    assertEquals(result.ok, true);
+    assertEquals(result.steps, []);
+  });
+});
+
+Deno.test("tidy CLI previews both types, applies selectors, and rejects an unknown selector", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const before = await Deno.readTextFile(join(root, "discern.toml"));
+
+    const preview = await runAgent(root, ["tidy", "--dry-run", "--json"]);
+    assertEquals(preview.code, 0);
+    const previewJson = JSON.parse(preview.stdout) as {
+      dry_run: boolean;
+      plan: { steps: Array<{ label: string }> };
+    };
+    assertEquals(previewJson.dry_run, true);
+    assert(
+      previewJson.plan.steps.some((step) => step.label === "discern.toml"),
+    );
+    assertEquals(await Deno.readTextFile(join(root, "discern.toml")), before);
+
+    const toml = await runAgent(root, ["tidy", "toml", "--json"]);
+    assertEquals(toml.code, 0);
+    assertMatch(
+      await Deno.readTextFile(join(root, "discern.toml")),
+      /bootstrapped = true/,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n-   item\n",
+    );
+
+    const invalid = await runAgent(root, ["tidy", "yaml", "--json"]);
+    assertEquals(invalid.code, 1);
+    const invalidJson = JSON.parse(invalid.stdout) as {
+      error: string;
+      message: string;
+    };
+    assertEquals(invalidJson.error, "invalid_tidy_type");
+    assertMatch(invalidJson.message, /discern tidy toml/);
+  });
+});
+
+Deno.test("a parse failure aborts bare tidy before any Markdown write", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const mapPath = join(root, "docs", "README.md");
+    const before = await Deno.readTextFile(mapPath);
+    await Deno.writeTextFile(join(root, "discern.toml"), "[project\n");
+
+    const result = await runAgent(root, ["tidy", "--json"]);
+    assertEquals(result.code, 1);
+    const json = JSON.parse(result.stdout) as { error: string };
+    assertEquals(json.error, "invalid_toml");
+    assertEquals(await Deno.readTextFile(mapPath), before);
+  });
+});
+
+Deno.test("the real map corpus and discern.toml are formatter-idempotent", async () => {
+  const mapRoot = join(REPO_ROOT, "project", "map");
+  let count = 0;
+  for await (
+    const entry of walk(mapRoot, { includeDirs: false, exts: [".md"] })
+  ) {
+    const before = await Deno.readTextFile(entry.path);
+    const once = await formatMarkdownText(entry.path, before);
+    assertEquals(
+      await formatMarkdownText(entry.path, once),
+      once,
+      entry.path,
+    );
+    assertEquals(fencedBlocks(once), fencedBlocks(before), entry.path);
+    count += 1;
+  }
+  assert(count > 300);
+
+  const configPath = join(REPO_ROOT, "discern.toml");
+  const before = await Deno.readTextFile(configPath);
+  const once = await formatTomlText(configPath, before);
+  assertEquals(await formatTomlText(configPath, once), once);
+  assertEquals(commentLines(once), commentLines(before));
+});

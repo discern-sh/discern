@@ -6,14 +6,13 @@
  * Forward: every declared set's single source resolves to a non-empty member
  * list, every declared guard exists and references its source, and every
  * declared artifact is committed with its banner or block markers, enrolled as
- * a codegen target, and either fmt-excluded or fmt-idempotent — the rewrite
- * loop between the formatter and the generator, cured as a class.
+ * a codegen target, and canonical under the embedded Markdown formatter — the
+ * rewrite loop between the formatter and the generator, cured as a class.
  *
  * Reverse: convention sweeps. Every conventionally named guard test, every
- * codegen write target, and every fmt-excluded map page must be claimed by a
- * declared set or recorded unaffiliated with a reason — exactly one of the
- * two. The pattern's observable footprint cannot grow without enrolling in
- * the pattern's own set.
+ * codegen write target must be claimed by a declared set or recorded
+ * unaffiliated with a reason — exactly one of the two. The pattern's observable
+ * footprint cannot grow without enrolling in the pattern's own set.
  *
  * The meta-layer only references the guards it names; none of them run or
  * change here. Synthetic controls prove each predicate discriminates.
@@ -36,6 +35,7 @@ import {
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -60,14 +60,6 @@ async function conventionalGuardFiles(): Promise<string[]> {
     }
   }
   return files.sort();
-}
-
-/** The repo's fmt exclude list, read from deno.json. */
-async function fmtExcludes(): Promise<string[]> {
-  const denoJson = JSON.parse(
-    await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  ) as { fmt?: { exclude?: string[] } };
-  return denoJson.fmt?.exclude ?? [];
 }
 
 // --- Predicates, pure over their inputs so the controls can inject fixtures.
@@ -124,28 +116,6 @@ function artifactOffenders(
       offenders.push(
         `${artifact.path} is declared a maintained block but carries no ` +
           "BEGIN/END GENERATED markers",
-      );
-    }
-  }
-  return offenders;
-}
-
-/** Offenders among fmt-excluded map pages: each must be a declared artifact. */
-function fmtExcludeSweepOffenders(
-  excludes: readonly string[],
-  entries: readonly CanonicalSetEntry[],
-): string[] {
-  const mapPrefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
-  const claimed = new Set(
-    entries.flatMap((entry) => entry.artifacts.map((a) => a.path)),
-  );
-  const offenders: string[] = [];
-  for (const exclude of excludes) {
-    if (!exclude.startsWith(mapPrefix)) continue;
-    if (!claimed.has(exclude)) {
-      offenders.push(
-        `${exclude} is fmt-excluded but no canonical set claims it — a map ` +
-          "page earns the exclusion by being a declared generated artifact",
       );
     }
   }
@@ -253,28 +223,28 @@ Deno.test("every declared artifact is committed with its banner or markers", asy
   );
 });
 
-Deno.test("every generated map page is fmt-excluded or fmt-idempotent", async () => {
-  const excludes = new Set(await fmtExcludes());
+Deno.test("every generated map page is tidy-canonical", async () => {
   const candidates = CANONICAL_SETS.flatMap((entry) =>
     entry.artifacts.filter((artifact) =>
       artifact.kind === "generated-file" &&
-      artifact.path.endsWith(".md") &&
-      !excludes.has(artifact.path)
+      artifact.path.endsWith(".md")
     ).map((artifact) => artifact.path)
   );
-  if (candidates.length === 0) return;
-  const check = await new Deno.Command("deno", {
-    args: ["fmt", "--check", ...candidates],
-    cwd: REPO_ROOT,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  assert(
-    check.success,
-    "a generated Markdown page is not fmt-stable — the formatter and the " +
-      "generator would rewrite it in opposite directions forever; make the " +
-      "renderer emit formatted output or add the page to fmt excludes:\n" +
-      new TextDecoder().decode(check.stderr),
+  const offenders: string[] = [];
+  for (const candidate of candidates) {
+    const path = join(REPO_ROOT, candidate);
+    const before = await Deno.readTextFile(path);
+    if (await formatMarkdownText(path, before) !== before) {
+      offenders.push(candidate);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "generated Markdown must leave codegen already tidy-canonical; route every " +
+      `Markdown write through the codegen chokepoint:\n  ${
+        offenders.join("\n  ")
+      }`,
   );
 });
 
@@ -292,6 +262,10 @@ Deno.test("codegen writes only through the enrolled chokepoint", async () => {
     text.includes("codegenWriteTargets()"),
     "scripts/codegen.ts no longer consults codegenWriteTargets() — the " +
       "write chokepoint lost its membership check",
+  );
+  assert(
+    text.includes("formatMarkdownText(path, text)"),
+    "scripts/codegen.ts no longer formats Markdown at the write chokepoint",
   );
   const writeCalls = text.split("await write(").length - 1;
   assertEquals(
@@ -356,18 +330,6 @@ Deno.test("every recorded codegen stray carries a reason and is still written", 
         "longer writes it — delete the stale record",
     );
   }
-});
-
-Deno.test("every fmt-excluded map page is a declared generated artifact", async () => {
-  const offenders = fmtExcludeSweepOffenders(
-    await fmtExcludes(),
-    CANONICAL_SETS,
-  );
-  assertEquals(
-    offenders,
-    [],
-    `the fmt-exclude sweep found strays:\n  ${offenders.join("\n  ")}`,
-  );
 });
 
 // --- Enrolments: every reference names a live member of the enrolling registry.
@@ -519,12 +481,4 @@ Deno.test("control: a bannerless artifact and a markerless block both offend", (
     1,
     "an uncommitted artifact must offend",
   );
-});
-
-Deno.test("control: an unclaimed fmt-excluded map page fails the sweep", () => {
-  const offenders = fmtExcludeSweepOffenders(
-    [`${REPO_AUTHORED_PATHS.mapRel}/70-reference/unclaimed.md`],
-    [CONTROL_ENTRY],
-  );
-  assertEquals(offenders.length, 1, "an unclaimed exclusion must offend");
 });

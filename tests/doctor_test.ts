@@ -182,6 +182,20 @@ async function setCapabilityRaw(
   );
 }
 
+/** Remove the seeded tidy job and optionally mark setup complete. */
+async function removeTidyFormatJob(
+  dir: string,
+  bootstrapped: boolean,
+): Promise<void> {
+  const p = join(dir, "discern.toml");
+  let text = await Deno.readTextFile(p);
+  text = text.replace(/^format\s*=\s*"discern tidy"\s*\n/m, "");
+  if (bootstrapped) {
+    text = text.replace("[meta]\n", "[meta]\nbootstrapped = true\n");
+  }
+  await Deno.writeTextFile(p, text);
+}
+
 /** Append a `[jobs.<name>]` table to the scaffold's config. */
 async function addCheck(
   dir: string,
@@ -197,7 +211,7 @@ async function addCheck(
   );
 }
 
-Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities are wired", async () => {
+Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     const { code, payload } = await runDoctorJson(dir);
@@ -217,10 +231,11 @@ Deno.test("doctor --json: a fresh install exits 0 and warns when no capabilities
       );
     }
     const capabilities = check(payload, "known jobs");
-    assertEquals(capabilities.status, "warn");
-    assertEquals(capabilities.warn, true);
-    assertStringIncludes(capabilities.detail, "none wired yet");
-    assertStringIncludes(capabilities.fix ?? "", "[jobs]");
+    assertEquals(capabilities.status, "ok");
+    assertStringIncludes(capabilities.detail, "format");
+    const tidy = check(payload, "tidy format job");
+    assertEquals(tidy.status, "ok");
+    assertStringIncludes(tidy.detail, "includes `discern tidy`");
     // The schema check names the current version.
     assertStringIncludes(check(payload, "schema version").detail, "current");
     // The git check reports the resolved version (triage context).
@@ -317,7 +332,8 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertStringIncludes(stderr, "discern 1.0.0 ·");
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
-    assertStringIncludes(stderr, "known jobs: none wired yet");
+    assertStringIncludes(stderr, "known jobs: wired: format");
+    assertStringIncludes(stderr, "tidy format job: the format job includes");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
     const modelAt = stderr.indexOf("Execution model");
@@ -538,6 +554,54 @@ Deno.test("doctor: a fresh install reports its wired capabilities", async () => 
   });
 });
 
+Deno.test("doctor: missing tidy fails during setup but is informational after bootstrap", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await removeTidyFormatJob(dir, false);
+
+    const duringSetup = await runDoctorJson(dir);
+    assertEquals(duringSetup.code, 1);
+    const failing = check(duringSetup.payload, "tidy format job");
+    assertEquals(failing.status, "fail");
+    assertStringIncludes(failing.detail, "during setup");
+    assertStringIncludes(failing.fix ?? "", "restore `discern tidy`");
+
+    const p = join(dir, "discern.toml");
+    const text = await Deno.readTextFile(p);
+    await Deno.writeTextFile(
+      p,
+      text.replace("[meta]\n", "[meta]\nbootstrapped = true\n"),
+    );
+
+    const afterSetup = await runDoctorJson(dir);
+    assertEquals(afterSetup.code, 0);
+    const informational = check(afterSetup.payload, "tidy format job");
+    assertEquals(informational.status, "ok");
+    assertEquals(informational.warn, undefined);
+    assertEquals(informational.fix, undefined);
+    assertStringIncludes(informational.detail, "opted out");
+  });
+});
+
+for (
+  const invocation of ["discern tidy", "discern tidy md", "discern tidy toml"]
+) {
+  Deno.test(`doctor: format job invocation '${invocation}' counts as tidy`, async () => {
+    await withTempDir(async (dir) => {
+      await setupInstall(dir);
+      const p = join(dir, "discern.toml");
+      const text = await Deno.readTextFile(p);
+      await Deno.writeTextFile(
+        p,
+        text.replace('format = "discern tidy"', `format = "${invocation}"`),
+      );
+      const { code, payload } = await runDoctorJson(dir);
+      assertEquals(code, 0, JSON.stringify(payload.data.checks));
+      assertEquals(check(payload, "tidy format job").status, "ok");
+    });
+  });
+}
+
 // The class guard for B29: doctor's "wired" verdict must mean the SAME thing the
 // gate/status/improve mean — a capability is wired iff `toCommandList` keeps a
 // command from it. Each no-op form below empties `toCommandList`, so doctor must
@@ -561,6 +625,7 @@ for (const { label, raw } of NOOP_CAPABILITY_VALUES) {
     );
     await withTempDir(async (dir) => {
       await setupInstall(dir);
+      await removeTidyFormatJob(dir, true);
       await setCapabilityRaw(dir, "test", raw);
       const { code, payload } = await runDoctorJson(dir);
       assertEquals(code, 0, JSON.stringify(payload.data.checks));
@@ -770,7 +835,7 @@ Deno.test("doctor reports custom jobs separately from known-job readiness", asyn
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     const jobs = check(payload, "known jobs");
-    assertStringIncludes(jobs.detail, "none wired yet");
+    assertStringIncludes(jobs.detail, "wired: format");
     assertStringIncludes(jobs.detail, "custom jobs: licenses");
   });
 });

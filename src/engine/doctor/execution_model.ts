@@ -139,6 +139,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     actor: "discern",
     hint: "Built-in: recompile the agent files and re-materialize the skills.",
   },
+  tidy: {
+    actor: "discern",
+    hint:
+      "Built-in: canonically format one Markdown or TOML file in discern's configured surface.",
+  },
   standard: {
     actor: "project",
     hint:

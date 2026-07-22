@@ -118,6 +118,8 @@ async function compileTarget(
     "--include",
     "templates",
     "--include",
+    "src/lib/tidy_plugins",
+    "--include",
     docsStageDir,
     "--target",
     target.triple,

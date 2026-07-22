@@ -35,6 +35,7 @@ import {
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
   thirdPartyBundlePayload,
+  VENDORED_WASM_COMPONENTS,
 } from "../src/shared/third_party_codegen.ts";
 import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
@@ -140,6 +141,34 @@ Deno.test("the embedded bundle serves the same notices document as the committed
     committed,
     "the bundled notices drifted from THIRD_PARTY_NOTICES — run `deno task codegen`",
   );
+});
+
+Deno.test("every vendored formatter WASM is registered and credited", async () => {
+  const directory = join(repoRoot, "src/lib/tidy_plugins");
+  const onDisk: string[] = [];
+  for await (const entry of Deno.readDir(directory)) {
+    if (entry.isFile && entry.name.endsWith(".wasm")) {
+      onDisk.push(`src/lib/tidy_plugins/${entry.name}`);
+    }
+  }
+  assertEquals(
+    onDisk.sort(),
+    VENDORED_WASM_COMPONENTS.map((component) => component.path).toSorted(),
+    "the vendored WASM directory and its notices registry have drifted",
+  );
+
+  const credited = committedComponents();
+  for (const component of VENDORED_WASM_COMPONENTS) {
+    assert(
+      credited.some((candidate) =>
+        candidate.name === component.name &&
+        candidate.version === component.version &&
+        candidate.registry === "vendored" &&
+        candidate.license === "MIT"
+      ),
+      `${component.name}@${component.version} is not credited in the embedded notices`,
+    );
+  }
 });
 
 /** `name@version` from a deno.lock npm key, dropping any `_peer` suffix. */

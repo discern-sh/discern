@@ -108,6 +108,7 @@ import {
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { parsePorcelainZ } from "../shared/git_paths.ts";
+import { writeDiscernToml } from "../lib/tidy_format.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import {
   assessSetupAssurance,
@@ -931,7 +932,7 @@ async function recordProvenance(
     changed = true;
   }
   if (changed) {
-    await Deno.writeTextFile(path, editor.toString());
+    await writeDiscernToml(path, editor.toString());
   }
 }
 
@@ -2296,7 +2297,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const editor = new TomlEditor(await Deno.readTextFile(path));
   editor.setBool(BOOTSTRAPPED_KEY, true);
-  await Deno.writeTextFile(path, editor.toString());
+  await writeDiscernToml(path, editor.toString());
 
   // Commit the marker on the agent's behalf when discern.toml's HEAD diff is exactly
   // that marker, so setup doesn't end with the completion marker left uncommitted

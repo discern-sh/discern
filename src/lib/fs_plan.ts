@@ -36,6 +36,8 @@ import {
   type SettingsSeed,
   settingsSeeds,
 } from "./providers.ts";
+import { CONFIG_REL } from "../shared/env.ts";
+import { formatDiscernTomlBytes } from "./tidy_format.ts";
 
 /** How an op relates to whatever is already on disk at its target. */
 export type OpDisposition =
@@ -430,7 +432,10 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
       throw new PlanApplyError(op, "ensure-dir", error);
     }
     try {
-      await Deno.writeFile(op.targetAbs, op.bytes);
+      const bytes = op.targetRel === CONFIG_REL
+        ? await formatDiscernTomlBytes(op.targetAbs, op.bytes)
+        : op.bytes;
+      await Deno.writeFile(op.targetAbs, bytes);
     } catch (error) {
       throw new PlanApplyError(op, "write", error);
     }
