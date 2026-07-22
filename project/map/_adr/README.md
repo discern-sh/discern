@@ -167,6 +167,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0173 — Trim the bundled skills to seven, and split delivery between skills and hints](0173-trim-the-bundled-skills-to-seven.md)
 - [0174 — Agent document discovery is regions, search, then canonical targets](0174-agent-document-discovery-funnel.md)
 - [0175 — The feature canon compiles from a feature registry](0175-the-feature-canon-compiles-from-a-feature-registry.md)
+- [0176 — The closed sets are a closed set](0176-the-closed-sets-are-a-closed-set.md)
 
 ## Superseded records
 

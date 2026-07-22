@@ -623,7 +623,7 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/engine_tree_drift_test.ts":
     "behavioral guard for the gate's strand detection; a pipeline invariant, not a member set",
   "tests/upgrade_git_guard_test.ts":
-    "behavioral guard for upgrade's clean-tree rule; a revertibility invariant, not a member set",
+    "behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set",
 };
 
 /**
