@@ -1337,6 +1337,20 @@ export const HINTS = {
       "Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.",
   }),
 
+  /** Green-gate humility: a passing gate is mechanical proof, not semantic
+   * proof. Fired only on a green run that emitted a receipt — the moment
+   * "done" is about to be claimed. Carries the discipline of the retired
+   * prove-it-works bundled skill (ADR 0173) at the moment it applies. */
+  "gate-prove-it-works": defineHint({
+    id: "gate-prove-it-works",
+    category: "guardrail",
+    audience: "agent",
+    when: "A green gate emits a receipt — before the agent offers it as done.",
+    example: undefined,
+    template: (): string =>
+      "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
+  }),
+
   "gate-relay-receipt": defineHint({
     id: "gate-relay-receipt",
     category: "next-step",

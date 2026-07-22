@@ -448,6 +448,19 @@ Rendered example:
 Start this worktree's dev server to view the previewable change.
 ```
 
+## `gate-prove-it-works`
+
+- Category: `guardrail`
+- Audience: `agent`
+- Family: —
+- Emitting context: A green gate emits a receipt — before the agent offers it as done.
+
+Rendered example:
+
+```text
+A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.
+```
+
 ## `gate-receipt-clear-failed`
 
 - Category: `next-step`
