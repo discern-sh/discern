@@ -11,7 +11,7 @@ Sections follow registry order. Member counts resolve from each set's single sou
 The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 28
+- Members: 29
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_plan_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
@@ -52,7 +52,7 @@ The gate's stage vocabulary and order.
 The result step vocabulary and the actor and hint doctor renders for every kind.
 
 - Source: `src/engine/doctor/execution_model.ts` — `STEP_KIND_ANNOTATIONS`
-- Members: 17
+- Members: 18
 - Guards: `tests/execution_model_test.ts`
 - Glossary: not enrolled — values in each result step; doctor explains every kind in context
 - Feature canon: described by the `doctor` node
@@ -124,7 +124,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 35
+- Members: 36
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface
@@ -135,7 +135,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon page: pillars, nodes, and surface claims.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 109
+- Members: 110
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -146,7 +146,7 @@ The feature registry behind the canon page: pillars, nodes, and surface claims.
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 32
+- Members: 33
 - Guards: `tests/result_codegen_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
@@ -167,7 +167,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 172
+- Members: 173
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary

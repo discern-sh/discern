@@ -217,7 +217,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Engine",
     definition:
-      "The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no stack commands of its own; its verbs run the jobs, scopes, standards, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).",
+      "The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](../50-engine-internals/).",
   },
   {
     term: "File ownership",
@@ -349,6 +349,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       "The shared branch accepted work lands on: `[repository].trunk`, usually `main`. Worktrees bring it in with `discern update` and land back on it with `discern accept`.",
     retired: [{ phrase: "integration branch" }],
+  },
+  {
+    term: "Tidy",
+    matches: ["discern tidy"],
+    definition:
+      "What `discern tidy` does: canonically format the configured [map](#map), deferred-work ledger, and [guidance sources](#guidance-source) as Markdown, plus the root `discern.toml` as TOML. Fresh installs invoke it through the [format job](#gate-job); removing that command is the opt-out. Covered in [Format discern-owned surfaces](../20-quality-gate/tidy.md).",
   },
   {
     term: "Update",

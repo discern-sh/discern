@@ -12,6 +12,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -63,6 +64,7 @@ Deno.test("config set-job fills a known job and preserves comments", async () =>
       toml,
       "# discern | https://discern.sh | project configuration file",
     );
+    await assertDiscernTomlTidy(dir, "config set-job");
   });
 });
 
@@ -534,7 +536,7 @@ Deno.test("config set preserves the edited line's inline comment", async () => {
     assertEquals(r.code, 0, r.stderr);
     assertStringIncludes(
       await readToml(dir),
-      "port = false   # deterministic dev-server port",
+      "port = false # deterministic dev-server port",
     );
   });
 });

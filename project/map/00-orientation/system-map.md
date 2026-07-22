@@ -82,5 +82,5 @@ main checkout ──discern start──► worktree ⟲ discern update
 
 - **No daemon, no server.** A verb spawns a process that runs and is gone when the command returns; work happens synchronously when you run `discern <verb>`.
 - **Persistent state lives in the repo.** `discern.toml` plus the git repository itself: branches, and linked worktrees in a sibling `<repo>.worktrees/` folder by default (configurable via `[worktree].root`). No manifest, no database, no external state.
-- **The only hard external dependency is `git`.** Your stack's own tools (the formatter, linter, and test runner named as jobs) are invoked by those jobs; discern bundles none of them.
+- **The only hard external dependency is `git`.** Your stack's own formatter, linter, and test runner are invoked as jobs; discern bundles none of those project tools. It does embed `discern tidy` for the map, guidance, TODO, and root config whose conventions discern owns.
 - **Concurrency is in-process.** Inside `done`, the parallel stages run their jobs as concurrent child processes, collected before the stage returns; the first failure cancels its running siblings (see [the quality gate](../20-quality-gate/)).

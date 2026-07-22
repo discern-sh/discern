@@ -325,6 +325,7 @@ Deno.test("execution model: every declared plan is always modeled (ADR 0101)", (
     "prepare",
     "test",
     "standards",
+    "tidy",
     "start",
     "worktree ensure",
     "update",

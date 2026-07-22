@@ -1303,6 +1303,9 @@ export const RefreshOutputSchema = resultOutputSchema(
   RefreshDataSchema,
 );
 
+/** `tidy` output: plan/steps only (except top-level config parse errors). */
+export const TidyOutputSchema = datalessResultOutputSchema("tidy");
+
 /** `status` output: envelope + the situation `data`. */
 export const StatusOutputSchema = resultOutputSchema(
   "status",

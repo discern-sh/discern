@@ -1,5 +1,7 @@
 # ADR 0150: Markdown prose is stored unwrapped
 
+> **Formatter amendment ([ADR 0178](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)):** Unwrapped storage remains the convention. The embedded formatter now enforces it for the configured map, guidance, and ledger; this repository excludes those paths from `deno fmt` and dogfoods `discern tidy` instead.
+
 **Status**: accepted
 
 ## Context

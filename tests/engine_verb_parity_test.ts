@@ -96,6 +96,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
     "skills", // a command group (skills list/eject)
     "mcp", // the server itself — it cannot expose itself as one of its tools
     "script", // arbitrary project executables own their arguments and output
+    "tidy", // embedded formatting is CLI-only for now
     // The interactive human surface: it wields supervisory actions over OTHER
     // efforts' worktrees, which the fleet-ownership rule forbids an agent —
     // deliberately CLI-only for `worktree drop`'s reason (ADR 0119).

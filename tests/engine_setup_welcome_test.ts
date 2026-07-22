@@ -192,17 +192,18 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
     const d =
       JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout).data;
     assertEquals(d.phase, "in_progress");
-    // Derived progress: the docs markers still pending and all known jobs unset.
+    // Derived progress: docs markers remain and only discern's seeded formatter
+    // is wired; every project-specific job is still unset.
     assert(
       Array.isArray(d.progress.pending_markers) &&
         d.progress.pending_markers.length > 0,
       `expected pending markers: ${JSON.stringify(d.progress)}`,
     );
     assertEquals(d.progress.known_jobs.length, 6);
-    assert(
-      d.progress.known_jobs.every((job: { wired: boolean }) => !job.wired),
-      "no known job is wired yet on a fresh scaffold",
+    const wired = d.progress.known_jobs.filter(
+      (job: { wired: boolean }) => job.wired,
     );
+    assertEquals(wired.map((job: { name: string }) => job.name), ["format"]);
   });
 });
 
@@ -477,7 +478,7 @@ Deno.test("setup done serves the completion message at parity across the human r
       const needle of [
         "Relay the message below to your human",
         "discern is set up",
-        "No quality checks are wired yet",
+        "Quality checks: 1 of 6 are wired and running",
         "start a fresh session",
       ]
     ) {

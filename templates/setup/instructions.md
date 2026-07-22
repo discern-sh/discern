@@ -2,7 +2,7 @@
 
 > **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for _you, the coding agent in this session_ — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. **These are your setup instructions** — you are reading them right now — discern intentionally hands you this brief over stdout.
 
-`discern setup begin` has just laid down discern's machinery — a `discern.toml` whose jobs are all unset, the agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate from a no-op into a real definition-of-done, then author the docs, the guidance, and the design principles from the project's own context. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
+`discern setup begin` has just laid down discern's machinery — a `discern.toml` with `discern tidy` prewired for discern's own surfaces but every project-specific job unset, the agent files, the merged settings, the MCP wiring — plus empty doc skeletons (only where the project had none). **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate into this project's real definition-of-done, then author the docs, the guidance, and the design principles from the project's own context. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
 
 ## Operating principles — read these first
 
@@ -119,13 +119,14 @@ files_to_read = [
   "discern.toml ([jobs])",
 ]
 must_do = [
-  "Inventory the stack signals and wire format/lint/typecheck/test/build/smoke via `discern config set-job`, committing each (the formatter first, its sweep on its own).",
+  "Inventory the stack signals and wire lint/typecheck/test/build/smoke via `discern config set-job`; when the project has a formatter, put it before the existing `discern tidy` entry in the format list. Commit each job (the formatter first, its sweep on its own).",
   "Run `discern refresh`, then `discern done` (or `discern prepare`), and watch the gate go green as you wire each job.",
   "Where the stack is missing a standard tool, propose adding it through the five beats — batching every new install into one clear go-ahead before anything is installed.",
 ]
 what_not_to_do = [
   "Do not wire a command you can't pin down — leave it as a comment beside the unset key.",
   "Do not leave a known job unset merely because the project hadn't adopted the obvious tool yet.",
+  "Do not replace or remove the seeded `discern tidy` command; keep it last in the format job.",
   "Do not install a new dependency without the user's go-ahead — an install is a genuine decision (network, third-party code, lockfile), not a narrate-and-proceed.",
 ]
 completion_check = "at least one known job is wired in discern.toml."
@@ -136,7 +137,7 @@ This is the one step where naming concrete ecosystems is right: you're detecting
 
 Inventory the repo for stack signals, then propose the `[jobs]` in **`discern.toml`** — the standard format / lint / typecheck / test / build command for each detected stack. Each known name maps to its command and derives the gate stage, so you never write a stage for one.
 
-**Use `discern config` to make the edits — it is comment-preserving and validated:**
+**Use `discern config` for the single-command edits — it is comment-preserving and validated:**
 
 ```sh
 discern config set-job test "<the project's test command>"
@@ -146,7 +147,13 @@ discern config set-scope native 'native/**' --gate "make -C native check"
 discern config set-standard coverage --direction up --limit 80 --run "<coverage tool>"
 ```
 
-Prefer these over hand-editing TOML. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.
+The format job already contains `discern tidy`. Keep it there. If the project has its own formatter, make the value a list with that formatter first and discern's formatter last:
+
+```text
+format = ["<the project's formatter>", "discern tidy"]
+```
+
+Prefer these over hand-editing TOML; the format list is the one edit that preserves two commands in order. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.
 
 **Setup is a chance to raise the project's floor, not just record it.** Where a stack is _missing_ a standard tool — no formatter, no linter, no type-checker, or even no test suite — proposing a well-established one (the conventional, well-regarded choice for the ecosystem, like those in the table below) is a real improvement, not overreach. Walk the user through _adding_ it in the five beats — recommend, say why, name `discern`, preserve their authority and the revert. One boundary: **installing a new dependency is a genuine decision, never a narrate-and-proceed** — an install reaches the network, pulls third-party code, may run install scripts, and edits the manifest and lockfile, which puts it squarely in the cost/security bucket above. Batch every proposed install into one clear go-ahead ("adding a formatter here means installing ‹the tool› — OK to install it?") — one question covering all of them, asked with the job recommendation — then proceed on the answer. _Wiring a tool the project already has_ stays narrate-and-proceed, and keep the other genuine pauses for the real decisions above (a paid, networked, or long-running command, or a true fork between legitimate alternatives).
 
@@ -177,8 +184,8 @@ Notes that keep the proposal honest:
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one known job with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas doc.** `setup begin` laid `{{map_dir}}80-development/done-gate-gotchas.md`; set `[project].gotchas_doc = "{{map_dir}}80-development/done-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
-- **Wire `format` first, and commit its sweep on its own.** The `format` job reformats the whole tree the first time it runs — and this step comes before the authoring exactly so that reflow lands on the unauthored scaffold, keeping every docs and guidance commit after it a clean content diff instead of tangling it with formatting noise. No formatter here but you intend to add one? A missing formatter is exactly the kind of well-established tool worth proposing (the install still needs the user's go-ahead — see above). Run `discern prepare` right after wiring it and commit that normalization as its own step, so the mechanical reflow never muddies a content commit.
-- **Leave a known job unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend adding that; see above). Avoid a bogus red gate on day one, but do not leave the whole gate empty: `doctor` warns on zero wired known jobs because that means `done` can pass without the built-in protections.
+- **Wire the project's formatter first, and commit its sweep on its own.** Keep `discern tidy` last in the format list: the project's formatter handles its stack, then `discern tidy` handles the map, guidance, TODO, and `discern.toml`. This step comes before the authoring so the first reflow lands on the unauthored scaffold, keeping every docs and guidance commit after it a clean content diff. No project formatter yet but you intend to add one? A missing formatter is exactly the kind of well-established tool worth proposing (the install still needs the user's go-ahead — see above). Run `discern prepare` right after wiring it and commit that normalization on its own.
+- **Leave a known job unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend adding that; see above). `discern tidy` protects discern's surfaces, but it does not test, lint, type-check, build, or smoke-test the project; wire the checks this project needs before calling setup complete.
 
 ---
 

@@ -11,6 +11,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 Deno.test("discern skills list shows the built-ins, and --json emits structured rows", async () => {
   await withTempDir(async (dir) => {
@@ -102,6 +103,31 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
         .isSymlink,
       "the override should materialize as a symlink",
     );
+  });
+});
+
+Deno.test("skills eject persists an omitted skills.dir in tidy-canonical TOML", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const configPath = join(dir, "discern.toml");
+    const config = await Deno.readTextFile(configPath);
+    await Deno.writeTextFile(
+      configPath,
+      config.replace('dir = "discern/skills"\n', ""),
+    );
+
+    const result = await runAgent(dir, [
+      "skills",
+      "eject",
+      "--json",
+      "discern-write-adr",
+    ]);
+    assertEquals(result.code, 0, result.output);
+    const output = JSON.parse(result.stdout) as {
+      data: { skills_dir_persisted: boolean };
+    };
+    assertEquals(output.data.skills_dir_persisted, true);
+    await assertDiscernTomlTidy(dir, "skills eject");
   });
 });
 

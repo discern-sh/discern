@@ -28,6 +28,7 @@ import {
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 const INSTRUCTIONS_H1 = "# Set up discern";
@@ -372,6 +373,7 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
     );
+    await assertDiscernTomlTidy(dir, "setup completion marker");
   });
 });
 
@@ -506,6 +508,11 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
     const refresh = await runAgent(dir, ["refresh"]);
     assert(!refresh.stderr.includes("isn't set up yet"));
     assertEquals(refresh.code, 0, refresh.output);
+    // `tidy` is prewired into the fresh format job, so setup's own gate must be
+    // able to invoke it before the completion marker exists.
+    const tidy = await runAgent(dir, ["tidy", "--json"]);
+    assert(!tidy.stderr.includes("isn't set up yet"));
+    assertEquals(tidy.code, 0, tidy.output);
     // `done` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
     // iterate while wiring capabilities during setup; it must NOT redirect.
     const finish = await runAgent(dir, ["done"]);
@@ -1860,7 +1867,7 @@ Deno.test("the brief wires the gate before any authoring, with a refresh before 
     gateStep < firstAuthoringStep,
     "the job step must precede the authoring steps",
   );
-  assertStringIncludes(brief, "Wire `format` first");
+  assertStringIncludes(brief, "Wire the project's formatter first");
 
   // Stale generated files fail `done`'s currency check, so the brief must sequence
   // `discern refresh` before the first gate run in the wiring step — otherwise the

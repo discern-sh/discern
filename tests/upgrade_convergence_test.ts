@@ -25,6 +25,7 @@ import {
   DISCERN_GITIGNORE_BEGIN,
   DISCERN_GITIGNORE_END,
 } from "../src/lib/agent_gitignore.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 const HISTORICAL_FIXTURES = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -63,6 +64,7 @@ async function upgrade(dir: string): Promise<any> {
   assertEquals(r.code, 0, r.stderr);
   const res = JSON.parse(r.stdout);
   await assertCurrentConfigValid(dir);
+  await assertDiscernTomlTidy(dir, "upgrade");
   return res;
 }
 

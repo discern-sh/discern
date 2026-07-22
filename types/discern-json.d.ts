@@ -24,6 +24,7 @@ export type DiscernSetupResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -49,6 +50,7 @@ export type DiscernSetupResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -166,6 +168,7 @@ export type DiscernSetupVerifyResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -191,6 +194,7 @@ export type DiscernSetupVerifyResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -280,6 +284,7 @@ export type DiscernSetupStepResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -305,6 +310,7 @@ export type DiscernSetupStepResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -378,6 +384,7 @@ export type DiscernSetupDoneResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -403,6 +410,7 @@ export type DiscernSetupDoneResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -503,6 +511,7 @@ export type DiscernSetupAcceptResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -528,6 +537,7 @@ export type DiscernSetupAcceptResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -595,6 +605,7 @@ export type DiscernUpgradeResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -620,6 +631,7 @@ export type DiscernUpgradeResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -734,6 +746,7 @@ export type DiscernUninstallResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -759,6 +772,7 @@ export type DiscernUninstallResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -826,6 +840,7 @@ export type DiscernDoctorResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -851,6 +866,7 @@ export type DiscernDoctorResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -917,6 +933,7 @@ export type DiscernDoctorResult = {
           | "setup-ensure"
           | "env"
           | "refresh"
+          | "tidy"
           | "standard";
         label: string;
         actor: "project" | "discern";
@@ -957,6 +974,7 @@ export type DiscernPresetResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -982,6 +1000,7 @@ export type DiscernPresetResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1055,6 +1074,7 @@ export type DiscernMapResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1080,6 +1100,7 @@ export type DiscernMapResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1201,6 +1222,7 @@ export type DiscernHelpResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1226,6 +1248,7 @@ export type DiscernHelpResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1347,6 +1370,7 @@ export type DiscernConfigResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1372,6 +1396,7 @@ export type DiscernConfigResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1439,6 +1464,7 @@ export type DiscernDoneResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1464,6 +1490,7 @@ export type DiscernDoneResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1589,6 +1616,7 @@ export type DiscernPrepareResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1614,6 +1642,7 @@ export type DiscernPrepareResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1675,6 +1704,7 @@ export type DiscernTestResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1700,6 +1730,7 @@ export type DiscernTestResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1761,6 +1792,7 @@ export type DiscernImprovementResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1786,6 +1818,7 @@ export type DiscernImprovementResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -1903,6 +1936,7 @@ export type DiscernStandardsResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -1928,6 +1962,7 @@ export type DiscernStandardsResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2006,6 +2041,7 @@ export type DiscernRefreshResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2031,6 +2067,7 @@ export type DiscernRefreshResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2080,7 +2117,7 @@ export type DiscernRefreshResult = {
   };
 };
 
-export type DiscernImpactResult = {
+export type DiscernTidyResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2104,6 +2141,7 @@ export type DiscernImpactResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2129,6 +2167,95 @@ export type DiscernImpactResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "tidy";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernImpactResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2192,6 +2319,7 @@ export type DiscernCouplingResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2217,6 +2345,7 @@ export type DiscernCouplingResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2300,6 +2429,7 @@ export type DiscernPatternsResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2325,6 +2455,7 @@ export type DiscernPatternsResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2430,6 +2561,7 @@ export type DiscernPatternsResetResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2455,6 +2587,7 @@ export type DiscernPatternsResetResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2523,6 +2656,7 @@ export type DiscernStatusResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2548,6 +2682,7 @@ export type DiscernStatusResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2683,6 +2818,7 @@ export type DiscernStartResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2708,6 +2844,7 @@ export type DiscernStartResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2775,6 +2912,7 @@ export type DiscernAcceptResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2800,6 +2938,7 @@ export type DiscernAcceptResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -2892,6 +3031,7 @@ export type DiscernUpdateResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -2917,6 +3057,7 @@ export type DiscernUpdateResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3004,6 +3145,7 @@ export type DiscernWorktreeSetupResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3029,6 +3171,7 @@ export type DiscernWorktreeSetupResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3090,6 +3233,7 @@ export type DiscernWorktreeTeardownResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3115,6 +3259,7 @@ export type DiscernWorktreeTeardownResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3176,6 +3321,7 @@ export type DiscernWorktreeDropResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3201,6 +3347,7 @@ export type DiscernWorktreeDropResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3262,6 +3409,7 @@ export type DiscernWorktreePruneResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3287,6 +3435,7 @@ export type DiscernWorktreePruneResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3348,6 +3497,7 @@ export type DiscernSkillsListResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3373,6 +3523,7 @@ export type DiscernSkillsListResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3442,6 +3593,7 @@ export type DiscernSkillsEjectResult = {
         | "setup-ensure"
         | "env"
         | "refresh"
+        | "tidy"
         | "standard";
       label: string;
       disposition: "run" | "skip" | "gate";
@@ -3467,6 +3619,7 @@ export type DiscernSkillsEjectResult = {
       | "setup-ensure"
       | "env"
       | "refresh"
+      | "tidy"
       | "standard";
     label: string;
     disposition: "run" | "skip" | "gate";
@@ -3534,6 +3687,7 @@ export type DiscernCliJsonResult =
   | DiscernImprovementResult
   | DiscernStandardsResult
   | DiscernRefreshResult
+  | DiscernTidyResult
   | DiscernImpactResult
   | DiscernCouplingResult
   | DiscernPatternsResult
@@ -3568,6 +3722,7 @@ export interface DiscernResultByVerb {
   improvement: DiscernImprovementResult;
   standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
+  tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   patterns: DiscernPatternsResult;
@@ -3607,6 +3762,7 @@ export interface DiscernResultByCommand {
   improvement: DiscernImprovementResult;
   standards: DiscernStandardsResult;
   refresh: DiscernRefreshResult;
+  tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
   patterns: DiscernPatternsResult;

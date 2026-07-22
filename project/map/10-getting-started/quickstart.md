@@ -32,7 +32,7 @@ The agent runs `discern`, and discern walks it through a staged setup ([ADR 0075
 
 Answer in plain language — "yes, go ahead; set up Claude Code and Codex." The agent can't proceed until you've said yes ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-Setup then happens as ordinary file edits on a separate `discern-setup` branch, so your `main` is untouched until you land it. The agent wires your gate commands first: format, lint, test, whatever your stack runs. Then it fills in guidance and the first docs under that live gate. From that point on, every agent you configured reads the same compiled instructions and runs the same commands.
+Setup then happens as ordinary file edits on a separate `discern-setup` branch, so your `main` is untouched until you land it. The format job already contains `discern tidy` for discern-owned Markdown and the root config; the agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first docs under that live gate. From that point on, every agent you configured reads the same compiled instructions and runs the same commands.
 
 ## 3. Let setup prove itself
 

@@ -17,6 +17,7 @@ import {
   PROVIDER_LOCAL,
 } from "../src/shared/file_ownership.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 Deno.test("every canonical project artifact declares one File ownership answer", () => {
   const entries = projectArtifactPaths(parseConfigOrThrow(""));
@@ -86,12 +87,14 @@ Deno.test("the ownership references match the canonical enumeration", async () =
       "80-development/install-surface.md",
     ]
   ) {
-    const committed = await Deno.readTextFile(
-      `${REPO_AUTHORED_PATHS.map}/${rel}`,
-    );
+    const path = `${REPO_AUTHORED_PATHS.map}/${rel}`;
+    const committed = await Deno.readTextFile(path);
     assertEquals(
       committed,
-      replaceArtifactInventory(committed, inventory),
+      await canonicalGeneratedMarkdown(
+        path,
+        replaceArtifactInventory(committed, inventory),
+      ),
       `${REPO_AUTHORED_PATHS.mapRel}/${rel} is stale — run \`deno task codegen\``,
     );
   }

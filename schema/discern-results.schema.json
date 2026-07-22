@@ -58,6 +58,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -117,6 +118,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -588,6 +590,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -647,6 +650,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -966,6 +970,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -1025,6 +1030,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -1286,6 +1292,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -1345,6 +1352,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -1723,6 +1731,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -1782,6 +1791,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -2010,6 +2020,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -2069,6 +2080,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -2527,6 +2539,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -2586,6 +2599,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -2819,6 +2833,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -2878,6 +2893,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -3099,6 +3115,7 @@
                                 "setup-ensure",
                                 "env",
                                 "refresh",
+                                "tidy",
                                 "standard"
                               ]
                             },
@@ -3224,6 +3241,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -3283,6 +3301,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -3546,6 +3565,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -3605,6 +3625,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -4050,6 +4071,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -4109,6 +4131,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -4554,6 +4577,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -4613,6 +4637,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -4844,6 +4869,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -4903,6 +4929,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -5343,6 +5370,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -5402,6 +5430,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -5599,6 +5628,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -5658,6 +5688,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -5855,6 +5886,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -5914,6 +5946,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -6368,6 +6401,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -6427,6 +6461,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -6712,6 +6747,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -6771,6 +6807,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -6995,8 +7032,8 @@
         "verb"
       ]
     },
-    "DiscernImpactResult": {
-      "title": "DiscernImpactResult",
+    "DiscernTidyResult": {
+      "title": "DiscernTidyResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -7041,6 +7078,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -7100,6 +7138,265 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "tidy"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "message"
+                ]
+              }
+            }
+          },
+          "required": [
+            "issues"
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ]
+    },
+    "DiscernImpactResult": {
+      "title": "DiscernImpactResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "guidance-check",
+                      "skills-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "guidance-check",
+                  "skills-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -7315,6 +7612,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -7374,6 +7672,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -7682,6 +7981,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -7741,6 +8041,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -8180,6 +8481,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -8239,6 +8541,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -8478,6 +8781,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -8537,6 +8841,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -9078,6 +9383,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -9137,6 +9443,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -9364,6 +9671,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -9423,6 +9731,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -9721,6 +10030,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -9780,6 +10090,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -10113,6 +10424,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -10172,6 +10484,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -10369,6 +10682,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -10428,6 +10742,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -10625,6 +10940,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -10684,6 +11000,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -10881,6 +11198,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -10940,6 +11258,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -11137,6 +11456,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -11196,6 +11516,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -11439,6 +11760,7 @@
                       "setup-ensure",
                       "env",
                       "refresh",
+                      "tidy",
                       "standard"
                     ]
                   },
@@ -11498,6 +11820,7 @@
                   "setup-ensure",
                   "env",
                   "refresh",
+                  "tidy",
                   "standard"
                 ]
               },
@@ -12322,6 +12645,9 @@
           "$ref": "#/$defs/DiscernRefreshResult"
         },
         {
+          "$ref": "#/$defs/DiscernTidyResult"
+        },
+        {
           "$ref": "#/$defs/DiscernImpactResult"
         },
         {
@@ -12385,6 +12711,7 @@
           "improvement": "#/$defs/DiscernImprovementResult",
           "standards": "#/$defs/DiscernStandardsResult",
           "refresh": "#/$defs/DiscernRefreshResult",
+          "tidy": "#/$defs/DiscernTidyResult",
           "impact": "#/$defs/DiscernImpactResult",
           "coupling": "#/$defs/DiscernCouplingResult",
           "patterns": "#/$defs/DiscernPatternsResult",
@@ -12623,6 +12950,14 @@
       "mcpTool": "discern_refresh",
       "schema": "#/$defs/DiscernRefreshResult",
       "mcpToolResultSchema": "#/$defs/DiscernRefreshMcpToolResult"
+    },
+    {
+      "id": "tidy",
+      "verb": "tidy",
+      "commands": [
+        "tidy"
+      ],
+      "schema": "#/$defs/DiscernTidyResult"
     },
     {
       "id": "impact",

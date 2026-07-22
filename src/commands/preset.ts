@@ -37,6 +37,7 @@ import {
   type DiscernConfigDoc,
   docHasFills,
 } from "../lib/config_doc.ts";
+import { writeDiscernToml } from "../lib/tidy_format.ts";
 
 /** The reserved metadata filename at a preset root (never scaffolded). */
 const PRESET_MANIFEST = "preset.json";
@@ -295,7 +296,7 @@ export async function runPreset(
 
   const changed = await applyPlan(plan);
   if (filledToml !== undefined) {
-    await Deno.writeTextFile(configPath, filledToml);
+    await writeDiscernToml(configPath, filledToml);
   }
   if (options.json) {
     log.result({

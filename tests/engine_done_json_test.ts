@@ -88,7 +88,7 @@ function hasDroppedC0Control(s: string): boolean {
   });
 }
 
-Deno.test("done --json: a no-op gate emits ok:true, verb, and no job steps", async () => {
+Deno.test("done --json: a fresh gate runs only its embedded format job", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -105,12 +105,17 @@ Deno.test("done --json: a no-op gate emits ok:true, verb, and no job steps", asy
         obj.data.gate_receipt.path.length > 0,
       `expected a receipt path, got ${JSON.stringify(obj.data.gate_receipt)}`,
     );
-    // The default install wires no capability/check, so no JOB-kind step ran.
+    // A fresh install wires only discern's own formatter. Project-specific
+    // capabilities remain unset until setup discovers the stack.
     const jobs = obj.steps.filter((s: { kind: string }) => s.kind === "job");
     assertEquals(
-      jobs.length,
-      0,
-      `expected zero job steps on a no-op gate, got ${JSON.stringify(jobs)}`,
+      jobs.map((step: { label: string; note: string; outcome: string }) => ({
+        label: step.label,
+        note: step.note,
+        outcome: step.outcome,
+      })),
+      [{ label: "format", note: "discern tidy", outcome: "ok" }],
+      `expected only the embedded format job, got ${JSON.stringify(jobs)}`,
     );
     assert(Array.isArray(obj.data.scopes_changed));
     // No failure → the diagnostics field is omitted entirely.

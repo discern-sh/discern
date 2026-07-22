@@ -54,6 +54,7 @@ import {
   StatusOutputSchema,
   StepResultJsonSchema,
   TestOutputSchema,
+  TidyOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
@@ -77,6 +78,7 @@ import {
 import { improvementResult } from "../src/engine/improve/improve.ts";
 import { helpResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
+import { tidyResult } from "../src/engine/tidy/tidy.ts";
 import {
   acceptResult,
   lifecycleContext,
@@ -188,6 +190,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "prepare",
   "standards",
   "refresh",
+  "tidy",
   "impact",
   "skillsList",
   "start",
@@ -435,6 +438,18 @@ Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)
     assertEquals(partial.ok, false);
     assertEquals(partial.error, "partial_refresh");
     expectValid(RefreshOutputSchema, partial, "refresh partial");
+  });
+});
+
+Deno.test("tidy result is faithful in preview and apply modes", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    expectValid(
+      TidyOutputSchema,
+      await tidyResult(dir, { dryRun: true }),
+      "tidy preview",
+    );
+    expectValid(TidyOutputSchema, await tidyResult(dir), "tidy apply");
   });
 });
 
@@ -867,6 +882,10 @@ Deno.test("update result is faithful (dry-run prediction and applied data-bearin
 Deno.test("accept result is faithful (dry-run plan and applied gate-validation data)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad");
     const ctx = await lifecycleContext(
@@ -880,6 +899,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-rerun");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
@@ -887,7 +910,6 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       wt,
       new Logger({ json: true, noColor: true }),
     );
-
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
@@ -896,6 +918,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-receipt");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");

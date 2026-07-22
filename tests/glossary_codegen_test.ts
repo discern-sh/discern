@@ -7,6 +7,7 @@ import {
 } from "../scripts/glossary_registry.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 // These prove the committed glossary page stays in lockstep with the term
 // registry (the same drift-guard discipline as the config and CLI references):
@@ -14,12 +15,11 @@ import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 // the gate's test stage.
 
 Deno.test("the configured map's glossary matches the generator (run `deno task codegen`)", async () => {
-  const committed = await Deno.readTextFile(
-    `${REPO_AUTHORED_PATHS.map}/00-orientation/glossary.md`,
-  );
+  const path = `${REPO_AUTHORED_PATHS.map}/00-orientation/glossary.md`;
+  const committed = await Deno.readTextFile(path);
   assertEquals(
     committed,
-    renderGlossaryDoc(),
+    await canonicalGeneratedMarkdown(path, renderGlossaryDoc()),
     `${REPO_AUTHORED_PATHS.mapRel}/00-orientation/glossary.md is stale — run \`deno task codegen\``,
   );
 });

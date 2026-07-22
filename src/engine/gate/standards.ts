@@ -86,6 +86,7 @@ import {
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
 import { assertMainMerged } from "../worktree/git.ts";
+import { writeDiscernToml } from "../../lib/tidy_format.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
@@ -1137,7 +1138,7 @@ async function applyPinEdits(
     for (const p of pins) {
       editor.setNumber(`standards.${p.standard.name}.limit`, p.newLimit);
     }
-    await Deno.writeTextFile(path, editor.toString());
+    await writeDiscernToml(path, editor.toString());
   } catch (error) {
     return await failWithRollback(
       `could not rewrite ${rel}: ${errText(error)}`,

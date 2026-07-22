@@ -34,6 +34,7 @@
     "jsr:@std/yaml@^1.0.5": "1.1.1",
     "jsr:@zod/zod@4": "4.4.3",
     "jsr:@zod/zod@^4.4.3": "4.4.3",
+    "npm:@dprint/formatter@0.5.1": "0.5.1",
     "npm:@modelcontextprotocol/sdk@^1.29.0": "1.29.0_zod@4.4.3",
     "npm:@types/jsdom@21.1.7": "21.1.7",
     "npm:@types/react-dom@18.3.1": "18.3.1",
@@ -200,6 +201,9 @@
     },
     "@csstools/css-tokenizer@3.0.4": {
       "integrity": "sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw=="
+    },
+    "@dprint/formatter@0.5.1": {
+      "integrity": "sha512-cdZUrm0iv/FnnY3CKE2dEcVhNEzrC551aE2h2mTFwQCRBrqyARLDnb7D+3PlXTUVp3s34ftlnGOVCmhLT9DeKA=="
     },
     "@hono/node-server@1.19.14_hono@4.12.27": {
       "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
@@ -964,6 +968,7 @@
       "jsr:@std/toml@^1.0.2",
       "jsr:@std/yaml@^1.0.5",
       "jsr:@zod/zod@^4.4.3",
+      "npm:@dprint/formatter@0.5.1",
       "npm:@modelcontextprotocol/sdk@^1.29.0",
       "npm:@types/jsdom@21.1.7",
       "npm:@types/react-dom@18.3.1",

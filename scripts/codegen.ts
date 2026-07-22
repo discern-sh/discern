@@ -54,6 +54,7 @@ import {
   REGISTRY_ATLAS_PAGE_REL,
   renderRegistryAtlasDoc,
 } from "./canonical_sets.ts";
+import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -111,18 +112,21 @@ async function write(
     );
   }
   const path = join(repoRoot, rel);
+  const canonicalText = rel.endsWith(".md")
+    ? await formatMarkdownText(path, text)
+    : text;
   let before: string | undefined;
   try {
     before = await Deno.readTextFile(path);
   } catch {
     before = undefined;
   }
-  if (before !== undefined && equivalent(before, text)) {
+  if (before !== undefined && equivalent(before, canonicalText)) {
     console.log(`  unchanged  ${rel}`);
     return;
   }
   await Deno.mkdir(dirname(path), { recursive: true });
-  await Deno.writeTextFile(path, text);
+  await Deno.writeTextFile(path, canonicalText);
   console.log(`  ${before === undefined ? "created  " : "updated  "} ${rel}`);
 }
 

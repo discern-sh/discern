@@ -7,6 +7,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { type HintDef, HINTS } from "../src/shared/hints.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const rendered = renderHintInventoryDoc();
 const defs = Object.values(HINTS) as unknown as readonly HintDef<unknown>[];
@@ -18,9 +19,10 @@ async function committedInventory(): Promise<string> {
 }
 
 Deno.test("the configured map's hint inventory matches the generator (run `deno task codegen`)", async () => {
+  const path = `${REPO_AUTHORED_PATHS.map}/_internal/hint-inventory.md`;
   assertEquals(
     await committedInventory(),
-    rendered,
+    await canonicalGeneratedMarkdown(path, rendered),
     `${REPO_AUTHORED_PATHS.mapRel}/_internal/hint-inventory.md is stale — run \`deno task codegen\``,
   );
 });

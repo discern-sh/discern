@@ -31,9 +31,14 @@
  */
 
 import { gunzipSync, gzipSync } from "zlib";
+import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
+import {
+  MARKDOWN_PLUGIN_VERSION,
+  TOML_PLUGIN_VERSION,
+} from "../lib/tidy_format.ts";
 
 /** A component resolved to its verbatim license text. */
 export interface ResolvedComponent extends ThirdPartyComponent {
@@ -72,6 +77,26 @@ export const THIRD_PARTY_ARTIFACT_PATHS = {
 const LICENSE_OVERRIDES: Readonly<
   Record<string, { readonly license: string; readonly text: string }>
 > = {};
+
+/**
+ * Non-module assets embedded by `deno compile --include`. The module graph
+ * cannot discover raw WASM files, so this small registry is the complementary
+ * source of truth; its closedness is guarded against the vendored directory.
+ */
+export const VENDORED_WASM_COMPONENTS = [
+  {
+    name: "dprint-plugin-markdown",
+    version: MARKDOWN_PLUGIN_VERSION,
+    path: `src/lib/tidy_plugins/markdown-${MARKDOWN_PLUGIN_VERSION}.wasm`,
+    license: "MIT",
+  },
+  {
+    name: "dprint-plugin-toml",
+    version: TOML_PLUGIN_VERSION,
+    path: `src/lib/tidy_plugins/toml-${TOML_PLUGIN_VERSION}.wasm`,
+    license: "MIT",
+  },
+] as const;
 
 // ── the compile graph ─────────────────────────────────────────────────────────
 
@@ -339,6 +364,28 @@ async function resolveJsrComponent(
   };
 }
 
+async function resolveVendoredWasmComponent(
+  repoRoot: string,
+  component: (typeof VENDORED_WASM_COMPONENTS)[number],
+): Promise<ResolvedComponent> {
+  const bytes = await Deno.readFile(join(repoRoot, component.path));
+  const licenseText = normalizeLicenseText(
+    createFromBuffer(bytes).getLicenseText(),
+  );
+  if (licenseText === "") {
+    throw new Error(
+      `${component.name}@${component.version} embeds no license text`,
+    );
+  }
+  return {
+    name: component.name,
+    version: component.version,
+    registry: "vendored",
+    license: component.license,
+    licenseText,
+  };
+}
+
 // ── rendering ─────────────────────────────────────────────────────────────────
 
 const RULE = "-".repeat(78);
@@ -369,9 +416,10 @@ export function renderThirdPartyNotices(
     "=".repeat(78),
     "",
     "The discern binary bundles the third-party, open-source components listed",
-    "below: every package in the compile graph of src/main.ts, with npm",
-    "dependencies at package granularity - the same resolution `deno compile`",
-    "embeds. Each component's license text (including its copyright notices) is",
+    "below: every package in the compile graph of src/main.ts, plus every raw",
+    "asset in the vendored-component registry. Npm dependencies are credited at",
+    "package granularity - the same resolution `deno compile` embeds. Each",
+    "component's license text (including its copyright notices) is",
     "reproduced verbatim from the package's own LICENSE file, as those licenses",
     "require.",
     "",
@@ -490,8 +538,13 @@ export async function generateThirdPartyArtifacts(
   const npm = await Promise.all(
     npmClosureOf(graph).map((pkg) => resolveNpmComponent(pkg, storeDir)),
   );
+  const vendored = await Promise.all(
+    VENDORED_WASM_COMPONENTS.map((component) =>
+      resolveVendoredWasmComponent(options.repoRoot, component)
+    ),
+  );
 
-  const components = [...jsr, ...npm].sort((a, b) =>
+  const components = [...jsr, ...npm, ...vendored].sort((a, b) =>
     a.name.localeCompare(b.name) || a.version.localeCompare(b.version)
   );
 

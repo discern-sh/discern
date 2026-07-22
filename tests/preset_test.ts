@@ -17,6 +17,7 @@ import {
   docHasFills,
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 /** Absolute path to the fixture presets dir (passed via DISCERN_PRESETS_DIR). */
 const FIXTURE_PRESETS = join(
@@ -80,6 +81,7 @@ Deno.test("preset overlays the example preset's files and config fills", async (
       toml,
       "# discern | https://discern.sh | project configuration file",
     ); // comment survived
+    await assertDiscernTomlTidy(dir, "preset config fills");
   });
 });
 

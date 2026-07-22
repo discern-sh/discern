@@ -61,6 +61,7 @@ export const STEP_KINDS = [
   "setup-ensure", // a [worktree.setup].ensure command (convergent, every pass)
   "env", // record port / inherit env / resource handles
   "refresh", // recompile agent guidance + skills
+  "tidy", // canonically format a discern-convention source file
   "standard", // measure a metric and compare it to its limit
 ] as const;
 /** One engine operation kind ({@link STEP_KINDS}). */

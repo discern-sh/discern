@@ -17,7 +17,7 @@ _The mental model in one read: what discern is, the pieces it installs, and the 
 
 Your repo declares what "done" means once, in one file: `discern.toml`. It names the commands your project runs (format, lint, typecheck, test, build, smoke), and discern turns them into the rails every coding agent works within: a quality gate, an isolated [worktree](glossary.md#worktree) per change, and one set of instructions each agent reads.
 
-The engine inside discern never learns your stack. It runs the [gate jobs](glossary.md#gate-job) and [scope](glossary.md#scope) gates named by your config. Fill in the commands once and the same binary gates a Rust crate, a Rails app, or a monorepo holding both.
+The engine inside discern never learns your stack. It runs the [gate jobs](glossary.md#gate-job) and [scope](glossary.md#scope) gates named by your config. [`discern tidy`](glossary.md#tidy) handles discern-owned Markdown and the root config through the same jobs table. Fill in the project commands once and the same binary gates a Rust crate, a Rails app, or a monorepo holding both.
 
 ## One binary, a small footprint
 

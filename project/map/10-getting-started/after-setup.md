@@ -34,6 +34,8 @@ The `discern/` namespace contains authored material only. Generated copies do no
 
 `discern.toml` is the root configuration file. You own its values and ordinary comments. `discern upgrade` may restore missing fixed sections or keys and refresh discern-owned ruled banners from the current template; it does not replace values you set.
 
+Fresh setup leaves `discern tidy` in the format job. It canonically formats the map, guidance sources, deferred-work ledger, and root config; if the project has its own formatter, that command runs first. Remove the tidy entry to opt out. See [Format discern-owned surfaces](../20-quality-gate/tidy.md) for the exact boundary.
+
 The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rules outside that block. discern rebuilds the block from the artifact registry so it ignores materialized skills and machine-local settings without sweeping up unrelated files.
 
 Each selected coding agent also has integration files. discern adds its own MCP server, hooks, and permission defaults to the provider's existing configuration, leaving unrelated entries in place. The [agent integration guides](../60-agent-integrations/) list the exact paths for each provider.

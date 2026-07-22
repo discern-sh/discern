@@ -142,7 +142,7 @@ const MIXED_CONFIG = [
   'agents = ["claude_code"]',
   "",
   "[jobs]",
-  'format = "deno fmt"',
+  'format = ["deno fmt", "discern tidy"]',
   'lint = "deno lint"',
   'test = ":"  # tests blocked by a runtime mismatch, see TODO.md',
 ].join("\n");
@@ -240,7 +240,7 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
       dir,
       [
         "[jobs]",
-        'format = "deno fmt"',
+        'format = ["deno fmt", "discern tidy"]',
         'lint = "deno lint"',
       ].join("\n"),
     );

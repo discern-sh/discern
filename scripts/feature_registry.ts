@@ -189,6 +189,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         ],
       },
       {
+        id: "tidy",
+        title: "Canonical formatting for discern surfaces",
+        what:
+          "`discern tidy [md|toml]` canonically formats the configured map, TODO and guidance sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged.",
+        why:
+          "Agent-maintained prose and frequently edited config stop accumulating formatting churn, even when the project's stack has no formatter of its own.",
+        surfaces: ["verb:tidy"],
+      },
+      {
         id: "gate-preconditions",
         title: "Fail-fast preconditions",
         what:
@@ -837,7 +846,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "plan-apply",
         title: "Plan and apply",
         what:
-          "Every effectful verb computes a pure, read-only plan a thin executor applies, which is what makes `--dry-run` a faithful preview on `done`, `standards`, `start`, `update`, `accept`, `setup`, `upgrade`, `uninstall`, and the worktree lifecycle.",
+          "Every effectful verb computes a pure, read-only plan a thin executor applies, which is what makes `--dry-run` a faithful preview on `done`, `standards`, `tidy`, `start`, `update`, `accept`, `setup`, `upgrade`, `uninstall`, and the worktree lifecycle.",
         why: "Any mutating operation can be rehearsed before it happens.",
       },
       {
@@ -909,7 +918,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         kind: "benefit",
         title: "Stack-neutral",
         what:
-          "The engine ships no stack commands of its own: the gate, scopes, standards, and resources run whatever commands the project declares, in any language.",
+          "The engine ships none of the project's stack tools: the gate, scopes, standards, and resources run whatever commands the project declares, in any language. Its embedded formatter is limited to the Markdown and TOML surfaces whose convention discern defines.",
         why: "One system serves the polyglot reality instead of one ecosystem.",
       },
       {

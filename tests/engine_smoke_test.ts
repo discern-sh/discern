@@ -24,14 +24,14 @@ Deno.test("engine smoke: discern --help lists commands and exits 0", async () =>
   });
 });
 
-Deno.test("engine smoke: done on a fresh no-op gate passes and says so", async () => {
+Deno.test("engine smoke: done on a fresh embedded-only gate passes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 0, r.output);
-    // Every slot ships as a no-op, so the gate is honest about checking nothing.
-    assertStringIncludes(r.stdout, "no-op");
+    assertStringIncludes(r.stdout, "format");
+    assertStringIncludes(r.stdout, "Tidy results");
   });
 });
 

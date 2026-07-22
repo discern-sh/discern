@@ -88,12 +88,19 @@ The gate is part of the binary's TypeScript engine ([`src/engine/`](../../../src
 | `discern done`      | The full gate — (in a worktree) the trunk-merged precondition first, then built-in currency and write-access preconditions, `fix`+`build`, `check`+`test` in parallel, and scope-matched scope gates. | [`src/engine/gate/finish.ts`](../../../src/engine/gate/finish.ts)       |
 | `discern prepare`   | The fast inner loop — fixers then read-only checks; no build or test.                                                                                                                                 | [`src/engine/gate/prepare.ts`](../../../src/engine/gate/prepare.ts)     |
 | `discern test`      | The `test` job on its own.                                                                                                                                                                            | [`src/engine/gate/test.ts`](../../../src/engine/gate/test.ts)           |
+| `discern tidy`      | Canonically formats the configured map, guidance, ledger, and root config; bare runs Markdown and TOML, while `md` or `toml` selects one.                                                             | [`src/engine/tidy/tidy.ts`](../../../src/engine/tidy/tidy.ts)           |
 | `discern standards` | Measures configured metric floors and ceilings when invoked; its built-in write preflight covers the measurement receipt, plus config and Git commit state when pinning.                              | [`src/engine/gate/standards.ts`](../../../src/engine/gate/standards.ts) |
 | `discern impact`    | Classifies which scopes the branch touches; fails **open** (an unknown path runs additional gates).                                                                                                   | [`src/engine/scopes/scopes.ts`](../../../src/engine/scopes/scopes.ts)   |
 
 Every subsystem is core. The config has no `[features]` table or existence toggle ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A subsystem that costs nothing when unused needs no switch: worktrees exist only when started, and standards exist only when defined. `[skills].exclude` remains because materialized skills occupy agent context even when unused. `[jobs]` is the gate's command table.
 
 Stage scheduling ([`src/engine/gate/stages.ts`](../../../src/engine/gate/stages.ts)), the failure-pointer wording ([`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts)), and the parallel/serial job runner ([`src/engine/jobs/runner.ts`](../../../src/engine/jobs/runner.ts), with process-group tree-kill in [`src/engine/jobs/command.ts`](../../../src/engine/jobs/command.ts)) back these. `doctor` ([`src/commands/doctor.ts`](../../../src/commands/doctor.ts)) health-checks the install — config, git, job commands, paths, and a readiness report.
+
+### Embedded formatter
+
+[`src/lib/tidy_format.ts`](../../../src/lib/tidy_format.ts) owns the fixed Markdown and TOML settings and lazily instantiates the vendored dprint plugins under [`src/lib/tidy_plugins/`](../../../src/lib/tidy_plugins/). [`scripts/build.ts`](../../../scripts/build.ts) includes that directory in every compiled binary. No plugin download occurs during build or at run time.
+
+Every production writer of `discern.toml` calls the same TOML formatter before writing. The generated-map side converges at [`scripts/codegen.ts`](../../../scripts/codegen.ts): its single write helper formats every Markdown target before comparing or writing it. [`tests/engine_tidy_test.ts`](../../../tests/engine_tidy_test.ts) holds the real map and config to idempotence, parse-before-write behavior, scope, and fenced-code preservation; [`tests/canonical_sets_enrolment_test.ts`](../../../tests/canonical_sets_enrolment_test.ts) holds every generated map page to the same fixed point.
 
 ## The isolated-worktree workflow
 

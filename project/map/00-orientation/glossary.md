@@ -38,6 +38,7 @@ aliases:
   - skill
   - stage
   - standard
+  - tidy
   - trunk
   - update
   - worktree
@@ -90,7 +91,7 @@ The `discern` binary's semantic version, shown by `discern --version`. A newer b
 
 ### Engine
 
-The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no stack commands of its own; its verbs run the jobs, scopes, standards, and worktree settings a project declares. Contributors: see [engine internals](../50-engine-internals/).
+The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](../50-engine-internals/).
 
 ### File ownership
 
@@ -183,6 +184,10 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 ### Standard
 
 A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Untouched `inputs` replay the recorded value, while `measure = "on-demand"` defers measurement to `discern standards`; the never-loosen limit check alone is unconditional. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
+
+### Tidy
+
+What `discern tidy` does: canonically format the configured [map](#map), deferred-work ledger, and [guidance sources](#guidance-source) as Markdown, plus the root `discern.toml` as TOML. Fresh installs invoke it through the [format job](#gate-job); removing that command is the opt-out. Covered in [Format discern-owned surfaces](../20-quality-gate/tidy.md).
 
 ### Trunk
 

@@ -33,6 +33,7 @@ import {
   targetExists,
   withTempDir,
 } from "./helpers.ts";
+import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 const HISTORICAL_FIXTURES = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -331,10 +332,11 @@ Deno.test("migration 7→8 converts non-empty db/dev_server into [worktree.resou
     assertStringIncludes(toml, "# Post-create setup."); // sibling comment preserved
     // Commands carried forward, tokens unchanged.
     assertStringIncludes(toml, "[worktree.resources.db]");
-    assertStringIncludes(toml, 'create  = "createdb @db@"');
+    assertStringIncludes(toml, 'create = "createdb @db@"');
     assertStringIncludes(toml, 'destroy = "dropdb @db@"');
     assertStringIncludes(toml, "[worktree.resources.dev_server]");
-    assertStringIncludes(toml, 'create  = "up @site@"');
+    assertStringIncludes(toml, 'create = "up @site@"');
+    await assertDiscernTomlTidy(dir, "migration 7→8");
   });
 });
 
@@ -578,8 +580,9 @@ Deno.test("migration 10→11 drops [features].mcp, preserving the rest of [featu
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(!/^\s*mcp\s*=/m.test(toml), `the mcp key must be gone:\n${toml}`);
     assertStringIncludes(toml, "worktrees = true"); // siblings kept
-    assertStringIncludes(toml, "docs      = true");
+    assertStringIncludes(toml, "docs = true");
     assertStringIncludes(toml, "[guidance]"); // the rest of the config is intact
+    await assertDiscernTomlTidy(dir, "migration 10→11");
 
     // Idempotent: re-running 10→11 on the now-mcp-less config changes nothing.
     const after = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -748,10 +751,8 @@ Deno.test("migration 16→17 never claims a removal it couldn't perform", async 
   });
 });
 
-Deno.test("migration 16→17 collapses blanks at the removal site only, not file-wide", async () => {
+Deno.test("migration 16→17 preserves comments while canonicalizing blank runs", async () => {
   await withTempDir(async (dir) => {
-    // A deliberate three-blank-line run elsewhere in the file is the user's
-    // formatting, not ours to normalise.
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "[project]\nslug = 'x'\n\n\n\n# spaced out on purpose\n\n[worktree]\n" +
@@ -760,11 +761,9 @@ Deno.test("migration 16→17 collapses blanks at the removal site only, not file
     await applyMigrations({ destDir: dir, from: 16, to: 17, onNote: () => {} });
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(!/graduate_to/.test(toml), toml);
-    assertStringIncludes(
-      toml,
-      "\n\n\n\n# spaced out on purpose",
-      `the user's own blank run stays:\n${toml}`,
-    );
+    assertStringIncludes(toml, "# spaced out on purpose");
+    assert(!toml.includes("\n\n\n"), `blank run was not canonical:\n${toml}`);
+    await assertDiscernTomlTidy(dir, "migration 16→17");
   });
 });
 
@@ -1365,7 +1364,7 @@ Deno.test("migration 20→21 preserves a pre-adopted repository ensure list", as
   });
 });
 
-Deno.test("migration 20→21 preserves CRLF while inserting the repository block", async () => {
+Deno.test("migration 20→21 inserts the repository block in canonical LF form", async () => {
   await withTempDir(async (dir) => {
     const text = [
       "[project]",
@@ -1386,11 +1385,12 @@ Deno.test("migration 20→21 preserves CRLF while inserting the repository block
     });
 
     const migrated = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(migrated, "[repository]\r\n");
+    assertStringIncludes(migrated, "[repository]\n");
     assert(
-      !/(?<!\r)\n/u.test(migrated),
-      `migration introduced a bare LF into a CRLF config:\n${migrated}`,
+      !migrated.includes("\r"),
+      `CRLF survived canonicalization:\n${migrated}`,
     );
+    await assertDiscernTomlTidy(dir, "migration 20→21");
   });
 });
 

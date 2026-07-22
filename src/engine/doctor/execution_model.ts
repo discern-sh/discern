@@ -139,6 +139,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     actor: "discern",
     hint: "Built-in: recompile the agent files and re-materialize the skills.",
   },
+  tidy: {
+    actor: "discern",
+    hint:
+      "Built-in: canonically format one Markdown or TOML file in discern's configured surface.",
+  },
   standard: {
     actor: "project",
     hint:
@@ -294,6 +299,23 @@ function standardsVerb(cfg: DiscernConfig): VerbPlan {
     when:
       "On demand — the full standalone measurement pass (always measures, never replays): deferred standards, pinning a gain, CI. The gate already measures the rest on every `discern done`.",
     steps,
+  };
+}
+
+/** `tidy` — the embedded formatter's two closed surface classes. */
+function tidyVerb(): VerbPlan {
+  return {
+    verb: "tidy",
+    when:
+      "Directly, or when the project's format job invokes it during the gate.",
+    steps: [
+      step("tidy", "configured Markdown", {
+        condition: "when Markdown is selected and a target would change",
+      }),
+      step("tidy", "root discern.toml", {
+        condition: "when TOML is selected and the root config would change",
+      }),
+    ],
   };
 }
 
@@ -505,6 +527,7 @@ export function buildExecutionModel(cfg: DiscernConfig): VerbPlan[] {
     prepareVerb(cfg),
     testVerb(cfg),
     standardsVerb(cfg),
+    tidyVerb(),
     startVerb(cfg),
     ensureVerb(cfg),
     updateVerb(cfg),

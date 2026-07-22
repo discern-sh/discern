@@ -103,171 +103,171 @@ The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[
 
 Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `schema_version` | number | — | The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand. |
-| `bootstrapped` | boolean | `false` | Whether `discern setup` has completed — retires the one-time setup redirect. |
-| `setup_model` | string | `""` | The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it). |
-| `setup_version` | string | `""` | The discern version that ran setup (observed at `begin`). Recorded for support triage. |
+| Key              | Type    | Default | Description                                                                                                                                 |
+| ---------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version` | number  | —       | The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.                                          |
+| `bootstrapped`   | boolean | `false` | Whether `discern setup` has completed — retires the one-time setup redirect.                                                                |
+| `setup_model`    | string  | `""`    | The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it). |
+| `setup_version`  | string  | `""`    | The discern version that ran setup (observed at `begin`). Recorded for support triage.                                                      |
 
 ## `[project]`
 
 Project identity and authored project paths.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `name` | string | `""` | Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug. |
-| `slug` | string | `""` | Short, lowercase, dash-separated identity. Used for worktree/site/branch names. |
-| `gotchas_doc` | string | `""` | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer. |
-| `todo` | string | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root. |
-| `logbook` | boolean | `true` | Record one line of local, metadata-only operational history per verb run in the logbook under .git — timings, outcomes, and names, never code or output, never leaving this machine. false stops all writes; existing history stays until you delete it. |
-| `agents` | string[] | — | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback. |
+| Key           | Type     | Default             | Description                                                                                                                                                                                                                                              |
+| ------------- | -------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | string   | `""`                | Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.                                                                                                                                              |
+| `slug`        | string   | `""`                | Short, lowercase, dash-separated identity. Used for worktree/site/branch names.                                                                                                                                                                          |
+| `gotchas_doc` | string   | `""`                | Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.                                                                                                                                                      |
+| `todo`        | string   | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.                                                                                                                                     |
+| `logbook`     | boolean  | `true`              | Record one line of local, metadata-only operational history per verb run in the logbook under .git — timings, outcomes, and names, never code or output, never leaving this machine. false stops all writes; existing history stays until you delete it. |
+| `agents`      | string[] | —                   | Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.                                                                                                                                                           |
 
 ## `[repository]`
 
 Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `trunk` | string | `"main"` | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var. |
-| `branch_prefix` | string | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature". |
-| `ensure` | string[] | `[]` | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
+| Key             | Type     | Default    | Description                                                                                                                                                                                                                                                                                                  |
+| --------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `trunk`         | string   | `"main"`   | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.                                                                                                                                                                            |
+| `branch_prefix` | string   | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                     |
+| `ensure`        | string[] | `[]`       | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
 
 ## `[guidance]`
 
 The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `sources` | string[] | `["discern/guidance.md"]` | Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended. |
-| `agents` | string[] | — | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all. |
+| Key       | Type     | Default                   | Description                                                                                                                                                                                                                                         |
+| --------- | -------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sources` | string[] | `["discern/guidance.md"]` | Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.                              |
+| `agents`  | string[] | —                         | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all. |
 
 ## `[skills]`
 
 Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `dir` | string | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins. |
-| `exclude` | string[] | `[]` | Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing. |
+| Key       | Type     | Default            | Description                                                                                                                                                                                                 |
+| --------- | -------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dir`     | string   | `"discern/skills"` | Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.                                                           |
+| `exclude` | string[] | `[]`               | Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing. |
 
 ## `[map]`
 
 The project documentation tree discern scaffolds, validates, and browses.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
+| Key   | Type   | Default  | Description                                                                                                                                                                             |
+| ----- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dir` | string | `"map/"` | Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default. |
 
 ## `[jobs]`
 
 The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `format` | string \| string[] \| object | — | fix stage — a formatter/codemod (mutating; runs first, serially). |
-| `build` | string \| string[] \| object | — | build stage — produce artifacts later stages read (compile, bundle). |
-| `lint` | string \| string[] \| object | — | check stage — read-only static analysis. |
-| `typecheck` | string \| string[] \| object | — | check stage — read-only type checking. |
-| `test` | string \| string[] \| object | — | test stage — the test suite. |
-| `smoke` | string \| string[] \| object | — | test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes. |
+| Key         | Type                         | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------- | ---------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`    | string \| string[] \| object | —       | fix stage — a formatter/codemod (mutating; runs first, serially).                                                                                                                                                                                                                                                                                                                                                                |
+| `build`     | string \| string[] \| object | —       | build stage — produce artifacts later stages read (compile, bundle).                                                                                                                                                                                                                                                                                                                                                             |
+| `lint`      | string \| string[] \| object | —       | check stage — read-only static analysis.                                                                                                                                                                                                                                                                                                                                                                                         |
+| `typecheck` | string \| string[] \| object | —       | check stage — read-only type checking.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `test`      | string \| string[] \| object | —       | test stage — the test suite.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `smoke`     | string \| string[] \| object | —       | test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes. |
 
 ### `[jobs.<name>]`
 
 A custom job. Its name is open, but its stage and command are explicit.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `stage` | `fix` \| `build` \| `check` \| `test` | — | When the custom job runs in the gate (fix\|build\|check\|test). |
-| `run` | string \| string[] | — | The command(s) to run. |
-| `provides` | string | — | Optional free-text label, for humans / audit. |
-| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
+| Key        | Type                                  | Default | Description                                                                                                                                             |
+| ---------- | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`    | `fix` \| `build` \| `check` \| `test` | —       | When the custom job runs in the gate (fix\|build\|check\|test).                                                                                         |
+| `run`      | string \| string[]                    | —       | The command(s) to run.                                                                                                                                  |
+| `provides` | string                                | —       | Optional free-text label, for humans / audit.                                                                                                           |
+| `timeout`  | number                                | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
 
 ## `[scopes.<name>]`
 
 [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the optional flags tune the gate for changes there. Classification fails OPEN: a path matching no scope counts as a real code change.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `paths` | string[] | — | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. |
-| `neutral` | boolean | `false` | true: changes here need no gate (docs, agent guidance). |
-| `previewable` | boolean | `false` | true: a person could see changes here — worth a preview link. |
-| `gate` | string \| string[] | — | A command discern done runs when this scope changed (a sub-component with its own self-contained gate). |
-| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
+| Key           | Type               | Default | Description                                                                                                                                                          |
+| ------------- | ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paths`       | string[]           | —       | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/ segment, or an exact path. |
+| `neutral`     | boolean            | `false` | true: changes here need no gate (docs, agent guidance).                                                                                                              |
+| `previewable` | boolean            | `false` | true: a person could see changes here — worth a preview link.                                                                                                        |
+| `gate`        | string \| string[] | —       | A command discern done runs when this scope changed (a sub-component with its own self-contained gate).                                                              |
+| `timeout`     | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.              |
 
 ## `[worktree]`
 
 The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `root` | string | `""` | Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees", visible and adjacent outside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is. |
-| `port` | boolean | `false` | Give each worktree a deterministic dev-server port (hashed from its id) to prevent collisions between concurrent worktrees. The port is derived identity and provisions nothing. |
-| `ignored_file_drift` | boolean | `true` | Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful. |
-| `inherit_env` | string[] | `[]` | Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it. |
-| `env_files` | string[] | `[".env",".env.local"]` | The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too. |
+| Key                  | Type     | Default                 | Description                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root`               | string   | `""`                    | Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees", visible and adjacent outside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.                                                      |
+| `port`               | boolean  | `false`                 | Give each worktree a deterministic dev-server port (hashed from its id) to prevent collisions between concurrent worktrees. The port is derived identity and provisions nothing.                                                                                                                                                                                            |
+| `ignored_file_drift` | boolean  | `true`                  | Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.                                                                                                                                                                               |
+| `inherit_env`        | string[] | `[]`                    | Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.                                                                                                                                  |
+| `env_files`          | string[] | `[".env",".env.local"]` | The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too. |
 
 ### `[worktree.resources.<name>]`
 
 [worktree.resources.<name>] — per-worktree external resources (a database, an emulator, a container, a queue). Created top-to-bottom and destroyed bottom-to-top.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `create` | string | `""` | Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op. |
-| `destroy` | string | `""` | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent. |
-| `ensure` | string | `""` | Optional: reconcile drift / re-readiness at session start. |
-| `required` | boolean | `true` | false: a create failure is non-fatal (does not abort setup). |
-| `retries` | number | `0` | Retry create/destroy this many times. |
-| `gc` | boolean | `true` | false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones). |
+| Key        | Type    | Default | Description                                                                                                                                                         |
+| ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`   | string  | `""`    | Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op. |
+| `destroy`  | string  | `""`    | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                                          |
+| `ensure`   | string  | `""`    | Optional: reconcile drift / re-readiness at session start.                                                                                                          |
+| `required` | boolean | `true`  | false: a create failure is non-fatal (does not abort setup).                                                                                                        |
+| `retries`  | number  | `0`     | Retry create/destroy this many times.                                                                                                                               |
+| `gc`       | boolean | `true`  | false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones).                                                                                 |
 
 ### `[worktree.setup]`
 
 Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run on every linked-worktree pass and excluded from the trunk checkout).
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `steps` | string[] | `[]` | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run. |
-| `ensure` | string[] | `[]` | Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them. |
+| Key      | Type     | Default | Description                                                                                                                                                                                                                                                                                                      |
+| -------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `steps`  | string[] | `[]`    | Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.                                                                                                                                                      |
+| `ensure` | string[] | `[]`    | Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them. |
 
 ## `[standards.<name>]`
 
 [standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count; a quality that scales (coverage, alert density) holds a rate — add `per` so growth alone stays within the limit; a total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows — pinned at today's value it fails the next legitimate change.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `metric` | string | — | Metric name the run emits (default: the standard name). |
-| `direction` | `up` \| `down` | `"up"` | "up": limit is a floor; "down": limit is a ceiling. |
-| `limit` | number | — | The floor (up) or ceiling (down). |
-| `run` | string \| string[] | — | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. |
-| `per` | string \| object | — | Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${map.dir}**" } (files \| lines \| words \| bytes over a git pathspec). |
-| `scale` | number | `1` | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words". |
-| `margin` | number | `0` | Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation. |
-| `measure` | `gate` \| `on-demand` | `"gate"` | "gate" (the default): the measurement runs inside every `discern done`, in parallel with the tests. "on-demand": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`. |
-| `inputs` | string[] | — | The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. |
-| `timeout` | number | — | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget. |
+| Key         | Type                  | Default  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------- | --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metric`    | string                | —        | Metric name the run emits (default: the standard name).                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `direction` | `up` \| `down`        | `"up"`   | "up": limit is a floor; "down": limit is a ceiling.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `limit`     | number                | —        | The floor (up) or ceiling (down).                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `run`       | string \| string[]    | —        | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `per`       | string \| object      | —        | Divide the metric to hold a _rate_, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = "${map.dir}**" } (files \| lines \| words \| bytes over a git pathspec).                                                                                                                                                                                           |
+| `scale`     | number                | `1`      | Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".                                                                                                                                                                                                                                                                                                                                                                                    |
+| `margin`    | number                | `0`      | Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.                               |
+| `measure`   | `gate` \| `on-demand` | `"gate"` | "gate" (the default): the measurement runs inside every `discern done`, in parallel with the tests. "on-demand": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`. |
+| `inputs`    | string[]              | —        | The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run.                                                                                                              |
+| `timeout`   | number                | —        | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                  |
 
 ## `[gate]`
 
 Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `stream` | boolean | `false` | Stream each job's output live (line-prefixed) instead of buffering it until the stage finishes. Off by default (grouped). |
-| `fail_fast` | boolean | `true` | Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass. |
-| `timeout` | number | `600` | Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended. |
+| Key         | Type    | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stream`    | boolean | `false` | Stream each job's output live (line-prefixed) instead of buffering it until the stage finishes. Off by default (grouped).                                                                                                                                                                                                                                                                                                                                                                                               |
+| `fail_fast` | boolean | `true`  | Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.                                                                                                                                                                                                                                                                                                                                       |
+| `timeout`   | number  | `600`   | Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended. |
 
 ## `[coupling]`
 
 Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
+| Key       | Type    | Default | Description                                                                                                                                                          |
+| --------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `in_gate` | boolean | `false` | Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. Off by default. |
 
 ## `[scripts]`
 
 Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
+| Key   | Type   | Default             | Description                                                                                                                                        |
+| ----- | ------ | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dir` | string | `"discern/scripts"` | Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer. |
