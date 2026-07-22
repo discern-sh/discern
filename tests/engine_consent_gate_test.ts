@@ -32,6 +32,8 @@ import {
   AWAITING_CONSENT_SLUG,
   CONSENT_GATED_VERBS,
 } from "../src/shared/consent.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
@@ -148,8 +150,8 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     assertEquals(env.ok, false);
     assertEquals(env.verb, "accept");
     assertEquals(env.error, AWAITING_CONSENT_SLUG);
-    // At least one actionable hint, and the recovery names the attestation flag.
-    assert((env.hints ?? []).length >= 1, JSON.stringify(env));
+    assertHasHint(env, HINTS["accept-awaiting-confirmation"]);
+    assertHasHint(env, HINTS["accept-review-via-status"]);
     assertStringIncludes(env.message, "--confirmed");
     // Read-only: the worktree survives and nothing reached the trunk.
     assert(await exists(wt), `worktree must survive\n${r.output}`);
@@ -163,7 +165,7 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     // equally mutation-free.
     const human = await runAgent(wt, ["accept"]);
     assertEquals(human.code, 1, human.output);
-    assertStringIncludes(human.output, "--confirmed");
+    assertStringIncludes(human.output, env.message);
     assert(await exists(wt), "the human refusal must not touch the worktree");
   });
 });

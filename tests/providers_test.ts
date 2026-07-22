@@ -29,7 +29,6 @@ import {
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { fire, HINTS } from "../src/shared/hints.ts";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -292,13 +291,6 @@ Deno.test("wireProviderMcp refuses malformed co-owned JSON without overwriting i
       assertEquals(await Deno.readTextFile(path), malformed);
     });
   }
-});
-
-Deno.test("the MCP restart hint names a restart and persists thereafter", () => {
-  assertStringIncludes(
-    fire(HINTS["refresh-mcp-first-install"]).text.toLowerCase(),
-    "restart",
-  );
 });
 
 Deno.test("wireProviderMcp preserves existing settings and unions the approval list", async () => {

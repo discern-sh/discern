@@ -23,7 +23,7 @@ export function assertHasHint<P>(
   const expected = rendered(def, params);
   const hints = result.hints ?? [];
   assert(
-    hints.includes(expected),
+    hints.indexOf(expected) !== -1,
     `expected hint ${JSON.stringify(def.id)} rendered as ${
       JSON.stringify(expected)
     }; got ${JSON.stringify(hints)}`,
@@ -40,7 +40,7 @@ export function assertLacksHint<P>(
   const unwanted = rendered(def, params);
   const hints = result.hints ?? [];
   assert(
-    !hints.includes(unwanted),
+    hints.indexOf(unwanted) === -1,
     `did not expect hint ${JSON.stringify(def.id)} rendered as ${
       JSON.stringify(unwanted)
     }; got ${JSON.stringify(hints)}`,

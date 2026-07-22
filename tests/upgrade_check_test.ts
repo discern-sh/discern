@@ -15,7 +15,9 @@ import {
   SCHEMA_VERSION,
   UPDATE_CHANNEL,
 } from "../src/lib/version.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { runCli, withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 /** Fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -152,7 +154,9 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     assertEquals(json.code, 0, json.stderr);
     const res = JSON.parse(json.stdout);
     assertEquals(res.data.kit_version, KIT_VERSION);
-    assertEquals(res.hints.length >= 1, true);
-    assertStringIncludes(res.hints.join("\n"), UPDATE_CHANNEL);
+    const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {
+      updateChannel: UPDATE_CHANNEL,
+    });
+    assertStringIncludes(human.stderr, expected);
   });
 });

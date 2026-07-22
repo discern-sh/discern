@@ -13,13 +13,10 @@ import {
   unknownCommandMessage,
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
-import { fire, HINTS } from "../src/shared/hints.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
-
-const didYouMeanHint = (command: string): string =>
-  fire(HINTS["unknown-command-suggestion"], { command }).text;
-const UNKNOWN_COMMAND_POINTER = fire(HINTS["unknown-command-help"]).text;
+import { assertHasHint } from "./hint_asserts.ts";
 
 function firstTopLevelRedirect(): [string, string] {
   const entry = Object.entries(RETIRED_COMMAND_REDIRECTS).find(([command]) =>
@@ -112,12 +109,6 @@ Deno.test("every command synonym suggests its canonical verb on both surfaces", 
     for (
       const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
     ) {
-      const human = await runAgent(dir, [synonym]);
-      assertEquals(human.code, 1, human.output);
-      assertStringIncludes(human.stderr, unknownCommandMessage(synonym));
-      assertStringIncludes(human.stderr, didYouMeanHint(canonical));
-      assertStringIncludes(human.stderr, UNKNOWN_COMMAND_POINTER);
-
       const json = await runAgent(dir, [synonym, "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", "the --json stream must stay pure");
@@ -126,10 +117,19 @@ Deno.test("every command synonym suggests its canonical verb on both surfaces", 
       assertEquals(res.verb, synonym);
       assertEquals(res.error, "unknown_command");
       assertEquals(res.message, unknownCommandMessage(synonym));
-      assertEquals(res.hints, [
-        didYouMeanHint(canonical),
-        UNKNOWN_COMMAND_POINTER,
-      ]);
+      const suggestion = assertHasHint(
+        res,
+        HINTS["unknown-command-suggestion"],
+        { command: canonical },
+      );
+      const pointer = assertHasHint(res, HINTS["unknown-command-help"]);
+      assertEquals(res.hints, [suggestion, pointer]);
+
+      const human = await runAgent(dir, [synonym]);
+      assertEquals(human.code, 1, human.output);
+      assertStringIncludes(human.stderr, unknownCommandMessage(synonym));
+      assertStringIncludes(human.stderr, suggestion);
+      assertStringIncludes(human.stderr, pointer);
     }
   });
 });
@@ -145,8 +145,8 @@ Deno.test("an unknown word with no suggestion still refuses with a hint under --
     assertEquals(res.ok, false);
     assertEquals(res.verb, word);
     assertEquals(res.error, "unknown_command");
-    assert(Array.isArray(res.hints) && res.hints.length >= 1);
-    assertEquals(res.hints, [UNKNOWN_COMMAND_POINTER]);
+    const pointer = assertHasHint(res, HINTS["unknown-command-help"]);
+    assertEquals(res.hints, [pointer]);
   });
 });
 
@@ -157,10 +157,16 @@ Deno.test("the unknown-command lesson shows even outside a project", async () =>
     for (
       const [synonym, canonical] of Object.entries(COMMAND_SYNONYM_SUGGESTIONS)
     ) {
+      const json = await runAgent(dir, [synonym, "--json"]);
+      const suggestion = assertHasHint(
+        JSON.parse(json.stdout),
+        HINTS["unknown-command-suggestion"],
+        { command: canonical },
+      );
       const r = await runAgent(dir, [synonym]);
       assertEquals(r.code, 1, r.output);
       assertStringIncludes(r.stderr, unknownCommandMessage(synonym));
-      assertStringIncludes(r.stderr, didYouMeanHint(canonical));
+      assertStringIncludes(r.stderr, suggestion);
     }
   });
 });
