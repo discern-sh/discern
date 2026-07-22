@@ -328,9 +328,10 @@ export const HINTS = {
   }),
 
   /**
-   * The on-the-trunk guardrail, agent-facing. An agent in the main checkout on
-   * the trunk has no isolated workspace yet, so this points it at `discern start`.
-   * Interactive status omits it because a person there is monitoring the fleet.
+   * The on-the-trunk guardrail, agent-facing. It leads with the start-and-move
+   * action, then preserves the ownership rule that prevents an agent from
+   * adopting another effort's worktree. Interactive status omits it because a
+   * person in the main checkout is monitoring the fleet.
    */
   "status-start-on-trunk": defineHint({
     id: "status-start-on-trunk",
@@ -339,7 +340,7 @@ export const HINTS = {
     family: "status-start-here",
     example: undefined,
     template: (): string =>
-      "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).",
+      'Run `discern start --name "<task>"` from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable. Never adopt an existing worktree: each belongs to another line of work, and a clean tree may still be in use.',
   }),
 
   /**
@@ -462,8 +463,9 @@ export const HINTS = {
   }),
 
   /**
-   * The fleet ownership rule, agent-facing. It fires whenever a survey includes a
-   * separate line of work. Interactive status uses the fleet caption instead.
+   * The fleet ownership rule, agent-facing and action-first. It fires whenever a
+   * survey includes a separate line of work. Interactive status uses the fleet
+   * caption instead.
    */
   "fleet-ownership": defineHint({
     id: "fleet-ownership",
@@ -471,7 +473,7 @@ export const HINTS = {
     audience: "agent",
     example: undefined,
     template: (): string =>
-      "Worktrees in the fleet belong to separate lines of work — never start work in one you didn't create; a clean working tree doesn't mean it's free.",
+      "Never work in a fleet worktree you didn't create. Each belongs to another line of work, and a clean tree may still be in use.",
   }),
 
   "status-no-active-worktrees": defineHint({
@@ -1812,9 +1814,9 @@ export const HINTS = {
   }),
 
   /**
-   * The MCP-specific start re-root story. The live server re-aims discern's tools
-   * automatically, but cannot move the client's own file operations; without that
-   * second move, edits land on the trunk while the gate runs in the worktree.
+   * The MCP-specific start re-root guardrail. It distinguishes the server's
+   * automatic tool re-aim from the file move the client must perform, gives the
+   * fallback for a fixed working root, and names the split-state consequence.
    */
   "start-mcp-re-root": defineHint<{ path: string }>({
     id: "start-mcp-re-root",
@@ -1823,14 +1825,13 @@ export const HINTS = {
     family: "start-result",
     example: { path: "/workspace/project.worktrees/hint-registry" },
     template: ({ path }): string =>
-      `discern's tools are now aimed at the new worktree at ${path} — your ` +
-      `discern_done / discern_update / discern_accept calls operate on it ` +
-      `automatically hereafter. You must STILL move your own file operations into ` +
-      `${path}: re-root there (cd in, or use your environment's worktree-entering ` +
-      `capability). If you can't change your working root: prefix every shell ` +
-      `command with \`cd ${path} && …\`, and pass path="${path}" to every discern ` +
-      `MCP tool. You MUST do this, otherwise your edits will land on the trunk ` +
-      `whilst the gate runs in the worktree, and the two states will diverge.`,
+      `Re-root or cd into ${path} before editing. discern's MCP tools already ` +
+      `target this worktree. \`discern_done\`, \`discern_update\`, and ` +
+      `\`discern_accept\` follow it automatically. If you can't change your ` +
+      `working root, prefix every shell command with ` +
+      `\`cd ${path} && …\` and pass \`path="${path}"\` to every discern MCP tool. ` +
+      `Otherwise, edits land on the trunk while the gate runs in the worktree, ` +
+      `and the two states diverge.`,
   }),
 
   /**
