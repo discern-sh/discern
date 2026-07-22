@@ -74,8 +74,9 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
 });
 
 Deno.test("lists only active template section headers, in file order", async () => {
+  // [project] opens the file and [meta] closes it: the first thing a user reads
+  // is their project's own identity, and installer bookkeeping sits at the end.
   assertEquals(sectionNamesFromTemplate(await realTemplate()), [
-    "meta",
     "project",
     "repository",
     "map",
@@ -88,6 +89,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "gate",
     "coupling",
     "scripts",
+    "meta",
   ]);
 });
 
@@ -146,21 +148,24 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
   assert(!block.endsWith("\n"), "trailing blank lines are trimmed");
 });
 
-Deno.test("[meta] is inline-documented: its body holds the comments, no preamble is pulled in", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "meta");
-  assertExists(block);
-  // Starts AT the header — the file preamble above [meta] is not its doc block.
+Deno.test("[meta] closes the file with its own doc block; [project] never pulls the preamble in", async () => {
+  const meta = sectionBlockFromTemplate(await realTemplate(), "meta");
+  assertExists(meta);
+  assertStringIncludes(meta, "# [meta] — installer bookkeeping");
+  assertStringIncludes(meta, "# The install schema version");
+  assertStringIncludes(meta, "schema_version =");
+  // [project] now sits directly under the file preamble; it must start AT its
+  // header — a comment run reaching the top of the file is never a doc block.
+  const project = sectionBlockFromTemplate(await realTemplate(), "project");
+  assertExists(project);
   assert(
-    block.startsWith("[meta]"),
-    `expected to start at header, got: ${block}`,
+    project.startsWith("[project]"),
+    `expected to start at header, got: ${project}`,
   );
   assert(
-    !block.includes("the one file that teaches"),
+    !project.includes("teach discern about your project"),
     "preamble not pulled in",
   );
-  // The documentation lives inline in the body.
-  assertStringIncludes(block, "# The install schema version");
-  assertStringIncludes(block, "schema_version =");
 });
 
 Deno.test("returns undefined for a section the template does not contain", async () => {
