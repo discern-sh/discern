@@ -47,12 +47,6 @@ export const DISCERN_MCP_SERVER: McpServerSpec = {
   args: ["mcp"],
 };
 
-/** The advice surfaced — to users and agents alike (via the result `hints`) — when
- * a discern MCP server is registered for the FIRST time. A freshly-added MCP server
- * is typically not detected until the coding agent restarts; it persists after. */
-export const MCP_RESTART_HINT =
-  "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.";
-
 /** One configured agent's reactivation step in the post-setup handoff. */
 export interface AgentReactivation {
   readonly agent: string;

@@ -30,13 +30,13 @@ import { wireProviderHooks } from "../lib/provider_hooks.ts";
 import { materializeSkills } from "../lib/skills.ts";
 import {
   DISCERN_MCP_SERVER,
-  MCP_RESTART_HINT,
   providerFor,
   skillsDirsForAgents,
   wireProviderMcp,
   wireProviderProjectRules,
   wireProviderWorktreeApp,
 } from "../lib/providers.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
 
@@ -194,8 +194,9 @@ export async function compileGuidelines(
       );
     }
     if (r.firstInstall) {
-      hints.push(MCP_RESTART_HINT);
-      log.info(MCP_RESTART_HINT);
+      const restartHint = fire(HINTS["refresh-mcp-first-install"]).text;
+      hints.push(restartHint);
+      log.info(restartHint);
     }
   } catch (error) {
     const msg = `could not update the MCP integration: ${errText(error)}`;

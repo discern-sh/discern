@@ -991,6 +991,20 @@ export const HINTS = {
       }.`;
     },
   }),
+
+  /**
+   * Advice surfaced to users and agents when refresh registers discern's MCP
+   * server for the first time. A freshly-added server is typically not detected
+   * until the coding agent restarts; the registration persists afterwards.
+   */
+  "refresh-mcp-first-install": defineHint({
+    id: "refresh-mcp-first-install",
+    category: "next-step",
+    audience: "all",
+    family: "restart-session",
+    template: (): string =>
+      "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.",
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */
