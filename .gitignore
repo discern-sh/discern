@@ -32,6 +32,7 @@
 /site/pages/index.html
 /site/pages/assets/design-system/
 /site/pages/fragments/
+/site/pages/v2.html
 
 # --- discern ---
 # discern's managed ignore rules: only the skills directories it

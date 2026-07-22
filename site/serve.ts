@@ -42,6 +42,7 @@ export const PAGES: Readonly<
   Record<string, { page: string; negotiable: boolean }>
 > = {
   "/": { page: "pages/index.html", negotiable: true },
+  "/v2": { page: "pages/v2.html", negotiable: false },
 };
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */

@@ -15,6 +15,7 @@ import {
   type DesignSystemBundleName,
 } from "./design_system.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
+import { renderEditorial } from "./page-src/editorial.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderLanding } from "./page-src/landing.tsx";
 
@@ -26,6 +27,14 @@ export const GENERATED_SITE_OUTPUTS = [
   "pages/index.html",
   "pages/assets/design-system/",
   "pages/fragments/",
+  "pages/v2.html",
+] as const;
+
+/** Page-owned assets copied verbatim into the compositions bundle. */
+export const COPIED_PAGE_ASSETS = [
+  "landing.css",
+  "landing.js",
+  "editorial.css",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */
@@ -37,6 +46,7 @@ export const RETIRED_SITE_OUTPUTS = [
 const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
 const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
 const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const V2_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[3], SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
@@ -83,11 +93,16 @@ export async function buildSite(): Promise<void> {
   await Deno.mkdir(FRAGMENT_ROOT, { recursive: true });
   await emitBundle("docs");
   const summary = await emitBundle("compositions");
-  await writeGeneratedCopy("landing.css", "landing.css");
-  await writeGeneratedCopy("landing.js", "landing.js");
+  for (const asset of COPIED_PAGE_ASSETS) {
+    await writeGeneratedCopy(asset, asset);
+  }
   await Deno.writeTextFile(
     HOME_PAGE_OUTPUT,
     await formatGeneratedText(renderLanding(), "html"),
+  );
+  await Deno.writeTextFile(
+    V2_PAGE_OUTPUT,
+    await formatGeneratedText(renderEditorial(), "html"),
   );
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 

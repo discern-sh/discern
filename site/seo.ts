@@ -8,6 +8,7 @@
 
 import { buildRedirectRegistry } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { SELF_TITLED_PAGES } from "./brand.ts";
 import type { DocsPage, DocsSite } from "./docs.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
@@ -210,9 +211,10 @@ export function decorateHtmlPage(
   if (sourceDescription === undefined || sourceDescription.length === 0) {
     throw new Error(`HTML route ${route} has no description`);
   }
-  // The landing page carries its own exact title; every deeper page is
+  // Landing-family pages carry their own exact titles; every deeper page is
   // suffixed into the site template.
-  const title = route === "/" || sourceTitle.endsWith(" · discern.sh docs")
+  const title = Object.hasOwn(SELF_TITLED_PAGES, route) ||
+      sourceTitle.endsWith(" · discern.sh docs")
     ? sourceTitle
     : `${sourceTitle} · discern.sh docs`;
   const description = boundedDescription(title, sourceDescription);
