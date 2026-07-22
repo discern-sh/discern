@@ -10,7 +10,9 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -54,13 +56,9 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
     const row = result.data.fleet?.find((e) => e.path.endsWith("crashed"));
     assert(row !== undefined, JSON.stringify(result.data.fleet));
     assertEquals(row.broken, true, "a configless checkout is broken");
-    assert(
-      (result.hints ?? []).some((h) =>
-        h.includes("never finished its setup") &&
-        h.includes("discern worktree drop crashed")
-      ),
-      `the broken hint names the removal path\n${JSON.stringify(result.hints)}`,
-    );
+    assertHasHint(result, HINTS["status-fleet-member-broken"], {
+      name: "crashed",
+    });
 
     // The human table says "broken", not "clean"/"changed".
     const human = await runAgent(dir, ["status"]);
@@ -110,14 +108,9 @@ Deno.test("status reports an unreadable worktree honestly — never as clean/0-a
     assert(row !== undefined, JSON.stringify(result.data.fleet));
     assertEquals(row.git_unavailable, true, JSON.stringify(row));
     assertEquals(row.clean, undefined, "unknown state must not claim clean");
-    assert(
-      (result.hints ?? []).some((h) =>
-        h.includes("could not be read") && h.includes("damaged")
-      ),
-      `the unreadable state is surfaced as a hint\n${
-        JSON.stringify(result.hints)
-      }`,
-    );
+    assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
+      name: "gone",
+    });
 
     // The human table says "unreadable", not "clean".
     const human = await runAgent(dir, ["status"]);
@@ -141,12 +134,9 @@ Deno.test("status lists unlanded agent/* branches that have no worktree", async 
 
     const result = await statusJson(dir);
     assertEquals(result.data.unlanded_branches, ["agent/ghost-work"]);
-    assert(
-      (result.hints ?? []).some((h) =>
-        h.includes("agent/ghost-work") && h.includes("--from")
-      ),
-      `the hint offers the pull-axis recovery\n${JSON.stringify(result.hints)}`,
-    );
+    assertHasHint(result, HINTS["status-unlanded-branches"], {
+      branches: ["agent/ghost-work"],
+    });
 
     // A branch checked out in a live worktree is NOT "abandoned".
     assert(
@@ -190,18 +180,17 @@ Deno.test("status names a MISSING trunk instead of prescribing a switch onto it"
     await addWorktree(dir, "somework");
 
     const result = await statusJson(dir);
-    const hint = (result.hints ?? []).find((h) => h.includes("doesn't exist"));
-    assert(hint !== undefined, JSON.stringify(result.hints));
-    assertStringIncludes(hint, "[repository].trunk");
-    assert(
-      !(result.hints ?? []).some((h) => h.includes("git switch main")),
-      `never prescribe switching onto a branch that isn't there\n${
-        JSON.stringify(result.hints)
-      }`,
-    );
+    const expected = assertHasHint(result, HINTS["status-missing-trunk"], {
+      branch: "master",
+      trunk: "main",
+    });
+    assertLacksHint(result, HINTS["status-start-off-trunk"], {
+      branch: "master",
+      trunk: "main",
+    });
     // A real misconfiguration, so the human rendering carries it too.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "doesn't exist");
+    assertStringIncludes(human.output, expected);
   });
 });
 
@@ -213,12 +202,10 @@ Deno.test("status's off-trunk-main hint describes the state and the way back", a
     await git(dir, "switch", "-q", "-c", "reviewing-something");
 
     const result = await statusJson(dir);
-    const hint = (result.hints ?? []).find((h) =>
-      h.includes("parked on 'reviewing-something'")
-    );
-    assert(hint !== undefined, JSON.stringify(result.hints));
-    assertStringIncludes(hint, "git switch main");
-    assertStringIncludes(hint, "`discern accept` can't land");
+    assertHasHint(result, HINTS["status-start-off-trunk"], {
+      branch: "reviewing-something",
+      trunk: "main",
+    });
   });
 });
 
@@ -248,11 +235,13 @@ Deno.test("status hints that a stale worktree with work should be resumed or dro
     await Deno.utime(join(wt, "wip.txt"), tenDaysAgo, tenDaysAgo);
 
     const result = await statusJson(dir);
-    const hint = (result.hints ?? []).find((h) => h.includes("looks stale"));
-    assert(hint !== undefined, JSON.stringify(result.hints));
-    assertStringIncludes(hint, "idle 10d");
-    assertStringIncludes(hint, "uncommitted change");
-    assertStringIncludes(hint, "discern worktree drop dusty");
+    assertHasHint(result, HINTS["status-fleet-member-stale"], {
+      name: "dusty",
+      idleDays: 10,
+      clean: false,
+      ahead: 0,
+      changedFiles: 1,
+    });
   });
 });
 
@@ -268,31 +257,23 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const status = JSON.parse(r.stdout) as { hints?: string[] };
-    const hint = (status.hints ?? []).find((h) =>
-      h.includes("main checkout") && h.includes("untouched")
-    );
-    assert(hint !== undefined, JSON.stringify(status.hints));
-    // Path canonicalization may add a /private prefix — match the tail.
-    assertStringIncludes(hint, `cd ${basename(wt)} &&`.replace("cd ", ""));
-    assertStringIncludes(hint, "prefix every shell command with");
-    assertStringIncludes(hint, "to discern's MCP tools");
+    const params = {
+      cwd: await Deno.realPath(wt),
+      mainRepo: await Deno.realPath(dir),
+      changedFiles: 1,
+    };
+    assertHasHint(status, HINTS["silent-worktree-divergence"], params);
 
     // …and finish carries the same warning in its hints.
     const fin = await runAgent(wt, ["done", "--json"]);
     const gate = JSON.parse(fin.stdout) as { hints?: string[] };
-    assert(
-      (gate.hints ?? []).some((h) => h.includes("untouched")),
-      `finish must warn too\n${JSON.stringify(gate.hints)}`,
-    );
+    assertHasHint(gate, HINTS["silent-worktree-divergence"], params);
 
     // Real work in the worktree clears the signature.
     await Deno.writeTextFile(join(wt, "real-work.txt"), "here\n");
     const after = await runAgent(wt, ["status", "--json"]);
     const cleared = JSON.parse(after.stdout) as { hints?: string[] };
-    assert(
-      !(cleared.hints ?? []).some((h) => h.includes("untouched")),
-      "a worktree with its own changes has no divergence signature",
-    );
+    assertLacksHint(cleared, HINTS["silent-worktree-divergence"], params);
   });
 });
 
@@ -303,11 +284,9 @@ Deno.test("basename fallback: a broken worktree with no .env still gets a usable
     const wt = await addWorktree(dir, "no-env");
     await Deno.remove(join(wt, "discern.toml"));
     const result = await statusJson(dir);
-    const hint = (result.hints ?? []).find((h) =>
-      h.includes("discern worktree drop")
-    );
-    assert(hint !== undefined, JSON.stringify(result.hints));
     // The drop target is the directory basename — exactly what drop resolves.
-    assertStringIncludes(hint, `drop ${basename(wt)}`);
+    assertHasHint(result, HINTS["status-fleet-member-broken"], {
+      name: basename(wt),
+    });
   });
 });

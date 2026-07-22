@@ -27,17 +27,11 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { fire, HINTS } from "../src/shared/hints.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
-
-const FLEET_OWNERSHIP_HINT = fire(HINTS["fleet-ownership"]).text;
-const START_HERE_HINT = fire(HINTS["status-start-on-trunk"]).text;
-
-function offTrunkStartHereHint(branch: string, trunk: string): string {
-  return fire(HINTS["status-start-off-trunk"], { branch, trunk }).text;
-}
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -225,10 +219,7 @@ Deno.test("status fleet: the ownership rule rides in hints[] for an agent (main 
     await addWorktree(dir, "alpha");
 
     const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
-    assert(
-      (obj.hints ?? []).includes(FLEET_OWNERSHIP_HINT),
-      `hints must carry the fleet ownership rule: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["fleet-ownership"]);
   });
 });
 
@@ -242,10 +233,7 @@ Deno.test("status fleet: the ownership rule rides in hints[] under --all from a 
     const obj = parseStatus(
       (await runAgent(wt, ["status", "--all", "--json"])).stdout,
     );
-    assert(
-      (obj.hints ?? []).includes(FLEET_OWNERSHIP_HINT),
-      `--all hints must carry the ownership rule: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["fleet-ownership"]);
   });
 });
 
@@ -257,22 +245,7 @@ Deno.test("status: on the trunk, the discern start guardrail rides in hints[] fo
     // No worktrees yet — the agent is on the trunk with nowhere isolated to work.
     const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
     assertEquals(obj.data.location, "main");
-    assert(
-      (obj.hints ?? []).includes(START_HERE_HINT),
-      `the trunk guardrail must point at discern start: ${
-        JSON.stringify(obj.hints)
-      }`,
-    );
-    // It leads the next-steps relative to the fleet-ownership caveat (constructive
-    // action before the don't-squat warning), when both are present.
-    const start = (obj.hints ?? []).indexOf(START_HERE_HINT);
-    const own = (obj.hints ?? []).indexOf(FLEET_OWNERSHIP_HINT);
-    if (own >= 0) {
-      assert(
-        start < own,
-        `discern start hint should precede the ownership rule`,
-      );
-    }
+    assertHasHint(obj, HINTS["status-start-on-trunk"]);
   });
 });
 
@@ -289,28 +262,17 @@ Deno.test("status: main checkout on a non-trunk branch never claims 'you're on t
     const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
     assertEquals(obj.data.location, "main");
     assertEquals(obj.data.git.branch, "discern-setup");
-    const hints: string[] = obj.hints ?? [];
-    assert(
-      !hints.includes(START_HERE_HINT),
-      `must never claim "you're on the trunk" while on a non-trunk branch: ${
-        JSON.stringify(hints)
-      }`,
-    );
-    assert(
-      hints.includes(offTrunkStartHereHint("discern-setup", "main")),
-      `expected the off-trunk variant naming the actual branch and trunk: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
+    const expected = assertHasHint(obj, HINTS["status-start-off-trunk"], {
+      branch: "discern-setup",
+      trunk: "main",
+    });
 
     // Still agent-only — a human running the CLI here isn't nagged with either
     // wording (exactly like the on-trunk guardrail).
     const human = await runAgent(dir, ["status"]);
     assertEquals(human.code, 0, human.output);
-    assert(
-      !human.output.includes("isolated worktree"),
-      `neither start-here variant should appear as a human line: ${human.output}`,
-    );
+    assert(!human.output.includes(expected), human.output);
   });
 });
 
@@ -319,12 +281,13 @@ Deno.test("status: the discern start guardrail is agent-only — the human CLI i
     await scaffoldEngine(dir);
     await gitInit(dir);
 
+    const machine = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const expected = assertHasHint(machine, HINTS["status-start-on-trunk"]);
     const r = await runAgent(dir, ["status"]); // human mode (no --json)
     assertEquals(r.code, 0, r.output);
-    assert(
-      !r.output.includes(START_HERE_HINT),
-      `the start guardrail must not appear as a human line: ${r.output}`,
-    );
+    assert(!r.output.includes(expected), r.output);
   });
 });
 
@@ -338,12 +301,7 @@ Deno.test("status: the discern start guardrail does NOT fire from a worktree (it
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
     assertEquals(obj.data.location, "worktree");
-    assert(
-      !(obj.hints ?? []).includes(START_HERE_HINT),
-      `an agent already in a worktree must not be told to start one: ${
-        JSON.stringify(obj.hints)
-      }`,
-    );
+    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
   });
 });
 
@@ -364,19 +322,8 @@ Deno.test("status: while setup is unfinished, the main-checkout worktree next-st
       obj.data.setup_unfinished !== undefined,
       "an un-bootstrapped project must report setup_unfinished",
     );
-    const hints: string[] = obj.hints ?? [];
-    assert(
-      !hints.includes(START_HERE_HINT),
-      `the discern start guardrail must not fire mid-setup: ${
-        JSON.stringify(hints)
-      }`,
-    );
-    assert(
-      !hints.some((h) => h.includes("No active worktrees")),
-      `the "start a worktree" nudge must not fire mid-setup: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertLacksHint(obj, HINTS["status-start-on-trunk"]);
+    assertLacksHint(obj, HINTS["status-no-active-worktrees"]);
   });
 });
 
@@ -386,13 +333,14 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
     await gitInit(dir);
     await addWorktree(dir, "alpha");
 
+    const machine = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const expected = assertHasHint(machine, HINTS["fleet-ownership"]);
     const r = await runAgent(dir, ["status"]); // human mode (no --json)
     assertEquals(r.code, 0, r.output);
     // The agent-channel hint text never appears in interactive output…
-    assert(
-      !r.output.includes(FLEET_OWNERSHIP_HINT),
-      `the ownership hint must not appear as a human line: ${r.output}`,
-    );
+    assert(!r.output.includes(expected), r.output);
     // …but the dim caption beneath the fleet table does.
     assert(
       r.output.includes("Other worktrees are separate lines of work"),
@@ -538,12 +486,9 @@ Deno.test("status: a dirty worktree hints to prepare while iterating and finish 
       obj.data.scopes.includes("web"),
       `expected 'web' among changed scopes: ${JSON.stringify(obj.data)}`,
     );
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("discern prepare") && h.includes("clean HEAD")
-      ),
-      `expected a prepare-then-clean-finish hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["status-dirty-worktree-scoped"], {
+      scopes: ["web"],
+    });
     assertEquals(obj.data.gate_receipt.status, "missing");
   });
 });
@@ -627,32 +572,22 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
     assertEquals(obj.data.gate_receipt.status, "missing");
-    const hints = obj.hints ?? [];
-    assert(
-      hints.some((h: string) =>
-        h.includes("no honored receipt from `discern done`") &&
-        h.includes("before reporting the branch ready for review")
-      ),
-      `expected a final-finish hint: ${JSON.stringify(hints)}`,
-    );
-    assert(
-      !hints.some((h: string) => h.includes("ready for owner review")),
-      `missing receipt must not get a ready-for-review hint: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertHasHint(obj, HINTS["status-missing-done-receipt"], {
+      trunk: "main",
+    });
+    assertLacksHint(obj, HINTS["status-ready-for-review"], {
+      trunk: "main",
+      branch: "agent/alpha",
+    });
 
     const fleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
-    assert(
-      !(fleet.hints ?? []).some((hint: string) =>
-        hint.includes("ready for owner review") && hint.includes("agent/alpha")
-      ),
-      `fleet status must require the same receipt: ${
-        JSON.stringify(fleet.hints)
-      }`,
-    );
+    assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
+      name: "alpha",
+      trunk: "main",
+      branch: "agent/alpha",
+    });
   });
 });
 
@@ -678,44 +613,19 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     // The honored record carries the stored receipt markdown — the artifact the
     // review-ready hint tells the agent to relay.
     assertStringIncludes(obj.data.gate_receipt.receipt, "### Receipt");
-    const hints = obj.hints ?? [];
-    assert(
-      hints.some((h: string) => h.includes("ready for owner review")),
-      `expected a ready-for-review hint: ${JSON.stringify(hints)}`,
-    );
-    // The review moment's concrete affordances: relay the receipt, and the exact
-    // inspection command for a human who wants the raw diff.
-    assert(
-      hints.some((h: string) =>
-        h.includes("relay the receipt") &&
-        h.includes("git diff main...agent/alpha")
-      ),
-      `expected the relay + inspect affordances: ${JSON.stringify(hints)}`,
-    );
-    assert(
-      hints.some((h: string) => h.includes("explicitly asks you to land")),
-      `expected explicit-user-acceptance boundary: ${JSON.stringify(hints)}`,
-    );
-    assert(
-      !hints.some((h: string) => h.includes("when ready")),
-      `status must not imply acceptance follows from readiness: ${
-        JSON.stringify(hints)
-      }`,
-    );
+    assertHasHint(obj, HINTS["status-ready-for-review"], {
+      trunk: "main",
+      branch: "agent/alpha",
+    });
 
     // From the main checkout, the fleet's review-ready hint names the same
     // inspection command, so the owner can look at the work from where they sit.
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
-    const fleetHints = parseStatus(fleet.stdout).hints ?? [];
-    assert(
-      fleetHints.some((h: string) =>
-        h.includes("ready for owner review") &&
-        h.includes("git diff main...agent/alpha")
-      ),
-      `expected the fleet review-ready hint with the inspect command: ${
-        JSON.stringify(fleetHints)
-      }`,
+    assertHasHint(
+      parseStatus(fleet.stdout),
+      HINTS["status-fleet-member-ready"],
+      { name: "alpha", trunk: "main", branch: "agent/alpha" },
     );
   });
 });
@@ -748,26 +658,19 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
     );
     assertEquals(local.data.gate_receipt.status, "honored");
     assert(local.data.git.behind_integration > 0, JSON.stringify(local.data));
-    assert(
-      !(local.hints ?? []).some((hint: string) =>
-        hint.includes("ready for owner review")
-      ),
-      `behind local status must not claim readiness: ${
-        JSON.stringify(local.hints)
-      }`,
-    );
+    assertLacksHint(local, HINTS["status-ready-for-review"], {
+      trunk: "main",
+      branch: "agent/alpha",
+    });
 
     const fleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
-    assert(
-      !(fleet.hints ?? []).some((hint: string) =>
-        hint.includes("ready for owner review") && hint.includes("agent/alpha")
-      ),
-      `behind fleet status must not claim readiness: ${
-        JSON.stringify(fleet.hints)
-      }`,
-    );
+    assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
+      name: "alpha",
+      trunk: "main",
+      branch: "agent/alpha",
+    });
   });
 });
 
@@ -788,12 +691,10 @@ Deno.test("status: an ahead worktree with untracked work is not ready for owner 
     assertEquals(obj.data.git.clean, false);
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
-    assert(
-      !(obj.hints ?? []).some((h: string) => h.includes("accept")),
-      `dirty worktree must not get an accept hint: ${
-        JSON.stringify(obj.hints)
-      }`,
-    );
+    assertLacksHint(obj, HINTS["status-ready-for-review"], {
+      trunk: "main",
+      branch: "agent/alpha",
+    });
   });
 });
 
@@ -942,12 +843,9 @@ Deno.test("status: a drifted agent file is listed and hinted to refresh", async 
       (obj.data.stale_generated ?? []).includes("CLAUDE.md"),
       `expected CLAUDE.md in stale_generated: ${r.stdout}`,
     );
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("out of date") && h.includes("discern refresh")
-      ),
-      `expected an out-of-date refresh hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["generated-agent-files-stale"], {
+      paths: "CLAUDE.md",
+    });
     // status is read-only — it must NOT silently regenerate the drifted file.
     assert(
       (await Deno.readTextFile(claudePath)).includes("a stray hand edit"),
@@ -968,12 +866,9 @@ Deno.test("status: a missing agent file hints it isn't built yet", async () => {
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assert((obj.data.stale_generated ?? []).includes("CLAUDE.md"), r.stdout);
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("aren't built yet") && h.includes("discern refresh")
-      ),
-      `expected a not-built-yet hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["generated-agent-files-missing"], {
+      paths: "CLAUDE.md",
+    });
   });
 });
 
@@ -998,14 +893,10 @@ Deno.test("status: tracked discern-managed ignored artifacts are listed with an 
       [...(obj.data.tracked_ignored_artifacts ?? [])].sort(),
       [".claude/settings.local.json"],
     );
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("Discern-managed ignored artifacts are tracked by Git") &&
-        h.includes("git rm -r --cached -- .claude/settings.local.json") &&
-        h.includes("discern refresh")
-      ),
-      `expected a tracked-artifacts repair hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["tracked-ignored-artifacts"], {
+      pathSummary: ".claude/settings.local.json",
+      repairCommand: "git rm -r --cached -- .claude/settings.local.json",
+    });
   });
 });
 
@@ -1019,24 +910,17 @@ Deno.test("status: untracked compiled guidance files draw a commit hint that cle
     // makes the guidance readable from a bare clone.
     let r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assert(
-      (parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("agent files are untracked") &&
-        h.includes("commit them")
-      ),
-      `expected an untracked-guidance commit hint: ${r.stdout}`,
-    );
+    assertHasHint(parseStatus(r.stdout), HINTS["untracked-agent-files"], {
+      paths: ["AGENTS.md", "CLAUDE.md"],
+    });
 
     // Committed → the hint clears.
     await git(dir, "add", "AGENTS.md", "CLAUDE.md");
     r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assert(
-      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("agent files are untracked")
-      ),
-      `hint must clear once the files are tracked: ${r.stdout}`,
-    );
+    assertLacksHint(parseStatus(r.stdout), HINTS["untracked-agent-files"], {
+      paths: ["AGENTS.md", "CLAUDE.md"],
+    });
 
     // A project that deliberately ignores a compiled file in its OWN rules is
     // respected: ignored ⇒ excluded from the hint, never nagged.
@@ -1048,12 +932,9 @@ Deno.test("status: untracked compiled guidance files draw a commit hint that cle
     );
     r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assert(
-      !(parseStatus(r.stdout).hints ?? []).some((h: string) =>
-        h.includes("agent files are untracked")
-      ),
-      `a deliberate per-project ignore must silence the hint: ${r.stdout}`,
-    );
+    assertLacksHint(parseStatus(r.stdout), HINTS["untracked-agent-files"], {
+      paths: ["AGENTS.md", "CLAUDE.md"],
+    });
   });
 });
 
@@ -1064,13 +945,14 @@ Deno.test("status: missing provider hook integrations are listed and hinted to r
       agents: hookProviders.map((p) => p.name as AgentName),
     });
     await gitInit(dir);
-    const hookFiles = [
+    const hookPaths = [
       ...new Set(
         hookProviders.flatMap((p) =>
           p.hooks === undefined ? [] : [p.hooks.settingsFile]
         ),
       ),
-    ].sort();
+    ];
+    const hookFiles = [...hookPaths].sort();
     for (const file of hookFiles) {
       await Deno.remove(join(dir, file));
     }
@@ -1079,15 +961,9 @@ Deno.test("status: missing provider hook integrations are listed and hinted to r
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals([...(obj.data.stale_integrations ?? [])].sort(), hookFiles);
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("Provider integration files are missing") &&
-        h.includes("discern refresh")
-      ),
-      `expected a provider integration refresh hint: ${
-        JSON.stringify(obj.hints)
-      }`,
-    );
+    assertHasHint(obj, HINTS["provider-integrations-missing"], {
+      paths: hookPaths.join(", "),
+    });
 
     for (const file of hookFiles) {
       await assertRejects(
@@ -1131,14 +1007,11 @@ Deno.test("status: when behind, incoming_overlap names the files you AND main bo
     assert(obj.data.git.behind_integration >= 1, JSON.stringify(obj.data.git));
     // The hot zone is shared.txt; upstream.txt is incoming but not yours, so excluded.
     assertEquals(obj.data.git.incoming_overlap, ["shared.txt"]);
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("also changed upstream") && h.includes("shared.txt")
-      ),
-      `expected the behind hint to carry the overlap: ${
-        JSON.stringify(obj.hints)
-      }`,
-    );
+    assertHasHint(obj, HINTS["status-branch-behind"], {
+      behind: obj.data.git.behind_integration,
+      trunk: "main",
+      overlap: { total: 1, paths: ["shared.txt"] },
+    });
   });
 });
 
@@ -1174,20 +1047,14 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
     assertEquals(json.code, 0, json.output);
     const obj = parseStatus(json.stdout);
     assertEquals(obj.data.git.behind_integration, null);
-    assert(
-      (obj.hints ?? []).some((h: string) =>
-        h.includes("trunk branch 'main' is not available locally") &&
-        h.includes("[repository].trunk")
-      ),
-      `expected missing-main warning in hints\n${json.stdout}`,
+    const expected = assertHasHint(
+      obj,
+      HINTS["missing-integration-branch"],
+      { branch: "main" },
     );
 
     const human = await runAgent(wt, ["status"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(
-      human.output,
-      "trunk branch 'main' is not available locally",
-    );
-    assertStringIncludes(human.output, "[repository].trunk");
+    assertStringIncludes(human.output, expected);
   });
 });
