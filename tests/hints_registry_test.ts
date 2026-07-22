@@ -15,8 +15,11 @@ import {
   defineHint,
   fire,
   firedHintsFromTexts,
+  type HintAudience,
   HINTS,
   hintTexts,
+  interactiveHints,
+  interactiveHintTexts,
   mergeHintTexts,
 } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -119,5 +122,70 @@ Deno.test("every registry entry renders non-empty text from its example params",
     };
     const rendered = entry.template(entry.example);
     assert(rendered.trim().length > 0, `${key} rendered an empty example`);
+  }
+});
+
+// The projections resolve audience from the live registry by id, so these
+// behavior tests fire real entries — one from each audience — rather than
+// local definitions the registry cannot know.
+Deno.test("the interactive projections drop agent-audience entries and keep the rest", () => {
+  const entries = Object.values(HINTS) as unknown as readonly {
+    id: string;
+    audience: HintAudience;
+    example: unknown;
+    template: (params: unknown) => string;
+  }[];
+  const agentEntry = entries.find((e) => e.audience === "agent");
+  const allEntry = entries.find((e) => e.audience === "all");
+  assert(agentEntry !== undefined, "registry has no agent-audience entry");
+  assert(allEntry !== undefined, "registry has no all-audience entry");
+  const agentFired = {
+    id: agentEntry.id,
+    text: agentEntry.template(agentEntry.example),
+  };
+  const allFired = {
+    id: allEntry.id,
+    text: allEntry.template(allEntry.example),
+  };
+
+  assertEquals(interactiveHints([agentFired, allFired]), [allFired]);
+
+  const texts = mergeHintTexts(
+    hintTexts([agentFired, allFired]),
+    ["unassociated advisory text"],
+  );
+  assertEquals(interactiveHintTexts(texts), [
+    allFired.text,
+    "unassociated advisory text",
+  ]);
+  assertEquals(interactiveHintTexts(undefined), []);
+});
+
+// The class guard: every agent-audience entry — current and future — provably
+// stays off the interactive surface, and every all-audience entry provably
+// reaches it. Iterates the live registry, so a new entry auto-enrols.
+Deno.test("every registry entry's audience decides its interactive rendering", () => {
+  for (const [key, def] of Object.entries(HINTS)) {
+    const entry = def as {
+      audience: HintAudience;
+      example: unknown;
+      template: (params: unknown) => string;
+      id: string;
+    };
+    const fired = { id: entry.id, text: entry.template(entry.example) };
+    const projected = interactiveHintTexts(hintTexts([fired]));
+    if (entry.audience === "agent") {
+      assertEquals(
+        projected,
+        [],
+        `${key} is agent-audience but survives the interactive projection`,
+      );
+    } else {
+      assertEquals(
+        projected,
+        [fired.text],
+        `${key} is all-audience but the interactive projection dropped it`,
+      );
+    }
   }
 });
