@@ -246,6 +246,8 @@ export const HINTS = {
   /**
    * The pristine-worktree / dirty-main signature shared by status and done. It
    * catches edits landing on the trunk while discern's tools run in a worktree.
+   * Agent-audience: the remedy is session mechanics — cd-prefixing shell
+   * commands and passing `path` to MCP tools — that only an agent performs.
    */
   "silent-worktree-divergence": defineHint<{
     cwd: string;
@@ -254,7 +256,7 @@ export const HINTS = {
   }>({
     id: "silent-worktree-divergence",
     category: "guardrail",
-    audience: "all",
+    audience: "agent",
     when:
       "A clean worktree coincides with uncommitted changes in the main checkout.",
     example: {
@@ -522,10 +524,14 @@ export const HINTS = {
       `user-requested landing. This branch is committed and up to date with ${trunk}.`,
   }),
 
+  /** Agent-audience: every fact here (clean HEAD, honored receipt, up to
+   * date) already renders in the interactive summary lines, and the
+   * instructions — relay, wait, land only on an explicit ask — are the agent's
+   * consent workflow, not a person's. */
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
     id: "status-ready-for-review",
     category: "next-step",
-    audience: "all",
+    audience: "agent",
     when: "A clean, current branch has an honored gate receipt.",
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
@@ -1376,10 +1382,13 @@ export const HINTS = {
       "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
   }),
 
+  /** The owner-consent step after a green gate. Agent-audience: relaying to an
+   * owner and waiting is an agent's move — a person running `done` at a
+   * terminal IS the owner, with nobody further to relay to. */
   "gate-relay-receipt": defineHint({
     id: "gate-relay-receipt",
     category: "next-step",
-    audience: "all",
+    audience: "agent",
     when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
@@ -1662,7 +1671,7 @@ export const HINTS = {
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      "Re-run `discern accept --confirmed` once your owner has accepted this " +
+      "Re-run `discern accept --confirmed` once the owner has accepted this " +
       "landing. The flag attests that acceptance, so a pre-authorized landing " +
       "still takes one call.",
   }),
@@ -1676,7 +1685,7 @@ export const HINTS = {
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      "Run `discern status` to get the honored receipt to relay " +
+      "Run `discern status` to get the honored receipt for the owner's review " +
       "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
       "change.",
   }),
@@ -1719,7 +1728,7 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a landing receipt.",
     example: undefined,
     template: (): string =>
-      "Relay the landing receipt in data.receipt to your owner. It pastes cleanly into a PR body.",
+      "Share the landing receipt in data.receipt with the change's owner. It pastes cleanly into a PR body.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
@@ -1989,11 +1998,13 @@ export const HINTS = {
       "Before continuing, reactivate every configured coding agent using the provider-specific steps below. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:",
   }),
 
-  /** Setup's final coaching route for deepening the newly-wired project. */
+  /** Setup's final coaching route for deepening the newly-wired project.
+   * Agent-audience: "review the findings with your human" is an instruction
+   * only an agent can follow. */
   "setup-run-coach": defineHint<{ coachVerb: string; todoRel: string }>({
     id: "setup-run-coach",
     category: "next-step",
-    audience: "all",
+    audience: "agent",
     when: "Setup completes and offers the project coaching follow-up.",
     family: "setup-done-next",
     example: {
@@ -2087,11 +2098,12 @@ export const HINTS = {
    * The MCP-specific start re-root guardrail. It distinguishes the server's
    * automatic tool re-aim from the file move the client must perform, gives the
    * fallback for a fixed working root, and names the split-state consequence.
+   * Agent-audience: it fires only over MCP and instructs the connected agent.
    */
   "start-mcp-re-root": defineHint<{ path: string }>({
     id: "start-mcp-re-root",
     category: "guardrail",
-    audience: "all",
+    audience: "agent",
     when:
       "`start` runs through the Model Context Protocol and the client must re-root before editing.",
     family: "start-result",

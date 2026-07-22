@@ -18,7 +18,7 @@ Audience `all` renders on every surface. Audience `agent` marks an instruction o
 Rendered example:
 
 ```text
-Re-run `discern accept --confirmed` once your owner has accepted this landing. The flag attests that acceptance, so a pre-authorized landing still takes one call.
+Re-run `discern accept --confirmed` once the owner has accepted this landing. The flag attests that acceptance, so a pre-authorized landing still takes one call.
 ```
 
 ## `accept-convergence-changed-tracked`
@@ -57,7 +57,7 @@ Run `discern refresh` in /workspace/project. Acceptance landed on main, but the 
 Rendered example:
 
 ```text
-Relay the landing receipt in data.receipt to your owner. It pastes cleanly into a PR body.
+Share the landing receipt in data.receipt with the change's owner. It pastes cleanly into a PR body.
 ```
 
 ## `accept-review-via-status`
@@ -70,7 +70,7 @@ Relay the landing receipt in data.receipt to your owner. It pastes cleanly into 
 Rendered example:
 
 ```text
-Run `discern status` to get the honored receipt to relay (data.gate_receipt.receipt) and the exact `git diff` command for the raw change.
+Run `discern status` to get the honored receipt for the owner's review (data.gate_receipt.receipt) and the exact `git diff` command for the raw change.
 ```
 
 ## `config-job-deferred`
@@ -531,7 +531,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 ## `gate-relay-receipt`
 
 - Category: `next-step`
-- Audience: `all`
+- Audience: `agent`
 - Family: —
 - Emitting context: A successful gate records a receipt ready for owner review.
 
@@ -908,7 +908,7 @@ Fix the setup refresh error, then run `discern refresh`: could not write .codex/
 ## `setup-run-coach`
 
 - Category: `next-step`
-- Audience: `all`
+- Audience: `agent`
 - Family: `setup-done-next`
 - Emitting context: Setup completes and offers the project coaching follow-up.
 
@@ -960,7 +960,7 @@ Setup is NOT finished. Do not stop or hand the setup brief back as a report. Com
 ## `silent-worktree-divergence`
 
 - Category: `guardrail`
-- Audience: `all`
+- Audience: `agent`
 - Family: —
 - Emitting context: A clean worktree coincides with uncommitted changes in the main checkout.
 
@@ -1142,7 +1142,7 @@ Rendered example:
 ## `start-mcp-re-root`
 
 - Category: `guardrail`
-- Audience: `all`
+- Audience: `agent`
 - Family: `start-result`
 - Emitting context: `start` runs through the Model Context Protocol and the client must re-root before editing.
 
@@ -1363,7 +1363,7 @@ Run `discern start` to begin work. There are no active worktrees.
 ## `status-ready-for-review`
 
 - Category: `next-step`
-- Audience: `all`
+- Audience: `agent`
 - Family: `status-review-readiness`
 - Emitting context: A clean, current branch has an honored gate receipt.
 
