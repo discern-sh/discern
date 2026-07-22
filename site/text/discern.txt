@@ -133,12 +133,8 @@ BUGS
 
 SEE ALSO
        https://discern.sh              the illustrated edition, for humans
-       https://discern.sh/agents       this manual, typeset
-       https://discern.sh/start        the edition for people who build
-                                       with prompts
        https://discern.sh/docs         the full manual, one URL per page;
                                        raw Markdown for text clients
-       https://discern.sh/careers      the working conditions
        https://discern.sh/llms.txt     this document, at a stable path
        discern help                    the full documentation, served
                                        offline from the binary

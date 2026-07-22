@@ -882,7 +882,6 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 ${navHtml(site, frame.current)}
     </nav>
     <div class="docs-nav-foot discern-mono">
-      <a href="/agents">agents</a>
       <a href="/llms.txt">llms.txt</a>
       <a href="${GITHUB}">github&nbsp;↗</a>
     </div>

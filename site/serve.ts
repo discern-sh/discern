@@ -42,9 +42,6 @@ export const PAGES: Readonly<
   Record<string, { page: string; negotiable: boolean }>
 > = {
   "/": { page: "pages/index.html", negotiable: true },
-  "/agents": { page: "pages/agents.html", negotiable: true },
-  "/start": { page: "pages/start.html", negotiable: false },
-  "/careers": { page: "pages/careers.html", negotiable: false },
   "/design-system-demo": {
     page: "pages/design-system-demo.html",
     negotiable: false,
@@ -146,8 +143,8 @@ function notFound(asText: boolean): Response {
     `<!doctype html><meta charset="utf-8"><title>404 · discern</title>` +
     `<body style="font-family:ui-monospace,monospace;padding:4rem 1.5rem;color:#1A1814;background:#FBFAF7">` +
     `<p style="max-width:34rem;line-height:1.7">404 — no such page.<br>` +
-    `The editions: <a href="/">discern.sh</a> · <a href="/agents">/agents</a> · ` +
-    `<a href="/start">/start</a> · <a href="/careers">/careers</a> · <a href="/llms.txt">/llms.txt</a></p>`;
+    `Available pages: <a href="/">discern.sh</a> · ` +
+    `<a href="/docs">/docs</a> · <a href="/llms.txt">/llms.txt</a></p>`;
   return new Response(body, {
     status: 404,
     headers: { "content-type": "text/html; charset=utf-8" },

@@ -90,7 +90,7 @@ Deno.test("canonical path and production-domain variants redirect once with 308"
     ["/docs/index.html", canonicalUrl("/docs")],
     [`${page.route}/`, canonicalUrl(page.route)],
     [`${page.route}/index.html`, canonicalUrl(page.route)],
-    ["/agents.html", canonicalUrl("/agents")],
+    [`${page.route}.html`, canonicalUrl(page.route)],
     ["/index.html", canonicalUrl("/")],
   ] as const;
   for (const [path, location] of variants) {

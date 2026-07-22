@@ -539,7 +539,6 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
             title: "Read",
             links: [
               { label: "The manual", href: "/docs" },
-              { label: "Agent edition", href: "/agents" },
               { label: "Plain text", href: "/llms.txt" },
             ],
           },
@@ -557,7 +556,6 @@ function ContentDemoPage({ stats }: { readonly stats: DemoStats }) {
           {
             title: "Project",
             links: [
-              { label: "Get started", href: "/start" },
               { label: "GitHub", href: "https://github.com/jackwh/discern" },
               { label: "Home", href: "/" },
             ],

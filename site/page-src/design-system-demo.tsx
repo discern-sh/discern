@@ -324,13 +324,6 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
           }
           actions={
             <>
-              <Button
-                href="/start"
-                size="lg"
-                trailingIcon={<PageIcon name="arrow" />}
-              >
-                Add discern to a project
-              </Button>
               <Button href="/docs" size="lg" variant="secondary">
                 Read the manual
               </Button>
@@ -682,14 +675,7 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
               slowly-drifting story required.
             </p>
           }
-          actions={
-            <>
-              <Button href="/llms.txt">Open llms.txt</Button>
-              <Button href="/agents" variant="secondary">
-                Meet the agent edition
-              </Button>
-            </>
-          }
+          actions={<Button href="/llms.txt">Open llms.txt</Button>}
           meta="Content negotiation · plain text · documentation as Markdown"
         />
 
@@ -810,12 +796,9 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
             </p>
           }
           actions={
-            <>
-              <Button href="/start" size="lg">Start with discern</Button>
-              <Button href="/docs" size="lg" variant="secondary">
-                Read the manual
-              </Button>
-            </>
+            <Button href="/docs" size="lg" variant="secondary">
+              Read the manual
+            </Button>
           }
           note="Open source · local-first · no account required"
           visual={<CommandCard />}
@@ -838,8 +821,6 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
             title: "Explore",
             links: [
               { label: "For engineers", href: "#audiences" },
-              { label: "For agents", href: "/agents" },
-              { label: "Get started", href: "/start" },
             ],
           },
           {
@@ -858,7 +839,6 @@ function DemoPage({ stats }: { readonly stats: DemoStats }) {
             title: "Project",
             links: [
               { label: "GitHub", href: "https://github.com/jackwh/discern" },
-              { label: "Careers", href: "/careers" },
               { label: "Current homepage", href: "/" },
             ],
           },
