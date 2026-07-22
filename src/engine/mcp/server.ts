@@ -31,7 +31,10 @@ import { isAbsolute } from "@std/path";
 import { z } from "@zod/zod";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
-import { takeObservedResult } from "../../shared/result_capture.ts";
+import {
+  observeResult,
+  takeObservedResult,
+} from "../../shared/result_capture.ts";
 import { beginRecording } from "../logbook/record.ts";
 import type { DriverFacts } from "../logbook/schema.ts";
 import {
@@ -97,7 +100,14 @@ import {
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
-import { fire, HINTS } from "../../shared/hints.ts";
+import {
+  appendHintTexts,
+  fire,
+  type FiredHint,
+  firedHintsFromTexts,
+  HINTS,
+  hintTexts,
+} from "../../shared/hints.ts";
 import {
   createInstalledVersionResolver,
   versionMismatchHint,
@@ -958,15 +968,12 @@ async function startToolResult(
     // engine hint (e.g. the dirty-main-checkout advisory) is carried through.
     const data = result.data;
     if (result.ok && result.dry_run !== true && data !== undefined) {
-      const cliReRoot = fire(HINTS["start-re-root"], { dir: data.path }).text;
-      const carried = (result.hints ?? []).filter((h) =>
-        h !== data.name_note && h !== cliReRoot
+      const fired = firedHintsFromTexts(result.hints).map((hint) =>
+        hint.id === HINTS["start-re-root"].id
+          ? fire(HINTS["start-mcp-re-root"], { path: data.path })
+          : hint
       );
-      result.hints = [
-        ...(data.name_note !== undefined ? [data.name_note] : []),
-        mcpStartHint(data.path),
-        ...carried,
-      ];
+      result.hints = hintTexts(fired);
     }
     return result;
   } catch (e) {
@@ -1022,8 +1029,8 @@ function renderResult(result: DiscernResult): ToolResult {
 
 /** Append one hint to a result without clobbering the verb's own — it adds the
  * stale-server restart hint on top of whatever the verb already returned. */
-function appendHint(result: DiscernResult, hint: string): DiscernResult {
-  return { ...result, hints: [...(result.hints ?? []), hint] };
+function appendHint(result: DiscernResult, hint: FiredHint): DiscernResult {
+  return { ...result, hints: appendHintTexts(result.hints, [hint]) };
 }
 
 /**
@@ -1151,9 +1158,10 @@ async function runVerb(
       message: e instanceof Error ? e.message : String(e),
     };
   }
-  // Drain the CLI-oriented observation seam: the in-process verb cores feed it,
-  // and this long-lived server must not leak one call's envelope into the next.
-  takeObservedResult();
+  // Feed and drain the shared observation seam for this call. The long-lived
+  // server must not leak one call's envelope or hint ids into the next.
+  observeResult(result);
+  const observed = takeObservedResult();
   const { flags, target } = mcpCallFacts(args);
   await recording.finish({
     verb: verbOf(tool.name),
@@ -1161,6 +1169,7 @@ async function runVerb(
     outcome: result.ok ? "ok" : "failed",
     durationMs: performance.now() - started,
     result,
+    hintIds: observed?.hintIds ?? [],
     driver: await driver,
     ...(result.dry_run === true ? { dryRun: true } : {}),
     ...(flags !== undefined ? { flags } : {}),

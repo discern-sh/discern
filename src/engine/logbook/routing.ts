@@ -10,7 +10,7 @@
  */
 
 import type { DiscernResult } from "../../shared/result.ts";
-import { type FiredHint, hintTexts } from "../../shared/hints.ts";
+import { appendHintTexts, type FiredHint } from "../../shared/hints.ts";
 import type {
   DetectorScope,
   DetectorTier,
@@ -121,5 +121,5 @@ export function addAdvisoryHints<T>(
   if (hints.length === 0) {
     return;
   }
-  result.hints = [...(result.hints ?? []), ...hintTexts(hints)];
+  result.hints = appendHintTexts(result.hints, hints);
 }

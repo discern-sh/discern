@@ -53,7 +53,8 @@ import type {
   DoctorEnvironment,
   VerbPlan,
 } from "../shared/result_schemas.ts";
-import { fire, HINTS } from "../shared/hints.ts";
+import { fire, HINTS, hintTexts } from "../shared/hints.ts";
+import { observeResult } from "../shared/result_capture.ts";
 import { inDeskSession } from "../engine/desk/session.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -831,7 +832,7 @@ export async function doctorResult(
     ok: checks.every((c) => c.status !== "fail"),
     verb: "doctor",
     ...(midSetup(cfg)
-      ? { hints: [fire(HINTS["setup-unfinished-doctor"]).text] }
+      ? { hints: hintTexts([fire(HINTS["setup-unfinished-doctor"])]) }
       : {}),
     data: {
       kit_version: KIT_VERSION,
@@ -985,17 +986,18 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   // not a phantom "broken" one at the cwd. Falls back to the cwd when there is no
   // project in the ancestry, so the "discern.toml not found" check still fires.
   const destDir = (await findRoot()) ?? Deno.cwd();
+  const result = await doctorResult(destDir);
+  observeResult(result);
 
   if (options.json) {
-    const result = await doctorResult(destDir);
     log.result(result);
     return result.ok ? 0 : 1;
   }
 
-  const checks = await runChecks(destDir);
+  const checks = result.data?.checks ?? [];
   const healthy = checks.every((c) => c.status !== "fail");
   log.heading("discern doctor");
-  const env = await doctorEnvironment();
+  const env = result.data?.environment ?? await doctorEnvironment();
   log.detail(
     `discern ${env.discern} · ${env.platform} · git ${
       env.git !== undefined ? gitDisplayVersion(env.git) : "not found"

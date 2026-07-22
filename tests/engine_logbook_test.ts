@@ -31,6 +31,7 @@ import {
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
+import { HINTS } from "../src/shared/hints.ts";
 
 /** All well-formed events across the project's logbook, in file line order. */
 async function readEvents(dir: string): Promise<LogbookEvent[]> {
@@ -119,12 +120,35 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
       "the environment marker's value must not land in the logbook",
     );
     assertEquals(event.flags, ["local"]);
+    assertEquals(event.hint_ids, [
+      HINTS["generated-agent-files-missing"].id,
+      HINTS["materialized-skills-missing"].id,
+      HINTS["status-start-on-trunk"].id,
+      HINTS["status-no-active-worktrees"].id,
+    ]);
     assertEquals(event.change, {
       files: 0,
       insertions: 0,
       deletions: 0,
       commits: 0,
     });
+  });
+});
+
+Deno.test("logbook: a human-rendered verb records the ids on its observed result", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const r = await runAgent(dir, ["status", "--local"]);
+    assertEquals(r.code, 0, r.output);
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 1);
+    assertEquals(events[0]?.hint_ids, [
+      HINTS["generated-agent-files-missing"].id,
+      HINTS["materialized-skills-missing"].id,
+      HINTS["status-start-on-trunk"].id,
+      HINTS["status-no-active-worktrees"].id,
+    ]);
   });
 });
 
@@ -149,6 +173,11 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
       event.target,
       "no-such-topic",
       "what was looked up is recorded — the guidance-gap signal",
+    );
+    assertEquals(
+      event.hint_ids,
+      [],
+      "new writers distinguish no fired hints from legacy missing evidence",
     );
   });
 });
@@ -392,6 +421,12 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     assertEquals(event.surface, "mcp");
     assertEquals(event.branch, "main");
     assertEquals(event.outcome, "ok");
+    assertEquals(event.hint_ids, [
+      HINTS["generated-agent-files-missing"].id,
+      HINTS["materialized-skills-missing"].id,
+      HINTS["status-start-on-trunk"].id,
+      HINTS["status-no-active-worktrees"].id,
+    ]);
     assert(
       event.driver !== undefined && event.driver.session !== undefined &&
         event.driver.session.startsWith("mcp:"),

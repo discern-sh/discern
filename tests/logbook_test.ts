@@ -99,6 +99,7 @@ function sampleEvent(): VerbEvent {
       file: "src/a.ts",
       count: 14,
     }],
+    hint_ids: ["gate-failure-check-test", "gate-failure-gotchas"],
     standards: [{
       name: "cov",
       direction: "up",

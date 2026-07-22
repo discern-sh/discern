@@ -29,7 +29,7 @@ Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", 
   const hint = versionMismatchHint("1.0.0", "1.1.0");
   assert(hint !== undefined, "a genuine mismatch must produce a hint");
   assertHasHint(
-    { hints: [hint] },
+    { hints: [hint.text] },
     HINTS["mcp-version-mismatch"],
     { serverVersion: "1.0.0", installedVersion: "1.1.0" },
   );

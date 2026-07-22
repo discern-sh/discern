@@ -10,6 +10,7 @@
 import { colors } from "@cliffy/ansi/colors";
 import type { DiscernResult, RenderSink } from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
+import { observeResult } from "../shared/result_capture.ts";
 import type { EnvReader } from "../shared/env.ts";
 
 /** How a command should present its results. */
@@ -164,6 +165,7 @@ export class Logger {
    * the wire shape through one site.
    */
   result(r: DiscernResult): void {
+    observeResult(r);
     if (!this.json) {
       return;
     }

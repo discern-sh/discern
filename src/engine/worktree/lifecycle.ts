@@ -96,6 +96,7 @@ import {
   type StepOutcome,
   type StepResult,
 } from "../../shared/result.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import type {
   AcceptData,
   GateData,
@@ -103,7 +104,13 @@ import type {
   UpdateData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  mergeHintTexts,
+} from "../../shared/hints.ts";
 import {
   addWorktree,
   assertInWorktree,
@@ -250,6 +257,7 @@ function emitOrRenderWorktreeResult<TData>(
   json: boolean,
   hooks: WorktreeResultRenderHooks<TData> = {},
 ): void {
+  observeResult(result);
   if (json) {
     emitResult(result);
     return;
@@ -1679,7 +1687,7 @@ async function executeAcceptPlan(
   // trunk has already moved, so every operation in this block is non-fatal and
   // recorded: no dependency-install or smoke failure may strand the linked
   // worktree/resources by preventing the cleanup tail from running.
-  const convergenceHints: string[] = [];
+  let convergenceHints: string[] = hintTexts([]);
   const diagnostics: Diagnostic[] = [];
   ctx.log.info(
     "Re-materializing agent files + skills in the landing checkout…",
@@ -1692,7 +1700,7 @@ async function executeAcceptPlan(
       refreshTemplatesDir,
     );
     refreshOk = guidanceRefreshSucceeded(refreshed);
-    convergenceHints.push(...refreshed.hints);
+    convergenceHints = mergeHintTexts(convergenceHints, refreshed.hints);
   } catch {
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
@@ -1702,8 +1710,9 @@ async function executeAcceptPlan(
     "re-materialized the trunk checkout's agent files + skills",
   );
   if (!refreshOk) {
-    convergenceHints.push(
-      fire(HINTS["accept-refresh-failed"], { trunk, mainRepo }).text,
+    convergenceHints = mergeHintTexts(
+      convergenceHints,
+      hintTexts([fire(HINTS["accept-refresh-failed"], { trunk, mainRepo })]),
     );
   }
 
@@ -1808,11 +1817,14 @@ async function executeAcceptPlan(
       : "failed",
   });
   if (checkoutClean === false) {
-    convergenceHints.push(
-      fire(HINTS["accept-convergence-changed-tracked"], {
-        trunk,
-        mainRepo,
-      }).text,
+    convergenceHints = mergeHintTexts(
+      convergenceHints,
+      hintTexts([
+        fire(HINTS["accept-convergence-changed-tracked"], {
+          trunk,
+          mainRepo,
+        }),
+      ]),
     );
     ctx.log.warn(
       "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
@@ -1947,10 +1959,10 @@ export async function acceptResult(
       : {}),
   };
   result.hints = executed.receiptMarkdown !== undefined
-    ? [
-      fire(HINTS["accept-relay-landing-receipt"]).text,
-      ...executed.convergenceHints,
-    ]
+    ? mergeHintTexts(
+      hintTexts([fire(HINTS["accept-relay-landing-receipt"])]),
+      executed.convergenceHints,
+    )
     : executed.convergenceHints;
   if (executed.diagnostics.length > 0) {
     result.diagnostics = executed.diagnostics;
@@ -2298,7 +2310,7 @@ async function runUpdateConvergence(
 ): Promise<{ steps: StepResult[]; refreshHints: string[] }> {
   ctx.log.info("Re-materializing agent files + skills…");
   let refreshOk = true;
-  let refreshHints: string[] = [];
+  let refreshHints: string[] = hintTexts([]);
   try {
     const refreshed = await compileGuidelines(ctx.root, ctx.log);
     refreshOk = guidanceRefreshSucceeded(refreshed);
@@ -2456,10 +2468,10 @@ async function executeUpdatePlan(
         steps,
       );
       result.data = summary.data;
-      result.hints = [
-        ...hintTexts(summary.hints),
-        ...convergence.refreshHints,
-      ];
+      result.hints = mergeHintTexts(
+        hintTexts(summary.hints),
+        convergence.refreshHints,
+      );
       return result;
     }
   }

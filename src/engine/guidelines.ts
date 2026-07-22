@@ -36,7 +36,13 @@ import {
   wireProviderProjectRules,
   wireProviderWorktreeApp,
 } from "../lib/providers.ts";
-import { fire, HINTS } from "../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  mergeHintTexts,
+} from "../shared/hints.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
 
@@ -120,7 +126,10 @@ export async function refreshResult(
   const errors = guidanceRefreshErrors(result);
   const failed = errors.length > 0;
   const hints = !failed && result.trackedArtifactsChanged.length > 0
-    ? [fire(HINTS["refresh-commit-tracked-artifacts"]).text, ...result.hints]
+    ? mergeHintTexts(
+      hintTexts([fire(HINTS["refresh-commit-tracked-artifacts"])]),
+      result.hints,
+    )
     : result.hints;
   return {
     ok: !failed,
@@ -191,7 +200,7 @@ export async function compileGuidelines(
   // FIRST install yields the restart hint (surfaced to the user AND the result
   // `hints`). Best-effort: a hiccup must not fail the compile.
   let mcpWired: string[] = [];
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   try {
     const r = await wireProviderMcp(root, agents, DISCERN_MCP_SERVER, config);
     mcpWired = r.written;
@@ -201,9 +210,9 @@ export async function compileGuidelines(
       );
     }
     if (r.firstInstall) {
-      const restartHint = fire(HINTS["refresh-mcp-first-install"]).text;
+      const restartHint = fire(HINTS["refresh-mcp-first-install"]);
       hints.push(restartHint);
-      log.info(restartHint);
+      log.info(restartHint.text);
     }
   } catch (error) {
     const msg = `could not update the MCP integration: ${errText(error)}`;
@@ -379,7 +388,7 @@ function summarize(
   hooksWired: string[],
   worktreeAppWired: string[],
   projectRulesWired: string[],
-  hints: string[],
+  hints: FiredHint[],
   skills: { copied: number; linked: number; pruned: number },
   errors: string[],
 ): GuidelinesResult {
@@ -398,7 +407,7 @@ function summarize(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
-    hints,
+    hints: hintTexts(hints),
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,
     skillsPruned: skills.pruned,

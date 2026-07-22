@@ -18,7 +18,9 @@ import {
 } from "../shared/config_schema.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "../lib/config.ts";
 import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
-import { fire, HINTS } from "../shared/hints.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../shared/hints.ts";
+import { observeResult } from "../shared/result_capture.ts";
+import type { DiscernResult } from "../shared/result.ts";
 import {
   tomlBool,
   TomlEditor,
@@ -70,7 +72,7 @@ async function applyEdits(
   edits: Edit[],
   opts: ConfigOptions,
   summary: string,
-  hints: string[] = [],
+  hints: FiredHint[] = [],
 ): Promise<number> {
   const log = new Logger(opts);
   const root = opts.cwd ?? Deno.cwd();
@@ -125,41 +127,45 @@ async function applyEdits(
   }
 
   if (opts.dryRun) {
+    const envelope: DiscernResult = {
+      ok: true,
+      verb: "config",
+      dry_run: true,
+      ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
+      data: { file: fileRel, edits },
+    };
+    observeResult(envelope);
     if (opts.json) {
-      log.result({
-        ok: true,
-        verb: "config",
-        dry_run: true,
-        ...(hints.length > 0 ? { hints } : {}),
-        data: { file: fileRel, edits },
-      });
+      log.result(envelope);
     } else {
       log.info("Dry run — would set:");
       for (const edit of edits) {
         log.line(`  ${edit.key} = ${edit.literal}`);
       }
       for (const hint of hints) {
-        log.info(hint);
+        log.info(hint.text);
       }
     }
     return 0;
   }
 
   await Deno.writeTextFile(path, result);
+  const envelope: DiscernResult = {
+    ok: true,
+    verb: "config",
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
+    data: { file: fileRel, edits },
+  };
+  observeResult(envelope);
   if (opts.json) {
-    log.result({
-      ok: true,
-      verb: "config",
-      ...(hints.length > 0 ? { hints } : {}),
-      data: { file: fileRel, edits },
-    });
+    log.result(envelope);
   } else {
     log.ok(summary);
     for (const edit of edits) {
       log.line(`  ${edit.key} = ${edit.literal}`);
     }
     for (const hint of hints) {
-      log.info(hint);
+      log.info(hint.text);
     }
   }
   return 0;
@@ -212,7 +218,7 @@ export async function runConfigSetJob(
       `Set job "${name}".`,
       deferred
         ? [
-          fire(HINTS["config-job-deferred"], { name }).text,
+          fire(HINTS["config-job-deferred"], { name }),
         ]
         : [],
     );

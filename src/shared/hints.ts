@@ -63,6 +63,17 @@ export interface FiredHint {
 }
 
 /**
+ * The in-process identity carried by one projected `hints[]` array. A WeakMap
+ * keeps the metadata off the public array and lets it disappear with the
+ * result; serialization therefore remains `string[]` while the logbook can
+ * recover the ids from the exact envelope it records.
+ */
+const firedHintsByTexts = new WeakMap<
+  readonly string[],
+  readonly FiredHint[]
+>();
+
+/**
  * Fire a registry entry. A parameterless entry (`HintDef<undefined>`) is fired with
  * no second argument; a parameterized one requires its params — the
  * conditional tuple makes the compiler enforce both.
@@ -79,7 +90,37 @@ export function fire<P>(
 
 /** Project fired hints onto the envelope's wire shape, order preserved. */
 export function hintTexts(fired: readonly FiredHint[]): string[] {
-  return fired.map((f) => f.text);
+  const texts = fired.map((f) => f.text);
+  firedHintsByTexts.set(texts, [...fired]);
+  return texts;
+}
+
+/** Recover the fired pairs associated with one projected wire array. */
+export function firedHintsFromTexts(
+  texts: readonly string[] | undefined,
+): FiredHint[] {
+  return texts === undefined ? [] : [...(firedHintsByTexts.get(texts) ?? [])];
+}
+
+/**
+ * Combine projected hint arrays without dropping their in-process identities.
+ * Unassociated strings stay on the wire but contribute no invented id.
+ */
+export function mergeHintTexts(
+  ...groups: readonly (readonly string[])[]
+): string[] {
+  const texts = groups.flatMap((group) => [...group]);
+  const fired = groups.flatMap((group) => firedHintsFromTexts(group));
+  firedHintsByTexts.set(texts, fired);
+  return texts;
+}
+
+/** Append fired hints to an existing wire array, preserving both identities. */
+export function appendHintTexts(
+  existing: readonly string[] | undefined,
+  fired: readonly FiredHint[],
+): string[] {
+  return mergeHintTexts(existing ?? [], hintTexts(fired));
 }
 
 /** Optional diagnostic reason rendered in the existing parenthesized form. */

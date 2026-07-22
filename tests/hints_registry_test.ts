@@ -10,7 +10,15 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { defineHint, fire, HINTS, hintTexts } from "../src/shared/hints.ts";
+import {
+  appendHintTexts,
+  defineHint,
+  fire,
+  firedHintsFromTexts,
+  HINTS,
+  hintTexts,
+  mergeHintTexts,
+} from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 const STATIC_HINT = defineHint({
@@ -54,6 +62,24 @@ Deno.test("hintTexts projects the wire shape in firing order", () => {
     "Branch is 1 behind main; run `discern update`.",
     "A fixed guardrail sentence.",
   ]);
+});
+
+Deno.test("hint text projection carries local ids through composition without changing the wire", () => {
+  const parameterized = fire(PARAM_HINT, { branch: "main", behind: 1 });
+  const first = hintTexts([parameterized]);
+  const appended = appendHintTexts(first, [fire(STATIC_HINT)]);
+  const merged = mergeHintTexts(appended, ["unassociated advisory text"]);
+
+  assertEquals(firedHintsFromTexts(merged), [
+    parameterized,
+    fire(STATIC_HINT),
+  ]);
+  assertEquals(merged, [
+    "Branch is 1 behind main; run `discern update`.",
+    "A fixed guardrail sentence.",
+    "unassociated advisory text",
+  ]);
+  assertEquals(JSON.parse(JSON.stringify(merged)), merged);
 });
 
 Deno.test("hint assertions render registry entries with supplied or example params", () => {

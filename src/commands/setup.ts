@@ -84,7 +84,15 @@ import {
 import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
-import { fire, HINTS } from "../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  mergeHintTexts,
+} from "../shared/hints.ts";
+import { observeResult } from "../shared/result_capture.ts";
+import type { DiscernResult } from "../shared/result.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
   getSetupPage,
@@ -670,7 +678,7 @@ async function scaffoldHarness(
   let projectRulesWired: string[] = [];
   let guidelinesCompiled = true;
   let guidelinesErrors: string[] = [];
-  let hints: string[] = [];
+  let hints: string[] = hintTexts([]);
   try {
     const g = await compileGuidelines(destDir, log);
     compiled = g.agentsWritten;
@@ -684,39 +692,45 @@ async function scaffoldHarness(
     // A per-artifact refresh failure is isolated (ADR 0065) — surface it so the
     // user knows a skills dir / agent file / the MCP wiring didn't complete.
     if (guidelinesErrors.length > 0) {
-      hints = [
-        ...guidelinesErrors.map((message) =>
-          fire(HINTS["setup-refresh-artifact-failed"], { message }).text
+      hints = mergeHintTexts(
+        hintTexts(
+          guidelinesErrors.map((message) =>
+            fire(HINTS["setup-refresh-artifact-failed"], { message })
+          ),
         ),
-        ...hints,
-      ];
+        hints,
+      );
     }
   } catch (error) {
     const message = `could not compile agent guidance: ${errMsg(error)}`;
     guidelinesCompiled = false;
     guidelinesErrors = [message];
-    hints = [
-      fire(HINTS["setup-refresh-artifact-failed"], { message }).text,
-    ];
+    hints = hintTexts([
+      fire(HINTS["setup-refresh-artifact-failed"], { message }),
+    ]);
     log.warn(message);
   }
   if (seeded.migrated.length > 0) {
-    hints = [
-      fire(HINTS["setup-guidance-preserved"], {
-        paths: seeded.migrated,
-        guidanceRel,
-      }).text,
-      ...hints,
-    ];
+    hints = mergeHintTexts(
+      hintTexts([
+        fire(HINTS["setup-guidance-preserved"], {
+          paths: seeded.migrated,
+          guidanceRel,
+        }),
+      ]),
+      hints,
+    );
   }
   if (seeded.skippedOwnRender.length > 0) {
-    hints = [
-      fire(HINTS["setup-guidance-own-render-skipped"], {
-        paths: seeded.skippedOwnRender,
-        guidanceRel,
-      }).text,
-      ...hints,
-    ];
+    hints = mergeHintTexts(
+      hintTexts([
+        fire(HINTS["setup-guidance-own-render-skipped"], {
+          paths: seeded.skippedOwnRender,
+          guidanceRel,
+        }),
+      ]),
+      hints,
+    );
   }
 
   const written = changed.map((op) => op.targetRel);
@@ -1937,11 +1951,10 @@ interface DoneSuccessView {
  * the work, reactivate the tools, then deepen the setup with the coach. */
 function doneHints(
   landing: LandingSummary,
-  reactivation: ReturnType<typeof reactivationHandoff>,
   coachVerb: string,
   todoRel: string,
 ): string[] {
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
     // `setup accept` lands ONLY the dedicated setup branch — an in-place setup on
     // the user's own branch is steered to a manual merge, because the land
@@ -1952,20 +1965,20 @@ function doneHints(
           branch: landing.branch,
           target: landing.target,
           acceptCommand: ACCEPT_COMMAND,
-        }).text
+        })
         : fire(HINTS["setup-done-land-manually"], {
           branch: landing.branch,
           target: landing.target,
           acceptCommand: ACCEPT_COMMAND,
           setupBranch: SETUP_BRANCH,
-        }).text,
+        }),
     );
   }
-  hints.push(reactivation.summary);
+  hints.push(fire(HINTS["setup-reactivate-tools"]));
   hints.push(
-    fire(HINTS["setup-run-coach"], { coachVerb, todoRel }).text,
+    fire(HINTS["setup-run-coach"], { coachVerb, todoRel }),
   );
-  return hints;
+  return hintTexts(hints);
 }
 
 /** The one-line coverage verdict (A12), distinguishing "setup complete" from "the full
@@ -2240,36 +2253,38 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // and rendered identically on both surfaces.
   const guidance = completionMessage({ assurance, landing, reactivation });
 
+  const data: SetupDoneData = {
+    bootstrapped: true,
+    forced,
+    gate_proven: !opts.force,
+    worktree_proven: worktreeProven,
+    marker_committed: markerCommit.state === "committed",
+    ...(markerCommit.state === "failed"
+      ? { marker_commit_error: markerCommit.detail }
+      : {}),
+    leftover,
+    assurance,
+    landing: {
+      in_repo: landing.inRepo,
+      branch: landing.branch,
+      target: landing.target,
+      on_target: landing.onTarget,
+      on_setup_branch: landing.onSetupBranch,
+      command: ACCEPT_COMMAND,
+    },
+    reactivation,
+    coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
+    guidance,
+  };
+  const result: DiscernResult<SetupDoneData> = {
+    ok: true,
+    verb: "setup done",
+    hints: doneHints(landing, coachVerb, cfg.project.todo),
+    data,
+  };
+  observeResult(result);
   if (opts.json) {
-    const data: SetupDoneData = {
-      bootstrapped: true,
-      forced,
-      gate_proven: !opts.force,
-      worktree_proven: worktreeProven,
-      marker_committed: markerCommit.state === "committed",
-      ...(markerCommit.state === "failed"
-        ? { marker_commit_error: markerCommit.detail }
-        : {}),
-      leftover,
-      assurance,
-      landing: {
-        in_repo: landing.inRepo,
-        branch: landing.branch,
-        target: landing.target,
-        on_target: landing.onTarget,
-        on_setup_branch: landing.onSetupBranch,
-        command: ACCEPT_COMMAND,
-      },
-      reactivation,
-      coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
-      guidance,
-    };
-    emitResult({
-      ok: true,
-      verb: "setup done",
-      hints: doneHints(landing, reactivation, coachVerb, cfg.project.todo),
-      data,
-    });
+    emitResult(result);
     return 0;
   }
 

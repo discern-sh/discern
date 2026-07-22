@@ -15,17 +15,30 @@
  * without inverting the shared→engine layering.
  */
 
+import { type FiredHint, firedHintsFromTexts } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
 
-let observed: DiscernResult | undefined;
+/** The envelope plus its local-only hint identities. */
+export interface ObservedResult {
+  result: DiscernResult;
+  hintIds: string[];
+}
+
+let observed: ObservedResult | undefined;
 
 /** Report an invocation's final result envelope (latest call wins). */
-export function observeResult(result: DiscernResult): void {
-  observed = result;
+export function observeResult(
+  result: DiscernResult,
+  firedHints: readonly FiredHint[] = firedHintsFromTexts(result.hints),
+): void {
+  observed = {
+    result,
+    hintIds: [...new Set(firedHints.map((hint) => hint.id))],
+  };
 }
 
 /** Take (and clear) the observed envelope, or undefined when none surfaced. */
-export function takeObservedResult(): DiscernResult | undefined {
+export function takeObservedResult(): ObservedResult | undefined {
   const result = observed;
   observed = undefined;
   return result;

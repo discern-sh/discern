@@ -144,7 +144,8 @@ export async function recordedRun(
     // every argv scan (dry-run, --json, flag names) — everything after the
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.
-    const dryRun = observed?.dry_run === true ||
+    const result = observed?.result;
+    const dryRun = result?.dry_run === true ||
       (scanArgs && Deno.args.includes("--dry-run"));
     const flags = scanArgs ? cliFlagNames() : undefined;
     await recording.finish({
@@ -153,7 +154,8 @@ export async function recordedRun(
       outcome: code === 0 ? "ok" : "failed",
       durationMs: performance.now() - started,
       driver: await driver,
-      ...(observed !== undefined ? { result: observed } : {}),
+      ...(result !== undefined ? { result } : {}),
+      hintIds: observed?.hintIds ?? [],
       ...(dryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),

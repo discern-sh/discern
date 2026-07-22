@@ -55,7 +55,14 @@ import {
   type GitignoreReconcileOperation,
   planDiscernGitignoreBlock,
 } from "../lib/agent_gitignore.ts";
-import { fire, HINTS } from "../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  HINTS,
+  hintTexts,
+  mergeHintTexts,
+} from "../shared/hints.ts";
+import { observeResult } from "../shared/result_capture.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -92,14 +99,14 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-function newerDiscernHint(): string {
+function newerDiscernHint(): FiredHint {
   return fire(HINTS["upgrade-newer-discern"], {
     updateChannel: UPDATE_CHANNEL,
-  }).text;
+  });
 }
 
-function restartAgentsHint(): string {
-  return fire(HINTS["upgrade-restart-session"]).text;
+function restartAgentsHint(): FiredHint {
+  return fire(HINTS["upgrade-restart-session"]);
 }
 
 /** Run `discern upgrade`. Returns a process exit code. */
@@ -191,7 +198,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.result({
         ok,
         verb: "upgrade",
-        ...(ok ? { hints: [newerDiscernHint()] } : {}),
+        ...(ok ? { hints: hintTexts([newerDiscernHint()]) } : {}),
         data: {
           check: true,
           kit_version: KIT_VERSION,
@@ -208,7 +215,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.ok(
         `Install is up to date (discern ${KIT_VERSION}, schema ${SCHEMA_VERSION}).`,
       );
-      log.info(newerDiscernHint());
+      log.info(newerDiscernHint().text);
     } else {
       if (pending.length > 0) {
         log.error(
@@ -480,11 +487,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         message:
           `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
       }),
-      hints: [
-        ...(guidelines?.hints ?? []),
-        newerDiscernHint(),
-        restartAgentsHint(),
-      ],
+      hints: mergeHintTexts(
+        guidelines?.hints ?? [],
+        hintTexts([newerDiscernHint(), restartAgentsHint()]),
+      ),
       data: {
         kit_version: KIT_VERSION,
         // `from` is the pre-upgrade schema; the install now records `current`
@@ -524,6 +530,14 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
+  observeResult({
+    ok: fullyCompiled,
+    verb: "upgrade",
+    hints: mergeHintTexts(
+      guidelines?.hints ?? [],
+      hintTexts([newerDiscernHint(), restartAgentsHint()]),
+    ),
+  });
   renderUpgradeSummary(
     log,
     guidelines,
@@ -624,9 +638,9 @@ function renderUpgradeSummary(
   // project to match the installed binary; getting a NEWER binary is separate.
   log.line();
   log.info(
-    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${newerDiscernHint()}`,
+    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${newerDiscernHint().text}`,
   );
-  log.info(restartAgentsHint());
+  log.info(restartAgentsHint().text);
 }
 
 /** Stamp `[meta].schema_version` into the config at `configPath`, in place. */

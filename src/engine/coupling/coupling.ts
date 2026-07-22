@@ -39,6 +39,7 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -833,6 +834,7 @@ export async function runCoupling(
     opts.paths !== undefined ? { paths: opts.paths } : {},
     env,
   );
+  observeResult(result);
   if (opts.json) {
     emitResult(result);
     return 0;

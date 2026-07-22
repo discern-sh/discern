@@ -26,6 +26,7 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import {
   fire,
   type FiredHint,
@@ -916,6 +917,7 @@ export async function runStatus(
     all: opts.all,
     local: opts.local,
   });
+  observeResult(result);
   if (opts.json) {
     emitResult(result);
     return result.ok ? 0 : 1;

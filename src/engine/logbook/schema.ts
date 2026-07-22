@@ -252,6 +252,10 @@ export const verbEventSchema = z.looseObject({
   steps: z.array(stepTimingSchema).optional(),
   /** Diagnostic classes lifted from the result envelope, when the verb emitted one. */
   diagnostics: z.array(diagnosticClassSchema).optional(),
+  /** Stable ids of the advisory hints delivered by this invocation. Absent on
+   * events written before hint identity was added; new writers record `[]` when
+   * no hint fired, preserving that distinction for readers. */
+  hint_ids: z.array(z.string()).optional(),
   /** Per-standard readings lifted from the envelope ({@link StandardReading}). */
   standards: z.array(standardReadingSchema).optional(),
   /** What an `update` brought in ({@link UpdateShape}). */

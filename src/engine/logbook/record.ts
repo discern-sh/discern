@@ -91,6 +91,8 @@ export interface FinishReport {
   durationMs: number;
   /** The invocation's result envelope, when one surfaced. */
   result?: DiscernResult | undefined;
+  /** Stable ids of the hints delivered with the invocation. */
+  hintIds?: string[] | undefined;
   /** True when the invocation was a preview (`--dry-run`). */
   dryRun?: boolean | undefined;
   /** Surface-specific driver signals (session, mode, identity hints). */
@@ -484,6 +486,7 @@ export function beginRecording(cwd: string): Recording {
           ...(lifted.scopes !== undefined ? { scopes: lifted.scopes } : {}),
           ...(steps !== undefined ? { steps } : {}),
           ...(diagnostics !== undefined ? { diagnostics } : {}),
+          hint_ids: report.hintIds ?? [],
           ...(lifted.standards !== undefined
             ? { standards: lifted.standards }
             : {}),

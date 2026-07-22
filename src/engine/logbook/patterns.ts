@@ -30,6 +30,7 @@ import type {
   PatternsResetData,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { observeResult } from "../../shared/result_capture.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
@@ -271,6 +272,7 @@ export async function runPatterns(
   opts: RunPatternsOptions,
 ): Promise<number> {
   const result = await patternsResult(root);
+  observeResult(result);
   if (opts.json) {
     emitResult(result);
     return result.ok ? 0 : 1;
@@ -355,6 +357,7 @@ export async function runPatternsReset(
   opts: RunPatternsResetOptions,
 ): Promise<number> {
   const result = await patternsResetResult(root, { dryRun: opts.dryRun });
+  observeResult(result);
   if (opts.json) {
     emitResult(result);
     return result.ok ? 0 : 1;
