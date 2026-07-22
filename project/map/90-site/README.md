@@ -28,6 +28,7 @@ The routes, from the handler's exported `PAGES` table:
 | Route               | Page                             | Text client receives                     |
 | ------------------- | -------------------------------- | ---------------------------------------- |
 | `/`                 | the generated homepage           | the plaintext edition                    |
+| `/v2`               | the generated editorial edition  | the same HTML                            |
 | `/docs/…`           | the rendered manual              | the page's raw Markdown                  |
 | `/docs/decisions/…` | project-history decision records | the record's raw Markdown                |
 | `/llms.txt`         | —                                | the plaintext edition plus a docs index, |

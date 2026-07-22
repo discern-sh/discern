@@ -14,6 +14,10 @@ The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../si
 
 Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css) under `.landing-*` selectors only; component-owned `.discern-*` selectors stay with the package (the consumer-CSS guard below enforces this). [`site/page-src/landing.js`](../../../site/page-src/landing.js) adds the one progressive enhancement — copy buttons on elements carrying `data-copy-command` — and the command stays selectable text without JavaScript. The static theme toggle in the header is markup only; the shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime.
 
+## The editorial edition
+
+`/v2` carries the same argument as an essay: [`site/page-src/editorial.tsx`](../../../site/page-src/editorial.tsx) composes the Editorial adapters (article header and layout, a numbered contents column, prose with a drop cap, a wide pull quote, a framed agent-session figure, and end notes) around the same install moment. Every mechanism claim in the prose links to one of the numbered notes, and the runtime test holds each marker to a resolving note with a return link. Its styles live in [`site/page-src/editorial.css`](../../../site/page-src/editorial.css) under `.v2-*` selectors; the shared install row and copy enhancement come from the landing sources. Both pages share the compositions bundle, one title-and-description source in [`site/brand.ts`](../../../site/brand.ts) (`SELF_TITLED_PAGES`), and the same static-output rules.
+
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 
 ## Consumer guards
