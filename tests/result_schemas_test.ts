@@ -266,7 +266,7 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
 
 Deno.test("GateDataSchema.failed_stage is the closed FAILED_STAGES vocabulary, not a free string", () => {
   // failed_stage is the gate's failed-stage SSOT, derived as z.enum(FAILED_STAGES).
-  // Compile-time totality already forces every label through failMessage; this guards
+  // Compile-time totality already forces every label through the remedy index; this guards
   // the WIRE side against silently re-opening the class — if the schema were ever
   // weakened back to z.string(), the rejection assertion below fails.
   for (const stage of FAILED_STAGES) {

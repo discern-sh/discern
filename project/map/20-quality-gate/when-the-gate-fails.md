@@ -38,7 +38,7 @@ Run the machine-readable form to hand the failure across sessions:
 discern done --json
 ```
 
-JSON mode prints one result object and suppresses live narration. Each real failure carries its diagnostic; fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
+JSON mode prints one result object and suppresses live narration. Each failed stage carries its remedy in `hints[]`, and each real failure carries its diagnostic. Fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 

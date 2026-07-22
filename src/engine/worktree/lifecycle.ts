@@ -151,7 +151,7 @@ import { resolveTemplatesDir } from "../../lib/paths.ts";
 // boundary (ADR 0067) — fast-pathed by a gate receipt when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
-import { failMessage, finishResult } from "../gate/finish.ts";
+import { finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
@@ -1386,8 +1386,8 @@ const ACCEPT_DIAG_CAP = 10;
 
 /**
  * The accept refusal when the branch does NOT pass `done` at the tree it would land
- * (ADR 0067). Leads with the gate's own failed-stage message (the same {@link failMessage}
- * SSOT `done` prints), then a capped list of the surfaced diagnostics, then the recovery:
+ * (ADR 0067). Leads with the gate's own failed-stage remedy from the envelope,
+ * then a capped list of the surfaced diagnostics, then the recovery:
  * run `discern done` to see the full output and fix it. The branch keeps all its commits
  * and the worktree is intact (this precedes every teardown/removal).
  */
@@ -1395,8 +1395,7 @@ function acceptGateRefusal(
   branch: string,
   gate: DiscernResult<GateData>,
 ): string {
-  const stage = gate.data?.failed_stage ?? null;
-  const headline = stage !== null ? failMessage(stage) : "The gate failed.";
+  const headline = gate.hints?.[0] ?? "The gate failed.";
   const diags = gate.diagnostics ?? [];
   const shown = diags
     .slice(0, ACCEPT_DIAG_CAP)

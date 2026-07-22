@@ -109,45 +109,6 @@ import {
 } from "../../shared/write_preflight.ts";
 
 /**
- * The human die message for each {@link FailedStage}. A TOTAL record (not a switch
- * with a `default`), so a new failed-stage label is a COMPILE error here until it is
- * given a message — it can never silently fall through to a generic "a stage failed".
- * Only `done` looks a message up (its `check`/`test` are fused into `check/test`);
- * `prepare`/`test` print their own inline headline, so the `check`/`test` entries
- * exist for vocabulary completeness rather than a current caller.
- */
-const FAIL_MESSAGES: Record<FailedStage, string> = {
-  fix: "The fix stage failed.",
-  build: "The build stage failed.",
-  check: "The check stage failed.",
-  test: "The test stage failed.",
-  "check/test": "The check/test stage failed.",
-  scope_gates: "One or more scope gates failed.",
-  tree_drift:
-    "The gate left uncommitted changes on tracked files — commit the gate's own output (the diagnostic names the stage that produced it), then re-run.",
-  tracked_artifacts:
-    "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
-  guidance:
-    "Agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
-  skills:
-    "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
-  skill_frontmatter:
-    "A skill's SKILL.md frontmatter is invalid — agent runtimes could not read it. The diagnostics name each file and problem; edit the skill's source, then re-run.",
-  merge:
-    "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
-  standards:
-    "A [standards] limit failed verification against the trunk — a limit only tightens on a branch; the diagnostics name each standard and both values.",
-  write_access:
-    "Discern cannot write the state this gate will persist — grant this command the write access named in diagnostics, then re-run.",
-};
-
-/** The human die message for a failed stage. Exported so `accept` names the stage
- * the same way when it refuses to land a branch the gate rejected (ADR 0067). */
-export function failMessage(stage: FailedStage): string {
-  return FAIL_MESSAGES[stage];
-}
-
-/**
  * A compact, plain-text summary of how a stale generated file differs from what
  * `discern refresh` would write — the non-blank lines present in the file but NOT
  * in the recompiled body (what a refresh would remove, a hand-edit included).
@@ -779,7 +740,12 @@ async function runGate(
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
+  // On failure, the stage remedy leads the envelope: the human renderer and
+  // accept both read that first hint as their headline.
+  const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
+  const trailingJobHints = failedStage === null ? jobOutputHints : [];
   const hints: FiredHint[] = [
+    ...leadingFailureHints,
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
@@ -793,7 +759,7 @@ async function runGate(
       emittedReceipt !== undefined,
       deferredStandards,
     ),
-    ...jobOutputHints,
+    ...trailingJobHints,
     ...couplingHints,
     ...logbookHints,
   ];
@@ -998,11 +964,12 @@ export async function runFinish(
     return failedStage === null ? 0 : 1;
   }
   if (failedStage !== null) {
+    const headline = result.hints?.[0] ?? "The gate failed.";
     renderFailureTail(out, {
       cfg,
       root,
       verb: "done",
-      headline: failMessage(failedStage),
+      headline,
       diagnostics: result.diagnostics ?? [],
     });
     return 1;

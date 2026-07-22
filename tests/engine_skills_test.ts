@@ -7,6 +7,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { fire, HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 
@@ -75,6 +76,7 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     const obj = JSON.parse(r.stdout) as {
       ok: boolean;
       verb: string;
+      hints?: string[];
       data: {
         name: string;
         dest_rel: string;
@@ -89,6 +91,12 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     assertEquals(obj.data.skills_dir_persisted, false);
     assert(obj.data.materialized.linked >= 1);
     assertEquals(obj.data.materialized.errors, []);
+    assert(
+      (obj.hints ?? []).includes(
+        fire(HINTS["skills-eject-edit-override"]).text,
+      ),
+      "the JSON envelope should carry the same advisory as the human renderer",
+    );
     assert(
       await exists(join(dir, "discern/skills/discern-write-adr/SKILL.md")),
       "ejected copy must land in the default skills dir",

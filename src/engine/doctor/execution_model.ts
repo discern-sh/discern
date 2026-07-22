@@ -19,8 +19,8 @@
  * undocumented: {@link STEP_KIND_ANNOTATIONS} is TOTAL over `StepKind` (a new step
  * kind is a compile error until annotated), and {@link STAGE_HINTS} is total over
  * `Stage` (a new gate stage likewise). Both are the forcing functions the
- * fix-the-class discipline asks for, mirroring the gate's own total
- * `Record<FailedStage, string>` fail-message table.
+ * fix-the-class discipline asks for, mirroring the gate's total failed-stage
+ * remedy index in the hint registry.
  *
  * discern renders the facts and the expectations; it does NOT judge them. "Your slow
  * integration linter is wired into the fast inner loop" is a conclusion for the
@@ -53,7 +53,7 @@ interface StepKindAnnotation {
 /**
  * The hint registry — TOTAL over {@link StepKind}, so a newly-added engine step kind
  * is a COMPILE error here until it is given an actor + hint (the fix-the-class guard,
- * mirroring `finish.ts`'s total `FAIL_MESSAGES`). The hint *text* is sourced from the
+ * mirroring the hint registry's total failed-stage remedy index). The hint *text* is sourced from the
  * canonical prose (the `discern.toml` template comments, the worktree map pages, the
  * ADRs) and kept domain-neutral — this ships to every project, in every field. The
  * `job` kind's hint is the generic fallback; a real gate job is annotated with its

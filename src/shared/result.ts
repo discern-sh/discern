@@ -129,11 +129,11 @@ export interface StepResult {
 /**
  * The gate's **failed-stage vocabulary** — every label `done`/`prepare`/`test`
  * can record as the stage that failed (the value carried in `GateData.failed_stage`
- * and the key the human die message is looked up by). A CLOSED set: typing every hop
- * to it, deriving the Zod `failed_stage` enum (`result_schemas.ts`) from it, and
- * building the message table (`failMessage`, a total `Record<FailedStage, string>`)
- * from it makes a new label a COMPILE error until every consumer handles it — it can
- * never fall through to a generic "a stage failed".
+ * and the key the failed-stage remedy is looked up by). A CLOSED set: typing every
+ * hop to it, deriving the Zod `failed_stage` enum (`result_schemas.ts`) from it, and
+ * building the hint registry's total `GATE_FAILURE_REMEDIES` record from it makes a
+ * new label a COMPILE error until every consumer handles it — it can never fall
+ * through to a generic "a stage failed".
  *
  * The members, by origin:
  *  - `fix` / `build` / `check` / `test` — one declared-job stage group failed

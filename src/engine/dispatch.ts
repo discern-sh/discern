@@ -12,6 +12,7 @@ import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
+import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import {
   findSkeletonMarkers,
@@ -976,7 +977,12 @@ async function skillsEjectResult(
         data,
       };
     }
-    return { ok: true, verb: "skills eject", data };
+    return {
+      ok: true,
+      verb: "skills eject",
+      data,
+      hints: hintTexts([fire(HINTS["skills-eject-edit-override"])]),
+    };
   } catch (error) {
     return {
       ok: false,
@@ -1006,7 +1012,9 @@ function renderSkillsEjectResult(
   log.ok(
     `Ejected "${data.name}" -> ${data.dest_rel} (it now overrides the built-in).`,
   );
-  log.info("Edit it there; `discern skills list` confirms the override.");
+  for (const hint of result.hints ?? []) {
+    log.info(hint);
+  }
 }
 
 /** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */

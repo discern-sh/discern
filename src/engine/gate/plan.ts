@@ -19,7 +19,13 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
-import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
+import {
+  fire,
+  type FiredHint,
+  gateFailureRemedy,
+  HINTS,
+  hintTexts,
+} from "../../shared/hints.ts";
 import { expandMapDirReference } from "../../shared/map_path.ts";
 import type {
   Diagnostic,
@@ -531,16 +537,19 @@ export async function buildGateResultWithHints(
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
   };
+  const firedHints = failedStage === null
+    ? hints
+    : [gateFailureRemedy(failedStage), ...hints];
   return {
     result: {
       ok: failedStage === null,
       verb: "done",
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-      hints: hints.length > 0 ? hintTexts(hints) : undefined,
+      hints: firedHints.length > 0 ? hintTexts(firedHints) : undefined,
       data,
     },
-    firedHints: hints,
+    firedHints,
   };
 }
 

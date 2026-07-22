@@ -15,6 +15,8 @@
  * ADR-citation guard holds for these strings like any other).
  */
 
+import type { FailedStage } from "./result.ts";
+
 /**
  * How an entry means to steer the caller. `next-step` names the action to
  * take from here; `guardrail` states a rule protecting shared state before
@@ -809,6 +811,140 @@ export const HINTS = {
       `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
   }),
 
+  /** A failed fix stage needs no more specific recovery than the stage verdict. */
+  "gate-failure-fix": defineHint({
+    id: "gate-failure-fix",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "The fix stage failed.",
+  }),
+
+  /** A failed build stage needs no more specific recovery than the stage verdict. */
+  "gate-failure-build": defineHint({
+    id: "gate-failure-build",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "The build stage failed.",
+  }),
+
+  /** The standalone prepare check-stage failure remedy. */
+  "gate-failure-check": defineHint({
+    id: "gate-failure-check",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "The check stage failed.",
+  }),
+
+  /** The standalone test-stage failure remedy. */
+  "gate-failure-test": defineHint({
+    id: "gate-failure-test",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "The test stage failed.",
+  }),
+
+  /** The combined check/test stage used by the full gate. */
+  "gate-failure-check-test": defineHint({
+    id: "gate-failure-check-test",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "The check/test stage failed.",
+  }),
+
+  /** One or more changed-scope checks rejected the tree. */
+  "gate-failure-scope-gates": defineHint({
+    id: "gate-failure-scope-gates",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string => "One or more scope gates failed.",
+  }),
+
+  /** A gate stage changed a committed-clean tracked file. */
+  "gate-failure-tree-drift": defineHint({
+    id: "gate-failure-tree-drift",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "The gate left uncommitted changes on tracked files — commit the gate's own output (the diagnostic names the stage that produced it), then re-run.",
+  }),
+
+  /** Discern-managed ignored output was committed to the repository. */
+  "gate-failure-tracked-artifacts": defineHint({
+    id: "gate-failure-tracked-artifacts",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
+  }),
+
+  /** Compiled agent guidance no longer matches its authored sources. */
+  "gate-failure-guidance": defineHint({
+    id: "gate-failure-guidance",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "Agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
+  }),
+
+  /** Materialized skills no longer match the effective authored set. */
+  "gate-failure-skills": defineHint({
+    id: "gate-failure-skills",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "Materialized skills are out of date — run `discern refresh` (edits belong in your [skills].dir source, not the materialized copy, which a refresh overwrites).",
+  }),
+
+  /** An effective skill cannot be read by supported agent runtimes. */
+  "gate-failure-skill-frontmatter": defineHint({
+    id: "gate-failure-skill-frontmatter",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "A skill's SKILL.md frontmatter is invalid — agent runtimes could not read it. The diagnostics name each file and problem; edit the skill's source, then re-run.",
+  }),
+
+  /** The worktree branch does not contain the current trunk. */
+  "gate-failure-merge": defineHint({
+    id: "gate-failure-merge",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "Run `discern update` to bring the trunk in and re-materialize, then re-run `discern done`.",
+  }),
+
+  /** A branch attempted to weaken a standard held by the trunk. */
+  "gate-failure-standards": defineHint({
+    id: "gate-failure-standards",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "A [standards] limit failed verification against the trunk — a limit only tightens on a branch; the diagnostics name each standard and both values.",
+  }),
+
+  /** The gate cannot persist its Discern-owned state. */
+  "gate-failure-write-access": defineHint({
+    id: "gate-failure-write-access",
+    category: "next-step",
+    audience: "all",
+    family: "gate-failure-remedy",
+    template: (): string =>
+      "Discern cannot write the state this gate will persist — grant this command the write access named in diagnostics, then re-run.",
+  }),
+
   "gate-relay-receipt": defineHint({
     id: "gate-relay-receipt",
     category: "next-step",
@@ -1004,6 +1140,15 @@ export const HINTS = {
     family: "restart-session",
     template: (): string =>
       "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.",
+  }),
+
+  /** A successful skills eject leaves the authored override ready to edit. */
+  "skills-eject-edit-override": defineHint({
+    id: "skills-eject-edit-override",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "Edit it there; `discern skills list` confirms the override.",
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -1406,6 +1551,32 @@ export const HINTS = {
       `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern done can rewrite generated files back and forth).`,
   }),
 } as const;
+
+/**
+ * Failed-stage lookup into the registry. Total over {@link FailedStage}, so a new
+ * stage cannot compile until its remedy is registered and enrolled here.
+ */
+export const GATE_FAILURE_REMEDIES = {
+  fix: HINTS["gate-failure-fix"],
+  build: HINTS["gate-failure-build"],
+  check: HINTS["gate-failure-check"],
+  test: HINTS["gate-failure-test"],
+  "check/test": HINTS["gate-failure-check-test"],
+  scope_gates: HINTS["gate-failure-scope-gates"],
+  tree_drift: HINTS["gate-failure-tree-drift"],
+  tracked_artifacts: HINTS["gate-failure-tracked-artifacts"],
+  guidance: HINTS["gate-failure-guidance"],
+  skills: HINTS["gate-failure-skills"],
+  skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
+  merge: HINTS["gate-failure-merge"],
+  standards: HINTS["gate-failure-standards"],
+  write_access: HINTS["gate-failure-write-access"],
+} as const satisfies Record<FailedStage, HintDef<void>>;
+
+/** Fire the registered remedy for a failed gate stage. */
+export function gateFailureRemedy(stage: FailedStage): FiredHint {
+  return fire(GATE_FAILURE_REMEDIES[stage]);
+}
 
 /** True when a fired registry entry targets the requested audience. */
 export function hintHasAudience(
