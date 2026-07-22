@@ -20,6 +20,7 @@ import {
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = "# --- discern ---";
@@ -265,20 +266,19 @@ export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
   return unique(splitNul(run.stdout)).sort();
 }
 
-export function untrackedGuidanceFilesHint(paths: readonly string[]): string {
-  return `The agent files are untracked (${
-    paths.join(", ")
-  }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`;
+export function untrackedGuidanceFilesHint(
+  paths: readonly string[],
+): FiredHint {
+  return fire(HINTS["untracked-agent-files"], { paths });
 }
 
 export function trackedDiscernIgnoredArtifactsHint(
   tracked: TrackedDiscernIgnoredArtifacts,
-): string {
-  return `Discern-managed ignored artifacts are tracked by Git (${
-    summarizePaths(tracked.paths)
-  }); remove them from the index with \`${
-    gitRmCachedCommand(tracked.repairTargets)
-  }\`, then run \`discern refresh\`.`;
+): FiredHint {
+  return fire(HINTS["tracked-ignored-artifacts"], {
+    pathSummary: summarizePaths(tracked.paths),
+    repairCommand: gitRmCachedCommand(tracked.repairTargets),
+  });
 }
 
 export function gitRmCachedCommand(paths: readonly string[]): string {

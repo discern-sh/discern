@@ -26,6 +26,13 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import {
+  fire,
+  type FiredHint,
+  hintHasAudience,
+  HINTS,
+  hintTexts,
+} from "../../shared/hints.ts";
 import type {
   GateReceiptCheckData,
   Location,
@@ -73,7 +80,6 @@ import {
   listWorktreeFleet,
   localBranchExists,
   mainRepoPath,
-  missingIntegrationBranchWarning,
   unlandedPrefixBranches,
   worktreeGitKey,
 } from "../worktree/git.ts";
@@ -124,18 +130,33 @@ export interface StatusOptions {
  * is reserved for an operational refusal (conflicting flags). `root` is used as the
  * cwd for every git read and identity derivation, matching the other verb cores.
  */
+interface StatusResultBuild {
+  result: DiscernResult<StatusData>;
+  firedHints: FiredHint[];
+}
+
 export async function statusResult(
   root: string,
   opts: StatusOptions = {},
 ): Promise<DiscernResult<StatusData>> {
+  return (await buildStatusResult(root, opts)).result;
+}
+
+async function buildStatusResult(
+  root: string,
+  opts: StatusOptions = {},
+): Promise<StatusResultBuild> {
   const all = opts.all ?? false;
   const local = opts.local ?? false;
   if (all && local) {
     return {
-      ok: false,
-      verb: "status",
-      error: "conflicting_flags",
-      message: "--all and --local cannot be combined — pick one.",
+      result: {
+        ok: false,
+        verb: "status",
+        error: "conflicting_flags",
+        message: "--all and --local cannot be combined — pick one.",
+      },
+      firedHints: [],
     };
   }
 
@@ -154,7 +175,7 @@ export async function statusResult(
   // The hot zone, when this worktree is behind: the files it changed that the incoming
   // main also changed. Captured for both the git block and the behind hint.
   let overlapInfo: { overlap: string[]; total: number } | undefined;
-  let mergeWarning: string | undefined;
+  let mergeWarning: FiredHint | undefined;
   if (snap !== undefined) {
     // Reuse the canonical main-merged check for the behind/null distinction: it
     // self-skips (→ null) in the main checkout or with no local integration branch.
@@ -167,7 +188,9 @@ export async function statusResult(
       ? 0
       : Number(merged.behind) || 0;
     if (merged.kind === "missing") {
-      mergeWarning = missingIntegrationBranchWarning(merged.branch);
+      mergeWarning = fire(HINTS["missing-integration-branch"], {
+        branch: merged.branch,
+      });
     }
     // Compute the overlap only when behind in a worktree — the agent sees which of its
     // own work main is about to touch BEFORE updating. Read-only; never merges.
@@ -367,7 +390,7 @@ export async function statusResult(
     ok: true,
     verb: "status",
     data,
-    ...(hints.length > 0 ? { hints } : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
   // Setup owns the session until bootstrapping completes. Afterwards, append
   // only session-routed inline findings for this branch; detector scoring has
@@ -379,7 +402,7 @@ export async function statusResult(
       statusFindingHints(routes.status, git?.branch),
     );
   }
-  return result;
+  return { result, firedHints: hints };
 }
 
 /** Resolve a worktree's identity block, degrading to null if identity can't be
@@ -522,76 +545,6 @@ function buildGateBlock(cfg: DiscernConfig, changed: string[]): StatusGate {
 
 // ── hints (advisory next-steps; never an unverified pass/fail) ───────────────────
 
-/**
- * The fleet ownership rule, agent-facing. Pushed into `hints[]` (the `--json` / MCP
- * channel, ADR 0030) whenever the survey holds a line of work other than this one —
- * never into interactive human output, where the dim caption under the fleet table
- * carries the same framing. Exported as a named constant so both the human renderer
- * (which filters it out) and the test (which asserts it in) reference one string, not
- * a brittle inline literal that could drift.
- */
-export const FLEET_OWNERSHIP_HINT =
-  "Worktrees in the fleet belong to separate lines of work — never start work in one you didn't create; a clean working tree doesn't mean it's free.";
-
-/**
- * The on-the-trunk guardrail, agent-facing. An agent that finds itself on the main
- * checkout, ACTUALLY on the trunk branch, has no isolated workspace yet — point it
- * LOUDLY at `discern start` (its first-class way into its own worktree) so it never
- * improvises into another agent's. Pushed into `hints[]` (the `--json` / MCP
- * channel, ADR 0030) whenever status is rooted in the main checkout, on the trunk
- * branch, with worktrees enabled — never into interactive human output, where a
- * person running `discern status` is monitoring their fleet and the renderer
- * filters it out (exactly like {@link FLEET_OWNERSHIP_HINT}). Exported as a named
- * constant so the human renderer (which drops it) and the test (which asserts it)
- * reference one string, not a brittle inline literal.
- *
- * The main checkout (a working-copy LOCATION) and the trunk branch are independent
- * axes — you can be in the main checkout on a non-trunk branch (a leftover
- * `discern-setup` branch, a PR checked out directly instead of through a worktree).
- * This hint fires ONLY when both hold; {@link offTrunkStartHereHint} is the sibling
- * for the main checkout on some other branch, so neither ever claims a branch
- * identity `status` didn't verify against `git.branch`.
- */
-export const START_HERE_HINT =
-  "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).";
-
-/**
- * The {@link START_HERE_HINT} sibling for when the main checkout is — unusually —
- * NOT on its configured trunk branch. An honest description of that state and the
- * way back: worktrees and acceptance are unaffected on the pull side (new
- * worktrees fork from the trunk regardless), but acceptance refuses to land while
- * the checkout is parked here, so the hint names the return path. A function, not
- * a constant, because the branch name is data the hint must report accurately
- * rather than hard-code; the human renderer reconstructs the exact same string
- * (from `data.git`) to filter it by equality, the same way it filters
- * {@link START_HERE_HINT}.
- */
-export function offTrunkStartHereHint(branch: string, trunk: string): string {
-  const label = branch === "" ? "(detached)" : `'${branch}'`;
-  return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
-    `That's fine while you work with ${label} deliberately — new worktrees ` +
-    `still fork from the trunk — but \`discern accept\` can't land until the checkout ` +
-    `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
-    `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
-    `worktree — each belongs to another line of work).`;
-}
-
-/**
- * The {@link offTrunkStartHereHint} sibling for when the configured trunk does
- * not EXIST — where "run `git switch <trunk>`" would fail and "new worktrees
- * still fork from the trunk" would be false. Names the misconfiguration and
- * both ways out; unlike its siblings it IS rendered for humans (a missing trunk
- * is a real misconfiguration, not agent guidance).
- */
-export function missingTrunkHint(branch: string, trunk: string): string {
-  const label = branch === "" ? "(detached)" : `'${branch}'`;
-  return `The configured trunk ('${trunk}', [repository].trunk) doesn't ` +
-    `exist in this repository — the main checkout is on ${label}. Worktrees ` +
-    `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
-    `[repository].trunk to the branch this project actually uses, or ` +
-    `create the trunk (\`git branch ${trunk}\`).`;
-}
-
 /** Everything the hint builder reads — assembled once so the hints can't drift from
  * the reported data. */
 interface HintContext {
@@ -604,9 +557,9 @@ interface HintContext {
    * (capped list + true total). Drives the overlap clause on the behind hint. */
   incomingOverlap: { overlap: string[]; total: number } | undefined;
   /** Warning when the configured integration branch is absent locally. */
-  mergeWarning: string | undefined;
+  mergeWarning: FiredHint | undefined;
   /** The silent-divergence warning (pristine worktree, dirty main checkout). */
-  divergence: string | undefined;
+  divergence: FiredHint | undefined;
   /** Unlanded `<branch_prefix>*` branches with no worktree (main view only). */
   unlandedBranches: string[] | undefined;
   fleet: StatusFleetEntry[] | undefined;
@@ -632,8 +585,8 @@ interface HintContext {
  * The advisory "what next" lines. Honest by construction: every line is an
  * observation plus a suggested command, never a claim that the gate passed.
  */
-async function buildStatusHints(ctx: HintContext): Promise<string[]> {
-  const hints: string[] = [];
+async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
+  const hints: FiredHint[] = [];
   const main = ctx.mainBranch;
 
   // Setup not finished — the most fundamental "what now", so it leads every other
@@ -672,8 +625,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     const allMissing = ctx.guidanceDrift.every((d) => d.reason === "missing");
     hints.push(
       allMissing
-        ? `Agent files aren't built yet (${paths}); run \`discern refresh\`.`
-        : `Agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+        ? fire(HINTS["generated-agent-files-missing"], { paths })
+        : fire(HINTS["generated-agent-files-stale"], { paths }),
     );
   }
 
@@ -687,8 +640,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     const allMissing = realSkillsDrift.every((d) => d.reason === "missing");
     hints.push(
       allMissing
-        ? `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`
-        : `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
+        ? fire(HINTS["materialized-skills-missing"], { dirs })
+        : fire(HINTS["materialized-skills-stale"], { dirs }),
     );
   }
 
@@ -700,8 +653,8 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     );
     hints.push(
       allMissing
-        ? `Provider integration files are missing (${paths}); run \`discern refresh\`.`
-        : `Provider integration files need attention (${paths}); run \`discern refresh\`, and if it reports a malformed settings file, repair that file and re-run refresh.`,
+        ? fire(HINTS["provider-integrations-missing"], { paths })
+        : fire(HINTS["provider-integrations-stale"], { paths }),
     );
   }
 
@@ -727,9 +680,15 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     hints.push(
       ctx.git !== null && ctx.git.branch !== main
         ? ctx.git.ahead_integration === null
-          ? missingTrunkHint(ctx.git.branch, main)
-          : offTrunkStartHereHint(ctx.git.branch, main)
-        : START_HERE_HINT,
+          ? fire(HINTS["status-missing-trunk"], {
+            branch: ctx.git.branch,
+            trunk: main,
+          })
+          : fire(HINTS["status-start-off-trunk"], {
+            branch: ctx.git.branch,
+            trunk: main,
+          })
+        : fire(HINTS["status-start-on-trunk"]),
     );
   }
 
@@ -739,21 +698,22 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
     if (!g.clean) {
       hints.push(
         firedScopes.length > 0
-          ? `Changes in ${
-            firedScopes.join(", ")
-          }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern done\` on the clean HEAD before calling work done.`
-          : "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
+          ? fire(HINTS["status-dirty-worktree-scoped"], {
+            scopes: firedScopes,
+          })
+          : fire(HINTS["status-dirty-worktree"]),
       );
     }
     if (g.behind_integration !== null && g.behind_integration > 0) {
-      const ov = ctx.incomingOverlap;
-      const overlapNote = ov !== undefined && ov.total > 0
-        ? ` ${ov.total} of your changed file(s) also changed upstream (${
-          ov.overlap.slice(0, 3).join(", ")
-        }${ov.total > 3 ? ", …" : ""}) — re-check those after updating.`
-        : "";
       hints.push(
-        `Branch is ${g.behind_integration} behind ${main}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`,
+        fire(HINTS["status-branch-behind"], {
+          behind: g.behind_integration,
+          trunk: main,
+          overlap: ctx.incomingOverlap === undefined ? undefined : {
+            total: ctx.incomingOverlap.total,
+            paths: ctx.incomingOverlap.overlap,
+          },
+        }),
       );
     }
     const readinessFacts = {
@@ -767,7 +727,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       const mainDirty = await isMainCheckoutDirty(ctx.root);
       if (mainDirty) {
         hints.push(
-          `Committed and up to date with ${main}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
+          fire(HINTS["status-main-checkout-dirty"], { trunk: main }),
         );
       } else if (
         isReadyToLand(
@@ -776,11 +736,14 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         )
       ) {
         hints.push(
-          `Committed, up to date with ${main}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${main}...${g.branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
+          fire(HINTS["status-ready-for-review"], {
+            trunk: main,
+            branch: g.branch,
+          }),
         );
       } else {
         hints.push(
-          `Committed and up to date with ${main}, but this clean HEAD has no honored receipt from \`discern done\`; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
+          fire(HINTS["status-missing-done-receipt"], { trunk: main }),
         );
       }
     }
@@ -790,7 +753,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // ownership rule (json/MCP only; humans get the caption under the fleet table).
   // Location-agnostic: fires from the main checkout and under --all from a worktree.
   if (ctx.fleet?.some((e) => !e.is_main && !e.is_current)) {
-    hints.push(FLEET_OWNERSHIP_HINT);
+    hints.push(fire(HINTS["fleet-ownership"]));
   }
 
   // Main-checkout worktree-activity next-steps assume a configured, set-up project.
@@ -799,18 +762,17 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
   // recorded — the setup-unfinished hint at the top is the only "what now" that fits.
   if (ctx.location === "main" && ctx.setupPending === undefined) {
     if (ctx.liveCount === 0) {
-      hints.push("No active worktrees; start one to begin work.");
+      hints.push(fire(HINTS["status-no-active-worktrees"]));
     } else if (ctx.fleet !== undefined) {
       const others = ctx.fleet.filter((e) => !e.is_main);
       // `clean === false` — a row whose git state is UNAVAILABLE (clean absent)
       // is unknown, not dirty; it gets its own hint below.
       const dirty = others.filter((e) => e.clean === false);
       if (dirty.length > 0) {
-        const names = dirty.map((e) => e.id ?? e.branch).join(", ");
         hints.push(
-          `${dirty.length} worktree${dirty.length === 1 ? "" : "s"} ${
-            dirty.length === 1 ? "has" : "have"
-          } uncommitted changes: ${names}.`,
+          fire(HINTS["status-dirty-fleet-members"], {
+            names: dirty.map((e) => e.id ?? e.branch),
+          }),
         );
       }
       for (const e of others) {
@@ -818,9 +780,11 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
           "honored";
         if (isReadyToLand(e, receiptHonored)) {
           hints.push(
-            `Worktree ${
-              e.id ?? e.branch
-            } has committed work ready for owner review — inspect it with \`git diff ${main}...${e.branch}\`.`,
+            fire(HINTS["status-fleet-member-ready"], {
+              name: e.id ?? e.branch,
+              trunk: main,
+              branch: e.branch,
+            }),
           );
         }
       }
@@ -833,11 +797,7 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
         if (e.git_unavailable === true && e.broken !== true) {
           const name = e.id ?? basename(e.path);
           hints.push(
-            `Worktree ${name}'s git state could not be read — its checkout ` +
-              `is missing or damaged, so any unsaved work there is ` +
-              `unverifiable. Investigate it, or discard it with ` +
-              `\`discern worktree drop ${name}\` (refused without --force ` +
-              `while the state can't be read).`,
+            fire(HINTS["status-fleet-member-unreadable"], { name }),
           );
         }
       }
@@ -845,10 +805,9 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
       // not a healthy fleet entry, and not worth resuming. Name the removal path.
       for (const e of others) {
         if (e.broken === true) {
+          const name = e.id ?? basename(e.path);
           hints.push(
-            `Worktree ${e.id ?? basename(e.path)} never finished its setup — ` +
-              `its checkout may be incomplete. Discard it with ` +
-              `\`discern worktree drop ${e.id ?? basename(e.path)}\`.`,
+            fire(HINTS["status-fleet-member-broken"], { name }),
           );
         }
       }
@@ -861,33 +820,24 @@ async function buildStatusHints(ctx: HintContext): Promise<string[]> {
           idleDays >= STALE_WORKTREE_DAYS &&
           (e.clean === false || (e.ahead ?? 0) > 0)
         ) {
-          const work = e.clean === true
-            ? `${e.ahead} unlanded commit${e.ahead === 1 ? "" : "s"}`
-            : `${e.changed_files} uncommitted change${
-              e.changed_files === 1 ? "" : "s"
-            }`;
           hints.push(
-            `Worktree ${
-              e.id ?? basename(e.path)
-            } looks stale: idle ${idleDays}d, ${work} — resume a session ` +
-              `there, or discard it with \`discern worktree drop ${
-                e.id ?? basename(e.path)
-              }\`.`,
+            fire(HINTS["status-fleet-member-stale"], {
+              name: e.id ?? basename(e.path),
+              idleDays,
+              clean: e.clean === true,
+              ahead: e.ahead,
+              changedFiles: e.changed_files,
+            }),
           );
         }
       }
     }
     // Unlanded branches with no worktree — otherwise-invisible abandoned work.
     if (ctx.unlandedBranches !== undefined && ctx.unlandedBranches.length > 0) {
-      const n = ctx.unlandedBranches.length;
       hints.push(
-        `${n} branch${n === 1 ? "" : "es"} hold${
-          n === 1 ? "s" : ""
-        } unlanded work with no worktree: ${
-          ctx.unlandedBranches.join(", ")
-        }. Pull one into new work with \`discern start --from <branch>\` (or ` +
-          `\`discern update --from <branch>\` from an existing worktree), or ` +
-          `delete it with \`git branch -D <branch>\`.`,
+        fire(HINTS["status-unlanded-branches"], {
+          branches: ctx.unlandedBranches,
+        }),
       );
     }
   }
@@ -953,12 +903,15 @@ export async function runStatus(
     }
     return 1;
   }
-  const result = await statusResult(root, { all: opts.all, local: opts.local });
+  const { result, firedHints } = await buildStatusResult(root, {
+    all: opts.all,
+    local: opts.local,
+  });
   if (opts.json) {
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  renderStatusHuman(result);
+  renderStatusHuman(result, firedHints);
   return result.ok ? 0 : 1;
 }
 
@@ -1025,7 +978,10 @@ export function relativeAge(
 
 /** Render the status result as a compact human summary on stdout (quiet under
  * `--json`, which never calls this). */
-function renderStatusHuman(result: DiscernResult<StatusData>): void {
+function renderStatusHuman(
+  result: DiscernResult<StatusData>,
+  firedHints: readonly FiredHint[],
+): void {
   const out = makeOut(colorEnabled());
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "status failed.");
@@ -1148,23 +1104,16 @@ function renderStatusHuman(result: DiscernResult<StatusData>): void {
     renderFleetTable(out, data.fleet);
   }
 
-  // The exact off-trunk hint `buildStatusHints` would have pushed for this result's
-  // own `git` block, so it can be filtered by equality below — same trick as the
-  // fixed-string hints, just reconstructed since this one carries the branch name.
-  const offTrunkHint = data.git !== null
-    ? offTrunkStartHereHint(data.git.branch, data.git.integration_branch)
-    : undefined;
-
-  for (const hint of result.hints ?? []) {
-    // The fleet ownership rule and the on-the-trunk `discern start` guardrail (both
-    // its on-trunk and off-trunk wording) are agent-only (json/MCP). A human running
-    // `discern status` from the main checkout is monitoring their fleet, not starting
-    // work — so none of these are rendered here (the fleet table's caption carries
-    // the ownership framing for humans, and the branch line already shows the truth).
-    if (
-      hint === FLEET_OWNERSHIP_HINT || hint === START_HERE_HINT ||
-      hint === offTrunkHint
-    ) continue;
+  // Status owns these fired hints until the wire projection, so the interactive
+  // renderer can filter the agent-only audience by registry metadata. Advisory
+  // findings appended after that projection follow the status hints and render for
+  // both audiences.
+  for (const hint of firedHints) {
+    if (!hintHasAudience(hint, "agent")) {
+      out.info(hint.text);
+    }
+  }
+  for (const hint of (result.hints ?? []).slice(firedHints.length)) {
     out.info(hint);
   }
 }

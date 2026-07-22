@@ -82,4 +82,370 @@ export function hintTexts(fired: readonly FiredHint[]): string[] {
  * inline strings; once the last site moves, the closed-set guard pins this
  * table as the only source `hints[]` accepts.
  */
-export const HINTS = {} as const;
+export const HINTS = {
+  /**
+   * The canonical one-line advisory shown when setup is still outstanding: the
+   * status lead hint and the session-start reminder share this wording so the
+   * agent's responsibility never drifts between them. An empty pending set still
+   * warrants the reminder because `discern setup done` has not recorded completion.
+   */
+  "setup-unfinished-status": defineHint<{ pendingCount: number }>({
+    id: "setup-unfinished-status",
+    category: "next-step",
+    audience: "all",
+    family: "setup-unfinished",
+    template: ({ pendingCount }): string => {
+      const tail = pendingCount > 0
+        ? ` ${pendingCount} file(s) still carry skeleton markers.`
+        : "";
+      return (
+        "Setup is NOT finished — completing it is your job as the agent in this " +
+        "session, not a report to hand back. Work the brief `discern setup begin` prints " +
+        "(re-run `discern setup begin` to reprint it — it won't touch your work), then run " +
+        "`discern setup done`; don't tell the user setup is complete until it passes." +
+        tail
+      );
+    },
+  }),
+
+  /** One-line warning when the configured integration branch cannot be checked. */
+  "missing-integration-branch": defineHint<{ branch: string }>({
+    id: "missing-integration-branch",
+    category: "next-step",
+    audience: "all",
+    template: ({ branch }): string =>
+      `The merge check could not run because the trunk branch '${branch}' is ` +
+      `not available locally. Create that local branch, or set ` +
+      `[repository].trunk to the branch this project uses, then re-run.`,
+  }),
+
+  /**
+   * The pristine-worktree / dirty-main signature shared by status and done. It
+   * catches edits landing on the trunk while discern's tools run in a worktree.
+   */
+  "silent-worktree-divergence": defineHint<{
+    cwd: string;
+    mainRepo: string;
+    changedFiles: number;
+  }>({
+    id: "silent-worktree-divergence",
+    category: "guardrail",
+    audience: "all",
+    template: ({ cwd, mainRepo, changedFiles }): string =>
+      `This worktree is untouched (no changes, no commits), but the main ` +
+      `checkout at ${mainRepo} has ${changedFiles} uncommitted change` +
+      `${changedFiles === 1 ? "" : "s"}. If those are your edits, they are ` +
+      `landing on the trunk while discern runs here — work INSIDE this worktree: ` +
+      `prefix every shell command with \`cd ${cwd} && …\` and pass ` +
+      `path="${cwd}" to discern's MCP tools.`,
+  }),
+
+  /**
+   * Discern-owned ignored artifacts are tracked despite the managed ignore
+   * contract. The caller supplies the canonical path summary and repair command.
+   */
+  "tracked-ignored-artifacts": defineHint<{
+    pathSummary: string;
+    repairCommand: string;
+  }>({
+    id: "tracked-ignored-artifacts",
+    category: "next-step",
+    audience: "all",
+    template: ({ pathSummary, repairCommand }): string =>
+      `Discern-managed ignored artifacts are tracked by Git (${pathSummary}); remove them from the index with \`${repairCommand}\`, then run \`discern refresh\`.`,
+  }),
+
+  /**
+   * Compiled guidance files are present but untracked and not ignored. Committing
+   * them puts the same guidance in reach of agents reading a fresh clone.
+   */
+  "untracked-agent-files": defineHint<{ paths: readonly string[] }>({
+    id: "untracked-agent-files",
+    category: "next-step",
+    audience: "all",
+    template: ({ paths }): string =>
+      `The agent files are untracked (${
+        paths.join(", ")
+      }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
+  }),
+
+  "generated-agent-files-missing": defineHint<{ paths: string }>({
+    id: "generated-agent-files-missing",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ paths }): string =>
+      `Agent files aren't built yet (${paths}); run \`discern refresh\`.`,
+  }),
+
+  "generated-agent-files-stale": defineHint<{ paths: string }>({
+    id: "generated-agent-files-stale",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ paths }): string =>
+      `Agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+  }),
+
+  "materialized-skills-missing": defineHint<{ dirs: string }>({
+    id: "materialized-skills-missing",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ dirs }): string =>
+      `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`,
+  }),
+
+  "materialized-skills-stale": defineHint<{ dirs: string }>({
+    id: "materialized-skills-stale",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ dirs }): string =>
+      `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
+  }),
+
+  "provider-integrations-missing": defineHint<{ paths: string }>({
+    id: "provider-integrations-missing",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ paths }): string =>
+      `Provider integration files are missing (${paths}); run \`discern refresh\`.`,
+  }),
+
+  "provider-integrations-stale": defineHint<{ paths: string }>({
+    id: "provider-integrations-stale",
+    category: "next-step",
+    audience: "all",
+    family: "generated-drift",
+    template: ({ paths }): string =>
+      `Provider integration files need attention (${paths}); run \`discern refresh\`, and if it reports a malformed settings file, repair that file and re-run refresh.`,
+  }),
+
+  /**
+   * The on-the-trunk guardrail, agent-facing. An agent in the main checkout on
+   * the trunk has no isolated workspace yet, so this points it at `discern start`.
+   * Interactive status omits it because a person there is monitoring the fleet.
+   */
+  "status-start-on-trunk": defineHint({
+    id: "status-start-on-trunk",
+    category: "guardrail",
+    audience: "agent",
+    family: "status-start-here",
+    template: (): string =>
+      "You're on the trunk (the main checkout), not an isolated worktree — don't start work here. Run `discern start` to create your own worktree and move into it, naming it after the task you're starting so the worktree is identifiable rather than an opaque codename; never adopt an existing idle worktree (each belongs to another line of work, and a clean tree doesn't mean it's free).",
+  }),
+
+  /**
+   * The off-trunk sibling of `status-start-on-trunk`. It reports the actual
+   * branch honestly and names the path back before acceptance can land. Like its
+   * sibling, it is agent-only in status output.
+   */
+  "status-start-off-trunk": defineHint<{ branch: string; trunk: string }>({
+    id: "status-start-off-trunk",
+    category: "guardrail",
+    audience: "agent",
+    family: "status-start-here",
+    template: ({ branch, trunk }): string => {
+      const label = branch === "" ? "(detached)" : `'${branch}'`;
+      return `The main checkout is parked on ${label}, not '${trunk}' (the trunk). ` +
+        `That's fine while you work with ${label} deliberately — new worktrees ` +
+        `still fork from the trunk — but \`discern accept\` can't land until the checkout ` +
+        `returns: run \`git switch ${trunk}\` here when you're done. To start new ` +
+        `work meanwhile, run \`discern start\` (never adopt an existing idle ` +
+        `worktree — each belongs to another line of work).`;
+    },
+  }),
+
+  /**
+   * The main-checkout variant for a configured trunk that does not exist. Unlike
+   * the start-here guardrails this reaches humans because it is a misconfiguration.
+   */
+  "status-missing-trunk": defineHint<{ branch: string; trunk: string }>({
+    id: "status-missing-trunk",
+    category: "next-step",
+    audience: "all",
+    template: ({ branch, trunk }): string => {
+      const label = branch === "" ? "(detached)" : `'${branch}'`;
+      return `The configured trunk ('${trunk}', [repository].trunk) doesn't ` +
+        `exist in this repository — the main checkout is on ${label}. Worktrees ` +
+        `can't fork from it and \`discern accept\` can't land on it until they agree: set ` +
+        `[repository].trunk to the branch this project actually uses, or ` +
+        `create the trunk (\`git branch ${trunk}\`).`;
+    },
+  }),
+
+  "status-dirty-worktree-scoped": defineHint<{ scopes: readonly string[] }>({
+    id: "status-dirty-worktree-scoped",
+    category: "next-step",
+    audience: "all",
+    family: "status-dirty-worktree",
+    template: ({ scopes }): string =>
+      `Changes in ${
+        scopes.join(", ")
+      }; use \`discern prepare\` or targeted tests while iterating, then commit the intended final tree and run \`discern done\` on the clean HEAD before calling work done.`,
+  }),
+
+  "status-dirty-worktree": defineHint({
+    id: "status-dirty-worktree",
+    category: "next-step",
+    audience: "all",
+    family: "status-dirty-worktree",
+    template: (): string =>
+      "Uncommitted changes; use `discern prepare` or targeted tests while iterating, then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.",
+  }),
+
+  "status-branch-behind": defineHint<{
+    behind: number;
+    trunk: string;
+    overlap: { total: number; paths: readonly string[] } | undefined;
+  }>({
+    id: "status-branch-behind",
+    category: "next-step",
+    audience: "all",
+    template: ({ behind, trunk, overlap }): string => {
+      const overlapNote = overlap !== undefined && overlap.total > 0
+        ? ` ${overlap.total} of your changed file(s) also changed upstream (${
+          overlap.paths.slice(0, 3).join(", ")
+        }${overlap.total > 3 ? ", …" : ""}) — re-check those after updating.`
+        : "";
+      return `Branch is ${behind} behind ${trunk}; call \`discern update\` directly — it is idempotent and performs its own git preconditions — then run \`discern done\` before handing off or a user-requested landing.${overlapNote}`;
+    },
+  }),
+
+  "status-main-checkout-dirty": defineHint<{ trunk: string }>({
+    id: "status-main-checkout-dirty",
+    category: "next-step",
+    audience: "all",
+    family: "status-review-readiness",
+    template: ({ trunk }): string =>
+      `Committed and up to date with ${trunk}, but the main checkout has uncommitted tracked changes — commit or stash them there before a user-requested landing can proceed.`,
+  }),
+
+  "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
+    id: "status-ready-for-review",
+    category: "next-step",
+    audience: "all",
+    family: "status-review-readiness",
+    template: ({ trunk, branch }): string =>
+      `Committed, up to date with ${trunk}, and this clean HEAD has an honored receipt from \`discern done\` — ready for owner review: relay the receipt (data.gate_receipt.receipt) to your owner and wait; they can inspect the raw diff with \`git diff ${trunk}...${branch}\`. Run \`discern accept\` only after the user explicitly asks you to land it.`,
+  }),
+
+  "status-missing-done-receipt": defineHint<{ trunk: string }>({
+    id: "status-missing-done-receipt",
+    category: "next-step",
+    audience: "all",
+    family: "status-review-readiness",
+    template: ({ trunk }): string =>
+      `Committed and up to date with ${trunk}, but this clean HEAD has no honored receipt from \`discern done\`; run \`discern done\` before reporting the branch ready for review or a user-requested landing.`,
+  }),
+
+  /**
+   * The fleet ownership rule, agent-facing. It fires whenever a survey includes a
+   * separate line of work. Interactive status uses the fleet caption instead.
+   */
+  "fleet-ownership": defineHint({
+    id: "fleet-ownership",
+    category: "guardrail",
+    audience: "agent",
+    template: (): string =>
+      "Worktrees in the fleet belong to separate lines of work — never start work in one you didn't create; a clean working tree doesn't mean it's free.",
+  }),
+
+  "status-no-active-worktrees": defineHint({
+    id: "status-no-active-worktrees",
+    category: "next-step",
+    audience: "all",
+    template: (): string => "No active worktrees; start one to begin work.",
+  }),
+
+  "status-dirty-fleet-members": defineHint<{ names: readonly string[] }>({
+    id: "status-dirty-fleet-members",
+    category: "notice",
+    audience: "all",
+    template: ({ names }): string =>
+      `${names.length} worktree${names.length === 1 ? "" : "s"} ${
+        names.length === 1 ? "has" : "have"
+      } uncommitted changes: ${names.join(", ")}.`,
+  }),
+
+  "status-fleet-member-ready": defineHint<{
+    name: string;
+    trunk: string;
+    branch: string;
+  }>({
+    id: "status-fleet-member-ready",
+    category: "next-step",
+    audience: "all",
+    template: ({ name, trunk, branch }): string =>
+      `Worktree ${name} has committed work ready for owner review — inspect it with \`git diff ${trunk}...${branch}\`.`,
+  }),
+
+  "status-fleet-member-unreadable": defineHint<{ name: string }>({
+    id: "status-fleet-member-unreadable",
+    category: "next-step",
+    audience: "all",
+    template: ({ name }): string =>
+      `Worktree ${name}'s git state could not be read — its checkout ` +
+      `is missing or damaged, so any unsaved work there is ` +
+      `unverifiable. Investigate it, or discard it with ` +
+      `\`discern worktree drop ${name}\` (refused without --force ` +
+      `while the state can't be read).`,
+  }),
+
+  "status-fleet-member-broken": defineHint<{ name: string }>({
+    id: "status-fleet-member-broken",
+    category: "next-step",
+    audience: "all",
+    template: ({ name }): string =>
+      `Worktree ${name} never finished its setup — ` +
+      `its checkout may be incomplete. Discard it with ` +
+      `\`discern worktree drop ${name}\`.`,
+  }),
+
+  "status-fleet-member-stale": defineHint<{
+    name: string;
+    idleDays: number;
+    clean: boolean;
+    ahead: number | undefined;
+    changedFiles: number | undefined;
+  }>({
+    id: "status-fleet-member-stale",
+    category: "next-step",
+    audience: "all",
+    template: ({ name, idleDays, clean, ahead, changedFiles }): string => {
+      const work = clean
+        ? `${ahead} unlanded commit${ahead === 1 ? "" : "s"}`
+        : `${changedFiles} uncommitted change${changedFiles === 1 ? "" : "s"}`;
+      return `Worktree ${name} looks stale: idle ${idleDays}d, ${work} — resume a session ` +
+        `there, or discard it with \`discern worktree drop ${name}\`.`;
+    },
+  }),
+
+  "status-unlanded-branches": defineHint<{ branches: readonly string[] }>({
+    id: "status-unlanded-branches",
+    category: "next-step",
+    audience: "all",
+    template: ({ branches }): string =>
+      `${branches.length} branch${branches.length === 1 ? "" : "es"} hold${
+        branches.length === 1 ? "s" : ""
+      } unlanded work with no worktree: ${
+        branches.join(", ")
+      }. Pull one into new work with \`discern start --from <branch>\` (or ` +
+      `\`discern update --from <branch>\` from an existing worktree), or ` +
+      `delete it with \`git branch -D <branch>\`.`,
+  }),
+} as const;
+
+/** True when a fired registry entry targets the requested audience. */
+export function hintHasAudience(
+  fired: FiredHint,
+  audience: HintAudience,
+): boolean {
+  const defs = Object.values(HINTS) as readonly {
+    readonly id: string;
+    readonly audience: HintAudience;
+  }[];
+  return defs.some((def) => def.id === fired.id && def.audience === audience);
+}

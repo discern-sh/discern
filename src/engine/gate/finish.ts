@@ -258,7 +258,7 @@ async function trackedArtifactsDiagnostic(
   tracked: TrackedDiscernIgnoredArtifacts,
 ): Promise<Diagnostic> {
   const outputFields = await diagnosticOutputFields(
-    `${trackedDiscernIgnoredArtifactsHint(tracked)}\n\n` +
+    `${trackedDiscernIgnoredArtifactsHint(tracked).text}\n\n` +
       `Tracked paths:\n${tracked.paths.map((p) => `  - ${p}`).join("\n")}`,
   );
   return {
@@ -376,7 +376,7 @@ async function runGate(
   //     case is legitimate), sharing status's wording via one helper.
   const divergenceWarning = await detectSilentDivergence(root, mainBranch);
   if (divergenceWarning !== undefined) {
-    out.warn(divergenceWarning);
+    out.warn(divergenceWarning.text);
   }
 
   // 1b. Discern-owned ignored artifacts must not be tracked. A forced `git add -f`
@@ -785,7 +785,7 @@ async function runGate(
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
-    ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
+    ...(divergenceWarning !== undefined ? [divergenceWarning.text] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(

@@ -20,6 +20,7 @@ import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
   parsePorcelainZ,
@@ -63,9 +64,7 @@ export function integrationBranch(
 
 /** One-line warning when the configured integration branch cannot be checked. */
 export function missingIntegrationBranchWarning(branch: string): string {
-  return `The merge check could not run because the trunk branch '${branch}' is ` +
-    `not available locally. Create that local branch, or set ` +
-    `[repository].trunk to the branch this project uses, then re-run.`;
+  return fire(HINTS["missing-integration-branch"], { branch }).text;
 }
 
 /**
@@ -1038,7 +1037,7 @@ export async function worktreeGitKey(
 export async function detectSilentDivergence(
   cwd: string,
   mainBranchFallback?: string,
-): Promise<string | undefined> {
+): Promise<FiredHint | undefined> {
   if (await worktreeGitKey(cwd) === undefined) {
     return undefined; // not a linked worktree — nothing to diverge from
   }
@@ -1054,14 +1053,11 @@ export async function detectSilentDivergence(
   if (main === undefined || main.changedFiles === 0) {
     return undefined;
   }
-  return `This worktree is untouched (no changes, no commits), but the main ` +
-    `checkout at ${mainRepo} has ${main.changedFiles} uncommitted change` +
-    `${
-      main.changedFiles === 1 ? "" : "s"
-    }. If those are your edits, they are ` +
-    `landing on the trunk while discern runs here — work INSIDE this worktree: ` +
-    `prefix every shell command with \`cd ${cwd} && …\` and pass ` +
-    `path="${cwd}" to discern's MCP tools.`;
+  return fire(HINTS["silent-worktree-divergence"], {
+    cwd,
+    mainRepo,
+    changedFiles: main.changedFiles,
+  });
 }
 
 /** The per-worktree setup sentinel path (`git rev-parse --git-path discern/worktree-ready`)

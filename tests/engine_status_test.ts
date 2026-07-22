@@ -27,14 +27,17 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import {
-  FLEET_OWNERSHIP_HINT,
-  offTrunkStartHereHint,
-  START_HERE_HINT,
-} from "../src/engine/status/status.ts";
+import { fire, HINTS } from "../src/shared/hints.ts";
 import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
+
+const FLEET_OWNERSHIP_HINT = fire(HINTS["fleet-ownership"]).text;
+const START_HERE_HINT = fire(HINTS["status-start-on-trunk"]).text;
+
+function offTrunkStartHereHint(branch: string, trunk: string): string {
+  return fire(HINTS["status-start-off-trunk"], { branch, trunk }).text;
+}
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */

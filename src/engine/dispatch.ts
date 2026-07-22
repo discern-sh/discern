@@ -249,7 +249,7 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
     return;
   }
   const pending = await findSkeletonMarkers(ctx.root);
-  ctx.log.line(`[discern] ${setupUnfinishedHint(pending)}`);
+  ctx.log.line(`[discern] ${setupUnfinishedHint(pending).text}`);
 }
 
 /** Attach the engine task-runner verbs to the `discern` root command — every verb

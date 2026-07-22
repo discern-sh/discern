@@ -14,6 +14,7 @@ import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, loadConfig } from "./config_schema.ts";
+import { fire, type FiredHint, HINTS } from "./hints.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
@@ -297,15 +298,8 @@ export async function setupProgress(
  * is the {@link findSkeletonMarkers} result; an empty list still warrants the
  * reminder (markers all cleared, but `setup done` not yet run).
  */
-export function setupUnfinishedHint(pending: readonly string[]): string {
-  const tail = pending.length > 0
-    ? ` ${pending.length} file(s) still carry skeleton markers.`
-    : "";
-  return (
-    "Setup is NOT finished — completing it is your job as the agent in this " +
-    "session, not a report to hand back. Work the brief `discern setup begin` prints " +
-    "(re-run `discern setup begin` to reprint it — it won't touch your work), then run " +
-    "`discern setup done`; don't tell the user setup is complete until it passes." +
-    tail
-  );
+export function setupUnfinishedHint(pending: readonly string[]): FiredHint {
+  return fire(HINTS["setup-unfinished-status"], {
+    pendingCount: pending.length,
+  });
 }
