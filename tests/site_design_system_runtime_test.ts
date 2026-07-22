@@ -20,7 +20,6 @@ import {
 } from "../site/design_system.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderEditorial } from "../site/page-src/editorial.tsx";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
@@ -303,10 +302,6 @@ Deno.test("generated output is ignored and reproducible from its selections", as
     await formatGeneratedText(renderLanding(), "html"),
   );
   assertEquals(
-    await Deno.readTextFile(join(ROOT, "site/pages/v2.html")),
-    await formatGeneratedText(renderEditorial(), "html"),
-  );
-  assertEquals(
     await Deno.readTextFile(join(ROOT, "site/pages/fragments/brand.html")),
     renderDiscernBrand(),
   );
@@ -328,7 +323,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage is a composed static design-system page", async () => {
+Deno.test("the public homepage is the composed static essay", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
@@ -345,43 +340,15 @@ Deno.test("the public homepage is a composed static design-system page", async (
     "curl -fsSL https://discern.sh/install | sh",
   );
 
-  // The composition is design-system markup with accessible page structure.
+  // The essay is design-system markup with accessible page structure.
   assertEquals(body.querySelectorAll("main#main").length, 1);
-  assert(body.querySelector(".discern-hero-block") !== null);
-  assert(body.querySelector(".discern-site-footer") !== null);
+  assert(body.querySelector(".discern-article-header") !== null);
+  assert(body.querySelector(".discern-article-layout") !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
-
-  // Static output: local runtime assets only, and no React browser runtime.
-  assert(
-    runtimeAssetReferences(html).every((path) => path.startsWith("/")),
-  );
-  assertEquals(
-    ["fonts.googleapis.com", "cdn.jsdelivr.net", "jsr.io", "react"].filter(
-      (origin) => html.includes(origin),
-    ),
-    [],
-  );
-  dom.window.close();
-});
-
-Deno.test("the /v2 editorial edition is a composed static essay", async () => {
-  assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/v2"));
-  const response = await handler(
-    new Request("https://discern.sh/v2", { headers: BROWSER }),
-  );
-  assertEquals(response.status, 200);
-  const html = await response.text();
-  const dom = new JSDOM(html);
-  const body = dom.window.document.body;
 
   // One h1, the install command as text, and the footnote apparatus: every
   // in-prose marker resolves to a note, and every note links back.
-  assertEquals(body.querySelectorAll("h1").length, 1);
-  assertStringIncludes(
-    body.textContent ?? "",
-    "curl -fsSL https://discern.sh/install | sh",
-  );
-  const markers = [...body.querySelectorAll(".v2-fnref a")];
+  const markers = [...body.querySelectorAll(".landing-fnref a")];
   const notes = body.querySelectorAll(".discern-footnotes li[id]");
   assert(markers.length > 0, "the essay carries footnote markers");
   assertEquals(notes.length, markers.length);

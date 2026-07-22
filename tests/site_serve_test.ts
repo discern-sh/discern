@@ -102,6 +102,13 @@ Deno.test("non-negotiable routes serve HTML even to text clients", async () => {
   }
 });
 
+Deno.test("the retired /v2 prototype is no longer public", async () => {
+  assertEquals(Object.hasOwn(PAGES, "/v2"), false);
+  const response = await get("/v2", BROWSER);
+  assertEquals(response.status, 404);
+  await response.body?.cancel();
+});
+
 Deno.test("/llms.txt is the plaintext edition for every reader", async () => {
   for (const headers of [BROWSER, CURL]) {
     const res = await get("/llms.txt", headers);

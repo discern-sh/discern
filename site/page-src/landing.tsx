@@ -1,26 +1,23 @@
 /**
- * The authored homepage. site/build.ts renders this composition with the
- * design system's React adapters, wraps it in the shared document shell, and
- * writes static HTML: the browser receives no React runtime.
+ * The authored homepage: the landing argument delivered as a typeset essay.
+ * site/build.ts renders it to static HTML; the technical substantiation lives
+ * in real footnotes.
  */
 
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  Button,
-  Callout,
-  CodeListing,
-  CtaBand,
-  FaqBlock,
-  FeatureBento,
+  ArticleHeader,
+  ArticleLayout,
+  Brand,
+  DataFigure,
+  Footnotes,
   HeadingAccent,
-  HeroBlock,
-  KeyPoints,
-  MetricsBand,
-  ProcessSteps,
-  SiteFooter,
-  SiteHeader,
+  Prose,
+  PullQuote,
+  RelatedContent,
   SkipLink,
-  SplitFeature,
+  TableOfContents,
   Terminal,
   Transcript,
   Window,
@@ -28,20 +25,30 @@ import {
 } from "discern-design-system/react";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
-import {
-  INSTALL_COMMAND,
-  InstallCommand,
-  SETUP_SENTENCE,
-} from "./install-command.tsx";
+import { INSTALL_COMMAND, SETUP_SENTENCE } from "./install-command.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
+
+/** A superscript marker linking one claim to its note, with a return anchor. */
+function Note({ n }: { readonly n: number }) {
+  return (
+    <sup className="landing-fnref" id={`fnref-${n}`}>
+      <a href={`#note-${n}`} aria-label={`Note ${n}`}>{n}</a>
+    </sup>
+  );
+}
+
+/** One numbered end-note whose backlink returns to the marker. */
+function note(n: number, content: ReactNode) {
+  return { id: `note-${n}`, backHref: `#fnref-${n}`, content };
+}
 
 /** Static theme toggle wired at runtime by the shared /assets/theme.js. */
 function LandingThemeToggle() {
   return (
     <button
       type="button"
-      className="discern-theme-toggle landing-theme"
+      className="discern-theme-toggle landing-masthead__theme"
       aria-label="Switch to the dark theme"
       aria-pressed="false"
       data-theme-toggle
@@ -54,47 +61,75 @@ function LandingThemeToggle() {
   );
 }
 
-/** The conversation the hero illustrates: intent in, checked work out. */
-function HeroSession() {
+/** Figure 1: the loop between an ask and a checked report. */
+function CheckedAskFigure() {
   return (
-    <Window title="your-project · agent session" className="landing-session">
-      <Transcript
-        className="landing-session__chat"
-        turns={[
-          { speaker: "You", body: "Add sign-in with Google." },
-          {
-            speaker: "Your agent",
-            body: (
-              <Worklog
-                entries={[
-                  {
-                    label: "Opened a separate workspace",
-                    status: "done",
-                    detail: "agent/google-sign-in",
-                  },
-                  { label: "Built the sign-in flow", status: "done" },
-                  {
-                    label: "Ran your project's checks",
-                    status: "failed",
-                    detail: "1 test failed: session expiry",
-                  },
-                  {
-                    label: "Fixed it and re-ran every check",
-                    status: "done",
-                    detail: "format, lint, types, tests: passing",
-                  },
-                ]}
-              />
-            ),
-          },
-          {
-            speaker: "Your agent",
-            body:
-              "Sign-in works, and the version waiting for you is the version that passed. Say the word and I'll land it.",
-          },
-        ]}
-      />
-    </Window>
+    <DataFigure
+      className="landing-figure"
+      eyebrow="Figure 1"
+      title="One ask, checked"
+      surface="sunken"
+      visual={
+        <Window
+          title="your-project · agent session"
+          className="landing-session"
+        >
+          <Transcript
+            className="landing-session__chat"
+            turns={[
+              { speaker: "You", body: "Fix the upload bug." },
+              {
+                speaker: "Your agent",
+                body: (
+                  <Worklog
+                    entries={[
+                      {
+                        label: "Opened a separate workspace",
+                        status: "done",
+                        detail: "agent/fix-upload-retry",
+                      },
+                      {
+                        label: "Found the cause in the retry path",
+                        status: "done",
+                      },
+                      {
+                        label: "Wrote a test that fails without the fix",
+                        status: "done",
+                      },
+                      {
+                        label: "Ran your project's checks",
+                        status: "failed",
+                        detail: "lint: unused import in upload.ts",
+                      },
+                      {
+                        label: "Fixed it and re-ran every check",
+                        status: "done",
+                        detail: "format, lint, types, tests: passing",
+                      },
+                    ]}
+                  />
+                ),
+              },
+              {
+                speaker: "Your agent",
+                body:
+                  "The bug is fixed and covered by a new test. Every check passed on the final version. Review when ready.",
+              },
+            ]}
+          />
+        </Window>
+      }
+      legend={[
+        { label: "check passed", tone: "success" },
+        { label: "check caught a break", tone: "warning" },
+      ]}
+      caption="The loop between your ask and the agent's report: an isolated workspace, the project's checks, one caught failure, a verified finish."
+      source={
+        <a href="/docs/getting-started/walkthrough">
+          The full session, narrated, is in the setup walkthrough.
+        </a>
+      }
+    />
   );
 }
 
@@ -102,473 +137,307 @@ function LandingPage() {
   return (
     <>
       <SkipLink href="#main">Skip to content</SkipLink>
-      <SiteHeader
-        brand="discern"
-        brandMark={DISCERN_MARK}
-        brandTypeface="mono"
-        brandMarkTreatment="plain"
-        navItems={[
-          { label: "How it works", href: "#how-it-works" },
-          { label: "FAQ", href: "#faq" },
-          { label: "Docs", href: "/docs" },
-          { label: "GitHub ↗", href: GITHUB },
-        ]}
-        actions={
-          <>
-            <LandingThemeToggle />
-            <Button href="#get-started" size="sm">Install</Button>
-          </>
-        }
-      />
+      <header className="landing-masthead">
+        <a href="/" className="landing-masthead__brand">
+          <Brand mark={DISCERN_MARK} name="discern" size="sm" typeface="mono" />
+        </a>
+        <nav className="landing-masthead__nav" aria-label="Site">
+          <a href="/docs">Docs</a>
+          <a href={GITHUB}>GitHub ↗</a>
+          <LandingThemeToggle />
+        </nav>
+      </header>
       <main id="main">
-        <HeroBlock
-          eyebrow="For people who build software with coding agents"
+        <ArticleHeader
+          className="landing-header"
+          eyebrow="A discern essay"
           title={
             <>
-              Add the next feature{" "}
-              <HeadingAccent>without breaking the last one</HeadingAccent>
+              On keeping software <HeadingAccent>changeable</HeadingAccent>
             </>
           }
-          description="You describe what you want. Your agent builds it. discern gives that agent a dependable way of working: a separate copy of your project for every change, your project's own checks before anything counts as done, and nothing landing until you say so."
-          actions={
-            <>
-              <Button href="#get-started" size="lg">Get started</Button>
-              <Button href="#how-it-works" size="lg" variant="secondary">
-                How it works
-              </Button>
-            </>
-          }
-          meta={
-            <>
-              <InstallCommand />
-              <p className="landing-install__note">
-                Works with Claude Code, Codex, Gemini, Cursor, and GitHub
-                Copilot.
-              </p>
-            </>
-          }
-          visual={<HeroSession />}
+          standfirst="Anyone can ask a coding agent for software and watch it appear. The harder question arrives later: whether a project made of many asks stays sound. That discipline can belong to the agent, and this essay is about how."
+          meta={["discern.sh", "July 2026"]}
         />
-
-        <div className="landing-band landing-band--sunken">
-          <div className="landing-wrap">
-            <KeyPoints
-              eyebrow="The pattern"
-              title="The trouble starts a few prompts later"
+        <ArticleLayout
+          className="landing-body"
+          navigation={
+            <TableOfContents
+              title="In this essay"
               items={[
-                {
-                  title: "A fix here breaks something there",
-                  description:
-                    "New work lands on top of old work, and nothing re-checks the parts nobody was looking at.",
-                },
-                {
-                  title: "The agent forgets your rules",
-                  description:
-                    "A convention you set three chats ago is gone today, so you repeat yourself and hope it sticks.",
-                },
-                {
-                  title: "Done gets announced early",
-                  description:
-                    "The summary sounds finished. The app disagrees.",
-                },
+                { label: "The ask", href: "#the-ask" },
+                { label: "The pattern", href: "#the-pattern" },
+                { label: "The habits", href: "#the-habits" },
+                { label: "The agent, equipped", href: "#the-agent-equipped" },
+                { label: "What you keep", href: "#what-you-keep" },
+                { label: "One command", href: "#one-command" },
+                { label: "Notes", href: "#notes" },
               ]}
             />
-            <p className="landing-band__close">
-              So more of your time goes to supervising and repairing, and less
-              to the thing you set out to build. None of this means you built it
-              wrong. It means the project now needs the habits that keep
-              software changeable, and those shouldn't have to become your job.
-              discern hands them to the one doing the work: your agent.
-            </p>
-          </div>
-        </div>
-
-        <ProcessSteps
-          id="how-it-works"
-          eyebrow="How it works"
-          title="What happens after you ask"
-          description="You keep talking to your agent the way you do today. With discern in the project, every change moves through the same loop, built from your project's own commands."
-          orientation="vertical"
-          steps={[
-            {
-              eyebrow: "You",
-              title: "Describe the change",
-              description:
-                "“Add subscriptions.” “Fix the upload bug.” “Make it work offline.” Plain language, same as today.",
-            },
-            {
-              eyebrow: "Your agent",
-              title: "Works in a separate copy",
-              description:
-                "Each task gets its own workspace and branch, away from the version you rely on. Half-finished work never touches the app you can open.",
-              detail: (
-                <>
-                  Underneath: <code>discern start</code>{" "}
-                  creates an isolated Git worktree with its own branch, a
-                  deterministic port, and any resources your project declares.
-                </>
-              ),
-            },
-            {
-              eyebrow: "Your agent",
-              title: "Checks the work before reporting it",
-              description:
-                "The project's checks run before the agent calls anything finished. A failure comes back as the failing command and its output, so the agent fixes the problem and runs the loop again.",
-              detail: (
-                <>
-                  Underneath: <code>discern done</code>{" "}
-                  runs the format, lint, type-check, test, and build commands
-                  declared in <code>discern.toml</code>.
-                </>
-              ),
-            },
-            {
-              eyebrow: "You",
-              title: "Review it, then land it",
-              description:
-                "On a clean pass, the agent reports what ran and waits. Nothing reaches your main branch until you approve it.",
-              detail: (
-                <>
-                  Underneath: a green run on a committed tree records a receipt
-                  for that commit; <code>discern accept</code>{" "}
-                  lands the branch after your go-ahead and removes the
-                  workspace.
-                </>
-              ),
-            },
-          ]}
-        />
-        <div className="landing-wrap landing-wrap--note">
-          <Callout tone="note" title="Changes can take a little longer">
-            Checking, fixing, and re-checking takes time, so a change can arrive
-            slower than raw generation. In exchange, problems get caught while
-            the agent still has the context to fix them, instead of days later
-            by you.
-          </Callout>
-        </div>
-
-        <SplitFeature
-          id="get-started"
-          eyebrow="Getting started"
-          title="Install it once, then delegate"
-          description="You run one command, then hand your agent one sentence. discern is built for agents to operate, and that starts with setup."
-          points={[
-            {
-              title: "It asks before it writes",
-              description:
-                "Setup names the files it will create and waits for your yes. Everything lands on a branch you can read before it merges.",
-            },
-            {
-              title: "It wires your stack, whatever it is",
-              description:
-                "The checks come from commands your project already runs; discern doesn't invent a test suite for you.",
-            },
-            {
-              title: "Removal is one command",
-              description: (
-                <>
-                  <code>discern uninstall</code>{" "}
-                  removes the wiring and keeps your content.
-                </>
-              ),
-            },
-          ]}
-          actions={
-            <Button
-              href="/docs/getting-started/quickstart"
-              variant="secondary"
-            >
-              Read the quickstart
-            </Button>
           }
-          media={
-            <Terminal title="terminal" className="landing-setup-terminal">
-              {`$ ${INSTALL_COMMAND}
-$ cd your-project
+        >
+          <div className="landing-flow">
+            <Prose dropCap className="landing-prose">
+              <h2 id="the-ask">The ask</h2>
+              <p>
+                Somewhere in the past two years, building software stopped
+                requiring you to write it. You describe what you want: a booking
+                page for the studio, an invoice exporter, sign-in with Google. A
+                coding agent writes the code, and the thing appears on your
+                screen. If you haven't felt the small shock of watching a
+                working feature assemble itself out of a sentence, it's worth
+                feeling once.
+              </p>
+              <p>
+                A first version now takes an afternoon. Every version after it
+                still takes discipline: the fix that has to respect March's
+                feature, the redesign that can't disturb payments, the fiftieth
+                ask that has to live peacefully with the forty-nine before it.
+              </p>
+
+              <h2 id="the-pattern">The pattern</h2>
+              <p>
+                Projects built by asking tend to fray in a recognizable order. A
+                fix over here breaks something over there, because nothing
+                re-checked the parts nobody was looking at. The agent forgets a
+                convention you set three chats ago, so you repeat it, and then
+                repeat it again. Done gets announced a little before it's true.
+                And the mood of the project shifts: each new ask carries a
+                little more wariness about what it might undo.
+              </p>
+              <p>
+                None of this is a failure of yours, or of the agent's talent.
+                It's what happens to any codebase that grows faster than its
+                habits.
+              </p>
+
+              <h2 id="the-habits">The habits</h2>
+              <p>
+                Software teams that survive years of change do it with a short
+                list of unglamorous habits. Work happens away from the copy
+                people rely on. Every change faces the project's checks before
+                it counts. Failures come back specific enough to act on. The
+                house rules are written down where everyone can read them. And a
+                person answers for what lands.
+              </p>
+              <p>
+                Nothing on that list requires brilliance. It requires
+                consistency, and consistency is what machines are for. discern
+                is built on that premise: the habits belong with whoever does
+                the work, and in your project the work is now done by an agent.
+              </p>
+
+              <h2 id="the-agent-equipped">The agent, equipped</h2>
+              <p>
+                With discern installed, your agent works to the list above
+                without being reminded. It takes each task into a separate copy
+                of the project<Note n={1} />, away from the version you rely on.
+                Before it reports anything, it runs the checks your project
+                declares<Note n={2} />. When one fails, the failure comes back
+                as the failing command and its captured output
+                <Note n={3} />, so the agent fixes the problem and runs the loop
+                again. A pass is recorded against the version that passed
+                <Note n={4} />. And it waits for your approval before anything
+                lands<Note n={5} />.
+              </p>
+            </Prose>
+
+            <PullQuote
+              className="landing-pull"
+              align="wide"
+              quote="Nothing lands until you say so."
+            />
+
+            <Prose className="landing-prose">
+              <p>
+                The rules you teach the project are written once and compiled
+                into the instructions every configured agent reads
+                <Note n={6} />, so the convention you set in March is still in
+                force in July, in a new chat, on a different agent.
+              </p>
+            </Prose>
+
+            <CheckedAskFigure />
+
+            <Prose className="landing-prose">
+              <h2 id="what-you-keep">What you keep</h2>
+              <p>
+                All of it happens on your machine. discern makes no network
+                calls after install and sends no telemetry<Note n={7} />. The
+                checks are commands you declared, in a file you can read. The
+                files it writes sit inside a small, enumerated footprint, and a
+                test in discern's own build fails if anything writes outside
+                it<Note n={8} />.
+              </p>
+              <p>
+                The boundaries are worth stating plainly. discern doesn't
+                restrict what your agent can read, run, or change; permissions
+                stay with your agent's own controls. And discern makes one
+                promise, kept narrow on purpose: the checks you declared ran,
+                passed, and were recorded against the version you're looking at.
+              </p>
+              <p>
+                The cost is time. A checked change arrives slower than an
+                unchecked one, because checking, fixing, and re-checking sit
+                inside the loop. The bet is that minutes spent there beat
+                evenings spent untangling a break you find later.
+              </p>
+
+              <h2 id="one-command">One command</h2>
+              <p>
+                discern ships as one self-contained binary; Git is the only
+                other requirement. Install it, then tell your agent:{" "}
+                <em>“{SETUP_SENTENCE}”</em>{" "}
+                Setup asks before it writes anything, does its work on a branch
+                you can read, and <code>discern uninstall</code>{" "}
+                removes it if you change your mind.
+              </p>
+            </Prose>
+
+            <div className="landing-install">
+              <div
+                className="landing-install__terminal-host"
+                data-copy-command={INSTALL_COMMAND}
+              >
+                <Terminal
+                  title="terminal"
+                  className="landing-install__terminal"
+                >
+                  {`$ ${INSTALL_COMMAND}
 
 # then, in your coding agent:
 > ${SETUP_SENTENCE}`}
-            </Terminal>
-          }
-        />
+                </Terminal>
+              </div>
+              <p className="landing-install__note">
+                Works with Claude Code, Codex, Gemini, Cursor, and GitHub
+                Copilot, on macOS and Linux, or Windows via WSL.
+              </p>
+            </div>
 
-        <FeatureBento
-          eyebrow="The payoff"
-          title="What changes as the project grows"
-          items={[
-            {
-              eyebrow: "Fewer regressions",
-              title: "Mistakes surface while they're cheap",
-              description:
-                "The checks run inside the agent's loop, so broken work gets fixed before it reaches the version you rely on.",
-              size: "wide",
-              tone: "accent",
-            },
-            {
-              eyebrow: "Less repeating yourself",
-              title: "Your rules stick",
-              description:
-                "Project conventions are written once in the repo and compiled into the instructions every configured agent reads, this session and every one after.",
-            },
-            {
-              eyebrow: "More at once",
-              title: "Parallel work stays apart",
-              description:
-                "Run several efforts at once, each in its own workspace, without them stepping on each other.",
-            },
-            {
-              eyebrow: "Months later",
-              title: "The project stays changeable",
-              description:
-                "The aim over time: asking for the tenth feature feels like asking for the first.",
-              size: "wide",
-            },
-          ]}
-        />
-
-        <SplitFeature
-          eyebrow="Under the hood"
-          title="Inspectable machinery"
-          description="The simplicity rests on ordinary, verifiable parts. Everything the checks will run sits in one committed file anyone can read."
-          reverse
-          surface="sunken"
-          points={[
-            {
-              title: "Real Git worktrees",
-              description:
-                "One per change, on its own branch, with a deterministic port and per-worktree resources when you declare them.",
-            },
-            {
-              title: "Your commands, run together",
-              description:
-                "Format, build, lint, type-check, test, smoke, and custom jobs, with failures returned as the failing command plus its captured output.",
-            },
-            {
-              title: "Results bound to commits",
-              description: (
-                <>
-                  A green <code>discern done</code>{" "}
-                  on a clean tree records a receipt for that commit. Any further
-                  edit lapses it.
-                </>
-              ),
-            },
-            {
-              title: "One guidance source, every agent",
-              description:
-                "Write project instructions once; discern compiles the file each configured agent reads and materializes skills alongside.",
-            },
-            {
-              title: "Standards that only tighten",
-              description:
-                "Hold a quality metric at a limit that can tighten or hold against your main branch, and can't loosen.",
-            },
-            {
-              title: "MCP built in",
-              description: (
-                <>
-                  Agents drive discern through structured MCP tools with typed
-                  results; the CLI carries <code>--json</code>{" "}
-                  for everything else.
-                </>
-              ),
-            },
-          ]}
-          actions={
-            <Button href="/docs/orientation/concepts" variant="secondary">
-              Concepts: how it fits together
-            </Button>
-          }
-          media={
-            <CodeListing
-              filename="discern.toml"
-              language="toml"
-              code={`[jobs]
-format    = "prettier --write ."
-lint      = "eslint ."
-typecheck = "tsc --noEmit"
-test      = "vitest run"
-
-[repository]
-trunk         = "main"
-branch_prefix = "agent/"`}
-              caption="Your project's checks, declared where everyone can read them."
+            <Footnotes
+              id="notes"
+              className="landing-notes"
+              title="Notes"
+              items={[
+                note(
+                  1,
+                  <>
+                    Each task's workspace is a Git worktree on its own branch
+                    (prefix{" "}
+                    <code>agent/</code>), with a deterministic port and any
+                    per-worktree resources the project declares.{" "}
+                    <code>discern start</code> creates it; landing removes it.
+                  </>,
+                ),
+                note(
+                  2,
+                  <>
+                    The format, build, lint, type-check, test, and smoke
+                    commands named in{" "}
+                    <code>discern.toml</code>, plus custom jobs.{" "}
+                    <code>discern done</code>{" "}
+                    runs them together; discern brings no test suite of its own.
+                  </>,
+                ),
+                note(
+                  3,
+                  <>
+                    Structured diagnostics carry the tool, the failing command,
+                    and its captured output.
+                  </>,
+                ),
+                note(
+                  4,
+                  <>
+                    A green <code>discern done</code>{" "}
+                    on a clean, committed branch records a receipt for that
+                    commit. Any later edit lapses it, and acceptance re-runs the
+                    checks instead.
+                  </>,
+                ),
+                note(
+                  5,
+                  <>
+                    <code>discern accept</code>{" "}
+                    fast-forwards the main branch to the reviewed branch only
+                    after your confirmation, then removes the workspace.
+                  </>,
+                ),
+                note(
+                  6,
+                  <>
+                    One authored source compiles into the file each configured
+                    agent reads (Claude Code, Codex, Gemini, Cursor, and GitHub
+                    Copilot); focused skills materialize alongside.
+                  </>,
+                ),
+                note(
+                  7,
+                  <>
+                    After the HTTPS download at install time, discern works
+                    fully offline. Its one local record, the logbook, holds
+                    names and numbers about discern's own runs, has an off
+                    switch, and can reach no network interface: a test in
+                    discern's own build fails if that changes. Details in{" "}
+                    <a href="/docs/orientation/trust-and-data">
+                      Trust &amp; your data
+                    </a>.
+                  </>,
+                ),
+                note(
+                  8,
+                  <>
+                    The complete inventory of written files is in{" "}
+                    <a href="/docs/reference/artifact-ownership">
+                      Files &amp; ownership
+                    </a>. <code>discern uninstall</code>{" "}
+                    removes the wiring and keeps your content.
+                  </>,
+                ),
+              ]}
             />
-          }
-        />
+          </div>
+        </ArticleLayout>
 
-        <MetricsBand
-          eyebrow="Trust & your data"
-          title="It all happens on your machine"
-          tone="contrast"
+        <RelatedContent
+          className="landing-related"
+          eyebrow="Keep reading"
+          title="The precise versions of these claims"
+          surface="sunken"
           items={[
             {
-              value: "0",
-              label: "network calls",
-              detail: "after install, none; discern works fully offline",
+              eyebrow: "Guide",
+              title: "Quickstart",
+              description:
+                "Install the binary, hand setup to your agent, and land your first checked change.",
+              href: "/docs/getting-started/quickstart",
             },
             {
-              value: "0",
-              label: "telemetry",
-              detail: "nothing about your code or usage is collected",
+              eyebrow: "Concepts",
+              title: "How discern fits together",
+              description:
+                "The mental model in one read: the checks, the worktrees, and who owns which files.",
+              href: "/docs/orientation/concepts",
             },
             {
-              value: "1",
-              label: "self-contained binary",
-              detail: "no Node, no Deno; Git is the only other requirement",
-            },
-            {
-              value: "5",
-              label: "coding agents",
-              detail: "Claude Code, Codex, Gemini, Cursor, and GitHub Copilot",
+              eyebrow: "Reference",
+              title: "Trust & your data",
+              description:
+                "What discern does and does not do on your machine, held by tests rather than promises.",
+              href: "/docs/orientation/trust-and-data",
             },
           ]}
-        />
-        <div className="landing-wrap">
-          <p className="landing-trust-note">
-            The complete inventory of what discern writes, and what uninstall
-            removes, is in{" "}
-            <a href="/docs/orientation/trust-and-data">
-              Trust &amp; your data
-            </a>.
-          </p>
-        </div>
-
-        <FaqBlock
-          id="faq"
-          eyebrow="Before you install"
-          title="Fair questions"
-          openFirst
-          items={[
-            {
-              question: "Do I need to know Git or CI to use this?",
-              answer:
-                "No. Your agent operates discern; you describe changes, review results, and approve landings. The vocabulary is all in the docs whenever you want to go deeper.",
-            },
-            {
-              question: "Will it slow my agent down?",
-              answer:
-                "Somewhat, on each change: checking, fixing, and re-checking takes time. Problems get handled inside the loop while the agent has context, instead of surfacing later as mysteries in the app.",
-            },
-            {
-              question: "What does it write into my project?",
-              answer: (
-                <>
-                  One committed <code>discern.toml</code>, a visible{" "}
-                  <code>discern/</code>{" "}
-                  folder you own, a marked block in agent config files and{" "}
-                  <code>.gitignore</code>, and the generated agent files. A test
-                  in discern's own build fails the moment any command writes
-                  outside that footprint, and <code>discern uninstall</code>
-                  {" "}
-                  removes the wiring while keeping your content.
-                </>
-              ),
-            },
-            {
-              question: "Does any of my code leave my machine?",
-              answer:
-                "No. discern makes zero network calls after install and ships no telemetry. It keeps one local logbook of its own runs (names and numbers, never code), with a switch to turn it off and a one-command way to delete it.",
-            },
-            {
-              question:
-                "Will it stop my agent from doing something it shouldn't?",
-              answer:
-                "No, and it doesn't claim to: discern never restricts what your agent can read, run, or change. Permissions belong to your agent's own controls. What discern adds is checked results, isolated changes, and your approval before anything lands.",
-            },
-            {
-              question: "What if my project has no tests yet?",
-              answer:
-                "discern runs the commands you declare, and a formatter or linter is a fine start. The set can grow as the project does, and each new check applies to every change from then on.",
-            },
-          ]}
-          aside={
-            <p className="landing-faq-aside">
-              Setup and troubleshooting questions live in the{" "}
-              <a href="/docs/getting-started/faq">docs FAQ</a>. For anything
-              else, <a href={`${GITHUB}/issues`}>open an issue</a>.
-            </p>
-          }
-        />
-
-        <CtaBand
-          tone="accent"
-          align="split"
-          title="One command, then back to building"
-          description="Install discern, tell your agent to set it up, and keep asking for what you want the way you already do."
-          actions={
-            <>
-              <Button href="/docs/getting-started/quickstart" size="lg">
-                Read the quickstart
-              </Button>
-              <Button href={GITHUB} size="lg" variant="secondary">
-                View on GitHub
-              </Button>
-            </>
-          }
-          note={
-            <>
-              macOS and Linux, or Windows via WSL · Apache-2.0 ·{" "}
-              <code>discern uninstall</code> keeps your content
-            </>
-          }
-          visual={<InstallCommand />}
         />
       </main>
-
-      <SiteFooter
-        brand="discern"
-        brandMark={DISCERN_MARK}
-        brandTypeface="mono"
-        brandMarkTreatment="plain"
-        description="Engineering habits for coding agents, run on your machine."
-        groups={[
-          {
-            title: "Documentation",
-            links: [
-              { label: "Quickstart", href: "/docs/getting-started/quickstart" },
-              { label: "Concepts", href: "/docs/orientation/concepts" },
-              {
-                label: "Trust & your data",
-                href: "/docs/orientation/trust-and-data",
-              },
-              {
-                label: "FAQ & troubleshooting",
-                href: "/docs/getting-started/faq",
-              },
-            ],
-          },
-          {
-            title: "Reference",
-            links: [
-              { label: "CLI reference", href: "/docs/reference/cli-reference" },
-              {
-                label: "Config reference",
-                href: "/docs/reference/config-reference",
-              },
-              {
-                label: "Files & ownership",
-                href: "/docs/reference/artifact-ownership",
-              },
-              {
-                label: "MCP tools & results",
-                href: "/docs/reference/mcp-and-results",
-              },
-            ],
-          },
-          {
-            title: "Project",
-            links: [
-              { label: "GitHub", href: GITHUB },
-              { label: "Releases", href: `${GITHUB}/releases/latest` },
-              { label: "Report an issue", href: `${GITHUB}/issues` },
-              { label: "License", href: `${GITHUB}/blob/main/LICENSE` },
-            ],
-          },
-        ]}
-        legal="Apache-2.0 licensed."
-        meta="No network calls. No telemetry. One binary."
-      />
+      <footer className="landing-colophon">
+        <a href="/" className="landing-colophon__brand">
+          <span aria-hidden="true">{DISCERN_MARK}</span> discern
+        </a>
+        <p className="landing-colophon__meta">
+          Apache-2.0 · no network calls · no telemetry
+        </p>
+      </footer>
     </>
   );
 }
@@ -579,7 +448,12 @@ export function renderLanding(): string {
     source: "landing.tsx",
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
-    styles: ["fonts.css", "discern.css", "grain.css", "landing.css"],
+    styles: [
+      "fonts.css",
+      "discern.css",
+      "grain.css",
+      "landing.css",
+    ],
     scripts: ["landing.js"],
     body: renderToStaticMarkup(<LandingPage />),
   });
