@@ -85,6 +85,7 @@ ensure = ["install"]
 Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
   const parsed = parseDiscernToml(`title = "no project here"`);
   assertEquals(parsed.project, {
+    name: undefined,
     slug: undefined,
     agents: undefined,
     gotchas_doc: undefined,
