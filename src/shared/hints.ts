@@ -27,9 +27,11 @@ import { SOURCE_PATHS } from "./paths_registry.ts";
 export type HintCategory = "next-step" | "guardrail" | "notice";
 
 /**
- * Which surfaces render an entry. `all` reaches every surface; `agent` marks
- * hints written for coding agents that the interactive human renderers drop
- * (the fleet-ownership and trunk guardrails today) — the drop keys on this
+ * A suppression flag for interactive human surfaces, not a targeting field:
+ * every entry rides the `--json`/MCP envelope regardless of audience. `all`
+ * also renders on the interactive human surfaces; `agent` marks entries whose
+ * instruction only an agent can execute — relaying to an owner, re-rooting a
+ * session — which the interactive human renderers drop. The drop keys on this
  * field, not on reconstructing the rendered string.
  */
 export type HintAudience = "all" | "agent";

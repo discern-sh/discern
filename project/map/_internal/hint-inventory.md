@@ -6,6 +6,8 @@ _Every advisory hint, generated from the live registry._
 
 Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters.
 
+Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: interactive human renderers drop it, while the `--json` and MCP envelopes always carry it.
+
 ## `accept-awaiting-confirmation`
 
 - Category: `next-step`
