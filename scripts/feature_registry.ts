@@ -1,7 +1,7 @@
 /**
  * The feature registry and the generated feature canon — the product's
  * features and benefits as DATA, rendered into the maintainer canon page the
- * same way the glossary renders from its term registry (ADR 0174, following
+ * same way the glossary renders from its term registry (ADR 0175, following
  * the discipline of `glossary_registry.ts`).
  *
  * Three consumers:

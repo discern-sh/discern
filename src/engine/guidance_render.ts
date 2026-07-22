@@ -39,6 +39,45 @@ import {
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import { discoverDocs, docRegions } from "../lib/docs.ts";
+
+/** Opaque insertion point owned by the map guidance renderer, not the template
+ * language. Keeping it outside `{{...}}` preserves the shared config-only
+ * guidance context used by bundled skills. */
+const MAP_REGIONS_MARKER = "<!-- discern:map-regions -->";
+const MAP_REGIONS_WILDCARD = "\0discern:map-regions\0";
+
+/** One body discern could own: exact throughout, or variable only at the map slot. */
+export type GuidanceOwnershipPattern =
+  | { kind: "exact"; body: string }
+  | { kind: "map-regions"; prefix: string; suffix: string };
+
+/** Turn an internal wildcard render into an exact-outside-the-slot pattern. */
+function guidanceOwnershipPattern(body: string): GuidanceOwnershipPattern {
+  const comparable = body.trim();
+  const at = comparable.indexOf(MAP_REGIONS_WILDCARD);
+  if (at < 0) return { kind: "exact", body: comparable };
+  if (comparable.indexOf(MAP_REGIONS_WILDCARD, at + 1) >= 0) {
+    throw new Error("the map-region wildcard appeared more than once");
+  }
+  return {
+    kind: "map-regions",
+    prefix: comparable.slice(0, at),
+    suffix: comparable.slice(at + MAP_REGIONS_WILDCARD.length),
+  };
+}
+
+/** Whether a candidate is discern's render, allowing only its map payload to vary. */
+export function matchesGuidanceOwnership(
+  pattern: GuidanceOwnershipPattern,
+  candidate: string,
+): boolean {
+  const comparable = candidate.trim();
+  if (pattern.kind === "exact") return comparable === pattern.body;
+  return comparable.length >= pattern.prefix.length + pattern.suffix.length &&
+    comparable.startsWith(pattern.prefix) &&
+    comparable.endsWith(pattern.suffix);
+}
 
 /**
  * The built-in guidance sections, in compile order. Every section always
@@ -122,7 +161,20 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
  * {@link composeGuidanceBody}. A missing section file is skipped defensively (the
  * distribution ships them, but a custom templates tree might not).
  */
-async function builtinGuidance(config: DiscernConfig): Promise<string> {
+async function renderMapRegions(root: string): Promise<string> {
+  const tree = await discoverDocs({ cwd: root });
+  const regions = tree === undefined ? [] : docRegions(tree.entries);
+  return regions.length === 0
+    ? "- No top-level map regions are indexed yet."
+    : regions.map((region) => `- \`${region.name}\` — ${region.title}`).join(
+      "\n",
+    );
+}
+
+async function builtinGuidance(
+  config: DiscernConfig,
+  mapRegions: string,
+): Promise<string> {
   const dir = join(await resolveTemplatesDir(), "guidance");
   const ctx = guidanceContext(config);
   let out = "";
@@ -137,6 +189,9 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
       throw err;
     }
     text = renderGuidanceTemplate(text, ctx);
+    if (section.file === "map.md") {
+      text = text.replaceAll(MAP_REGIONS_MARKER, mapRegions);
+    }
     // A section a conditional collapsed to nothing contributes nothing — no stray
     // blank line, no empty heading.
     if (text.trim() === "") {
@@ -157,11 +212,12 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
  * shipped guidance from user-authored guidance, so the ownership boundary is
  * visible without changing either side's prose.
  */
-export async function composeGuidanceBody(
+async function composeGuidanceBodyWithMapRegions(
   root: string,
   config: DiscernConfig,
+  mapRegions: string,
 ): Promise<string> {
-  let body = await builtinGuidance(config);
+  let body = await builtinGuidance(config, mapRegions);
   const sources = await resolveGuidanceSources(root, config);
   if (sources.length > 0) {
     const builtIn = body.trimEnd();
@@ -172,6 +228,17 @@ export async function composeGuidanceBody(
     body += "\n";
   }
   return body;
+}
+
+export async function composeGuidanceBody(
+  root: string,
+  config: DiscernConfig,
+): Promise<string> {
+  return await composeGuidanceBodyWithMapRegions(
+    root,
+    config,
+    await renderMapRegions(root),
+  );
 }
 
 /** The guidance-file entries for the configured agents, in order, dropping unknown
@@ -221,6 +288,26 @@ export function agentFileContents(
     out.set(gf.path, fileBody);
   }
   return out;
+}
+
+/**
+ * Every provider body setup may recognise as discern-owned. Full agent files
+ * carry an internal wildcard at the map-region insertion point; pointer files
+ * remain exact. The wildcard never reaches {@link renderAgentFiles} output.
+ */
+export async function agentFileOwnershipPatterns(
+  root: string,
+  config: DiscernConfig,
+  files: readonly GuidanceFile[],
+): Promise<GuidanceOwnershipPattern[]> {
+  const body = await composeGuidanceBodyWithMapRegions(
+    root,
+    config,
+    MAP_REGIONS_WILDCARD,
+  );
+  return [...agentFileContents(files, body).values()].map(
+    guidanceOwnershipPattern,
+  );
 }
 
 /**

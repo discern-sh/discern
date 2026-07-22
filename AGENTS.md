@@ -45,7 +45,21 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The map & decisions
 
-The tree at `project/map/` is the **map** — the agent-maintained account of this codebase, browsable with **`discern_map`**. Agents write it and keep it current; humans read it to audit what their agents understand; a stale map is a defect. Never touch documentation the user didn't point discern at — the map is the only tree discern maintains. Record significant or hard-to-reverse decisions as **Architecture Decision Records** under `project/map/_adr/`.
+`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Keep it current; staleness is a defect. Humans audit agent understanding. Maintain no documentation outside it unless the user asks. Put significant, hard-to-reverse decisions in **Architecture Decision Records** under `project/map/_adr/`.
+
+Use a region as `target` for its index, or add `search` to scope a query. When unsure, search in task language, then fetch a result with its canonical `target`.
+
+- `00-orientation` — Orientation
+- `10-getting-started` — Getting started
+- `20-quality-gate` — The quality gate
+- `30-worktrees` — Worktrees
+- `40-agent-guidance` — Agent guidance
+- `45-skills` — Skills
+- `50-engine-internals` — Engine internals
+- `60-agent-integrations` — Agent integrations
+- `70-reference` — Reference
+- `80-development` — Working on this project
+- `90-site` — The public site — discern.sh
 
 ---
 

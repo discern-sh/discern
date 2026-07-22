@@ -470,7 +470,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
 Deno.test("re-begin never imports a surviving agent file that matches discern's own render", async () => {
   // The harder abandonment: the setup branch was DELETED, so the install really
   // is fresh again — but the gitignored agent file survived on disk.
-  // The exact-match guard must recognize it as discern's own output and skip the
+  // The ownership guard must recognize it as discern's own output and skip the
   // "Imported from" migration (it is not the user's authoring), and say so.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
@@ -483,9 +483,30 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
       "claude_code",
     ]);
     assertEquals(first.code, 0, first.output);
+    const survivorPath = join(dir, "CLAUDE.md");
+    const survivor = await Deno.readTextFile(survivorPath);
+    assertStringIncludes(
+      survivor,
+      "`00-orientation` — Orientation",
+      "setup must return with guidance compiled from the map skeleton it laid",
+    );
+
+    // Add an unrelated future region after the compiled survivor: own-render
+    // recognition must tolerate any generated region-list revision, without a
+    // name-based exception for today's skeleton.
+    const futureRegion = join(
+      dir,
+      SOURCE_PATHS.map.defaultPath,
+      "91-unrelated-surface",
+    );
+    await Deno.mkdir(futureRegion, { recursive: true });
+    await Deno.writeTextFile(
+      join(futureRegion, "README.md"),
+      "# Unrelated surface\n\nA future map region.\n",
+    );
     await git(dir, "checkout", "-q", "main");
     await git(dir, "branch", "-D", "discern-setup");
-    assert(await exists(join(dir, "CLAUDE.md")), "the compiled file survives");
+    assert(await exists(survivorPath), "the compiled file survives");
 
     const re = await runAgent(dir, [
       "setup",

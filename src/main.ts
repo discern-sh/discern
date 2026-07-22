@@ -479,6 +479,10 @@ export function buildCli(
       "--list",
       "Print a plain table of contents and exit without interaction.",
     )
+    .option(
+      "--search <query:string>",
+      "Search the map; combine with a target to search one region or document.",
+    )
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option(
       "--dir <path:string>",
@@ -508,6 +512,7 @@ export function buildCli(
           dir: options.dir,
           width: options.width,
           target,
+          search: options.search,
           export: options.export,
           output: options.output,
         });
@@ -530,6 +535,10 @@ export function buildCli(
     .option(
       "--list",
       "Print a plain table of contents and exit without interaction.",
+    )
+    .option(
+      "--search <query:string>",
+      "Search discern's docs; combine with a target to narrow the search.",
     )
     .option(
       "--adr",
@@ -555,14 +564,17 @@ export function buildCli(
       // the verb registry (hidden commands included: they still dispatch), so
       // every registered verb resolves; a retired spelling or a familiar
       // synonym gets its usual one-line lesson instead of a doc miss.
-      if (target !== undefined && KNOWN_VERBS.has(target)) {
+      if (
+        options.search === undefined && target !== undefined &&
+        KNOWN_VERBS.has(target)
+      ) {
         const sub = root.getCommand(target, true);
         if (sub !== undefined) {
           sub.showHelp();
           return 0;
         }
       }
-      if (target !== undefined) {
+      if (options.search === undefined && target !== undefined) {
         const successor = retiredCommandSuccessor(target);
         if (successor !== undefined) {
           const message = retiredCommandMessage(target, successor);
@@ -593,6 +605,7 @@ export function buildCli(
         noPager: options.pager === false,
         width: options.width,
         target,
+        search: options.search,
         export: options.export,
         output: options.output,
       });

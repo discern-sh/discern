@@ -17,6 +17,7 @@ import { join } from "@std/path";
 import {
   discoverDocs,
   type DocEntry,
+  docRegions,
   extractTitle,
   filterDocsByGroups,
   formatDocsExport,
@@ -24,6 +25,7 @@ import {
   isPublicDoc,
   publicDocs,
   resolveDoc,
+  resolveDocRegion,
 } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
@@ -399,6 +401,190 @@ Deno.test("map --json emits the index", async () => {
     assertEquals(res.data.regions[0].name, "00-intro");
     for (const region of res.data.regions) assertFactOnlyRegion(region);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "alpha"));
+  });
+});
+
+Deno.test("top-level map regions are registry-driven exact targets", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+    const regions = docRegions(tree.entries);
+    assertEquals(regions.map((region) => region.name), ["00-intro"]);
+    assertEquals(regions[0]?.title, "Intro");
+    assertEquals(regions[0]?.page_count, 3);
+    assertEquals(resolveDocRegion(tree, "00-intro", dir)?.name, "00-intro");
+    assertEquals(
+      resolveDocRegion(tree, join(dir, "docs", "00-intro"), dir)?.name,
+      "00-intro",
+    );
+  });
+});
+
+Deno.test("map region targets return a filtered compact index", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli([
+      "map",
+      "00-intro",
+      "--json",
+    ], dir);
+    assertEquals(code, 0);
+    const result = JSON.parse(stdout);
+    assertEquals(result.data.scope, "00-intro");
+    assertEquals(result.data.count, 3);
+    assertEquals(
+      result.data.docs.map((doc: { slug: string }) => doc.slug),
+      ["README", "alpha", "beta"],
+    );
+  });
+});
+
+Deno.test("map search returns ranked context and canonical reusable targets", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli([
+      "map",
+      "--search",
+      "alpha body",
+      "--json",
+    ], dir);
+    assertEquals(code, 0);
+    const result = JSON.parse(stdout);
+    assertEquals(result.ok, true);
+    assertEquals(result.data.query, "alpha body");
+    assertEquals(result.data.count, 1);
+    assertEquals(result.data.truncated, false);
+    assertEquals(result.data.results[0].target, "00-intro/alpha");
+    assertEquals(result.data.results[0].path, "docs/00-intro/alpha.md");
+    assertStringIncludes(result.data.results[0].snippet, "alpha body");
+    assertEquals("score" in result.data.results[0], false);
+
+    const followUp = await runCli([
+      "map",
+      result.data.results[0].target,
+      "--json",
+    ], dir);
+    assertEquals(followUp.code, 0);
+    assertStringIncludes(JSON.parse(followUp.stdout).data.doc.content, "alpha");
+  });
+});
+
+Deno.test("map search scopes to a region and treats no matches as a successful result", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const hit = await runCli([
+      "map",
+      "00-intro",
+      "--search",
+      "alpha body",
+      "--json",
+    ], dir);
+    assertEquals(hit.code, 0);
+    const hitData = JSON.parse(hit.stdout).data;
+    assertEquals(hitData.scope, "00-intro");
+    assertEquals(hitData.results[0].target, "00-intro/alpha");
+
+    const miss = await runCli([
+      "map",
+      "00-intro",
+      "--search",
+      "welcome",
+      "--json",
+    ], dir);
+    assertEquals(miss.code, 0);
+    const missData = JSON.parse(miss.stdout).data;
+    assertEquals(missData.scope, "00-intro");
+    assertEquals(missData.count, 0);
+    assertEquals(missData.results, []);
+
+    const page = await runCli([
+      "map",
+      "alpha",
+      "--search",
+      "alpha body",
+      "--json",
+    ], dir);
+    assertEquals(page.code, 0);
+    assertEquals(JSON.parse(page.stdout).data.scope, "00-intro/alpha");
+  });
+});
+
+Deno.test("map search keeps agent-visible pages withheld from publication", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "private.md"),
+      "---\npublish: false\n---\n# Private\n\nAgent-only search token.\n",
+    );
+    const result = await runCli([
+      "map",
+      "--search",
+      "agent-only search token",
+      "--json",
+    ], dir);
+    assertEquals(result.code, 0);
+    assertEquals(
+      JSON.parse(result.stdout).data.results[0].target,
+      "00-intro/private",
+    );
+  });
+});
+
+Deno.test("map search falls back to typo-tolerant metadata matching", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const { code, stdout } = await runCli([
+      "map",
+      "--search",
+      "alhpa",
+      "--json",
+    ], dir);
+    assertEquals(code, 0);
+    const data = JSON.parse(stdout).data;
+    assertEquals(data.results[0].target, "00-intro/alpha");
+    assertEquals("score" in data.results[0], false);
+  });
+});
+
+Deno.test("map search caps returned documents while reporting the full match count", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    for (let index = 0; index < 7; index += 1) {
+      await Deno.writeTextFile(
+        join(dir, "docs", "00-intro", `common-${index}.md`),
+        `# Common ${index}\n\nShared search marker.\n`,
+      );
+    }
+    const result = await runCli([
+      "map",
+      "--search",
+      "shared search marker",
+      "--json",
+    ], dir);
+    assertEquals(result.code, 0);
+    const data = JSON.parse(result.stdout).data;
+    assertEquals(data.count, 7);
+    assertEquals(data.results.length, 5);
+    assertEquals(data.truncated, true);
+  });
+});
+
+Deno.test("map search rejects an empty query and incompatible read modes", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const empty = await runCli(["map", "--search", " ", "--json"], dir);
+    assertEquals(empty.code, 1);
+    assertEquals(JSON.parse(empty.stdout).error, "invalid_arguments");
+
+    const raw = await runCli([
+      "map",
+      "--search",
+      "alpha",
+      "--raw",
+    ], dir);
+    assertEquals(raw.code, 1);
+    assertStringIncludes(raw.stderr, "--search cannot be combined with --raw");
   });
 });
 
@@ -1012,6 +1198,30 @@ Deno.test("map --json reports an empty tree as count 0 (only internal docs prese
     assertEquals(res.ok, true);
     assertEquals(res.data.count, 0);
     assertEquals(res.data.docs, []);
+  });
+});
+
+Deno.test("searching an empty map succeeds unless an absent scope was requested", async () => {
+  await withTempDir(async (dir) => {
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
+    await Deno.mkdir(join(dir, "docs"), { recursive: true });
+
+    const all = await runCli(["map", "--search", "anything", "--json"], dir);
+    assertEquals(all.code, 0);
+    assertEquals(JSON.parse(all.stdout).data.results, []);
+
+    const scoped = await runCli([
+      "map",
+      "missing-region",
+      "--search",
+      "anything",
+      "--json",
+    ], dir);
+    assertEquals(scoped.code, 1);
+    assertEquals(JSON.parse(scoped.stdout).error, "not_found");
   });
 });
 

@@ -110,6 +110,53 @@ Deno.test("help serves the bundled tree, never the project's own docs/", async (
   });
 });
 
+Deno.test("help search returns public manual targets and supports region scope", async () => {
+  await withTempDir(async (dir) => {
+    const help = await makeHelpFixture(dir);
+    const env = { DISCERN_DOCS_DIR: help };
+    const found = await runCli(
+      [
+        "help",
+        "--search",
+        "concepts body",
+        "--json",
+      ],
+      dir,
+      env,
+    );
+    assertEquals(found.code, 0);
+    const foundData = JSON.parse(found.stdout).data;
+    assertEquals(foundData.results[0].target, "00-orientation/concepts");
+
+    const scoped = await runCli(
+      [
+        "help",
+        "00-orientation",
+        "--search",
+        "concepts body",
+        "--json",
+      ],
+      dir,
+      env,
+    );
+    assertEquals(scoped.code, 0);
+    assertEquals(JSON.parse(scoped.stdout).data.scope, "00-orientation");
+
+    const withheld = await runCli(
+      [
+        "help",
+        "--search",
+        "withheld",
+        "--json",
+      ],
+      dir,
+      env,
+    );
+    assertEquals(withheld.code, 0);
+    assertEquals(JSON.parse(withheld.stdout).data.results, []);
+  });
+});
+
 Deno.test("help <slug> --json strips inline citations, keeps them as fields", async () => {
   await withTempDir(async (dir) => {
     const help = await makeHelpFixture(dir);

@@ -852,12 +852,26 @@ const mapRegionSchema = z.strictObject({
   code_changes_since: z.number().optional(),
 });
 
+/** One ranked documentation hit. `target` is the canonical value a caller can
+ * pass back to the same verb; ranking scores stay private implementation detail. */
+const docSearchResultSchema = z.strictObject({
+  target: z.string(),
+  path: z.string(),
+  section: z.string(),
+  title: z.string(),
+  description: z.string(),
+  heading: z.string().optional(),
+  snippet: z.string(),
+});
+export type DocSearchResult = z.infer<typeof docSearchResultSchema>;
+
 /**
  * `map`/`help` — the documentation payload, across every mode: the index
  * (`map_dir`/`count`/`docs`; `help` omits `map_dir`), an empty tree
  * (`count:0`), a single doc (`doc` with content), an ambiguous match
- * (`candidates`), or nearest-match guidance for a not-found (`suggestions`).
- * Modeled as one object with mode-specific optionals.
+ * (`candidates`), nearest-match guidance for a not-found (`suggestions`), or a
+ * ranked search (`query`/`results`, optionally narrowed to `scope`). Modeled as
+ * one object with mode-specific optionals.
  */
 export const DocsDataSchema = z.strictObject({
   map_dir: z.string().optional(),
@@ -870,6 +884,10 @@ export const DocsDataSchema = z.strictObject({
   }).optional(),
   candidates: z.array(z.string()).optional(),
   suggestions: z.array(docRecordSchema).optional(),
+  query: z.string().optional(),
+  scope: z.string().optional(),
+  results: z.array(docSearchResultSchema).optional(),
+  truncated: z.boolean().optional(),
 });
 export type DocsData = z.infer<typeof DocsDataSchema>;
 

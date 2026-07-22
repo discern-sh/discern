@@ -108,6 +108,20 @@ export interface DocGroup {
   entries: DocEntry[];
 }
 
+/** One non-internal top-level documentation subtree and its entries. */
+export interface DocRegion {
+  /** Exact region target, such as `20-quality-gate`. */
+  name: string;
+  /** Title from the region README, or its first page when no README exists. */
+  title: string;
+  /** One-line description from that same front-door page. */
+  description: string;
+  /** Number of pages in the region. */
+  page_count: number;
+  /** Pages in their existing deterministic reading order. */
+  entries: DocEntry[];
+}
+
 /** One fully-read source file ready for concatenated Markdown export. */
 export interface DocSource {
   entry: DocEntry;
@@ -593,6 +607,61 @@ export function groupDocs(entries: readonly DocEntry[]): DocGroup[] {
     group.entries.push(entry);
   }
   return [...groups.values()];
+}
+
+/**
+ * Project the non-internal top-level regions from a discovered tree. Root files and
+ * underscore-prefixed internal subtrees are not regions. This is the single
+ * source for map overviews, region targets, and generated agent guidance, so a
+ * new top-level directory enrolls everywhere without a copied list.
+ */
+export function docRegions(entries: readonly DocEntry[]): DocRegion[] {
+  const bySection = new Map<string, DocEntry[]>();
+  for (const entry of entries) {
+    if (!entry.section || entry.section.startsWith("_")) continue;
+    const group = bySection.get(entry.section) ?? [];
+    group.push(entry);
+    bySection.set(entry.section, group);
+  }
+
+  const regions: DocRegion[] = [];
+  for (const [name, regionEntries] of bySection) {
+    const frontDoor = regionEntries.find((entry) =>
+      entry.slug.toLowerCase() === "readme"
+    ) ?? regionEntries[0];
+    if (frontDoor === undefined) continue;
+    regions.push({
+      name,
+      title: frontDoor.title,
+      description: frontDoor.description || frontDoor.title,
+      page_count: regionEntries.length,
+      entries: regionEntries,
+    });
+  }
+  return regions;
+}
+
+/** Resolve an exact region name or directory path to its indexed subtree. */
+export function resolveDocRegion(
+  tree: DocsTree,
+  target: string,
+  cwd: string = Deno.cwd(),
+): DocRegion | undefined {
+  const needle = target.trim().replace(/^\.\//, "").replace(/\/+$/, "");
+  if (!needle) return undefined;
+  const lower = needle.toLowerCase();
+  const asAbs = isAbsolute(needle) ? needle : resolve(cwd, needle);
+  const docsName = basename(tree.docsDir).toLowerCase();
+  return docRegions(tree.entries).find((region) =>
+    region.name.toLowerCase() === lower ||
+    `${docsName}/${region.name.toLowerCase()}` === lower ||
+    resolve(tree.docsDir, region.name) === asAbs
+  );
+}
+
+/** Stable target an agent can pass back to either docs command to read one result. */
+export function canonicalDocTarget(entry: DocEntry): string {
+  return entry.relToDocs.replace(/\.md$/i, "");
 }
 
 /** Keep only picker-selected groups without disturbing global reading order. */

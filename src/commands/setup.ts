@@ -60,8 +60,9 @@ import {
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
 import {
-  agentFileContents,
-  composeGuidanceBody,
+  agentFileOwnershipPatterns,
+  type GuidanceOwnershipPattern,
+  matchesGuidanceOwnership,
 } from "../engine/guidance_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
@@ -480,6 +481,14 @@ interface ScaffoldOutcome {
   hints: string[];
 }
 
+/** Stable union for paths reported across setup's initial and converging refreshes. */
+function mergePaths(
+  current: readonly string[],
+  next: readonly string[],
+): string[] {
+  return [...new Set([...current, ...next])];
+}
+
 /**
  * The scaffold outcome as per-category counts ("4 seed files, 2 compiled agent
  * files, 2 MCP configs"), one part per non-empty {@link ScaffoldOutcome} array —
@@ -775,14 +784,14 @@ async function scaffoldHarness(
  * or a deleted `discern-setup` branch. So a candidate is treated
  * as the USER's — its body folded into the source under a labelled heading,
  * deduped by content so identical mirrors migrate once — only when it does NOT
- * match a body discern's own render produces ({@link agentFileContents} over the
- * full registry is deterministic from config + sources, so the comparison is
- * exact and cheap, and recognizes a leftover pointer or full body whichever
- * agents the abandoned run had wired); a match is skipped and reported, never
- * re-imported as if it were authoring. The stub is laid only when the source is
- * absent, so a re-run never clobbers the agent's work; on a `--force` re-run the
- * user's content is already in the source from the first run, so migration is
- * skipped.
+ * match an ownership pattern discern's own render produces
+ * ({@link agentFileOwnershipPatterns} over the full registry is deterministic
+ * from config + sources). Pointer bodies match exactly; a full body may vary only
+ * at the map-region slot because that derived list can outlive its map. A match is
+ * skipped and reported, never re-imported as if it were authoring. The stub is
+ * laid only when the source is absent, so a re-run never clobbers the agent's
+ * work; on a `--force` re-run the user's content is already in the source from
+ * the first run, so migration is skipped.
  */
 async function seedGuidance(
   root: string,
@@ -806,16 +815,16 @@ async function seedGuidance(
     // so a survivor of an abandoned setup is recognized whichever agents that
     // run had wired. Unavailable (undefined) when the config can't load; the
     // migration then proceeds as before rather than blocking the scaffold.
-    let ownRenderBodies: Set<string> | undefined;
+    let ownRenderPatterns: GuidanceOwnershipPattern[] | undefined;
     try {
       const cfg = await loadConfig(root);
-      const composed = await composeGuidanceBody(root, cfg);
-      ownRenderBodies = new Set(
-        [...agentFileContents(allGuidanceFiles(), composed).values()]
-          .map((b) => b.trim()),
+      ownRenderPatterns = await agentFileOwnershipPatterns(
+        root,
+        cfg,
+        allGuidanceFiles(),
       );
     } catch {
-      ownRenderBodies = undefined;
+      ownRenderPatterns = undefined;
     }
     const seen = new Set<string>();
     for (const rel of allGuidanceFilePaths()) {
@@ -828,7 +837,11 @@ async function seedGuidance(
       if (body.length === 0 || seen.has(body)) {
         continue; // empty, or an identical mirror already captured
       }
-      if (ownRenderBodies?.has(body)) {
+      if (
+        ownRenderPatterns?.some((pattern) =>
+          matchesGuidanceOwnership(pattern, body)
+        )
+      ) {
         // A survivor of an abandoned setup, not the user's authoring — importing
         // it would fold discern's own compiled guidance back into the source.
         skippedOwnRender.push(rel);
@@ -1194,6 +1207,66 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
   const { laid, skipped } = await laySkeletons(destDir, name, mapDir, todoRel);
 
+  // Guidance now derives its compact region list from the map. A fresh setup's
+  // first compile necessarily runs before the starter map exists, so converge
+  // once after laying that tree. Without this pass, setup returns a stale agent
+  // file and the next refresh dirties an otherwise committed checkout.
+  let compiled = scaffold?.compiled ?? [];
+  let mcpWired = scaffold?.mcpWired ?? [];
+  let hooksWired = scaffold?.hooksWired ?? [];
+  let worktreeAppWired = scaffold?.worktreeAppWired ?? [];
+  let projectRulesWired = scaffold?.projectRulesWired ?? [];
+  let guidelinesCompiled = scaffold?.guidelinesCompiled ?? true;
+  let guidelinesErrors = scaffold?.guidelinesErrors ?? [];
+  let setupHints = scaffold?.hints ?? [];
+  if (laid.includes(normalizeMapDir(mapDir))) {
+    try {
+      const refreshed = await compileGuidelines(
+        destDir,
+        new Logger({ json: true, noColor: true }),
+      );
+      compiled = mergePaths(compiled, refreshed.agentsWritten);
+      mcpWired = mergePaths(mcpWired, refreshed.mcpWired);
+      hooksWired = mergePaths(hooksWired, refreshed.hooksWired);
+      worktreeAppWired = mergePaths(
+        worktreeAppWired,
+        refreshed.worktreeAppWired,
+      );
+      projectRulesWired = mergePaths(
+        projectRulesWired,
+        refreshed.projectRulesWired,
+      );
+      guidelinesErrors = guidanceRefreshErrors(refreshed);
+      guidelinesCompiled = guidanceRefreshSucceeded(refreshed);
+      setupHints = mergeHintTexts(setupHints, refreshed.hints);
+      if (guidelinesErrors.length > 0) {
+        for (const message of guidelinesErrors) log.warn(message);
+        setupHints = mergeHintTexts(
+          setupHints,
+          hintTexts(
+            guidelinesErrors.map((message) =>
+              fire(HINTS["setup-refresh-artifact-failed"], { message })
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      const message =
+        `could not refresh agent guidance after laying the map skeleton: ${
+          errMsg(error)
+        }`;
+      log.warn(message);
+      guidelinesCompiled = false;
+      guidelinesErrors = [message];
+      setupHints = mergeHintTexts(
+        setupHints,
+        hintTexts([
+          fire(HINTS["setup-refresh-artifact-failed"], { message }),
+        ]),
+      );
+    }
+  }
+
   // --- Phase 3: print the operating principles + the FIRST page (ADR 0078) ---
   // `begin` emits the principles and page 0 only (A10); the agent pulls each
   // subsequent page with `discern setup step <n>`. Fall back to the raw brief only
@@ -1220,8 +1293,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   if (opts.json) {
-    const setupOk = scaffold?.guidelinesCompiled ?? true;
-    const guidelinesErrors = scaffold?.guidelinesErrors ?? [];
+    const setupOk = guidelinesCompiled;
     log.result({
       ok: setupOk,
       verb: "setup",
@@ -1230,7 +1302,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         message:
           `${guidelinesErrors.length} artifact(s) failed to refresh; see data.guidelines_errors.`,
       }),
-      hints: scaffold?.hints ?? [],
+      hints: setupHints,
       data: {
         // The scaffold succeeded, but SETUP is not done — the agent must now act
         // on `instructions`. Carry that explicitly so a JSON-consuming agent can't
@@ -1250,11 +1322,11 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         },
         kit_version: KIT_VERSION,
         written: scaffold?.written ?? [],
-        compiled: scaffold?.compiled ?? [],
-        mcp_wired: scaffold?.mcpWired ?? [],
-        hooks_wired: scaffold?.hooksWired ?? [],
-        worktree_app_wired: scaffold?.worktreeAppWired ?? [],
-        project_rules_wired: scaffold?.projectRulesWired ?? [],
+        compiled,
+        mcp_wired: mcpWired,
+        hooks_wired: hooksWired,
+        worktree_app_wired: worktreeAppWired,
+        project_rules_wired: projectRulesWired,
         guidelines_compiled: setupOk,
         guidelines_errors: guidelinesErrors,
         skeletons: laid,

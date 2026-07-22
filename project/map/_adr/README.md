@@ -165,7 +165,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0171 — Glossary display and matching are separate registry data](0171-glossary-display-and-matching-are-separate-data.md)
 - [0172 — Hints compile from a hint registry, and the envelope owns all advisory prose](0172-hints-compile-from-a-registry.md)
 - [0173 — Trim the bundled skills to seven, and split delivery between skills and hints](0173-trim-the-bundled-skills-to-seven.md)
-- [0174 — The feature canon compiles from a feature registry](0174-the-feature-canon-compiles-from-a-feature-registry.md)
+- [0174 — Agent document discovery is regions, search, then canonical targets](0174-agent-document-discovery-funnel.md)
+- [0175 — The feature canon compiles from a feature registry](0175-the-feature-canon-compiles-from-a-feature-registry.md)
 
 ## Superseded records
 

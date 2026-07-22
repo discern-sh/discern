@@ -232,6 +232,40 @@ Deno.test("mcp surface: every argument-shaped token names a declared tool input"
   );
 });
 
+Deno.test("mcp surface: every project-selecting path explains cross-project resolution", () => {
+  const pathTools = TOOLS.filter((tool) => inputKeys(tool).includes("path"));
+  assert(pathTools.length > 0, "expected project-operating tools with `path`");
+  for (const tool of pathTools) {
+    const field = tool.inputSchema?.path as z.ZodType | undefined;
+    const description = field?.description?.toLowerCase() ?? "";
+    assertStringIncludes(description, "absolute", tool.name);
+    assertStringIncludes(description, "project", tool.name);
+    assertStringIncludes(description, "omit", tool.name);
+    assert(
+      description.includes("worktree") || description.includes("repository"),
+      `${tool.name} must explain that path can select another checkout`,
+    );
+    const prose = toolProse(tool).toLowerCase();
+    assert(
+      !prose.includes("server runs in") &&
+        !prose.includes("cannot reach another"),
+      `${tool.name} contradicts its cross-project path input`,
+    );
+  }
+});
+
+Deno.test("mcp surface: map and help expose the same search funnel", () => {
+  for (const name of ["discern_map", "discern_help"]) {
+    const tool = TOOLS.find((candidate) => candidate.name === name);
+    assert(tool !== undefined, `${name} is not registered`);
+    assertEquals(inputKeys(tool).includes("search"), true, name);
+    assertEquals(inputKeys(tool).includes("target"), true, name);
+    const prose = toolProse(tool);
+    assertStringIncludes(prose, "canonical target", name);
+    assertStringIncludes(prose, "not recorded", name);
+  }
+});
+
 Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
   const anchors: Record<string, readonly string[]> = {
     discern_done: [

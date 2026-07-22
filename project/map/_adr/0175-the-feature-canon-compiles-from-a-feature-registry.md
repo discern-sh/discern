@@ -1,4 +1,4 @@
-# ADR 0174: The feature canon compiles from a feature registry
+# ADR 0175: The feature canon compiles from a feature registry
 
 **Status**: accepted
 

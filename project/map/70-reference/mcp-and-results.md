@@ -60,14 +60,31 @@ The human, JSON, and MCP tool forms report the same settled result. `structuredC
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.    | Read-only, idempotent, and advisory.                       |
 | `discern_patterns`    | Report findings from the local logbook of discern's own verb runs.           | Read-only, idempotent, and advisory.                       |
 | `discern_refresh`     | Rebuild generated guidance, skills, and provider integration artifacts.      | Mutating, closed-world, and idempotent.                    |
-| `discern_map`         | Read the project's map index or one map page.                                | Read-only and idempotent.                                  |
-| `discern_help`        | Read discern's bundled manual index or one page.                             | Read-only, idempotent, and project-independent.            |
+| `discern_map`         | Index, search, or read the project's agent-maintained map.                   | Read-only and idempotent.                                  |
+| `discern_help`        | Index, search, or read discern's bundled public manual.                      | Read-only, idempotent, and project-independent.            |
 | `discern_doctor`      | Check config, commands, repository shape, and integration health.            | Read-only and idempotent.                                  |
 | `discern_improvement` | Rank the next improvement and return the supporting health audit.            | Read-only and idempotent.                                  |
 
-Every project-operating tool accepts an optional absolute `path` to any directory inside the target project. Relative paths are rejected because the MCP server's process directory may differ from the client's. `discern_help` needs no project. After a successful `discern_start`, later calls use the new worktree by default; after `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
+Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace; discern resolves the project root. Omit it to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_help` needs no project. After a successful `discern_start`, later calls use the new worktree by default; after `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
+
+### Find a map or help page
+
+`discern_map` and `discern_help` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):
+
+| Inputs                 | Result                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| Neither                | The admitted document index; map also includes its top-level regions and file-linked freshness facts. |
+| `target`               | One document's content, or a compact index when `target` names a top-level region.                    |
+| `search`               | Up to five ranked documents from the admitted corpus.                                                 |
+| `target` plus `search` | The same search limited to one exact region or document.                                              |
+
+A search result carries `target`, `path`, `section`, `title`, `description`, an optional matching `heading`, and a contextual `snippet`. The enclosing payload carries `query`, optional `scope`, the full match `count`, `truncated`, and the returned `results`. A zero-match search is `ok: true` with an empty result list. Scores remain an implementation detail.
+
+Map search covers every page visible to the agent-facing map, including a page marked `publish: false`. Help search covers the bundled public manual. Both run locally, and query values are not recorded in the logbook. The CLI equivalents are `discern map --search <query>` and `discern help --search <query>`; put a region or page target after the verb to narrow either search.
+
+`path` and `target` answer different location questions. `path` chooses which project or worktree a project-operating MCP call uses. `target` chooses a region or document inside that project's map.
 
 ## The `DiscernResult` envelope
 

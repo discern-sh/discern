@@ -3,6 +3,9 @@
  *
  *   deno task codegen
  *
+ * This includes the browser search module copied from its authored `src/lib`
+ * source, alongside the registry- and schema-derived reference artifacts.
+ *
  * (The `discern.toml` template is NOT regenerated — it stays hand-authored for
  * legibility per ADR 0005, bound to the schema by drift-guard tests instead.)
  *
@@ -39,6 +42,7 @@ import {
   renderArtifactInventory,
   replaceArtifactInventory,
 } from "../src/lib/artifact_ownership.ts";
+import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -101,6 +105,15 @@ await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
+console.log(
+  "Regenerating the browser docs-search module from its shared source:",
+);
+await write(
+  "site/pages/assets/search.js",
+  renderBrowserSearchModule(
+    await Deno.readTextFile(join(repoRoot, "src/lib/docs_search.js")),
+  ),
+);
 console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
