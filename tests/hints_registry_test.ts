@@ -16,6 +16,7 @@ const STATIC_HINT = defineHint({
   id: "test-static",
   category: "guardrail",
   audience: "agent",
+  example: undefined,
   template: (): string => "A fixed guardrail sentence.",
 });
 
@@ -24,6 +25,7 @@ const PARAM_HINT = defineHint<{ branch: string; behind: number }>({
   category: "next-step",
   audience: "all",
   family: "test-family",
+  example: { branch: "main", behind: 3 },
   template: (p): string =>
     `Branch is ${p.behind} behind ${p.branch}; run \`discern update\`.`,
 });
@@ -64,5 +66,16 @@ Deno.test("registry ids are unique, kebab-case, and match their keys", () => {
       `hint id is not kebab-case: ${id}`,
     );
     assertEquals(id, key, `registry key and id disagree for ${key}`);
+  }
+});
+
+Deno.test("every registry entry renders non-empty text from its example params", () => {
+  for (const [key, def] of Object.entries(HINTS)) {
+    const entry = def as {
+      example: unknown;
+      template: (params: unknown) => string;
+    };
+    const rendered = entry.template(entry.example);
+    assert(rendered.trim().length > 0, `${key} rendered an empty example`);
   }
 });
