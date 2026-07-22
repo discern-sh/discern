@@ -103,7 +103,7 @@ import type {
   UpdateData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { hintTexts } from "../../shared/hints.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import {
   addWorktree,
   assertInWorktree,
@@ -1372,14 +1372,10 @@ function acceptAwaitingConsentResult(): DiscernResult<AcceptData> {
     verb: "accept",
     error: AWAITING_CONSENT_SLUG,
     message: ACCEPT_AWAITING_CONSENT_MESSAGE,
-    hints: [
-      "Re-run `discern accept --confirmed` once your owner has accepted this " +
-      "landing — the flag attests that acceptance, so a pre-authorized landing " +
-      "still takes one call.",
-      "`discern status` carries the honored receipt to relay " +
-      "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
-      "change.",
-    ],
+    hints: hintTexts([
+      fire(HINTS["accept-awaiting-confirmation"]),
+      fire(HINTS["accept-review-via-status"]),
+    ]),
   };
 }
 
@@ -1708,8 +1704,7 @@ async function executeAcceptPlan(
   );
   if (!refreshOk) {
     convergenceHints.push(
-      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
-        `run \`discern refresh\` in ${mainRepo}.`,
+      fire(HINTS["accept-refresh-failed"], { trunk, mainRepo }).text,
     );
   }
 
@@ -1815,8 +1810,10 @@ async function executeAcceptPlan(
   });
   if (checkoutClean === false) {
     convergenceHints.push(
-      `Acceptance landed on ${trunk}, but post-landing convergence changed ` +
-        `tracked files in ${mainRepo}; review \`git status\` there.`,
+      fire(HINTS["accept-convergence-changed-tracked"], {
+        trunk,
+        mainRepo,
+      }).text,
     );
     ctx.log.warn(
       "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
@@ -1952,7 +1949,7 @@ export async function acceptResult(
   };
   result.hints = executed.receiptMarkdown !== undefined
     ? [
-      "The receipt (data.receipt) is the landing record — relay it to your owner; it pastes cleanly into a PR body.",
+      fire(HINTS["accept-relay-landing-receipt"]).text,
       ...executed.convergenceHints,
     ]
     : executed.convergenceHints;
@@ -2082,11 +2079,10 @@ async function summarizeIntegration(
   ctx: LifecycleContext,
   anchors: { base: string; before: string; main: string; after?: string },
   opts: { predicted: boolean; source: string },
-): Promise<{ data: UpdateData | undefined; hints: string[] }> {
+): Promise<{ data: UpdateData | undefined; hints: FiredHint[] }> {
   const { source, predicted } = opts;
   const fallback = [
-    `Updated ${source} and re-materialized the agent files — run ` +
-    `\`discern done\` to verify against the merged tree.`,
+    fire(HINTS["update-summary-fallback"], { source }),
   ];
   // Nothing to diff against without the two load-bearing anchors.
   if (anchors.before === "" || anchors.main === "") {
@@ -2146,33 +2142,28 @@ function updateHints(
   source: string,
   ownTotal: number,
   predicted: boolean,
-): string[] {
-  const verb = predicted ? "Would update" : "Updated";
-  const next = predicted
-    ? "run `discern update` to apply, then `discern done`."
-    : "run `discern done` to verify against the merged tree.";
-  const hints: string[] = [];
+): FiredHint[] {
+  const hints: FiredHint[] = [];
 
   if (data.overlap.length > 0) {
-    const shown = data.overlap.slice(0, 5).join(", ");
-    const more = data.overlap_total > 5
-      ? `, … (+${data.overlap_total - 5} more)`
-      : "";
-    const caveat = predicted
-      ? "git would merge these cleanly, but they may still conflict semantically — " +
-        "re-read them after updating, then "
-      : "git merged these cleanly, but re-read them for semantic conflicts a clean " +
-        "merge can't catch, then ";
     hints.push(
-      `⚠ ${verb} ${source}: +${data.behind} commit(s) beneath your work. ` +
-        `${data.overlap_total} file(s) you've changed are also changed by ` +
-        `${source}: ${shown}${more} — ${caveat}${next}`,
+      fire(HINTS["update-overlap"], {
+        source,
+        behind: data.behind,
+        overlap: data.overlap,
+        overlapTotal: data.overlap_total,
+        predicted,
+      }),
     );
   } else {
     hints.push(
-      `${verb} ${source}: +${data.behind} commit(s), ${data.files_total} ` +
-        `file(s) changed beneath your work. None overlap the ${ownTotal} file(s) ` +
-        `you've changed — ${next}`,
+      fire(HINTS["update-no-overlap"], {
+        source,
+        behind: data.behind,
+        filesTotal: data.files_total,
+        ownTotal,
+        predicted,
+      }),
     );
   }
 
@@ -2182,15 +2173,21 @@ function updateHints(
     : `${before}..${after}`;
   if (data.files_truncated) {
     hints.push(
-      `Showing ${data.files.length} of ${data.files_total} changed files. Full ` +
-        `list: \`git diff --stat ${diffRange}\`. Inspect one: ` +
-        `\`git diff ${diffRange} -- <path>\`.`,
+      fire(HINTS["update-files-truncated"], {
+        shown: data.files.length,
+        total: data.files_total,
+        diffRange,
+      }),
     );
   }
   if (data.commits_truncated) {
     hints.push(
-      `Showing ${data.commits.length} of ${data.commits_total} commits. Full ` +
-        `log: \`git log --oneline ${before}..${main}\`.`,
+      fire(HINTS["update-commits-truncated"], {
+        shown: data.commits.length,
+        total: data.commits_total,
+        before,
+        main,
+      }),
     );
   }
   return hints;
@@ -2484,7 +2481,10 @@ async function executeUpdatePlan(
         steps,
       );
       result.data = summary.data;
-      result.hints = [...summary.hints, ...convergence.refreshHints];
+      result.hints = [
+        ...hintTexts(summary.hints),
+        ...convergence.refreshHints,
+      ];
       return result;
     }
   }
@@ -2550,7 +2550,7 @@ export async function updateResult(
         source: plan.source,
       });
       preview.data = summary.data;
-      preview.hints = summary.hints;
+      preview.hints = hintTexts(summary.hints);
     }
     return preview;
   }
@@ -2625,7 +2625,13 @@ export async function mintFreeWorktree(
     usedPorts?: Set<number>;
     generate?: (name?: string) => ReturnType<typeof generateWorktreeId>;
   } = {},
-): Promise<{ id: string; branch: string; dir: string; note?: string }> {
+): Promise<{
+  id: string;
+  branch: string;
+  dir: string;
+  note?: string;
+  nameHint?: FiredHint;
+}> {
   const run = makeGitRunner(ctx);
   const usedPorts = opts.usedPorts ?? new Set<number>();
   const generate = opts.generate ?? generateWorktreeId;
@@ -2646,7 +2652,15 @@ export async function mintFreeWorktree(
         // The note (if any) is deterministic from the name, so returning the winning
         // attempt's carries the same transparency the caller surfaces upward.
         return minted.note !== undefined
-          ? { id: minted.id, branch: identity.branch, dir, note: minted.note }
+          ? {
+            id: minted.id,
+            branch: identity.branch,
+            dir,
+            note: minted.note,
+            ...(minted.nameHint !== undefined
+              ? { nameHint: minted.nameHint }
+              : {}),
+          }
           : { id: minted.id, branch: identity.branch, dir };
       }
     }
@@ -2756,7 +2770,7 @@ export async function startResult(
   const startPoint = await resolveStartPoint(ctx, opts.from);
 
   const settings = await loadIdentitySettings(ctx.root);
-  const { id, branch, dir, note } = await mintFreeWorktree(
+  const { id, branch, dir, note, nameHint } = await mintFreeWorktree(
     ctx,
     settings,
     opts.worktreeRoot,
@@ -2784,12 +2798,13 @@ export async function startResult(
     )).stdout,
   ).length;
   const dirtyNote = mainChanges > 0
-    ? `${mainChanges} uncommitted change${
-      mainChanges === 1 ? "" : "s"
-    } stay in the main checkout — the new worktree branches from '${startPoint}'.`
+    ? fire(HINTS["start-main-changes-stay"], {
+      changes: mainChanges,
+      startPoint,
+    })
     : undefined;
   if (dirtyNote !== undefined) {
-    ctx.log.info(dirtyNote);
+    ctx.log.info(dirtyNote.text);
   }
 
   ctx.log.heading(`Starting a new worktree (${id})…`);
@@ -2824,17 +2839,14 @@ export async function startResult(
     },
   ]);
   result.data = data;
-  const reRoot =
-    `Created worktree '${id}' at ${dir} (branch ${branch}). Nothing was relocated ` +
-    `for you — start a session rooted at ${dir} (or cd there) to continue, and do ` +
-    `not keep working in the main checkout.`;
+  const reRoot = fire(HINTS["start-re-root"], { id, dir, branch });
   // A normalisation/fallback note leads the hints, so the caller — and the human
   // reading over its shoulder — see what the worktree was actually named.
-  result.hints = [
-    ...(note !== undefined ? [note] : []),
+  result.hints = hintTexts([
+    ...(nameHint !== undefined ? [nameHint] : []),
     reRoot,
     ...(dirtyNote !== undefined ? [dirtyNote] : []),
-  ];
+  ]);
   return result;
 }
 

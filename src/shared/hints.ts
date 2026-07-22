@@ -1005,6 +1005,209 @@ export const HINTS = {
     template: (): string =>
       "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.",
   }),
+
+  /** The actionable retry carried by accept's read-only consent refusal. */
+  "accept-awaiting-confirmation": defineHint({
+    id: "accept-awaiting-confirmation",
+    category: "next-step",
+    audience: "all",
+    family: "accept-consent",
+    template: (): string =>
+      "Re-run `discern accept --confirmed` once your owner has accepted this " +
+      "landing — the flag attests that acceptance, so a pre-authorized landing " +
+      "still takes one call.",
+  }),
+
+  /** The status route to the receipt and raw diff needed for owner review. */
+  "accept-review-via-status": defineHint({
+    id: "accept-review-via-status",
+    category: "next-step",
+    audience: "all",
+    family: "accept-consent",
+    template: (): string =>
+      "`discern status` carries the honored receipt to relay " +
+      "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
+      "change.",
+  }),
+
+  /** Landing succeeded, but its best-effort agent-file refresh did not. */
+  "accept-refresh-failed": defineHint<{ trunk: string; mainRepo: string }>({
+    id: "accept-refresh-failed",
+    category: "next-step",
+    audience: "all",
+    family: "post-landing-convergence",
+    template: ({ trunk, mainRepo }): string =>
+      `Acceptance landed on ${trunk}, but the post-landing refresh failed; ` +
+      `run \`discern refresh\` in ${mainRepo}.`,
+  }),
+
+  /** Post-landing convergence changed tracked files in the receiving checkout. */
+  "accept-convergence-changed-tracked": defineHint<{
+    trunk: string;
+    mainRepo: string;
+  }>({
+    id: "accept-convergence-changed-tracked",
+    category: "next-step",
+    audience: "all",
+    family: "post-landing-convergence",
+    template: ({ trunk, mainRepo }): string =>
+      `Acceptance landed on ${trunk}, but post-landing convergence changed ` +
+      `tracked files in ${mainRepo}; review \`git status\` there.`,
+  }),
+
+  /** A successful acceptance exposes its receipt as the durable landing record. */
+  "accept-relay-landing-receipt": defineHint({
+    id: "accept-relay-landing-receipt",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "The receipt (data.receipt) is the landing record — relay it to your owner; it pastes cleanly into a PR body.",
+  }),
+
+  /** Integration-summary fallback when its read-only git census cannot complete. */
+  "update-summary-fallback": defineHint<{ source: string }>({
+    id: "update-summary-fallback",
+    category: "next-step",
+    audience: "all",
+    family: "update-summary",
+    template: ({ source }): string =>
+      `Updated ${source} and re-materialized the agent files — run ` +
+      `\`discern done\` to verify against the merged tree.`,
+  }),
+
+  /** Integration headline when incoming changes overlap the branch's own files. */
+  "update-overlap": defineHint<{
+    source: string;
+    behind: number;
+    overlap: readonly string[];
+    overlapTotal: number;
+    predicted: boolean;
+  }>({
+    id: "update-overlap",
+    category: "next-step",
+    audience: "all",
+    family: "update-summary",
+    template: (
+      { source, behind, overlap, overlapTotal, predicted },
+    ): string => {
+      const verb = predicted ? "Would update" : "Updated";
+      const next = predicted
+        ? "run `discern update` to apply, then `discern done`."
+        : "run `discern done` to verify against the merged tree.";
+      const shown = overlap.slice(0, 5).join(", ");
+      const more = overlapTotal > 5 ? `, … (+${overlapTotal - 5} more)` : "";
+      const caveat = predicted
+        ? "git would merge these cleanly, but they may still conflict semantically — " +
+          "re-read them after updating, then "
+        : "git merged these cleanly, but re-read them for semantic conflicts a clean " +
+          "merge can't catch, then ";
+      return `⚠ ${verb} ${source}: +${behind} commit(s) beneath your work. ` +
+        `${overlapTotal} file(s) you've changed are also changed by ` +
+        `${source}: ${shown}${more} — ${caveat}${next}`;
+    },
+  }),
+
+  /** Integration headline when incoming and branch-owned files do not overlap. */
+  "update-no-overlap": defineHint<{
+    source: string;
+    behind: number;
+    filesTotal: number;
+    ownTotal: number;
+    predicted: boolean;
+  }>({
+    id: "update-no-overlap",
+    category: "next-step",
+    audience: "all",
+    family: "update-summary",
+    template: ({ source, behind, filesTotal, ownTotal, predicted }): string => {
+      const verb = predicted ? "Would update" : "Updated";
+      const next = predicted
+        ? "run `discern update` to apply, then `discern done`."
+        : "run `discern done` to verify against the merged tree.";
+      return `${verb} ${source}: +${behind} commit(s), ${filesTotal} ` +
+        `file(s) changed beneath your work. None overlap the ${ownTotal} file(s) ` +
+        `you've changed — ${next}`;
+    },
+  }),
+
+  /** Escape hatch to the full incoming file list when the envelope caps it. */
+  "update-files-truncated": defineHint<{
+    shown: number;
+    total: number;
+    diffRange: string;
+  }>({
+    id: "update-files-truncated",
+    category: "next-step",
+    audience: "all",
+    family: "update-summary",
+    template: ({ shown, total, diffRange }): string =>
+      `Showing ${shown} of ${total} changed files. Full ` +
+      `list: \`git diff --stat ${diffRange}\`. Inspect one: ` +
+      `\`git diff ${diffRange} -- <path>\`.`,
+  }),
+
+  /** Escape hatch to the full incoming commit list when the envelope caps it. */
+  "update-commits-truncated": defineHint<{
+    shown: number;
+    total: number;
+    before: string;
+    main: string;
+  }>({
+    id: "update-commits-truncated",
+    category: "next-step",
+    audience: "all",
+    family: "update-summary",
+    template: ({ shown, total, before, main }): string =>
+      `Showing ${shown} of ${total} commits. Full ` +
+      `log: \`git log --oneline ${before}..${main}\`.`,
+  }),
+
+  /** A supplied start name reduced to no branch-safe characters. */
+  "start-name-fallback": defineHint<{ name: string }>({
+    id: "start-name-fallback",
+    category: "notice",
+    audience: "all",
+    family: "start-name",
+    template: ({ name }): string =>
+      `Could not derive a branch-safe name from '${name}' — used a random codename instead.`,
+  }),
+
+  /** A supplied start name was normalized into its branch-safe slug. */
+  "start-name-normalized": defineHint<{ name: string; slug: string }>({
+    id: "start-name-normalized",
+    category: "notice",
+    audience: "all",
+    family: "start-name",
+    template: ({ name, slug }): string =>
+      `Normalised the worktree name '${name}' → '${slug}'.`,
+  }),
+
+  /** Start cannot relocate the caller, so it names the newly-created root. */
+  "start-re-root": defineHint<{ id: string; dir: string; branch: string }>({
+    id: "start-re-root",
+    category: "next-step",
+    audience: "all",
+    family: "start-result",
+    template: ({ id, dir, branch }): string =>
+      `Created worktree '${id}' at ${dir} (branch ${branch}). Nothing was relocated ` +
+      `for you — start a session rooted at ${dir} (or cd there) to continue, and do ` +
+      `not keep working in the main checkout.`,
+  }),
+
+  /** Uncommitted main-checkout work stays behind when start forks a commit. */
+  "start-main-changes-stay": defineHint<{
+    changes: number;
+    startPoint: string;
+  }>({
+    id: "start-main-changes-stay",
+    category: "notice",
+    audience: "all",
+    family: "start-result",
+    template: ({ changes, startPoint }): string =>
+      `${changes} uncommitted change${
+        changes === 1 ? "" : "s"
+      } stay in the main checkout — the new worktree branches from '${startPoint}'.`,
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */

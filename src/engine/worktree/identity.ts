@@ -21,6 +21,7 @@
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import {
@@ -316,6 +317,8 @@ export interface WorktreeNameChoice {
    * normalisation or was unusable (so a codename was substituted). Absent when no
    * name was supplied, or it was already slug-clean. */
   note?: string;
+  /** Registry identity retained until the start result projects this note. */
+  nameHint?: FiredHint;
 }
 
 /**
@@ -356,18 +359,24 @@ export function chooseWorktreeName(name?: string): WorktreeNameChoice {
   }
   const slug = clampSlug(sanitizeSlug(trimmed), NAME_SLUG_MAX);
   if (slug === "") {
+    const nameHint = fire(HINTS["start-name-fallback"], { name: trimmed });
     return {
       source: "codename",
       slug: "",
-      note:
-        `Could not derive a branch-safe name from '${trimmed}' — used a random codename instead.`,
+      note: nameHint.text,
+      nameHint,
     };
   }
   if (slug !== trimmed) {
+    const nameHint = fire(HINTS["start-name-normalized"], {
+      name: trimmed,
+      slug,
+    });
     return {
       source: "name",
       slug,
-      note: `Normalised the worktree name '${trimmed}' → '${slug}'.`,
+      note: nameHint.text,
+      nameHint,
     };
   }
   return { source: "name", slug };
@@ -382,6 +391,8 @@ export interface MintedWorktreeId {
   /** Transparency note when a supplied name was normalised or dropped
    * (see {@link chooseWorktreeName}). */
   note?: string;
+  /** Registry identity for the note when it also enters the result hints. */
+  nameHint?: FiredHint;
 }
 
 /**
@@ -402,8 +413,13 @@ export function generateWorktreeId(name?: string): MintedWorktreeId {
     ? choice.slug
     : `${randomChoice(ID_ADJECTIVES)}-${randomChoice(ID_NOUNS)}`;
   const id = sanitizeSlug(`${stem}-${randomHexTail()}`);
-  return choice.note !== undefined
-    ? { id, source: choice.source, note: choice.note }
+  return choice.note !== undefined && choice.nameHint !== undefined
+    ? {
+      id,
+      source: choice.source,
+      note: choice.note,
+      nameHint: choice.nameHint,
+    }
     : { id, source: choice.source };
 }
 
