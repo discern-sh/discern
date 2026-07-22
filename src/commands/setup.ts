@@ -1196,12 +1196,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   } catch {
     cfg = undefined;
   }
-  // Prefer the fresh scaffold's project name — its casing is preserved from the
-  // directory ("ListOfListsOfLists"). Reconstructing from the persisted slug loses
-  // it (the slug is lowercase → "Listoflistsoflists"), so fall back to that only on
-  // a resume where the fresh SetupConfig isn't in hand (ADR 0065).
+  // Prefer the fresh scaffold's project name, then the persisted [project].name —
+  // both preserve the casing the user gave ("ListOfListsOfLists"). Reconstructing
+  // from the slug loses it (the slug is lowercase → "Listoflistsoflists"), so that
+  // titlecased guess is the last resort, for a resume over a config from before
+  // the name was persisted (ADR 0065).
   const name = scaffold?.config.projectName ??
-    (cfg ? displayNameFromSlug(cfg.project.slug) : "the project");
+    (cfg
+      ? (cfg.project.name.trim() || displayNameFromSlug(cfg.project.slug))
+      : "the project");
   const mapDir = cfg?.map.dir ?? scaffold?.config.mapDir ??
     SOURCE_PATHS.map.defaultPath;
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
