@@ -18,6 +18,10 @@ import {
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
+import {
+  FEATURE_CANON_PAGE_REL,
+  renderFeatureCanonDoc,
+} from "./feature_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
   renderResultJsonSchema,
@@ -54,6 +58,10 @@ const hintInventory = relative(
 const glossary = relative(
   repoRoot,
   join(mapDir, "00-orientation", "glossary.md"),
+);
+const featureCanon = relative(
+  repoRoot,
+  join(mapDir, FEATURE_CANON_PAGE_REL),
 );
 const installSurface = relative(
   repoRoot,
@@ -97,6 +105,10 @@ console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
+console.log(
+  "Regenerating the feature canon from scripts/feature_registry.ts:",
+);
+await write(featureCanon, renderFeatureCanonDoc());
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),
