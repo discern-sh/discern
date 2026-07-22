@@ -16,6 +16,7 @@
  */
 
 import type { FailedStage } from "./result.ts";
+import { SOURCE_PATHS } from "./paths_registry.ts";
 
 /**
  * How an entry means to steer the caller. `next-step` names the action to
@@ -1015,7 +1016,7 @@ export const HINTS = {
       "Discern-managed ignored artifacts are tracked by Git — remove them from the index, run `discern refresh`, then re-run.",
   }),
 
-  /** Compiled agent guidance no longer matches its authored sources. */
+  /** Compiled agent guidance differs from its authored sources. */
   "gate-failure-guidance": defineHint({
     id: "gate-failure-guidance",
     category: "next-step",
@@ -1026,7 +1027,7 @@ export const HINTS = {
       "Agent files are out of date — run `discern refresh` (edits belong in your [guidance].sources, not the generated file, which a refresh overwrites).",
   }),
 
-  /** Materialized skills no longer match the effective authored set. */
+  /** Materialized skills differ from the effective authored set. */
   "gate-failure-skills": defineHint({
     id: "gate-failure-skills",
     category: "next-step",
@@ -1568,7 +1569,7 @@ export const HINTS = {
     family: "setup-guidance-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
-      guidanceRel: "discern/guidance.md",
+      guidanceRel: SOURCE_PATHS.guidance.defaultPath,
     },
     template: ({ paths, guidanceRel }): string =>
       `Preserved your existing ${
@@ -1587,7 +1588,7 @@ export const HINTS = {
     family: "setup-guidance-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
-      guidanceRel: "discern/guidance.md",
+      guidanceRel: SOURCE_PATHS.guidance.defaultPath,
     },
     template: ({ paths, guidanceRel }): string =>
       `Skipped importing ${
@@ -1652,7 +1653,10 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     family: "setup-done-next",
-    example: { coachVerb: "improvement", todoRel: "discern/TODO.md" },
+    example: {
+      coachVerb: "improvement",
+      todoRel: SOURCE_PATHS.todo.defaultPath,
+    },
     template: ({ coachVerb, todoRel }): string =>
       `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
   }),
