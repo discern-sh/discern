@@ -106,6 +106,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       "One command — `discern done` — runs the project's full quality check: the declared jobs by stage, any scope gates the change woke, and the standards, with every job labeled and every failure carrying the command that produced it.",
     why:
       "The repo, not the agent, decides what done means. An agent's confidence has no vote; the gate's verdict is a command result.",
+    agent:
+      "An agent can run the gate as often as it needs at no cost in trust: the verdict is recomputed each time, and a red one carries the commands that make it green.",
     surfaces: ["verb:done", "config:jobs", "config:gate"],
     children: [
       {
@@ -184,6 +186,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               "`[gate].timeout` bounds every command the gate runs; a job that needs more takes its own `timeout`. A command that overruns is tree-killed and fails with a plain-language diagnostic.",
             why:
               "The gate can never hang on a watch-mode test runner or a stuck dev server.",
+            agent:
+              "The watchdog reclassifies a command that daemonized and returned as a failure even when its exit code read zero, so a forked background server cannot buy a false green.",
           },
           {
             id: "gate-streaming",
@@ -259,6 +263,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "A failed job returns structured diagnostics: the tool, file and line when available, the message, and the exact command to reproduce it. Oversized captured output is normalized and offloaded to a file instead of flooding the result.",
         why:
           "The fix starts at the cause; nothing needs re-running to see what failed.",
+        agent:
+          "The capture window keeps the head and the tail of oversized output, so the first compiler error and the final summary both survive, and the full text offloads to a named file only when the inline view was clipped. A failure a configured fixer might resolve is flagged as such, and a job that passed while printing error-like lines fires a hint naming its output.",
+        hints: ["gate-job-loud-success"],
       },
       {
         id: "gotchas-pointer",
@@ -275,6 +282,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "A green `discern done` over a clean, committed tree ahead of the trunk emits a review summary: the branch and the pinned `HEAD`, the commits, changed files, check results, and held standards. `discern accept` can reuse it while that commit and worktree stand; a later commit invalidates it. The same green run fires a registered hint to exercise the real artifact along the changed paths before offering the receipt.",
         why:
           "The owner reviews a verified claim that names the tree it vouches for.",
+        agent:
+          "A commit made while the gate ran can never earn the receipt: the tree is pinned before the first job and re-checked at stamp time. When a green run cannot record one because the tree is dirty, the refusal names the blocking paths, and at the moment done is about to be claimed a hint reminds the agent that a green gate is necessary but not sufficient — exercise the artifact, then relay the receipt and wait.",
+        hints: ["gate-prove-it-works", "gate-relay-receipt"],
       },
     ],
   },
@@ -323,6 +333,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`inputs` names the paths a metric reads. When nothing under them changed since the last recorded measurement, the gate replays the recorded value instead of re-measuring.",
         why:
           "A docs-only change pays seconds for a coverage standard, and the never-loosen check still runs.",
+        agent:
+          "A fresh worktree inherits its measurement baseline from the trunk's receipt, so the first gate run replays what an untouched metric already proved.",
       },
       {
         id: "standards-on-demand",
@@ -354,6 +366,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       "Every task gets its own linked git worktree: a separate checkout and branch forked from the trunk, provisioned with its own port, env values, and declared resources.",
     why:
       "Parallel agents cannot collide — with each other, or with the human's own checkout.",
+    agent:
+      "The agent works in a checkout it never has to reason about: identity, port, env values, and resources were provisioned before its session started, and nothing a parallel agent does can reach them.",
     surfaces: ["config:worktree", "config:repository"],
     children: [
       {
@@ -361,6 +375,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         title: "Start",
         what:
           "`discern start` creates the worktree from the main checkout — forked from the trunk regardless of the branch the checkout sits on — and returns its path. `--name` is normalized to a branch-safe slug; omit it for a random codename.",
+        agent:
+          "Whatever the agent passes as a name is reduced to something branch-safe, and a name that reduces to nothing falls back to a codename with a note saying so — a cosmetic field can never fail the start. The derived port is re-rolled against live siblings before a collision is accepted.",
         surfaces: ["verb:start"],
       },
       {
@@ -370,6 +386,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern update` merges the latest trunk into the branch and refreshes the generated files in one idempotent step, reporting what changed beneath the branch and which of your files the incoming trunk also touched.",
         why:
           "Staying current is one verb, and the overlap report names the files to re-check after a clean merge.",
+        agent:
+          "Idempotent means callable: the agent runs the verb instead of checking git state first, and a refusal returns one structured result naming the next step.",
         surfaces: ["verb:update"],
       },
       {
@@ -379,6 +397,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by the receipt), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. It requires a `--confirmed` attestation.",
         why:
           "Landing is atomic and consented: the tree the owner reviewed is the tree that lands, and nothing of the task is left behind.",
+        agent:
+          "What lands is the sha the gate validated; a branch that moved during a slow run is refused rather than landed untested. The trunk fast-forwards before any teardown begins, so losing a race with another landing leaves the worktree and its resources intact for the standard recovery — update, then done, then accept again.",
         surfaces: ["verb:accept"],
       },
       {
@@ -405,6 +425,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`[worktree.resources.<name>]` declares an external thing a worktree needs in isolation — a database, an emulator, a container — as a `create` and a `destroy` command with optional `ensure`, `required`, `retries`, and `gc`. Resources are created top-to-bottom, destroyed bottom-to-top, and expanded with `@…@` identity tokens.",
         why:
           "Isolation extends past the checkout to everything the checkout touches.",
+        agent:
+          "A transient failure from an external manager retries with backoff, and an empty command is a clean no-op.",
       },
       {
         id: "worktree-prune",
@@ -412,6 +434,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "`discern worktree prune` finds resources whose worktree vanished without a clean teardown and runs their `destroy` commands — the GC safety net behind the lifecycle verbs (`setup`, `ensure`, `teardown`, `drop`).",
         why: "A crashed session can't leak databases forever.",
+        agent:
+          "Destroy commands are frozen at create time with identity fully expanded, because after the worktree is gone there is nothing left to re-derive — and a frozen command still carrying an unresolved token is refused rather than half-run. Before each destroy, the ledger entry is re-validated against disk, so parallel agents cannot reclaim each other's live resources.",
         surfaces: ["verb:worktree"],
       },
       {
@@ -435,6 +459,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "From the main checkout, `discern status` reports a row per worktree: branch, clean state, ahead/behind, last activity, a broken flag for a checkout whose creation never completed, and cross-worktree changed-file collisions.",
         why:
           "The human steers parallel work without visiting each checkout, and two efforts touching the same file get named before either lands.",
+        agent:
+          "Each row is another effort in flight, and a hint states the ownership rule: a clean tree is not a free workspace. The broken flag marks a checkout whose creation never completed, so the agent is told which siblings are workable at a glance.",
+        hints: ["fleet-ownership"],
       },
       {
         id: "desk",
@@ -685,6 +712,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       "Read-only surfaces that point at work and never block: the gate and standards are the only enforcement, and everything else reports.",
     why:
       "Signal without new failure modes — an advisory can be wrong without stopping anyone.",
+    agent:
+      "Advice arrives inside results the agent is already reading, as a hint array on the envelope it already parses — there is no second channel to poll and no document to remember to re-open.",
     surfaces: ["config:coupling"],
     children: [
       {
@@ -694,6 +723,14 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern status` reports what is true right now: location, branch state against the trunk, what the gate would fire, receipt state, worktree identity and resources, configured standards, staleness flags for generated files, and advisory next steps — with the fleet survey from the main checkout.",
         why:
           "Orientation is one cheap read-only call, for agents and humans alike.",
+        agent:
+          "The hints steer by location: on the trunk the agent is pointed at `discern start` before it edits anything, and edits landing on the trunk while the tools run in a worktree trip a divergence guardrail. When a clean HEAD holds an honored receipt, status serves the ready-for-review moment with the receipt to relay.",
+        hints: [
+          "status-start-on-trunk",
+          "status-start-off-trunk",
+          "silent-worktree-divergence",
+          "status-ready-for-review",
+        ],
         surfaces: ["verb:status"],
       },
       {
@@ -728,6 +765,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "One metadata-only line per verb run, appended under `.git` and shared by the repository's worktrees: timings, outcomes, names, and fired hint ids — never code, never command output. It never leaves the machine (a gate test keeps the logbook code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
         why:
           "The practice becomes measurable evidence without anything leaving the building.",
+        agent:
+          "The identity of the agent driving a session is recorded as advisory evidence, so the practice can be read per agent — with no code, no output, and no query values in the record.",
       },
       {
         id: "patterns",
@@ -745,6 +784,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Every advisory hint the engine can emit is an entry in one typed registry — id, category, audience, family, and a parameterized template — with a generated inventory page, command references validated against the live verb registry, and fired ids recorded in the logbook.",
         why:
           "Advice stays current mechanically, and whether advice gets followed is measurable.",
+        agent:
+          "A hint is delivered inside the result of the verb that made it relevant, at the moment it applies. `audience` marks entries whose instruction only an agent can execute: every envelope carries them, and interactive human rendering alone drops them, through one registry projection every renderer uses.",
       },
     ],
   },
@@ -765,6 +806,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies write authority, detects the default branch (offering git init on a bare directory), sniffs the repo to fill `[jobs]`, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` attestation, and installing a dependency is its own consent point.",
         why:
           "Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first.",
+        agent:
+          "The read-only verify step surfaces the failure-prone facts — the repo's real default branch, whether a git commit identity resolves — before anything mutates. A missing `--confirmed` is answered by re-serving the full consent moment with the command to continue, and completion is recorded last, after the proofs, so a resumed session never inherits a false done.",
+        hints: ["setup-run-coach"],
         surfaces: ["verb:setup"],
       },
       {
@@ -774,6 +818,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "An unfinished setup is a machine-readable state, reported by `discern status` and the session-start hook until the handshake completes.",
         why:
           "A half-installed project says so itself; nobody discovers it mid-task.",
+        agent:
+          "Progress is derived from the tree itself (which scaffolded files still carry their markers, which jobs are wired), so a second session resumes where the first stopped and cannot fake completion by deleting a marker. An abandoned setup branch routes to resume rather than to a fresh scaffold that would overwrite the first session's work.",
       },
       {
         id: "doctor",
@@ -782,6 +828,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern doctor` verifies the installation without changing it — config validity, schema version, job commands on `PATH`, git and shell prerequisites, guidance sources, skills, worktree automation, resource commands — and prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
+        agent:
+          "Every remedy points at a command that can help from the state the reader is in: an older config is sent to `discern upgrade`, and a config newer than the binary is not, because upgrade refuses that state — the fix it names is a newer binary.",
         surfaces: ["verb:doctor"],
       },
       {
@@ -791,6 +839,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern upgrade` brings the project in line with the binary that runs it: versioned, idempotent config migrations that validate before the schema version is stamped, refusal of configs newer than the binary, and reconciliation of the fixed `discern.toml` scaffold and the marked `.gitignore` block. `--check` previews without touching anything.",
         why:
           "Updating never means re-reading a changelog; the binary carries its own path forward and refuses to guess.",
+        agent:
+          "The schema version is stamped only after migrations validate and reconciliation succeeds, so an interrupted upgrade leaves a coherent, re-runnable install rather than one marked current over a half-migrated config.",
         surfaces: ["verb:upgrade"],
       },
       {
@@ -828,6 +878,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         title: "Config without a parser",
         what:
           "`discern config` edits `discern.toml` while preserving comments and layout — `set`, `set-job`, `set-scope`, `set-standard` — and reads it back raw with `get`, `array`, `has`, `subsections`, and `keys`, so scripts and agents never parse TOML themselves.",
+        agent:
+          "Every edit re-validates the whole rendered file before touching disk, a renamed key is refused with its successor named, and value types come from the schema rather than the value's spelling — a scripted edit cannot leave behind a config the next command rejects.",
         surfaces: ["verb:config"],
       },
       {
@@ -854,6 +906,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         title: "One result envelope",
         what:
           "A verb returns one structured result — status, message, steps, data, hints, diagnostics — and `--json` serializes it; the human renderer draws from the same envelope, so no surface carries prose another lacks.",
+        agent:
+          "Behavioral guidance is carried as one verbatim prose string in the JSON lane rather than decomposed into fields, because field-decomposed instructions weaken under summarization — the agent receives the same message a human reader would, at full strength.",
       },
       {
         id: "plan-apply",
@@ -869,6 +923,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`discern mcp` serves the verbs as tools over stdio on the official SDK — self-describing schemas derived from the typed result contracts, strict argument validation, a tracked working root that `discern_start` re-aims at the new worktree, and read-only resources for status, impact, config, help, and the map.",
         why:
           "MCP-native agents call structured tools; the CLI and the tools can never disagree because they share one core per verb.",
+        agent:
+          "After `discern_start`, a hint walks the agent through re-rooting its own file operations while the tools re-aim themselves, and undeclared arguments are refused — a mistyped parameter fails loudly instead of being dropped.",
+        hints: ["start-mcp-re-root"],
       },
       {
         id: "published-contracts",
@@ -891,6 +948,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "Retired command names refuse with their successor named, synonyms suggest the canonical verb, grammatical variants normalize, and unknown commands get a did-you-mean built from the live verb set.",
         why: "Vocabulary changes never strand a user or an agent mid-habit.",
+        agent:
+          "A synonym table maps the words other tools taught — init, sync, land — to the canonical verb, a project script is only ever suggested in its namespaced form, and the verb is resolved flag-first before any routing decision, so flag placement cannot smuggle an invocation past a guardrail.",
       },
       {
         id: "output-discipline",
@@ -992,6 +1051,8 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "Cancellation reaches the gate's detached process groups, temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune.",
         why: "A killed session leaves a machine you'd still want to work on.",
+        agent:
+          "Job groups are detached so a kill reaches grandchildren, a refcounted signal watcher re-raises with conventional status once children are reaped, and pipe drains give up after a grace window — an escaped daemon holding the write end cannot stall the cancellation.",
       },
     ],
   },
