@@ -1142,7 +1142,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Cancellation reaches the gate's detached process groups, temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune.",
         why: "A killed session leaves a machine you'd still want to work on.",
         agent:
-          "Job groups are detached so a kill reaches grandchildren, a refcounted signal watcher re-raises with conventional status once children are reaped, and pipe drains give up after a grace window — an escaped daemon holding the write end cannot stall the cancellation.",
+          "Job groups are detached so a kill reaches grandchildren, a reference-counted signal watcher re-raises with conventional status once children are reaped, and pipe drains give up after a grace window — an escaped daemon holding the write end cannot stall the cancellation.",
       },
     ],
   },
