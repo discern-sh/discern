@@ -8,6 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { DocEntry } from "../src/lib/docs.ts";
 import { buildSearchIndex, type SearchSource } from "../site/search.ts";
+import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import { searchPages } from "../site/pages/assets/search.js";
 
 function entry(
@@ -201,5 +202,17 @@ Deno.test("search queries stay in the browser with no telemetry or persistence",
   assertStringIncludes(
     searchSection,
     "No results. Try a command, config key, or exact error message.",
+  );
+});
+
+Deno.test("the browser matcher is generated from the shared authored source", async () => {
+  const source = await Deno.readTextFile(
+    new URL("../src/lib/docs_search.js", import.meta.url),
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      new URL("../site/pages/assets/search.js", import.meta.url),
+    ),
+    renderBrowserSearchModule(source),
   );
 });

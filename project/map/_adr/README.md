@@ -164,6 +164,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0170 — File ownership is required registry data](0170-file-ownership-is-registry-data.md)
 - [0171 — Glossary display and matching are separate registry data](0171-glossary-display-and-matching-are-separate-data.md)
 - [0172 — Hints compile from a hint registry, and the envelope owns all advisory prose](0172-hints-compile-from-a-registry.md)
+- [0173 — Agent document discovery is regions, search, then canonical targets](0173-agent-document-discovery-funnel.md)
 
 ## Superseded records
 

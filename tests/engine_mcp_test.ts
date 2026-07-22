@@ -823,7 +823,7 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   });
 });
 
-Deno.test("discern mcp: discern_map returns the index, a single doc, and a not_found error", async () => {
+Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and reports misses", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -894,6 +894,52 @@ Deno.test("discern mcp: discern_map returns the index, a single doc, and a not_f
     const miss = await mcp.recv();
     assertEquals(miss.result.isError, true);
     assertEquals(miss.result.structuredContent.error, "not_found");
+
+    // Search returns a bounded agent result with a canonical follow-up target.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "discern_map",
+        arguments: { search: "core ideas" },
+      },
+    });
+    const search = await mcp.recv();
+    assertEquals(search.result.isError, false);
+    const searchData = search.result.structuredContent.data;
+    assertEquals(searchData.results[0].target, "00-orientation/concepts");
+    assertEquals("score" in searchData.results[0], false);
+
+    // A top-level region is both a compact index target and a search scope.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "discern_map",
+        arguments: { target: "00-orientation" },
+      },
+    });
+    const region = await mcp.recv();
+    assertEquals(region.result.isError, false);
+    assertEquals(region.result.structuredContent.data.scope, "00-orientation");
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: {
+        name: "discern_map",
+        arguments: { target: "00-orientation", search: "core ideas" },
+      },
+    });
+    const scoped = await mcp.recv();
+    assertEquals(scoped.result.isError, false);
+    assertEquals(
+      scoped.result.structuredContent.data.scope,
+      "00-orientation",
+    );
 
     assertEquals(await mcp.close(), 0);
   });

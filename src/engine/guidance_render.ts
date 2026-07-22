@@ -39,6 +39,28 @@ import {
   renderGuidanceTemplate,
 } from "./guidance_template.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import { discoverDocs, docRegions } from "../lib/docs.ts";
+
+/** Opaque insertion point owned by the map guidance renderer, not the template
+ * language. Keeping it outside `{{...}}` preserves the shared config-only
+ * guidance context used by bundled skills. */
+const MAP_REGIONS_MARKER = "<!-- discern:map-regions -->";
+const MAP_REGIONS_BEGIN = "<!-- discern:map-regions:begin -->";
+const MAP_REGIONS_END = "<!-- discern:map-regions:end -->";
+const MAP_REGIONS_BLOCK =
+  /<!-- discern:map-regions:begin -->[\s\S]*?<!-- discern:map-regions:end -->/g;
+
+/**
+ * Remove only the generated map-region payload from a guidance body before an
+ * ownership comparison. A surviving agent file may reflect an earlier map, but
+ * every byte outside this owned block must still match discern's current render.
+ */
+export function normalizeMapRegionGuidance(body: string): string {
+  return body.replaceAll(
+    MAP_REGIONS_BLOCK,
+    `${MAP_REGIONS_BEGIN}\n${MAP_REGIONS_MARKER}\n${MAP_REGIONS_END}`,
+  );
+}
 
 /**
  * The built-in guidance sections, in compile order. Every section always
@@ -122,9 +144,21 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
  * {@link composeGuidanceBody}. A missing section file is skipped defensively (the
  * distribution ships them, but a custom templates tree might not).
  */
-async function builtinGuidance(config: DiscernConfig): Promise<string> {
+async function builtinGuidance(
+  root: string,
+  config: DiscernConfig,
+): Promise<string> {
   const dir = join(await resolveTemplatesDir(), "guidance");
   const ctx = guidanceContext(config);
+  const tree = await discoverDocs({ cwd: root });
+  const regions = tree === undefined ? [] : docRegions(tree.entries);
+  const mapRegionList = regions.length === 0
+    ? "- No top-level map regions are indexed yet."
+    : regions.map((region) => `- \`${region.name}\` — ${region.title}`).join(
+      "\n",
+    );
+  const mapRegions =
+    `${MAP_REGIONS_BEGIN}\n${mapRegionList}\n${MAP_REGIONS_END}`;
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
     let text: string;
@@ -137,6 +171,9 @@ async function builtinGuidance(config: DiscernConfig): Promise<string> {
       throw err;
     }
     text = renderGuidanceTemplate(text, ctx);
+    if (section.file === "map.md") {
+      text = text.replaceAll(MAP_REGIONS_MARKER, mapRegions);
+    }
     // A section a conditional collapsed to nothing contributes nothing — no stray
     // blank line, no empty heading.
     if (text.trim() === "") {
@@ -161,7 +198,7 @@ export async function composeGuidanceBody(
   root: string,
   config: DiscernConfig,
 ): Promise<string> {
-  let body = await builtinGuidance(config);
+  let body = await builtinGuidance(root, config);
   const sources = await resolveGuidanceSources(root, config);
   if (sources.length > 0) {
     const builtIn = body.trimEnd();

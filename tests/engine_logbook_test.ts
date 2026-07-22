@@ -182,6 +182,47 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
   });
 });
 
+Deno.test("logbook: documentation search records the flag but never the query", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "map", "00-orientation", "concepts.md"),
+      "# Concepts\n\nThe core ideas.\n",
+    );
+    await gitInit(dir);
+    const query = "private-query-value-7f3c1";
+
+    const cli = await runAgent(dir, ["map", "--search", query, "--json"]);
+    assertEquals(cli.code, 0, cli.output);
+
+    const map = TOOLS.find((tool) => tool.name === "discern_map");
+    assert(map !== undefined);
+    const mcp = await runTool(
+      map,
+      new WorkingRoot(dir),
+      { search: query },
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(mcp.isError, false);
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 2);
+    assertEquals(events.map((event) => event.surface), ["cli", "mcp"]);
+    for (const event of events) {
+      assertEquals(event.flags, ["search"]);
+      assertEquals(event.target, undefined);
+      assert(
+        !JSON.stringify(event).includes(query),
+        `${event.surface} search query must not enter the logbook`,
+      );
+    }
+  });
+});
+
 Deno.test("logbook: a red gate still records — outcome, steps, diagnostic classes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -483,9 +483,30 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
       "claude_code",
     ]);
     assertEquals(first.code, 0, first.output);
+    const survivorPath = join(dir, "CLAUDE.md");
+    const survivor = await Deno.readTextFile(survivorPath);
+    assertStringIncludes(
+      survivor,
+      "`00-orientation` — Orientation",
+      "setup must return with guidance compiled from the map skeleton it laid",
+    );
+
+    // Add an unrelated future region after the compiled survivor: own-render
+    // recognition must tolerate any generated region-list revision, without a
+    // name-based exception for today's skeleton.
+    const futureRegion = join(
+      dir,
+      SOURCE_PATHS.map.defaultPath,
+      "91-unrelated-surface",
+    );
+    await Deno.mkdir(futureRegion, { recursive: true });
+    await Deno.writeTextFile(
+      join(futureRegion, "README.md"),
+      "# Unrelated surface\n\nA future map region.\n",
+    );
     await git(dir, "checkout", "-q", "main");
     await git(dir, "branch", "-D", "discern-setup");
-    assert(await exists(join(dir, "CLAUDE.md")), "the compiled file survives");
+    assert(await exists(survivorPath), "the compiled file survives");
 
     const re = await runAgent(dir, [
       "setup",

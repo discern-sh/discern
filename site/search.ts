@@ -4,107 +4,31 @@
  * and the stripped, weighted fields consumed by the client-side matcher.
  */
 
-import { type DocEntry, isPublicDoc } from "../src/lib/docs.ts";
+import { isPublicDoc } from "../src/lib/docs.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { inlineToPlain, renderMarkdownHtml } from "../src/lib/markdown.ts";
+import {
+  type SearchIndex,
+  type SearchPage,
+  searchPageFromMarkdown as projectSearchPage,
+  type SearchSource,
+} from "../src/lib/docs_search.ts";
 
-/** One route eligible to contribute to the search projection. */
-export interface SearchSource {
-  route: string;
-  section: string;
-  entry: DocEntry;
-}
-
-/** One searchable heading and its destination fragment. */
-export interface SearchHeading {
-  id: string;
-  text: string;
-}
-
-/** One client-side search record. Field separation preserves rank weights. */
-export interface SearchPage {
-  route: string;
-  title: string;
-  section: string;
-  description: string;
-  aliases: string[];
-  headings: SearchHeading[];
-  codeTerms: string[];
-  body: string;
-}
+export {
+  markdownCodeTerms,
+  markdownSearchText,
+  type SearchHeading,
+  type SearchIndex,
+  type SearchPage,
+  type SearchSource,
+} from "../src/lib/docs_search.ts";
 
 /** The whole client-side index. No query or usage data travels the other way. */
-export interface SearchIndex {
-  pages: SearchPage[];
-}
-
 export type ReadSearchSource = (path: string) => Promise<string>;
 
 /** Decision records are history, not launch-search product guidance. */
 export function isSearchableSource(source: SearchSource): boolean {
   return isPublicDoc(source.entry) && source.entry.section !== "_adr";
-}
-
-/** Flatten Markdown to readable search prose while retaining literal terms. */
-export function markdownSearchText(markdown: string): string {
-  const lines: string[] = [];
-  let inFence = false;
-  for (const raw of markdown.split(/\r?\n/)) {
-    if (/^\s*(```|~~~)/.test(raw)) {
-      inFence = !inFence;
-      continue;
-    }
-    // Headings are indexed as their own higher-weight fields (title, headings);
-    // repeating them in the body would double their bytes for no extra recall.
-    if (!inFence && /^\s{0,3}#{1,6}\s+/.test(raw)) {
-      continue;
-    }
-    const withoutBlockSyntax = inFence ? raw : raw
-      .replace(/^\s*>\s?/, "")
-      .replace(/^\s*(?:[-+*]|\d+[.)])\s+/, "")
-      .replace(/^\s*\|?\s*:?-{3,}:?(?:\s*\|\s*:?-{3,}:?)+\s*\|?\s*$/, "")
-      // Table-cell pipes are layout, not prose: dropping them shrinks the
-      // index and reads better in snippets ("`verb` `done`", not "| `verb` |
-      // `done` |"). Code spans keep their pipes in codeTerms.
-      .replace(/\s*\|\s*/g, " ");
-    const plain = inlineToPlain(withoutBlockSyntax)
-      .replace(/\s+/g, " ")
-      .trim();
-    if (plain !== "") lines.push(plain);
-  }
-  return lines.join(" ");
-}
-
-/** Extract fenced and inline code as a distinct, higher-weight search field. */
-export function markdownCodeTerms(markdown: string): string[] {
-  const terms: string[] = [];
-  let fence: string[] | undefined;
-  for (const raw of markdown.split(/\r?\n/)) {
-    if (/^\s*(```|~~~)/.test(raw)) {
-      if (fence === undefined) {
-        fence = [];
-      } else {
-        const block = fence.join(" ").replace(/\s+/g, " ").trim();
-        if (block !== "") terms.push(block);
-        fence = undefined;
-      }
-      continue;
-    }
-    if (fence !== undefined) {
-      fence.push(raw);
-      continue;
-    }
-    for (const match of raw.matchAll(/`+([^`]+?)`+/g)) {
-      const term = match[1]?.replace(/\s+/g, " ").trim();
-      if (term) terms.push(term);
-    }
-  }
-  if (fence !== undefined) {
-    const block = fence.join(" ").replace(/\s+/g, " ").trim();
-    if (block !== "") terms.push(block);
-  }
-  return [...new Set(terms)];
 }
 
 /** Build one record from the same stripped human projection the page renders. */
@@ -114,19 +38,7 @@ export function searchPageFromMarkdown(
 ): SearchPage {
   const { body } = parseFrontmatter(markdown);
   const stripped = stripAdrCitations(body);
-  const rendered = renderMarkdownHtml(stripped);
-  return {
-    route: source.route,
-    title: source.entry.title,
-    section: source.section,
-    description: source.entry.description,
-    aliases: source.entry.aliases,
-    headings: rendered.headings
-      .filter((heading) => heading.depth >= 2)
-      .map((heading) => ({ id: heading.id, text: heading.text })),
-    codeTerms: markdownCodeTerms(stripped),
-    body: markdownSearchText(stripped),
-  };
+  return projectSearchPage(source, stripped);
 }
 
 /** Build the index, filtering before any excluded source is even read. */

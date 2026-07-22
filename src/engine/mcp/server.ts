@@ -316,10 +316,12 @@ function orderTools(tools: McpTool[]): McpTool[] {
  * interpolated. */
 const PATH_PARAM = {
   path: z.string().optional().describe(
-    "operate on the discern project containing this absolute path instead of the " +
-      "server's current working root; rarely needed — discern_start re-aims " +
-      "automatically. Must be ABSOLUTE — a relative path is refused (the server's " +
-      "working directory is not yours), never resolved against the server's cwd",
+    "Run this call against a specific discern project or worktree. Pass an " +
+      "ABSOLUTE filesystem path inside the intended checkout, including another " +
+      "repository in a multi-repo workspace; discern resolves its project root. " +
+      "Omit it to use the checkout this MCP server currently targets. Use it when " +
+      "you cannot re-root into a worktree or are coordinating multiple repositories. " +
+      "The override applies to this call only; relative paths are rejected.",
   ),
 };
 
@@ -645,21 +647,32 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: MapOutputSchema.shape,
     annotations: READ_ONLY,
     description:
-      "Read the project map — its agent-maintained documentation tree and the " +
-      "grounded source for documented project behaviour. With no argument, return the index — " +
-      "every doc's path, section, slug, and title — plus a regions digest with " +
-      "file-linked freshness facts. Pass `target` (a slug, " +
-      "`section/slug`, or path) to return that one doc's full Markdown content. The " +
-      "source to consult before reasoning about this project.",
+      "Read or search the project map, the agent-maintained source for documented " +
+      "project behaviour. With no input, return the document index and top-level " +
+      "regions digest with file-linked freshness facts. Pass `target` to read one " +
+      "document or list one region. Pass " +
+      "`search` to return up to five ranked documents with context and a canonical " +
+      "target for the follow-up read; combine it with `target` to search only that " +
+      "region or document. Search covers the map visible to agents, with weighted " +
+      "full text and typo-tolerant metadata fallback. `path` selects the project or " +
+      "worktree to inspect; it never selects a map subtree.",
     inputSchema: {
       target: z.string().optional().describe(
-        "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+        "An exact document or top-level region target. Without `search`, a document " +
+          "returns its Markdown and a region returns its compact index. With " +
+          "`search`, it limits the search to that document or region.",
+      ),
+      search: z.string().optional().describe(
+        "Task language, a command, a config key, or error text to find in the map. " +
+          "Returns up to five ranked documents with canonical targets. The query is " +
+          "used for this call and is not recorded in discern's logbook.",
       ),
       ...PATH_PARAM,
     },
     run: (root, args) =>
       mapResult(root, {
         target: args.target,
+        search: args.search,
       }),
   }),
   defineTool({
@@ -672,23 +685,29 @@ export const TOOLS: McpTool[] = orderTools([
     // project, matching the CLI, which serves `discern help` from anywhere (B38).
     rootIndependent: true,
     description:
-      "Read discern's OWN documentation — the discern.toml config reference, " +
-      "concepts, and gate/worktree/standard pages — bundled " +
-      "into every install. Distinct from discern_map, which reads the host " +
-      "PROJECT's map: call this to learn how discern itself works, before editing " +
-      "discern.toml or reasoning about the gate. With no argument, return the index " +
-      "(every doc's path, section, slug, and title); pass `target` (a slug, " +
-      "`section/slug`, or path) for that one doc's full Markdown content. Always " +
-      "available — it is discern's own help — and serves only " +
-      "the public docs (the internal ADR/maintainer trees are never exposed here).",
+      "Read or search discern's own bundled documentation: concepts, configuration, " +
+      "the gate, worktrees, and standards. This is distinct from discern_map, which " +
+      "reads the current project's map. With no input, return the public document " +
+      "index. Pass `target` to read one document or list one region. Pass `search` " +
+      "to return up to five ranked documents with context and a canonical target; " +
+      "combine it with `target` to search only that region or document. Internal " +
+      "decision and maintainer trees are never exposed here.",
     inputSchema: {
       target: z.string().optional().describe(
-        "A specific doc to fetch (slug, section/slug, or path). Omit for the index.",
+        "An exact document or top-level region target. Without `search`, a document " +
+          "returns its Markdown and a region returns its compact index. With " +
+          "`search`, it limits the search to that document or region.",
+      ),
+      search: z.string().optional().describe(
+        "Task language, a command, a config key, or error text to find in discern's " +
+          "public docs. Returns up to five ranked documents with canonical targets. " +
+          "The query is used for this call and is not recorded in discern's logbook.",
       ),
     },
     run: (root, args) =>
       helpResult(root, {
         target: args.target,
+        search: args.search,
       }),
   }),
   defineTool({
@@ -716,7 +735,8 @@ export const TOOLS: McpTool[] = orderTools([
       "refuses read-only and re-serves the review moment (relay the receipt, wait " +
       "for the owner) instead of landing. Set dry_run to preview " +
       "the plan without touching anything. " +
-      "Operates only on the worktree the server runs in; it cannot reach another.",
+      "Operates on the worktree this call selects: the server's current target by " +
+      "default, or the discern worktree containing an explicit absolute `path`.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the acceptance plan and touch nothing (default false).",
@@ -777,8 +797,9 @@ export const TOOLS: McpTool[] = orderTools([
       "or `git diff <range.before>..<range.after> -- <path>` for one file; the hints " +
       "carry the exact command. Set dry_run to preview the " +
       "plan (and the SAME predicted `data`, computed read-only without merging) without " +
-      "touching anything. Never touches the main checkout; operates only " +
-      "on the worktree the server runs in. This updates the branch; run " +
+      "touching anything. Never touches the main checkout; it updates the worktree " +
+      "this call selects, using the current target by default or an explicit " +
+      "absolute `path`. This updates the branch; run " +
       "`discern upgrade` to update discern itself, or use discern_refresh to " +
       "refresh agent files alone.",
     inputSchema: {
@@ -853,12 +874,11 @@ export const TOOLS: McpTool[] = orderTools([
           "(e.g. another worktree's agent/* branch).",
       ),
       path: z.string().optional().describe(
-        "Create the worktree FOR the discern project containing this absolute " +
-          "path — the cross-project entry point (e.g. a dependency's repo that runs " +
-          "its own discern). Any path inside that project resolves to its root; the " +
-          "new worktree forks from THAT project's trunk, and on success the re-aim " +
-          "follows it exactly as for a same-project start. Omit for the everyday " +
-          "case: this server's own project.",
+        "Create the worktree for a specific discern project. Pass an ABSOLUTE " +
+          "filesystem path inside the intended checkout, including another repository " +
+          "in a multi-repo workspace; discern resolves its project root. Omit it to " +
+          "use the project this MCP server currently targets. A successful start " +
+          "re-aims later discern calls at the new worktree.",
       ),
       dry_run: z.boolean().optional().describe(
         "Preview the start plan and touch nothing (default false).",
@@ -1228,9 +1248,9 @@ export async function runTool(
       error: "invalid_arguments",
       message:
         `\`path\` must be an absolute path, but got "${pathArg}". The MCP server's ` +
-        `working directory is fixed at spawn and is not your current directory, so a ` +
-        `relative path can't be resolved reliably — pass the absolute path to the ` +
-        `project (or a directory inside it) you mean to act on.`,
+        `working directory is not the caller's directory, so it cannot resolve a ` +
+        `relative path safely. Pass an absolute path inside the discern project or ` +
+        `worktree this call should use.`,
     });
   }
   const root = pathArg ? await findRoot(pathArg) : working.get();

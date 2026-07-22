@@ -577,6 +577,7 @@ Usage: `discern map [target] [options]`
 | --- | --- |
 | `--raw` | Print a doc's pristine Markdown source instead of rendering it. |
 | `--list` | Print a plain table of contents and exit without interaction. |
+| `--search <query>` | Search the map; combine with a target to search one region or document. |
 | `--no-pager` | Don't page rendered output through $PAGER. |
 | `--dir <path>` | Map directory to browse (default: the project's [map].dir). |
 | `--width <cols>` | Wrap width for rendered output. |
@@ -593,6 +594,7 @@ Usage: `discern help [target] [options]`
 | --- | --- |
 | `--raw` | Print a doc's pristine Markdown source instead of rendering it. |
 | `--list` | Print a plain table of contents and exit without interaction. |
+| `--search <query>` | Search discern's docs; combine with a target to narrow the search. |
 | `--adr` | Browse decision records in a source checkout, or show their public location. |
 | `--no-pager` | Don't page rendered output through $PAGER. |
 | `--width <cols>` | Wrap width for rendered output. |

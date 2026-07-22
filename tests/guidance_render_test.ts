@@ -11,6 +11,7 @@ import { compileGuidelines } from "../src/engine/guidelines.ts";
 import {
   checkGuidanceCurrent,
   guidanceContext,
+  normalizeMapRegionGuidance,
   renderAgentFiles,
 } from "../src/engine/guidance_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -153,10 +154,9 @@ Deno.test("compile converges when [guidance].sources globs the generated files' 
   }
 });
 
-Deno.test("renderAgentFiles: two renders of the same config are byte-identical (deterministic)", async () => {
-  // The built-in sections are templated against a context built purely from
-  // committed config (ADR 0034), so the compile output cannot vary run-to-run on
-  // the same commit — the property the stateless currency check relies on.
+Deno.test("renderAgentFiles: two renders of the same committed inputs are byte-identical (deterministic)", async () => {
+  // Built-in sections read committed config and the map's top-level structure,
+  // so the compile output cannot vary between runs over the same tree.
   const dir = await scaffold();
   try {
     const a = await renderAgentFiles(dir);
@@ -165,6 +165,56 @@ Deno.test("renderAgentFiles: two renders of the same config are byte-identical (
     for (const [path, body] of a) {
       assertEquals(b.get(path), body, `${path} must render identically twice`);
     }
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn", async () => {
+  const dir = await scaffold('["codex"]');
+  try {
+    await Deno.mkdir(join(dir, "map", "20-quality-gate"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "map", "20-quality-gate", "README.md"),
+      "# Quality gate\n\nHow the project proves changes.\n",
+    );
+    const first = (await renderAgentFiles(dir)).get("AGENTS.md");
+    assert(first !== undefined);
+    assertStringIncludes(first, "`20-quality-gate` — Quality gate");
+
+    // A leaf joins search and the region index, but the compact generated list
+    // depends only on the top-level region and its front-door title.
+    await Deno.writeTextFile(
+      join(dir, "map", "20-quality-gate", "jobs.md"),
+      "# Jobs\n\nOne leaf.\n",
+    );
+    assertEquals(
+      (await renderAgentFiles(dir)).get("AGENTS.md"),
+      first,
+      "adding a leaf inside an existing region must not churn agent guidance",
+    );
+
+    await Deno.mkdir(join(dir, "map", "30-worktrees"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "map", "30-worktrees", "README.md"),
+      "# Worktrees\n\nIsolated checkouts.\n",
+    );
+    const expanded = (await renderAgentFiles(dir)).get("AGENTS.md");
+    assert(expanded !== undefined);
+    assertStringIncludes(expanded, "`30-worktrees` — Worktrees");
+    assert(expanded !== first, "a new top-level region must refresh guidance");
+    assertEquals(
+      normalizeMapRegionGuidance(expanded),
+      normalizeMapRegionGuidance(first),
+      "ownership comparison ignores the generated region payload",
+    );
+    assert(
+      normalizeMapRegionGuidance(expanded.replace("# Mine", "# Changed")) !==
+        normalizeMapRegionGuidance(first),
+      "authored guidance outside the owned block must remain significant",
+    );
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
