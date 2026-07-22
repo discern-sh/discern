@@ -84,6 +84,7 @@ import {
 import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
   getSetupPage,
@@ -684,8 +685,8 @@ async function scaffoldHarness(
     // user knows a skills dir / agent file / the MCP wiring didn't complete.
     if (guidelinesErrors.length > 0) {
       hints = [
-        ...guidelinesErrors.map((e) =>
-          `setup could not complete a refresh artifact: ${e}`
+        ...guidelinesErrors.map((message) =>
+          fire(HINTS["setup-refresh-artifact-failed"], { message }).text
         ),
         ...hints,
       ];
@@ -694,22 +695,26 @@ async function scaffoldHarness(
     const message = `could not compile agent guidance: ${errMsg(error)}`;
     guidelinesCompiled = false;
     guidelinesErrors = [message];
-    hints = [`setup could not complete a refresh artifact: ${message}`];
+    hints = [
+      fire(HINTS["setup-refresh-artifact-failed"], { message }).text,
+    ];
     log.warn(message);
   }
   if (seeded.migrated.length > 0) {
     hints = [
-      `Preserved your existing ${
-        seeded.migrated.join(", ")
-      } by migrating it into ${guidanceRel} — fold it into the conventions and delete the import note.`,
+      fire(HINTS["setup-guidance-preserved"], {
+        paths: seeded.migrated,
+        guidanceRel,
+      }).text,
       ...hints,
     ];
   }
   if (seeded.skippedOwnRender.length > 0) {
     hints = [
-      `Skipped importing ${
-        seeded.skippedOwnRender.join(", ")
-      } into ${guidanceRel} — it matches discern's own compiled output (a leftover of an earlier setup), not your authoring.`,
+      fire(HINTS["setup-guidance-own-render-skipped"], {
+        paths: seeded.skippedOwnRender,
+        guidanceRel,
+      }).text,
       ...hints,
     ];
   }
@@ -1943,13 +1948,22 @@ function doneHints(
     // command would sweep that branch's own commits onto the trunk.
     hints.push(
       landing.onSetupBranch
-        ? `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — land it with \`${ACCEPT_COMMAND}\` (or leave it for review).`
-        : `Your setup is on branch \`${landing.branch}\`, not yet on \`${landing.target}\` — \`${ACCEPT_COMMAND}\` only lands the \`${SETUP_BRANCH}\` branch, so merge this branch your usual way when ready.`,
+        ? fire(HINTS["setup-done-land-dedicated"], {
+          branch: landing.branch,
+          target: landing.target,
+          acceptCommand: ACCEPT_COMMAND,
+        }).text
+        : fire(HINTS["setup-done-land-manually"], {
+          branch: landing.branch,
+          target: landing.target,
+          acceptCommand: ACCEPT_COMMAND,
+          setupBranch: SETUP_BRANCH,
+        }).text,
     );
   }
   hints.push(reactivation.summary);
   hints.push(
-    `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
+    fire(HINTS["setup-run-coach"], { coachVerb, todoRel }).text,
   );
   return hints;
 }

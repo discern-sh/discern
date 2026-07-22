@@ -18,6 +18,7 @@ import {
 } from "../shared/config_schema.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "../lib/config.ts";
 import { retiredConfigKeySuccessor } from "../shared/vocabulary.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 import {
   tomlBool,
   TomlEditor,
@@ -211,7 +212,7 @@ export async function runConfigSetJob(
       `Set job "${name}".`,
       deferred
         ? [
-          `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
+          fire(HINTS["config-job-deferred"], { name }).text,
         ]
         : [],
     );

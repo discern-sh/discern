@@ -22,6 +22,7 @@
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { worktreeState } from "../lib/git.ts";
@@ -310,7 +311,7 @@ export async function runSetupAccept(
       ok: true,
       verb: "setup accept",
       data,
-      hints: [`Setup landed onto ${target}.`],
+      hints: [fire(HINTS["setup-accept-landed"], { target }).text],
     });
     return 0;
   }

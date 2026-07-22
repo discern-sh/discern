@@ -55,6 +55,7 @@ import {
   type GitignoreReconcileOperation,
   planDiscernGitignoreBlock,
 } from "../lib/agent_gitignore.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -91,23 +92,15 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-/**
- * The closing hint every applied upgrade carries, on both the human and JSON
- * surfaces. An agent that spawned discern's MCP server before this upgrade keeps
- * running the engine and embedded templates it loaded then, until its session
- * restarts — the MCP version handshake flags it, but telling the user to restart
- * here closes the window sooner.
- */
-const RESTART_AGENTS_HINT =
-  "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.";
+function newerDiscernHint(): string {
+  return fire(HINTS["upgrade-newer-discern"], {
+    updateChannel: UPDATE_CHANNEL,
+  }).text;
+}
 
-/**
- * The honest "newer discern" sentence, closing both the `--check` currency
- * report and the apply summary. discern deliberately performs no network update
- * check, so the sentence says so and names the one real channel.
- */
-const NEWER_DISCERN_HINT =
-  `discern never checks the network for updates; to get a newer discern, ${UPDATE_CHANNEL}.`;
+function restartAgentsHint(): string {
+  return fire(HINTS["upgrade-restart-session"]).text;
+}
 
 /** Run `discern upgrade`. Returns a process exit code. */
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
@@ -198,7 +191,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.result({
         ok,
         verb: "upgrade",
-        ...(ok ? { hints: [NEWER_DISCERN_HINT] } : {}),
+        ...(ok ? { hints: [newerDiscernHint()] } : {}),
         data: {
           check: true,
           kit_version: KIT_VERSION,
@@ -215,7 +208,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.ok(
         `Install is up to date (discern ${KIT_VERSION}, schema ${SCHEMA_VERSION}).`,
       );
-      log.info(NEWER_DISCERN_HINT);
+      log.info(newerDiscernHint());
     } else {
       if (pending.length > 0) {
         log.error(
@@ -489,8 +482,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       }),
       hints: [
         ...(guidelines?.hints ?? []),
-        NEWER_DISCERN_HINT,
-        RESTART_AGENTS_HINT,
+        newerDiscernHint(),
+        restartAgentsHint(),
       ],
       data: {
         kit_version: KIT_VERSION,
@@ -631,9 +624,9 @@ function renderUpgradeSummary(
   // project to match the installed binary; getting a NEWER binary is separate.
   log.line();
   log.info(
-    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${NEWER_DISCERN_HINT}`,
+    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${newerDiscernHint()}`,
   );
-  log.info(RESTART_AGENTS_HINT);
+  log.info(restartAgentsHint());
 }
 
 /** Stamp `[meta].schema_version` into the config at `configPath`, in place. */

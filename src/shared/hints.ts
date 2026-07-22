@@ -1208,6 +1208,146 @@ export const HINTS = {
         changes === 1 ? "" : "s"
       } stay in the main checkout — the new worktree branches from '${startPoint}'.`,
   }),
+
+  /** Setup's refresh core reports each artifact it could not complete. */
+  "setup-refresh-artifact-failed": defineHint<{ message: string }>({
+    id: "setup-refresh-artifact-failed",
+    category: "notice",
+    audience: "all",
+    family: "setup-refresh",
+    template: ({ message }): string =>
+      `setup could not complete a refresh artifact: ${message}`,
+  }),
+
+  /** Existing authored agent guidance was preserved in the canonical source. */
+  "setup-guidance-preserved": defineHint<{
+    paths: readonly string[];
+    guidanceRel: string;
+  }>({
+    id: "setup-guidance-preserved",
+    category: "next-step",
+    audience: "all",
+    family: "setup-guidance-migration",
+    template: ({ paths, guidanceRel }): string =>
+      `Preserved your existing ${
+        paths.join(", ")
+      } by migrating it into ${guidanceRel} — fold it into the conventions and delete the import note.`,
+  }),
+
+  /** A pre-existing agent file matched discern's own prior compiled output. */
+  "setup-guidance-own-render-skipped": defineHint<{
+    paths: readonly string[];
+    guidanceRel: string;
+  }>({
+    id: "setup-guidance-own-render-skipped",
+    category: "notice",
+    audience: "all",
+    family: "setup-guidance-migration",
+    template: ({ paths, guidanceRel }): string =>
+      `Skipped importing ${
+        paths.join(", ")
+      } into ${guidanceRel} — it matches discern's own compiled output (a leftover of an earlier setup), not your authoring.`,
+  }),
+
+  /** A completed setup on the dedicated setup branch is ready to land. */
+  "setup-done-land-dedicated": defineHint<{
+    branch: string;
+    target: string;
+    acceptCommand: string;
+  }>({
+    id: "setup-done-land-dedicated",
+    category: "next-step",
+    audience: "all",
+    family: "setup-done-next",
+    template: ({ branch, target, acceptCommand }): string =>
+      `Your setup is on branch \`${branch}\`, not yet on \`${target}\` — land it with \`${acceptCommand}\` (or leave it for review).`,
+  }),
+
+  /** A setup performed on another feature branch must use the project's normal merge. */
+  "setup-done-land-manually": defineHint<{
+    branch: string;
+    target: string;
+    acceptCommand: string;
+    setupBranch: string;
+  }>({
+    id: "setup-done-land-manually",
+    category: "next-step",
+    audience: "all",
+    family: "setup-done-next",
+    template: ({ branch, target, acceptCommand, setupBranch }): string =>
+      `Your setup is on branch \`${branch}\`, not yet on \`${target}\` — \`${acceptCommand}\` only lands the \`${setupBranch}\` branch, so merge this branch your usual way when ready.`,
+  }),
+
+  /** Provider integrations load at session start, so setup hands off reactivation. */
+  "setup-reactivate-tools": defineHint({
+    id: "setup-reactivate-tools",
+    category: "next-step",
+    audience: "all",
+    family: "setup-done-next",
+    template: (): string =>
+      "discern's MCP tools (discern_*), session hooks, and project rules are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+  }),
+
+  /** Setup's final coaching route for deepening the newly-wired project. */
+  "setup-run-coach": defineHint<{ coachVerb: string; todoRel: string }>({
+    id: "setup-run-coach",
+    category: "next-step",
+    audience: "all",
+    family: "setup-done-next",
+    template: ({ coachVerb, todoRel }): string =>
+      `Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
+  }),
+
+  /** The setup-only landing command completed against its target branch. */
+  "setup-accept-landed": defineHint<{ target: string }>({
+    id: "setup-accept-landed",
+    category: "notice",
+    audience: "all",
+    template: ({ target }): string => `Setup landed onto ${target}.`,
+  }),
+
+  /**
+   * Mid-setup doctor qualifier: a healthy install is not proof that the authored
+   * setup is finished. This is the third setup-unfinished surface alongside status
+   * and the gate.
+   */
+  "setup-unfinished-doctor": defineHint({
+    id: "setup-unfinished-doctor",
+    category: "guardrail",
+    audience: "all",
+    family: "setup-unfinished",
+    template: (): string =>
+      "Setup is NOT finished — these checks prove the install is healthy, not that setup is complete. " +
+      "Continue the setup brief (`discern setup begin` reprints it), then run `discern setup done` to finish.",
+  }),
+
+  /** Upgrade never checks the network, so it names the installed update channel. */
+  "upgrade-newer-discern": defineHint<{ updateChannel: string }>({
+    id: "upgrade-newer-discern",
+    category: "notice",
+    audience: "all",
+    template: ({ updateChannel }): string =>
+      `discern never checks the network for updates; to get a newer discern, ${updateChannel}.`,
+  }),
+
+  /** An open agent session retains the pre-upgrade MCP process until restarted. */
+  "upgrade-restart-session": defineHint({
+    id: "upgrade-restart-session",
+    category: "next-step",
+    audience: "all",
+    family: "restart-session",
+    template: (): string =>
+      "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.",
+  }),
+
+  /** An empty known-job command records a deliberate deferred gate slot. */
+  "config-job-deferred": defineHint<{ name: string }>({
+    id: "config-job-deferred",
+    category: "next-step",
+    audience: "all",
+    template: ({ name }): string =>
+      `An empty command records "${name}" as deferred — present but a no-op, so the gate skips it. Add an inline # comment beside it saying why, or set a real command to enforce it.`,
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */

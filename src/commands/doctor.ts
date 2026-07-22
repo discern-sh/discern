@@ -53,6 +53,7 @@ import type {
   DoctorEnvironment,
   VerbPlan,
 } from "../shared/result_schemas.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 import { inDeskSession } from "../engine/desk/session.ts";
 
 /** Options accepted by the `doctor` command. */
@@ -829,7 +830,9 @@ export async function doctorResult(
   return {
     ok: checks.every((c) => c.status !== "fail"),
     verb: "doctor",
-    ...(midSetup(cfg) ? { hints: [MID_SETUP_BANNER] } : {}),
+    ...(midSetup(cfg)
+      ? { hints: [fire(HINTS["setup-unfinished-doctor"]).text] }
+      : {}),
     data: {
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
@@ -847,13 +850,6 @@ export async function doctorResult(
 function midSetup(cfg: DiscernConfig | undefined): boolean {
   return cfg !== undefined && !cfg.meta.bootstrapped;
 }
-
-/** The mid-setup qualifier both doctor surfaces carry: healthy install ≠ finished
- * setup, and `status` is already shouting SETUP NOT FINISHED — doctor must not
- * contradict it with an unqualified all-clear. */
-const MID_SETUP_BANNER =
-  "Setup is NOT finished — these checks prove the install is healthy, not that setup is complete. " +
-  "Continue the setup brief (`discern setup begin` reprints it), then run `discern setup done` to finish.";
 
 /** The width to wrap the execution model to: the terminal's, or a sane default when
  * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
@@ -1033,7 +1029,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   // misreading `status` guards against. Qualify the verdict, naming the next step.
   if (midSetup(cfg)) {
     log.line();
-    log.warn(MID_SETUP_BANNER);
+    log.warn(fire(HINTS["setup-unfinished-doctor"]).text);
   }
   return healthy ? 0 : 1;
 }

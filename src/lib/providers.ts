@@ -29,6 +29,7 @@ import {
 import { TomlEditor } from "./toml_edit.ts";
 import { agentLabelForNative } from "../shared/agent_catalogue.ts";
 import type { FileOwnershipDeclaration } from "../shared/file_ownership.ts";
+import { fire, HINTS } from "../shared/hints.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -79,8 +80,7 @@ export function reactivationHandoff(
     per_agent.push({ agent: name, label: provider.label, step });
   }
   return {
-    summary:
-      "discern's MCP tools (discern_*), session hooks, and project rules are now wired — but coding agents load them at session start, so this session can't see them yet. Reactivate to use them:",
+    summary: fire(HINTS["setup-reactivate-tools"]).text,
     per_agent,
   };
 }
