@@ -1238,7 +1238,7 @@ const cycleTime: Detector = {
   // 3 completed cycles before a median means anything.
   threshold: 3,
   next_step:
-    "Long cycles usually mean oversized tasks. Shaping the work first (`discern-shape-the-work`) lands smaller briefs faster, and smaller landings merge cleaner for everyone behind them.",
+    "Long cycles usually mean oversized tasks. Splitting the ask into smaller, sharply-scoped briefs lands faster, and smaller landings merge cleaner for everyone behind them.",
   detect(facts): DetectorOutcome {
     const starts = facts.verbs.filter((e) =>
       e.verb === "start" && e.outcome === "ok" && e.target !== undefined
