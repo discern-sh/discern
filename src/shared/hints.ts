@@ -108,18 +108,45 @@ function updateOverflowAdvice(
   return actions.length === 0 ? "" : ` ${actions.join(" ")}`;
 }
 
+/** Shared action for every unfinished-setup context. */
+const SETUP_UNFINISHED_CORE =
+  "Run `discern setup begin` to print or reprint the brief without changing your " +
+  "work, complete it, then run `discern setup done`; do not report setup complete " +
+  "until that command passes.";
+
+/** Add one context-specific lead-in to the canonical unfinished-setup action. */
+function setupUnfinishedHint(leadIn: string): string {
+  return `${leadIn} ${SETUP_UNFINISHED_CORE}`;
+}
+
+/** Shared remedy for every missing or stale discern-managed artifact. */
+const GENERATED_DRIFT_CORE =
+  "Run `discern refresh` to restore discern-managed artifacts.";
+
+/** Add one artifact-specific lead-in and optional source-ownership instruction. */
+function generatedDriftHint(leadIn: string, followUp?: string): string {
+  return `${leadIn} ${GENERATED_DRIFT_CORE}${
+    followUp === undefined ? "" : ` ${followUp}`
+  }`;
+}
+
+/** Shared lifecycle fact behind every restart-session action. */
+const RESTART_SESSION_CORE =
+  "Agent sessions load discern's MCP server, engine, and templates only when they " +
+  "start or reload their MCP servers.";
+
+/** Add one context-specific restart action to the canonical lifecycle fact. */
+function restartSessionHint(leadIn: string): string {
+  return `${leadIn} ${RESTART_SESSION_CORE}`;
+}
+
 /**
  * The registry. Entries land site-by-site as the emission sites migrate off
  * inline strings; once the last site moves, the closed-set guard pins this
  * table as the only source `hints[]` accepts.
  */
 export const HINTS = {
-  /**
-   * The canonical one-line advisory shown when setup is still outstanding: the
-   * status lead hint and the session-start reminder share this wording so the
-   * agent's responsibility never drifts between them. An empty pending set still
-   * warrants the reminder because `discern setup done` has not recorded completion.
-   */
+  /** Status lead-in to the shared unfinished-setup action, including marker count. */
   "setup-unfinished-status": defineHint<{ pendingCount: number }>({
     id: "setup-unfinished-status",
     category: "next-step",
@@ -128,14 +155,13 @@ export const HINTS = {
     example: { pendingCount: 2 },
     template: ({ pendingCount }): string => {
       const tail = pendingCount > 0
-        ? ` ${pendingCount} file(s) still carry skeleton markers.`
+        ? ` ${pendingCount} ${
+          pendingCount === 1 ? "file still carries" : "files still carry"
+        } skeleton markers.`
         : "";
-      return (
-        "Setup is NOT finished — completing it is your job as the agent in this " +
-        "session, not a report to hand back. Work the brief `discern setup begin` prints " +
-        "(re-run `discern setup begin` to reprint it — it won't touch your work), then run " +
-        "`discern setup done`; don't tell the user setup is complete until it passes." +
-        tail
+      return setupUnfinishedHint(
+        "Finish setup in this session instead of handing it back as a report." +
+          tail,
       );
     },
   }),
@@ -212,6 +238,7 @@ export const HINTS = {
       }); commit them so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
   }),
 
+  /** Missing agent-file lead-in to the shared generated-drift remedy. */
   "generated-agent-files-missing": defineHint<{ paths: string }>({
     id: "generated-agent-files-missing",
     category: "next-step",
@@ -219,9 +246,10 @@ export const HINTS = {
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
-      `Agent files aren't built yet (${paths}); run \`discern refresh\`.`,
+      generatedDriftHint(`Restore the missing agent files (${paths}).`),
   }),
 
+  /** Stale agent-file lead-in plus its authored-source instruction. */
   "generated-agent-files-stale": defineHint<{ paths: string }>({
     id: "generated-agent-files-stale",
     category: "next-step",
@@ -229,9 +257,13 @@ export const HINTS = {
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
-      `Agent files are out of date (${paths}); run \`discern refresh\` — edits belong in your [guidance].sources, not the generated file.`,
+      generatedDriftHint(
+        `Rebuild the out-of-date agent files (${paths}).`,
+        "Edit [guidance].sources. Refresh overwrites the generated agent files.",
+      ),
   }),
 
+  /** Missing materialized-skills lead-in to the shared generated-drift remedy. */
   "materialized-skills-missing": defineHint<{ dirs: string }>({
     id: "materialized-skills-missing",
     category: "next-step",
@@ -239,9 +271,10 @@ export const HINTS = {
     family: "generated-drift",
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
-      `Skills aren't materialized yet (${dirs}); run \`discern refresh\`.`,
+      generatedDriftHint(`Materialize the missing skills (${dirs}).`),
   }),
 
+  /** Stale materialized-skills lead-in plus its authored-source instruction. */
   "materialized-skills-stale": defineHint<{ dirs: string }>({
     id: "materialized-skills-stale",
     category: "next-step",
@@ -249,9 +282,13 @@ export const HINTS = {
     family: "generated-drift",
     example: { dirs: ".claude/skills" },
     template: ({ dirs }): string =>
-      `Materialized skills are out of date (${dirs}); run \`discern refresh\` — edits belong in your [skills].dir source, not the materialized copy.`,
+      generatedDriftHint(
+        `Re-materialize the out-of-date skills (${dirs}).`,
+        "Edit [skills].dir. Refresh overwrites the materialized copies.",
+      ),
   }),
 
+  /** Missing provider-integration lead-in to the shared generated-drift remedy. */
   "provider-integrations-missing": defineHint<{ paths: string }>({
     id: "provider-integrations-missing",
     category: "next-step",
@@ -259,9 +296,12 @@ export const HINTS = {
     family: "generated-drift",
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
-      `Provider integration files are missing (${paths}); run \`discern refresh\`.`,
+      generatedDriftHint(
+        `Restore the missing provider integration files (${paths}).`,
+      ),
   }),
 
+  /** Provider-integration drift lead-in plus its malformed-file recovery. */
   "provider-integrations-stale": defineHint<{ paths: string }>({
     id: "provider-integrations-stale",
     category: "next-step",
@@ -269,7 +309,10 @@ export const HINTS = {
     family: "generated-drift",
     example: { paths: ".codex/config.toml" },
     template: ({ paths }): string =>
-      `Provider integration files need attention (${paths}); run \`discern refresh\`, and if it reports a malformed settings file, repair that file and re-run refresh.`,
+      generatedDriftHint(
+        `Repair the provider integration files that need attention (${paths}).`,
+        "If refresh reports a malformed settings file, repair it and run `discern refresh` again.",
+      ),
   }),
 
   /**
@@ -796,9 +839,8 @@ export const HINTS = {
   }),
 
   /**
-   * The advisory a done, prepare, test, or standards result carries while setup
-   * is outstanding. Those verbs run during setup, but their output must not read
-   * as proof that the project itself is finished.
+   * Gate-context lead-in to the shared unfinished-setup action. Gate verbs run
+   * during setup, but their output is not the final project verdict yet.
    */
   "setup-unfinished-gate": defineHint({
     id: "setup-unfinished-gate",
@@ -807,8 +849,9 @@ export const HINTS = {
     family: "setup-unfinished",
     example: undefined,
     template: (): string =>
-      "Setup is not finished — this gate output is indicative while you complete setup. " +
-      "Run `discern setup done` to validate the gate and record completion.",
+      setupUnfinishedHint(
+        "Finish setup before treating this gate output as the final verdict.",
+      ),
   }),
 
   /** A successful job emitted enough error-like output to warrant inspection. */
@@ -1300,9 +1343,7 @@ export const HINTS = {
   }),
 
   /**
-   * Advice surfaced to users and agents when refresh registers discern's MCP
-   * server for the first time. A freshly-added server is typically not detected
-   * until the coding agent restarts; the registration persists afterwards.
+   * First-registration lead-in to the shared restart-session lifecycle fact.
    */
   "refresh-mcp-first-install": defineHint({
     id: "refresh-mcp-first-install",
@@ -1311,7 +1352,9 @@ export const HINTS = {
     family: "restart-session",
     example: undefined,
     template: (): string =>
-      "A discern MCP server was registered for the first time — restart your coding agent (or reload its MCP servers) for the discern tools to become available.",
+      restartSessionHint(
+        "Restart your coding agent to make the newly registered discern tools available.",
+      ),
   }),
 
   /** A successful skills eject leaves the authored override ready to edit. */
@@ -1651,9 +1694,8 @@ export const HINTS = {
   }),
 
   /**
-   * Mid-setup doctor qualifier: a healthy install is not proof that the authored
-   * setup is finished. This is the third setup-unfinished surface alongside status
-   * and the gate.
+   * Doctor-context lead-in to the shared unfinished-setup action. Healthy install
+   * checks are not proof that the authored setup is complete.
    */
   "setup-unfinished-doctor": defineHint({
     id: "setup-unfinished-doctor",
@@ -1662,8 +1704,9 @@ export const HINTS = {
     family: "setup-unfinished",
     example: undefined,
     template: (): string =>
-      "Setup is NOT finished — these checks prove the install is healthy, not that setup is complete. " +
-      "Continue the setup brief (`discern setup begin` reprints it), then run `discern setup done` to finish.",
+      setupUnfinishedHint(
+        "Finish setup before treating these healthy install checks as proof of completion.",
+      ),
   }),
 
   /** Upgrade never checks the network, so it names the installed update channel. */
@@ -1676,7 +1719,7 @@ export const HINTS = {
       `discern never checks the network for updates; to get a newer discern, ${updateChannel}.`,
   }),
 
-  /** An open agent session retains the pre-upgrade MCP process until restarted. */
+  /** Post-upgrade lead-in to the shared restart-session lifecycle fact. */
   "upgrade-restart-session": defineHint({
     id: "upgrade-restart-session",
     category: "next-step",
@@ -1684,7 +1727,9 @@ export const HINTS = {
     family: "restart-session",
     example: undefined,
     template: (): string =>
-      "If an agent session is open, restart it so its discern MCP server reloads this build — a server started before the upgrade keeps running the old engine and templates until then.",
+      restartSessionHint(
+        "Restart any open agent session to use this discern build.",
+      ),
   }),
 
   /** An empty known-job command records a deliberate deferred gate slot. */
@@ -1741,9 +1786,8 @@ export const HINTS = {
   }),
 
   /**
-   * The long-lived MCP server is stale after the installed discern binary changes.
-   * Until the agent restarts it, old engine/templates can conflict with the current
-   * CLI and make generated files oscillate between builds.
+   * Version-mismatch lead-in to the shared restart-session lifecycle fact. It keeps
+   * the cross-build rewrite risk explicit until the caller restarts.
    */
   "mcp-version-mismatch": defineHint<{
     serverVersion: string;
@@ -1755,7 +1799,11 @@ export const HINTS = {
     family: "restart-session",
     example: { serverVersion: "1.4.0", installedVersion: "1.5.0" },
     template: ({ serverVersion, installedVersion }): string =>
-      `This discern MCP server is running v${serverVersion}, but v${installedVersion} is now installed on disk. Restart your agent session so it reloads discern — until then this server runs the old engine and templates, and its results can conflict with the current CLI (a stale discern_refresh and a fresh discern done can rewrite generated files back and forth).`,
+      restartSessionHint(
+        `Restart your agent session to replace MCP server v${serverVersion} with ` +
+          `installed v${installedVersion}. Until then, its results can conflict ` +
+          `with the current CLI and rewrite generated files from different builds.`,
+      ),
   }),
 } as const;
 
