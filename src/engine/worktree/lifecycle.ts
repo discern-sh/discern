@@ -103,6 +103,7 @@ import type {
   UpdateData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { hintTexts } from "../../shared/hints.ts";
 import {
   addWorktree,
   assertInWorktree,
@@ -1494,7 +1495,7 @@ async function runLandingSmoke(
   } else {
     log.warn("Landing-checkout smoke failed — the landing is kept.");
   }
-  return serialized;
+  return { ...serialized, hints: hintTexts(serialized.hints) };
 }
 
 /**

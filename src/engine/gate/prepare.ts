@@ -19,6 +19,7 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
+import { hintTexts } from "../../shared/hints.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
@@ -79,7 +80,7 @@ async function runPrepareGate(
     verb: "prepare",
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    ...(hints.length > 0 ? { hints } : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
   return { result, failedStage, out, cfg };
 }

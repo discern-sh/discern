@@ -19,6 +19,7 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { expandMapDirReference } from "../../shared/map_path.ts";
 import type {
   Diagnostic,
@@ -357,17 +358,19 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
 function loudSuccessHint(
   job: PlannedJob,
   result: JobResult,
-): string | undefined {
+): FiredHint | undefined {
   if (
     result.code !== 0 ||
     result.errorLikeLines < LOUD_SUCCESS_ERROR_LIKE_LINES
   ) {
     return undefined;
   }
-  const where = result.outputPath === undefined
-    ? ""
-    : ` - output at ${result.outputPath}`;
-  return `${job.label} passed but printed ${result.errorLikeLines} error-like line(s) across ${result.outputLines} output line(s)${where}.`;
+  return fire(HINTS["gate-job-loud-success"], {
+    label: job.label,
+    errorLikeLines: result.errorLikeLines,
+    outputLines: result.outputLines,
+    outputPath: result.outputPath,
+  });
 }
 
 function hasFixStageJob(groups: JobGroup[]): boolean {
@@ -431,11 +434,11 @@ export async function serializeJobSteps(
   groups: JobGroup[],
   results: Map<string, JobResult>,
 ): Promise<
-  { steps: StepResult[]; diagnostics: Diagnostic[]; hints: string[] }
+  { steps: StepResult[]; diagnostics: Diagnostic[]; hints: FiredHint[] }
 > {
   const steps: StepResult[] = [];
   const diagnostics: Diagnostic[] = [];
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   const fixStageWired = hasFixStageJob(groups);
   for (const group of groups) {
     for (const j of group.jobs) {
@@ -508,6 +511,18 @@ export async function buildGateResult(
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
 ): Promise<DiscernResult<GateData>> {
+  return (await buildGateResultWithHints(plan, results, failedStage)).result;
+}
+
+/** The gate result plus its in-process fired hints for finish's final assembly. */
+export async function buildGateResultWithHints(
+  plan: GatePlan,
+  results: Map<string, JobResult>,
+  failedStage: FailedStage | null,
+): Promise<{
+  result: DiscernResult<GateData>;
+  firedHints: FiredHint[];
+}> {
   const { steps, diagnostics, hints } = await serializeJobSteps(
     plan.groups,
     results,
@@ -517,12 +532,15 @@ export async function buildGateResult(
     scopes_changed: plan.scopesChanged,
   };
   return {
-    ok: failedStage === null,
-    verb: "done",
-    steps,
-    diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    hints: hints.length > 0 ? hints : undefined,
-    data,
+    result: {
+      ok: failedStage === null,
+      verb: "done",
+      steps,
+      diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+      hints: hints.length > 0 ? hintTexts(hints) : undefined,
+      data,
+    },
+    firedHints: hints,
   };
 }
 

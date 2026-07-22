@@ -77,6 +77,11 @@ export function hintTexts(fired: readonly FiredHint[]): string[] {
   return fired.map((f) => f.text);
 }
 
+/** Optional diagnostic reason rendered in the existing parenthesized form. */
+function reasonSuffix(reason: string | undefined): string {
+  return reason === undefined ? "" : ` (${reason})`;
+}
+
 /**
  * The registry. Entries land site-by-site as the emission sites migrate off
  * inline strings; once the last site moves, the closed-set guard pins this
@@ -669,6 +674,172 @@ export const HINTS = {
     family: "logbook-inline-finding",
     template: ({ observed, next }): string =>
       `Logbook: ${observed} Next: ${next}`,
+  }),
+
+  /**
+   * The advisory a done, prepare, test, or standards result carries while setup
+   * is outstanding. Those verbs run during setup, but their output must not read
+   * as proof that the project itself is finished.
+   */
+  "setup-unfinished-gate": defineHint({
+    id: "setup-unfinished-gate",
+    category: "guardrail",
+    audience: "all",
+    family: "setup-unfinished",
+    template: (): string =>
+      "Setup is not finished — this gate output is indicative while you complete setup. " +
+      "Run `discern setup done` to validate the gate and record completion.",
+  }),
+
+  /** A successful job emitted enough error-like output to warrant inspection. */
+  "gate-job-loud-success": defineHint<{
+    label: string;
+    errorLikeLines: number;
+    outputLines: number;
+    outputPath: string | undefined;
+  }>({
+    id: "gate-job-loud-success",
+    category: "notice",
+    audience: "all",
+    template: ({ label, errorLikeLines, outputLines, outputPath }): string => {
+      const where = outputPath === undefined
+        ? ""
+        : ` - output at ${outputPath}`;
+      return `${label} passed but printed ${errorLikeLines} error-like line(s) across ${outputLines} output line(s)${where}.`;
+    },
+  }),
+
+  /** A trivial test pass when no test-stage job is wired. */
+  "test-job-not-configured": defineHint({
+    id: "test-job-not-configured",
+    category: "notice",
+    audience: "all",
+    template: (): string =>
+      'No test job is configured (set test = "<command>" under [jobs] in discern.toml).',
+  }),
+
+  "gate-trunk-advanced": defineHint({
+    id: "gate-trunk-advanced",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "The trunk advanced while the gate ran, so this branch is behind it now. " +
+      "The gate still passed for this HEAD. Run `discern update`, then " +
+      "`discern done` again before `discern accept`.",
+  }),
+
+  "gate-standards-limits-unverified": defineHint<{
+    reason: string;
+    trunk: string;
+  }>({
+    id: "gate-standards-limits-unverified",
+    category: "next-step",
+    audience: "all",
+    template: ({ reason, trunk }): string =>
+      `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${reason}). Fetch the trunk where the gate runs (in CI: \`git fetch origin ${trunk}:${trunk}\`) so limits are verified.`,
+  }),
+
+  "gate-receipt-skipped-dirty": defineHint<{
+    reason: string | undefined;
+  }>({
+    id: "gate-receipt-skipped-dirty",
+    category: "next-step",
+    audience: "all",
+    family: "gate-receipt",
+    template: ({ reason }): string =>
+      `Gate passed, but no gate receipt was recorded because the worktree is dirty${
+        reasonSuffix(reason)
+      }. Use \`discern prepare\` or \`discern test\` while iterating, then commit the intended final tree and re-run \`discern done\` on the clean HEAD before handoff or acceptance.`,
+  }),
+
+  "gate-receipt-head-moved": defineHint<{ reason: string | undefined }>({
+    id: "gate-receipt-head-moved",
+    category: "next-step",
+    audience: "all",
+    family: "gate-receipt",
+    template: ({ reason }): string =>
+      `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${
+        reasonSuffix(reason)
+      } — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`,
+  }),
+
+  "gate-receipt-record-failed": defineHint<{
+    reason: string | undefined;
+  }>({
+    id: "gate-receipt-record-failed",
+    category: "next-step",
+    audience: "all",
+    family: "gate-receipt",
+    template: ({ reason }): string =>
+      `Gate passed, but discern could not record the gate receipt${
+        reasonSuffix(reason)
+      }; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`,
+  }),
+
+  "gate-receipt-unavailable": defineHint<{ reason: string | undefined }>({
+    id: "gate-receipt-unavailable",
+    category: "notice",
+    audience: "all",
+    family: "gate-receipt",
+    template: ({ reason }): string =>
+      `Gate passed, but discern could not prepare the gate receipt${
+        reasonSuffix(reason)
+      }; \`discern accept\` may need to re-run the gate.`,
+  }),
+
+  "gate-receipt-clear-failed": defineHint<{
+    reason: string | undefined;
+  }>({
+    id: "gate-receipt-clear-failed",
+    category: "next-step",
+    audience: "all",
+    family: "gate-receipt",
+    template: ({ reason }): string =>
+      `The gate failed, and discern could not clear the previous gate receipt${
+        reasonSuffix(reason)
+      }; re-run \`discern done\` after fixing the failure.`,
+  }),
+
+  "gate-failure-gotchas": defineHint<{ doc: string }>({
+    id: "gate-failure-gotchas",
+    category: "next-step",
+    audience: "all",
+    template: ({ doc }): string =>
+      `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
+  }),
+
+  "gate-relay-receipt": defineHint({
+    id: "gate-relay-receipt",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "If this completes the task, relay the receipt to your owner and stop; run `discern accept` only once they accept.",
+  }),
+
+  "gate-update-docs": defineHint({
+    id: "gate-update-docs",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "If you changed documented behaviour, update the docs to match before you finish.",
+  }),
+
+  "gate-deferred-standards": defineHint<{ names: readonly string[] }>({
+    id: "gate-deferred-standards",
+    category: "next-step",
+    audience: "all",
+    template: ({ names }): string =>
+      `${names.length} standard(s) deferred from the gate (measure = "on-demand"): ${
+        names.join(", ")
+      } — the never-loosen limit check still ran; measure them with \`discern standards\` as needed.`,
+  }),
+
+  "gate-previewable-change": defineHint({
+    id: "gate-previewable-change",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "A previewable change landed — start this worktree's dev server to view it.",
   }),
 } as const;
 

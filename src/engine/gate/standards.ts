@@ -1588,7 +1588,7 @@ export async function standardsResult(
   // un-gated during setup, so its output must not read as a finished project.
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   if (inProgress !== undefined) {
-    result.hints = [inProgress, ...(result.hints ?? [])];
+    result.hints = [inProgress.text, ...(result.hints ?? [])];
   }
   return result;
 }

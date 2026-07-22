@@ -54,7 +54,7 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  *   - the GATE PROOF verbs `done` / `prepare` / `test` / `standards`. The agent
  *     needs them to iterate while wiring jobs — and to test a standard it
  *     wires — during setup, so ADR 0065 un-gates them. Pre-setup they carry
- *     {@link SETUP_IN_PROGRESS_HINT}, so their output can't be mistaken for a
+ *     {@link setupInProgressHint}, so their output can't be mistaken for a
  *     finished project — the "false all-green" ADR 0036 feared is now covered by
  *     ADR 0037's incompleteness signaling, and `discern setup done` runs the gate
  *     itself as the structural completion proof.
@@ -138,23 +138,14 @@ export const NOT_SET_UP_MESSAGE =
   "up — your coding agent does it for you.";
 
 /**
- * The advisory a `done` / `prepare` / `test` / `standards` result carries while
- * setup is still outstanding (ADR 0065). Those verbs run pre-setup so the agent can
- * iterate while wiring jobs — but their output must not read as a finished
- * project, so each prepends this line until `[meta].bootstrapped` is recorded by
- * `discern setup done`.
- */
-export const SETUP_IN_PROGRESS_HINT =
-  "Setup is not finished — this gate output is indicative while you complete setup. " +
-  "Run `discern setup done` to validate the gate and record completion.";
-
-/**
- * {@link SETUP_IN_PROGRESS_HINT} when setup is still outstanding, else `undefined`
+ * The registered gate advisory when setup is still outstanding, else `undefined`
  * — so a gate core can prepend it to its result's `hints` only pre-setup, from the
  * `[meta].bootstrapped` it already has in hand.
  */
-export function setupInProgressHint(bootstrapped: boolean): string | undefined {
-  return bootstrapped ? undefined : SETUP_IN_PROGRESS_HINT;
+export function setupInProgressHint(
+  bootstrapped: boolean,
+): FiredHint | undefined {
+  return bootstrapped ? undefined : fire(HINTS["setup-unfinished-gate"]);
 }
 
 /**

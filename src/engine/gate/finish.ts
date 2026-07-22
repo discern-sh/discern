@@ -20,7 +20,7 @@ import { knownJobList, STAGES } from "../../shared/capabilities.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
-  buildGateResult,
+  buildGateResultWithHints,
   checkTestGroup,
   composeGatePlan,
   gatePlanToEngine,
@@ -69,11 +69,7 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
-import {
-  assertMainMerged,
-  detectSilentDivergence,
-  missingIntegrationBranchWarning,
-} from "../worktree/git.ts";
+import { assertMainMerged, detectSilentDivergence } from "../worktree/git.ts";
 import {
   type Diagnostic,
   type DiscernResult,
@@ -83,8 +79,8 @@ import {
 } from "../../shared/result.ts";
 import type { GateData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
-import { addAdvisoryHints } from "../logbook/routing.ts";
 import {
   inlineFindingRoutes,
   receiptFindingHints,
@@ -317,13 +313,15 @@ async function runGate(
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
   const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
     cfg.repository.trunk;
-  let mergeWarning: string | undefined;
+  let mergeWarning: FiredHint | undefined;
   const merged = await assertMainMerged(root, mainBranch);
   if (merged.kind === "behind") {
     failedStage = "merge";
   } else if (merged.kind === "missing") {
-    mergeWarning = missingIntegrationBranchWarning(merged.branch);
-    out.warn(mergeWarning);
+    mergeWarning = fire(HINTS["missing-integration-branch"], {
+      branch: merged.branch,
+    });
+    out.warn(mergeWarning.text);
   }
 
   // 1a. The never-loosen verification (Tier 1, ADR 0133) — every configured
@@ -339,7 +337,7 @@ async function runGate(
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
   let tier1Diagnostics: Diagnostic[] = [];
-  let limitsWarning: string | undefined;
+  let limitsWarning: FiredHint | undefined;
   if (failedStage === null) {
     const verification = await verifyTrunkLimits(
       root,
@@ -361,11 +359,11 @@ async function runGate(
       standardsLimits = verification.summary;
     }
     if (standardsLimits?.status === "unverified") {
-      limitsWarning =
-        `Standards limits are UNVERIFIED — the never-loosen check could not read the trunk (${
-          standardsLimits.reason ?? "unknown"
-        }). Fetch the trunk where the gate runs (in CI: \`git fetch origin ${mainBranch}:${mainBranch}\`) so limits are verified.`;
-      out.warn(limitsWarning);
+      limitsWarning = fire(HINTS["gate-standards-limits-unverified"], {
+        reason: standardsLimits.reason ?? "unknown",
+        trunk: mainBranch,
+      });
+      out.warn(limitsWarning.text);
     }
   }
 
@@ -591,8 +589,11 @@ async function runGate(
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
   const plan = composeGatePlan(stageGroups, sgGroup, changed);
-  const result = await buildGateResult(plan, results, failedStage);
-  const jobOutputHints = result.hints ?? [];
+  const { result, firedHints: jobOutputHints } = await buildGateResultWithHints(
+    plan,
+    results,
+    failedStage,
+  );
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
   //     measured step's note — the receipt renders FROM these, never a second
@@ -707,15 +708,12 @@ async function runGate(
   // new state without changing the green verdict or withholding the receipt:
   // the receipt vouches for the pinned HEAD, while `accept` retains the final
   // live-ref check. This observation can race too, so it stays advisory.
-  let trunkAdvanceWarning: string | undefined;
+  let trunkAdvanceWarning: FiredHint | undefined;
   if (failedStage === null) {
     const stampMerge = await assertMainMerged(root, mainBranch);
     if (stampMerge.kind === "behind") {
-      trunkAdvanceWarning =
-        "The trunk advanced while the gate ran, so this branch is behind it now. " +
-        "The gate still passed for this HEAD. Run `discern update`, then " +
-        "`discern done` again before `discern accept`.";
-      out.warn(trunkAdvanceWarning);
+      trunkAdvanceWarning = fire(HINTS["gate-trunk-advanced"]);
+      out.warn(trunkAdvanceWarning.text);
     }
   }
   // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
@@ -781,11 +779,11 @@ async function runGate(
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
-  const hints = [
+  const hints: FiredHint[] = [
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
-    ...(divergenceWarning !== undefined ? [divergenceWarning.text] : []),
+    ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
@@ -797,38 +795,49 @@ async function runGate(
     ),
     ...jobOutputHints,
     ...couplingHints,
+    ...logbookHints,
   ];
   if (hints.length > 0) {
-    result.hints = hints;
+    result.hints = hintTexts(hints);
+  } else {
+    delete result.hints;
   }
-  addAdvisoryHints(result, logbookHints);
   return { result, failedStage, cfg, out, changed };
 }
 
 function gateReceiptHint(
   receipt: NonNullable<GateData["gate_receipt"]>,
   failedStage: FailedStage | null,
-): string | undefined {
-  const reason = receipt.reason !== undefined ? ` (${receipt.reason})` : "";
+): FiredHint | undefined {
   if (failedStage === null) {
     switch (receipt.status) {
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return `Gate passed, but no gate receipt was recorded because the worktree is dirty${reason}. Use \`discern prepare\` or \`discern test\` while iterating, then commit the intended final tree and re-run \`discern done\` on the clean HEAD before handoff or acceptance.`;
+        return fire(HINTS["gate-receipt-skipped-dirty"], {
+          reason: receipt.reason,
+        });
       case "skipped_head_moved":
-        return `Gate passed, but no gate receipt was recorded because HEAD moved while the gate was running${reason} — the receipt can only vouch for the exact tree the gate tested. Re-run \`discern done\` on the final commit before handoff or acceptance.`;
+        return fire(HINTS["gate-receipt-head-moved"], {
+          reason: receipt.reason,
+        });
       case "record_failed":
-        return `Gate passed, but discern could not record the gate receipt${reason}; \`discern accept\` will re-run the gate unless a later \`discern done\` run records one.`;
+        return fire(HINTS["gate-receipt-record-failed"], {
+          reason: receipt.reason,
+        });
       case "unavailable":
-        return `Gate passed, but discern could not prepare the gate receipt${reason}; \`discern accept\` may need to re-run the gate.`;
+        return fire(HINTS["gate-receipt-unavailable"], {
+          reason: receipt.reason,
+        });
       case "cleared":
       case "clear_failed":
         return undefined;
     }
   }
   if (receipt.status === "clear_failed") {
-    return `The gate failed, and discern could not clear the previous gate receipt${reason}; re-run \`discern done\` after fixing the failure.`;
+    return fire(HINTS["gate-receipt-clear-failed"], {
+      reason: receipt.reason,
+    });
   }
   return undefined;
 }
@@ -846,37 +855,33 @@ function buildGateHints(
   failedStage: FailedStage | null,
   receiptEmitted: boolean,
   deferredStandards: string[],
-): string[] {
+): FiredHint[] {
   if (failedStage !== null) {
     const doc = cfg.project.gotchas_doc;
     return doc !== ""
       ? [
-        `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
+        fire(HINTS["gate-failure-gotchas"], { doc }),
       ]
       : [];
   }
   const hints = receiptEmitted
     ? [
-      "If this completes the task, relay the receipt to your owner and stop; run `discern accept` only once they accept.",
+      fire(HINTS["gate-relay-receipt"]),
     ]
     : [];
-  hints.push(
-    "If you changed documented behaviour, update the docs to match before you finish.",
-  );
+  hints.push(fire(HINTS["gate-update-docs"]));
   if (deferredStandards.length > 0) {
     hints.push(
-      `${deferredStandards.length} standard(s) deferred from the gate (measure = "on-demand"): ${
-        deferredStandards.join(", ")
-      } — the never-loosen limit check still ran; measure them with \`discern standards\` as needed.`,
+      fire(HINTS["gate-deferred-standards"], {
+        names: deferredStandards,
+      }),
     );
   }
   if (
     (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
     changed.includes(PREVIEWABLE_MARKER)
   ) {
-    hints.push(
-      "A previewable change landed — start this worktree's dev server to view it.",
-    );
+    hints.push(fire(HINTS["gate-previewable-change"]));
   }
   return hints;
 }

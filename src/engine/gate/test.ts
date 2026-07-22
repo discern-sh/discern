@@ -13,6 +13,7 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
+import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
@@ -22,16 +23,11 @@ import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 
-/** The line shown — as a human note and as an envelope hint — when no test
- * job is wired, so a trivial pass is never mistaken for "tests ran". */
-const NO_TEST_CONFIGURED =
-  'No test job is configured (set test = "<command>" under [jobs] in discern.toml).';
-
 /**
  * Run the test gate once: build the test stage's group and run it through the shared
  * job runner (quiet under `--json`/MCP), serializing to a {@link DiscernResult}
  * carrying `steps[]` + `diagnostics[]`. When no test command is wired, returns the
- * trivial pass with the {@link NO_TEST_CONFIGURED} hint. The single source the
+ * trivial pass with the registered no-test-job hint. The single source the
  * result core and the human runner share.
  */
 async function runTestGate(
@@ -54,13 +50,15 @@ async function runTestGate(
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
   if (group === undefined) {
+    const hints = [
+      ...(inProgress !== undefined ? [inProgress] : []),
+      fire(HINTS["test-job-not-configured"]),
+    ];
     return {
       result: {
         ok: true,
         verb: "test",
-        hints: inProgress !== undefined
-          ? [inProgress, NO_TEST_CONFIGURED]
-          : [NO_TEST_CONFIGURED],
+        hints: hintTexts(hints),
       },
       failedStage: null,
       out,
@@ -85,10 +83,10 @@ async function runTestGate(
       ...(
         inProgress !== undefined || hints.length > 0
           ? {
-            hints: [
+            hints: hintTexts([
               ...(inProgress !== undefined ? [inProgress] : []),
               ...hints,
-            ],
+            ]),
           }
           : {}
       ),
@@ -131,7 +129,7 @@ export async function runTestJob(
   );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (!configured) {
-    out.info(NO_TEST_CONFIGURED);
+    out.info(fire(HINTS["test-job-not-configured"]).text);
     return 0;
   }
   if (failedStage !== null) {

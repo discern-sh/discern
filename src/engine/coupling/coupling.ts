@@ -877,18 +877,16 @@ export async function runCoupling(
 export async function couplingGateHints(
   root: string,
   env: EnvReader = Deno.env,
-): Promise<string[]> {
+): Promise<FiredHint[]> {
   try {
     const data = (await couplingResult(root, {}, env)).data;
     if (data === undefined || data.mode !== "diff") {
       return [];
     }
-    return hintTexts(
-      couplingHints({
-        ...data,
-        partners: data.partners.filter(isGateHintPartner),
-      }, GATE_HINT_PARTNERS),
-    );
+    return couplingHints({
+      ...data,
+      partners: data.partners.filter(isGateHintPartner),
+    }, GATE_HINT_PARTNERS);
   } catch {
     return [];
   }
