@@ -11,6 +11,7 @@ import {
   ArticleLayout,
   Brand,
   Button,
+  Cluster,
   DataFigure,
   Footnotes,
   HeadingAccent,
@@ -62,6 +63,11 @@ function LandingThemeToggle() {
       </span>
     </button>
   );
+}
+
+/** Page-owned baseline correction for the Unicode mark and mono wordmark. */
+function DiscernName() {
+  return <span className="landing-brand-name">discern</span>;
 }
 
 /** Figure 1: the loop between an ask and a checked report. */
@@ -142,7 +148,12 @@ function LandingPage() {
       <SkipLink href="#main">Skip to content</SkipLink>
       <header className="landing-masthead">
         <a href="/" className="landing-masthead__brand">
-          <Brand mark={DISCERN_MARK} name="discern" size="lg" typeface="mono" />
+          <Brand
+            mark={DISCERN_MARK}
+            name={<DiscernName />}
+            size="lg"
+            typeface="mono"
+          />
         </a>
         <nav className="landing-masthead__nav" aria-label="Site">
           <a href="/docs">Docs</a>
@@ -162,10 +173,10 @@ function LandingPage() {
           standfirst="Anyone can ask a coding agent for software and watch it appear. The harder question arrives later: whether a project made of many asks stays sound. That discipline can belong to the agent, and this essay is about how."
           meta={["discern.sh", "July 2026"]}
           actions={
-            <>
+            <Cluster gap={4}>
               <Button href="#one-command">Install discern</Button>
               <Button href="/docs" variant="secondary">Read the manual</Button>
-            </>
+            </Cluster>
           }
         />
         <ArticleLayout
@@ -186,8 +197,8 @@ function LandingPage() {
           }
         >
           <div className="landing-flow">
-            <Prose className="landing-prose">
-              <h2 id="the-ask">The ask</h2>
+            <Prose className="landing-prose landing-opening-heading">
+              <h3 id="the-ask">The ask</h3>
             </Prose>
             <Prose dropCap className="landing-prose landing-opening-copy">
               <p>
@@ -205,7 +216,7 @@ function LandingPage() {
                 feature, the redesign that can't disturb payments, the fiftieth
                 ask that has to live peacefully with the forty-nine before it.
               </p>
-              <h2 id="the-pattern">The pattern</h2>
+              <h3 id="the-pattern">The pattern</h3>
               <p>
                 Projects built by asking tend to fray in a recognizable order. A
                 fix over here breaks something over there, because nothing
@@ -221,7 +232,7 @@ function LandingPage() {
                 habits.
               </p>
 
-              <h2 id="the-habits">The habits</h2>
+              <h3 id="the-habits">The habits</h3>
               <p>
                 Software teams that survive years of change do it with a short
                 list of unglamorous habits. Work happens away from the copy
@@ -237,7 +248,7 @@ function LandingPage() {
                 the work, and in your project the work is now done by an agent.
               </p>
 
-              <h2 id="the-agent-equipped">The agent, equipped</h2>
+              <h3 id="the-agent-equipped">The agent, equipped</h3>
               <p>
                 With discern installed, your agent works to the list above
                 without being reminded. It takes each task into a separate copy
@@ -270,7 +281,7 @@ function LandingPage() {
             <CheckedAskFigure />
 
             <Prose className="landing-prose">
-              <h2 id="what-you-keep">What you keep</h2>
+              <h3 id="what-you-keep">What you keep</h3>
               <p>
                 All of it happens on your machine. discern makes no network
                 calls after install and sends no telemetry<Note n={7} />. The
@@ -293,7 +304,7 @@ function LandingPage() {
                 evenings spent untangling a break you find later.
               </p>
 
-              <h2 id="one-command">One command</h2>
+              <h3 id="one-command">One command</h3>
               <p>
                 discern ships as one self-contained binary; Git is the only
                 other requirement. Install it, then tell your agent:{" "}
@@ -454,7 +465,7 @@ function LandingPage() {
         />
       </main>
       <SiteFooter
-        brand="discern"
+        brand={<DiscernName />}
         brandMark={DISCERN_MARK}
         brandTypeface="mono"
         brandMarkTreatment="plain"

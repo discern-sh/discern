@@ -1,7 +1,13 @@
 /*
- * Homepage composition styles. Page-owned selectors only (.landing-*);
- * component-owned .discern-* selectors stay with the bundle.
+ * Homepage composition styles. Component-owned .discern-* selectors stay
+ * with the bundle; the document selector mirrors the docs' motion behavior.
  */
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
 
 /* ── Masthead ──────────────────────────────────────────────────────────── */
 
@@ -18,6 +24,11 @@
 .landing-masthead__brand {
   color: inherit;
   text-decoration: none;
+}
+
+.landing-brand-name {
+  position: relative;
+  inset-block-start: 3px;
 }
 
 .landing-masthead__nav {
@@ -51,11 +62,15 @@
   margin-block-start: 0;
 }
 
+.landing-opening-heading h3 {
+  margin-block-start: 0;
+}
+
 .landing-prose p {
   text-wrap: pretty;
 }
 
-.landing-prose h2 {
+.landing-prose h3 {
   text-wrap: balance;
 }
 
