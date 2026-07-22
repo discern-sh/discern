@@ -16,7 +16,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -386,10 +388,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
     // The landing record: the honored marker's receipt rides the envelope, with
     // the relay hint beside it.
     assertStringIncludes(obj.data.receipt, "### Receipt — `agent/epsilon`");
-    assert(
-      (obj.hints ?? []).some((h: string) => h.includes("landing record")),
-      `expected the landing-record hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["accept-relay-landing-receipt"]);
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });

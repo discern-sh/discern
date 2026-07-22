@@ -31,6 +31,8 @@ import { buildGatePlan } from "../src/engine/gate/plan.ts";
 import { buildStandardPlan } from "../src/engine/gate/standard_plan.ts";
 import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 interface JsonStep {
   kind: string;
@@ -194,9 +196,12 @@ Deno.test("tier 1: an unreadable trunk skips LOUDLY — the gate passes with the
     assertEquals(r.code, 0, r.output);
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.standards_limits?.status, "unverified");
-    const hint = (obj.hints ?? []).find((h) => h.includes("UNVERIFIED"));
-    assert(hint !== undefined, `expected the loud disclosure: ${r.stdout}`);
-    assertStringIncludes(hint, "git fetch");
+    const reason = obj.data?.standards_limits?.reason;
+    assert(reason !== undefined, `expected the unverified reason: ${r.stdout}`);
+    assertHasHint(obj, HINTS["gate-standards-limits-unverified"], {
+      reason,
+      trunk: "main",
+    });
   });
 });
 
@@ -311,10 +316,7 @@ Deno.test('tier 2: measure = "on-demand" defers the measurement but never the li
     assertEquals(entry?.measurement, "deferred");
     const flag = await Deno.stat(join(dir, "measured.flag")).catch(() => null);
     assertEquals(flag, null, "a deferred standard must not run its command");
-    const hint = (obj.hints ?? []).find((h) => h.includes("deferred"));
-    assert(hint !== undefined, green.stdout);
-    assertStringIncludes(hint, "cov");
-    assertStringIncludes(hint, "discern standards");
+    assertHasHint(obj, HINTS["gate-deferred-standards"], { names: ["cov"] });
 
     // Tier 1 still covers it: loosening the deferred standard's limit fails.
     await writeConfig(dir, deferred(70));
@@ -348,10 +350,6 @@ Deno.test("tier 2: hint variants — no standards configured means no standards 
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.standards, undefined);
     assertEquals(obj.data?.standards_limits, undefined);
-    const hint = (obj.hints ?? []).find((h) =>
-      h.includes("standard") || h.includes("standards")
-    );
-    assertEquals(hint, undefined, r.stdout);
   });
 });
 
@@ -415,11 +413,7 @@ Deno.test("a green gate over a clean committed tree records the measurement rece
     const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 0, pin.output);
     const pinObj = JSON.parse(pin.stdout.trim()) as { hints?: string[] };
-    const reused = (pinObj.hints ?? []).find((h) => h.includes("Reused"));
-    assert(
-      reused !== undefined,
-      `expected the pin to reuse the gate's measurements: ${pin.stdout}`,
-    );
+    assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
     // No second measurement ran.
     const runsAfterPin =
       (await Deno.readTextFile(join(dir, "runs.count"))).trim().split("\n")

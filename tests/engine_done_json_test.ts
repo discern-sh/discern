@@ -14,7 +14,9 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { gateReceiptHonored } from "../src/engine/gate/receipt.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -151,15 +153,7 @@ Deno.test("done --json: trunk advancing during a green gate warns and still reco
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
       "the gate job must advance the shared trunk ref",
     );
-    assert(
-      (obj.hints ?? []).some((hint: string) =>
-        hint.includes("trunk advanced while the gate ran") &&
-        hint.includes("`discern update`") &&
-        hint.includes("`discern done`") &&
-        hint.includes("before `discern accept`")
-      ),
-      `expected the stamp-time trunk warning and recovery: ${r.stdout}`,
-    );
+    assertHasHint(obj, HINTS["gate-trunk-advanced"]);
   });
 });
 
@@ -283,13 +277,12 @@ Deno.test("done --json: a passing job with suspicious output exposes an advisory
     const output = await Deno.readTextFile(lint.output_path);
     assertStringIncludes(output, "error: one");
     assertStringIncludes(output, "warning: eight");
-    assert(
-      (obj.hints ?? []).some((hint: string) =>
-        hint.includes("lint passed but printed 12 error-like line(s)") &&
-        hint.includes(lint.output_path)
-      ),
-      `expected a loud-success advisory hint, got ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["gate-job-loud-success"], {
+      label: "lint",
+      errorLikeLines: 12,
+      outputLines: 12,
+      outputPath: lint.output_path,
+    });
   });
 });
 
@@ -734,8 +727,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
-    const hints = obj.hints.join("\n");
-    assertStringIncludes(hints, "docs"); // update-the-docs nudge
+    assertHasHint(obj, HINTS["gate-update-docs"]);
     // The standard was measured IN the gate (not deferred to a follow-up verb),
     // so no "run discern standards" nudge is owed — the step itself is the record.
     const stdStep = stepFor(obj, "standard:cov");
@@ -774,7 +766,9 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, false);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
-    assertStringIncludes(obj.hints.join("\n"), "docs/gotchas.md");
+    assertHasHint(obj, HINTS["gate-failure-gotchas"], {
+      doc: "docs/gotchas.md",
+    });
   });
 });
 
@@ -1128,10 +1122,7 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     );
 
     // The relay affordance rides the envelope's hints.
-    assert(
-      (obj.hints ?? []).some((h: string) => h.includes("relay the receipt")),
-      `expected the relay hint: ${JSON.stringify(obj.hints)}`,
-    );
+    assertHasHint(obj, HINTS["gate-relay-receipt"]);
 
     // The marker stores the markdown beside the sha it vouches for, so status and
     // accept can surface the receipt without re-running the gate.
@@ -1180,15 +1171,9 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
     // The refusal NAMES what blocks the receipt — in the reason and the hint —
     // so the agent commits the right file instead of diagnosing a bare "dirty".
     assertStringIncludes(dirty.data.gate_receipt.reason, "wip.txt");
-    assert(
-      (dirty.hints ?? []).some((h: string) => h.includes("wip.txt")),
-      `the dirty hint must name the blocking path: ${
-        JSON.stringify(dirty.hints)
-      }`,
-    );
-    assert(
-      !(dirty.hints ?? []).some((h: string) => h.includes("relay the receipt")),
-      `no relay hint without a receipt: ${JSON.stringify(dirty.hints)}`,
-    );
+    assertHasHint(dirty, HINTS["gate-receipt-skipped-dirty"], {
+      reason: dirty.data.gate_receipt.reason,
+    });
+    assertLacksHint(dirty, HINTS["gate-relay-receipt"]);
   });
 });

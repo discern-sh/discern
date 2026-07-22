@@ -17,7 +17,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
@@ -195,9 +197,9 @@ Deno.test("pin: an improvement smaller than the margin is left un-pinned", async
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "nothing to pin");
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-slack"]);
     assertEquals(limitOf(await readConfig(dir), "size"), "1000");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
   });
@@ -217,9 +219,9 @@ Deno.test("pin: nothing to pin when the metric already sits at the limit", async
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Nothing to pin");
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-slack"]);
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
@@ -360,11 +362,14 @@ Deno.test("pin: a failing standard blocks the whole pin", async () => {
     );
     await gitInit(dir);
     const before = await gitOut(dir, "rev-parse", "HEAD");
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 1, r.output);
     // It names the failing standard and points at `discern standards` for the detail.
-    assertStringIncludes(r.output, "Not pinning");
-    assertStringIncludes(r.output, "bundle");
+    assertHasHint(
+      JSON.parse(r.stdout),
+      HINTS["standards-pin-blocked"],
+      { failingNames: ["bundle"] },
+    );
     // Neither limit moved and no commit was made.
     const cfg = await readConfig(dir);
     assertEquals(limitOf(cfg, "coverage"), "80");
@@ -405,12 +410,10 @@ Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () 
       hints?: string[];
     };
     assertEquals(obj.ok, true);
-    const hint = (obj.hints ?? []).find((candidate) =>
-      candidate.includes("behind the trunk")
-    ) ?? "";
-    assertStringIncludes(hint, "measured values describe this tree");
-    assertStringIncludes(hint, "may not survive `discern update`");
-    assertStringIncludes(hint, "Run `discern update` first");
+    assertHasHint(obj, HINTS["standards-pin-behind"], {
+      behind: "1",
+      trunk: "main",
+    });
     assert(
       await gitOut(wt, "rev-parse", "HEAD") !== beforeHead,
       "the hint must not block the pin commit",
@@ -595,16 +598,16 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
       hints?: string[];
     };
     assertEquals(obj.ok, true);
-    const slackHint = (obj.hints ?? []).find((h) =>
-      h.includes("Pinnable slack")
-    );
-    assertStringIncludes(slackHint ?? "", "coverage");
-    assertStringIncludes(slackHint ?? "", "measured 95");
-    assertStringIncludes(slackHint ?? "", "would pin to 95");
-    assert(
-      !(slackHint ?? "").includes("snug"),
-      `a standard with no slack must not be hinted: ${slackHint}`,
-    );
+    assertHasHint(obj, HINTS["standards-pinnable-slack"], {
+      standards: [{
+        name: "coverage",
+        bound: "floor",
+        limit: 80,
+        measured: "95",
+        newLimit: 95,
+      }],
+      receipted: true,
+    });
   });
 });
 
@@ -626,9 +629,12 @@ Deno.test("pin: carries an honored gate receipt onto the new commit", async () =
     // Simulate a prior green finish over this clean HEAD.
     await seedReceipt(dir);
 
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "Carried the gate receipt forward");
+    assertHasHint(
+      JSON.parse(r.stdout),
+      HINTS["standards-pin-carried-receipt"],
+    );
 
     // The receipt now names the NEW HEAD over a clean tree — accept's honored
     // condition — so accept would skip the redundant gate re-run.
@@ -697,9 +703,9 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
     );
     await gitInit(dir); // no receipt seeded
 
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "No current gate receipt to carry");
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
     // Fail-closed: no receipt was written, so accept will re-run the gate.
     assertEquals(await readReceipt(dir), undefined);
   });
@@ -722,9 +728,9 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
     const stale = "0".repeat(40);
     await seedReceipt(dir, stale);
 
-    const r = await runAgent(dir, ["standards", "--pin"]);
+    const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "No current gate receipt to carry");
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readReceipt(dir), stale);
@@ -909,15 +915,29 @@ Deno.test("receipt: a pin after a green check reuses its measurements — one me
     assertEquals(check.code, 0, check.output);
     assertEquals(await measureCount(dir), 1, "the check measures once");
     // The green check's hint promises the reuse a pin on this commit performs.
-    const hints = (JSON.parse(check.stdout.trim()) as { hints?: string[] })
-      .hints ?? [];
-    const slackHint = hints.find((h) => h.includes("Pinnable slack")) ?? "";
-    assertStringIncludes(slackHint, "reuses this check's measurements");
+    assertHasHint(
+      JSON.parse(check.stdout.trim()),
+      HINTS["standards-pinnable-slack"],
+      {
+        standards: [{
+          name: "coverage",
+          bound: "floor",
+          limit: 80,
+          measured: "95",
+          newLimit: 95,
+        }],
+        receipted: true,
+      },
+    );
 
-    const pin = await runAgent(dir, ["standards", "--pin"]);
+    const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 0, pin.output);
-    assertStringIncludes(pin.stdout, "pinned floor 80 → 95");
-    assertStringIncludes(pin.stdout, "Reused the green check's measurements");
+    const pinObj = JSON.parse(pin.stdout) as {
+      hints?: string[];
+      steps?: Array<{ note?: string }>;
+    };
+    assertStringIncludes(pinObj.steps?.[0]?.note ?? "", "pinned floor 80 → 95");
+    assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
     assertEquals(
       await measureCount(dir),
       1,
@@ -1142,7 +1162,9 @@ Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main
       obj.diagnostics?.[0]?.message ?? "",
       "the floor only rises",
     );
-    assertStringIncludes((obj.hints ?? []).join("\n"), "Not pinning");
+    assertHasHint(obj, HINTS["standards-pin-blocked"], {
+      failingNames: ["coverage"],
+    });
     // No re-measurement, no commit, no edit.
     assertEquals(await measureCount(dir), 1, "replay must not re-measure");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
