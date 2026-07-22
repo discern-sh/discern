@@ -19,15 +19,15 @@ The result system has 3 layers in [`result.ts`](../../../src/shared/result.ts): 
 
 `serializeResult` emits the wire keys that are present on a result:
 
-| Field              | Role                                                              |
-| ------------------ | ----------------------------------------------------------------- |
-| `ok`, `verb`       | Universal success flag and verb discriminator.                    |
-| `dry_run`, `plan`  | A preview and the steps it would apply.                           |
-| `steps`            | Applied steps with outcomes, duration, and output metadata.       |
-| `diagnostics`      | Normalized failures with a reproduce command and captured output. |
-| `data`             | The schema-backed payload for one verb.                           |
-| `hints`            | Advisory next actions that never decide success.                  |
-| `error`, `message` | A stable refusal slug and human explanation.                      |
+| Field              | Role                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `ok`, `verb`       | Universal success flag and verb discriminator.                                                               |
+| `dry_run`, `plan`  | A preview and the steps it would apply.                                                                      |
+| `steps`            | Applied steps with outcomes, duration, and output metadata.                                                  |
+| `diagnostics`      | Normalized failures with a reproduce command and captured output.                                            |
+| `data`             | The schema-backed payload for one verb.                                                                      |
+| `hints`            | Advisory next actions that never decide success ([ADR 0172](../_adr/0172-hints-compile-from-a-registry.md)). |
+| `error`, `message` | A stable refusal slug and human explanation.                                                                 |
 
 The shared renderers consume `EnginePlan` and `StepResult`; verb-specific human views may add presentation, but they read the settled result fields.
 
