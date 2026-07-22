@@ -8,9 +8,11 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the reusable public lockup. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. During `site:build`, the tagline-free lockup is written to `site/pages/fragments/brand.html`; the docs shell reads that static fragment into its top bar without importing the React adapter. A homepage composition can import the same adapter.
 
-## The homepage placeholder
+## The homepage composition
 
-The public `/` homepage is an empty generated document in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx). Its body contains one replacement comment. The document keeps the full compositions bundle, theme bootstrap, favicon, `landing.css`, and `landing.js` connected so the next homepage can start at the composition layer. The bundle retains the Marketing and Editorial groups for that design work.
+The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as one React composition of Marketing, Editorial, and Agents adapters: a skip link and site header, a hero whose visual is a windowed agent-session transcript with a `worklog` step feed, a key-points problem panel, vertical process steps, split features for setup and machinery, an asymmetric feature grid, a metrics band, an FAQ, a CTA band, and the site footer. The page's copy holds the `discern-voice-and-tone` marketing register (source under [`project/skills/`](../../skills/discern-voice-and-tone/SKILL.md)); the install command on the page is the served `/install` one-liner, so the command is true from the first deploy.
+
+Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css) under `.landing-*` selectors only; component-owned `.discern-*` selectors stay with the package (the consumer-CSS guard below enforces this). [`site/page-src/landing.js`](../../../site/page-src/landing.js) adds the one progressive enhancement — copy buttons on elements carrying `data-copy-command` — and the command stays selectable text without JavaScript. The static theme toggle in the header is markup only; the shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 
