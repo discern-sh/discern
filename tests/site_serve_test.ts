@@ -36,13 +36,15 @@ Deno.test("every declared route serves its page to a browser", async () => {
     );
     const html = await res.text();
     assertStringIncludes(html, "discern", `route ${path}`);
-    const links = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) ?? [];
-    assert(
-      links.some((link) =>
-        link.includes(DISCERN_MARK) && link.includes("discern")
-      ),
-      `brand link on route ${path} must place ${DISCERN_MARK} beside discern`,
-    );
+    if (path !== "/") {
+      const links = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) ?? [];
+      assert(
+        links.some((link) =>
+          link.includes(DISCERN_MARK) && link.includes("discern")
+        ),
+        `brand link on route ${path} must place ${DISCERN_MARK} beside discern`,
+      );
+    }
     assertStringIncludes(
       html,
       `href="${DISCERN_FAVICON_PATH}"`,

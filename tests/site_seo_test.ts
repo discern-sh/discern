@@ -241,10 +241,7 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     const description = descriptionOf(html);
     assert(title.length > 0, `${route} has a title`);
     if (route === "/") {
-      assertEquals(
-        title,
-        "discern — automatic quality control for coding agents",
-      );
+      assertEquals(title, "discern");
     } else {
       assert(
         title.endsWith(" · discern.sh docs"),

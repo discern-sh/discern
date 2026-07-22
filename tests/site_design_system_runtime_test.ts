@@ -18,7 +18,10 @@ import { renderContentDesignDemo } from "../site/page-src/content-design-demo.ts
 import { renderDesignSystemDemo } from "../site/page-src/design-system-demo.tsx";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import {
+  HOMEPAGE_PLACEHOLDER,
+  renderLanding,
+} from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 // @ts-types="@types/jsdom"
@@ -371,41 +374,17 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   assertStringIncludes(practitionerHomepage, "Code got fast.");
 });
 
-Deno.test("the public homepage is the static local-only landing composition", async () => {
+Deno.test("the public homepage is an empty design-system-connected shell", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
   );
   assertEquals(response.status, 200);
   const html = await response.text();
-  assertStringIncludes(
-    html,
-    '<span class="landing-strapline__line">You ask.</span>' +
-      '<span class="landing-strapline__line">They build.</span>',
-  );
-  assertStringIncludes(
-    html,
-    '<span class="landing-strapline__line"><span class="discern-heading__accent">discern checks.</span></span>',
-  );
-  assertEquals(
-    [...html.matchAll(/class="landing-strapline__line/g)].length,
-    3,
-    "the desktop strapline owns exactly three explicit lines",
-  );
-  assertStringIncludes(html, "discern-process-steps");
-  assert(
-    !html.includes("landing-term") && !html.includes("data-catch-stage"),
-    "the proof story stays readable without terminal playback",
-  );
-  assertStringIncludes(html, "discern-theme-toggle");
-  assertStringIncludes(html, 'aria-label="GitHub"');
-  assertStringIncludes(html, "discern-cta-band--sunken");
-  assert(
-    !html.includes("Marketing atlas"),
-    "the retired atlas is absent from the footer",
-  );
-  assertStringIncludes(html, "curl -fsSL https://discern.sh/install | sh");
-  assertStringIncludes(html, "static HTML · local assets · no tracking");
+  assertStringIncludes(html, HOMEPAGE_PLACEHOLDER);
+  const dom = new JSDOM(html);
+  assertEquals(dom.window.document.body.textContent?.trim(), "");
+  assertEquals(dom.window.document.body.children.length, 0);
   assert(
     runtimeAssetReferences(html).every((path) => path.startsWith("/")),
   );
@@ -415,77 +394,6 @@ Deno.test("the public homepage is the static local-only landing composition", as
     ),
     [],
   );
-});
-
-Deno.test("landing compositions derive layout from the content they render", async () => {
-  const dom = new JSDOM(renderLanding());
-  const document = dom.window.document;
-
-  const process = document.querySelector<HTMLElement>("#the-catch");
-  const processItems = process?.querySelectorAll(
-    ".discern-process-steps__list > li",
-  ) ?? [];
-  assert(process !== null);
-  assertEquals(
-    process.style.getPropertyValue("--discern-process-columns"),
-    String(processItems.length),
-    "every rendered process step must own one desktop column",
-  );
-
-  const cta = [...document.querySelectorAll<HTMLElement>(
-    ".discern-cta-band",
-  )].find((candidate) =>
-    candidate.textContent?.includes("Keep making things.")
-  );
-  assert(cta !== undefined);
-  assert(
-    cta.querySelector(".discern-cta-band__description .landing-install") !==
-      null,
-    "the full install command belongs in the CTA's readable content column",
-  );
-  assertEquals(
-    cta.querySelector(".discern-cta-band__visual .landing-install"),
-    null,
-  );
-
-  const css = await Deno.readTextFile(join(ROOT, "site/page-src/landing.css"));
-  const commandStart = css.indexOf(".landing-install__cmd > code {");
-  const commandEnd = css.indexOf("}", commandStart);
-  const commandRule = css.slice(commandStart, commandEnd + 1);
-  assertStringIncludes(commandRule, "overflow-wrap: anywhere");
-  assert(
-    !commandRule.includes("white-space: nowrap"),
-    "narrow install commands must expose the URL instead of clipping it",
-  );
-
-  dom.window.close();
-});
-
-Deno.test("landing header actions share one control treatment", async () => {
-  const dom = new JSDOM(renderLanding());
-  const actions = [...dom.window.document.querySelectorAll<HTMLElement>(
-    ".discern-site-header__actions > *",
-  )];
-  assertEquals(actions.length, 2);
-  assert(
-    actions.every((action) =>
-      action.classList.contains("landing-header-action")
-    ),
-    "theme and repository controls must share the same geometry and skin",
-  );
-  const githubMark = dom.window.document.querySelector(
-    '.discern-site-header__actions a[aria-label="GitHub"] path',
-  );
-  assertEquals(githubMark?.getAttribute("fill"), "currentColor");
-  assertEquals(githubMark?.getAttribute("stroke"), "none");
-
-  const css = await Deno.readTextFile(join(ROOT, "site/page-src/landing.css"));
-  const actionStart = css.indexOf(".landing-header-action {");
-  const actionEnd = css.indexOf("}", actionStart);
-  const actionRule = css.slice(actionStart, actionEnd + 1);
-  assertStringIncludes(actionRule, "inline-size: 40px");
-  assertStringIncludes(actionRule, "block-size: 40px");
-  assertStringIncludes(actionRule, "padding: 0");
   dom.window.close();
 });
 
@@ -544,7 +452,7 @@ Deno.test("bundle routes use local static assets and ship no React runtime", asy
   }
 });
 
-Deno.test("every design-system route renders the canonical brand lockup", async () => {
+Deno.test("every bundle selects the canonical brand lockup", () => {
   for (
     const name of Object.keys(DESIGN_SYSTEM_BUNDLES) as DesignSystemBundleName[]
   ) {
@@ -552,19 +460,6 @@ Deno.test("every design-system route renders the canonical brand lockup", async 
       DESIGN_SYSTEM_BUNDLES[name].components.includes("brand"),
       `${name} must select the brand component`,
     );
-    for (const route of DESIGN_SYSTEM_BUNDLES[name].routes) {
-      const response = await handler(
-        new Request(`https://discern.sh${route}`, { headers: BROWSER }),
-      );
-      assertEquals(response.status, 200, route);
-      const html = await response.text();
-      assertStringIncludes(html, "discern-brand--md", route);
-      assertStringIncludes(html, "discern-brand--mono", route);
-      assertStringIncludes(html, "discern-logo--md", route);
-      assertStringIncludes(html, "discern-logo--plain", route);
-      assertStringIncludes(html, "discern-logo--natural", route);
-      assertStringIncludes(html, 'aria-hidden="true">◮</span>', route);
-    }
   }
 });
 

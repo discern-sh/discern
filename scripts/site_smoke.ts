@@ -214,7 +214,7 @@ export async function runSiteSmoke(
     const document = dom.window.document;
     const title = document.title.trim();
     const titledForSite = route === "/"
-      ? title === "discern — automatic quality control for coding agents"
+      ? title === "discern"
       : title.endsWith(" · discern.sh docs");
     if (title === "" || !titledForSite) {
       fail(`${route}: invalid title ${JSON.stringify(title)}`);

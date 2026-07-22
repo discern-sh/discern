@@ -8,9 +8,9 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 Public pages that load a design-system bundle share the lockup in `site/page-src/branding.tsx`. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. The Editorial atlas adds `field notes` through the component's tagline slot. Header and footer links receive the same component. During `site:build`, the tagline-free lockup is also written to `site/pages/fragments/brand.html`; the docs shell reads that static fragment into its top bar without importing the React adapter.
 
-## The landing page and the retained compositions
+## The homepage placeholder and the retained compositions
 
-The public `/` homepage is a purpose-built landing composition (`landing.tsx` with its own `landing.css` and `landing.js`) carrying the launch copy and a three-step `ProcessSteps` account of one captured gate run. ADR 0156 records the decision. The complete Marketing composition remains at `/design-system-demo` as an explicitly labeled atlas exercising the published Marketing group, and `/content-design-demo` does the same for the Editorial group and a long-form reading experience. The atlases remain because the coverage guard replays every published Marketing and Editorial component through them; the landing page selects freely from the same bundle. Replaced homepages are preserved under `mockups/landing/`, outside the served tree.
+The public `/` homepage is an empty generated document in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx). Its body contains one replacement comment. The document keeps the full compositions bundle, theme bootstrap, favicon, `landing.css`, and `landing.js` connected so the next homepage can start at the composition layer. The complete Marketing composition remains at `/design-system-demo` as an explicitly labeled atlas exercising the published Marketing group, and `/content-design-demo` does the same for the Editorial group and a long-form reading experience. The atlases remain because the coverage guard replays every published Marketing and Editorial component through them. Replaced homepages are preserved under `mockups/landing/`, outside the served tree.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 
@@ -30,7 +30,7 @@ New package components and classes auto-enrol through the published manifest; ne
 ## Build and theme
 
 ```sh
-deno task site:build   # emit both runtimes, the homepage, and two atlases
+deno task site:build   # emit both runtimes, the homepage shell, and two atlases
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
 ```
