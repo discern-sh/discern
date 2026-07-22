@@ -8,6 +8,8 @@
  *  - BYTE-DERIVED: each gate verb's step list is reconstructed from the SAME plan
  *    builders the gate executes, asserted label-for-label — so the model can never
  *    become a parallel hand-copy that drifts from what the gate actually runs.
+ *  - MODELED OR ABSENT: every top-level verb is either represented by a plan or
+ *    recorded outside this model with a reason — exactly one of the two.
  *
  * These call {@link buildExecutionModel} directly against a parsed config (pure, no
  * subprocess); the real-binary surface is covered in `doctor_test.ts`.
@@ -15,8 +17,14 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { STAGES } from "../src/shared/capabilities.ts";
 import { STEP_KINDS } from "../src/shared/result.ts";
-import { buildExecutionModel } from "../src/engine/doctor/execution_model.ts";
+import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import {
+  buildExecutionModel,
+  STAGE_HINTS,
+  STEP_KIND_ANNOTATIONS,
+} from "../src/engine/doctor/execution_model.ts";
 import {
   buildGatePlan,
   gatePlanToEngine,
@@ -72,6 +80,136 @@ const RICH_TOML = [
   'ensure = ["install-deps"]',
   "",
 ].join("\n");
+
+const READ_ONLY_ABSENCE =
+  "a read or advisory surface with no configurable workflow sequence";
+const INSTALLER_ABSENCE =
+  "an installer lifecycle outside the project execution model defined by ADR 0063";
+
+/** Top-level verbs the execution model deliberately does not describe. */
+const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
+  Record<string, string>
+> = {
+  config: "a direct config editor, not a configurable workflow sequence",
+  coupling: READ_ONLY_ABSENCE,
+  desk: READ_ONLY_ABSENCE,
+  doctor: "the host of the execution model, not a workflow it describes",
+  help: READ_ONLY_ABSENCE,
+  identity: "a command group whose subcommands inspect one worktree identity",
+  impact: READ_ONLY_ABSENCE,
+  improvement: READ_ONLY_ABSENCE,
+  licenses: READ_ONLY_ABSENCE,
+  map: READ_ONLY_ABSENCE,
+  mcp: "a long-running transport server, not a finite execution plan",
+  patterns: READ_ONLY_ABSENCE,
+  preset: INSTALLER_ABSENCE,
+  refresh:
+    "one direct convergence operation already shown inside modeled workflows",
+  script:
+    "a project-owned command discovered at runtime, with no closed sequence",
+  setup: INSTALLER_ABSENCE,
+  skills: "a command group whose subcommands act directly on one skill",
+  status: READ_ONLY_ABSENCE,
+  uninstall: INSTALLER_ABSENCE,
+  upgrade: INSTALLER_ABSENCE,
+};
+
+/** Exactly-one-of coverage for the hand-enumerated model. */
+function modeledVerbOffenders(
+  verbs: readonly string[],
+  modeled: ReadonlySet<string>,
+  deliberatelyAbsent: Readonly<Record<string, string>>,
+): string[] {
+  const live = new Set(verbs);
+  const offenders: string[] = [];
+  for (const verb of verbs) {
+    const isModeled = modeled.has(verb);
+    const isAbsent = Object.hasOwn(deliberatelyAbsent, verb);
+    if (!isModeled && !isAbsent) {
+      offenders.push(
+        `${verb} has no execution model and no deliberate-absence reason`,
+      );
+    }
+    if (isModeled && isAbsent) {
+      offenders.push(
+        `${verb} is modeled and recorded absent — delete the stale record`,
+      );
+    }
+  }
+  for (const [verb, reason] of Object.entries(deliberatelyAbsent)) {
+    if (!live.has(verb)) {
+      offenders.push(
+        `${verb} is recorded absent but is not a live verb — delete the stale record`,
+      );
+    }
+    if (reason.trim().length === 0) {
+      offenders.push(`${verb} needs a deliberate-absence reason`);
+    }
+  }
+  for (const verb of modeled) {
+    if (!live.has(verb)) {
+      offenders.push(`${verb} is modeled but is not a live top-level verb`);
+    }
+  }
+  return offenders;
+}
+
+/** Collapse subcommand plans such as `worktree prune` to their live top-level
+ * verb (`worktree`) for comparison with {@link KNOWN_VERBS}. */
+function modeledTopLevelVerbs(planNames: readonly string[]): Set<string> {
+  return new Set(planNames.map((name) => name.split(" ")[0] ?? name));
+}
+
+Deno.test("execution model: annotation tables are total over step kinds and stages", () => {
+  assertEquals(
+    Object.keys(STEP_KIND_ANNOTATIONS).sort(),
+    [...STEP_KINDS].sort(),
+  );
+  assertEquals(Object.keys(STAGE_HINTS).sort(), [...STAGES].sort());
+});
+
+Deno.test("execution model: every top-level verb is modeled or recorded deliberately absent", () => {
+  const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
+  const offenders = modeledVerbOffenders(
+    [...KNOWN_VERBS],
+    modeledTopLevelVerbs(model.map((plan) => plan.verb)),
+    MODELED_VERBS_DELIBERATELY_ABSENT,
+  );
+  assertEquals(
+    offenders,
+    [],
+    "the top-level verb vocabulary and doctor's execution model drifted apart:\n  " +
+      offenders.join("\n  "),
+  );
+});
+
+Deno.test("execution model control: a future verb fails until modeled or recorded absent", () => {
+  const unclaimed = modeledVerbOffenders(
+    ["done", "future"],
+    new Set(["done"]),
+    {},
+  );
+  assertEquals(unclaimed.length, 1, "an unclaimed future verb must offend");
+  assert(unclaimed[0]?.includes("future"));
+  assertEquals(
+    modeledVerbOffenders(
+      ["done", "future"],
+      new Set(["done"]),
+      { future: "not a configurable execution sequence" },
+    ),
+    [],
+    "a live absence with a reason is accounted for",
+  );
+  assertEquals(
+    modeledVerbOffenders(
+      ["done"],
+      new Set(["done"]),
+      { done: "stale" },
+    ).length,
+    1,
+    "a verb cannot be both modeled and recorded absent",
+  );
+});
 
 Deno.test("execution model: every STEP_KIND is documented by some verb (coverage forcing function)", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
@@ -171,7 +309,7 @@ Deno.test("execution model: a resource teardown shows the user's command in ever
   }
 });
 
-Deno.test("execution model: every configurable verb is always modeled (ADR 0101)", () => {
+Deno.test("execution model: every declared plan is always modeled (ADR 0101)", () => {
   const cfg = parseConfigOrThrow(
     [
       "[project]",
@@ -179,9 +317,9 @@ Deno.test("execution model: every configurable verb is always modeled (ADR 0101)
       "",
     ].join("\n"),
   );
-  // The subsystems are all core, so the model covers the full verb surface even
-  // on a bare config — the MCP/CLI verb surface and the doctor model stay in
-  // lockstep.
+  // The subsystems are all core, so every plan in the model remains visible on
+  // a bare config. The modeled-or-absent guard above holds this declared subset
+  // against the full CLI/MCP verb surface.
   assertEquals(buildExecutionModel(cfg).map((v) => v.verb), [
     "done",
     "prepare",

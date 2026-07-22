@@ -23,7 +23,7 @@
  * source, and the atlas page it renders is its artifact.
  */
 
-import { join } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -181,6 +181,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/glossary_enrolment_test.ts",
       "tests/feature_canon_enrolment_test.ts",
+      "tests/execution_model_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -189,6 +190,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members:
       async () => [...(await import("../src/shared/capabilities.ts")).STAGES],
+  },
+  {
+    id: "step-kinds",
+    title: "Step kinds",
+    what:
+      "The result step vocabulary and the actor and hint doctor renders for every kind.",
+    source: {
+      kind: "module",
+      module: "src/engine/doctor/execution_model.ts",
+      exportName: "STEP_KIND_ANNOTATIONS",
+    },
+    guards: ["tests/execution_model_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "values in each result step; doctor explains every kind in context",
+      },
+      featureCanon: { nodeId: "doctor" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/engine/doctor/execution_model.ts"))
+          .STEP_KIND_ANNOTATIONS,
+      ),
   },
   {
     id: "config-tables",
@@ -328,6 +354,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.keys((await import("../src/shared/hints.ts")).HINTS),
   },
   {
+    id: "logbook-events",
+    title: "Logbook events",
+    what:
+      "The event kinds written to the local logbook and interpreted by its advisory readers.",
+    source: {
+      kind: "module",
+      module: "src/engine/logbook/schema.ts",
+      exportName: "logbookEventSchema",
+    },
+    guards: [
+      "tests/engine_logbook_test.ts",
+      "tests/engine_patterns_test.ts",
+      "tests/logbook_test.ts",
+      "tests/logbook_routing_test.ts",
+      "tests/logbook_no_network_test.ts",
+      "tests/patterns_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: { term: "Logbook" },
+      featureCanon: { nodeId: "logbook" },
+    },
+    members: async () =>
+      (await import("../src/engine/logbook/schema.ts"))
+        .logbookEventSchema.options.map((option) => option.shape.kind.value),
+  },
+  {
     id: "glossary-terms",
     title: "Glossary terms",
     what:
@@ -451,6 +504,50 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("../src/lib/docs.ts")).PUBLIC_DOC_SURFACES.map(
         (surface) => surface.name,
       ),
+  },
+  {
+    id: "adrs",
+    title: "Architecture Decision Records",
+    what:
+      "The numbered decision records in the map, including records later superseded.",
+    source: {
+      kind: "module",
+      module: "src/lib/docs.ts",
+      exportName: "adrRecords",
+    },
+    guards: [
+      "tests/adr_index_test.ts",
+      "tests/adr_citation_form_test.ts",
+      "tests/adr_citations_test.ts",
+      "tests/improve_count_adrs_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/_adr/README.md",
+        kind: "maintained-block",
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the decision page explains this project practice; the glossary covers product vocabulary",
+      },
+      featureCanon: { nodeId: "adr-discipline" },
+    },
+    members: async () => {
+      const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+      const { loadConfig } = await import("../src/shared/config_schema.ts");
+      const { resolveMapDir } = await import("../src/lib/paths.ts");
+      const { adrRecords, discoverDocs } = await import("../src/lib/docs.ts");
+      const mapDir = resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+      const tree = await discoverDocs({
+        cwd: repoRoot,
+        dir: join(mapDir, "_adr"),
+        includeInternal: true,
+      });
+      if (tree === undefined) return [];
+      return adrRecords(tree.entries).map((record) => record.number);
+    },
   },
   {
     id: "project-artifacts",
