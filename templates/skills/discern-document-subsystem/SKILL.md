@@ -1,6 +1,6 @@
 ---
 name: discern-document-subsystem
-description: Write or refresh a subtree of the configured documentation tree for one subsystem (its README plus leaves), following the project's documenter brief. Use when the user says "document the X subsystem", "write the docs for X", "refresh the X docs", "the docs for X are stale", or after a change that altered a subsystem's documented behaviour. Can fan out one documenter per subsystem to do several at once. Bundled with discern.
+description: Document a subsystem of the configured documentation tree — write or refresh one subtree (its README plus leaves) from the real code, following the project's documenter brief. Use when asked to document a subsystem, write or refresh the docs for X, or when a subsystem's docs are stale. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -18,7 +18,7 @@ The configured documentation tree lives at `{{map_dir}}`. This skill produces or
 
 ## 1. Confirm the prerequisites
 
-**If `{{map_dir}}_internal/documenter-agent-brief.md` doesn't exist yet**, create the `_internal` scaffolding from this skill's skeleton first: copy this skill's own `skeleton/docs/_internal/` directory to `{{map_dir}}_internal/`.
+`discern setup` seeds the `_internal/` scaffolding — the documenter brief and the scope-manifest template — together with the map skeleton. **If `{{map_dir}}_internal/documenter-agent-brief.md` is missing**, the map predates discern seeding it: have the project owner restore the `_internal/` scaffolding before documenting.
 
 The brief assumes the orientation tier already exists under `{{map_dir}}00-orientation/`. If those files are still skeletons, run `discern setup` first.
 
