@@ -191,8 +191,8 @@ export const HINTS = {
     example: { branch: "main" },
     template: ({ branch }): string =>
       `Create the local trunk branch '${branch}', or set [repository].trunk to ` +
-      `the branch this project uses, then re-run. The merge check cannot run ` +
-      `until that branch is available locally.`,
+      `the branch this project uses, then re-run. The trunk branch '${branch}' ` +
+      `is not available locally, so the merge check cannot run.`,
   }),
 
   /**
@@ -1123,7 +1123,8 @@ export const HINTS = {
     audience: "all",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string =>
+      `${GATE_DIAGNOSTIC_REMEDY_CORE} One or more scope gates failed.`,
   }),
 
   /** A gate stage changed a committed-clean tracked file. */
@@ -1385,7 +1386,7 @@ export const HINTS = {
     audience: "all",
     example: undefined,
     template: (): string =>
-      "Add a [standards.<name>] table to measure a standard. None are configured.",
+      "Add a [standards.<name>] table to measure a standard. No standards configured.",
   }),
 
   /** A green check found tighter limits that the pin pass can capture. */
@@ -1784,7 +1785,7 @@ export const HINTS = {
     family: "setup-done-next",
     example: undefined,
     template: (): string =>
-      "Before continuing, reactivate every configured coding agent using the provider-specific steps below. The current session cannot load newly wired MCP tools, session hooks, or project rules automatically:",
+      "Before continuing, reactivate every configured coding agent using the provider-specific steps below. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:",
   }),
 
   /** Setup's final coaching route for deepening the newly-wired project. */
@@ -1837,7 +1838,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       restartSessionHint(
-        "Restart every open agent session now, or reload its MCP servers, before continuing with this discern build. A server process started before the upgrade still runs the old build.",
+        "For every open agent session, restart it so its discern MCP server reloads this build, or reload its MCP servers directly, before continuing. A server process started before the upgrade still runs the old build.",
       ),
   }),
 
