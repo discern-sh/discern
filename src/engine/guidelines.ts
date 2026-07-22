@@ -44,6 +44,10 @@ import { Logger } from "../lib/log.ts";
 export interface GuidelinesResult {
   /** Output paths (relative to `root`) written, in agent-config order. */
   agentsWritten: string[];
+  /** Tracked Agent files and Shared files whose bytes or executable bit changed.
+   * Internal trigger evidence for refresh's commit advisory; the public data shape
+   * continues to report paths in its existing per-artifact buckets. */
+  trackedArtifactsChanged: string[];
   /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
   mcpWired: string[];
   /** Provider hook/settings files re-seeded with discern's hook groups. */
@@ -115,6 +119,9 @@ export async function refreshResult(
   const result = await compileGuidelines(root, logger);
   const errors = guidanceRefreshErrors(result);
   const failed = errors.length > 0;
+  const hints = !failed && result.trackedArtifactsChanged.length > 0
+    ? [fire(HINTS["refresh-commit-tracked-artifacts"]).text, ...result.hints]
+    : result.hints;
   return {
     ok: !failed,
     verb: "refresh",
@@ -125,7 +132,7 @@ export async function refreshResult(
           `${errors.length} artifact(s) failed to refresh; see data.errors.`,
       }
       : {}),
-    hints: result.hints,
+    hints,
     data: refreshData(result),
   };
 }
@@ -267,6 +274,7 @@ export async function compileGuidelines(
 
   // --- job 3: compile the agent files -----------------------------------------
   const agentsWritten: string[] = [];
+  const agentFilesChanged: string[] = [];
 
   // Render the expected content for every configured provider — the SINGLE source
   // of the compiled-file content, shared with the `status`/`done` currency check
@@ -281,6 +289,7 @@ export async function compileGuidelines(
     errors.push(msg);
     return summarize(
       agentsWritten,
+      agentFilesChanged,
       mcpWired,
       hooksWired,
       worktreeAppWired,
@@ -305,10 +314,23 @@ export async function compileGuidelines(
     try {
       const out = join(root, rel);
       await ensureDir(dirname(out));
+      let changed = true;
+      try {
+        const existing = await Deno.readTextFile(out);
+        const stat = await Deno.stat(out);
+        changed = existing !== fileBody || ((stat.mode ?? 0) & 0o111) !== 0;
+      } catch {
+        // Preserve the existing write path when inspection is unavailable. The
+        // write below remains the authority on whether this artifact can refresh.
+        changed = true;
+      }
       await Deno.writeTextFile(out, fileBody);
       // A generated file should be readable like any other source (mode 0644).
       await Deno.chmod(out, 0o644);
       agentsWritten.push(rel);
+      if (changed) {
+        agentFilesChanged.push(rel);
+      }
     } catch (error) {
       const msg = `could not write ${rel}: ${errText(error)}`;
       log.warn(msg);
@@ -337,6 +359,7 @@ export async function compileGuidelines(
   }
   return summarize(
     agentsWritten,
+    agentFilesChanged,
     mcpWired,
     hooksWired,
     worktreeAppWired,
@@ -351,6 +374,7 @@ export async function compileGuidelines(
  * so this does not repeat it. */
 function summarize(
   agentsWritten: string[],
+  agentFilesChanged: string[],
   mcpWired: string[],
   hooksWired: string[],
   worktreeAppWired: string[],
@@ -361,6 +385,15 @@ function summarize(
 ): GuidelinesResult {
   return {
     agentsWritten,
+    trackedArtifactsChanged: [
+      ...new Set([
+        ...agentFilesChanged,
+        ...mcpWired,
+        ...hooksWired,
+        ...worktreeAppWired,
+        ...projectRulesWired,
+      ]),
+    ],
     mcpWired,
     hooksWired,
     worktreeAppWired,

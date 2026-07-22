@@ -145,6 +145,41 @@ Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-a
   });
 });
 
+Deno.test("engine refresh: changed tracked artifacts advise committing the refreshed copies", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const first = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(first.code, 0, first.output);
+    assertHasHint(
+      JSON.parse(first.stdout.trim()),
+      HINTS["refresh-commit-tracked-artifacts"],
+    );
+
+    // A byte-identical re-apply still reports the Agent file as written in data,
+    // but it changed no tracked artifact and must not repeat the commit advice.
+    const unchanged = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(unchanged.code, 0, unchanged.output);
+    assertLacksHint(
+      JSON.parse(unchanged.stdout.trim()),
+      HINTS["refresh-commit-tracked-artifacts"],
+    );
+
+    // A later source edit changes the compiled Agent file without reinstalling
+    // MCP. The commit advice is driven by that tracked change, not by first setup.
+    await ensureDir(join(dir, "discern"));
+    await Deno.writeTextFile(
+      join(dir, "discern/guidance.md"),
+      "# Project guidance\nKeep the refreshed copy with this source.\n",
+    );
+    const changed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(changed.code, 0, changed.output);
+    const envelope = JSON.parse(changed.stdout.trim());
+    assertHasHint(envelope, HINTS["refresh-commit-tracked-artifacts"]);
+    assertLacksHint(envelope, HINTS["refresh-mcp-first-install"]);
+  });
+});
+
 Deno.test("engine refresh: materializes skills even with no guideline sources (jobs are independent)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -1407,6 +1407,20 @@ export const HINTS = {
       ),
   }),
 
+  /**
+   * A successful refresh changed one or more tracked Agent files or Shared files.
+   * The changed paths stay in `data`; this hint carries only the commit action.
+   */
+  "refresh-commit-tracked-artifacts": defineHint({
+    id: "refresh-commit-tracked-artifacts",
+    category: "next-step",
+    audience: "all",
+    family: "refresh-result",
+    example: undefined,
+    template: (): string =>
+      "Commit the refreshed copies with the source change that produced them.",
+  }),
+
   /** A successful skills eject leaves the authored override ready to edit. */
   "skills-eject-edit-override": defineHint({
     id: "skills-eject-edit-override",
