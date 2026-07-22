@@ -10,6 +10,7 @@ import {
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
+import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { buildStreamFacts, DETECTORS, runDetector } from "./detectors.ts";
 import { readRecentLogbookStream } from "./read.ts";
@@ -93,7 +94,7 @@ function oneLine(text: string): string {
 export function receiptFindingHints(
   findings: readonly RoutedFinding[],
   branch: string,
-): string[] {
+): FiredHint[] {
   const eligible = findings.filter((routed) =>
     routed.finding.subject === branch &&
     routed.considered >=
@@ -105,10 +106,10 @@ export function receiptFindingHints(
   }
   const count = eligible.length;
   return [
-    `Logbook: ${count} branch finding${count === 1 ? "" : "s"}; ` +
-    `${
-      oneLine(strongest.finding.observed)
-    } Run \`discern patterns\` for full evidence and next steps.`,
+    fire(HINTS["logbook-receipt-finding"], {
+      count,
+      observed: oneLine(strongest.finding.observed),
+    }),
   ];
 }
 
@@ -116,15 +117,16 @@ export function receiptFindingHints(
 export function statusFindingHints(
   findings: readonly RoutedFinding[],
   branch: string | undefined,
-): string[] {
+): FiredHint[] {
   return findings
     .filter((routed) => matchesBranch(routed, branch))
     .slice(0, STATUS_FINDING_CAP)
     .map((routed) => {
       const next = routed.finding.next_step ?? routed.detector.next_step;
-      return `Logbook: ${oneLine(routed.finding.observed)} Next: ${
-        oneLine(next)
-      }`;
+      return fire(HINTS["logbook-status-finding"], {
+        observed: oneLine(routed.finding.observed),
+        next: oneLine(next),
+      });
     });
 }
 

@@ -10,6 +10,7 @@
  */
 
 import type { DiscernResult } from "../../shared/result.ts";
+import { type FiredHint, hintTexts } from "../../shared/hints.ts";
 import type {
   DetectorScope,
   DetectorTier,
@@ -115,10 +116,10 @@ export function routedFindingData(routed: RoutedFinding): PatternsFinding {
  */
 export function addAdvisoryHints<T>(
   result: DiscernResult<T>,
-  hints: readonly string[],
+  hints: readonly FiredHint[],
 ): void {
   if (hints.length === 0) {
     return;
   }
-  result.hints = [...(result.hints ?? []), ...hints];
+  result.hints = [...(result.hints ?? []), ...hintTexts(hints)];
 }

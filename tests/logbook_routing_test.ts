@@ -115,7 +115,10 @@ Deno.test("logbook routing: advisory attachment can change only hints on an enve
   };
   const before = structuredClone(result);
 
-  addAdvisoryHints(result, ["logbook observation"]);
+  addAdvisoryHints(result, [{
+    id: "test-logbook-observation",
+    text: "logbook observation",
+  }]);
 
   const afterWithoutHints = structuredClone(result);
   const beforeWithoutHints = structuredClone(before);

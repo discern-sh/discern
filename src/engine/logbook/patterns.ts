@@ -30,6 +30,7 @@ import type {
   PatternsResetData,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
@@ -137,38 +138,32 @@ export async function patternsResult(
     })),
   };
 
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   if (stream.events.length === 0) {
-    hints.push(
-      "The logbook is empty. discern records one event per verb run, locally " +
-        "under the repository's git directory — check back after some use.",
-    );
+    hints.push(fire(HINTS["patterns-logbook-empty"]));
   } else {
     const young = reports.filter((r) => r.status === "insufficient-evidence");
     if (young.length > 0) {
       hints.push(
-        `The logbook is too young for ${young.length} of ${reports.length} ` +
-          `detectors — each reports insufficient evidence rather than guessing.`,
+        fire(HINTS["patterns-insufficient-evidence"], {
+          young: young.length,
+          total: reports.length,
+        }),
       );
     }
     if (findings.length > 0) {
-      hints.push(
-        "Advisory findings: each next step says what to inspect or enforce.",
-      );
+      hints.push(fire(HINTS["patterns-advisory-findings"]));
     }
   }
   if (!config.project.logbook) {
-    hints.push(
-      "Recording is off ([project].logbook = false), so new runs aren't " +
-        "recorded; this report reads the history that already exists.",
-    );
+    hints.push(fire(HINTS["patterns-recording-off"]));
   }
 
   return {
     ok: true,
     verb: "patterns",
     data,
-    ...(hints.length > 0 ? { hints } : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
 }
 
@@ -320,7 +315,7 @@ export async function patternsResetResult(
       verb: "patterns reset",
       ...(dryRun ? { dry_run: true } : {}),
       data,
-      hints: ["No logbook to remove — nothing has been recorded."],
+      hints: hintTexts([fire(HINTS["patterns-reset-empty"])]),
     };
   }
   if (dryRun) {
@@ -329,27 +324,22 @@ export async function patternsResetResult(
       verb: "patterns reset",
       dry_run: true,
       data,
-      hints: [
-        "A preview — nothing was removed. Run without --dry-run to delete.",
-      ],
+      hints: hintTexts([fire(HINTS["patterns-reset-preview"])]),
     };
   }
   await removeLogbook(commonGitDir);
-  const hints: string[] = [];
+  const hints: FiredHint[] = [];
   const recording = await loadConfig(root)
     .then((c) => c.project.logbook)
     .catch(() => undefined);
   if (recording === true) {
-    hints.push(
-      "The history is gone; recording starts again on the next verb run. " +
-        "Set [project].logbook = false to stop recording entirely.",
-    );
+    hints.push(fire(HINTS["patterns-reset-recording-resumes"]));
   }
   return {
     ok: true,
     verb: "patterns reset",
     data,
-    ...(hints.length > 0 ? { hints } : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
 }
 
@@ -377,7 +367,7 @@ export async function runPatternsReset(
   const c = out.c;
   const data = result.data;
   if (data.removed.length === 0) {
-    out.raw("No logbook to remove — nothing has been recorded.\n");
+    out.raw(`${fire(HINTS["patterns-reset-empty"]).text}\n`);
     return 0;
   }
   const verb = result.dry_run === true ? "Would remove" : "Removed";

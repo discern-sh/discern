@@ -575,6 +575,101 @@ export const HINTS = {
       "If that reflects an essential invariant, consider locking it with a forcing-function " +
       "(see the `discern-cure-a-bug` skill) rather than relying on memory.",
   }),
+
+  "patterns-logbook-empty": defineHint({
+    id: "patterns-logbook-empty",
+    category: "notice",
+    audience: "all",
+    template: (): string =>
+      "The logbook is empty. discern records one event per verb run, locally " +
+      "under the repository's git directory — check back after some use.",
+  }),
+
+  "patterns-insufficient-evidence": defineHint<{
+    young: number;
+    total: number;
+  }>({
+    id: "patterns-insufficient-evidence",
+    category: "notice",
+    audience: "all",
+    template: ({ young, total }): string =>
+      `The logbook is too young for ${young} of ${total} ` +
+      `detectors — each reports insufficient evidence rather than guessing.`,
+  }),
+
+  "patterns-advisory-findings": defineHint({
+    id: "patterns-advisory-findings",
+    category: "next-step",
+    audience: "all",
+    template: (): string =>
+      "Advisory findings: each next step says what to inspect or enforce.",
+  }),
+
+  "patterns-recording-off": defineHint({
+    id: "patterns-recording-off",
+    category: "notice",
+    audience: "all",
+    template: (): string =>
+      "Recording is off ([project].logbook = false), so new runs aren't " +
+      "recorded; this report reads the history that already exists.",
+  }),
+
+  "patterns-reset-empty": defineHint({
+    id: "patterns-reset-empty",
+    category: "notice",
+    audience: "all",
+    family: "patterns-reset",
+    template: (): string => "No logbook to remove — nothing has been recorded.",
+  }),
+
+  "patterns-reset-preview": defineHint({
+    id: "patterns-reset-preview",
+    category: "next-step",
+    audience: "all",
+    family: "patterns-reset",
+    template: (): string =>
+      "A preview — nothing was removed. Run without --dry-run to delete.",
+  }),
+
+  "patterns-reset-recording-resumes": defineHint({
+    id: "patterns-reset-recording-resumes",
+    category: "notice",
+    audience: "all",
+    family: "patterns-reset",
+    template: (): string =>
+      "The history is gone; recording starts again on the next verb run. " +
+      "Set [project].logbook = false to stop recording entirely.",
+  }),
+
+  /**
+   * The receipt-tail finding: one strongest current-branch observation plus the
+   * count and the route to the full evidence report.
+   */
+  "logbook-receipt-finding": defineHint<{
+    count: number;
+    observed: string;
+  }>({
+    id: "logbook-receipt-finding",
+    category: "next-step",
+    audience: "all",
+    family: "logbook-inline-finding",
+    template: ({ count, observed }): string =>
+      `Logbook: ${count} branch finding${count === 1 ? "" : "s"}; ` +
+      `${observed} Run \`discern patterns\` for full evidence and next steps.`,
+  }),
+
+  /** A session-scoped finding rendered as its observation and next step. */
+  "logbook-status-finding": defineHint<{
+    observed: string;
+    next: string;
+  }>({
+    id: "logbook-status-finding",
+    category: "next-step",
+    audience: "all",
+    family: "logbook-inline-finding",
+    template: ({ observed, next }): string =>
+      `Logbook: ${observed} Next: ${next}`,
+  }),
 } as const;
 
 /** True when a fired registry entry targets the requested audience. */
