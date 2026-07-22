@@ -190,6 +190,14 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               "The watchdog reclassifies a command that daemonized and returned as a failure even when its exit code read zero, so a forked background server cannot buy a false green.",
           },
           {
+            id: "capture-environment",
+            title: "The capture environment",
+            what:
+              "Every job runs with `CI=1`, `NO_COLOR=1`, and `TERM=dumb`, which flips the common watch-mode test runners into single-run form and keeps tool output plain enough to parse.",
+            why:
+              "The most frequent gate hang is prevented at spawn, minutes before a timeout would catch it.",
+          },
+          {
             id: "gate-streaming",
             title: "Live or grouped output",
             what:
@@ -221,6 +229,16 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Before any job runs, the gate checks the branch's merge state against the trunk and the generated files' currency, and points a behind or drifted tree at the one command that fixes it.",
         why:
           "A ten-minute test run never ends in a merge-conflict surprise it could have named up front.",
+      },
+      {
+        id: "write-preflight",
+        title: "Write authority proven first",
+        what:
+          "Before project work, the gate performs the smallest real write of each class it will later need — a create/rename/remove round-trip in the Git admin area, an open-for-write on an existing marker — because sandbox permission metadata can approve an operation the sandbox then denies. A denial is a structured failure naming the blocked path, with a reproduce command.",
+        why:
+          "A sandbox denial costs a few filesystem operations up front instead of a discarded gate run at the end.",
+        agent:
+          "The agent learns about a missing permission while retrying is still cheap: one re-run with escalated authority, and no half-recorded state to clean up. In the engine, a branded authority token means a state writer cannot compile without the probe.",
       },
       {
         id: "scope-gates",
@@ -427,6 +445,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Isolation extends past the checkout to everything the checkout touches.",
         agent:
           "A transient failure from an external manager retries with backoff, and an empty command is a clean no-op.",
+      },
+      {
+        id: "crash-safe-provisioning",
+        title: "Crash-safe provisioning",
+        what:
+          "The lifecycle writes its intent before acting on it: a resource's ledger entry — its destroy command already fully expanded — lands before `create` runs, a ready marker records the moment the non-repeatable phases finished, and a failure after the checkout was added discards the partial worktree rather than leaving it registered.",
+        why:
+          "A crash leaves a working worktree or a reclaimable one, and a plausible-looking half-checkout is discarded at the moment of failure.",
+        agent:
+          "A re-fired create hook skips the phases that already ran instead of aborting on their already-exists errors, and the fleet flags a checkout whose creation never completed as broken rather than listing it as workable.",
+        hints: ["status-fleet-member-broken"],
       },
       {
         id: "worktree-prune",
@@ -658,6 +687,16 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         surfaces: ["verb:map"],
       },
       {
+        id: "discovery-funnel",
+        title: "The discovery funnel",
+        what:
+          "Agent document discovery runs regions, then search, then canonical targets: compiled guidance lists each top-level region by exact target, `search` takes a query in task language, and every result returns a snippet plus a target that feeds back into the same tool. Search returns at most 5 ranked documents, and query values are never written to the logbook.",
+        why:
+          "Documentation growth never churns the tracked agent files and never spends context before a page is needed.",
+        agent:
+          "Discovery starts from names already in the agent's instructions and ends one call later on the full page — no index download, no slug guessing.",
+      },
+      {
         id: "docs-integrity",
         title: "The docs integrity gate",
         what:
@@ -822,6 +861,26 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Progress is derived from the tree itself (which scaffolded files still carry their markers, which jobs are wired), so a second session resumes where the first stopped and cannot fake completion by deleting a marker. An abandoned setup branch routes to resume rather than to a fresh scaffold that would overwrite the first session's work.",
       },
       {
+        id: "relay-messages",
+        title: "Ready-to-relay messages",
+        what:
+          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in the human render and in the JSON envelope's guidance field.",
+        why:
+          "A courier that only pastes still delivers a complete, warm, accurate conversation.",
+        agent:
+          "The agent relays instead of composing: authored prose survives final-answer compression, where stage directions would be squeezed into a checklist.",
+      },
+      {
+        id: "consent-attestations",
+        title: "Consent is attested per invocation",
+        what:
+          "Scaffolding a fresh install and landing on the trunk refuse unless the invocation itself carries `--confirmed`. The attestation is stateless — no sidecar marker, no remembered yes — so it must be asserted fresh each time, and both verbs share one refusal contract held by a class test.",
+        why:
+          "Consent cannot go stale, and cannot be inherited from an earlier call.",
+        agent:
+          "An agent that skipped the conversation is routed back into it: the refusal re-serves the consent moment and the exact command to continue, so the guardrail teaches rather than dead-ends.",
+      },
+      {
         id: "doctor",
         title: "Doctor",
         what:
@@ -917,6 +976,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why: "Any mutating operation can be rehearsed before it happens.",
       },
       {
+        id: "idempotent-verbs",
+        title: "Idempotent by contract",
+        what:
+          "The convergent verbs — `discern update`, `discern refresh`, `discern worktree ensure` — re-run safely, perform their own precondition checks, and refuse with the next step named when one fails.",
+        why: "Calling the verb replaces pre-checking it.",
+        agent:
+          "The cheapest correct move is to call the verb: a refusal costs one structured result naming the way forward, where a hand-rolled precondition check costs tool calls and can still be wrong.",
+      },
+      {
         id: "mcp-surface",
         title: "The MCP server",
         what:
@@ -968,6 +1036,28 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     why:
       "The guarantees hold everywhere because they are structural: no optional subsystem, no partial install, no second copy of anything.",
     children: [
+      {
+        id: "agent-is-user",
+        kind: "benefit",
+        title: "The agent is the user",
+        what:
+          "Humans install discern and review its receipts; nearly every other surface — the verbs, the tools, the hints, the compiled guidance — is read by an agent, and the interaction design aims at that reader.",
+        why:
+          "The happy path is the one agents take by default, whether or not they notice the steering.",
+        agent:
+          "Messages arrive at the moment they apply, refusals carry the next command, and wasted work is designed out — none of it asks for the agent's attention in order to work.",
+      },
+      {
+        id: "context-budget",
+        kind: "benefit",
+        title: "Context is a budget",
+        what:
+          "Result surfaces are sized for a context window: oversized diagnostics keep head and tail inline and offload the full text to a named file, search returns at most 5 ranked documents, compiled guidance lists regions rather than leaves, provisioning output appears only on failure, and logbook lines are metadata-only.",
+        why:
+          "An agent's context is the scarcest resource at the table, and discern spends it like money.",
+        agent:
+          "Bounded views with pointers to the rest: the agent reads what it needs and fetches the full text only when it chooses to.",
+      },
       {
         id: "single-binary",
         kind: "benefit",
