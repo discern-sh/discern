@@ -9,7 +9,7 @@
     "site/design-system/dist": true,
     "site/design-system/styleguide/generated": true,
     "site/pages/assets/design-system": true,
-    "site/pages/design-system-demo.html": true
+    "site/pages/index.html": true
   },
   "search.exclude": {
     ".agents/skills": true,
@@ -20,6 +20,6 @@
     "site/design-system/dist": true,
     "site/design-system/styleguide/generated": true,
     "site/pages/assets/design-system": true,
-    "site/pages/design-system-demo.html": true
+    "site/pages/index.html": true
   }
 }

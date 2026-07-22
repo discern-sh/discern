@@ -18,7 +18,6 @@
       <excludeFolder url="file://$MODULE_DIR$/site/design-system/styleguide/generated" />
       <excludeFolder url="file://$MODULE_DIR$/site/pages/assets/design-system" />
       <excludeFolder url="file://$MODULE_DIR$/tests/fixtures" />
-      <excludePattern pattern="design-system-demo.html" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

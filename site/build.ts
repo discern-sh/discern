@@ -1,8 +1,9 @@
 /**
  * Build discern.sh's generated design-system surface.
  *
- * React is an authoring adapter only: this script renders the demo to static
- * HTML, writes deterministic CSS/assets, and ships no React runtime.
+ * React is an authoring adapter only: this script renders the homepage and
+ * shared brand to static HTML, writes deterministic CSS/assets, and ships no
+ * React runtime.
  */
 
 import {
@@ -13,8 +14,6 @@ import {
   DESIGN_SYSTEM_BUNDLES,
   type DesignSystemBundleName,
 } from "./design_system.ts";
-import { renderContentDesignDemo } from "./page-src/content-design-demo.tsx";
-import { renderDesignSystemDemo } from "./page-src/design-system-demo.tsx";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderLanding } from "./page-src/landing.tsx";
@@ -25,17 +24,19 @@ const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
   "pages/index.html",
-  "pages/design-system-demo.html",
-  "pages/content-design-demo.html",
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
 
+/** Old generated pages removed on every build so local previews cannot retain them. */
+export const RETIRED_SITE_OUTPUTS = [
+  "pages/design-system-demo.html",
+  "pages/content-design-demo.html",
+] as const;
+
 const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
-const MARKETING_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
-const CONTENT_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
-const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[3], SITE_ROOT);
-const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[4], SITE_ROOT);
+const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
+const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
@@ -74,7 +75,7 @@ async function emitBundle(name: DesignSystemBundleName): Promise<BuildSummary> {
 
 /** Rebuild the complete ignored public design-system surface from source. */
 export async function buildSite(): Promise<void> {
-  for (const output of GENERATED_SITE_OUTPUTS) {
+  for (const output of [...GENERATED_SITE_OUTPUTS, ...RETIRED_SITE_OUTPUTS]) {
     await removeIfPresent(new URL(output, SITE_ROOT));
   }
 
@@ -82,27 +83,16 @@ export async function buildSite(): Promise<void> {
   await Deno.mkdir(FRAGMENT_ROOT, { recursive: true });
   await emitBundle("docs");
   const summary = await emitBundle("compositions");
-  await writeGeneratedCopy("design-system-demo.css", "demo.css");
-  await writeGeneratedCopy("content-design-demo.css", "content-demo.css");
-  await writeGeneratedCopy("design-system-demo.js", "demo.js");
   await writeGeneratedCopy("landing.css", "landing.css");
   await writeGeneratedCopy("landing.js", "landing.js");
   await Deno.writeTextFile(
     HOME_PAGE_OUTPUT,
     await formatGeneratedText(renderLanding(), "html"),
   );
-  await Deno.writeTextFile(
-    MARKETING_PAGE_OUTPUT,
-    await formatGeneratedText(renderDesignSystemDemo(summary), "html"),
-  );
-  await Deno.writeTextFile(
-    CONTENT_PAGE_OUTPUT,
-    await formatGeneratedText(renderContentDesignDemo(summary), "html"),
-  );
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 
   console.log(
-    `Built the shared Brand fragment, landing page, and two composition demos from ${summary.components} components and ${summary.tokens} tokens.`,
+    `Built the shared Brand fragment, homepage, and design-system bundles from ${summary.components} components and ${summary.tokens} tokens.`,
   );
 }
 

@@ -18,15 +18,15 @@ If Discern finds a package defect, the fix is released from the package reposito
 
 [`site/design_system.ts`](../../../site/design_system.ts) is the complete thin integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
 
-| Bundle         | Routes                                             | Selection                                      | Optional assets |
-| -------------- | -------------------------------------------------- | ---------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants                        | Docs chrome and shared display parts           | fonts           |
-| `compositions` | `/`, `/design-system-demo`, `/content-design-demo` | Marketing, Editorial, and shared display parts | fonts and grain |
+| Bundle         | Routes                      | Selection                                      | Optional assets |
+| -------------- | --------------------------- | ---------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants | Docs chrome and shared display parts           | fonts           |
+| `compositions` | `/`                         | Marketing, Editorial, and shared display parts | fonts and grain |
 
 The table also owns the Discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, a manifest, and only the requested assets. Discern does not copy the package manifest, tokens, dependency graph, CSS, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`. The homepage and two retained product-composition atlases load the full selected bundle from `/assets/design-system/compositions/`. Fonts are an explicit choice for both. Grain is selected only for the compositions; docs neither emit nor load it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`. The homepage loads the full selected bundle from `/assets/design-system/compositions/`. Fonts are an explicit choice for both. Grain is selected only for the compositions; docs neither emit nor load it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
-Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. Generated pages compose its React adapter; the request-time docs shell reuses the same statically rendered markup. The browser receives the component's semantic HTML and selected CSS, with no React runtime.
+Both bundles select the Core `Brand` component, which brings its `Logo` dependency with it. [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the canonical public lockup: the decorative `◮`, the visible `discern` name, the `mono` typeface, and an optional context tagline. The docs shell reuses its statically rendered markup, and the homepage can compose its React adapter. The browser receives the component's semantic HTML and selected CSS, with no React runtime.
 
-The static page boundary, retained compositions, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).
+The static page boundary, homepage composition, build commands, and manifest-driven consumer guards are recorded separately in [design-system-consumption.md](design-system-consumption.md).

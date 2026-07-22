@@ -42,14 +42,6 @@ export const PAGES: Readonly<
   Record<string, { page: string; negotiable: boolean }>
 > = {
   "/": { page: "pages/index.html", negotiable: true },
-  "/design-system-demo": {
-    page: "pages/design-system-demo.html",
-    negotiable: false,
-  },
-  "/content-design-demo": {
-    page: "pages/content-design-demo.html",
-    negotiable: false,
-  },
 };
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */

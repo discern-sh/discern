@@ -11,7 +11,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/serve.ts`](../../../site/serve.ts)                 | Fetch handler for routes, reader negotiation, static fallback, and 404s.  |
 | [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.   |
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.             |
-| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static composition pages.          |
+| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static homepage shell.             |
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.              |
 | [`site/brand.ts`](../../../site/brand.ts)                 | Canonical text mark, favicon route, and drawn-mark geometry.              |
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.           |
@@ -25,18 +25,16 @@ Everything lives under [`site/`](../../../site/):
 
 The routes, from the handler's exported `PAGES` table:
 
-| Route                  | Page                                   | Text client receives                     |
-| ---------------------- | -------------------------------------- | ---------------------------------------- |
-| `/`                    | the generated homepage shell           | the plaintext edition                    |
-| `/design-system-demo`  | the generated design-system experiment | the same HTML                            |
-| `/content-design-demo` | the generated long-form content atlas  | the same HTML                            |
-| `/docs/…`              | the rendered manual                    | the page's raw Markdown                  |
-| `/docs/decisions/…`    | project-history decision records       | the record's raw Markdown                |
-| `/llms.txt`            | —                                      | the plaintext edition plus a docs index, |
-|                        |                                        | for every reader                         |
-| `/llms-full.txt`       | —                                      | the complete public Markdown projection  |
-| `/sitemap.xml`         | —                                      | canonical HTML URLs from the route model |
-| `/robots.txt`          | —                                      | crawler policy plus the sitemap address  |
+| Route               | Page                             | Text client receives                     |
+| ------------------- | -------------------------------- | ---------------------------------------- |
+| `/`                 | the generated homepage shell     | the plaintext edition                    |
+| `/docs/…`           | the rendered manual              | the page's raw Markdown                  |
+| `/docs/decisions/…` | project-history decision records | the record's raw Markdown                |
+| `/llms.txt`         | —                                | the plaintext edition plus a docs index, |
+|                     |                                  | for every reader                         |
+| `/llms-full.txt`    | —                                | the complete public Markdown projection  |
+| `/sitemap.xml`      | —                                | canonical HTML URLs from the route model |
+| `/robots.txt`       | —                                | crawler policy plus the sitemap address  |
 
 ## Reader negotiation
 
@@ -50,11 +48,11 @@ Production's canonical origin is `https://discern.sh`; page URLs have no trailin
 
 The public address set freezes at launch. Before launch, experimental pages may be removed without creating redirects or tombstones. After launch, adding a page extends the contract; renaming, moving, or removing one does not erase its old address.
 
-The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The live registries contain 222 routes as of July 22, 2026:
+The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../../../site/serve.ts): the keys of `PAGES` plus `DocsSite.sitemapRoutes`. Those registries remain the single source of truth rather than a second hand-maintained route list. The live registries contain 220 routes as of July 22, 2026:
 
 | Source           | Current routes                                                                                                                                                         |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Static pages     | `/`, `/design-system-demo`, `/content-design-demo`                                                                                                                     |
+| Static pages     | `/`                                                                                                                                                                    |
 | Docs index       | `/docs`                                                                                                                                                                |
 | Product guidance | The 50 routes in the section table below.                                                                                                                              |
 | Project history  | `/docs/decisions` plus `/docs/decisions/<file-stem>` for each of the 167 published records discovered under `_adr/`, including its archive; 145 existed at the freeze. |
@@ -76,7 +74,7 @@ The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `
 
 A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The prelaunch route set creates no redirect debt.
 
-Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Active content pages place `◮` beside `discern` in their brand and link `/assets/favicon.svg`; the empty homepage placeholder keeps the favicon and carries no visible body. The favicon and social card draw the half-filled triangle from SVG paths. The favicon switches its foreground color with the browser theme ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)). Docs pages add a `BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Docs pages place `◮` beside `discern` in their brand and link `/assets/favicon.svg`; the empty homepage placeholder keeps the favicon and carries no visible body. The favicon and social card draw the half-filled triangle from SVG paths. The favicon switches its foreground color with the browser theme ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)). Docs pages add a `BreadcrumbList`; the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response, including assets, redirects, and errors, carries the same security baseline: a nonce-based same-origin CSP, `nosniff`, no-referrer, permissions restrictions, and framing denial. The handler adds a nonce to inline theme bootstraps; third-party resource origins are not admitted.
 
@@ -84,7 +82,7 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 
 ## Guards
 
-[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table: every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. Content pages also place the project mark beside `discern` in a brand link; the homepage placeholder instead proves its body is empty in [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts). The route test pins the favicon's theme-aware SVG geometry. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree — rendering, shared branding, pristine negotiation, CLI/MCP parity, search-index and llms coverage, and link integrity all auto-enroll a new map leaf. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real local socket and drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal. The design-system runtime test drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, the social card's mark geometry, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
+[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table: every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. The homepage placeholder proves its body is empty in [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts). The route test pins the favicon's theme-aware SVG geometry. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree — rendering, shared branding, pristine negotiation, CLI/MCP parity, search-index and llms coverage, and link integrity all auto-enroll a new map leaf. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real local socket and drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal. The design-system runtime test drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, the social card's mark geometry, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
 
 ## Operating it
 
@@ -93,6 +91,6 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 ## Current state & gotchas
 
 - `mockups/landing/` is the design archive. The two homepages replaced in July 2026 remain there as `previous-homepage-2026-07-16.html` and `previous-homepage-2026-07-18.html`; archived pages stay confined to the archive and preserve their historical content.
-- The generated homepage shell and two composition atlases live in `site/page-src/`, sharing one document skeleton (`document.ts`) and the same system-aware theme bootstrap and controller as the docs shell. `deno task site:build` owns their ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
+- The generated homepage shell lives in `site/page-src/` and uses the same system-aware theme bootstrap and controller as the docs shell. `deno task site:build` owns its ignored HTML and design-system assets under `site/pages/`, and Deno Deploy runs that task before starting the handler.
 - [the-design-system.md](the-design-system.md) records the external dependency, thin integration, and bundle boundary.
-- [design-system-consumption.md](design-system-consumption.md) records static page composition, retained atlases, build commands, and consumer guards.
+- [design-system-consumption.md](design-system-consumption.md) records static page composition, build commands, and consumer guards.
