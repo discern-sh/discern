@@ -368,7 +368,6 @@ async function runGate(
   //     agent must `discern refresh` and re-run to clear regardless. Block a STALE agent
   //     file only (a MISSING one is tolerated: a tree that has not built them yet, or a
   //     project that deliberately keeps them untracked — see ADR 0034/0128).
-  //     discern-allow-retrospective: "no longer matching" is the live drift this detects.
   let guidanceDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const stale = (await checkGuidanceCurrent(root, cfg))

@@ -24,9 +24,11 @@
  * Escape hatch — when a reference to the past is genuinely load-bearing and
  * current (rare), annotate the comment with
  *   discern-allow-retrospective: <reason>
- * and the detector skips that comment. The reason is mandatory and lands in the
- * diff, so every exception is visible and justified at review — the opposite of
- * a silent denylist. Reach for it sparingly; the default is to reword.
+ * and the detector suppresses that comment's retrospective markers. The reason
+ * is mandatory and lands in the diff. An annotation that masks no marker, or a
+ * second annotation on the same comment, fails as unused. Every exception is
+ * therefore visible, justified, and kept necessary. Reach for it sparingly; the
+ * default is to reword.
  *
  * Scope: every authored TypeScript tree, plus the `#`-comment surface of the
  * shipped config (`templates/discern.toml.tmpl`, the gitignore fragment) and
@@ -117,11 +119,46 @@ interface CommentUnit {
   lines: string[];
 }
 
+const REGEX_PREFIX_KEYWORDS = new Set([
+  "await",
+  "case",
+  "delete",
+  "do",
+  "else",
+  "in",
+  "instanceof",
+  "new",
+  "of",
+  "return",
+  "throw",
+  "typeof",
+  "void",
+  "yield",
+]);
+
 /**
- * Pull the comment units out of TypeScript source, skipping string and template
- * bodies so a `//` inside `"https://…"` (or `/*` inside a string) is never read
- * as a comment. A block comment yields one unit carrying its physical lines, so
- * a single suppression annotation covers the whole block.
+ * Whether a slash sits where JavaScript permits a regular-expression literal.
+ * This small lexical distinction keeps comment-looking text and backticks inside
+ * a regex from changing the surrounding comment scan.
+ */
+function startsRegexLiteral(src: string, slash: number): boolean {
+  let i = slash - 1;
+  while (i >= 0 && /\s/.test(src[i] ?? "")) i--;
+  if (i < 0) return true;
+  const previous = src[i] ?? "";
+  if ("([{:;,=!?&|+-*%^~".includes(previous)) return true;
+  if (previous === ">" && src[i - 1] === "=") return true;
+  if (!/[A-Za-z0-9_$]/.test(previous)) return false;
+  let start = i;
+  while (start > 0 && /[A-Za-z0-9_$]/.test(src[start - 1] ?? "")) start--;
+  return REGEX_PREFIX_KEYWORDS.has(src.slice(start, i + 1));
+}
+
+/**
+ * Pull the comment units out of TypeScript source, skipping string, template,
+ * and regular-expression bodies so a `//` inside `"https://…"` (or `/*` inside
+ * a regex) is never read as a comment. A block comment yields one unit carrying
+ * its physical lines, so a single suppression annotation covers the whole block.
  */
 export function extractComments(src: string): CommentUnit[] {
   const out: CommentUnit[] = [];
@@ -131,7 +168,15 @@ export function extractComments(src: string): CommentUnit[] {
   let lines: string[] = [];
   let buf = "";
   const n = src.length;
-  type State = "code" | "line" | "block" | "single" | "double" | "template";
+  type State =
+    | "code"
+    | "line"
+    | "block"
+    | "single"
+    | "double"
+    | "template"
+    | "regex"
+    | "regex-class";
   let state: State = "code";
   const pushLine = () => {
     lines.push(buf);
@@ -159,6 +204,11 @@ export function extractComments(src: string): CommentUnit[] {
         buf = "";
         lines = [];
         i += 2;
+        continue;
+      }
+      if (c === "/" && startsRegexLiteral(src, i)) {
+        state = "regex";
+        i++;
         continue;
       }
       if (c === '"') {
@@ -219,9 +269,28 @@ export function extractComments(src: string): CommentUnit[] {
       i++;
       continue;
     }
-    // string / template states: consume until the matching quote, honouring escapes
+    // Literal states: consume until the matching delimiter, honoring escapes.
     if (c === "\\") {
       i += 2;
+      continue;
+    }
+    if (state === "regex") {
+      if (c === "[") state = "regex-class";
+      if (c === "/") state = "code";
+      if (c === "\n") {
+        state = "code";
+        line++;
+      }
+      i++;
+      continue;
+    }
+    if (state === "regex-class") {
+      if (c === "]") state = "regex";
+      if (c === "\n") {
+        state = "code";
+        line++;
+      }
+      i++;
       continue;
     }
     if (state === "double" && c === '"') {
@@ -249,16 +318,55 @@ export function extractComments(src: string): CommentUnit[] {
   return out;
 }
 
-/** True when a comment unit carries a non-empty suppression annotation. */
-function isSuppressed(unit: CommentUnit): boolean {
-  return unit.lines.some((l) => {
-    const at = l.toLowerCase().indexOf(SUPPRESS);
-    return at !== -1 && l.slice(at + SUPPRESS.length).trim().length > 0;
-  });
+interface SuppressionAnnotation {
+  line: number;
+  text: string;
+  hasReason: boolean;
 }
+
+/** Every suppression annotation in one comment, valid or malformed. */
+function suppressionAnnotations(unit: CommentUnit): SuppressionAnnotation[] {
+  const out: SuppressionAnnotation[] = [];
+  for (let i = 0; i < unit.lines.length; i++) {
+    const text = unit.lines[i] ?? "";
+    const lower = text.toLowerCase();
+    let from = 0;
+    while (from < text.length) {
+      const at = lower.indexOf(SUPPRESS, from);
+      if (at === -1) break;
+      const next = lower.indexOf(SUPPRESS, at + SUPPRESS.length);
+      const reasonEnd = next === -1 ? text.length : next;
+      out.push({
+        line: unit.startLine + i,
+        text: undecorate(text).trim(),
+        hasReason:
+          text.slice(at + SUPPRESS.length, reasonEnd).trim().length > 0,
+      });
+      from = at + SUPPRESS.length;
+    }
+  }
+  return out;
+}
+
+/** Remove annotation metadata before deciding whether its exemption is needed. */
+function withoutSuppressionMetadata(unit: CommentUnit): CommentUnit {
+  return {
+    startLine: unit.startLine,
+    lines: unit.lines.map((line) => {
+      const at = line.toLowerCase().indexOf(SUPPRESS);
+      return at === -1 ? line : line.slice(0, at);
+    }),
+  };
+}
+
+export type CommentViolationRule =
+  | "retrospective"
+  | "unused-suppression"
+  | "suppression-requires-reason";
 
 export interface CommentViolation {
   line: number;
+  rule: CommentViolationRule;
   marker: string;
   text: string;
 }
@@ -316,38 +424,81 @@ function hashCommentText(line: string): string | null {
   return null;
 }
 
+/** Retrospective markers in one comment, with suppression metadata removed. */
+function retrospectiveViolations(unit: CommentUnit): CommentViolation[] {
+  const out: CommentViolation[] = [];
+  const seen = new Set<string>();
+  const lines = unit.lines.map(undecorate);
+  for (let i = 0; i < lines.length; i++) {
+    const here = lines[i] ?? "";
+    const next = lines[i + 1] ?? "";
+    const pair = next === "" ? here : `${here} ${next}`;
+    for (const m of MARKERS) {
+      const intra = m.test(here);
+      // A wrap match spans this line into the next: the pair matches but the
+      // next line alone does not, so the phrase must start here.
+      const wraps = !intra && next !== "" && m.test(pair) && !m.test(next);
+      if (!intra && !wraps) continue;
+      const line = unit.startLine + i;
+      const key = `${line}|${m.source}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        line,
+        rule: "retrospective",
+        marker: m.source,
+        text: (intra ? here : pair).trim(),
+      });
+    }
+  }
+  return out;
+}
+
+function suppressionViolation(
+  annotation: SuppressionAnnotation,
+  rule: Exclude<CommentViolationRule, "retrospective">,
+): CommentViolation {
+  return {
+    line: annotation.line,
+    rule,
+    marker: SUPPRESS,
+    text: annotation.text,
+  };
+}
+
 /**
- * Every backward-looking, un-suppressed comment line across a set of comment
- * units. A marker is caught whether it sits on one line or wraps across a line
- * break (`Mirrors\n * the shell …`), and is reported where it begins.
+ * Every comment-currency violation across a set of comment units. A suppression
+ * exempts one unit only when it has a reason and masks a retrospective marker;
+ * malformed, unused, and duplicate suppressions are violations of their own.
  */
 export function scanUnits(units: CommentUnit[]): CommentViolation[] {
   const out: CommentViolation[] = [];
-  const seen = new Set<string>();
   for (const unit of units) {
-    if (isSuppressed(unit)) continue;
-    const lines = unit.lines.map(undecorate);
-    for (let i = 0; i < lines.length; i++) {
-      const here = lines[i] ?? "";
-      const next = lines[i + 1] ?? "";
-      const pair = next === "" ? here : `${here} ${next}`;
-      for (const m of MARKERS) {
-        const intra = m.test(here);
-        // A wrap match spans this line into the next: the pair matches but the
-        // next line alone does not, so the phrase must start here.
-        const wraps = !intra && next !== "" && m.test(pair) && !m.test(next);
-        if (!intra && !wraps) continue;
-        const line = unit.startLine + i;
-        const key = `${line}|${m.source}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push({
-          line,
-          marker: m.source,
-          text: (intra ? here : pair).trim(),
-        });
-      }
+    const annotations = suppressionAnnotations(unit);
+    const retrospective = retrospectiveViolations(
+      withoutSuppressionMetadata(unit),
+    );
+    if (annotations.length === 0) {
+      out.push(...retrospective);
+      continue;
     }
+
+    const valid = annotations.filter((annotation) => annotation.hasReason);
+    out.push(
+      ...annotations
+        .filter((annotation) => !annotation.hasReason)
+        .map((annotation) =>
+          suppressionViolation(annotation, "suppression-requires-reason")
+        ),
+    );
+    if (valid.length === 0) continue;
+
+    const unused = retrospective.length === 0 ? valid : valid.slice(1);
+    out.push(
+      ...unused.map((annotation) =>
+        suppressionViolation(annotation, "unused-suppression")
+      ),
+    );
   }
   return out;
 }
@@ -362,30 +513,45 @@ export function scanHashSource(src: string): CommentViolation[] {
   return scanUnits(extractHashComments(src));
 }
 
+function renderViolation(rel: string, violation: CommentViolation): string {
+  const label = violation.rule === "retrospective"
+    ? `${violation.rule}:${violation.marker}`
+    : violation.rule;
+  const fix = (() => {
+    switch (violation.rule) {
+      case "retrospective":
+        return `Describe current behavior, move the history to docs/ADRs, or add "${SUPPRESS} <reason>" when the reference remains necessary.`;
+      case "unused-suppression":
+        return "Remove the suppression; this comment has no marker for it to mask.";
+      case "suppression-requires-reason":
+        return `Add a reason after "${SUPPRESS}", or remove the annotation.`;
+    }
+  })();
+  return `${rel}:${violation.line}  [${label}]  ${violation.text}\n` +
+    `    Fix: ${fix}`;
+}
+
 Deno.test("comments describe current behaviour, not the codebase's past", async () => {
   const offenders: string[] = [];
   for (const rel of TS_FILES) {
     for (const v of scanSource(await Deno.readTextFile(join(REPO_ROOT, rel)))) {
-      offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
+      offenders.push(renderViolation(rel, v));
     }
   }
   for (const rel of HASH_FILES) {
     const src = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const v of scanHashSource(src)) {
-      offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
+      offenders.push(renderViolation(rel, v));
     }
   }
   assertEquals(
     offenders,
     [],
-    `backward-looking comment(s) found — describe what the code does now, move ` +
-      `history to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the ` +
-      `reference is genuinely load-bearing.\n\n` +
+    `Comment-currency violations found. Each row carries its fix.\n\n` +
       `This guard scans every authored TypeScript tree except tests/, plus the ` +
-      `shipped config (discern.toml*, the gitignore fragment) — NOT docs/, ` +
-      `tests/, or templates/ prose. If this ` +
-      `change wrote the same backward-looking phrasing into one of those, the ` +
-      `guard can't see it: fix those by hand in the same sweep.\n\n  ` +
+      `shipped config (discern.toml*, the gitignore fragment). It does not scan ` +
+      `tests/ or Markdown prose. Fix matching prose outside the scan in the ` +
+      `same sweep.\n\n  ` +
       `${offenders.join("\n  ")}`,
   );
 });
@@ -425,9 +591,42 @@ Deno.test("suppression with a reason exempts a comment", () => {
   assertEquals(scanSource(src), []);
 });
 
+Deno.test("suppression without a matching marker is rejected", () => {
+  const src =
+    `// Describes the current behavior.\n// discern-allow-retrospective: mistaken exemption\n`;
+  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+});
+
+Deno.test("a marker in the suppression reason does not justify it", () => {
+  const src =
+    `// Describes the current behavior.\n// discern-allow-retrospective: "no longer matching" is live drift\n`;
+  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+});
+
 Deno.test("suppression without a reason does NOT exempt", () => {
   const src = `// it used to be eager. discern-allow-retrospective:\n`;
-  assertEquals(scanSource(src).length, 1);
+  assertEquals(scanSource(src).map((v) => v.rule), [
+    "suppression-requires-reason",
+  ]);
+});
+
+Deno.test("suppression without a reason is rejected on a current comment", () => {
+  const src = `// current behavior. discern-allow-retrospective:\n`;
+  assertEquals(scanSource(src).map((v) => v.rule), [
+    "suppression-requires-reason",
+  ]);
+});
+
+Deno.test("each extra suppression on one comment is rejected", () => {
+  const src =
+    `// it used to be eager.\n// discern-allow-retrospective: needed\n// discern-allow-retrospective: redundant\n`;
+  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
+});
+
+Deno.test("comments after a backtick regex remain enrolled", () => {
+  const src =
+    "const fence = /^```/;\n// current behavior. discern-allow-retrospective: mistaken exemption\n";
+  assertEquals(scanSource(src).map((v) => v.rule), ["unused-suppression"]);
 });
 
 Deno.test("a run of // lines reads as one comment, catching a wrapped marker", () => {
@@ -448,4 +647,12 @@ Deno.test("hash scan reads the comment, not the quoted value", () => {
 Deno.test("hash scan reads a run of # lines as one comment (wrap)", () => {
   const src = `# the worktree used\n# to live nested in the repo\n`;
   assertEquals(scanHashSource(src).length, 1);
+});
+
+Deno.test("hash scan rejects a suppression without a matching marker", () => {
+  const src =
+    `# Describes the current behavior.\n# discern-allow-retrospective: mistaken exemption\n`;
+  assertEquals(scanHashSource(src).map((v) => v.rule), [
+    "unused-suppression",
+  ]);
 });
