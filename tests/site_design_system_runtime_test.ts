@@ -325,7 +325,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage presents the engineering control system", async () => {
+Deno.test("the public homepage presents engineering discipline for coding agents", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
@@ -340,11 +340,12 @@ Deno.test("the public homepage presents the engineering control system", async (
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "Engineering control for AI coding agents.",
+    "Engineering discipline for coding agents",
   );
   assertStringIncludes(text, "same project knowledge");
   assertStringIncludes(text, "separate worktrees");
-  assertStringIncludes(text, "repository’s checks the definition of done");
+  assertStringIncludes(text, "requires proof");
+  assertEquals(text.includes("definition of done"), false);
 
   // The product introduction keeps the shared accessible page structure.
   assertEquals(body.querySelectorAll("main#main").length, 1);
@@ -378,12 +379,23 @@ Deno.test("the public homepage presents the engineering control system", async (
     actions.map((action) => action.getAttribute("href")),
     ["/docs/getting-started/quickstart", "/docs"],
   );
+  assertEquals(
+    [
+      ...body.querySelectorAll(".discern-article-header__meta li"),
+    ].map((item) => item.textContent?.trim()),
+    [
+      "Free and open source",
+      "Runs offline",
+      "No API key",
+      "No AI model",
+    ],
+  );
 
   const control = body.querySelector(".landing-control");
   assert(control !== null);
   assertEquals(
     control.querySelector("h2")?.textContent?.trim(),
-    "Your project owns the definition of done.",
+    "Your project decides when work is finished.",
   );
   assertEquals(
     control.querySelector("code")?.textContent,
@@ -391,13 +403,13 @@ Deno.test("the public homepage presents the engineering control system", async (
   );
   assertStringIncludes(
     control.querySelector(".landing-control__summary p")?.textContent ?? "",
-    "receipt tied to the commit that passed",
+    "proof tied to the code you’re reviewing",
   );
   assertEquals(
     [...control.querySelectorAll("dt")].map((term) => term.textContent?.trim()),
     [
-      "Shared project knowledge",
-      "Isolated parallel work",
+      "Same project knowledge",
+      "Parallel work stays separate",
       "Proof for review",
     ],
   );
@@ -424,6 +436,15 @@ Deno.test("the public homepage presents the engineering control system", async (
     body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
     `${AGENT_NAMES.length} native coding agent integrations`,
   );
+  assertEquals(
+    body.querySelector(".discern-logo-cloud")?.nextElementSibling,
+    control,
+  );
+  const codexLogo = body.querySelector(
+    'img[src="/assets/integrations/codex-mark.svg"]',
+  );
+  assert(codexLogo !== null);
+  assert(codexLogo.classList.contains("landing-provider-logo--codex"));
   assertEquals(html.includes("landing.js"), false);
   assert(body.querySelector(".discern-site-footer") !== null);
   assertEquals(
@@ -438,7 +459,10 @@ Deno.test("the public homepage presents the engineering control system", async (
     "grid-template-columns: repeat(3, minmax(0, 1fr))",
   );
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
+  assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
+  assertStringIncludes(landingCss, ".landing-provider-logo--codex");
+  assertStringIncludes(landingCss, "transform: scale(1.7);");
 
   // Static output: local runtime assets only, and no React browser runtime.
   assert(

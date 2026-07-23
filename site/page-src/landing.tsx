@@ -24,14 +24,16 @@ const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
   return {
     name: provider.label,
     mark: (
-      <img
-        className="landing-provider-logo"
-        src={provider.brand.mark.path}
-        alt=""
-        width={32}
-        height={32}
-        decoding="async"
-      />
+      <span className="landing-provider-logo-frame">
+        <img
+          className={`landing-provider-logo landing-provider-logo--${name}`}
+          src={provider.brand.mark.path}
+          alt=""
+          width={32}
+          height={32}
+          decoding="async"
+        />
+      </span>
     ),
   };
 });
@@ -83,11 +85,17 @@ function LandingPage() {
           className="landing-header"
           title={
             <>
-              Engineering control for{" "}
-              <HeadingAccent>AI coding agents</HeadingAccent>.
+              Engineering discipline for{" "}
+              <HeadingAccent>coding agents</HeadingAccent>
             </>
           }
-          standfirst="discern gives every agent the same project knowledge, isolates parallel tasks in separate worktrees, and makes the repository’s checks the definition of done."
+          standfirst="discern gives every coding agent the same project knowledge, keeps parallel tasks in separate worktrees, and requires proof that the project’s real checks passed before work is called finished."
+          meta={[
+            "Free and open source",
+            "Runs offline",
+            "No API key",
+            "No AI model",
+          ]}
           actions={
             <Cluster gap={4}>
               <Button href="/docs/getting-started/quickstart">
@@ -97,45 +105,6 @@ function LandingPage() {
             </Cluster>
           }
         />
-        <section
-          className="landing-control"
-          aria-labelledby="landing-control-title"
-        >
-          <div className="landing-control__summary">
-            <h2 id="landing-control-title">
-              Your project owns the definition of done.
-            </h2>
-            <p>
-              <code>discern done</code>{" "}
-              runs the repository’s configured checks, keeps configured quality
-              standards from moving backward, and produces a receipt tied to the
-              commit that passed.
-            </p>
-          </div>
-          <dl className="landing-control__facts">
-            <div>
-              <dt>Shared project knowledge</dt>
-              <dd>
-                Write guidance once. discern compiles it into the instructions
-                every configured agent reads.
-              </dd>
-            </div>
-            <div>
-              <dt>Isolated parallel work</dt>
-              <dd>
-                Each change gets its own branch and worktree, keeping agents in
-                separate checkouts.
-              </dd>
-            </div>
-            <div>
-              <dt>Proof for review</dt>
-              <dd>
-                A passing run records the checks against the commit you’re
-                reviewing.
-              </dd>
-            </div>
-          </dl>
-        </section>
 
         <LogoCloud
           className="landing-integrations"
@@ -143,13 +112,52 @@ function LandingPage() {
           aria-label={`${PROVIDER_LOGOS.length} native coding agent integrations`}
           items={PROVIDER_LOGOS}
         />
+
+        <section
+          className="landing-control"
+          aria-labelledby="landing-control-title"
+        >
+          <div className="landing-control__summary">
+            <h2 id="landing-control-title">
+              Your project decides when work is finished.
+            </h2>
+            <p>
+              <code>discern done</code>{" "}
+              runs your project’s real checks, stops quality from slipping, and
+              gives you proof tied to the code you’re reviewing.
+            </p>
+          </div>
+          <dl className="landing-control__facts">
+            <div>
+              <dt>Same project knowledge</dt>
+              <dd>
+                Write the project guidance once. Every supported coding agent
+                reads the same instructions.
+              </dd>
+            </div>
+            <div>
+              <dt>Parallel work stays separate</dt>
+              <dd>
+                Each task gets its own branch and worktree, so agents do not
+                interfere with one another.
+              </dd>
+            </div>
+            <div>
+              <dt>Proof for review</dt>
+              <dd>
+                A passing run records the checks and the exact commit you’re
+                reviewing.
+              </dd>
+            </div>
+          </dl>
+        </section>
       </main>
       <SiteFooter
         brand={<DiscernName />}
         brandMark={DISCERN_MARK}
         brandTypeface="mono"
         brandMarkTreatment="plain"
-        description="One binary that gives your repository a definition of done, an isolated worktree per change, and one set of instructions every agent reads."
+        description="One binary that gives every coding agent the same project instructions, separates parallel tasks, and proves the project’s checks passed."
         groups={[
           {
             title: "Documentation",

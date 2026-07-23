@@ -99,15 +99,29 @@
 }
 
 /* Vendor marks stay on the light field their source assets expect. */
-.landing-provider-logo {
-  display: block;
+.landing-provider-logo-frame {
+  position: relative;
+  inset-block-start: -3px;
+  display: grid;
+  place-items: center;
   box-sizing: border-box;
   inline-size: 1.75rem;
   block-size: 1.75rem;
-  padding: 0.125rem;
+  overflow: hidden;
   border-radius: var(--discern-radius-xs);
   background: #fff;
+}
+
+.landing-provider-logo {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0.125rem;
   object-fit: contain;
+}
+
+.landing-provider-logo--codex {
+  transform: scale(1.7);
 }
 
 @media (max-width: 880px) {

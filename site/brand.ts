@@ -10,9 +10,9 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
  * values, so the public identity line has one source.
  */
 export const LANDING_TITLE =
-  "discern · Engineering control for AI coding agents";
+  "discern · Engineering discipline for coding agents";
 export const LANDING_DESCRIPTION =
-  "discern gives AI coding agents shared project knowledge, isolated worktrees, and a project-owned definition of done backed by real checks and commit-tied proof.";
+  "discern gives coding agents shared project knowledge, isolated worktrees, and proof that the project’s real checks passed on the code under review.";
 
 /**
  * Landing-family routes that carry their own exact titles. Serving appends

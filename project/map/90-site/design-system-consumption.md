@@ -10,7 +10,7 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 ## The homepage composition
 
-The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as a concise product introduction built from the Editorial and Marketing adapters. It combines an article header and clustered actions with a project-owned definition of done, the shared-knowledge and worktree mechanisms behind it, commit-tied proof, native agent integrations, and the grouped site footer.
+The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as a concise product introduction built from the Editorial and Marketing adapters. It combines an article header, compact product facts beside the main actions, native agent integrations, a short account of shared project knowledge and separate worktrees, proof tied to reviewed code, and the grouped site footer.
 
 The integration band walks the native agent catalogue in its canonical order and reads each label and compact SVG mark from the provider registry. A provider added to those total registries joins the homepage without a second page-owned list.
 
