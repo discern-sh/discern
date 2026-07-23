@@ -8,7 +8,7 @@ Fresh installs seed the format job with `discern tidy` ([ADR 0178](0178-discern-
 
 `discern` is unlike every other command a project configures: it names the program that is already running. Ambient resolution makes that self-reference environment-dependent, and three environments prove it. CI drives this repo's gate from source with no wrapper installed, so the seeded format job died with `sh: discern: not found` (exit 127). An MCP server spawned by a GUI agent can inherit a stripped `PATH` in a perfectly healthy real install, breaking the same job for an end user. And a developer machine can hold an older or different install than the engine gating the tree, silently running two versions in one gate.
 
-The resolution recipe already existed twice outside the engine — the test suite's `PATH` shim and the local-dev wrapper — each covering one environment by hand. The engine itself, the one process that always knows its own identity, was the only place not supplying it.
+The resolution logic already existed twice outside the engine — the test suite's `PATH` shim and the local-dev wrapper — each covering one environment by hand. The engine itself, the one process that always knows its own identity, was the only place not supplying it.
 
 ## Decision
 
@@ -23,8 +23,8 @@ Explicit noes: no opt-out knob; no rewriting of command strings (the shim is ord
 - Self-invocations are environment-independent: CI running the engine from source, a stripped-`PATH` MCP spawn, and a bare fresh install all run the seeded `format = "discern tidy"` without any wrapper or install step.
 - The gate can never split versions: the engine checking the tree and the `discern` its jobs invoke are one program by construction.
 - A deliberately different discern earlier on `PATH` is ignored inside operator commands. That is the point of the decision, but it forecloses pointing a job at another install.
-- The test suite's separate shim collapsed into the shared module, leaving one recipe for "re-invoke this engine"; the local-dev wrapper remains, serving interactive shells rather than engine-spawned commands.
-- The mechanism costs one temp file per engine process, recreated if a system cleaner removes it under a long-lived MCP server.
+- The test suite's separate shim collapsed into the shared module, leaving one definition of "re-invoke this engine"; the local-dev wrapper remains, serving interactive shells rather than engine-spawned commands.
+- The mechanism costs one OS-temp directory per engine process, minted through the temp-artifact registry: a live engine refreshes it on every use, the reaper collects only abandoned ones, and a shim removed by a system cleaner is recreated on the next spawn.
 - The guard (`tests/engine_self_shim_test.ts`) scrubs every discern off the base `PATH` and proves both the shim itself and a full gate job that invokes `discern`.
 
 ## Alternatives considered

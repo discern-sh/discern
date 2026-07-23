@@ -11,14 +11,17 @@
  * with a stripped environment — and can never silently run a DIFFERENT
  * install than the engine gating the tree.
  *
- * The mechanism is a lazily created temp directory holding one executable
- * `discern` shim script, prepended to the child PATH by the shell spawners in
- * engine/jobs/command.ts, engine/worktree/shell.ts, and shared/subprocess.ts
- * (which also applies it to the `commandExists` probe, so doctor's advisory
- * verdict on a `discern …` command agrees with what the runners will do).
+ * The mechanism is a lazily created OS-temp directory — a registered artifact
+ * family (temp_artifacts.ts), reaped only once abandoned — holding one
+ * executable `discern` shim script, prepended to the child PATH by the shell
+ * spawners in engine/jobs/command.ts, engine/worktree/shell.ts, and
+ * shared/subprocess.ts (which also applies it to the `commandExists` probe,
+ * so doctor's advisory verdict on a `discern …` command agrees with what the
+ * runners will do).
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { makeTempArtifactDir } from "./temp_artifacts.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
 function shellQuote(value: string): string {
@@ -55,16 +58,22 @@ let shimDir: string | undefined;
 
 /**
  * The directory holding the `discern` shim, created on first use and cached
- * for the process's life. A long-lived process (the MCP server) can outlive a
- * system temp-dir cleaner, so a vanished shim is recreated rather than
- * trusted from the cache; a concurrent first call may create a sibling dir,
- * which is merely unshared, not wrong.
+ * for the process's life. Each use refreshes the directory's mtime so the
+ * artifact reaper only ever collects shims whose engine is gone; and a
+ * long-lived process (the MCP server) can still outlive a system temp-dir
+ * cleaner, so a vanished shim is recreated rather than trusted from the
+ * cache. A concurrent first call may create a sibling dir, which is merely
+ * unshared, not wrong.
  */
 export async function selfShimDir(): Promise<string> {
   if (shimDir !== undefined && (await isFile(join(shimDir, "discern")))) {
+    const now = new Date();
+    await Deno.utime(shimDir, now, now).catch(() => {
+      // Keep-alive is hygiene; a raced or unwritable touch never blocks a spawn.
+    });
     return shimDir;
   }
-  const dir = await Deno.makeTempDir({ prefix: "discern-self-" });
+  const dir = await makeTempArtifactDir("shim");
   const shim = join(dir, "discern");
   await Deno.writeTextFile(shim, `#!/usr/bin/env sh\n${selfInvocation()}\n`);
   if (Deno.build.os !== "windows") {

@@ -147,6 +147,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "src/shared/write_preflight.ts",
     "ephemeral same-directory authority probes for writes a slow workflow plans to perform later",
   ],
+  [
+    "src/shared/self_shim.ts",
+    "the discern self-shim executable, in a registered OS-temp artifact dir (outside the project tree; ADR 0182)",
+  ],
 ]);
 
 const SRC = join(dirname(fromFileUrl(import.meta.url)), "..", "src");

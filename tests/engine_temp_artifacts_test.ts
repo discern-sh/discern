@@ -18,7 +18,9 @@ import { walk } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
   makeTempArtifact,
+  makeTempArtifactDir,
   pruneStaleTempArtifacts,
+  TEMP_ARTIFACT_DIR_KINDS,
   TEMP_ARTIFACT_KINDS,
   TEMP_ARTIFACT_SUFFIX,
   TEMP_ARTIFACT_TTL_MS,
@@ -77,6 +79,65 @@ Deno.test("temp artifacts: every registered family is reaped past the TTL — ne
       assertEquals(await exists(path), true, `${path} must survive`);
     }
   });
+});
+
+/** Create directory `name` in `dir`, non-empty, mtime backdated `ageMs`. */
+async function dirAged(
+  dir: string,
+  name: string,
+  ageMs: number,
+): Promise<string> {
+  const path = join(dir, name);
+  await Deno.mkdir(path);
+  await Deno.writeTextFile(join(path, "discern"), "#!/usr/bin/env sh\n");
+  const then = new Date(Date.now() - ageMs);
+  await Deno.utime(path, then, then);
+  return path;
+}
+
+Deno.test("temp artifacts: every directory family is reaped recursively past the TTL — new kinds auto-enrol", async () => {
+  await withTempDir(async (dir) => {
+    const age = TEMP_ARTIFACT_TTL_MS + HOUR_MS;
+    const stale: string[] = [];
+    const fresh: string[] = [];
+    for (const prefix of Object.values(TEMP_ARTIFACT_DIR_KINDS)) {
+      stale.push(await dirAged(dir, `${prefix}stale`, age));
+      // A live owner refreshes its directory's mtime on use (the self-shim
+      // touches it every spawn), so "fresh" is exactly "in use".
+      fresh.push(await dirAged(dir, `${prefix}fresh`, HOUR_MS));
+      // A FILE wearing a directory family's prefix is outside both shapes.
+      fresh.push(await fileAged(dir, `${prefix}file-trap`, age));
+    }
+
+    const removed = await pruneStaleTempArtifacts({ dir });
+
+    assertEquals(removed, stale.length);
+    for (const path of stale) {
+      assertEquals(await exists(path), false, `${path} must be reaped`);
+    }
+    for (const path of fresh) {
+      assertEquals(await exists(path), true, `${path} must survive`);
+    }
+  });
+});
+
+Deno.test("temp artifacts: makeTempArtifactDir mints its registered prefix", async () => {
+  for (
+    const kind of Object.keys(TEMP_ARTIFACT_DIR_KINDS) as Array<
+      keyof typeof TEMP_ARTIFACT_DIR_KINDS
+    >
+  ) {
+    const path = await makeTempArtifactDir(kind);
+    try {
+      assert(
+        basename(path).startsWith(TEMP_ARTIFACT_DIR_KINDS[kind]),
+        `a '${kind}' directory must carry its registered prefix: ${path}`,
+      );
+      assert((await Deno.stat(path)).isDirectory);
+    } finally {
+      await Deno.remove(path, { recursive: true }).catch(() => undefined);
+    }
+  }
 });
 
 Deno.test("temp artifacts: nothing outside the registry's prefix+suffix shape is ever touched", async () => {

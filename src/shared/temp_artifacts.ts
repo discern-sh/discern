@@ -39,6 +39,17 @@ export const TEMP_ARTIFACT_KINDS = {
 
 export type TempArtifactKind = keyof typeof TEMP_ARTIFACT_KINDS;
 
+/** The directory-shaped families: one dirname prefix each, matched WITHOUT the
+ * file suffix and reaped recursively. A live owner keeps its directory fresh
+ * (the self-shim refreshes its mtime on every use), so the TTL only ever
+ * collects abandoned ones. */
+export const TEMP_ARTIFACT_DIR_KINDS = {
+  /** The `discern` self-shim a spawned operator command resolves (ADR 0182). */
+  shim: "discern-self-",
+} as const;
+
+export type TempArtifactDirKind = keyof typeof TEMP_ARTIFACT_DIR_KINDS;
+
 /** Every artifact family shares the suffix, so the prune match stays narrow. */
 export const TEMP_ARTIFACT_SUFFIX = ".log";
 
@@ -71,6 +82,16 @@ export function makeTempArtifact(kind: TempArtifactKind): Promise<string> {
     prefix: TEMP_ARTIFACT_KINDS[kind],
     suffix: TEMP_ARTIFACT_SUFFIX,
   });
+}
+
+/**
+ * Create one OS-temp artifact DIRECTORY for `kind`. Same contract as
+ * {@link makeTempArtifact}, directory-shaped: randomly named (a predictable
+ * path in a shared temp dir would let another local user pre-plant it), and
+ * reaped recursively once its mtime ages past the TTL.
+ */
+export function makeTempArtifactDir(kind: TempArtifactDirKind): Promise<string> {
+  return Deno.makeTempDir({ prefix: TEMP_ARTIFACT_DIR_KINDS[kind] });
 }
 
 /**
@@ -110,6 +131,7 @@ export async function pruneStaleTempArtifacts(
   const now = opts.now ?? Date.now();
   const maxRemovals = opts.maxRemovals ?? MAX_SWEEP_REMOVALS;
   const prefixes = Object.values(TEMP_ARTIFACT_KINDS);
+  const dirPrefixes = Object.values(TEMP_ARTIFACT_DIR_KINDS);
   let removed = 0;
   let entries: AsyncIterable<Deno.DirEntry>;
   try {
@@ -122,13 +144,14 @@ export async function pruneStaleTempArtifacts(
       if (removed >= maxRemovals) {
         break;
       }
-      if (!entry.isFile) {
-        continue;
-      }
-      if (
-        !entry.name.endsWith(TEMP_ARTIFACT_SUFFIX) ||
-        !prefixes.some((p) => entry.name.startsWith(p))
-      ) {
+      // Files match a registered prefix AND the shared suffix; directories
+      // match a registered dir prefix. Anything else is never touched.
+      const isArtifactFile = entry.isFile &&
+        entry.name.endsWith(TEMP_ARTIFACT_SUFFIX) &&
+        prefixes.some((p) => entry.name.startsWith(p));
+      const isArtifactDir = entry.isDirectory &&
+        dirPrefixes.some((p) => entry.name.startsWith(p));
+      if (!isArtifactFile && !isArtifactDir) {
         continue;
       }
       const path = join(dir, entry.name);
@@ -137,7 +160,7 @@ export async function pruneStaleTempArtifacts(
         if (mtime === undefined || now - mtime < ttlMs) {
           continue; // fresh, or an unreadable age — keep (fail-safe)
         }
-        await Deno.remove(path);
+        await Deno.remove(path, { recursive: isArtifactDir });
         removed++;
       } catch {
         // Raced away by a concurrent process, or unreadable — skip it.

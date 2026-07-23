@@ -71,7 +71,7 @@ function shq(s: string): string {
  * the engine's own `discern` self-shim on PATH, plus any caller overrides.
  * The shim (src/shared/self_shim.ts) is the same one the engine gives its
  * operator commands — this suite runs from the same checkout, so consuming it
- * keeps one recipe for "re-invoke this engine" — and it lets a project script
+ * keeps one definition of "re-invoke this engine" — and it lets a project script
  * (`discern config get …`) or a settings.json hook (`discern worktree …`)
  * spawned by a TEST resolve the command the way a real install (binary on
  * PATH) would. The desk's session marker
