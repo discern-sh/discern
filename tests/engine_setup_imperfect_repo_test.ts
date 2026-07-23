@@ -632,7 +632,10 @@ Deno.test("the probe derivation rejects a future provider it cannot observe", ()
   // The adversarial future sibling: fresh name, no case-table entry — the
   // derivation must refuse to leave it invisibly outside the probe set.
   assertThrows(
-    () => scaffoldProbes([...AGENT_NAMES.map((n) => PROVIDERS[n]), { name: "futuretool" }]),
+    () =>
+      scaffoldProbes([...AGENT_NAMES.map((n) => PROVIDERS[n]), {
+        name: "futuretool",
+      }]),
     Error,
     "futuretool",
   );

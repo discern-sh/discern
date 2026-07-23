@@ -112,25 +112,28 @@ Deno.test("the guidance detector catches a fresh-name future sibling and ignores
 });
 
 for (const [id, driver] of Object.entries(DRIVERS)) {
-  Deno.test(`two-lane (ADR 0086): \`${
-    driver.argv.join(" ")
-  }\` embeds its --json guidance verbatim in the human render [${id}]`, async () => {
-    await withTempDir(async (dir) => {
-      await driver.fixture(dir);
-      const json = await runAgent(dir, [...driver.argv, "--json"]);
-      assertEquals(json.code, driver.code, json.output);
-      const guidance = JSON.parse(json.stdout).data?.guidance;
-      assert(
-        typeof guidance === "string" && guidance.length > 0,
-        `the driver must produce a non-empty guidance: ${json.stdout}`,
-      );
-      const human = await runAgent(dir, driver.argv);
-      assertEquals(human.code, driver.code, human.output);
-      assertStringIncludes(
-        human.stdout,
-        guidance,
-        `the human render must embed the --json guidance verbatim (${id})`,
-      );
-    });
-  });
+  Deno.test(
+    `two-lane (ADR 0086): \`${
+      driver.argv.join(" ")
+    }\` embeds its --json guidance verbatim in the human render [${id}]`,
+    async () => {
+      await withTempDir(async (dir) => {
+        await driver.fixture(dir);
+        const json = await runAgent(dir, [...driver.argv, "--json"]);
+        assertEquals(json.code, driver.code, json.output);
+        const guidance = JSON.parse(json.stdout).data?.guidance;
+        assert(
+          typeof guidance === "string" && guidance.length > 0,
+          `the driver must produce a non-empty guidance: ${json.stdout}`,
+        );
+        const human = await runAgent(dir, driver.argv);
+        assertEquals(human.code, driver.code, human.output);
+        assertStringIncludes(
+          human.stdout,
+          guidance,
+          `the human render must embed the --json guidance verbatim (${id})`,
+        );
+      });
+    },
+  );
 }

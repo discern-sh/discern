@@ -175,25 +175,28 @@ Deno.test("every setup command path classifies its human-render audience (enrolm
 
 for (const [path, audience] of Object.entries(SETUP_HUMAN_AUDIENCES)) {
   const driver = OFF_RAMP_DRIVERS[path];
-  Deno.test(`the \`${path}\` human render ${
-    audience.offRamp ? "carries" : "omits"
-  } the human off-ramp`, async () => {
-    assert(driver !== undefined, `no off-ramp driver for ${path}`);
-    await withTempDir(async (dir) => {
-      await driver.fixture(dir);
-      const r = await runAgent(dir, driver.argv);
-      assertEquals(r.code, driver.code, r.output);
-      if (audience.offRamp) {
-        assertStringIncludes(r.stdout, OFF_RAMP_PROMPT);
-        assertStringIncludes(r.stdout, "Run `discern setup`");
-      } else {
-        assert(
-          !r.output.includes(OFF_RAMP_PROMPT),
-          `${path} is a named exception (${audience.reason}) — carrying the off-ramp means its classification must flip:\n${r.output}`,
-        );
-      }
-    });
-  });
+  Deno.test(
+    `the \`${path}\` human render ${
+      audience.offRamp ? "carries" : "omits"
+    } the human off-ramp`,
+    async () => {
+      assert(driver !== undefined, `no off-ramp driver for ${path}`);
+      await withTempDir(async (dir) => {
+        await driver.fixture(dir);
+        const r = await runAgent(dir, driver.argv);
+        assertEquals(r.code, driver.code, r.output);
+        if (audience.offRamp) {
+          assertStringIncludes(r.stdout, OFF_RAMP_PROMPT);
+          assertStringIncludes(r.stdout, "Run `discern setup`");
+        } else {
+          assert(
+            !r.output.includes(OFF_RAMP_PROMPT),
+            `${path} is a named exception (${audience.reason}) — carrying the off-ramp means its classification must flip:\n${r.output}`,
+          );
+        }
+      });
+    },
+  );
 }
 
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
