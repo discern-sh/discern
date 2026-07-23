@@ -15,9 +15,12 @@
  * committed with its banner or block markers. Reverse: convention sweeps over
  * conventionally named guard tests, codegen write targets, and fmt-excluded
  * generated map pages fail the gate on anything no declared set claims. The
- * meta-layer only REFERENCES the existing guards — they stay exactly as
- * written; a generic enrolment engine is the one shape this module must never
- * grow into.
+ * claim sweep (`tests/ssot_claim_guard_test.ts`) closes the convention's
+ * blind spot: a module whose doc comments claim single-source-of-truth
+ * status must be a declared entry's source or recorded in
+ * `UNAFFILIATED_SETS`. The meta-layer only REFERENCES the existing guards —
+ * they stay exactly as written; a generic enrolment engine is the one shape
+ * this module must never grow into.
  *
  * The registry enrols itself: `canonical-sets` is an entry, this module is its
  * source, and the atlas page it renders is its artifact.
@@ -939,7 +942,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "scripts/canonical_sets.ts",
       exportName: "CANONICAL_SETS",
     },
-    guards: ["tests/canonical_sets_enrolment_test.ts"],
+    guards: [
+      "tests/canonical_sets_enrolment_test.ts",
+      "tests/ssot_claim_guard_test.ts",
+    ],
     artifacts: [
       {
         path: "project/map/_internal/registry-atlas.md",
@@ -1066,7 +1072,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
     "",
     "_Every canonical set — source, guards, artifacts, and enrolments — generated from the meta-registry._",
     "",
-    "Sections follow registry order. Member counts resolve from each set's single source at generation time. To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner.",
+    "Sections follow registry order. Member counts resolve from each set's single source at generation time. To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.",
     "",
   ];
   for (const entry of CANONICAL_SETS) {

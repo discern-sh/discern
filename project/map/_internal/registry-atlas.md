@@ -4,7 +4,7 @@
 
 _Every canonical set — source, guards, artifacts, and enrolments — generated from the meta-registry._
 
-Sections follow registry order. Member counts resolve from each set's single source at generation time. To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner.
+Sections follow registry order. Member counts resolve from each set's single source at generation time. To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.
 
 ## `verbs` — Top-level verbs
 
@@ -321,7 +321,7 @@ This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
 - Members: 31
-- Guards: `tests/canonical_sets_enrolment_test.ts`
+- Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
 - Feature canon: described by the `canonical-sets` node
