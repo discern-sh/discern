@@ -223,7 +223,7 @@ function verb(over: Partial<VerbEvent>): VerbEvent {
     kind: "verb",
     verb: "done",
     surface: "cli",
-    writer: "1.0.0",
+    writer: "9.9.9",
     driver: { session: "cli:1", json: true, tty: false, ci: false },
     branch: "agent/task",
     head: "abc1234",
@@ -297,7 +297,7 @@ function unknownMcpClient(name: string): Partial<VerbEvent> {
       json: false,
       tty: false,
       ci: false,
-      mcp_client: { name, version: "1.0.0" },
+      mcp_client: { name, version: "9.9.9" },
     },
   };
 }
@@ -1114,7 +1114,7 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
           at: t(6 + i),
           verb: "done",
           duration_ms: 30_000,
-          writer: "1.0.0",
+          writer: "0.9.5",
         }),
     ),
   ];
@@ -1125,16 +1125,16 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assert(
-    finding.observed.includes("0.9.0 → 1.0.0"),
+    finding.observed.includes("0.9.0 → 0.9.5"),
     `the attribution must name the release move: ${finding.observed}`,
   );
 });
 
 Deno.test("patterns attribution: comparableTail keeps only the newest epoch+writer run", () => {
   const events = [
-    verb({ at: t(0), epoch: "a", writer: "1.0.0" }),
-    verb({ at: t(1), epoch: "b", writer: "1.0.0" }),
-    verb({ at: t(2), epoch: "b", writer: "1.0.0" }),
+    verb({ at: t(0), epoch: "a", writer: "9.9.9" }),
+    verb({ at: t(1), epoch: "b", writer: "9.9.9" }),
+    verb({ at: t(2), epoch: "b", writer: "9.9.9" }),
   ];
   const { tail, boundary } = comparableTail(events, events);
   assertEquals(tail.length, 2);

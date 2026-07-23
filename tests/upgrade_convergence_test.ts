@@ -514,7 +514,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
     await removeConfigSection(dir, "scripts");
     await Deno.writeTextFile(
       join(dir, ".discern/manifest.json"),
-      '{ "kit_version": "1.0.0", "schema_version": 4 }\n',
+      '{ "kit_version": "0.9.0", "schema_version": 4 }\n',
     );
     await Deno.mkdir(join(dir, ".discern/engine"), { recursive: true });
     await Deno.writeTextFile(

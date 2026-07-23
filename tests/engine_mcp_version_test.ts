@@ -23,20 +23,20 @@ import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", () => {
   // Matching versions and an unresolvable on-disk version both stay silent — the
   // check never invents an alarm from a can't-tell.
-  assertEquals(versionMismatchHint("1.0.0", "1.0.0"), undefined);
-  assertEquals(versionMismatchHint("1.0.0", undefined), undefined);
+  assertEquals(versionMismatchHint("9.9.9", "9.9.9"), undefined);
+  assertEquals(versionMismatchHint("9.9.9", undefined), undefined);
 
-  const hint = versionMismatchHint("1.0.0", "1.1.0");
+  const hint = versionMismatchHint("9.9.8", "9.9.9");
   assert(hint !== undefined, "a genuine mismatch must produce a hint");
   assertHasHint(
     { hints: [hint.text] },
     HINTS["mcp-version-mismatch"],
-    { serverVersion: "1.0.0", installedVersion: "1.1.0" },
+    { serverVersion: "9.9.8", installedVersion: "9.9.9" },
   );
 });
 
 Deno.test("parseDiscernVersion: accepts discern's own shape, rejects everything else", () => {
-  assertEquals(parseDiscernVersion("discern 1.0.0"), "1.0.0");
+  assertEquals(parseDiscernVersion("discern 9.9.9"), "9.9.9");
   assertEquals(parseDiscernVersion("discern 1.2.3-rc.4\n"), "1.2.3-rc.4");
   // Colourised `discern --version` output (cliffy wraps name + version in ANSI).
   assertEquals(
@@ -57,7 +57,7 @@ Deno.test("createInstalledVersionResolver: seeds from the running binary and re-
   let key: string | undefined = "inode-A";
   let probes = 0;
   const resolve = createInstalledVersionResolver({
-    serverVersion: "1.0.0",
+    serverVersion: "9.9.9",
     execPath: "/fake/discern",
     statKey: () => key,
     probeVersion: () => {
@@ -68,8 +68,8 @@ Deno.test("createInstalledVersionResolver: seeds from the running binary and re-
 
   // Steady state: the binary is unchanged, so the resolver returns the seeded
   // server version without ever probing.
-  assertEquals(await resolve(), "1.0.0");
-  assertEquals(await resolve(), "1.0.0");
+  assertEquals(await resolve(), "9.9.9");
+  assertEquals(await resolve(), "9.9.9");
   assertEquals(probes, 0, "an unchanged binary must never spawn a probe");
 
   // The binary is replaced (new inode) → one probe resolves the new version…
@@ -91,7 +91,7 @@ Deno.test("createInstalledVersionResolver: an unreadable binary resolves to unde
   // undefined and the mismatch hint stays silent, never probing.
   let probes = 0;
   const resolve = createInstalledVersionResolver({
-    serverVersion: "1.0.0",
+    serverVersion: "9.9.9",
     execPath: "/gone/discern",
     statKey: () => undefined,
     probeVersion: () => {

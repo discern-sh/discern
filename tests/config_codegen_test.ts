@@ -14,7 +14,7 @@ import {
   resolveConfiguredAgents,
 } from "../src/shared/config_schema.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -156,7 +156,7 @@ async function renderedTemplate(): Promise<string> {
     map_dir: "map/",
     scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
-    kit_version: "1.0.0",
+    kit_version: KIT_VERSION,
     project_name: "Demo",
   };
   for (const [k, v] of Object.entries(fills)) t = t.replaceAll(`{{${k}}}`, v);
