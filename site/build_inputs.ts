@@ -8,6 +8,8 @@ export const SITE_BUILD_INPUTS = [
   "site/brand.ts",
   "site/design_system.ts",
   "site/page-src",
+  "src/lib/providers.ts",
+  "src/shared/agent_catalogue.ts",
   "src/shared/brand.ts",
 ] as const;
 

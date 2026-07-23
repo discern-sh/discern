@@ -1,27 +1,41 @@
-/**
- * The authored homepage: an editorial placeholder composed from the design
- * system and rendered to static HTML by site/build.ts.
- */
+/** The authored homepage, rendered to static HTML by site/build.ts. */
 
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  ArticleHeader,
-  ArticleLayout,
   Brand,
   Button,
   Cluster,
   HeadingAccent,
   LogoCloud,
-  Prose,
-  PullQuote,
   SiteFooter,
   SkipLink,
-  TableOfContents,
 } from "discern-design-system/react";
+import { PROVIDERS } from "../../src/lib/providers.ts";
+import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
+
+/** The native provider set, in the catalogue's canonical display order. */
+const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
+  const provider = PROVIDERS[name];
+  return {
+    name: provider.label,
+    mark: (
+      <span className="landing-provider-logo-frame">
+        <img
+          className="landing-provider-logo"
+          src={provider.brand.mark.path}
+          alt=""
+          width={32}
+          height={32}
+          decoding="async"
+        />
+      </span>
+    ),
+  };
+});
 
 /** Static theme toggle wired at runtime by the shared /assets/theme.js. */
 function LandingThemeToggle() {
@@ -46,6 +60,49 @@ function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
 
+function LandingHero() {
+  return (
+    <header className="discern-article-header discern-article-header--canvas landing-header">
+      <div className="discern-article-header__inner">
+        <div className="discern-article-header__copy">
+          <h1>
+            Engineering discipline for{" "}
+            <HeadingAccent>coding agents</HeadingAccent>
+          </h1>
+          <div className="discern-article-header__standfirst">
+            discern gives every coding agent the same project knowledge, keeps
+            parallel tasks in separate worktrees, and requires proof that the
+            project’s real checks passed before work is called finished.
+          </div>
+          <div className="discern-article-header__footer">
+            <ul className="discern-article-header__meta">
+              <li>Free and open source</li>
+              <li>Runs offline</li>
+              <li>No API key</li>
+              <li>Not an AI</li>
+            </ul>
+            <div className="discern-article-header__actions">
+              <Cluster gap={4}>
+                <Button href="/docs/getting-started/quickstart">
+                  Install discern
+                </Button>
+                <Button href="/docs" variant="secondary">
+                  Read the manual
+                </Button>
+              </Cluster>
+            </div>
+          </div>
+        </div>
+      </div>
+      <LogoCloud
+        className="landing-integrations"
+        aria-label={`${PROVIDER_LOGOS.length} native coding agent integrations`}
+        items={PROVIDER_LOGOS}
+      />
+    </header>
+  );
+}
+
 function LandingPage() {
   return (
     <>
@@ -66,103 +123,57 @@ function LandingPage() {
         </nav>
       </header>
       <main id="main">
-        <ArticleHeader
-          className="landing-header"
-          eyebrow="Placeholder"
-          title={
-            <>
-              On keeping software <HeadingAccent>changeable</HeadingAccent>
-            </>
-          }
-          standfirst="Anyone can ask a coding agent for software and watch it appear. The harder question arrives later: whether a project made of many asks stays sound. That discipline can belong to the agent, and this essay is about how."
-          meta={["discern.sh", "July 2026"]}
-          actions={
-            <Cluster gap={4}>
-              <Button href="/docs/getting-started/quickstart">
-                Install discern
-              </Button>
-              <Button href="/docs" variant="secondary">Read the manual</Button>
-            </Cluster>
-          }
-        />
-        <ArticleLayout
-          className="landing-body"
-          navigation={
-            <TableOfContents
-              title="Placeholder"
-              items={[
-                { label: "The ask", href: "#the-ask" },
-                { label: "The pattern", href: "#the-pattern" },
-                { label: "The habits", href: "#the-habits" },
-              ]}
-            />
-          }
+        <LandingHero />
+
+        {
+          /*
+        <section
+          className="landing-control"
+          aria-labelledby="landing-control-title"
         >
-          <div className="landing-flow">
-            <Prose className="landing-prose">
-              <h3 id="the-ask">The ask</h3>
-            </Prose>
-            <Prose dropCap className="landing-prose landing-opening-copy">
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-                eiusmod tempor incididunt ut labore et dolore magna aliqua.
-              </p>
-              <p>
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco
-                laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
-
-              <h3 id="the-pattern">The pattern</h3>
-              <p>
-                Duis aute irure dolor in reprehenderit in voluptate velit esse
-                cillum dolore eu fugiat nulla pariatur.
-              </p>
-              <p>
-                Excepteur sint occaecat cupidatat non proident, sunt in culpa
-                qui officia deserunt mollit anim id est laborum.
-              </p>
-            </Prose>
-
-            <PullQuote
-              className="landing-pull"
-              align="wide"
-              quote="Nothing lands until you say so."
-            />
-
-            <Prose className="landing-prose">
-              <h3 id="the-habits">The habits</h3>
-              <p>
-                Sed ut perspiciatis unde omnis iste natus error sit voluptatem
-                accusantium doloremque laudantium, totam rem aperiam.
-              </p>
-              <p>
-                Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit
-                aut fugit, sed quia consequuntur magni dolores eos qui ratione
-                voluptatem sequi nesciunt.
-              </p>
-            </Prose>
+          <div className="landing-control__summary">
+            <h2 id="landing-control-title">
+              Your project decides when work is finished.
+            </h2>
+            <p>
+              <code>discern done</code>{" "}
+              runs your project’s real checks, stops quality from slipping, and
+              gives you proof tied to the code you’re reviewing.
+            </p>
           </div>
-        </ArticleLayout>
-
-        <LogoCloud
-          label="Placeholder logos"
-          aria-label="Six placeholder logos"
-          items={[
-            { name: "Logo 01", mark: "◮" },
-            { name: "Logo 02", mark: "◆" },
-            { name: "Logo 03", mark: "●" },
-            { name: "Logo 04", mark: "■" },
-            { name: "Logo 05", mark: "✦" },
-            { name: "Logo 06", mark: "◇" },
-          ]}
-        />
+          <dl className="landing-control__facts">
+            <div>
+              <dt>Same project knowledge</dt>
+              <dd>
+                Write the project guidance once. Every supported coding agent
+                reads the same instructions.
+              </dd>
+            </div>
+            <div>
+              <dt>Parallel work stays separate</dt>
+              <dd>
+                Each task gets its own branch and worktree, so agents do not
+                interfere with one another.
+              </dd>
+            </div>
+            <div>
+              <dt>Proof for review</dt>
+              <dd>
+                A passing run records the checks and the exact commit you’re
+                reviewing.
+              </dd>
+            </div>
+          </dl>
+        </section>
+        */
+        }
       </main>
       <SiteFooter
         brand={<DiscernName />}
         brandMark={DISCERN_MARK}
         brandTypeface="mono"
         brandMarkTreatment="plain"
-        description="One binary that gives your repository a definition of done, an isolated worktree per change, and one set of instructions every agent reads."
+        description="One binary that gives every coding agent the same project instructions, separates parallel tasks, and proves the project’s checks passed."
         groups={[
           {
             title: "Documentation",

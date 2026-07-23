@@ -22,6 +22,8 @@ import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
+import { PROVIDERS } from "../src/lib/providers.ts";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -323,7 +325,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage is the composed static placeholder", async () => {
+Deno.test("the public homepage presents engineering discipline for coding agents", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
@@ -332,26 +334,31 @@ Deno.test("the public homepage is the composed static placeholder", async () => 
   const html = await response.text();
   const dom = new JSDOM(html);
   const body = dom.window.document.body;
+  const text = body.textContent ?? "";
 
-  // One h1 carries the retained promise; the body is explicit placeholder copy.
+  // The first screen names the product category and the operational change.
   assertEquals(body.querySelectorAll("h1").length, 1);
-  assertStringIncludes(
-    body.textContent ?? "",
-    "Lorem ipsum dolor sit amet",
-  );
-
-  // The placeholder is design-system markup with accessible page structure.
-  assertEquals(body.querySelectorAll("main#main").length, 1);
-  assert(body.querySelector(".discern-article-header") !== null);
-  assert(body.querySelector(".discern-article-layout") !== null);
-  assert(body.querySelector(".discern-skip-link") !== null);
   assertEquals(
-    body.querySelector(".discern-article-header__eyebrow")?.textContent,
-    "Placeholder",
+    body.querySelector("h1")?.textContent?.trim(),
+    "Engineering discipline for coding agents",
   );
+  assertStringIncludes(text, "same project knowledge");
+  assertStringIncludes(text, "separate worktrees");
+  assertStringIncludes(text, "requires proof");
+  assertEquals(text.includes("definition of done"), false);
 
-  // The masthead, opening, calls to action, logo cloud, and footer all use
-  // their design-system contracts rather than page-owned approximations.
+  // The product introduction keeps the shared accessible page structure.
+  assertEquals(body.querySelectorAll("main#main").length, 1);
+  const articleHeader = body.querySelector(".discern-article-header");
+  assert(articleHeader !== null);
+  assert(body.querySelector(".discern-skip-link") !== null);
+  assertEquals(body.querySelector(".discern-article-layout"), null);
+  for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
+    assertEquals(text.includes(placeholder), false, placeholder);
+  }
+
+  // The masthead, calls to action, logo cloud, and footer use their
+  // design-system contracts rather than page-owned approximations.
   assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
   assertEquals(body.querySelectorAll(".landing-brand-name").length, 2);
   const actionCluster = body.querySelector(
@@ -373,54 +380,100 @@ Deno.test("the public homepage is the composed static placeholder", async () => 
     actions.map((action) => action.getAttribute("href")),
     ["/docs/getting-started/quickstart", "/docs"],
   );
-  const toc = body.querySelector(".discern-table-of-contents");
-  assert(toc !== null);
   assertEquals(
-    toc.querySelector(".discern-table-of-contents__title")?.textContent,
-    "Placeholder",
-  );
-  assertEquals(
-    [...toc.querySelectorAll("a")].map((link) => [
-      link.lastChild?.textContent?.trim(),
-      link.getAttribute("href"),
-    ]),
     [
-      ["The ask", "#the-ask"],
-      ["The pattern", "#the-pattern"],
-      ["The habits", "#the-habits"],
+      ...body.querySelectorAll(".discern-article-header__meta li"),
+    ].map((item) => item.textContent?.trim()),
+    [
+      "Free and open source",
+      "Runs offline",
+      "No API key",
+      "Not an AI",
     ],
   );
-  for (const id of ["the-ask", "the-pattern", "the-habits"]) {
-    assertEquals(body.querySelector(`#${id}`)?.tagName, "H3", id);
-  }
-  assertEquals(body.querySelectorAll(".landing-prose h3[id]").length, 3);
+
+  const control = body.querySelector(".landing-control");
+  assertEquals(control, null);
   assertEquals(
-    [
-      ...body.querySelectorAll(
-        "#the-pattern, .discern-pull-quote, #the-habits",
-      ),
-    ].map((element) =>
-      element.id ||
-      (element.classList.contains("discern-pull-quote") ? "pull-quote" : "")
-    ),
-    ["the-pattern", "pull-quote", "the-habits"],
+    text.includes("Your project decides when work is finished."),
+    false,
   );
-  const dropCap = body.querySelector(".discern-prose--drop-cap");
-  assert(dropCap !== null);
-  assertEquals(dropCap.firstElementChild?.tagName, "P");
+  const landingSource = await Deno.readTextFile(
+    join(ROOT, "site/page-src/landing.tsx"),
+  );
+  const controlSourceIndex = landingSource.indexOf(
+    'className="landing-control"',
+  );
+  const commentStart = landingSource.lastIndexOf("/*", controlSourceIndex);
+  const commentEnd = landingSource.indexOf("*/", controlSourceIndex);
+  const commentPrefix = landingSource.slice(0, commentStart).trimEnd();
+  const commentSuffix = landingSource.slice(commentEnd + 2).trimStart();
+  assert(
+    commentStart >= 0 &&
+      controlSourceIndex > commentStart &&
+      commentEnd > controlSourceIndex &&
+      commentPrefix.endsWith("{") &&
+      commentSuffix.startsWith("}"),
+    "the hidden control section must remain in a JSX comment for review",
+  );
   assertStringIncludes(
-    dropCap.firstElementChild?.textContent ?? "",
-    "Lorem ipsum",
+    landingSource.slice(commentStart, commentEnd),
+    "Your project decides when work is finished.",
+  );
+
+  const integrationItems = [
+    ...body.querySelectorAll(".discern-logo-cloud li"),
+  ];
+  const integrationImages = integrationItems.map((item) =>
+    item.querySelector("img")
   );
   assertEquals(
-    body.querySelectorAll(
-      ".discern-related-content, .discern-data-figure, .discern-terminal, .discern-footnotes",
-    ).length,
-    0,
+    integrationItems.map((item) => item.lastElementChild?.textContent?.trim()),
+    AGENT_NAMES.map((name) => PROVIDERS[name].label),
+  );
+  assertEquals(
+    integrationImages.map((image) => image?.getAttribute("src")),
+    AGENT_NAMES.map((name) => PROVIDERS[name].brand.mark.path),
+  );
+  assertEquals(
+    integrationImages.map((image) => image?.getAttribute("alt")),
+    AGENT_NAMES.map(() => ""),
+  );
+  assertEquals(
+    integrationImages.map((image) => image?.getAttribute("class")),
+    AGENT_NAMES.map(() => "landing-provider-logo"),
+  );
+  assertEquals(
+    body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
+    `${AGENT_NAMES.length} native coding agent integrations`,
+  );
+  const integrationCloud = body.querySelector(".discern-logo-cloud");
+  assert(integrationCloud !== null);
+  assertEquals(
+    [...articleHeader.children].map((child) => child.className),
+    [
+      "discern-article-header__inner",
+      "discern-logo-cloud discern-logo-cloud--center landing-integrations",
+    ],
+  );
+  assertEquals(
+    integrationCloud.querySelector(".discern-logo-cloud__label"),
+    null,
+  );
+  assertEquals(text.includes("Native coding agent integrations"), false);
+  assertEquals(articleHeader.nextElementSibling, null);
+  const main = body.querySelector("main#main");
+  assert(main !== null);
+  assertEquals(main.children.length, 1);
+  assertEquals(main.firstElementChild, articleHeader);
+  assertEquals(
+    body.querySelector(".landing-benefit, .landing-footprint"),
+    null,
   );
   assertEquals(html.includes("landing.js"), false);
-  assertEquals(body.querySelectorAll(".discern-logo-cloud li").length, 6);
-  assert(body.querySelector(".discern-site-footer") !== null);
+  const footer = body.querySelector(".discern-site-footer");
+  assert(footer !== null);
+  assertEquals(main.nextElementSibling, footer);
   assertEquals(
     body.querySelectorAll(".discern-site-footer__nav > div").length,
     2,
@@ -430,10 +483,14 @@ Deno.test("the public homepage is the composed static placeholder", async () => 
   );
   assertStringIncludes(
     landingCss,
-    "@media (prefers-reduced-motion: no-preference)",
+    "grid-template-columns: repeat(3, minmax(0, 1fr))",
   );
-  assertStringIncludes(landingCss, "scroll-behavior: smooth");
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
+  assertStringIncludes(landingCss, "inset-block-start: -3px;");
+  assertStringIncludes(landingCss, ".landing-provider-logo");
+  assertEquals(landingCss.includes(".landing-benefit"), false);
+  assertEquals(landingCss.includes(".landing-footprint"), false);
+  assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
   // Static output: local runtime assets only, and no React browser runtime.
   assert(
