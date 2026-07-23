@@ -179,6 +179,16 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 - Glossary: the "Logbook" entry carries the concept
 - Feature canon: described by the `logbook` node
 
+## `patterns-detectors` — Patterns detectors
+
+Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized harness fails until a new detector brings fixtures.
+
+- Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
+- Members: 23
+- Guards: `tests/patterns_test.ts`, `tests/logbook_routing_test.ts`
+- Glossary: the "Patterns" entry carries the concept
+- Feature canon: described by the `patterns` node
+
 ## `glossary-terms` — Glossary terms
 
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans.
@@ -290,7 +300,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 28
+- Members: 29
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

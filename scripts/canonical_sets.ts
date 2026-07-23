@@ -528,6 +528,27 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .logbookEventSchema.options.map((option) => option.shape.kind.value),
   },
   {
+    id: "patterns-detectors",
+    title: "Patterns detectors",
+    what:
+      "Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized harness fails until a new detector brings fixtures.",
+    source: {
+      kind: "module",
+      module: "src/engine/logbook/detectors.ts",
+      exportName: "DETECTORS",
+    },
+    guards: ["tests/patterns_test.ts", "tests/logbook_routing_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: { term: "Patterns" },
+      featureCanon: { nodeId: "patterns" },
+    },
+    members: async () =>
+      (await import("../src/engine/logbook/detectors.ts")).DETECTORS.map(
+        (detector) => detector.id,
+      ),
+  },
+  {
     id: "glossary-terms",
     title: "Glossary terms",
     what:
