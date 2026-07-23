@@ -10,9 +10,11 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 ## The homepage composition
 
-The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as an editorial placeholder built from the Editorial and Marketing adapters. It combines the retained article header and clustered actions with 3 placeholder sections, an opening drop cap, one wide pull quote, a placeholder logo cloud, and the grouped site footer. The contents links use the same reduced-motion-aware smooth scrolling as the docs.
+The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as a concise product introduction built from the Editorial and Marketing adapters. It combines an article header and clustered actions with a project-owned definition of done, the shared-knowledge and worktree mechanisms behind it, commit-tied proof, native agent integrations, and the grouped site footer.
 
-Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css). Its `.landing-*` selectors compose the page, and one document-level rule supplies the reduced-motion-aware scroll behavior. Component-owned `.discern-*` selectors stay with the package (the consumer-CSS guard below enforces this). The homepage ships no page-owned JavaScript. The static theme toggle in the header is markup only; the shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime. [`site/brand.ts`](../../../site/brand.ts) owns the page's title and description.
+The integration band walks the native agent catalogue in its canonical order and reads each label and compact SVG mark from the provider registry. A provider added to those total registries joins the homepage without a second page-owned list.
+
+Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css). Its `.landing-*` selectors compose the page while component-owned `.discern-*` selectors stay with the package (the consumer-CSS guard below enforces this). The homepage ships no page-owned JavaScript. The static theme toggle in the header is markup only; the shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime. [`site/brand.ts`](../../../site/brand.ts) owns the page's title and description.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. Discern does not mount `/style-guide/` in development or production.
 

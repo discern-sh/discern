@@ -1,27 +1,40 @@
-/**
- * The authored homepage: an editorial placeholder composed from the design
- * system and rendered to static HTML by site/build.ts.
- */
+/** The authored homepage, rendered to static HTML by site/build.ts. */
 
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ArticleHeader,
-  ArticleLayout,
   Brand,
   Button,
   Cluster,
   HeadingAccent,
   LogoCloud,
-  Prose,
-  PullQuote,
   SiteFooter,
   SkipLink,
-  TableOfContents,
 } from "discern-design-system/react";
+import { PROVIDERS } from "../../src/lib/providers.ts";
+import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
+
+/** The native provider set, in the catalogue's canonical display order. */
+const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
+  const provider = PROVIDERS[name];
+  return {
+    name: provider.label,
+    mark: (
+      <img
+        className="landing-provider-logo"
+        src={provider.brand.mark.path}
+        alt=""
+        width={32}
+        height={32}
+        decoding="async"
+      />
+    ),
+  };
+});
 
 /** Static theme toggle wired at runtime by the shared /assets/theme.js. */
 function LandingThemeToggle() {
@@ -68,14 +81,13 @@ function LandingPage() {
       <main id="main">
         <ArticleHeader
           className="landing-header"
-          eyebrow="Placeholder"
           title={
             <>
-              On keeping software <HeadingAccent>changeable</HeadingAccent>
+              Engineering control for{" "}
+              <HeadingAccent>AI coding agents</HeadingAccent>.
             </>
           }
-          standfirst="Anyone can ask a coding agent for software and watch it appear. The harder question arrives later: whether a project made of many asks stays sound. That discipline can belong to the agent, and this essay is about how."
-          meta={["discern.sh", "July 2026"]}
+          standfirst="discern gives every agent the same project knowledge, isolates parallel tasks in separate worktrees, and makes the repository’s checks the definition of done."
           actions={
             <Cluster gap={4}>
               <Button href="/docs/getting-started/quickstart">
@@ -85,76 +97,51 @@ function LandingPage() {
             </Cluster>
           }
         />
-        <ArticleLayout
-          className="landing-body"
-          navigation={
-            <TableOfContents
-              title="Placeholder"
-              items={[
-                { label: "The ask", href: "#the-ask" },
-                { label: "The pattern", href: "#the-pattern" },
-                { label: "The habits", href: "#the-habits" },
-              ]}
-            />
-          }
+        <section
+          className="landing-control"
+          aria-labelledby="landing-control-title"
         >
-          <div className="landing-flow">
-            <Prose className="landing-prose">
-              <h3 id="the-ask">The ask</h3>
-            </Prose>
-            <Prose dropCap className="landing-prose landing-opening-copy">
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-                eiusmod tempor incididunt ut labore et dolore magna aliqua.
-              </p>
-              <p>
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco
-                laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
-
-              <h3 id="the-pattern">The pattern</h3>
-              <p>
-                Duis aute irure dolor in reprehenderit in voluptate velit esse
-                cillum dolore eu fugiat nulla pariatur.
-              </p>
-              <p>
-                Excepteur sint occaecat cupidatat non proident, sunt in culpa
-                qui officia deserunt mollit anim id est laborum.
-              </p>
-            </Prose>
-
-            <PullQuote
-              className="landing-pull"
-              align="wide"
-              quote="Nothing lands until you say so."
-            />
-
-            <Prose className="landing-prose">
-              <h3 id="the-habits">The habits</h3>
-              <p>
-                Sed ut perspiciatis unde omnis iste natus error sit voluptatem
-                accusantium doloremque laudantium, totam rem aperiam.
-              </p>
-              <p>
-                Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit
-                aut fugit, sed quia consequuntur magni dolores eos qui ratione
-                voluptatem sequi nesciunt.
-              </p>
-            </Prose>
+          <div className="landing-control__summary">
+            <h2 id="landing-control-title">
+              Your project owns the definition of done.
+            </h2>
+            <p>
+              <code>discern done</code>{" "}
+              runs the repository’s configured checks, keeps configured quality
+              standards from moving backward, and produces a receipt tied to the
+              commit that passed.
+            </p>
           </div>
-        </ArticleLayout>
+          <dl className="landing-control__facts">
+            <div>
+              <dt>Shared project knowledge</dt>
+              <dd>
+                Write guidance once. discern compiles it into the instructions
+                every configured agent reads.
+              </dd>
+            </div>
+            <div>
+              <dt>Isolated parallel work</dt>
+              <dd>
+                Each change gets its own branch and worktree, keeping agents in
+                separate checkouts.
+              </dd>
+            </div>
+            <div>
+              <dt>Proof for review</dt>
+              <dd>
+                A passing run records the checks against the commit you’re
+                reviewing.
+              </dd>
+            </div>
+          </dl>
+        </section>
 
         <LogoCloud
-          label="Placeholder logos"
-          aria-label="Six placeholder logos"
-          items={[
-            { name: "Logo 01", mark: "◮" },
-            { name: "Logo 02", mark: "◆" },
-            { name: "Logo 03", mark: "●" },
-            { name: "Logo 04", mark: "■" },
-            { name: "Logo 05", mark: "✦" },
-            { name: "Logo 06", mark: "◇" },
-          ]}
+          className="landing-integrations"
+          label="Native coding agent integrations"
+          aria-label={`${PROVIDER_LOGOS.length} native coding agent integrations`}
+          items={PROVIDER_LOGOS}
         />
       </main>
       <SiteFooter

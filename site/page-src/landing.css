@@ -1,13 +1,4 @@
-/*
- * Homepage composition styles. Component-owned .discern-* selectors stay
- * with the bundle; the document selector mirrors the docs' motion behavior.
- */
-
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
+/* Homepage composition styles. Component-owned selectors stay with the bundle. */
 
 /* ── Masthead ──────────────────────────────────────────────────────────── */
 
@@ -48,28 +39,97 @@
   text-decoration: underline;
 }
 
-/* ── Article rhythm ────────────────────────────────────────────────────── */
+/* ── Control summary ───────────────────────────────────────────────────── */
 
-.landing-body {
-  padding-block-end: var(--discern-section-space);
+.landing-control {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr);
+  gap: var(--discern-space-12);
+  width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));
+  margin-inline: auto;
+  padding-block: var(--discern-space-10);
+  border-block: 1px solid var(--discern-color-border);
 }
 
-.landing-flow > * + * {
-  margin-block-start: var(--discern-space-10);
+.landing-control__summary h2 {
+  max-inline-size: 16ch;
+  margin: 0;
+  text-wrap: balance;
 }
 
-.landing-flow > .landing-opening-copy {
-  margin-block-start: 0;
-}
-
-.landing-prose > h3:first-child {
-  margin-block-start: 0;
-}
-
-.landing-prose p {
+.landing-control__summary p {
+  max-inline-size: 44rem;
+  margin: var(--discern-space-4) 0 0;
+  color: var(--discern-color-ink-muted);
+  line-height: 1.65;
   text-wrap: pretty;
 }
 
-.landing-prose h3 {
+.landing-control__summary code {
+  color: var(--discern-color-accent-700);
+  font-family: var(--discern-font-mono);
+  font-size: 0.9em;
+  font-weight: var(--discern-font-weight-strong);
+}
+
+.landing-control__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--discern-space-6);
+  margin: 0;
+}
+
+.landing-control__facts > div {
+  padding-inline-start: var(--discern-space-6);
+  border-inline-start: 1px solid var(--discern-color-border);
+}
+
+.landing-control__facts dt {
+  font-weight: var(--discern-font-weight-strong);
+  line-height: 1.35;
   text-wrap: balance;
+}
+
+.landing-control__facts dd {
+  margin: var(--discern-space-3) 0 0;
+  color: var(--discern-color-ink-muted);
+  font-size: var(--discern-font-size-sm);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* Vendor marks stay on the light field their source assets expect. */
+.landing-provider-logo {
+  display: block;
+  box-sizing: border-box;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  padding: 0.125rem;
+  border-radius: var(--discern-radius-xs);
+  background: #fff;
+  object-fit: contain;
+}
+
+@media (max-width: 880px) {
+  .landing-control {
+    grid-template-columns: 1fr;
+    gap: var(--discern-space-8);
+  }
+}
+
+@media (max-width: 680px) {
+  .landing-control__facts {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .landing-control__facts > div {
+    padding: var(--discern-space-5) 0;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--discern-color-border);
+  }
+
+  .landing-control__facts > div:last-child {
+    padding-block-end: 0;
+  }
 }
