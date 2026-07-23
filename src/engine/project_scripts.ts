@@ -14,6 +14,7 @@ import {
   findRoot,
   installedConfigRel,
   NO_PROJECT_MESSAGE,
+  notInitializedResult,
   scriptEnvVars,
 } from "../shared/env.ts";
 import { resolveScriptsDir } from "../lib/paths.ts";
@@ -189,7 +190,11 @@ export async function runProjectScript(
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    if (opts.json ?? false) {
+      emitResult(notInitializedResult("script"));
+    } else {
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    }
     return 1;
   }
   return await runProjectScriptAt(root, name, args, opts);

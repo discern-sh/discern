@@ -33,7 +33,7 @@
 
 import { dirname, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
-import { findRoot } from "../shared/env.ts";
+import { findRoot, notInitializedResult } from "../shared/env.ts";
 import {
   type DiscernConfig,
   loadConfig,
@@ -526,12 +526,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     const message =
       "no discern install here — nothing to uninstall. `uninstall` removes discern's wiring from a project it set up.";
     if (options.json) {
-      log.result({
-        ok: false,
-        verb: "uninstall",
-        error: "not_initialized",
-        message,
-      });
+      log.result(notInitializedResult("uninstall", message));
     } else {
       log.error(message);
     }

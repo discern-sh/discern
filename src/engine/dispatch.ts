@@ -23,7 +23,12 @@ import {
   findSkeletonMarkers,
   setupUnfinishedHint,
 } from "../shared/setup_state.ts";
-import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
+import {
+  CONFIG_REL,
+  findRoot,
+  NO_PROJECT_MESSAGE,
+  notInitializedResult,
+} from "../shared/env.ts";
 import {
   resolveConfigPath,
   resolveScriptsDir,
@@ -192,11 +197,23 @@ function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
-/** Resolve the project root, or print a not-found error and exit 1. */
-async function requireRoot(): Promise<string> {
+/**
+ * Resolve the project root, or refuse and exit 1. The refusal is the engine's
+ * ONE not-initialized chokepoint: under `--json` it emits the uniform
+ * `not_initialized` envelope on stdout — the machine slug an agent branches on —
+ * and in human mode the canonical stderr line. Every engine verb that needs a
+ * project passes its verb name and json flag here, so a new verb inherits the
+ * structured refusal for free (`tests/engine_not_initialized_test.ts` holds the
+ * whole verb surface to it).
+ */
+async function requireRoot(verb: string, json: boolean): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    if (json) {
+      emitResult(notInitializedResult(verb));
+    } else {
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    }
     Deno.exit(1);
   }
   return root;
@@ -222,8 +239,8 @@ async function runWorktreeOp(
   op: (ctx: LifecycleContext) => Promise<void>,
   opts: { json?: boolean; verb?: string } = {},
 ): Promise<number> {
-  const root = await requireRoot();
   const json = opts.json ?? false;
+  const root = await requireRoot(opts.verb ?? "worktree", json);
   const log = new Logger({
     json,
     noColor: false,
@@ -283,11 +300,14 @@ export function attachEngineCommands(
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
     .action(
-      recordedExit("done", async (o) =>
-        await runFinish(await requireRoot(), {
-          json: o.json ?? false,
-          dryRun: o.dryRun ?? false,
-        })),
+      recordedExit(
+        "done",
+        async (o) =>
+          await runFinish(await requireRoot("done", o.json ?? false), {
+            json: o.json ?? false,
+            dryRun: o.dryRun ?? false,
+          }),
+      ),
     );
 
   root
@@ -303,7 +323,9 @@ export function attachEngineCommands(
       recordedExit(
         "prepare",
         async (o) =>
-          await runPrepare(await requireRoot(), { json: o.json ?? false }),
+          await runPrepare(await requireRoot("prepare", o.json ?? false), {
+            json: o.json ?? false,
+          }),
       ),
     );
 
@@ -320,7 +342,7 @@ export function attachEngineCommands(
       recordedExit(
         "test",
         async (o) =>
-          await runTestJob(await requireRoot(), {
+          await runTestJob(await requireRoot("test", o.json ?? false), {
             json: o.json ?? false,
           }),
       ),
@@ -347,11 +369,14 @@ export function attachEngineCommands(
       recordedExit(
         "improvement",
         async (o) =>
-          await runImprovement(await requireRoot(), {
-            json: o.json ?? false,
-            category: o.category,
-            minScore: o.minScore,
-          }),
+          await runImprovement(
+            await requireRoot("improvement", o.json ?? false),
+            {
+              json: o.json ?? false,
+              category: o.category,
+              minScore: o.minScore,
+            },
+          ),
       ),
     );
 
@@ -403,7 +428,7 @@ export function attachEngineCommands(
       recordedExit(
         "standards",
         async (o, ...names: string[]) =>
-          await runStandards(await requireRoot(), {
+          await runStandards(await requireRoot("standards", o.json ?? false), {
             json: o.json ?? false,
             dryRun: o.dryRun ?? false,
             force: o.force ?? false,
@@ -424,8 +449,8 @@ export function attachEngineCommands(
       "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
     )
     .action(recordedExit("refresh", async (o) => {
-      const root = await requireRoot();
       const json = o.json ?? false;
+      const root = await requireRoot("refresh", json);
       // --json: narration → stderr, the result envelope → stdout. Human: narrate
       // to stdout via the default logger.
       const log = json
@@ -456,7 +481,7 @@ export function attachEngineCommands(
       // Keep the formatter host and embedded WASMs off every other verb's module
       // path. The WASMs are read and instantiated only when tidy formats a file.
       const { runTidy } = await import("./tidy/tidy.ts");
-      return await runTidy(await requireRoot(), {
+      return await runTidy(await requireRoot("tidy", o.json ?? false), {
         ...(type !== undefined ? { type } : {}),
         json: o.json ?? false,
         dryRun: o.dryRun ?? false,
@@ -480,11 +505,14 @@ export function attachEngineCommands(
       "Exit 0/1 membership test for one scope (silent).",
     )
     .action(
-      recordedExit("impact", async (o) =>
-        await runImpact(await requireRoot(), {
-          json: o.json ?? false,
-          ...(o.has !== undefined ? { has: o.has } : {}),
-        })),
+      recordedExit(
+        "impact",
+        async (o) =>
+          await runImpact(await requireRoot("impact", o.json ?? false), {
+            json: o.json ?? false,
+            ...(o.has !== undefined ? { has: o.has } : {}),
+          }),
+      ),
     );
 
   root
@@ -503,7 +531,7 @@ export function attachEngineCommands(
       const paths = [file, withFile].filter((p): p is string =>
         p !== undefined
       );
-      return await runCoupling(await requireRoot(), {
+      return await runCoupling(await requireRoot("coupling", o.json ?? false), {
         json: o.json ?? false,
         ...(paths.length > 0 ? { paths } : {}),
       });
@@ -523,7 +551,9 @@ export function attachEngineCommands(
       recordedExit(
         "patterns",
         async (o) =>
-          await runPatterns(await requireRoot(), { json: o.json ?? false }),
+          await runPatterns(await requireRoot("patterns", o.json ?? false), {
+            json: o.json ?? false,
+          }),
       ),
     )
     .command(
@@ -542,10 +572,13 @@ export function attachEngineCommands(
           recordedExit(
             "patterns reset",
             async (o) =>
-              await runPatternsReset(await requireRoot(), {
-                json: o.json ?? false,
-                dryRun: o.dryRun ?? false,
-              }),
+              await runPatternsReset(
+                await requireRoot("patterns", o.json ?? false),
+                {
+                  json: o.json ?? false,
+                  dryRun: o.dryRun ?? false,
+                },
+              ),
           ),
         ),
     );
@@ -718,9 +751,13 @@ export function attachEngineCommands(
       "--resources",
       "Print every declared resource as name=stable-external-name lines.",
     )
+    .option(
+      "--json",
+      "Emit refusals as a JSON DiscernResult on stdout; field values print raw.",
+    )
     .arguments("[path:string]")
     .action(recordedExit("identity", async (o, path) => {
-      const root = await requireRoot();
+      const root = await requireRoot("identity", o.json ?? false);
       const target = path ?? Deno.cwd();
       try {
         if (o.resource !== undefined) {
@@ -939,7 +976,7 @@ function attachSkillsCommand(root: Command): void {
 
 /** `discern skills list` — print the effective skill set. */
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
-  const root = await requireRoot();
+  const root = await requireRoot("skills list", opts.json);
   const cfg = await loadConfig(root);
   if (opts.json) {
     emitResult(await skillsListResult(root, cfg));
@@ -1054,7 +1091,7 @@ async function runSkillsEject(
   name: string,
   opts: { json?: boolean } = {},
 ): Promise<number> {
-  const root = await requireRoot();
+  const root = await requireRoot("skills eject", opts.json ?? false);
   const result = await skillsEjectResult(root, name);
   if (opts.json ?? false) {
     emitResult(result);
@@ -1247,10 +1284,15 @@ async function helperWithGotchas(args: string[]): Promise<number> {
 export async function runConfigRead(
   op: "get" | "array" | "has" | "subsections" | "keys",
   key: string,
+  opts: { json?: boolean } = {},
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
-    console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    if (opts.json ?? false) {
+      emitResult(notInitializedResult(`config ${op}`));
+    } else {
+      console.error(`discern: ${NO_PROJECT_MESSAGE}`);
+    }
     return 1;
   }
   // The Project-Script-facing passthrough reads arbitrary dotted keys verbatim, so it uses
