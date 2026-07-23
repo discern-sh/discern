@@ -977,7 +977,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         kind: "benefit",
         title: "Clean under interruption",
         what:
-          "Cancellation reaches the gate's detached process groups, temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune.",
+          "A signal stops and reaps every engine-spawned child tree — gate jobs, worktree lifecycle commands, launched scripts — temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune.",
         why: "A killed session leaves a machine you'd still want to work on.",
       },
     ],

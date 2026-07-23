@@ -683,6 +683,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "spawn-surfaces",
+    title: "Spawn surfaces",
+    what:
+      "Every file permitted to construct Deno.Command, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.",
+    source: {
+      kind: "module",
+      module: "tests/spawn_surfaces.ts",
+      exportName: "SPAWN_HOMES",
+    },
+    guards: [
+      "tests/engine_subprocess_ssot_test.ts",
+      "tests/engine_interrupt_surfaces_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal subprocess-ownership contract, not product vocabulary",
+      },
+      featureCanon: { nodeId: "interruption-safety" },
+    },
+    members: async () =>
+      (await import("../tests/spawn_surfaces.ts")).SPAWN_HOMES
+        .map((entry) => entry.home),
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",

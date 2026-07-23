@@ -187,7 +187,7 @@ _The guarantees hold everywhere because they are structural: no optional subsyst
 - **Forcing-function parity** _(benefit)_ — Every canonical set — verbs, tools, jobs, providers, config schema, terms, hints, features — is tied to its satellites by guards that fail the gate when a member is added without its counterparts. _The system cannot disagree with itself and stay green._
   - **The closed set of closed sets** — A meta-registry records every canonical set — its single source, its guard tests, its generated artifacts, and its enrolment in the glossary and this canon — and convention sweeps fail the gate when a guard test or generated artifact belongs to no declared set. _The registry discipline is itself a checked invariant: a new closed set cannot arrive without declaring who guards it and where it is documented._
 - **Run on itself** _(benefit)_ — The discern repository develops under its own gate, worktrees, standards, map, and logbook; a regression in the engine surfaces in discern's own `discern done`. _The vendor feels every sharp edge before a user does._
-- **Clean under interruption** _(benefit)_ — Cancellation reaches the gate's detached process groups, temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune. _A killed session leaves a machine you'd still want to work on._
+- **Clean under interruption** _(benefit)_ — A signal stops and reaps every engine-spawned child tree — gate jobs, worktree lifecycle commands, launched scripts — temp output artifacts are reaped by age from one registry, and orphaned worktree resources are reclaimed by prune. _A killed session leaves a machine you'd still want to work on._
 
 ## Closed-set coverage
 

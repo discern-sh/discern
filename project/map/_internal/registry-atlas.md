@@ -215,12 +215,22 @@ The generated third-party notice artifacts and their license cache.
 - Glossary: not enrolled — license plumbing; the CLI reference documents the licenses verb
 - Feature canon: described by the `licenses` node
 
+## `spawn-surfaces` — Spawn surfaces
+
+Every file permitted to construct Deno.Command, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.
+
+- Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
+- Members: 7
+- Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
+- Glossary: not enrolled — an internal subprocess-ownership contract, not product vocabulary
+- Feature canon: described by the `interruption-safety` node
+
 ## `canonical-sets` — Canonical sets
 
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 21
+- Members: 22
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
