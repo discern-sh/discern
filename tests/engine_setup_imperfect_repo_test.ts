@@ -8,7 +8,12 @@
  * the discarded stderr, the scaffolded literal placeholder).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -19,6 +24,8 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
+import { PROVIDERS } from "../src/lib/providers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -576,19 +583,79 @@ async function configIsCommitted(dir: string): Promise<boolean> {
   return dirty.trim() === "";
 }
 
+/** The registry slice the probe derivation reads — structural, so the adversarial
+ * fixtures below can pose as future providers without touching the real registry. */
+interface ProbeSource {
+  readonly name: string;
+  readonly hooks?: { readonly settingsFile: string };
+}
+
+/**
+ * The per-provider "this agent was scaffolded" probe files, DERIVED from the
+ * PROVIDERS registry: each native provider's hooks/settings seed is its observable
+ * scaffold signal. Deriving (rather than hand-listing) is what keeps the re-entry
+ * convergence tests total over the provider set — a sixth native provider enrols
+ * the moment it joins the catalogue. A provider the probe cannot observe (no
+ * per-agent file) or cannot distinguish (a file shared with another provider)
+ * throws, forcing a conscious probe decision instead of a silently blind spot.
+ */
+function scaffoldProbes(
+  providers: readonly ProbeSource[] = AGENT_NAMES.map((n) => PROVIDERS[n]),
+): Record<string, string> {
+  const probes: Record<string, string> = {};
+  const owners = new Map<string, string>();
+  for (const provider of providers) {
+    const file = provider.hooks?.settingsFile;
+    if (file === undefined) {
+      throw new Error(
+        `provider ${provider.name} declares no hooks settings file, so the convergence probe cannot observe its scaffold — give it an observable per-agent seed or record a named exception here`,
+      );
+    }
+    const owner = owners.get(file);
+    if (owner !== undefined) {
+      throw new Error(
+        `providers ${owner} and ${provider.name} share ${file} — file presence cannot tell their scaffolds apart`,
+      );
+    }
+    owners.set(file, provider.name);
+    probes[provider.name] = file;
+  }
+  return probes;
+}
+
+Deno.test("the scaffold probes cover every native provider with a distinct file", () => {
+  const probes = scaffoldProbes();
+  assertEquals(Object.keys(probes).sort(), [...AGENT_NAMES].sort());
+});
+
+Deno.test("the probe derivation rejects a future provider it cannot observe", () => {
+  // The adversarial future sibling: fresh name, no case-table entry — the
+  // derivation must refuse to leave it invisibly outside the probe set.
+  assertThrows(
+    () => scaffoldProbes([...AGENT_NAMES.map((n) => PROVIDERS[n]), { name: "futuretool" }]),
+    Error,
+    "futuretool",
+  );
+});
+
+Deno.test("the probe derivation rejects two providers sharing one settings file", () => {
+  assertThrows(
+    () =>
+      scaffoldProbes([
+        { name: "futuretool", hooks: { settingsFile: "shared/settings.json" } },
+        { name: "othertool", hooks: { settingsFile: "shared/settings.json" } },
+      ]),
+    Error,
+    "shared/settings.json",
+  );
+});
+
 /** Read the convergence invariants from an install on the setup branch. */
 async function readConvergence(dir: string): Promise<ReentryConvergence> {
   const toml = await Deno.readTextFile(join(dir, "discern.toml"));
   const cfg = parseConfigOrThrow(toml);
   const scaffoldedAgents: string[] = [];
-  // A per-agent hooks/settings file present on disk is the observable "this agent was
-  // scaffolded" signal, one per provider that writes one.
-  const probes: Record<string, string> = {
-    claude_code: ".claude/settings.json",
-    codex: ".codex/hooks.json",
-    gemini: ".gemini/settings.json",
-  };
-  for (const [agent, rel] of Object.entries(probes)) {
+  for (const [agent, rel] of Object.entries(scaffoldProbes())) {
     if (await exists(join(dir, rel))) {
       scaffoldedAgents.push(agent);
     }
