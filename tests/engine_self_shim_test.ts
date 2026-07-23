@@ -1,0 +1,79 @@
+/**
+ * `discern` inside an operator command resolves to the RUNNING engine, never
+ * to whatever the ambient PATH holds (src/shared/self_shim.ts, ADR 0182).
+ *
+ * The class this guards: an environment with no discern on PATH at all — CI
+ * running the engine from source, an MCP server spawned with a stripped
+ * environment — must still run a self-invoking job like the seeded
+ * `format = "discern tidy"`. The incident: CI's `deno task dev done` died
+ * with `format#2 failed (exit 127) — sh: discern: not found`, because the
+ * gate job's PATH had no dev wrapper and no binary. Both tests below scrub
+ * every discern off the base PATH, so they fail on any engine that leans on
+ * ambient resolution again.
+ */
+
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
+import { selfShimPath } from "../src/shared/self_shim.ts";
+import { withTempDir } from "./helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
+
+/** A base PATH with sh and git but certainly no discern. */
+const SCRUBBED_BASE = "/usr/bin:/bin";
+
+/**
+ * A PATH for a spawned engine process that carries no discern: the scrubbed
+ * base plus a directory holding only a `deno` symlink, so the engine itself
+ * can be spawned (`runAgent` invokes `deno run …`) without dragging in the
+ * developer's bin directory — which is exactly where a dev-wrapper `discern`
+ * would live and quietly satisfy the test.
+ */
+async function denoOnlyPath(): Promise<string> {
+  const dir = await Deno.makeTempDir({ prefix: "discern-deno-only-" });
+  await Deno.symlink(Deno.execPath(), join(dir, "deno"));
+  return `${dir}:${SCRUBBED_BASE}`;
+}
+
+Deno.test("self-shim: `discern` runs from a PATH holding no discern", async () => {
+  const out = await new Deno.Command("sh", {
+    args: ["-c", "discern --version"],
+    env: { PATH: await selfShimPath(SCRUBBED_BASE) },
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const stderr = new TextDecoder().decode(out.stderr);
+  assertEquals(out.code, 0, stderr);
+  assertStringIncludes(new TextDecoder().decode(out.stdout), "discern");
+});
+
+Deno.test("gate: a job invoking `discern` succeeds with no discern on PATH", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'format = "discern --version"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["prepare", "--json"], {
+      env: { PATH: await denoOnlyPath() },
+    });
+    assertEquals(r.code, 0, r.output);
+    const envelope = JSON.parse(r.stdout.trim());
+    assert(envelope.ok === true, r.output);
+  });
+});

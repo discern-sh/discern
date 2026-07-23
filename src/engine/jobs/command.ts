@@ -12,6 +12,7 @@
 
 import type { Job, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
+import { selfShimPath } from "../../shared/self_shim.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 import {
   KILL_GRACE_MS,
@@ -171,7 +172,9 @@ export async function spawnJob(
   const child = new Deno.Command("sh", {
     args: ["-c", command],
     cwd: opts.cwd,
-    env: CAPTURE_ENV,
+    // `discern` in a job command resolves to the engine running this gate,
+    // whatever the ambient PATH holds (self_shim.ts).
+    env: { ...CAPTURE_ENV, PATH: await selfShimPath() },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

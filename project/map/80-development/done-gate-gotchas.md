@@ -76,6 +76,8 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure`. Discern runs them in every managed worktree and after acceptance updates the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources. Put one-shot scaffolding under `[worktree.setup].steps` ([ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
+One command can never be the missing one: `discern` itself. The engine prepends a self-shim to every operator command's `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job like the seeded `format = "discern tidy"` resolves to the engine running the gate even in an environment with no discern on `PATH` — CI driving the engine from source, or an MCP server spawned with a stripped environment.
+
 ### A failure shows up as exit 0
 
 **Symptom.** You pipe `discern done` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.

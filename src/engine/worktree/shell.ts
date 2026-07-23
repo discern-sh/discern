@@ -24,6 +24,7 @@
 
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
+import { selfShimPath } from "../../shared/self_shim.ts";
 import { SPAWN_FAILED } from "../../shared/subprocess.ts";
 import { superviseSpawn } from "../owned_child.ts";
 import { KILLED_PIPE_GRACE_MS } from "../process_signals.ts";
@@ -141,13 +142,16 @@ export async function runShellRouted(
   const { cwd, log, env } = opts;
   const quiet = log.json;
   const isolatedGroup = Deno.build.os !== "windows";
+  // `discern` in an operator command resolves to the running engine, whatever
+  // the ambient PATH holds (self_shim.ts).
+  const childEnv = { ...env, PATH: await selfShimPath(env?.PATH) };
   try {
     const run = await superviseSpawn(
       () =>
         new Deno.Command("sh", {
           args: ["-c", command],
           cwd,
-          ...(env !== undefined ? { env } : {}),
+          env: childEnv,
           stdin: "null",
           stdout: quiet ? "null" : "piped",
           stderr: quiet ? "null" : "piped",

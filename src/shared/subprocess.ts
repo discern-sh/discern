@@ -17,6 +17,8 @@
  * gate on a raw git or `sh -c` spawn anywhere else, pointing the author back here.
  */
 
+import { selfShimPath } from "./self_shim.ts";
+
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
 export function gitBin(): string {
   return Deno.env.get("GIT_BIN") ?? "git";
@@ -139,7 +141,9 @@ export async function runShell(
     const output = await new Deno.Command("sh", {
       args: ["-c", shellCommand(command)],
       cwd: opts.cwd,
-      ...(opts.env !== undefined ? { env: opts.env } : {}),
+      // `discern` in an operator command resolves to the running engine,
+      // whatever the ambient PATH holds (self_shim.ts).
+      env: { ...opts.env, PATH: await selfShimPath(opts.env?.PATH) },
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
@@ -275,9 +279,11 @@ export function leadingCommandWord(command: string): string | undefined {
  * path — via the shell's own `command -v`. `word` is passed as a positional
  * argument, not interpolated into the script, so a surprising value cannot break
  * out of the probe. Pass `cwd` when validating a project-relative command so the
- * probe uses the same resolved root as its eventual execution. Extract the word
- * to probe from an operator command string with {@link leadingCommandWord},
- * never by splitting on whitespace.
+ * probe uses the same resolved root as its eventual execution. The probe runs
+ * with the same self-shim PATH the operator-command runners use (self_shim.ts),
+ * so its verdict on a `discern …` command matches what execution would do.
+ * Extract the word to probe from an operator command string with
+ * {@link leadingCommandWord}, never by splitting on whitespace.
  */
 export async function commandExists(
   word: string,
@@ -287,6 +293,7 @@ export async function commandExists(
     const out = await new Deno.Command("sh", {
       args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      env: { PATH: await selfShimPath() },
       stdout: "null",
       stderr: "null",
     }).output();

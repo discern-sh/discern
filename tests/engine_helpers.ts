@@ -31,6 +31,7 @@ import {
   type SourcePathName,
 } from "../src/shared/paths_registry.ts";
 import type { AgentName } from "../src/lib/config.ts";
+import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
@@ -60,38 +61,20 @@ const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 export const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 export const DENO_JSON = join(REPO_ROOT, "deno.json");
 
-/** Shell-quote a path for the shim script. */
+/** Shell-quote a path for a command string handed to a PTY shell. */
 function shq(s: string): string {
   return `'${s.replaceAll("'", "'\\''")}'`;
 }
 
 /**
- * A lazily-created directory holding a `discern` shim that execs the TS engine
- * exactly as runAgent does. Prepended to PATH so a project script (`discern
- * config get …`) or a settings.json hook (`discern worktree …`) resolves the
- * command the same way a real install (binary on PATH) would.
- */
-let shimDirCache: string | undefined;
-async function discernShimDir(): Promise<string> {
-  if (shimDirCache !== undefined) {
-    return shimDirCache;
-  }
-  const dir = await Deno.makeTempDir({ prefix: "discern-shim-" });
-  const shim = join(dir, "discern");
-  await Deno.writeTextFile(
-    shim,
-    `#!/usr/bin/env sh\nexec deno run --no-check --config ${
-      shq(DENO_JSON)
-    } -A ${shq(MAIN_TS)} "$@"\n`,
-  );
-  await Deno.chmod(shim, 0o755);
-  shimDirCache = dir;
-  return dir;
-}
-
-/**
- * Build the environment for an engine subprocess: colour off, git isolated, the
- * `discern` shim on PATH, plus any caller overrides. The desk's session marker
+ * Build the environment for an engine subprocess: colour off, git isolated,
+ * the engine's own `discern` self-shim on PATH, plus any caller overrides.
+ * The shim (src/shared/self_shim.ts) is the same one the engine gives its
+ * operator commands — this suite runs from the same checkout, so consuming it
+ * keeps one recipe for "re-invoke this engine" — and it lets a project script
+ * (`discern config get …`) or a settings.json hook (`discern worktree …`)
+ * spawned by a TEST resolve the command the way a real install (binary on
+ * PATH) would. The desk's session marker
  * is designed to be inherited by every descendant process, so a suite launched
  * from inside `discern desk` would leak it into every spawned engine; blanking
  * it here keeps the suite deterministic, and a test that needs the marker sets
@@ -100,7 +83,7 @@ async function discernShimDir(): Promise<string> {
 export async function engineEnv(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
-  const shim = await discernShimDir();
+  const shim = await selfShimDir();
   return {
     NO_COLOR: "1",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
