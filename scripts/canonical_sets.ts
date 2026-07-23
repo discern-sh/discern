@@ -905,6 +905,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => entry.home),
   },
   {
+    id: "authored-ts-universe",
+    title: "Authored-TypeScript universe",
+    what:
+      "The top-level trees holding authored TypeScript — the universe every repo-wide structural sweep derives its scan set from. Members are the stable roots; the file-level list (`AUTHORED_TS_FILES`, the export sweeps consume) is git-derived at import time and moves with every commit, so the roots are the meaningful atlas count.",
+    source: {
+      kind: "module",
+      module: "tests/repo_authored_paths.ts",
+      exportName: "AUTHORED_TS_ROOTS",
+    },
+    guards: ["tests/repo_authored_paths_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "this repository's internal scan universe, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "guard infrastructure for this repository's own sweeps, not a product feature",
+      },
+    },
+    members: async () => [
+      ...(await import("../tests/repo_authored_paths.ts")).AUTHORED_TS_ROOTS,
+    ],
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",

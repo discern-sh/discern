@@ -305,12 +305,22 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 - Glossary: not enrolled — an internal subprocess-ownership contract, not product vocabulary
 - Feature canon: described by the `interruption-safety` node
 
+## `authored-ts-universe` — Authored-TypeScript universe
+
+The top-level trees holding authored TypeScript — the universe every repo-wide structural sweep derives its scan set from. Members are the stable roots; the file-level list (`AUTHORED_TS_FILES`, the export sweeps consume) is git-derived at import time and moves with every commit, so the roots are the meaningful atlas count.
+
+- Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
+- Members: 5
+- Guards: `tests/repo_authored_paths_test.ts`
+- Glossary: not enrolled — this repository's internal scan universe, not product vocabulary
+- Feature canon: not enrolled — guard infrastructure for this repository's own sweeps, not a product feature
+
 ## `canonical-sets` — Canonical sets
 
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 30
+- Members: 31
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
