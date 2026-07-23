@@ -138,6 +138,16 @@ The staged-setup handshake's sub-verb sequence.
 - Glossary: not enrolled — sub-verbs of one handshake; the CLI reference documents them under setup
 - Feature canon: described by the `setup` node
 
+## `setup-completion-checks` — Setup completion checks
+
+The machine-checkable predicates behind setup's observable progress; each mirrors its setup page's completion-check field, so a resumed session derives what is done from the tree itself.
+
+- Source: `src/shared/setup_checks.ts` — `SETUP_COMPLETION_CHECKS`
+- Members: 3
+- Guards: `tests/engine_setup_pages_test.ts`
+- Glossary: not enrolled — internal predicates behind setup's progress reporting; the setup pages describe each step in prose
+- Feature canon: described by the `setup-observability` node
+
 ## `hints` — Hints
 
 The advisory hint registry: every hint string enters results through it.
@@ -270,7 +280,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 26
+- Members: 27
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

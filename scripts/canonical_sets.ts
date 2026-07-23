@@ -424,6 +424,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "setup-completion-checks",
+    title: "Setup completion checks",
+    what:
+      "The machine-checkable predicates behind setup's observable progress; each mirrors its setup page's completion-check field, so a resumed session derives what is done from the tree itself.",
+    source: {
+      kind: "module",
+      module: "src/shared/setup_checks.ts",
+      exportName: "SETUP_COMPLETION_CHECKS",
+    },
+    guards: ["tests/engine_setup_pages_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal predicates behind setup's progress reporting; the setup pages describe each step in prose",
+      },
+      featureCanon: { nodeId: "setup-observability" },
+    },
+    members: async () =>
+      (await import("../src/shared/setup_checks.ts")).SETUP_COMPLETION_CHECKS
+        .map((check) => check.name),
+  },
+  {
     id: "hints",
     title: "Hints",
     what:
