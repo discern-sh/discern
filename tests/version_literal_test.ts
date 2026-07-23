@@ -68,8 +68,10 @@ Deno.test("tests do not pin the current package semver as a literal", async () =
   assert(
     offenders.length === 0,
     "tests must interpolate KIT_VERSION when asserting a version-reporting " +
-      "surface, and use a clearly-fake semver (e.g. \"9.9.9\") for fixture " +
-      `data — never the current literal ${KIT_VERSION}: ${offenders.join(", ")}`,
+      'surface, and use a clearly-fake semver (e.g. "9.9.9") for fixture ' +
+      `data — never the current literal ${KIT_VERSION}: ${
+        offenders.join(", ")
+      }`,
   );
 });
 
@@ -91,7 +93,9 @@ Deno.test("every version-reporting surface derives from KIT_VERSION", async () =
     assertEquals(setup.code, 0, "setup should scaffold a healthy install");
 
     const cliVersion = await runCli(["--version"], dir);
-    const doctorJson = JSON.parse((await runCli(["doctor", "--json"], dir)).stdout);
+    const doctorJson = JSON.parse(
+      (await runCli(["doctor", "--json"], dir)).stdout,
+    );
     const doctorHuman = await runCli(["doctor"], dir);
     const stampedConfig = await Deno.readTextFile(join(dir, "discern.toml"));
 

@@ -50,7 +50,15 @@ const SITE_GENERATED_PREFIXES = Object.values(DESIGN_SYSTEM_BUNDLES).map((b) =>
 );
 
 /** Extensions that never carry prose (binary assets). */
-const BINARY_EXTS = [".png", ".ico", ".jpg", ".jpeg", ".webp", ".woff", ".woff2"];
+const BINARY_EXTS = [
+  ".png",
+  ".ico",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".woff",
+  ".woff2",
+];
 
 /**
  * Every scanned site file: TypeScript modules contribute their string
