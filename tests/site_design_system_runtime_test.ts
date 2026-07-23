@@ -349,9 +349,10 @@ Deno.test("the public homepage presents engineering discipline for coding agents
 
   // The product introduction keeps the shared accessible page structure.
   assertEquals(body.querySelectorAll("main#main").length, 1);
-  assert(body.querySelector(".discern-article-header") !== null);
+  const articleHeader = body.querySelector(".discern-article-header");
+  assert(articleHeader !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
-  assertEquals(body.querySelector(".discern-article-layout"), null);
+  assertEquals(body.querySelectorAll(".discern-article-layout").length, 2);
   for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
     assertEquals(text.includes(placeholder), false, placeholder);
   }
@@ -387,7 +388,7 @@ Deno.test("the public homepage presents engineering discipline for coding agents
       "Free and open source",
       "Runs offline",
       "No API key",
-      "No AI model",
+      "Not an AI",
     ],
   );
 
@@ -440,9 +441,45 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
     `${AGENT_NAMES.length} native coding agent integrations`,
   );
+  const integrationCloud = body.querySelector(".discern-logo-cloud");
+  assert(integrationCloud !== null);
   assertEquals(
-    body.querySelector(".discern-logo-cloud")?.nextElementSibling,
+    [...articleHeader.children].map((child) => child.className),
+    [
+      "discern-article-header__inner",
+      "discern-logo-cloud discern-logo-cloud--center landing-integrations",
+    ],
+  );
+  assertEquals(
+    integrationCloud.querySelector(".discern-logo-cloud__label"),
+    null,
+  );
+  assertEquals(text.includes("Native coding agent integrations"), false);
+  assertEquals(
+    articleHeader.nextElementSibling,
     control,
+  );
+
+  // The tail uses quiet editorial components for benefits taken from the
+  // feature canon, without terminal or receipt theatre.
+  assertEquals(
+    [...body.querySelectorAll(".landing-benefit h2")].map((heading) =>
+      heading.textContent?.trim()
+    ),
+    [
+      "Quality can only move one way.",
+      "What the project learns stays learned.",
+    ],
+  );
+  assertStringIncludes(text, "Weaker limits");
+  assertStringIncludes(text, "Checked with the code");
+  assertStringIncludes(
+    body.querySelector(".discern-pull-quote")?.textContent ?? "",
+    "Nothing watching in the background.",
+  );
+  assertEquals(
+    body.querySelector(".discern-terminal, .discern-receipt"),
+    null,
   );
   assertEquals(html.includes("landing.js"), false);
   assert(body.querySelector(".discern-site-footer") !== null);
@@ -460,6 +497,8 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
+  assertStringIncludes(landingCss, ".landing-benefit__layout");
+  assertStringIncludes(landingCss, ".landing-footprint__inner");
   assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
   // Static output: local runtime assets only, and no React browser runtime.
