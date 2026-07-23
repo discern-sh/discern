@@ -80,7 +80,7 @@ The skills the binary ships and materializes into a project.
 
 ## `agent-providers` — Agent providers
 
-The agent providers discern writes files for.
+The agent providers discern writes files for, each with a compact mark and horizontal logo lockup.
 
 - Source: `src/shared/agent_catalogue.ts` — `AGENT_NAMES`
 - Members: 5
