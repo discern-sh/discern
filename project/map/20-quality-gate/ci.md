@@ -44,7 +44,7 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Fetch trunk
         run: >-
@@ -62,7 +62,7 @@ jobs:
           install -m 0755 "${DISCERN_ASSET}" "${RUNNER_TEMP}/discern"
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
           cache: true
@@ -77,6 +77,8 @@ jobs:
 ```
 
 Set `DISCERN_VERSION` to the release tag you approve. `DISCERN_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
+
+The full commit hashes keep remote action code immutable within a reviewed workflow. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
 
 The toolchain step belongs before the gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
 
