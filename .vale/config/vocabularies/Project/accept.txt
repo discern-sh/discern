@@ -15,6 +15,7 @@ autograde
 autoloader
 backfill(s|ed|ing)?
 backgrounded
+backoff
 basename
 blockquotes?
 bool

@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
+  agentExperienceNodes,
   allFeatureNodes,
   allSurfaceClaims,
   FEATURE_CANON,
@@ -53,6 +54,19 @@ Deno.test("every id is unique and kebab-case, and every node states a complete s
         `"why" is not a complete sentence for: ${node.id}`,
       );
     }
+    if (node.agent !== undefined) {
+      assert(
+        /[.!?]$/u.test(node.agent.trim()),
+        `"agent" is not a complete sentence for: ${node.id}`,
+      );
+    }
+    if (node.hints !== undefined) {
+      assert(
+        node.agent !== undefined,
+        `hint citations ride an agent-experience account, but ${node.id} has none`,
+      );
+      assert(node.hints.length > 0, `empty hints list on: ${node.id}`);
+    }
   }
 });
 
@@ -103,6 +117,21 @@ Deno.test("benefit nodes are marked in the rendered tree", () => {
   }
 });
 
+Deno.test("agent-experience accounts render marked, indexed, and counted", () => {
+  const doc = renderFeatureCanonDoc();
+  const carriers = agentExperienceNodes();
+  if (carriers.length === 0) return;
+  assertStringIncludes(doc, "## The agent's-eye view");
+  assertStringIncludes(doc, ` · ${carriers.length} agent-experience accounts`);
+  for (const { node } of carriers) {
+    assertStringIncludes(
+      doc,
+      `**Agent:** *${node.agent}*`,
+      `agent account renders unmarked: ${node.id}`,
+    );
+  }
+});
+
 // Every `discern <verb>` mention in canon prose must name a live verb — the
 // same command-reference discipline the hint corpus and the map's fenced
 // examples are held to, so a rename fails the canon mechanically.
@@ -115,7 +144,7 @@ function mentionedVerbs(text: string): string[] {
 
 Deno.test("every discern command mentioned in canon prose is a live verb", () => {
   for (const { node } of allFeatureNodes()) {
-    for (const text of [node.what, node.why ?? ""]) {
+    for (const text of [node.what, node.why ?? "", node.agent ?? ""]) {
       for (const verb of mentionedVerbs(text)) {
         assert(
           KNOWN_VERBS.has(verb),

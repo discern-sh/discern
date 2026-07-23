@@ -18,6 +18,7 @@ import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   allGuidanceFilePaths,
   DISCERN_MCP_SERVER,
+  type McpWireResult,
   providerFor,
   PROVIDERS,
   providersWithHooks,
@@ -799,6 +800,253 @@ Deno.test("Copilot co-owns Claude's .mcp.json: one byte-identical entry, order-i
       assertEquals(again.firstInstall, false);
     });
   }
+});
+
+// ── the wired-writer invariant, swept from the registry ─────────────────────
+// Every provider whose MCP status is `wired` promises the same two properties,
+// whatever its config format: the writer is IDEMPOTENT (a re-wire writes
+// nothing and leaves every written file byte-identical) and MERGE-PRESERVING
+// (pre-existing user servers and keys survive the wire). The per-provider tests
+// above prove each format's specifics; this sweep proves the shared invariant
+// over AGENT_NAMES × PROVIDERS filtered to `wired`, so a NEW wired provider
+// enrols the moment it joins the registry — it cannot ship with zero coverage
+// of exactly this property.
+
+/**
+ * The minimal wired-writer surface the invariant checks. Structural on purpose:
+ * the registry sweep builds probes from `wiredMcp`, and the future-sibling
+ * fixtures below build broken ones under unrelated names — proving the detector
+ * rejects the defect mechanism itself, not a list of known providers.
+ */
+interface WiredWriterProbe {
+  readonly name: string;
+  readonly configFile: string;
+  register(root: string): Promise<McpWireResult>;
+}
+
+/** One probe per registry provider with `mcp.kind === "wired"`, wired with the
+ * same defaults `wireProviderMcp` uses. */
+function registryWiredProbes(): WiredWriterProbe[] {
+  const probes: WiredWriterProbe[] = [];
+  for (const agent of AGENT_NAMES) {
+    const mcp = wiredMcp(PROVIDERS[agent]);
+    if (mcp !== undefined) {
+      probes.push({
+        name: agent,
+        configFile: mcp.configFile,
+        register: (root) =>
+          mcp.register(root, DISCERN_MCP_SERVER, parseConfigOrThrow("")),
+      });
+    }
+  }
+  return probes;
+}
+
+/** Markers planted in the foreign seed; each must survive the wire verbatim. */
+const FOREIGN_MARKERS = ["zz-pre-existing-tool", "zz-pre-existing-value"];
+
+/**
+ * Pre-existing user content for a provider's config file — a foreign server plus
+ * a foreign top-level key, in the file's own format. The survival check is
+ * format-agnostic (a raw-text substring per marker), so only the seed needs to
+ * know the syntax. A provider adopting a NEW format fails loudly here rather
+ * than silently skipping the merge invariant.
+ */
+function foreignSeed(configFile: string): string {
+  if (configFile.endsWith(".json")) {
+    return `${
+      JSON.stringify(
+        {
+          mcpServers: {
+            "zz-pre-existing": { command: "zz-pre-existing-tool" },
+          },
+          zzPreExistingUserKey: "zz-pre-existing-value",
+        },
+        null,
+        2,
+      )
+    }\n`;
+  }
+  if (configFile.endsWith(".toml")) {
+    return [
+      'zz_pre_existing_user_key = "zz-pre-existing-value"',
+      "",
+      "[mcp_servers.zz-pre-existing]",
+      'command = "zz-pre-existing-tool"',
+      "",
+    ].join("\n");
+  }
+  throw new Error(
+    `no foreign seed for ${configFile}: teach foreignSeed this config format so the new provider's merge invariant is exercised`,
+  );
+}
+
+/**
+ * The detector: every violation of the wired-writer invariant for one probe
+ * (empty means clean). Returned rather than asserted so the future-sibling
+ * tests below can prove it REJECTS a broken writer, not just that the current
+ * registry passes it.
+ */
+async function wiredWriterViolations(
+  probe: WiredWriterProbe,
+): Promise<string[]> {
+  const violations: string[] = [];
+
+  // Idempotence: wire twice into a fresh root. The re-wire must write nothing,
+  // never re-report a first install, and leave every file the first wire wrote
+  // byte-identical.
+  await withTempDir(async (dir) => {
+    const first = await probe.register(dir);
+    if (!first.written.includes(probe.configFile)) {
+      violations.push(
+        `${probe.name}: a fresh wire must write ${probe.configFile} (wrote: ${
+          first.written.join(", ") || "nothing"
+        })`,
+      );
+      return;
+    }
+    if (!first.firstInstall) {
+      violations.push(`${probe.name}: a fresh wire must report firstInstall`);
+    }
+    const before = new Map<string, string>();
+    for (const rel of first.written) {
+      before.set(rel, await Deno.readTextFile(join(dir, rel)));
+    }
+    const second = await probe.register(dir);
+    if (second.written.length > 0) {
+      violations.push(
+        `${probe.name}: a re-wire must write nothing (wrote: ${
+          second.written.join(", ")
+        })`,
+      );
+    }
+    if (second.firstInstall) {
+      violations.push(`${probe.name}: a re-wire must not report firstInstall`);
+    }
+    for (const [rel, text] of before) {
+      const after = await Deno.readTextFile(join(dir, rel)).catch(() =>
+        undefined
+      );
+      if (after !== text) {
+        violations.push(
+          `${probe.name}: re-wiring changed ${rel} — the writer must be byte-stable`,
+        );
+      }
+    }
+  });
+
+  // Merge preservation: wire over a config file that already carries a foreign
+  // server and a foreign user key. Both must survive verbatim, alongside the
+  // newly added discern entry.
+  await withTempDir(async (dir) => {
+    const path = join(dir, probe.configFile);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(path, foreignSeed(probe.configFile));
+    const wired = await probe.register(dir);
+    if (!wired.firstInstall) {
+      violations.push(
+        `${probe.name}: discern was absent from the seeded file, so wiring it must report firstInstall`,
+      );
+    }
+    const text = await Deno.readTextFile(path);
+    for (const marker of FOREIGN_MARKERS) {
+      if (!text.includes(marker)) {
+        violations.push(
+          `${probe.name}: wiring dropped pre-existing user content ("${marker}") from ${probe.configFile}`,
+        );
+      }
+    }
+    if (!text.includes(DISCERN_MCP_SERVER.name)) {
+      violations.push(
+        `${probe.name}: wiring over a seeded file must still add the ${DISCERN_MCP_SERVER.name} server`,
+      );
+    }
+  });
+
+  return violations;
+}
+
+Deno.test("every wired provider's MCP writer is idempotent and merge-preserving (registry sweep)", async () => {
+  const probes = registryWiredProbes();
+  // Never a vacuous sweep: the registry currently wires every provider (the
+  // typed-status test above pins the exact set).
+  assert(
+    probes.length > 0,
+    "no wired providers — the sweep would prove nothing",
+  );
+  for (const probe of probes) {
+    assertEquals(
+      await wiredWriterViolations(probe),
+      [],
+      `wired-writer invariant violated for ${probe.name}`,
+    );
+  }
+});
+
+Deno.test("the wired-writer detector rejects a non-idempotent future provider (unrelated names)", async () => {
+  // Adversarial future sibling: a writer under fresh names that appends a new
+  // entry on every run, so it never converges. The detector must flag it with
+  // no registry membership and no case-table edit.
+  let runs = 0;
+  const rel = ".zz-future/config.json";
+  const probe: WiredWriterProbe = {
+    name: "zz-future-agent",
+    configFile: rel,
+    register: async (root) => {
+      runs++;
+      const path = join(root, rel);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      const existing = await Deno.readTextFile(path).catch(() => "{}");
+      const doc = JSON.parse(existing) as Record<string, unknown>;
+      doc[`discern-run-${runs}`] = { command: "discern" };
+      await Deno.writeTextFile(path, JSON.stringify(doc, null, 2));
+      return { written: [rel], firstInstall: runs === 1 };
+    },
+  };
+  const violations = await wiredWriterViolations(probe);
+  assert(
+    violations.some((v) => v.includes("byte-stable")),
+    `the detector must flag the non-idempotent writer; got:\n${
+      violations.join("\n")
+    }`,
+  );
+});
+
+Deno.test("the wired-writer detector rejects a clobbering future provider (unrelated names)", async () => {
+  // Adversarial future sibling: a writer that rewrites its file from scratch —
+  // perfectly idempotent, but it drops pre-existing user content. Only the
+  // merge-preservation check can catch it, proving the two checks discriminate.
+  const rel = ".zz-future/config.json";
+  const desired = `${
+    JSON.stringify({ mcpServers: { discern: { command: "discern" } } }, null, 2)
+  }\n`;
+  const probe: WiredWriterProbe = {
+    name: "zz-future-agent",
+    configFile: rel,
+    register: async (root) => {
+      const path = join(root, rel);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      const existing = await Deno.readTextFile(path).catch(() => undefined);
+      if (existing === desired) {
+        return { written: [], firstInstall: false };
+      }
+      await Deno.writeTextFile(path, desired);
+      return { written: [rel], firstInstall: existing === undefined };
+    },
+  };
+  const violations = await wiredWriterViolations(probe);
+  assert(
+    violations.some((v) => v.includes("pre-existing user content")),
+    `the detector must flag the clobbering writer; got:\n${
+      violations.join("\n")
+    }`,
+  );
+  assert(
+    !violations.some((v) => v.includes("byte-stable")),
+    `the clobbering writer is idempotent — only the merge check should fire; got:\n${
+      violations.join("\n")
+    }`,
+  );
 });
 
 /** Assert a path does not exist on disk. */
