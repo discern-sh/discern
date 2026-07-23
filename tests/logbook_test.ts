@@ -51,7 +51,7 @@ function sampleEvent(): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
-    writer: "1.0.0",
+    writer: "9.9.9",
     kind: "verb",
     verb: "done",
     surface: "cli",
@@ -186,7 +186,7 @@ Deno.test("logbook schema: config-change, pin, and prune events validate", () =>
   const pin = logbookEventSchema.safeParse({
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
-    writer: "1.0.0",
+    writer: "9.9.9",
     kind: "pin",
     branch: "agent/sample",
     standard: "cov",

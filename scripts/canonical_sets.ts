@@ -280,7 +280,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "agent-providers",
     title: "Agent providers",
-    what: "The agent providers discern writes files for.",
+    what:
+      "The agent providers discern writes files for, each with a compact mark and horizontal logo lockup.",
     source: {
       kind: "module",
       module: "src/shared/agent_catalogue.ts",

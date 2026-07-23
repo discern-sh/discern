@@ -259,6 +259,7 @@ Usage: `discern identity [path] [options]`
 | `--worktree`        | Print its base resource handle — a stable project-prefixed external name. |
 | `--resource <name>` | Print the stable external name for one declared resource.                 |
 | `--resources`       | Print every declared resource as name=stable-external-name lines.         |
+| `--json`            | Emit refusals as a JSON DiscernResult on stdout; field values print raw.  |
 
 ## Project Scripts
 
@@ -437,11 +438,19 @@ Print a scalar config value.
 
 Usage: `discern config get <key> [options]`
 
+| Option   | Description                                                        |
+| -------- | ------------------------------------------------------------------ |
+| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+
 #### `discern config array`
 
 Print an array config value, one item per line.
 
 Usage: `discern config array <key> [options]`
+
+| Option   | Description                                                        |
+| -------- | ------------------------------------------------------------------ |
+| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
 
 #### `discern config has`
 
@@ -449,17 +458,29 @@ Exit 0 if a key or section exists, 1 otherwise (silent).
 
 Usage: `discern config has <key> [options]`
 
+| Option   | Description                                                        |
+| -------- | ------------------------------------------------------------------ |
+| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+
 #### `discern config subsections`
 
 Print the immediate child table names under a section.
 
 Usage: `discern config subsections <key> [options]`
 
+| Option   | Description                                                        |
+| -------- | ------------------------------------------------------------------ |
+| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+
 #### `discern config keys`
 
 Print the flat key names declared in a section.
 
 Usage: `discern config keys <key> [options]`
+
+| Option   | Description                                                        |
+| -------- | ------------------------------------------------------------------ |
+| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
 
 ### `discern refresh`
 

@@ -4,6 +4,11 @@
  * Repository-wide guards scan these sources as they exist in this project, so
  * they must follow discern.toml rather than repeat the shipped defaults. Tests
  * of fresh-project defaults belong to the paths-registry and installer suites.
+ *
+ * This module is also the single source for the authored-TypeScript universe
+ * (`AUTHORED_TS_FILES`): a repo-wide structural sweep takes its scan set from
+ * here so every guard shares one definition of "authored code" and a new
+ * authored tree widens them all at once.
  */
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
@@ -41,6 +46,71 @@ export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
   skills: resolveSkillsDir(REPO_ROOT, config).abs,
   todo: resolveTodoPath(REPO_ROOT, config).abs,
 };
+
+/**
+ * Trees whose TypeScript is inert test data rather than authored program text.
+ * Fixtures may deliberately embody the patterns repo-wide guards ban — the same
+ * boundary deno.json's fmt/lint/test excludes draw around them.
+ */
+const NON_AUTHORED_PREFIXES = ["tests/fixtures/"];
+
+/**
+ * Every authored TypeScript source under `root`, repo-relative and sorted.
+ *
+ * This is the scan universe for repo-wide structural guards: derive a sweep's
+ * file set from here — never from a hand-kept root list — so a new authored
+ * tree (say `tools/`) enrols in every guard the moment its first file exists.
+ * Derived from Git rather than the filesystem alone: tracked plus
+ * untracked-but-not-ignored `.ts`/`.tsx` files, which keeps build products and
+ * vendored trees (`dist/`, `node_modules/`, …) out because the gitignore
+ * already names them.
+ */
+export async function authoredTsFiles(
+  root: string = REPO_ROOT,
+): Promise<string[]> {
+  const { success, stdout, stderr } = await new Deno.Command("git", {
+    args: [
+      "-C",
+      root,
+      "ls-files",
+      "-z",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "--",
+      "*.ts",
+      "*.tsx",
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!success) {
+    throw new Error(
+      `git ls-files failed under ${root}: ${new TextDecoder().decode(stderr)}`,
+    );
+  }
+  const listed = new TextDecoder()
+    .decode(stdout)
+    .split("\0")
+    .filter((rel) => rel.length > 0)
+    .filter((rel) => !NON_AUTHORED_PREFIXES.some((p) => rel.startsWith(p)));
+  const present: string[] = [];
+  for (const rel of listed) {
+    // A file can stay in Git's index after deletion from the working tree;
+    // guards read file contents, so enumerate only what exists on disk.
+    const info = await Deno.stat(join(root, rel)).catch(() => undefined);
+    if (info?.isFile) present.push(rel);
+  }
+  return present.sort();
+}
+
+/** The authored-TypeScript universe of this checkout, enumerated once. */
+export const AUTHORED_TS_FILES: string[] = await authoredTsFiles();
+
+/** The top-level trees holding authored TypeScript, derived from the universe. */
+export const AUTHORED_TS_ROOTS: string[] = [
+  ...new Set(AUTHORED_TS_FILES.map((rel) => rel.split("/")[0] ?? rel)),
+].sort();
 
 /** Whether `rel` is the configured map subtree named by `segments`. */
 export function isRepoMapPath(rel: string, ...segments: string[]): boolean {

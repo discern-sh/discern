@@ -37,6 +37,7 @@ import {
   confirmedBeginCommand,
   consentMessage,
   deriveConsentContext,
+  humanOffRampLines,
 } from "../shared/setup_messages.ts";
 import { resolveSetupRoot } from "./setup.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
@@ -288,8 +289,7 @@ function printPreflight(p: {
   const lines: string[] = [
     "discern setup — preflight (read-only; nothing is written until `begin`)",
     "",
-    '(Reading this as a human? Paste "Run `discern setup`" into your coding agent —',
-    "it takes it from here. Everything below is addressed to that agent.)",
+    ...humanOffRampLines(),
     "",
     "What's in this project right now:",
     `  • Git ........... ${gitSummary(p.git)}`,

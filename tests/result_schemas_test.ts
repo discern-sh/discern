@@ -613,7 +613,7 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
         kind: "verb",
         verb: "done",
         surface: "cli",
-        writer: "1.0.0",
+        writer: "9.9.9",
         driver: { session: "cli:1", json: true, tty: false, ci: false },
         branch: "agent/seeded",
         head: "abc1234",

@@ -1801,7 +1801,7 @@ Deno.test("migration 4→5 prunes a pre-existing on-disk shell engine, agent, an
     await Deno.mkdir(join(dir, ".discern"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, ".discern/manifest.json"),
-      '{ "kit_version": "1.0.0" }\n',
+      '{ "kit_version": "0.9.0" }\n',
     );
     // A seed the step must NOT touch.
     await Deno.writeTextFile(

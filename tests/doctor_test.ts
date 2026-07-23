@@ -18,7 +18,7 @@ import { gitInit } from "./engine_helpers.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
-import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 
 /** One check in the `doctor --json` payload. */
@@ -218,7 +218,7 @@ Deno.test("doctor --json: a fresh install includes the seeded tidy format job", 
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
     assertEquals(payload.verb, "doctor");
-    assertEquals(payload.data.kit_version, "1.0.0");
+    assertEquals(payload.data.kit_version, KIT_VERSION);
     for (
       const name of ["discern.toml", "schema version", "known jobs", "git"]
     ) {
@@ -241,7 +241,7 @@ Deno.test("doctor --json: a fresh install includes the seeded tidy format job", 
     // The git check reports the resolved version (triage context).
     assertStringIncludes(check(payload, "git").detail, ".");
     // The environment block is populated for bug-report triage.
-    assertEquals(payload.data.environment.discern, "1.0.0");
+    assertEquals(payload.data.environment.discern, KIT_VERSION);
     assert(
       payload.data.environment.platform.includes("/"),
       "platform should be os/arch",
