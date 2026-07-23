@@ -98,6 +98,16 @@ The top-level tables of the config schema — the whole configuration surface.
 - Glossary: not enrolled — config keys are reference material; the config reference documents every table
 - Feature canon: claimed as the `config` surface set
 
+## `source-paths` — Source paths
+
+The configurable authored-source locations — guidance, map, skills, scripts, todo, brief — the config-pointed half of the one-file footprint, each carrying its config key, default, ownership, and resolution rule.
+
+- Source: `src/shared/paths_registry.ts` — `SOURCE_PATHS`
+- Members: 6
+- Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`
+- Glossary: not enrolled — path names are configuration reference material; the config reference documents every key
+- Feature canon: described by the `one-file-footprint` node
+
 ## `bundled-skills` — Bundled skills
 
 The skills the binary ships and materializes into a project.
@@ -260,7 +270,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 25
+- Members: 26
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

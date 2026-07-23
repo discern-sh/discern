@@ -325,6 +325,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "source-paths",
+    title: "Source paths",
+    what:
+      "The configurable authored-source locations — guidance, map, skills, scripts, todo, brief — the config-pointed half of the one-file footprint, each carrying its config key, default, ownership, and resolution rule.",
+    source: {
+      kind: "module",
+      module: "src/shared/paths_registry.ts",
+      exportName: "SOURCE_PATHS",
+    },
+    guards: [
+      "tests/paths_registry_test.ts",
+      "tests/paths_literal_ban_test.ts",
+      "tests/engine_nondefault_paths_test.ts",
+      "tests/paths_sentinel_render_test.ts",
+      "tests/paths_write_surface_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "path names are configuration reference material; the config reference documents every key",
+      },
+      featureCanon: { nodeId: "one-file-footprint" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/paths_registry.ts")).SOURCE_PATHS,
+      ),
+  },
+  {
     id: "bundled-skills",
     title: "Bundled skills",
     what: "The skills the binary ships and materializes into a project.",
