@@ -54,10 +54,10 @@ function sourceDiscernCommands(source: string): string[] {
   const glued = source.replace(/(["'`])\s*\+\s*(["'`])/gu, "");
   // Escaped backticks (code spans inside template literals) become a private
   // delimiter that cannot pair with the literals' own bare-backtick delimiters.
-  const marked = glued.replace(/\\`/gu, "\u0000");
+  const marked = glued.replace(/\\`/gu, "\uE000");
   const spans = [
-    ...marked.matchAll(/\u0000([^\u0000`\r\n]+)\u0000/gu),
-    ...marked.matchAll(/`([^\u0000`\r\n]+)`/gu),
+    ...marked.matchAll(/\uE000([^\uE000`\r\n]+)\uE000/gu),
+    ...marked.matchAll(/`([^\uE000`\r\n]+)`/gu),
   ];
   const commands: string[] = [];
   for (const match of spans) {
