@@ -170,6 +170,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "command-groups",
+    title: "Command groups",
+    what:
+      "The named, ordered buckets the top-level verbs render under — the grouping table behind `discern --help` and the generated CLI reference alike, so every visible command has an operator-meaningful home.",
+    source: {
+      kind: "module",
+      module: "src/cli_help.ts",
+      exportName: "COMMAND_GROUPS",
+    },
+    guards: ["tests/engine_help_groups_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "display grouping over the verb vocabulary; the glossary defines the verbs themselves",
+      },
+      featureCanon: { nodeId: "bundled-help" },
+    },
+    members: async () =>
+      (await import("../src/cli_help.ts")).COMMAND_GROUPS.map(
+        (group) => group.name,
+      ),
+  },
+  {
     id: "jobs",
     title: "Gate jobs",
     what: "The known gate jobs — the command table's fixed vocabulary.",

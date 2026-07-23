@@ -37,6 +37,16 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
 - Feature canon: described by the `mcp-surface` node
 
+## `command-groups` — Command groups
+
+The named, ordered buckets the top-level verbs render under — the grouping table behind `discern --help` and the generated CLI reference alike, so every visible command has an operator-meaningful home.
+
+- Source: `src/cli_help.ts` — `COMMAND_GROUPS`
+- Members: 6
+- Guards: `tests/engine_help_groups_test.ts`
+- Glossary: not enrolled — display grouping over the verb vocabulary; the glossary defines the verbs themselves
+- Feature canon: described by the `bundled-help` node
+
 ## `jobs` — Gate jobs
 
 The known gate jobs — the command table's fixed vocabulary.
@@ -240,7 +250,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 23
+- Members: 24
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
