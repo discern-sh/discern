@@ -660,9 +660,10 @@ export const TOOLS: McpTool[] = orderTools([
       "document or list one region. Pass " +
       "`search` to return up to five ranked documents with context and a canonical " +
       "target for the follow-up read; combine it with `target` to search only that " +
-      "region or document. Search covers the map visible to agents, with weighted " +
-      "full text and typo-tolerant metadata fallback. `path` selects the project or " +
-      "worktree to inspect; it never selects a map subtree.",
+      "region or document. Complete matches lead; strong partial matches fill unused " +
+      "result slots and identify themselves. Search covers the map visible to agents. " +
+      "`path` selects the project or worktree to inspect; it never selects a map " +
+      "subtree.",
     inputSchema: {
       target: z.string().optional().describe(
         "An exact document or top-level region target. Without `search`, a document " +
@@ -671,8 +672,10 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       search: z.string().optional().describe(
         "Task language, a command, a config key, or error text to find in the map. " +
-          "Returns up to five ranked documents with canonical targets. The query is " +
-          "used for this call and is not recorded in discern's logbook.",
+          "Complete matches lead, and strong partial matches can fill the five result " +
+          "slots. Each result identifies its match kind and carries a canonical " +
+          "target. The query is used for this call and is not recorded in discern's " +
+          "logbook.",
       ),
       ...PATH_PARAM,
     },
@@ -697,8 +700,9 @@ export const TOOLS: McpTool[] = orderTools([
       "reads the current project's map. With no input, return the public document " +
       "index. Pass `target` to read one document or list one region. Pass `search` " +
       "to return up to five ranked documents with context and a canonical target; " +
-      "combine it with `target` to search only that region or document. Internal " +
-      "decision and maintainer trees are never exposed here.",
+      "combine it with `target` to search only that region or document. Complete " +
+      "matches lead; strong partial matches fill unused result slots and identify " +
+      "themselves. Internal decision and maintainer trees are never exposed here.",
     inputSchema: {
       target: z.string().optional().describe(
         "An exact document or top-level region target. Without `search`, a document " +
@@ -707,8 +711,10 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       search: z.string().optional().describe(
         "Task language, a command, a config key, or error text to find in discern's " +
-          "public docs. Returns up to five ranked documents with canonical targets. " +
-          "The query is used for this call and is not recorded in discern's logbook.",
+          "public docs. Complete matches lead, and strong partial matches can fill " +
+          "the five result slots. Each result identifies its match kind and carries " +
+          "a canonical target. The query is used for this call and is not recorded " +
+          "in discern's logbook.",
       ),
     },
     run: (root, args) =>

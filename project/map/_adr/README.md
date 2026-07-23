@@ -177,6 +177,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0180 — Every spawn surface declares its interrupt contract](0180-every-spawn-surface-declares-its-interrupt-contract.md)
 - [0181 — An SSOT claim must anchor a declared canonical set](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md)
 - [0182 — Operator commands resolve `discern` to the running engine](0182-operator-commands-resolve-discern-to-the-running-engine.md)
+- [0183 — Agent task search uses an audience-specific ranker](0183-agent-task-search-uses-an-audience-specific-ranker.md)
 
 <!-- END GENERATED: current ADR records -->
 

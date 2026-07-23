@@ -481,7 +481,7 @@ export function buildCli(
     )
     .option(
       "--search <query:string>",
-      "Search the map; combine with a target to search one region or document.",
+      "Search the map with task language or exact text; use a target to narrow it.",
     )
     .option("--no-pager", "Don't page rendered output through $PAGER.")
     .option(
@@ -538,7 +538,7 @@ export function buildCli(
     )
     .option(
       "--search <query:string>",
-      "Search discern's docs; combine with a target to narrow the search.",
+      "Search discern's docs with task language or exact text; use a target to narrow it.",
     )
     .option(
       "--adr",

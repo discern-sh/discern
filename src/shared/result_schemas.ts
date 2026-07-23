@@ -860,6 +860,7 @@ const docSearchResultSchema = z.strictObject({
   section: z.string(),
   title: z.string(),
   description: z.string(),
+  match: z.enum(["complete", "partial", "metadata"]),
   heading: z.string().optional(),
   snippet: z.string(),
 });

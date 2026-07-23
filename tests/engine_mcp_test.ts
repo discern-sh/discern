@@ -835,6 +835,14 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       join(dir, "map", "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
+    await Deno.writeTextFile(
+      join(dir, "map", "00-orientation", "task-left.md"),
+      "# Copper orchard\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, "map", "00-orientation", "task-right.md"),
+      "# Velvet beacon\n",
+    );
     const mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
@@ -909,6 +917,7 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     assertEquals(search.result.isError, false);
     const searchData = search.result.structuredContent.data;
     assertEquals(searchData.results[0].target, "00-orientation/concepts");
+    assertEquals(searchData.results[0].match, "complete");
     assertEquals("score" in searchData.results[0], false);
 
     // A top-level region is both a compact index target and a search scope.
@@ -939,6 +948,37 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     assertEquals(
       scoped.result.structuredContent.data.scope,
       "00-orientation",
+    );
+
+    // Task terms can span documents; MCP returns and labels both partials.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: {
+        name: "discern_map",
+        arguments: {
+          search: "copper orchard velvet beacons telescope",
+        },
+      },
+    });
+    const partials = await mcp.recv();
+    assertEquals(partials.result.isError, false);
+    assertEquals(
+      new Set(
+        partials.result.structuredContent.data.results.map(
+          (result: { target: string }) => result.target,
+        ),
+      ),
+      new Set([
+        "00-orientation/task-left",
+        "00-orientation/task-right",
+      ]),
+    );
+    assert(
+      partials.result.structuredContent.data.results.every(
+        (result: { match: string }) => result.match === "partial",
+      ),
     );
 
     assertEquals(await mcp.close(), 0);

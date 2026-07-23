@@ -127,6 +127,7 @@ Deno.test("help search returns public manual targets and supports region scope",
     assertEquals(found.code, 0);
     const foundData = JSON.parse(found.stdout).data;
     assertEquals(foundData.results[0].target, "00-orientation/concepts");
+    assertEquals(foundData.results[0].match, "complete");
 
     const scoped = await runCli(
       [

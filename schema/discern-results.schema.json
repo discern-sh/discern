@@ -3969,6 +3969,14 @@
                       "description": {
                         "type": "string"
                       },
+                      "match": {
+                        "type": "string",
+                        "enum": [
+                          "complete",
+                          "partial",
+                          "metadata"
+                        ]
+                      },
                       "heading": {
                         "type": "string"
                       },
@@ -3982,6 +3990,7 @@
                       "section",
                       "title",
                       "description",
+                      "match",
                       "snippet"
                     ]
                   }
@@ -4475,6 +4484,14 @@
                       "description": {
                         "type": "string"
                       },
+                      "match": {
+                        "type": "string",
+                        "enum": [
+                          "complete",
+                          "partial",
+                          "metadata"
+                        ]
+                      },
                       "heading": {
                         "type": "string"
                       },
@@ -4488,6 +4505,7 @@
                       "section",
                       "title",
                       "description",
+                      "match",
                       "snippet"
                     ]
                   }

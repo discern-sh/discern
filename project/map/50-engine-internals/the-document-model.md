@@ -31,9 +31,11 @@ Rendered surfaces strip the frontmatter block (its values travel as structured f
 
 ### Search projections
 
-[`src/lib/docs_search.ts`](../../../src/lib/docs_search.ts) turns an admitted `DocEntry` and its prepared Markdown into weighted title, alias, heading, code-term, and body fields. [`src/lib/docs_search.js`](../../../src/lib/docs_search.js) ranks those records in both Deno and the browser. Code generation copies that authored matcher into the site's tracked static assets, so a fresh checkout can type-check the browser import without making the engine import the site ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)).
+[`src/lib/docs_search.ts`](../../../src/lib/docs_search.ts) turns an admitted `DocEntry` and its prepared Markdown into weighted title, alias, heading, code-term, and body fields. [`src/lib/docs_search.js`](../../../src/lib/docs_search.js) owns those weights and the browser's strict all-term matcher. Code generation copies the browser module into the site's tracked static assets, so a fresh checkout can type-check the browser import without making the engine import the site ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)).
 
-Each surface owns admission and presentation policy before the shared projection runs. The site adapter admits published guidance, excludes decision history, strips inline decision citations, returns web routes, and keeps its human-palette result limit. Map search admits the full agent-visible project map and returns canonical map targets. Help search admits the bundled public manual. Map/help add typo-tolerant metadata fallback after a full-text miss; that fallback does not retune the site's pinned matcher.
+Each surface owns admission and presentation policy before the shared projection runs. The site adapter admits published guidance, excludes decision history, strips inline decision citations, returns web routes, and keeps its human-palette result limit. Map search admits the full agent-visible project map and returns canonical map targets. Help search admits the bundled public manual.
+
+Map and help pass the same records to the agent ranker in `docs_search.ts`. Exact technical and high-weight phrases keep phrase-only results. Other searches put complete lexical matches first, then fill unused result slots with partials that clear the query-scaled coverage floor. Partial ordering rewards terms an earlier partial did not cover. Results label complete, partial, and metadata matches. Typo-tolerant metadata recovery runs only after lexical search finds nothing and the query has at least 4 characters. The browser's ranking policy does not change ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
 ## Redirects
 

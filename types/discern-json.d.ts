@@ -1186,6 +1186,7 @@ export type DiscernMapResult = {
       section: string;
       title: string;
       description: string;
+      match: "complete" | "partial" | "metadata";
       heading?: string;
       snippet: string;
     }>;
@@ -1334,6 +1335,7 @@ export type DiscernHelpResult = {
       section: string;
       title: string;
       description: string;
+      match: "complete" | "partial" | "metadata";
       heading?: string;
       snippet: string;
     }>;

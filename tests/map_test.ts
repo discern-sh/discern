@@ -457,6 +457,7 @@ Deno.test("map search returns ranked context and canonical reusable targets", as
     assertEquals(result.data.truncated, false);
     assertEquals(result.data.results[0].target, "00-intro/alpha");
     assertEquals(result.data.results[0].path, "docs/00-intro/alpha.md");
+    assertEquals(result.data.results[0].match, "complete");
     assertStringIncludes(result.data.results[0].snippet, "alpha body");
     assertEquals("score" in result.data.results[0], false);
 
@@ -467,6 +468,88 @@ Deno.test("map search returns ranked context and canonical reusable targets", as
     ], dir);
     assertEquals(followUp.code, 0);
     assertStringIncludes(JSON.parse(followUp.stdout).data.doc.content, "alpha");
+  });
+});
+
+Deno.test("map search labels strong partials that fill unused result slots", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const fixtures: Record<string, string> = {
+      "complete-a.md":
+        "# Field notes\n\nCopper comes first. Orchard is later. Velvet and beacon close the page.\n",
+      "complete-b.md":
+        "# Survey notes\n\nBeacon precedes velvet. Copper and orchard live in separate sections.\n",
+      "orchard.md": "# Copper orchard\n",
+      "beacon.md": "# Velvet beacon\n",
+      "weak.md": "# Copper\n",
+    };
+    for (const [name, content] of Object.entries(fixtures)) {
+      await Deno.writeTextFile(
+        join(dir, "docs", "00-intro", name),
+        content,
+      );
+    }
+
+    const json = await runCli([
+      "map",
+      "--search",
+      "copper orchard velvet beacons",
+      "--json",
+    ], dir);
+    assertEquals(json.code, 0);
+    const data = JSON.parse(json.stdout).data;
+    assertEquals(
+      data.results.slice(0, 2).map(
+        (result: { match: string }) => result.match,
+      ),
+      ["complete", "complete"],
+    );
+    assertEquals(
+      new Set(
+        data.results.slice(2).map(
+          (result: { target: string }) => result.target,
+        ),
+      ),
+      new Set(["00-intro/orchard", "00-intro/beacon"]),
+    );
+    assert(
+      data.results.slice(2).every(
+        (result: { match: string }) => result.match === "partial",
+      ),
+    );
+    assert(
+      !data.results.some(
+        (result: { target: string }) => result.target === "00-intro/weak",
+      ),
+    );
+
+    const human = await runCli([
+      "map",
+      "--search",
+      "copper orchard velvet beacons",
+    ], dir);
+    assertEquals(human.code, 0);
+    assertStringIncludes(human.stdout, "partial match");
+  });
+});
+
+Deno.test("map search does not turn a short lexical miss into a fuzzy match", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    await Deno.writeTextFile(
+      join(dir, "docs", "00-intro", "failure.md"),
+      "# Fail\n\nA readiness check waits here.\n",
+    );
+
+    const result = await runCli([
+      "map",
+      "--search",
+      "AI",
+      "--json",
+    ], dir);
+
+    assertEquals(result.code, 0);
+    assertEquals(JSON.parse(result.stdout).data.results, []);
   });
 });
 
@@ -543,6 +626,7 @@ Deno.test("map search falls back to typo-tolerant metadata matching", async () =
     assertEquals(code, 0);
     const data = JSON.parse(stdout).data;
     assertEquals(data.results[0].target, "00-intro/alpha");
+    assertEquals(data.results[0].match, "metadata");
     assertEquals("score" in data.results[0], false);
   });
 });

@@ -1,6 +1,6 @@
 # ADR 0174: Agent document discovery is regions, search, then canonical targets
 
-**Status**: accepted; extends the shared document model ([ADR 0130](0130-docs-site-renders-the-help-tree.md)), self-describing MCP surface ([ADR 0041](0041-self-describing-mcp-surface.md)), and tracked compiled guidance ([ADR 0128](0128-enumerated-ownership-tracked-guidance.md)).
+**Status**: accepted; extends the shared document model ([ADR 0130](0130-docs-site-renders-the-help-tree.md)), self-describing MCP surface ([ADR 0041](0041-self-describing-mcp-surface.md)), and tracked compiled guidance ([ADR 0128](0128-enumerated-ownership-tracked-guidance.md)); agent ranking refined by [ADR 0183](0183-agent-task-search-uses-an-audience-specific-ranker.md).
 
 ## Context
 

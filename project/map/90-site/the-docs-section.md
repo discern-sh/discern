@@ -24,7 +24,7 @@ The wider model includes the strict frontmatter schema, the redirect registry, a
 
 [`site/search.ts`](../../../site/search.ts) builds the index from the stripped public projection. It applies `isPublicDoc` before reading a source and excludes the decision section independently of the guidance-only caller. Each record keeps title, `aliases`, headings, code terms, and body text separate so the client can rank them in that order; descriptions share the body weight. Exact phrases receive a further boost.
 
-The browser fetches the index once and searches it locally, with no third-party code, query telemetry, or query persistence. Results carry a contextual body excerpt or page description and may link directly to a matching heading. An empty result points readers toward commands, config keys, and exact error text.
+The browser fetches the index once and searches it locally, with no third-party code, query telemetry, or query persistence. Its palette requires every query term in one page. Results carry a contextual body excerpt or page description and may link directly to a matching heading. An empty result points readers toward commands, config keys, and exact error text. Map and help reuse the fields and weights through an agent-specific task-language ranker. The browser policy stays fixed ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
 ## Rendering
 

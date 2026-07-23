@@ -80,7 +80,9 @@ Tools that require completed setup return a controlled `not_set_up` result until
 | `search`               | Up to five ranked documents from the admitted corpus.                                                 |
 | `target` plus `search` | The same search limited to one exact region or document.                                              |
 
-A search result carries `target`, `path`, `section`, `title`, `description`, an optional matching `heading`, and a contextual `snippet`. The enclosing payload carries `query`, optional `scope`, the full match `count`, `truncated`, and the returned `results`. A zero-match search is `ok: true` with an empty result list. Scores remain an implementation detail.
+A search result carries `target`, `path`, `section`, `title`, `description`, `match`, an optional matching `heading`, and a contextual `snippet`. `match` is `complete`, `partial`, or `metadata`. The enclosing payload carries `query`, optional `scope`, the full match `count`, `truncated`, and the returned `results`. A zero-match search is `ok: true` with an empty result list. Scores remain an implementation detail.
+
+Complete lexical matches lead. When fewer than 5 qualify, strong partial matches can fill the unused slots. Each must clear a query-length-scaled term-coverage floor. The ranker favors partials that add terms earlier results missed. Exact technical text and exact phrases in titles, aliases, headings, or code fields return phrase matches only. A longer lexical miss can fall back to a close title or alias. Queries shorter than 4 characters do not use edit-distance suggestions ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
 Map search covers every page visible to the agent-facing map, including a page marked `publish: false`. Help search covers the bundled public manual. Both run locally, and query values are not recorded in the logbook. The CLI equivalents are `discern map --search <query>` and `discern help --search <query>`; put a region or page target after the verb to narrow either search.
 

@@ -3,12 +3,13 @@
  *
  * A surface decides which documents its audience may see and prepares the
  * Markdown edition it wants searched. This module turns those admitted sources
- * into the field-separated records consumed by the shared matcher in
- * `docs_search.js`. The browser site, `discern map`, and `discern help` therefore
- * share extraction and ranking without sharing audience policy.
+ * into field-separated records with shared weights. The browser consumes the
+ * strict matcher in `docs_search.js`; map and help use the task-language ranker
+ * in this module. Each surface keeps its own audience policy.
  */
 
 import type { DocEntry } from "./docs.ts";
+import { SEARCH_FIELD_WEIGHT } from "./docs_search.js";
 import { parseFrontmatter } from "./frontmatter.ts";
 import { inlineToPlain, renderMarkdownHtml } from "./markdown.ts";
 
@@ -41,6 +42,63 @@ export interface SearchPage {
 export interface SearchIndex {
   pages: SearchPage[];
 }
+
+/** Whether an agent-facing result covers every meaningful query term. */
+export type AgentSearchMatch = "complete" | "partial";
+
+/** One internally ranked result for map and help task-language search. */
+export interface AgentSearchResult {
+  page: SearchPage;
+  heading: SearchHeading | null;
+  score: number;
+  snippet: string;
+  match: AgentSearchMatch;
+}
+
+interface SearchField {
+  text: string;
+  tokens: string[];
+  weight: number;
+}
+
+interface QueryTerm {
+  text: string;
+  variants: Set<string>;
+}
+
+interface RankedPage {
+  page: SearchPage;
+  matched: QueryTerm[];
+  matchedKeys: Set<string>;
+  exactPhraseWeight: number;
+  score: number;
+}
+
+const QUERY_FILLER_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "how",
+  "in",
+  "into",
+  "is",
+  "it",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "this",
+  "to",
+  "with",
+]);
 
 /** Render the tracked browser module from the authored shared matcher. */
 export function renderBrowserSearchModule(source: string): string {
@@ -125,4 +183,367 @@ export function searchPageFromMarkdown(
     codeTerms: markdownCodeTerms(body),
     body: markdownSearchText(body),
   };
+}
+
+/** Split natural-language search text into lowercase lexical tokens. */
+function wordTokens(value: string): string[] {
+  return [...value.toLocaleLowerCase().matchAll(/[\p{L}\p{N}]+/gu)]
+    .flatMap((match) => match[0] === "" ? [] : [match[0]]);
+}
+
+/**
+ * Generate bounded inflection variants. Keeping the authored word in the set
+ * preserves exact vocabulary while covering common plural task language.
+ */
+function wordVariants(word: string): Set<string> {
+  const variants = new Set([word]);
+  if (word.length <= 4) return variants;
+  if (word.endsWith("ies")) {
+    variants.add(`${word.slice(0, -3)}y`);
+  }
+  if (word.endsWith("es")) {
+    variants.add(word.slice(0, -2));
+  }
+  if (word.endsWith("s") && !word.endsWith("ss")) {
+    variants.add(word.slice(0, -1));
+  }
+  return variants;
+}
+
+/** True when 2 lexical tokens are equal or simple plural variants. */
+function tokensEquivalent(left: string, right: string): boolean {
+  const leftVariants = wordVariants(left);
+  return [...wordVariants(right)].some((value) => leftVariants.has(value));
+}
+
+/** Remove filler words and duplicate inflections from a task query. */
+function queryTerms(query: string): QueryTerm[] {
+  const all = wordTokens(query);
+  const meaningful = all.filter((word) => !QUERY_FILLER_WORDS.has(word));
+  const selected = meaningful.length > 0 ? meaningful : all;
+  const terms: QueryTerm[] = [];
+  for (const text of selected) {
+    const variants = wordVariants(text);
+    if (
+      terms.some((term) =>
+        [...variants].some((variant) => term.variants.has(variant))
+      )
+    ) {
+      continue;
+    }
+    terms.push({ text, variants });
+  }
+  return terms;
+}
+
+/** Preserve the browser search field order in the agent-specific ranker. */
+function searchFields(page: SearchPage): SearchField[] {
+  return [
+    {
+      text: page.title,
+      tokens: wordTokens(page.title),
+      weight: SEARCH_FIELD_WEIGHT.title,
+    },
+    ...page.aliases.map((text) => ({
+      text,
+      tokens: wordTokens(text),
+      weight: SEARCH_FIELD_WEIGHT.aliases,
+    })),
+    ...page.headings.map((heading) => ({
+      text: heading.text,
+      tokens: wordTokens(heading.text),
+      weight: SEARCH_FIELD_WEIGHT.headings,
+    })),
+    ...page.codeTerms.map((text) => ({
+      text,
+      tokens: wordTokens(text),
+      weight: SEARCH_FIELD_WEIGHT.codeTerms,
+    })),
+    {
+      text: `${page.description} ${page.body}`,
+      tokens: wordTokens(`${page.description} ${page.body}`),
+      weight: SEARCH_FIELD_WEIGHT.body,
+    },
+  ];
+}
+
+/** Highest-weight field containing one lexical query term. */
+function termFieldWeight(fields: SearchField[], term: QueryTerm): number {
+  let weight = 0;
+  for (const field of fields) {
+    if (
+      field.tokens.some((token) =>
+        [...term.variants].some((variant) => tokensEquivalent(token, variant))
+      )
+    ) {
+      weight = Math.max(weight, field.weight);
+    }
+  }
+  return weight;
+}
+
+/** True when `needle` appears as one contiguous equivalent token sequence. */
+function includesTokenSequence(
+  haystack: string[],
+  needle: string[],
+): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) return false;
+  const lastStart = haystack.length - needle.length;
+  for (let start = 0; start <= lastStart; start += 1) {
+    let complete = true;
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      const left = haystack[start + offset];
+      const right = needle[offset];
+      if (
+        left === undefined || right === undefined ||
+        !tokensEquivalent(left, right)
+      ) {
+        complete = false;
+        break;
+      }
+    }
+    if (complete) return true;
+  }
+  return false;
+}
+
+/** Normalize literal technical text without discarding its syntax. */
+function literalKey(value: string): string {
+  return value.toLocaleLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Highest-weight field containing the complete query phrase. */
+function exactPhraseWeight(
+  fields: SearchField[],
+  query: string,
+): number {
+  const trimmed = query.trim();
+  if (trimmed === "") return 0;
+  const natural = /^[\p{L}\p{N}\s]+$/u.test(trimmed);
+  const phraseTokens = natural ? wordTokens(trimmed) : [];
+  const literal = natural ? "" : literalKey(trimmed);
+  let weight = 0;
+  for (const field of fields) {
+    const matches = natural
+      ? includesTokenSequence(field.tokens, phraseTokens)
+      : literalKey(field.text).includes(literal);
+    if (matches) weight = Math.max(weight, field.weight);
+  }
+  return weight;
+}
+
+/** Pick the heading that covers the most query terms. */
+function matchingAgentHeading(
+  page: SearchPage,
+  terms: QueryTerm[],
+): SearchHeading | null {
+  let best: SearchHeading | null = null;
+  let bestCount = 0;
+  for (const heading of page.headings) {
+    const tokens = wordTokens(heading.text);
+    const count = terms.filter((term) =>
+      tokens.some((token) =>
+        [...term.variants].some((variant) =>
+          tokensEquivalent(token, variant)
+        )
+      )
+    ).length;
+    if (count > bestCount) {
+      best = heading;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/** Build a contextual body excerpt around the phrase, then a lexical match. */
+function agentSnippet(
+  page: SearchPage,
+  terms: QueryTerm[],
+  query: string,
+): string {
+  const source = page.body || page.description;
+  const literal = query.trim();
+  let at = literal === ""
+    ? -1
+    : source.toLocaleLowerCase().indexOf(literal.toLocaleLowerCase());
+  let matchedLength = at < 0 ? 0 : literal.length;
+  if (at < 0) {
+    for (const match of source.matchAll(/[\p{L}\p{N}]+/gu)) {
+      const token = match[0].toLocaleLowerCase();
+      if (
+        terms.some((term) =>
+          [...term.variants].some((variant) => tokensEquivalent(token, variant))
+        )
+      ) {
+        at = match.index;
+        matchedLength = match[0].length;
+        break;
+      }
+    }
+  }
+  if (at < 0) return page.description;
+
+  let start = Math.max(0, at - 72);
+  let end = Math.min(source.length, at + matchedLength + 112);
+  if (start > 0) {
+    const nextSpace = source.indexOf(" ", start);
+    if (nextSpace >= 0 && nextSpace < at) start = nextSpace + 1;
+  }
+  if (end < source.length) {
+    const previousSpace = source.lastIndexOf(" ", end);
+    if (previousSpace > at + matchedLength) end = previousSpace;
+  }
+  return `${start > 0 ? "…" : ""}${source.slice(start, end).trim()}${
+    end < source.length ? "…" : ""
+  }`;
+}
+
+/** Order partials so later results contribute terms earlier results missed. */
+function diversifyPartials(
+  candidates: RankedPage[],
+  inverseFrequency: Map<string, number>,
+): RankedPage[] {
+  const remaining = [...candidates];
+  const ordered: RankedPage[] = [];
+  const covered = new Set<string>();
+  while (remaining.length > 0) {
+    remaining.sort((left, right) => {
+      const marginal = (candidate: RankedPage): number =>
+        [...candidate.matchedKeys].reduce(
+          (sum, key) =>
+            sum + (covered.has(key) ? 0 : (inverseFrequency.get(key) ?? 0)),
+          0,
+        );
+      return (right.score + marginal(right) * 250) -
+          (left.score + marginal(left) * 250) ||
+        left.page.route.localeCompare(right.page.route);
+    });
+    const next = remaining.shift();
+    if (next === undefined) break;
+    ordered.push(next);
+    for (const key of next.matchedKeys) covered.add(key);
+  }
+  return ordered;
+}
+
+/** Project one internal candidate into the shared ranked result shape. */
+function toAgentResult(
+  candidate: RankedPage,
+  terms: QueryTerm[],
+  query: string,
+  match: AgentSearchMatch,
+): AgentSearchResult {
+  return {
+    page: candidate.page,
+    heading: matchingAgentHeading(candidate.page, terms),
+    score: candidate.score,
+    snippet: agentSnippet(candidate.page, terms, query),
+    match,
+  };
+}
+
+/**
+ * Rank map and help task language without changing the browser matcher.
+ *
+ * Exact technical and high-weight phrases return only phrase matches.
+ * Otherwise complete lexical matches lead, and strong partials fill when fewer
+ * than `fillLimit` complete matches exist. Partial admission scales with query
+ * length; result ordering rewards field strength and terms not covered by an
+ * earlier partial.
+ */
+export function searchAgentPages(
+  pages: readonly SearchPage[],
+  query: string,
+  fillLimit = 5,
+): AgentSearchResult[] {
+  const terms = queryTerms(query);
+  const indexed = pages.map((page) => ({
+    page,
+    fields: searchFields(page),
+  }));
+  const inverseFrequency = new Map<string, number>();
+  for (const term of terms) {
+    const frequency = indexed.filter(({ fields }) =>
+      termFieldWeight(fields, term) > 0
+    ).length;
+    inverseFrequency.set(
+      term.text,
+      Math.log((pages.length + 1) / (frequency + 1)) + 1,
+    );
+  }
+  const totalFrequencyWeight = [...inverseFrequency.values()].reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+
+  const ranked: RankedPage[] = indexed.map(({ page, fields }) => {
+    const matched = terms.filter((term) => termFieldWeight(fields, term) > 0);
+    const matchedKeys = new Set(matched.map((term) => term.text));
+    const coverageWeight = matched.reduce(
+      (sum, term) => sum + (inverseFrequency.get(term.text) ?? 0),
+      0,
+    );
+    const fieldScore = matched.reduce(
+      (sum, term) =>
+        sum +
+        (inverseFrequency.get(term.text) ?? 0) *
+          termFieldWeight(fields, term),
+      0,
+    );
+    const phraseWeight = exactPhraseWeight(fields, query);
+    const coverage = totalFrequencyWeight === 0
+      ? 0
+      : coverageWeight / totalFrequencyWeight;
+    return {
+      page,
+      matched,
+      matchedKeys,
+      exactPhraseWeight: phraseWeight,
+      score: coverage * 1_000 + fieldScore +
+        (phraseWeight > 0 ? 2_000 + phraseWeight * 10 : 0),
+    };
+  });
+  const byScore = (left: RankedPage, right: RankedPage): number =>
+    right.score - left.score ||
+    left.page.route.localeCompare(right.page.route);
+
+  const exactPhrases = ranked.filter((candidate) =>
+    candidate.exactPhraseWeight > 0
+  ).sort(byScore);
+  const technicalQuery = !/^[\p{L}\p{N}\s]+$/u.test(query.trim());
+  if (
+    exactPhrases.some((candidate) =>
+      technicalQuery ||
+      candidate.exactPhraseWeight >= SEARCH_FIELD_WEIGHT.codeTerms
+    )
+  ) {
+    return exactPhrases.map((candidate) =>
+      toAgentResult(candidate, terms, query, "complete")
+    );
+  }
+
+  const complete = ranked.filter((candidate) =>
+    terms.length > 0 && candidate.matched.length === terms.length
+  ).sort(byScore);
+  if (complete.length >= fillLimit) {
+    return complete.map((candidate) =>
+      toAgentResult(candidate, terms, query, "complete")
+    );
+  }
+
+  const minimumMatches = Math.max(1, Math.ceil(terms.length * 0.35));
+  const partials = ranked.filter((candidate) =>
+    candidate.matched.length >= minimumMatches &&
+    candidate.matched.length < terms.length &&
+    candidate.matched.length / terms.length >= 0.35
+  );
+  return [
+    ...complete.map((candidate) =>
+      toAgentResult(candidate, terms, query, "complete")
+    ),
+    ...diversifyPartials(partials, inverseFrequency).map((candidate) =>
+      toAgentResult(candidate, terms, query, "partial")
+    ),
+  ];
 }

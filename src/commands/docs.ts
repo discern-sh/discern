@@ -49,8 +49,10 @@ import {
   resolveDocRegion,
   suggestDocs,
 } from "../lib/docs.ts";
-import { searchPages } from "../lib/docs_search.js";
-import { searchPageFromMarkdown } from "../lib/docs_search.ts";
+import {
+  searchAgentPages,
+  searchPageFromMarkdown,
+} from "../lib/docs_search.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import {
@@ -370,6 +372,7 @@ function resolveSearchScope(
 /** Project one ranked hit without exposing its internal score. */
 function toSearchResult(
   entry: DocEntry,
+  match: DocSearchResult["match"],
   snippet: string,
   heading?: string | undefined,
 ): DocSearchResult {
@@ -379,6 +382,7 @@ function toSearchResult(
     section: entry.section,
     title: entry.title,
     description: entry.description,
+    match,
     ...(heading !== undefined ? { heading } : {}),
     snippet,
   };
@@ -410,22 +414,27 @@ async function searchData(
       entry,
     }, content);
   }));
-  const ranked = searchPages(pages, query, tree.entries.length);
+  const ranked = searchAgentPages(pages, query, SEARCH_RESULT_LIMIT);
   let results: DocSearchResult[];
   if (ranked.length > 0) {
     results = ranked.flatMap((match) => {
       const entry = entriesByTarget.get(match.page.route);
       return entry === undefined ? [] : [toSearchResult(
         entry,
+        match.match,
         match.snippet,
         match.heading?.text,
       )];
     });
   } else {
     // Full-text misses get the document model's typo-tolerant metadata fallback.
-    // This widens recall without changing the site's pinned matcher behavior.
-    results = suggestDocs(tree, query, tree.entries.length).map(({ entry }) =>
-      toSearchResult(entry, entry.description)
+    // Short lexical queries do not carry enough edit-distance evidence: "AI"
+    // must not become a suggestion for "Fail".
+    const suggestions = [...query.trim()].length >= 4
+      ? suggestDocs(tree, query, tree.entries.length)
+      : [];
+    results = suggestions.map(({ entry }) =>
+      toSearchResult(entry, "metadata", entry.description)
     );
   }
   return {
@@ -711,9 +720,16 @@ function printSearchResults(
   ];
   for (const result of results) {
     const heading = result.heading === undefined ? "" : ` · ${result.heading}`;
+    const match = result.match === "complete"
+      ? ""
+      : result.match === "partial"
+      ? " · partial match"
+      : " · title or alias match";
     lines.push("");
     lines.push(
-      `${paint(colors.bold.cyan, result.target)}  ${result.title}${heading}`,
+      `${
+        paint(colors.bold.cyan, result.target)
+      }  ${result.title}${heading}${match}`,
     );
     if (result.snippet !== "") {
       lines.push(`  ${paint(colors.dim, result.snippet)}`);

@@ -23,7 +23,7 @@
  * }} SearchResult
  */
 
-const WEIGHT = Object.freeze({
+export const SEARCH_FIELD_WEIGHT = Object.freeze({
   title: 100,
   aliases: 75,
   headings: 50,
@@ -42,18 +42,18 @@ function normalize(value) {
  * @returns {number}
  */
 function phraseWeight(page, phrase) {
-  if (normalize(page.title).includes(phrase)) return WEIGHT.title;
+  if (normalize(page.title).includes(phrase)) return SEARCH_FIELD_WEIGHT.title;
   if (page.aliases.some((value) => normalize(value).includes(phrase))) {
-    return WEIGHT.aliases;
+    return SEARCH_FIELD_WEIGHT.aliases;
   }
   if (page.headings.some((value) => normalize(value.text).includes(phrase))) {
-    return WEIGHT.headings;
+    return SEARCH_FIELD_WEIGHT.headings;
   }
   if (page.codeTerms.some((value) => normalize(value).includes(phrase))) {
-    return WEIGHT.codeTerms;
+    return SEARCH_FIELD_WEIGHT.codeTerms;
   }
   if (normalize(`${page.description} ${page.body}`).includes(phrase)) {
-    return WEIGHT.body;
+    return SEARCH_FIELD_WEIGHT.body;
   }
   return 0;
 }
