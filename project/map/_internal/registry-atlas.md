@@ -181,7 +181,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 
 ## `patterns-detectors` — Patterns detectors
 
-Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized harness fails until a new detector brings fixtures.
+Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
 - Members: 23
