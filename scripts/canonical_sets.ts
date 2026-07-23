@@ -360,6 +360,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/hint_closed_set_guard_test.ts",
       "tests/hint_command_guard_test.ts",
       "tests/hint_inventory_codegen_test.ts",
+      "tests/gate_plan_test.ts",
     ],
     artifacts: [
       {
