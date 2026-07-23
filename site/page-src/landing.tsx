@@ -2,14 +2,11 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  ArticleLayout,
   Brand,
   Button,
   Cluster,
   HeadingAccent,
   LogoCloud,
-  Prose,
-  PullQuote,
   SiteFooter,
   SkipLink,
 } from "discern-design-system/react";
@@ -63,29 +60,6 @@ function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
 
-interface EditorialIndexItem {
-  readonly term: string;
-  readonly description: string;
-}
-
-function EditorialIndex(
-  { label, items }: {
-    readonly label: string;
-    readonly items: readonly EditorialIndexItem[];
-  },
-) {
-  return (
-    <dl className="landing-editorial-index" aria-label={label}>
-      {items.map((item) => (
-        <div key={item.term}>
-          <dt>{item.term}</dt>
-          <dd>{item.description}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function LandingHero() {
   return (
     <header className="discern-article-header discern-article-header--canvas landing-header">
@@ -129,95 +103,6 @@ function LandingHero() {
   );
 }
 
-function LandingBenefits() {
-  return (
-    <>
-      <section
-        className="landing-benefit"
-        aria-labelledby="landing-quality-title"
-      >
-        <ArticleLayout
-          className="landing-benefit__layout"
-          railLabel="Quality rules in brief"
-          rail={
-            <EditorialIndex
-              label="Quality rules in brief"
-              items={[
-                { term: "Minimums", description: "Can only rise" },
-                { term: "Maximums", description: "Can only fall" },
-                { term: "Weaker limits", description: "Fail the check" },
-              ]}
-            />
-          }
-        >
-          <Prose className="landing-benefit__copy" measure="wide">
-            <span className="landing-benefit__eyebrow">Quality rules</span>
-            <h2 id="landing-quality-title">
-              Quality can only move one way.
-            </h2>
-            <p>
-              Set a minimum or maximum for what matters. Discern lets the limit
-              move only towards better quality. A change that weakens it fails,
-              even when a coding agent would rather call the work finished.
-            </p>
-          </Prose>
-        </ArticleLayout>
-      </section>
-
-      <section
-        className="landing-benefit landing-benefit--memory"
-        aria-labelledby="landing-memory-title"
-      >
-        <ArticleLayout
-          className="landing-benefit__layout"
-          railLabel="The knowledge Discern keeps"
-          rail={
-            <EditorialIndex
-              label="The knowledge Discern keeps"
-              items={[
-                { term: "Instructions", description: "Write once" },
-                { term: "Methods", description: "Reuse next time" },
-                { term: "Project guide", description: "Checked with the code" },
-              ]}
-            />
-          }
-        >
-          <Prose className="landing-benefit__copy" measure="wide">
-            <span className="landing-benefit__eyebrow">Project memory</span>
-            <h2 id="landing-memory-title">
-              What the project learns stays learned.
-            </h2>
-            <p>
-              Write the instructions once. Save a hard-won method as a reusable
-              guide. Keep the project guide tied to the files it explains. The
-              next coding agent starts from the same knowledge instead of
-              discovering it all again.
-            </p>
-          </Prose>
-        </ArticleLayout>
-      </section>
-
-      <section
-        className="landing-footprint"
-        aria-label="A small local footprint"
-      >
-        <div className="landing-footprint__inner">
-          <PullQuote
-            className="landing-footprint__quote"
-            align="inline"
-            quote="One self-contained program. One tracked settings file. Nothing watching in the background."
-            attribution="Small by design"
-          />
-          <p className="landing-footprint__note">
-            Discern runs offline, keeps its activity record on your computer,
-            and leaves the finished app alone.
-          </p>
-        </div>
-      </section>
-    </>
-  );
-}
-
 function LandingPage() {
   return (
     <>
@@ -240,6 +125,8 @@ function LandingPage() {
       <main id="main">
         <LandingHero />
 
+        {
+          /*
         <section
           className="landing-control"
           aria-labelledby="landing-control-title"
@@ -278,7 +165,8 @@ function LandingPage() {
             </div>
           </dl>
         </section>
-        <LandingBenefits />
+        */
+        }
       </main>
       <SiteFooter
         brand={<DiscernName />}

@@ -352,7 +352,7 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   const articleHeader = body.querySelector(".discern-article-header");
   assert(articleHeader !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
-  assertEquals(body.querySelectorAll(".discern-article-layout").length, 2);
+  assertEquals(body.querySelector(".discern-article-layout"), null);
   for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
     assertEquals(text.includes(placeholder), false, placeholder);
   }
@@ -393,26 +393,32 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   );
 
   const control = body.querySelector(".landing-control");
-  assert(control !== null);
+  assertEquals(control, null);
   assertEquals(
-    control.querySelector("h2")?.textContent?.trim(),
-    "Your project decides when work is finished.",
+    text.includes("Your project decides when work is finished."),
+    false,
   );
-  assertEquals(
-    control.querySelector("code")?.textContent,
-    "discern done",
+  const landingSource = await Deno.readTextFile(
+    join(ROOT, "site/page-src/landing.tsx"),
+  );
+  const controlSourceIndex = landingSource.indexOf(
+    'className="landing-control"',
+  );
+  const commentStart = landingSource.lastIndexOf("/*", controlSourceIndex);
+  const commentEnd = landingSource.indexOf("*/", controlSourceIndex);
+  const commentPrefix = landingSource.slice(0, commentStart).trimEnd();
+  const commentSuffix = landingSource.slice(commentEnd + 2).trimStart();
+  assert(
+    commentStart >= 0 &&
+      controlSourceIndex > commentStart &&
+      commentEnd > controlSourceIndex &&
+      commentPrefix.endsWith("{") &&
+      commentSuffix.startsWith("}"),
+    "the hidden control section must remain in a JSX comment for review",
   );
   assertStringIncludes(
-    control.querySelector(".landing-control__summary p")?.textContent ?? "",
-    "proof tied to the code you’re reviewing",
-  );
-  assertEquals(
-    [...control.querySelectorAll("dt")].map((term) => term.textContent?.trim()),
-    [
-      "Same project knowledge",
-      "Parallel work stays separate",
-      "Proof for review",
-    ],
+    landingSource.slice(commentStart, commentEnd),
+    "Your project decides when work is finished.",
   );
 
   const integrationItems = [
@@ -455,34 +461,19 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     null,
   );
   assertEquals(text.includes("Native coding agent integrations"), false);
+  assertEquals(articleHeader.nextElementSibling, null);
+  const main = body.querySelector("main#main");
+  assert(main !== null);
+  assertEquals(main.children.length, 1);
+  assertEquals(main.firstElementChild, articleHeader);
   assertEquals(
-    articleHeader.nextElementSibling,
-    control,
-  );
-
-  // The tail uses quiet editorial components for benefits taken from the
-  // feature canon, without terminal or receipt theatre.
-  assertEquals(
-    [...body.querySelectorAll(".landing-benefit h2")].map((heading) =>
-      heading.textContent?.trim()
-    ),
-    [
-      "Quality can only move one way.",
-      "What the project learns stays learned.",
-    ],
-  );
-  assertStringIncludes(text, "Weaker limits");
-  assertStringIncludes(text, "Checked with the code");
-  assertStringIncludes(
-    body.querySelector(".discern-pull-quote")?.textContent ?? "",
-    "Nothing watching in the background.",
-  );
-  assertEquals(
-    body.querySelector(".discern-terminal, .discern-receipt"),
+    body.querySelector(".landing-benefit, .landing-footprint"),
     null,
   );
   assertEquals(html.includes("landing.js"), false);
-  assert(body.querySelector(".discern-site-footer") !== null);
+  const footer = body.querySelector(".discern-site-footer");
+  assert(footer !== null);
+  assertEquals(main.nextElementSibling, footer);
   assertEquals(
     body.querySelectorAll(".discern-site-footer__nav > div").length,
     2,
@@ -497,8 +488,8 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
-  assertStringIncludes(landingCss, ".landing-benefit__layout");
-  assertStringIncludes(landingCss, ".landing-footprint__inner");
+  assertEquals(landingCss.includes(".landing-benefit"), false);
+  assertEquals(landingCss.includes(".landing-footprint"), false);
   assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
   // Static output: local runtime assets only, and no React browser runtime.
