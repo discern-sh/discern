@@ -996,7 +996,26 @@ export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
  * (`tests/ssot_claim_guard_test.ts`) holds every authored module making the
  * claim to exactly one of: some entry's `source.module`, or a record here.
  */
-export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {};
+export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
+  "site/design_system.ts#DESIGN_SYSTEM_BUNDLES":
+    "site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project",
+  "src/engine/gate/receipt_render.ts":
+    "the claim announces a derive-once rule — the receipt reads the result envelope, never recomputes — not a member set",
+  "src/engine/worktree/side_restrictions.ts":
+    "candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention",
+  "src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR":
+    "a single staging-directory name shared by the build writer and the bundled-docs reader — one value, not a member set",
+  "src/lib/providers.ts":
+    "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
+  "src/lib/version.ts":
+    "the kit version constant: a single value with no members and no satellites of its own to drift",
+  "src/shared/git_admin_state.ts":
+    "candidate for enrolment: a true registry of each Git-admin artifact's path and lifetime, whose class test (tests/git_admin_state_test.ts) is named outside the guard convention",
+  "src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES":
+    "the typed companion of the enrolled patterns-detectors set — declared in that entry's account and held by tests/logbook_routing_test.ts, a guard that entry declares",
+  "src/shared/result_schemas.ts":
+    "wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts",
+};
 
 /** The filename suffixes the guard-test convention sweep matches. */
 export const CONVENTIONAL_GUARD_SUFFIXES: readonly string[] = [
