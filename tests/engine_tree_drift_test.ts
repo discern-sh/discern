@@ -30,6 +30,7 @@ import {
   type StageSnapshot,
   strandedByStage,
 } from "../src/engine/gate/tree_drift.ts";
+import { jobStage, STAGES } from "../src/shared/capabilities.ts";
 import { parsePorcelainZ } from "../src/shared/git_paths.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -212,6 +213,16 @@ const MUTATING_STAGES: ReadonlyArray<
     phrase: "the check/test stage",
   },
 ];
+
+Deno.test("the mutating-stage table exercises every gate stage (the fix stage via its dedicated case above)", () => {
+  // The table's class promise, held to the stage registry: a stage added to
+  // STAGES fails here until a member (or dedicated case) exercises it.
+  const exercised = new Set<string>(["fix"]);
+  for (const stage of MUTATING_STAGES) {
+    exercised.add(jobStage(stage.name) ?? `unknown job: ${stage.name}`);
+  }
+  assertEquals([...exercised].sort(), [...STAGES].sort());
+});
 
 for (const stage of MUTATING_STAGES) {
   Deno.test(`done: a ${stage.name} command that dirties a COMMITTED-clean tracked file fails with tree_drift, attributed to ${stage.phrase}`, async () => {
