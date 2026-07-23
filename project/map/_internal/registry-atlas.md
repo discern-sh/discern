@@ -328,7 +328,7 @@ This meta-registry: the closed set of closed sets.
 
 ## Unaffiliated, with reasons
 
-Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, and codegen targets that compile from no registry.
+Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, codegen targets that compile from no registry, and modules whose doc comments claim single-source-of-truth status yet anchor no declared set.
 
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set

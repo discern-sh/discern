@@ -982,6 +982,16 @@ export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
     "a browser copy of src/lib/docs_search.js — module duplication, not registry data",
 };
 
+/**
+ * Modules whose doc comments claim single-source-of-truth status ("single
+ * source of truth", "SSOT") for one of their own exports without anchoring a
+ * declared entry, each with the reason. Keys are module paths, optionally
+ * pinned to the claiming export as `path#EXPORT`. The claim sweep
+ * (`tests/ssot_claim_guard_test.ts`) holds every authored module making the
+ * claim to exactly one of: some entry's `source.module`, or a record here.
+ */
+export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {};
+
 /** The filename suffixes the guard-test convention sweep matches. */
 export const CONVENTIONAL_GUARD_SUFFIXES: readonly string[] = [
   "_parity_test.ts",
@@ -1082,13 +1092,16 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("## Unaffiliated, with reasons");
   lines.push("");
   lines.push(
-    "Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, and codegen targets that compile from no registry.",
+    "Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, codegen targets that compile from no registry, and modules whose doc comments claim single-source-of-truth status yet anchor no declared set.",
   );
   lines.push("");
   for (const [path, reason] of Object.entries(UNAFFILIATED_GUARDS)) {
     lines.push(`- \`${path}\` — ${reason}`);
   }
   for (const [path, reason] of Object.entries(UNAFFILIATED_CODEGEN_TARGETS)) {
+    lines.push(`- \`${path}\` — ${reason}`);
+  }
+  for (const [path, reason] of Object.entries(UNAFFILIATED_SETS)) {
     lines.push(`- \`${path}\` — ${reason}`);
   }
   lines.push("");
