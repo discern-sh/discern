@@ -686,7 +686,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "spawn-surfaces",
     title: "Spawn surfaces",
     what:
-      "Every file permitted to construct Deno.Command, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.",
+      "Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",

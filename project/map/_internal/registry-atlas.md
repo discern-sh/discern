@@ -217,7 +217,7 @@ The generated third-party notice artifacts and their license cache.
 
 ## `spawn-surfaces` — Spawn surfaces
 
-Every file permitted to construct Deno.Command, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.
+Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.
 
 - Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
 - Members: 7
