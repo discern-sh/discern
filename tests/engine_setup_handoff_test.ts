@@ -27,6 +27,9 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { SETUP_HUMAN_AUDIENCES } from "../src/commands/setup.ts";
+import { OFF_RAMP_PROMPT } from "../src/shared/setup_messages.ts";
+import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
@@ -103,29 +106,95 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
   });
 });
 
-Deno.test("the agent-addressed setup surfaces carry a human off-ramp", async () => {
-  // A human who runs `verify` or `begin` by hand hits text addressed to an agent;
-  // each carries one line telling them the handoff that makes it work.
-  const OFF_RAMP = "Reading this as a human?";
+// ── the human off-ramp, swept over EVERY setup surface ─────────────────────────
+// A human who runs an agent-addressed setup command by hand hits text addressed
+// to an agent; each such surface carries one line telling them the handoff that
+// makes it work. SETUP_HUMAN_AUDIENCES classifies every setup-family command
+// path — carrier or named exception — and this sweep drives each one, so a new
+// setup command cannot ship with its audience unclassified, and an exception
+// cannot silently grow (or shed) the off-ramp without flipping its classification.
 
-  await withTempDir(async (dir) => {
-    // verify, on a fresh (never-scaffolded) repo.
-    await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
-    await gitInit(dir);
-    const verify = await runAgent(dir, ["setup", "verify"]);
-    assertEquals(verify.code, 0, verify.output);
-    assertStringIncludes(verify.stdout, OFF_RAMP);
-    assertStringIncludes(verify.stdout, "Run `discern setup`");
-  });
+/** A canonical invocation of one setup command path's human render. */
+interface OffRampDriver {
+  fixture: (dir: string) => Promise<void>;
+  argv: string[];
+  code: number;
+}
 
-  await withTempDir(async (dir) => {
-    // the begin banner.
-    await scaffoldEngine(dir, { bootstrapped: false });
-    const begin = await runAgent(dir, ["setup", "begin", "--confirmed"]);
-    assertEquals(begin.code, 0, begin.output);
-    assertStringIncludes(begin.stdout, OFF_RAMP);
-  });
+/** A fresh one-commit repo with no discern config — the pre-setup state. */
+async function freshRepo(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+  await gitInit(dir);
+}
+
+/** Lay the setup branch so `setup accept` has a landing to perform. */
+async function begunSetup(dir: string): Promise<void> {
+  await freshRepo(dir);
+  const r = await runAgent(dir, [
+    "setup",
+    "begin",
+    "--confirmed",
+    "--agents",
+    "claude_code",
+  ]);
+  assertEquals(r.code, 0, r.output);
+}
+
+const OFF_RAMP_DRIVERS: Record<string, OffRampDriver> = {
+  "setup": { fixture: freshRepo, argv: ["setup"], code: 0 },
+  "setup begin": {
+    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
+    argv: ["setup", "begin", "--confirmed"],
+    code: 0,
+  },
+  "setup verify": { fixture: freshRepo, argv: ["setup", "verify"], code: 0 },
+  "setup step": {
+    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
+    argv: ["setup", "step", "4"],
+    code: 0,
+  },
+  "setup done": {
+    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
+    argv: ["setup", "done", "--force"],
+    code: 0,
+  },
+  "setup accept": { fixture: begunSetup, argv: ["setup", "accept"], code: 0 },
+};
+
+Deno.test("every setup command path classifies its human-render audience (enrolment)", () => {
+  // Total over the public result-contract registry's setup family: a new setup
+  // command registers a contract, so it lands here unclassified and fails until
+  // SETUP_HUMAN_AUDIENCES (and a driver) account for it.
+  const registered = CLI_JSON_RESULT_CONTRACTS
+    .filter((c) => c.verb === "setup" || c.verb.startsWith("setup "))
+    .flatMap((c) => [...c.commands])
+    .sort();
+  assertEquals(Object.keys(SETUP_HUMAN_AUDIENCES).sort(), registered);
+  assertEquals(Object.keys(OFF_RAMP_DRIVERS).sort(), registered);
 });
+
+for (const [path, audience] of Object.entries(SETUP_HUMAN_AUDIENCES)) {
+  const driver = OFF_RAMP_DRIVERS[path];
+  Deno.test(`the \`${path}\` human render ${
+    audience.offRamp ? "carries" : "omits"
+  } the human off-ramp`, async () => {
+    assert(driver !== undefined, `no off-ramp driver for ${path}`);
+    await withTempDir(async (dir) => {
+      await driver.fixture(dir);
+      const r = await runAgent(dir, driver.argv);
+      assertEquals(r.code, driver.code, r.output);
+      if (audience.offRamp) {
+        assertStringIncludes(r.stdout, OFF_RAMP_PROMPT);
+        assertStringIncludes(r.stdout, "Run `discern setup`");
+      } else {
+        assert(
+          !r.output.includes(OFF_RAMP_PROMPT),
+          `${path} is a named exception (${audience.reason}) — carrying the off-ramp means its classification must flip:\n${r.output}`,
+        );
+      }
+    });
+  });
+}
 
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
   await withTempDir(async (dir) => {
