@@ -186,11 +186,11 @@ Every project-tree path discern writes or maintains, with its ownership answer.
 
 ## `distribution-vocabulary` — Distribution vocabulary
 
-Retired commands, retired config keys, and synonym redirects — the vocabulary the CLI redirects rather than accepts.
+Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 22
-- Guards: `tests/dev_vocab_guard_test.ts`
+- Members: 26
+- Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
 - Glossary: not enrolled — redirect data for retired words; live vocabulary lives in the glossary proper
 - Feature canon: described by the `forgiving-cli` node
 

@@ -30,7 +30,7 @@ import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./capabilities.ts";
 import { isValidMapDir } from "./map_path.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
-import { retiredConfigKeySuccessor } from "./vocabulary.ts";
+import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
@@ -673,39 +673,17 @@ function summariseIssues(issues: ConfigIssue[]): string {
   return `discern.toml is invalid:\n${lines.join("\n")}`;
 }
 
-/** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints for
- * retired config positions and dead worktree adapters. */
+/** Turn one Zod issue into a {@link ConfigIssue}, with discern-specific hints
+ * for retired config positions: dead positions come from the
+ * DEAD_CONFIG_POSITIONS table, renamed keys from RETIRED_CONFIG_KEY_REDIRECTS
+ * (both in vocabulary.ts), so retiring a position is a row, not a branch. */
 function toConfigIssue(issue: z.core.$ZodIssue): ConfigIssue {
   const path = issue.path.map((p) => String(p)).join(".");
   if (issue.code === "unrecognized_keys") {
     const keys = issue.keys.join(", ");
-    if (path === "worktree" && issue.keys.includes("enabled")) {
-      return {
-        path,
-        message:
-          `dead config ${keys} — the worktree workflow is core now, not a toggle; run \`discern upgrade\` to drop it.`,
-      };
-    }
-    if (path === "worktree" && issue.keys.includes("graduate_to")) {
-      return {
-        path,
-        message:
-          `dead config ${keys} — \`discern accept\` always lands on the trunk now (there is one landing target); run \`discern upgrade\` to drop the key.`,
-      };
-    }
-    if (path === "worktree") {
-      return {
-        path,
-        message:
-          `dead config ${keys} — the engine reads [worktree.resources.<name>] now; run \`discern upgrade\` to migrate it.`,
-      };
-    }
-    if (path === "" && issue.keys.includes("features")) {
-      return {
-        path,
-        message:
-          "dead config [features] — the subsystem toggles were retired (every subsystem is core now); run `discern upgrade` to drop the section.",
-      };
+    const dead = deadConfigPosition(path, issue.keys);
+    if (dead !== undefined) {
+      return { path, message: dead.message(keys) };
     }
     if (path === "") {
       const retired = issue.keys.find((key) =>
