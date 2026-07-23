@@ -18,11 +18,10 @@ on:
 permissions:
   contents: read
 
-# A newer commit supersedes an in-flight run on the same ref. Cancel the stale
-# run on pull requests; let main runs finish so every landed commit is gated.
+# A newer commit supersedes an in-flight run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 # Pin the Vale version CI installs to lint the configured map. Both [jobs.prose]
 # and the [standards.prose] metric shell out to `vale`, so it must be on PATH and
