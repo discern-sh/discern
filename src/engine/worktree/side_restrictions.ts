@@ -15,8 +15,10 @@
  * tests (which iterate it) both read the one table without a cycle.
  */
 
-/** The two sides of the boundary a restricted operation may be pinned to. */
-export type WorktreeSide = "main" | "worktree";
+/** The two sides of the boundary a restricted operation may be pinned to.
+ * "main-checkout" is the LOCATION (the primary checkout), never the name of
+ * the integration branch — branch names stay config-resolved (ADR 0048). */
+export type WorktreeSide = "main-checkout" | "worktree";
 
 /** One side-restricted lifecycle operation. */
 export interface SideRestriction {
@@ -53,12 +55,12 @@ export const SIDE_RESTRICTED_OPS = {
   },
   // The side guard precedes target resolution, so any placeholder target works.
   "worktree-drop": {
-    side: "main",
+    side: "main-checkout",
     label: "discern worktree drop",
     cli: { argv: ["worktree", "drop", "any-target"], verb: "worktree drop" },
   },
   "worktree-prune": {
-    side: "main",
+    side: "main-checkout",
     label: "discern worktree prune",
     cli: { argv: ["worktree", "prune", "--yes"], verb: "worktree prune" },
   },
@@ -68,7 +70,7 @@ export const SIDE_RESTRICTED_OPS = {
     cli: { argv: ["update"], verb: "update" },
   },
   start: {
-    side: "main",
+    side: "main-checkout",
     label: "discern start",
     cli: { argv: ["start"], verb: "start" },
   },
@@ -80,7 +82,7 @@ export const SIDE_RESTRICTED_OPS = {
   },
   // The setup-time probe worktree is minted from the main checkout only.
   "worktree-probe": {
-    side: "main",
+    side: "main-checkout",
     label: "worktree probe",
     cli: null,
   },

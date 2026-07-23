@@ -206,7 +206,7 @@ async function classifyBoundarySide(cwd: string): Promise<BoundarySide> {
   if (commonGitDir === undefined) {
     return "unresolvable";
   }
-  return absoluteGitDir === commonGitDir ? "main" : "worktree";
+  return absoluteGitDir === commonGitDir ? "main-checkout" : "worktree";
 }
 
 /** Whether `cwd` is inside a *linked* worktree (not the main checkout, not
@@ -241,14 +241,14 @@ export async function assertOpSide(
         `\`git worktree repair\`, then re-run.`,
     );
   }
-  if (side === "worktree" && where === "main") {
+  if (side === "worktree" && where === "main-checkout") {
     throw new WorktreeGitError(
       `${label} runs only inside a worktree — a separate checkout and branch for ` +
         `one change — not the main checkout. Run \`discern start\` from the main ` +
         `checkout, move into the path it prints, then re-run.`,
     );
   }
-  if (side === "main" && where === "worktree") {
+  if (side === "main-checkout" && where === "worktree") {
     throw new WorktreeGitError(
       `${label} runs only from the main checkout, not a worktree. Move to the ` +
         `first path shown by \`git worktree list\`, then re-run.`,

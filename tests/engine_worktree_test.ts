@@ -817,7 +817,7 @@ Deno.test("a fresh-named side-restricted op auto-enrols in the derived refusal c
   // in the derived CLI cases untouched — and an internal-only entry must not.
   const cases = cliRefusalCases({
     "compact-ledger": {
-      side: "main",
+      side: "main-checkout",
       label: "discern compact-ledger",
       cli: { argv: ["compact-ledger"], verb: "compact-ledger" },
     },
@@ -825,7 +825,7 @@ Deno.test("a fresh-named side-restricted op auto-enrols in the derived refusal c
   });
   assertEquals(cases, [{
     op: "compact-ledger",
-    side: "main",
+    side: "main-checkout",
     argv: ["compact-ledger"],
     verb: "compact-ledger",
   }]);
