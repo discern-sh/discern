@@ -39,8 +39,10 @@ const NETWORK_TOKEN =
  * The vetted external dependencies of the logbook graph. Each entry is a
  * specifier PREFIX, checked as vetted-for-this-graph: path/filesystem/assert
  * std modules, the TOML parser and Zod (the config schema), the terminal
- * colour helper (via the shared Logger type), and the process shim the shared
- * modules use. None opens a socket.
+ * colour helper (via the shared Logger type), and the process and os shims
+ * the shared modules use (`os` supplies tmpdir for the temp-artifact
+ * registry the self-shim mints in — platform constants, no socket). None
+ * opens a socket.
  */
 const ALLOWED_EXTERNAL_PREFIXES = [
   "@std/path",
@@ -51,6 +53,8 @@ const ALLOWED_EXTERNAL_PREFIXES = [
   "@cliffy/ansi",
   "node:process",
   "process",
+  "node:os",
+  "os",
 ] as const;
 
 /** Every import/re-export specifier in a TypeScript source, static and dynamic.

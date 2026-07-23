@@ -90,7 +90,9 @@ export function makeTempArtifact(kind: TempArtifactKind): Promise<string> {
  * path in a shared temp dir would let another local user pre-plant it), and
  * reaped recursively once its mtime ages past the TTL.
  */
-export function makeTempArtifactDir(kind: TempArtifactDirKind): Promise<string> {
+export function makeTempArtifactDir(
+  kind: TempArtifactDirKind,
+): Promise<string> {
   return Deno.makeTempDir({ prefix: TEMP_ARTIFACT_DIR_KINDS[kind] });
 }
 
