@@ -12,7 +12,7 @@ Layout and display components render completely as semantic HTML. Any browser be
 
 The public `/` homepage is authored in [`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) as a concise product introduction built from the Editorial and Marketing adapters. It combines an article header, compact product facts beside the main actions, native agent integrations, a short account of shared project knowledge and separate worktrees, proof tied to reviewed code, and the grouped site footer.
 
-The integration band walks the native agent catalogue in its canonical order and reads each label and compact SVG mark from the provider registry. A provider added to those total registries joins the homepage without a second page-owned list.
+The integration band walks the native agent catalogue in its canonical order and reads each label and compact SVG mark from the provider registry. Each canonical mark owns its crop, so consumers apply one presentation to every provider without vendor-specific sizing workarounds. A provider added to those total registries joins the homepage without a second page-owned list.
 
 Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css). Its `.landing-*` selectors compose the page while component-owned `.discern-*` selectors stay with the package (the consumer-CSS guard below enforces this). The homepage ships no page-owned JavaScript. The static theme toggle in the header is markup only; the shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime. [`site/brand.ts`](../../../site/brand.ts) owns the page's title and description.
 

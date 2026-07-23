@@ -433,6 +433,10 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     AGENT_NAMES.map(() => ""),
   );
   assertEquals(
+    integrationImages.map((image) => image?.getAttribute("class")),
+    AGENT_NAMES.map(() => "landing-provider-logo"),
+  );
+  assertEquals(
     body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
     `${AGENT_NAMES.length} native coding agent integrations`,
   );
@@ -440,11 +444,6 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     body.querySelector(".discern-logo-cloud")?.nextElementSibling,
     control,
   );
-  const codexLogo = body.querySelector(
-    'img[src="/assets/integrations/codex-mark.svg"]',
-  );
-  assert(codexLogo !== null);
-  assert(codexLogo.classList.contains("landing-provider-logo--codex"));
   assertEquals(html.includes("landing.js"), false);
   assert(body.querySelector(".discern-site-footer") !== null);
   assertEquals(
@@ -461,8 +460,7 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
-  assertStringIncludes(landingCss, ".landing-provider-logo--codex");
-  assertStringIncludes(landingCss, "transform: scale(1.7);");
+  assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
   // Static output: local runtime assets only, and no React browser runtime.
   assert(

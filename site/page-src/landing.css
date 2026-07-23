@@ -120,10 +120,6 @@
   object-fit: contain;
 }
 
-.landing-provider-logo--codex {
-  transform: scale(1.7);
-}
-
 @media (max-width: 880px) {
   .landing-control {
     grid-template-columns: 1fr;

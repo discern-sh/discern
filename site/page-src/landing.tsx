@@ -26,7 +26,7 @@ const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
     mark: (
       <span className="landing-provider-logo-frame">
         <img
-          className={`landing-provider-logo landing-provider-logo--${name}`}
+          className="landing-provider-logo"
           src={provider.brand.mark.path}
           alt=""
           width={32}
