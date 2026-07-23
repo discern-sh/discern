@@ -16,6 +16,7 @@ import {
 } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { DISCERN_FAVICON_PATH } from "../site/brand.ts";
+import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { handler } from "../site/serve.ts";
 import {
   createGlossaryProseRenderer,
@@ -89,16 +90,28 @@ function htmlEsc(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function docsTopBarVerticalNudges(css: string): string[] {
-  const start = css.indexOf("/* ── Top bar");
-  const end = css.indexOf("/* ── Chapter nav", start);
-  if (start < 0 || end <= start) return ["missing top-bar boundary"];
-  const topBar = css.slice(start, end);
+/** Class tokens carried by the served docs top bar (the shell's <header>). */
+function topBarClasses(pageHtml: string): Set<string> {
+  const classes = new Set<string>();
+  const header = pageHtml.match(/<header\b[\s\S]*?<\/header>/)?.[0] ?? "";
+  for (const attr of header.matchAll(/class="([^"]*)"/g)) {
+    for (const token of (attr[1] ?? "").split(/\s+/)) {
+      if (token !== "") classes.add(token);
+    }
+  }
+  return classes;
+}
+
+/** Vertical-nudge declarations in any rule that targets one of `classes`. */
+function verticalNudges(css: string, classes: ReadonlySet<string>): string[] {
   const nudges: string[] = [];
-  for (const match of topBar.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = (match[1] ?? "")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .trim();
+    const targeted = [...selector.matchAll(/\.([A-Za-z0-9_-]+)/g)]
+      .some((cls) => classes.has(cls[1] ?? ""));
+    if (!targeted) continue;
     for (const declaration of (match[2] ?? "").split(";")) {
       const value = declaration.trim();
       if (
@@ -114,16 +127,41 @@ function docsTopBarVerticalNudges(css: string): string[] {
   return nudges;
 }
 
+/** The repo-authored stylesheets a served docs page links. Generated
+ * design-system bundles are excluded by their registry-declared output
+ * prefixes — their rules are the package's, not this repo's to police. */
+async function docsServedStylesheets(
+  pageHtml: string,
+): Promise<Array<[string, string]>> {
+  const generated = Object.values(DESIGN_SYSTEM_BUNDLES).map((b) =>
+    `/${b.output.slice("pages/".length)}`
+  );
+  const sheets: Array<[string, string]> = [];
+  for (
+    const link of pageHtml.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)
+  ) {
+    const href = link[1] ?? "";
+    if (generated.some((prefix) => href.startsWith(prefix))) continue;
+    const res = await get(href, BROWSER);
+    assertEquals(res.status, 200, `stylesheet ${href} should be served`);
+    sheets.push([href, await res.text()]);
+  }
+  return sheets;
+}
+
 Deno.test("the docs top-bar alignment guard catches a fresh-name vertical nudge", () => {
-  const fixture = `
-    /* ── Top bar ── */
-    .fresh-identity-addon { margin-block-start: 2px; }
-    /* ── Chapter nav ── */
-  `;
+  const classes = topBarClasses(
+    '<header class="fresh-chrome"><span class="fresh-identity-addon"></span></header>',
+  );
   assertEquals(
-    docsTopBarVerticalNudges(fixture),
+    verticalNudges(
+      ".fresh-identity-addon { margin-block-start: 2px; }",
+      classes,
+    ),
     [".fresh-identity-addon: margin-block-start: 2px"],
   );
+  // Precision control: rules outside the top-bar class set stay unflagged.
+  assertEquals(verticalNudges(".docs-nav { top: 56px; }", classes), []);
 });
 
 Deno.test("the published docs site covers exactly the bundled-public sections", async () => {
@@ -496,10 +534,15 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
 });
 
 Deno.test("the docs top bar aligns its children without vertical nudges", async () => {
-  const css = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.css", import.meta.url),
+  const html = await (await get("/docs", BROWSER)).text();
+  const classes = topBarClasses(html);
+  assert(classes.has("docs-top"), "the served shell should carry the top bar");
+  const sheets = await docsServedStylesheets(html);
+  assert(sheets.length > 0, "docs pages should link repo-authored stylesheets");
+  const failures = sheets.flatMap(([href, css]) =>
+    verticalNudges(css, classes).map((nudge) => `${href} → ${nudge}`)
   );
-  assertEquals(docsTopBarVerticalNudges(css), []);
+  assertEquals(failures, []);
 });
 
 Deno.test("inline code shares one readable optical scale across docs content", async () => {
