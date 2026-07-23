@@ -18,7 +18,7 @@ on:
 permissions:
   contents: read
 
-# A newer commit supersedes an in-flight run.
+# A newer commit supersedes an in-flight run...
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
