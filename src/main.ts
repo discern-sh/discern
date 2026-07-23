@@ -792,6 +792,38 @@ export function buildCli(
   return root;
 }
 
+/**
+ * Every command path in `tree` that registers a `--dry-run` option, as
+ * space-joined paths ("worktree drop"), sorted. Walks the BUILT command tree —
+ * hidden commands and options included — so the set is derived from the real
+ * registrations, never a hand-kept list.
+ */
+export function dryRunCapablePaths(tree: Command): string[] {
+  const walk = (cmd: Command, prefix: string): string[] => {
+    const self = cmd.getOptions(true).some((o) => o.name === "dry-run")
+      ? [prefix]
+      : [];
+    return [
+      ...self,
+      ...cmd.getCommands(true).flatMap((sub) =>
+        walk(sub, prefix === "" ? sub.getName() : `${prefix} ${sub.getName()}`)
+      ),
+    ];
+  };
+  return walk(tree, "").sort();
+}
+
+/**
+ * The dry-run-capable verb class: every CLI command path whose registration
+ * carries `--dry-run` — the effectful plan/apply verbs whose preview contract
+ * (a dry run writes nothing; an apply performs nothing the plan never listed)
+ * the class guard in `tests/engine_plan_parity_test.ts` holds per member. A
+ * verb or command group that registers the flag enrols itself here.
+ */
+export function dryRunCapableVerbs(): readonly string[] {
+  return dryRunCapablePaths(buildCli(false) as unknown as Command);
+}
+
 /** The cwd project's resolved CLI state: whether we are inside a project at all,
  * whether its config parsed, and whether it recorded `[meta].bootstrapped`. */
 interface ProjectState {
