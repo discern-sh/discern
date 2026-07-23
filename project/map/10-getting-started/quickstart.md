@@ -20,7 +20,7 @@ You need a git repository and a coding agent. Claude Code, Codex, Gemini, Cursor
 curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 ```
 
-The installer retries transient downloads, verifies the release checksum, and replaces an existing binary only after verification passes. Its message ends with the handoff only when this shell can find the installed `discern` command. If the chosen directory is not on `PATH`, follow the printed shell-profile instruction, open a new shell, and run `discern --version` before continuing. There is nothing else to configure by hand.
+When the installer prints `Next:`, continue to step 2. If it prints a `PATH` instruction instead, follow it and open a new shell. Run `discern --version`, then continue. There is nothing else to configure by hand.
 
 ## 2. Ask your agent to set the project up
 
