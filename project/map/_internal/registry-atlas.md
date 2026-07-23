@@ -47,6 +47,16 @@ The named, ordered buckets the top-level verbs render under — the grouping tab
 - Glossary: not enrolled — display grouping over the verb vocabulary; the glossary defines the verbs themselves
 - Feature canon: described by the `bundled-help` node
 
+## `consent-gated-verbs` — Consent-gated verbs
+
+The verbs that refuse without a fresh `--confirmed` attestation; the consent-gate class test iterates this list, so a new gated act cannot ship without the shared structural refusal.
+
+- Source: `src/shared/consent.ts` — `CONSENT_GATED_VERBS`
+- Members: 2
+- Guards: `tests/engine_consent_gate_test.ts`
+- Glossary: not enrolled — an attestation modality of two verbs, documented on each verb rather than as a term of its own
+- Feature canon: described by the `consent-attestations` node
+
 ## `jobs` — Gate jobs
 
 The known gate jobs — the command table's fixed vocabulary.
@@ -250,7 +260,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 24
+- Members: 25
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

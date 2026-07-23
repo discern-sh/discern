@@ -194,6 +194,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "consent-gated-verbs",
+    title: "Consent-gated verbs",
+    what:
+      "The verbs that refuse without a fresh `--confirmed` attestation; the consent-gate class test iterates this list, so a new gated act cannot ship without the shared structural refusal.",
+    source: {
+      kind: "module",
+      module: "src/shared/consent.ts",
+      exportName: "CONSENT_GATED_VERBS",
+    },
+    guards: ["tests/engine_consent_gate_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an attestation modality of two verbs, documented on each verb rather than as a term of its own",
+      },
+      featureCanon: { nodeId: "consent-attestations" },
+    },
+    members: async () =>
+      (await import("../src/shared/consent.ts")).CONSENT_GATED_VERBS.map(
+        (verb) => verb.id,
+      ),
+  },
+  {
     id: "jobs",
     title: "Gate jobs",
     what: "The known gate jobs — the command table's fixed vocabulary.",
