@@ -20,21 +20,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: validate release
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      - name: Validate tag and derive native build matrix
+        id: plan
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          deno run --allow-read --allow-write scripts/release_plan.ts
+          "${RELEASE_TAG}" "${GITHUB_OUTPUT}"
+
   build:
     name: build ${{ matrix.target }}
+    needs: plan
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-apple-darwin
-            os: macos-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -46,6 +60,12 @@ jobs:
 
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}
+
+      - name: Smoke compiled binary
+        run: >-
+          deno run --allow-read --allow-write --allow-run --allow-env
+          scripts/release_smoke.ts "dist/${{ matrix.output }}"
+          "${{ needs.plan.outputs.version }}"
 
       - name: Checksum
         working-directory: dist
@@ -84,7 +104,7 @@ jobs:
 
   deploy-site:
     name: deploy discern.sh from release tag
-    needs: release
+    needs: [plan, release]
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -103,15 +123,6 @@ jobs:
         with:
           deno-version: v2.x
           cache: true
-
-      - name: Verify the tag names this package version
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          deno eval 'const config = JSON.parse(await
-          Deno.readTextFile("deno.json")); const tag =
-          Deno.env.get("RELEASE_TAG"); if (tag !== "v" + config.version) throw
-          new Error(`release tag ${tag} does not match v${config.version}`);'
 
       - name: Build the exact site revision
         run: deno task site:build

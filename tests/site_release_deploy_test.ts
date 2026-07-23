@@ -11,9 +11,8 @@ Deno.test("the production site deploy is a release-tag-only path", async () => {
   assertStringIncludes(workflow, 'tags:\n      - "v*"');
   assert(!workflow.includes("branches:"), "release.yml has no branch trigger");
   assertStringIncludes(workflow, "deploy-site:");
-  assertStringIncludes(workflow, "needs: release");
+  assertStringIncludes(workflow, "needs: [plan, release]");
   assertStringIncludes(workflow, "ref: ${{ github.ref }}");
-  assertStringIncludes(workflow, "RELEASE_TAG: ${{ github.ref_name }}");
   assertStringIncludes(workflow, "deno task site:build");
   assertStringIncludes(workflow, "deno deploy --org");
   assertStringIncludes(workflow, "--prod");

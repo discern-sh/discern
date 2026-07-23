@@ -24,29 +24,9 @@ import {
   isBundledDocEntry,
   resolveMapDir,
 } from "../src/lib/paths.ts";
+import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
-
-/** A compile target: Deno's triple and the binary file name we ship. */
-interface Target {
-  triple: string;
-  /** Output binary name (Windows would need .exe; we ship the four POSIX ones). */
-  output: string;
-}
-
-/** The four platforms the release pipeline produces. */
-const TARGETS: Target[] = [
-  { triple: "x86_64-apple-darwin", output: "discern-x86_64-apple-darwin" },
-  { triple: "aarch64-apple-darwin", output: "discern-aarch64-apple-darwin" },
-  {
-    triple: "x86_64-unknown-linux-gnu",
-    output: "discern-x86_64-unknown-linux-gnu",
-  },
-  {
-    triple: "aarch64-unknown-linux-gnu",
-    output: "discern-aarch64-unknown-linux-gnu",
-  },
-];
 
 /** The least-privilege permissions the compiled binary carries. */
 const PERMISSIONS = [
@@ -107,7 +87,7 @@ async function prepareBundledDocs(): Promise<string> {
 
 /** Compile one target into `dist/`. Throws on a non-zero exit. */
 async function compileTarget(
-  target: Target,
+  target: BuildTarget,
   distDir: string,
   docsStageDir: string,
 ): Promise<void> {
@@ -148,7 +128,7 @@ async function compileTarget(
  * macOS host (where `codesign` exists); a no-op elsewhere.
  */
 async function verifyDarwinSignature(
-  target: Target,
+  target: BuildTarget,
   outPath: string,
 ): Promise<void> {
   if (!target.triple.endsWith("apple-darwin") || Deno.build.os !== "darwin") {
@@ -174,11 +154,13 @@ async function main(): Promise<void> {
   await ensureDir(distDir);
 
   const only = Deno.args[0];
-  const targets = only ? TARGETS.filter((t) => t.triple === only) : TARGETS;
+  const targets = only
+    ? BUILD_TARGETS.filter((target) => target.triple === only)
+    : BUILD_TARGETS;
   if (only && targets.length === 0) {
     console.error(
       `unknown target "${only}". Known: ${
-        TARGETS.map((t) => t.triple).join(", ")
+        BUILD_TARGETS.map((target) => target.triple).join(", ")
       }`,
     );
     Deno.exit(1);
