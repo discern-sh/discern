@@ -9,7 +9,6 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 
 /** True when a path exists on disk. */
