@@ -51,7 +51,9 @@ Deno.test("the owned-child guard enrolls an unrelated future launcher", async ()
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
-    for (const rel of ["scripts/fresh_helper.ts", "another/container/relay.ts"]) {
+    for (
+      const rel of ["scripts/fresh_helper.ts", "another/container/relay.ts"]
+    ) {
       await Deno.mkdir(join(dir, rel, ".."), { recursive: true });
       await Deno.writeTextFile(
         join(dir, rel),
