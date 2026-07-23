@@ -156,7 +156,7 @@ async function renderedTemplate(): Promise<string> {
     map_dir: "map/",
     scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
-    kit_version: "1.0.0",
+    kit_version: "9.9.9",
     project_name: "Demo",
   };
   for (const [k, v] of Object.entries(fills)) t = t.replaceAll(`{{${k}}}`, v);

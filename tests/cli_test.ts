@@ -7,6 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { KIT_VERSION } from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
 /** True when a path exists on disk. */
@@ -38,7 +39,7 @@ Deno.test("--version prints the kit version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "1.0.0");
+    assertStringIncludes(stdout, KIT_VERSION);
   });
 });
 
