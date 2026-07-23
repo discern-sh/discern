@@ -1,6 +1,7 @@
 /**
- * SSOT-CLAIM sweep — the claim itself is the enrolment trigger, extending the
- * canonical-sets contract (ADR 0176). A module that announces itself as a
+ * SSOT-CLAIM sweep — the claim itself is the enrolment trigger (ADR 0181),
+ * extending the canonical-sets contract (ADR 0176). A module that announces
+ * itself as a
  * single source of truth can no longer exist outside the meta-registry
  * unseen: it must be some entry's `source.module`, or a recorded, reasoned
  * absence in `UNAFFILIATED_SETS` — exactly one of the two.

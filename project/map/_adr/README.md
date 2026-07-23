@@ -175,6 +175,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0178 — `discern tidy` is the embedded convention for discern-owned surfaces](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)
 - [0179 — The feature canon carries an agent-experience axis](0179-the-feature-canon-carries-an-agent-experience-axis.md)
 - [0180 — Every spawn surface declares its interrupt contract](0180-every-spawn-surface-declares-its-interrupt-contract.md)
+- [0181 — An SSOT claim must anchor a declared canonical set](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md)
 
 <!-- END GENERATED: current ADR records -->
 

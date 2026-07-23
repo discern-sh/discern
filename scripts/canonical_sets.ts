@@ -993,8 +993,9 @@ export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
  * source of truth", "SSOT") for one of their own exports without anchoring a
  * declared entry, each with the reason. Keys are module paths, optionally
  * pinned to the claiming export as `path#EXPORT`. The claim sweep
- * (`tests/ssot_claim_guard_test.ts`) holds every authored module making the
- * claim to exactly one of: some entry's `source.module`, or a record here.
+ * (`tests/ssot_claim_guard_test.ts`, ADR 0181) holds every authored module
+ * making the claim to exactly one of: some entry's `source.module`, or a
+ * record here.
  */
 export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
   "site/design_system.ts#DESIGN_SYSTEM_BUNDLES":
