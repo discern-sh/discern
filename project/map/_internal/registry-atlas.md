@@ -148,6 +148,16 @@ The machine-checkable predicates behind setup's observable progress; each mirror
 - Glossary: not enrolled — internal predicates behind setup's progress reporting; the setup pages describe each step in prose
 - Feature canon: described by the `setup-observability` node
 
+## `worktree-tokens` — Worktree adapter tokens
+
+The `@…@` runtime tokens substituted into a worktree's resource commands from its identity — db, site, port, and kin.
+
+- Source: `src/engine/worktree/tokens.ts` — `WORKTREE_TOKENS`
+- Members: 7
+- Guards: `tests/worktree_tokens_test.ts`
+- Glossary: not enrolled — substitution vocabulary inside resource commands; the map's worktree-resources pages document each token
+- Feature canon: described by the `worktree-resources` node
+
 ## `hints` — Hints
 
 The advisory hint registry: every hint string enters results through it.
@@ -280,7 +290,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 27
+- Members: 28
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

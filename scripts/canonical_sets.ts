@@ -447,6 +447,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((check) => check.name),
   },
   {
+    id: "worktree-tokens",
+    title: "Worktree adapter tokens",
+    what:
+      "The `@…@` runtime tokens substituted into a worktree's resource commands from its identity — db, site, port, and kin.",
+    source: {
+      kind: "module",
+      module: "src/engine/worktree/tokens.ts",
+      exportName: "WORKTREE_TOKENS",
+    },
+    guards: ["tests/worktree_tokens_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "substitution vocabulary inside resource commands; the map's worktree-resources pages document each token",
+      },
+      featureCanon: { nodeId: "worktree-resources" },
+    },
+    members: async () => [
+      ...(await import("../src/engine/worktree/tokens.ts")).WORKTREE_TOKENS,
+    ],
+  },
+  {
     id: "hints",
     title: "Hints",
     what:
