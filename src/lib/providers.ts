@@ -1,10 +1,11 @@
 /**
  * The typed native-provider registry (ADR 0031): the single source of truth for
  * every integration surface — compiled guidance, worktree hooks, MCP
- * registration, project rules, and skills directories. Native names and labels
- * come from the broader identity catalogue (ADR 0166); this record is TOTAL over
- * that native subset, so the type checker forces a complete integration for every
- * supported provider. There is no universal agent setup file, so each live
+ * registration, project rules, skills directories, and site brand assets. Native
+ * names and labels come from the broader identity catalogue (ADR 0166); this
+ * record is TOTAL over that native subset, so the type checker forces a complete
+ * integration for every supported provider. There is no universal agent setup
+ * file, so each live
  * integration is authored against that agent's own mechanism; an absent optional
  * integration is simply skipped, never guessed.
  */
@@ -357,11 +358,38 @@ export interface ProviderArtifactPath {
   readonly ownership: FileOwnershipDeclaration;
 }
 
+/** The public directory holding the landing site's provider-brand SVGs. */
+export const PROVIDER_BRAND_ASSET_ROOT = "/assets/integrations" as const;
+
+/** One public, self-contained SVG in a provider's brand set. */
+export interface ProviderBrandAsset {
+  readonly path: `${typeof PROVIDER_BRAND_ASSET_ROOT}/${string}.svg`;
+  /** The filename, archive member, or inline element the checked-in SVG came from. */
+  readonly upstream: string;
+}
+
+/** The two logo forms the site can use for one integrated agent provider. */
+export interface ProviderBrand {
+  /** The vendor's human-readable brand or press page. */
+  readonly sourceUrl: `https://${string}`;
+  /** The vendor-provided archive or page from which these exact vectors came. */
+  readonly assetSourceUrl: `https://${string}`;
+  /** A compact, approximately square product or vendor mark. */
+  readonly mark: ProviderBrandAsset;
+  /** A horizontal product or vendor lockup with its wordmark. */
+  readonly wordmark: ProviderBrandAsset;
+  /** Provenance detail for a vendor that publishes no product-specific pair. */
+  readonly note?: string;
+}
+
 /** Everything provider-specific for one agent, in one typed record. The single
  * place to extend when teaching discern a new agent. */
 export interface Provider {
   readonly name: AgentName;
   readonly label: string;
+  /** First-party SVGs for the site's integrations surfaces. Required so a new
+   * native provider cannot compile until both logo forms are accounted for. */
+  readonly brand: ProviderBrand;
   /**
    * The CLI executable name(s) this agent ships as, for PATH auto-detection at
    * setup and live desk availability (see {@link detectAgentsOnPath}). Semantics are **match-any**: the agent
@@ -1052,6 +1080,20 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   claude_code: {
     name: "claude_code",
     label: agentLabelForNative("claude_code"),
+    brand: {
+      sourceUrl: "https://www.anthropic.com/news",
+      assetSourceUrl: "https://www.anthropic.com/press-kit",
+      mark: {
+        path: "/assets/integrations/claude-code-mark.svg",
+        upstream:
+          "Anthropic media resources/Anthropic logos/Claude logos/4 Claude icon/SVG/ClaudeIcon-Square.svg",
+      },
+      wordmark: {
+        path: "/assets/integrations/claude-code-wordmark.svg",
+        upstream:
+          "Anthropic media resources/Anthropic logos/Claude logos/2 Claude Code logo/SVG/Claude Code logo - Slate.svg",
+      },
+    },
     binaries: ["claude"],
     cli: {
       actions: [
@@ -1107,6 +1149,20 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   codex: {
     name: "codex",
     label: agentLabelForNative("codex"),
+    brand: {
+      sourceUrl: "https://openai.com/brand/",
+      assetSourceUrl: "https://cdn.openai.com/brand/openai-logos.zip",
+      mark: {
+        path: "/assets/integrations/codex-mark.svg",
+        upstream: "OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg",
+      },
+      wordmark: {
+        path: "/assets/integrations/codex-wordmark.svg",
+        upstream: "OpenAI-logos/SVGs/OAI_OpenAI_Wordmark_Black.svg",
+      },
+      note:
+        "OpenAI's public kit has no Codex-specific asset, so Codex uses the OpenAI vendor mark and wordmark.",
+    },
     binaries: ["codex"],
     cli: {
       actions: [
@@ -1176,6 +1232,18 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   gemini: {
     name: "gemini",
     label: agentLabelForNative("gemini"),
+    brand: {
+      sourceUrl: "https://gemini.google/about/",
+      assetSourceUrl: "https://gemini.google/about/",
+      mark: {
+        path: "/assets/integrations/gemini-mark.svg",
+        upstream: "inline header SVG (mark layer)",
+      },
+      wordmark: {
+        path: "/assets/integrations/gemini-wordmark.svg",
+        upstream: "inline header SVG",
+      },
+    },
     binaries: ["gemini"],
     cli: {
       actions: [
@@ -1235,6 +1303,20 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   cursor: {
     name: "cursor",
     label: agentLabelForNative("cursor"),
+    brand: {
+      sourceUrl: "https://cursor.com/brand",
+      assetSourceUrl:
+        "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip",
+      mark: {
+        path: "/assets/integrations/cursor-mark.svg",
+        upstream: "General Logos/Cube/SVG/CUBE_2D_LIGHT.svg",
+      },
+      wordmark: {
+        path: "/assets/integrations/cursor-wordmark.svg",
+        upstream:
+          "General Logos/Lockup Horizontal/SVG/LOCKUP_HORIZONTAL_2D_LIGHT.svg",
+      },
+    },
     // `cursor-agent` is the high-confidence CLI signal. The generic `agent` alias is
     // deliberately NOT a setup-detection signal: unrelated tools commonly use it.
     binaries: ["cursor-agent"],
@@ -1298,6 +1380,18 @@ export const PROVIDERS: Record<AgentName, Provider> = {
   copilot: {
     name: "copilot",
     label: agentLabelForNative("copilot"),
+    brand: {
+      sourceUrl: "https://brand.github.com/brand-identity/copilot",
+      assetSourceUrl: "https://brand.github.com/GitHub_Logos.zip",
+      mark: {
+        path: "/assets/integrations/github-copilot-mark.svg",
+        upstream: "GitHub Logos/SVG/Copilot_Icon_Black.svg",
+      },
+      wordmark: {
+        path: "/assets/integrations/github-copilot-wordmark.svg",
+        upstream: "GitHub Logos/SVG/GitHub_Copilot_Lockup_Black.svg",
+      },
+    },
     // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
     binaries: ["copilot"],
     cli: {
