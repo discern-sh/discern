@@ -68,8 +68,7 @@ export const SPAWN_HOMES = [
     sites: 1,
     may: ["sh", "other"],
     interrupt: {
-      exempt:
-        "the docs pager runs on the user's terminal in discern's own " +
+      exempt: "the docs pager runs on the user's terminal in discern's own " +
         "foreground process group, so terminal-generated interrupts already " +
         "reach it, and it lives exactly as long as the reader wants it.",
     },
@@ -126,8 +125,9 @@ export function declaredInterruptSurfaces(): string[] {
 
 /** The homes permitted to spawn `binary`, for the funnel guards. */
 export function homesThatMaySpawn(binary: SpawnBinary): Set<string> {
+  const homes: readonly SpawnHome[] = SPAWN_HOMES;
   return new Set(
-    SPAWN_HOMES.filter((entry) => entry.may.includes(binary))
+    homes.filter((entry) => entry.may.includes(binary))
       .map((entry) => entry.home),
   );
 }
