@@ -101,7 +101,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/engine_verb_parity_test.ts",
-      "tests/engine_plan_parity_test.ts",
       "tests/cli_reference_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/glossary_enrolment_test.ts",
@@ -119,6 +118,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members:
       async () => [...(await import("../src/engine/dispatch.ts")).KNOWN_VERBS],
+  },
+  {
+    id: "dry-run-verbs",
+    title: "Dry-run-capable verbs",
+    what:
+      "Every command path that registers --dry-run — the plan/apply verbs whose preview must be faithful: a dry run writes nothing, and an apply performs nothing the plan never listed.",
+    source: {
+      kind: "module",
+      module: "src/main.ts",
+      exportName: "dryRunCapableVerbs",
+    },
+    guards: ["tests/engine_plan_parity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own",
+      },
+      featureCanon: { nodeId: "plan-apply" },
+    },
+    members: async () => [
+      ...(await import("../src/main.ts")).dryRunCapableVerbs(),
+    ],
   },
   {
     id: "mcp-tools",

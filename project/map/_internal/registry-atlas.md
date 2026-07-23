@@ -12,10 +12,20 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
 - Members: 29
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_plan_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
+
+## `dry-run-verbs` — Dry-run-capable verbs
+
+Every command path that registers --dry-run — the plan/apply verbs whose preview must be faithful: a dry run writes nothing, and an apply performs nothing the plan never listed.
+
+- Source: `src/main.ts` — `dryRunCapableVerbs`
+- Members: 21
+- Guards: `tests/engine_plan_parity_test.ts`
+- Glossary: not enrolled — the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own
+- Feature canon: described by the `plan-apply` node
 
 ## `mcp-tools` — MCP tools
 
@@ -220,7 +230,7 @@ The generated third-party notice artifacts and their license cache.
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 21
+- Members: 22
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
