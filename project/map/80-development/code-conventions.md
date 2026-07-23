@@ -18,7 +18,7 @@ Every configured gate command executes from the resolved project root. This is t
 | `typecheck` | known  | check | `deno check`             | Type-checks the configured TypeScript graph under strict `deno.json` compiler options. Keep types sound; no `any` slipped through a cast.                                                                   |
 | `prose`     | custom | check | `scripts/prose_check.ts` | Runs Vale over the configured map after blanking frontmatter and excluding the private tree. Fix error-severity findings; review warnings with the page-level prose script.                                 |
 
-There are no `selfcheck` or `shellcheck` jobs: with the engine compiled into the binary there is no second copy to drift and no portable shell to lint ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The gate's `build` job is code generation; the release-only `deno task build` remains outside the gate. The `test` and `smoke` jobs are covered in [testing.md](testing.md).
+The engine has no `selfcheck` or shell-recipe matrix because it has no second copy to drift ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The standalone remote [`install.sh`](../../../install.sh) remains POSIX shell. CI runs ShellCheck on it before the repo gate. The gate's `build` job is code generation. The release-only `deno task build` stays outside the gate. [Testing](testing.md) covers the `test` and `smoke` jobs.
 
 ## Conventions to follow
 
@@ -30,7 +30,7 @@ The conventions the tooling cannot fully enforce, but the project still holds:
 - **TypeScript module shape.** Every module opens with a JSDoc block stating its role (see any file under `src/`). [`main.ts`](../../../src/main.ts) is routing only; command logic lives in `src/commands/`, the engine in `src/engine/`, shared installer/engine helpers in `src/shared/`, and installer-only helpers in `src/lib/`. Keep modules small and single-purpose.
 - **Strict TypeScript, repo-wide.** The strict `deno.json` compiler options and lint rules apply across the repo, including the engine. Keep types sound.
 - **Keep the repo's own task vocabulary out of what ships.** `discern` is both a product and a self-hosting repo, so two command vocabularies coexist: the user's (`discern …`) and the repo's `deno task <task>` aliases. Shipped `templates/` and user-facing binary output use the user's vocabulary. A guard test ([tests/dev_vocab_guard_test.ts](../../../tests/dev_vocab_guard_test.ts)) fails the gate if the repo aliases leak.
-- **Docs describe the current system.** Use present tense, the canonical nouns from the [glossary](../00-orientation/glossary.md), and ASCII-first diagrams. Put outstanding work in [`project/TODO.md`](../../TODO.md).
+- **Comments and docs describe the current system.** Code comments explain present behavior. The comment-currency guard rejects retrospective markers. When a marker describes current behavior and must remain, add `discern-allow-retrospective: <reason>`. Unused, duplicate, and reasonless annotations fail the guard ([ADR 0053](../_adr/0053-comment-currency-guard.md)). Docs use present tense, the canonical nouns from the [glossary](../00-orientation/glossary.md), and ASCII-first diagrams. Put outstanding work in [`project/TODO.md`](../../TODO.md).
 - **Record decisions.** A notable change gets an ADR in [`project/map/_adr/`](../_adr/); overriding a [design principle](../00-orientation/design-principles.md) _requires_ one.
 
 For test-specific conventions, see [testing.md](testing.md).

@@ -25,7 +25,7 @@ Run the same installer used for the first install:
 curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 ```
 
-It downloads the latest released binary for your operating system and architecture and replaces the `discern` file in the install directory. Open a new shell if that directory was newly added to `PATH`.
+It downloads the latest released binary and checksum for your operating system and architecture. The installer replaces the existing `discern` file only after the checksum passes. If it prints a shell-profile instruction instead of the setup handoff, apply it and open a new shell.
 
 Confirm which binary the shell sees:
 

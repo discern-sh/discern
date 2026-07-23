@@ -5,13 +5,14 @@
 #   curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
-# release (or $DISCERN_VERSION), installs it to a writable bin dir, and chmods
-# it. POSIX sh; needs curl (or wget) and either tar-free single-binary download.
+# release (or $DISCERN_VERSION), verifies its SHA-256 checksum, and installs it
+# to a writable bin dir. POSIX sh; needs curl (or wget) and sha256sum (or shasum).
 #
 # Environment overrides:
 #   DISCERN_REPO     owner/repo to download from (default: jackwh/discern)
 #   DISCERN_VERSION  release tag to install (default: latest)
-#   DISCERN_BIN_DIR  install directory (default: ~/.local/bin, else /usr/local/bin)
+#   DISCERN_BIN_DIR  install directory (default: writable /usr/local/bin on
+#                    macOS, otherwise ~/.local/bin, then /usr/local/bin)
 
 set -eu
 
@@ -27,14 +28,46 @@ fi
 info() { printf '%s→%s %s\n' "$GREEN" "$RESET" "$1"; }
 die() { printf '%s✗%s %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
 
-# --- detect a downloader --------------------------------------------------
-if command -v curl >/dev/null 2>&1; then
-    DL_OUT="curl -fsSL -o"
-elif command -v wget >/dev/null 2>&1; then
-    DL_OUT="wget -qO"
+# --- detect download and checksum tools ----------------------------------
+DOWNLOADERS="curl wget"
+downloader=""
+for candidate in $DOWNLOADERS; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        downloader="$candidate"
+        break
+    fi
+done
+[ -n "$downloader" ] || die "need curl or wget to download discern."
+
+if command -v sha256sum >/dev/null 2>&1; then
+    checksum_tool="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+    checksum_tool="shasum"
 else
-    die "need curl or wget to download discern."
+    die "need sha256sum or shasum to verify the discern download."
 fi
+
+download() {
+    case "$downloader" in
+        curl)
+            curl -fL --retry 3 --retry-all-errors --connect-timeout 15 -sS -o "$2" "$1"
+            ;;
+        wget)
+            wget -q --tries=3 --timeout=15 -O "$2" "$1"
+            ;;
+        *)
+            die "unsupported downloader: $downloader"
+            ;;
+    esac
+}
+
+verify_checksum() {
+    case "$checksum_tool" in
+        sha256sum) (cd "$1" && sha256sum -c "$2" >/dev/null 2>&1) ;;
+        shasum) (cd "$1" && shasum -a 256 -c "$2" >/dev/null 2>&1) ;;
+        *) return 1 ;;
+    esac
+}
 
 # --- detect OS/arch and map to a release asset triple --------------------
 os=$(uname -s)
@@ -64,6 +97,8 @@ fi
 # --- choose an install dir ------------------------------------------------
 if [ -n "${DISCERN_BIN_DIR:-}" ]; then
     bin_dir="$DISCERN_BIN_DIR"
+elif [ "$os" = "Darwin" ] && [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then
+    bin_dir="/usr/local/bin"
 elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
     bin_dir="$HOME/.local/bin"
 elif [ -w /usr/local/bin ]; then
@@ -74,30 +109,49 @@ fi
 mkdir -p "$bin_dir" || die "could not create install dir: $bin_dir"
 
 dest="$bin_dir/discern"
-tmp=$(mktemp 2>/dev/null || mktemp -t discern)
+stage_dir=$(mktemp -d "$bin_dir/.discern-install.XXXXXX") || \
+    die "could not create a staging directory in $bin_dir"
+cleanup() { rm -rf "$stage_dir"; }
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+binary_path="$stage_dir/$asset"
+checksum_name="$asset.sha256"
+checksum_path="$stage_dir/$checksum_name"
 
-# --- download -------------------------------------------------------------
+# --- download and verify --------------------------------------------------
 info "downloading ${BOLD}${asset}${RESET} from ${REPO} (${VERSION})"
-# shellcheck disable=SC2086
-if ! $DL_OUT "$tmp" "$url"; then
-    rm -f "$tmp"
+if ! download "$url" "$binary_path"; then
     die "download failed: $url"
+fi
+if ! download "$url.sha256" "$checksum_path"; then
+    die "checksum download failed: $url.sha256"
+fi
+if ! verify_checksum "$stage_dir" "$checksum_name"; then
+    die "checksum verification failed for $asset; the existing installation was not changed."
 fi
 
 # --- install --------------------------------------------------------------
-chmod +x "$tmp"
-mv "$tmp" "$dest" || die "could not move binary into $bin_dir"
+chmod +x "$binary_path"
+mv "$binary_path" "$dest" || die "could not move binary into $bin_dir"
 
 info "installed ${BOLD}discern${RESET} to ${dest}"
 
-# --- PATH hint ------------------------------------------------------------
-case ":$PATH:" in
-    *":$bin_dir:"*) : ;;
-    *) printf '%s!%s %s is not on your PATH. Add it:\n    export PATH="%s:$PATH"\n' \
-           "$RED" "$RESET" "$bin_dir" "$bin_dir" >&2 ;;
-esac
-
-printf '\n%sNext:%s tell your coding agent to run %sdiscern%s — it sets up the project for you.\n' \
-    "$GREEN" "$RESET" "$BOLD" "$RESET"
-printf '      Setup is a one-time, high-leverage step, so point your %smost capable model%s at it.\n' \
-    "$BOLD" "$RESET"
+# --- truthful PATH handoff ------------------------------------------------
+if resolved=$(command -v discern 2>/dev/null) && [ "$resolved" = "$dest" ]; then
+    printf '\n%sNext:%s tell your coding agent to run %sdiscern%s — it sets up the project for you.\n' \
+        "$GREEN" "$RESET" "$BOLD" "$RESET"
+    printf '      Setup is a one-time, high-leverage step, so point your %smost capable model%s at it.\n' \
+        "$BOLD" "$RESET"
+elif [ -n "${resolved:-}" ]; then
+    printf '%s!%s PATH resolves discern to %s before %s.\n' \
+        "$RED" "$RESET" "$resolved" "$dest" >&2
+    printf '  Put %s first in your shell profile, then open a new shell and run discern --version.\n' \
+        "$bin_dir" >&2
+else
+    printf '%s!%s %s is not on PATH. Add this line to your shell profile, then open a new shell:\n' \
+        "$RED" "$RESET" "$bin_dir" >&2
+    printf "    export PATH=\"%s:\$PATH\"\n" "$bin_dir" >&2
+    printf '  Verify afterward with: discern --version\n' >&2
+fi

@@ -5,9 +5,9 @@ name: gate
 # --exit-code` turns the auto-fixing `fix` stage (deno fmt) into a hard check: CI
 # fixes nothing, it only verifies the committed tree is already clean.
 #
-# The engine is now TS-native (in the binary), so there is no committed shell
-# engine to selfcheck and no `#!/usr/bin/env sh` recipes to run under a dash/bash
-# matrix — both of those jobs retired with the single-binary cutover (ADR 0019).
+# The engine is TS-native (in the binary), so there is no committed shell engine
+# or shell recipe matrix. The standalone remote installer remains POSIX shell and
+# is linted in the gate.
 
 on:
   push:
@@ -35,9 +35,9 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
           # Cache the Deno install and module cache (keyed off deno.lock) so the
@@ -53,6 +53,9 @@ jobs:
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
 
+      - name: Lint the remote installer
+        run: shellcheck install.sh
+
       - name: Run the gate (discern done, via the dev binary)
         run: deno task dev done
 
@@ -67,9 +70,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
           cache: true

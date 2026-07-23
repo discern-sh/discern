@@ -20,7 +20,7 @@ You need a git repository and a coding agent. Claude Code, Codex, Gemini, Cursor
 curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 ```
 
-The install message ends with the handoff: tell your coding agent to run `discern`. There is nothing for you to configure by hand.
+When the installer prints `Next:`, continue to step 2. If it prints a `PATH` instruction instead, follow it and open a new shell. Run `discern --version`, then continue. There is nothing else to configure by hand.
 
 ## 2. Ask your agent to set the project up
 
