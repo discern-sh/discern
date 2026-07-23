@@ -5,9 +5,9 @@ name: gate
 # --exit-code` turns the auto-fixing `fix` stage (deno fmt) into a hard check: CI
 # fixes nothing, it only verifies the committed tree is already clean.
 #
-# The engine is now TS-native (in the binary), so there is no committed shell
-# engine to selfcheck and no `#!/usr/bin/env sh` recipes to run under a dash/bash
-# matrix — both of those jobs retired with the single-binary cutover (ADR 0019).
+# The engine is TS-native (in the binary), so there is no committed shell engine
+# or shell recipe matrix. The standalone remote installer remains POSIX shell and
+# is linted in the gate.
 
 on:
   push:
@@ -52,6 +52,9 @@ jobs:
           curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
             | sudo tar -xz -C /usr/local/bin vale
           vale sync
+
+      - name: Lint the remote installer
+        run: shellcheck install.sh
 
       - name: Run the gate (discern done, via the dev binary)
         run: deno task dev done

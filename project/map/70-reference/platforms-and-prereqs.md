@@ -39,13 +39,13 @@ There is no native Windows release. Run the Linux binary inside Windows Subsyste
 
 ## Required tools
 
-| Context                    | Requirement                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, and either `curl` or `wget`.                   |
-| Install destination        | A writable `DISCERN_BIN_DIR`, `~/.local/bin`, or `/usr/local/bin`; add the chosen directory to `PATH`. |
-| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                   |
-| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.     |
-| Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.     |
+| Context                    | Requirement                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, `sha256sum` or `shasum`, and `curl` or `wget`.       |
+| Install destination        | A writable `DISCERN_BIN_DIR`. On macOS, the installer tries writable `/usr/local/bin` before `~/.local/bin`. |
+| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                         |
+| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.           |
+| Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.           |
 
 The released binary is self-contained. A project does not need Deno or Node to run discern. Setup can create files outside a git repository, but `discern start` remains unavailable until the project is a repository with a first commit.
 
@@ -63,10 +63,12 @@ discern doctor
 | ----------------- | ------------------------------------------------------------------------------- |
 | `DISCERN_REPO`    | GitHub release repository; defaults to `jackwh/discern`.                        |
 | `DISCERN_VERSION` | Release tag to download; defaults to `latest`.                                  |
-| `DISCERN_BIN_DIR` | Install directory; overrides the `~/.local/bin` and `/usr/local/bin` selection. |
+| `DISCERN_BIN_DIR` | Install directory; overrides the `/usr/local/bin` and `~/.local/bin` selection. |
 | `NO_COLOR`        | Disables styled installer output when set.                                      |
 
-The installer downloads from GitHub over HTTPS. After installation, discern itself makes no network calls; project commands remain free to use the network because they belong to the project.
+The installer makes up to three download attempts for transient failures. It places the binary and its `.sha256` file in a staging directory beside the install destination, so the final rename stays on one filesystem. It verifies the checksum before replacing an existing installation. If the installed command does not resolve on `PATH`, the installer prints a persistent shell-profile fix. It does not print the setup handoff until `discern` is directly usable.
+
+After installation, discern itself makes no network calls. Project commands remain free to use the network because they belong to the project.
 
 ## Runtime and Project Script environment
 

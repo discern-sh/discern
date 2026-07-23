@@ -18,7 +18,7 @@ Every configured gate command executes from the resolved project root. This is t
 | `typecheck` | known  | check | `deno check`             | Type-checks the configured TypeScript graph under strict `deno.json` compiler options. Keep types sound; no `any` slipped through a cast.                                                                   |
 | `prose`     | custom | check | `scripts/prose_check.ts` | Runs Vale over the configured map after blanking frontmatter and excluding the private tree. Fix error-severity findings; review warnings with the page-level prose script.                                 |
 
-There are no `selfcheck` or `shellcheck` jobs: with the engine compiled into the binary there is no second copy to drift and no portable shell to lint ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The gate's `build` job is code generation; the release-only `deno task build` remains outside the gate. The `test` and `smoke` jobs are covered in [testing.md](testing.md).
+The engine has no `selfcheck` or shell-recipe matrix because it has no second copy to drift ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). The standalone remote [`install.sh`](../../../install.sh) remains POSIX shell. CI runs ShellCheck on it before the repo gate. The gate's `build` job is code generation. The release-only `deno task build` stays outside the gate. [Testing](testing.md) covers the `test` and `smoke` jobs.
 
 ## Conventions to follow
 
