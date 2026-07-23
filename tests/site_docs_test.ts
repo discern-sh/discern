@@ -545,18 +545,50 @@ Deno.test("the docs top bar aligns its children without vertical nudges", async 
   assertEquals(failures, []);
 });
 
+/** Every size a stylesheet pins on a `code` element: explicit `font-size`
+ * declarations plus `font` shorthands (whose second slot carries a size). */
+function codeFontSizes(css: string): string[] {
+  const sizes: string[] = [];
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = (match[1] ?? "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .trim();
+    if (!/(?:^|[^.#\w-])code\b/.test(selector)) continue;
+    for (const declaration of (match[2] ?? "").split(";")) {
+      const [prop = "", ...rest] = declaration.split(":");
+      const name = prop.trim();
+      if (name === "font-size" || name === "font") {
+        sizes.push(`${selector} → ${name}: ${rest.join(":").trim()}`);
+      }
+    }
+  }
+  return sizes;
+}
+
+Deno.test("the code-scale guard catches a fresh-name code size", () => {
+  assertEquals(
+    codeFontSizes(".fresh-panel samp code { font-size: 0.8125em; }"),
+    [".fresh-panel samp code → font-size: 0.8125em"],
+  );
+  // Precision controls: neither a non-code rule nor a lookalike substring
+  // (`decode`) is the guard's business.
+  assertEquals(codeFontSizes(".decode-btn { font-size: 2em; }"), []);
+  assertEquals(codeFontSizes(".docs-copy { font-size: 2em; }"), []);
+});
+
 Deno.test("inline code shares one readable optical scale across docs content", async () => {
-  const css = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.css", import.meta.url),
-  );
-  const ruleStart = css.indexOf(".docs-main :not(pre) > code {");
-  const ruleEnd = css.indexOf("}", ruleStart);
-  assert(ruleStart >= 0 && ruleEnd > ruleStart);
-  assertStringIncludes(css.slice(ruleStart, ruleEnd + 1), "font-size: 0.9em");
-  assert(
-    !css.includes("font-size: 0.8125em"),
-    "docs inline code must not regress to the undersized legacy scale",
-  );
+  const html = await (await get("/docs", BROWSER)).text();
+  const sheets = await docsServedStylesheets(html);
+  const sizes = sheets
+    .flatMap(([href, css]) => codeFontSizes(css).map((s) => `${href} ${s}`))
+    .sort();
+  // The complete code-sizing canon: inline code rides just under the running
+  // text; code sheets keep their own fixed scale. Any other code sizing — the
+  // undersized legacy 0.8125em included — must join this set deliberately.
+  assertEquals(sizes, [
+    "/assets/docs.css .doc-body pre > code → font: 400 0.8125rem/1.7 var(--discern-font-mono)",
+    "/assets/docs.css .docs-main :not(pre) > code → font-size: 0.9em",
+  ]);
 });
 
 Deno.test("every published page serves its pristine Markdown to text clients and via .md", async () => {
