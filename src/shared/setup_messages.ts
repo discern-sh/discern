@@ -97,6 +97,29 @@ export function confirmedBeginCommand(): string {
   return 'discern setup begin --model "<your-model-id>" --confirmed';
 }
 
+/**
+ * The opening phrase of the human OFF-RAMP — the one-line handoff an
+ * agent-addressed setup surface prints for a human who ran it by hand. The
+ * audience guard (`tests/engine_setup_handoff_test.ts`) matches this phrase on
+ * every surface `SETUP_HUMAN_AUDIENCES` classifies, so keep renders on
+ * {@link humanOffRampLines} rather than re-wording it locally.
+ */
+export const OFF_RAMP_PROMPT = "Reading this as a human?";
+
+/**
+ * The off-ramp parenthetical, pre-wrapped so every surface prints identical
+ * lines (a banner may indent them). `discern setup` is the right paste at any
+ * phase: the welcome routes fresh installs to the funnel and abandoned ones to
+ * the resume, so the line never goes stale mid-setup.
+ */
+export function humanOffRampLines(): readonly string[] {
+  return [
+    `(${OFF_RAMP_PROMPT} Paste "Run \`discern setup\`" into your`,
+    "coding agent — it takes it from here. Everything below is addressed",
+    "to that agent.)",
+  ];
+}
+
 /** A labelled rule that fences the relayable message off from the agent-facing framing
  * and command around it, so a courier agent can see exactly what to paste. */
 function fence(label: string): string {

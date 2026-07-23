@@ -7,9 +7,10 @@
  * native integration surface. It is a TOTAL `Record<AgentName, Provider>`, so
  * adding a native catalogue entry already forces a complete `PROVIDERS` entry (a
  * compile error otherwise). That coupling protects the runtime engine — but the
- * SATELLITE surfaces that re-encode agent paths (the seed `.gitignore`, the
- * neutral-scope defaults, improve's agent-file probe) have no compile-time tie to
- * the registry. This test is that tie: for EVERY known agent it asserts every
+ * SATELLITE surfaces that re-encode agent paths or identities (the seed
+ * `.gitignore`, the neutral-scope defaults, improve's agent-file probe, and the
+ * site's brand assets) have no compile-time tie to the registry. This test is
+ * that tie: for EVERY known agent it asserts every
  * satellite covers it, so a new agent red-lights the gate until each surface is
  * updated — divergence becomes a failing test, never a silent gap (the trajectory
  * ADR 0042 set: ".agents/skills/ joined .claude/skills as the registry grew, and
@@ -30,6 +31,7 @@ import {
   allSkillsDirs,
   emitsGuidanceFile,
   neutralAgentScopePaths,
+  PROVIDER_BRAND_ASSET_ROOT,
   providerFor,
   providersWithHooks,
 } from "../src/lib/providers.ts";
@@ -58,6 +60,22 @@ const fragmentIgnoresFile = (path: string) =>
   ignoreCovers(FRAGMENT_LINES, path, false);
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
+
+function svgAspectRatio(svg: string, path: string): number {
+  const match = svg.match(/<svg\b[^>]*\bviewBox=["']([^"']+)["']/i);
+  assert(match !== null, `${path}: SVG root must declare a viewBox`);
+  const raw = match[1];
+  assert(raw !== undefined, `${path}: SVG viewBox is empty`);
+  const values = raw.trim().split(/[\s,]+/).map(Number);
+  assertEquals(values.length, 4, `${path}: SVG viewBox needs four numbers`);
+  const width = values[2];
+  const height = values[3];
+  assert(
+    width !== undefined && height !== undefined && width > 0 && height > 0,
+    `${path}: SVG viewBox needs a positive width and height`,
+  );
+  return width / height;
+}
 
 Deno.test("the shipped .gitignore fragment is the same canonical block upgrade writes", () => {
   assertEquals(
@@ -102,6 +120,100 @@ Deno.test("every known agent declares one open and at most one continue CLI acti
       );
     }
   }
+});
+
+Deno.test("every known agent has one registered mark and wordmark SVG", async () => {
+  const registered: string[] = [];
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider for ${name}`);
+    assert(
+      provider.brand.sourceUrl.startsWith("https://") &&
+        provider.brand.assetSourceUrl.startsWith("https://"),
+      `${name}: brand provenance must use HTTPS sources`,
+    );
+
+    for (
+      const [kind, asset] of [
+        ["mark", provider.brand.mark],
+        ["wordmark", provider.brand.wordmark],
+      ] as const
+    ) {
+      assert(
+        asset.path.startsWith(`${PROVIDER_BRAND_ASSET_ROOT}/`) &&
+          /^[a-z0-9-]+\.svg$/.test(
+            asset.path.slice(PROVIDER_BRAND_ASSET_ROOT.length + 1),
+          ),
+        `${name}: ${kind} must be an SVG under ${PROVIDER_BRAND_ASSET_ROOT}`,
+      );
+      assert(
+        asset.upstream.trim().length > 0,
+        `${name}: ${kind} must name its upstream vendor asset`,
+      );
+      assert(
+        !registered.includes(asset.path),
+        `${name}: ${kind} reuses the registered path ${asset.path}`,
+      );
+      registered.push(asset.path);
+
+      const diskPath = join(REPO, "site", "pages", asset.path.slice(1));
+      let svg: string;
+      try {
+        svg = await Deno.readTextFile(diskPath);
+      } catch {
+        throw new Error(
+          `${name}: registered ${kind} is missing at ${asset.path}; add the vendor SVG before this provider can ship`,
+        );
+      }
+      assert(
+        /^(?:<\?xml[^>]*>\s*)?<svg\b/i.test(svg.trimStart()),
+        `${asset.path}: file must begin with an SVG root`,
+      );
+      assert(
+        !/<(?:foreignObject|image|script|text)\b/i.test(svg),
+        `${asset.path}: logos must use vector paths, without images, scripts, foreign objects, or font-dependent text`,
+      );
+      assert(
+        !/(?:href|src)\s*=\s*["'](?:https?:)?\/\//i.test(svg),
+        `${asset.path}: logos must not load external resources`,
+      );
+      assert(
+        !/data:image\//i.test(svg),
+        `${asset.path}: logos must not embed image data`,
+      );
+
+      const ratio = svgAspectRatio(svg, asset.path);
+      if (kind === "mark") {
+        assert(
+          ratio >= 0.75 && ratio <= 1.34,
+          `${asset.path}: compact mark must be approximately square (ratio ${ratio})`,
+        );
+      } else {
+        assert(
+          ratio >= 2,
+          `${asset.path}: wordmark must be horizontal (ratio ${ratio})`,
+        );
+      }
+    }
+  }
+
+  const assetDir = join(
+    REPO,
+    "site",
+    "pages",
+    PROVIDER_BRAND_ASSET_ROOT.slice(1),
+  );
+  const onDisk: string[] = [];
+  for await (const entry of Deno.readDir(assetDir)) {
+    if (entry.isFile && entry.name.endsWith(".svg")) {
+      onDisk.push(`${PROVIDER_BRAND_ASSET_ROOT}/${entry.name}`);
+    }
+  }
+  assertEquals(
+    onDisk.sort(),
+    registered.sort(),
+    "the integrations asset directory and provider registry must contain the same SVGs",
+  );
 });
 
 Deno.test("registry aggregators stay total: one guidance file + a skills dir per known agent", () => {
@@ -306,9 +418,7 @@ Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir"
 
 Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satellite", () => {
   // One agent × every satellite. This is the single assertion a new agent must
-  // satisfy: extend each named surface until it passes — never relax the check. The
-  // six-vendor foundation (Phase A) added seams 3-6 below, so a future Cursor/Copilot/
-  // Antigravity red-lights here on EACH one it hasn't yet learned.
+  // satisfy: extend each named surface until it passes — never relax the check.
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
@@ -375,6 +485,13 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     assert(
       !p.trust.required || p.trust.hint.trim().length > 0,
       `${name}: a required trust must name the user-facing action`,
+    );
+
+    // 7. Brand metadata: both required forms stay in the one registered asset root.
+    assert(
+      p.brand.mark.path.startsWith(`${PROVIDER_BRAND_ASSET_ROOT}/`) &&
+        p.brand.wordmark.path.startsWith(`${PROVIDER_BRAND_ASSET_ROOT}/`),
+      `${name}: compact mark and wordmark must live under ${PROVIDER_BRAND_ASSET_ROOT}`,
     );
   }
 });

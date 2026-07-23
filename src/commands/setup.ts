@@ -119,6 +119,7 @@ import {
   confirmedBeginCommand,
   consentMessage,
   deriveConsentContext,
+  humanOffRampLines,
 } from "../shared/setup_messages.ts";
 import type { SetupDoneData } from "../shared/result_schemas.ts";
 import {
@@ -129,6 +130,39 @@ import {
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+
+/**
+ * The AUDIENCE of each setup command path's human render: agent-addressed
+ * surfaces carry the human off-ramp ({@link humanOffRampLines}); the rest are
+ * named exceptions with the reason a human can read them directly. Total over
+ * the setup-family command paths in the public result-contract registry — the
+ * audience guard (`tests/engine_setup_handoff_test.ts`) asserts set-equality
+ * and drives every surface, so a new setup command must classify itself here
+ * before it can ship.
+ */
+export const SETUP_HUMAN_AUDIENCES: Record<
+  string,
+  { offRamp: true } | { offRamp: false; reason: string }
+> = {
+  "setup": {
+    offRamp: false,
+    reason:
+      "the welcome is dual-addressed — its FOR HUMANS section IS the human lane, not an off-ramp",
+  },
+  "setup begin": { offRamp: true },
+  "setup verify": { offRamp: true },
+  "setup step": { offRamp: true },
+  "setup done": {
+    offRamp: false,
+    reason:
+      "the close is the relayed completion message, addressed to the human — setup is over, so there is no agent handoff left to route",
+  },
+  "setup accept": {
+    offRamp: false,
+    reason:
+      "a landing receipt — operational git output read the same way by both audiences",
+  },
+};
 
 /** Options accepted by `discern setup` (global flags + declarative passthrough). */
 export interface SetupOptions extends InitFlags {
@@ -1358,10 +1392,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     "  What follows is a task for you, the agent, to perform now — not a",
   );
   console.log("  result to summarise back to the user as already done.");
-  console.log(
-    '  (Reading this as a human? Paste "Run `discern setup`" into your coding',
-  );
-  console.log("  agent — it takes it from here.)");
+  for (const line of humanOffRampLines()) {
+    console.log(`  ${line}`);
+  }
   console.log(heavyRule);
   console.log("");
   // The started moment — the third human touchpoint of the served-message handshake
@@ -1810,7 +1843,10 @@ export async function runSetupStep(
     // Both lanes: the machine `spine` AND the prose `guidance` (ADR 0078).
     emitResult({ ok: true, verb: "setup step", data: page });
   } else {
-    // Human: the prose leads; the spine's rails bracket it (renderSetupPage).
+    // Human: the off-ramp first (the page below is addressed to the agent), then
+    // the prose leads with the spine's rails bracketing it (renderSetupPage).
+    console.log(humanOffRampLines().join("\n"));
+    console.log("");
     console.log(renderSetupPage(page));
   }
   return 0;

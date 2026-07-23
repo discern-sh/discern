@@ -21,6 +21,7 @@
 
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
+import { notInitializedResult } from "../shared/env.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
@@ -126,12 +127,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     const message =
       "no discern install here — run `discern setup` first. `upgrade` refreshes an existing install.";
     if (options.json) {
-      log.result({
-        ok: false,
-        verb: "upgrade",
-        error: "not_initialized",
-        message,
-      });
+      log.result(notInitializedResult("upgrade", message));
     } else {
       log.error(message);
     }

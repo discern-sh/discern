@@ -29,7 +29,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import process from "process";
 import { isAbsolute } from "@std/path";
 import { z } from "@zod/zod";
-import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
+import {
+  findRoot,
+  NO_PROJECT_MESSAGE,
+  notInitializedResult,
+} from "../../shared/env.ts";
 import { type DiscernResult, serializeResult } from "../../shared/result.ts";
 import {
   observeResult,
@@ -1269,12 +1273,7 @@ export async function runTool(
         await runVerb(tool, Deno.cwd(), args, signal, mcpClient),
       );
     }
-    return render({
-      ok: false,
-      verb: verbOf(tool.name),
-      error: "not_initialized",
-      message: NO_PROJECT_MESSAGE,
-    });
+    return render(notInitializedResult(verbOf(tool.name)));
   }
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_map`) refuses until the project records

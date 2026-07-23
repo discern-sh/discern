@@ -718,49 +718,61 @@ export function buildCli(
 
   // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
+  const readJsonHelp =
+    "Emit refusals as a JSON DiscernResult on stdout; values print raw.";
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
+    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config get",
-        async (_o, key: string) => await runConfigRead("get", key),
+        async (o, key: string) =>
+          await runConfigRead("get", key, { json: o.json ?? false }),
       ),
     );
   const configArray = new Command()
     .description("Print an array config value, one item per line.")
     .arguments("<key:string>")
+    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config array",
-        async (_o, key: string) => await runConfigRead("array", key),
+        async (o, key: string) =>
+          await runConfigRead("array", key, { json: o.json ?? false }),
       ),
     );
   const configHas = new Command()
     .description("Exit 0 if a key or section exists, 1 otherwise (silent).")
     .arguments("<key:string>")
+    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config has",
-        async (_o, key: string) => await runConfigRead("has", key),
+        async (o, key: string) =>
+          await runConfigRead("has", key, { json: o.json ?? false }),
       ),
     );
   const configSubsections = new Command()
     .description("Print the immediate child table names under a section.")
     .arguments("<key:string>")
+    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config subsections",
-        async (_o, key: string) => await runConfigRead("subsections", key),
+        async (o, key: string) =>
+          await runConfigRead("subsections", key, { json: o.json ?? false }),
       ),
     );
   const configKeys = new Command()
     .description("Print the flat key names declared in a section.")
     .arguments("<key:string>")
+    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config keys",
-        async (_o, key: string) => await runConfigRead("keys", key),
+        async (o, key: string) =>
+          await runConfigRead("keys", key, { json: o.json ?? false }),
       ),
     );
 

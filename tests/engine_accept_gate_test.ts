@@ -23,7 +23,6 @@ import {
   addWorktree,
   git,
   gitInit,
-  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -37,7 +36,7 @@ import {
   preflightAdminStateWrites,
   recordGateOutcome,
 } from "../src/engine/gate/receipt.ts";
-import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
 async function receiptAuthority(
   dir: string,
@@ -87,10 +86,6 @@ const CHECK_NO_TABOO = [
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
-}
-
-function absoluteGitPath(cwd: string, raw: string): string {
-  return raw.startsWith("/") ? raw : join(cwd, raw);
 }
 
 /** Scaffold a main repo wired with the taboo check, committed clean (gate green). */
@@ -147,13 +142,8 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const raw = await gitOut(
-      dir,
-      "rev-parse",
-      "--git-path",
-      GIT_ADMIN_STATE.gateReceipt.path,
-    );
-    const receiptPath = absoluteGitPath(dir, raw);
+    const receiptPath = await gitAdminStatePath(dir, "gateReceipt");
+    assert(receiptPath !== undefined, "expected a Git repository");
     // Authority was available at workflow start; the path changes afterwards to
     // exercise the writer's best-effort TOCTOU fallback.
     const authority = await receiptAuthority(dir);

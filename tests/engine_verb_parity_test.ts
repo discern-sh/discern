@@ -182,8 +182,9 @@ Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT",
       `identity has no --${f} flag for the WORKTREE_FIELDS member "${f}"`,
     );
   }
-  // The only NON-field options are the resource queries (explicit, named exceptions).
-  const NON_FIELD_OPTIONS = new Set(["resource", "resources"]);
+  // The only NON-field options are the resource queries and the refusal-envelope
+  // flag (explicit, named exceptions).
+  const NON_FIELD_OPTIONS = new Set(["resource", "resources", "json"]);
   for (const n of NON_FIELD_OPTIONS) {
     assert(
       optionNames.includes(n) &&

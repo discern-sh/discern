@@ -302,7 +302,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "agent-providers",
     title: "Agent providers",
-    what: "The agent providers discern writes files for.",
+    what:
+      "The agent providers discern writes files for, each with a compact mark and horizontal logo lockup.",
     source: {
       kind: "module",
       module: "src/shared/agent_catalogue.ts",
@@ -616,13 +617,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
-      "Retired commands, retired config keys, and synonym redirects — the vocabulary the CLI redirects rather than accepts.",
+      "Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.",
     source: {
       kind: "module",
       module: "src/shared/vocabulary.ts",
       exportName: "RETIRED_COMMAND_REDIRECTS",
     },
-    guards: ["tests/dev_vocab_guard_test.ts"],
+    guards: ["tests/dev_vocab_guard_test.ts", "tests/config_schema_test.ts"],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -636,6 +637,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       return [
         ...Object.keys(vocabulary.RETIRED_COMMAND_REDIRECTS),
         ...Object.keys(vocabulary.RETIRED_CONFIG_KEY_REDIRECTS),
+        ...vocabulary.DEAD_CONFIG_POSITIONS.map((position) =>
+          position.key === undefined
+            ? `${position.path}.*`
+            : [position.path, position.key].filter((p) => p !== "").join(".")
+        ),
         ...Object.keys(vocabulary.COMMAND_SYNONYM_SUGGESTIONS),
         ...Object.keys(vocabulary.VERB_FORM_VARIANTS),
       ];

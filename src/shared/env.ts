@@ -16,6 +16,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import type { DiscernResult } from "./result.ts";
 
 /**
  * A read-only view over environment variables — the seam a caller passes so it
@@ -37,6 +38,24 @@ export const CONFIG_REL = "discern.toml";
 export const NO_PROJECT_MESSAGE =
   "Discern could not find a project: this directory and its parents have no discern.toml. " +
   "Run `discern setup` to create one here, or move into an existing discern project.";
+
+/** The machine slug a `--json` consumer branches on when root discovery fails. */
+export const NOT_INITIALIZED = "not_initialized";
+
+/**
+ * The uniform not-initialized refusal envelope — the ONE constructor behind
+ * every surface's "no discern project here" result (the CLI's `requireRoot`,
+ * `status`, the MCP server's per-tool guard, and the installer verbs), so the
+ * slug and shape cannot drift between emitters. A verb with tailored recovery
+ * advice passes its own `message`; the default is the canonical discovery
+ * refusal.
+ */
+export function notInitializedResult(
+  verb: string,
+  message: string = NO_PROJECT_MESSAGE,
+): DiscernResult<never> {
+  return { ok: false, verb, error: NOT_INITIALIZED, message };
+}
 
 /** The pre-6 consolidated location, still recognised as a legacy/migration-source
  * marker so a not-yet-upgraded install is found and carried forward. */

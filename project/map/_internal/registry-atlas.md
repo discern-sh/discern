@@ -90,7 +90,7 @@ The skills the binary ships and materializes into a project.
 
 ## `agent-providers` — Agent providers
 
-The agent providers discern writes files for.
+The agent providers discern writes files for, each with a compact mark and horizontal logo lockup.
 
 - Source: `src/shared/agent_catalogue.ts` — `AGENT_NAMES`
 - Members: 5
@@ -145,7 +145,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon page: pillars, nodes, and surface claims.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 110
+- Members: 119
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -177,7 +177,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 173
+- Members: 174
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
@@ -196,11 +196,11 @@ Every project-tree path discern writes or maintains, with its ownership answer.
 
 ## `distribution-vocabulary` — Distribution vocabulary
 
-Retired commands, retired config keys, and synonym redirects — the vocabulary the CLI redirects rather than accepts.
+Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 22
-- Guards: `tests/dev_vocab_guard_test.ts`
+- Members: 26
+- Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
 - Glossary: not enrolled — redirect data for retired words; live vocabulary lives in the glossary proper
 - Feature canon: described by the `forgiving-cli` node
 
