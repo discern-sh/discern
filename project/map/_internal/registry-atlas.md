@@ -189,6 +189,16 @@ Every detector the patterns verb runs over the logbook, in family order; the com
 - Glossary: the "Patterns" entry carries the concept
 - Feature canon: described by the `patterns` node
 
+## `improve-categories` — Improvement categories
+
+The improvement catalog's categories, in display order; the runner ranks them weakest-first, and the CLI help and MCP tool interpolate the slugs from the catalog so no category list can drift.
+
+- Source: `src/engine/improve/rules.ts` — `CATEGORIES`
+- Members: 7
+- Guards: `tests/improve_catalog_test.ts`
+- Glossary: not enrolled — category slugs are reference material; every surfaced list derives from the catalog itself
+- Feature canon: described by the `improvement` node
+
 ## `glossary-terms` — Glossary terms
 
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans.
@@ -300,7 +310,7 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 29
+- Members: 30
 - Guards: `tests/canonical_sets_enrolment_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

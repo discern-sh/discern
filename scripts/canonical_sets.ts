@@ -549,6 +549,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "improve-categories",
+    title: "Improvement categories",
+    what:
+      "The improvement catalog's categories, in display order; the runner ranks them weakest-first, and the CLI help and MCP tool interpolate the slugs from the catalog so no category list can drift.",
+    source: {
+      kind: "module",
+      module: "src/engine/improve/rules.ts",
+      exportName: "CATEGORIES",
+    },
+    guards: ["tests/improve_catalog_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "category slugs are reference material; every surfaced list derives from the catalog itself",
+      },
+      featureCanon: { nodeId: "improvement" },
+    },
+    members: async () =>
+      (await import("../src/engine/improve/rules.ts")).CATEGORIES.map(
+        (category) => category.name,
+      ),
+  },
+  {
     id: "glossary-terms",
     title: "Glossary terms",
     what:
