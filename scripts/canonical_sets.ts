@@ -217,13 +217,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "step-kinds",
     title: "Step kinds",
     what:
-      "The result step vocabulary and the actor and hint doctor renders for every kind.",
+      "The result-step operation vocabulary — what a step does; the doctor's annotations table (`STEP_KIND_ANNOTATIONS` in `src/engine/doctor/execution_model.ts`) is a satellite pinned to it, one actor and hint per kind.",
     source: {
       kind: "module",
-      module: "src/engine/doctor/execution_model.ts",
-      exportName: "STEP_KIND_ANNOTATIONS",
+      module: "src/shared/result.ts",
+      exportName: "STEP_KINDS",
     },
-    guards: ["tests/execution_model_test.ts"],
+    guards: ["tests/execution_model_test.ts", "tests/result_schemas_test.ts"],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -232,11 +232,9 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: { nodeId: "doctor" },
     },
-    members: async () =>
-      Object.keys(
-        (await import("../src/engine/doctor/execution_model.ts"))
-          .STEP_KIND_ANNOTATIONS,
-      ),
+    members: async () => [
+      ...(await import("../src/shared/result.ts")).STEP_KINDS,
+    ],
   },
   {
     id: "config-tables",

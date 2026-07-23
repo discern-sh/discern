@@ -59,11 +59,11 @@ The gate's stage vocabulary and order.
 
 ## `step-kinds` — Step kinds
 
-The result step vocabulary and the actor and hint doctor renders for every kind.
+The result-step operation vocabulary — what a step does; the doctor's annotations table (`STEP_KIND_ANNOTATIONS` in `src/engine/doctor/execution_model.ts`) is a satellite pinned to it, one actor and hint per kind.
 
-- Source: `src/engine/doctor/execution_model.ts` — `STEP_KIND_ANNOTATIONS`
+- Source: `src/shared/result.ts` — `STEP_KINDS`
 - Members: 18
-- Guards: `tests/execution_model_test.ts`
+- Guards: `tests/execution_model_test.ts`, `tests/result_schemas_test.ts`
 - Glossary: not enrolled — values in each result step; doctor explains every kind in context
 - Feature canon: described by the `doctor` node
 
