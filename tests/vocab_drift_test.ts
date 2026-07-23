@@ -35,8 +35,47 @@ import {
   REPO_AUTHORED_PATHS,
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
+import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
+import { DISCERN_CATEGORY } from "../src/shared/brand.ts";
 
 const SRC = join(REPO_ROOT, "src");
+
+/** The site tree — every served page, asset, and copy string is live prose. */
+const SITE = join(REPO_ROOT, "site");
+
+/** Generated vendor output under site/ (materialized design-system bundles) —
+ * not authored here, so not this repo's vocabulary to police. */
+const SITE_GENERATED_PREFIXES = Object.values(DESIGN_SYSTEM_BUNDLES).map((b) =>
+  join("site", b.output)
+);
+
+/** Extensions that never carry prose (binary assets). */
+const BINARY_EXTS = [".png", ".ico", ".jpg", ".jpeg", ".webp", ".woff", ".woff2"];
+
+/**
+ * Every scanned site file: TypeScript modules contribute their string
+ * literals (code identifiers are not prose), everything else its raw text.
+ */
+async function siteFiles(): Promise<{
+  literals: Array<[string, ReturnType<typeof stringLiterals>]>;
+  prose: Array<[string, string]>;
+}> {
+  const literals: Array<[string, ReturnType<typeof stringLiterals>]> = [];
+  const prose: Array<[string, string]> = [];
+  for await (const entry of walk(SITE, { includeDirs: false })) {
+    const rel = relative(REPO_ROOT, entry.path);
+    if (SITE_GENERATED_PREFIXES.some((prefix) => rel.startsWith(prefix))) {
+      continue;
+    }
+    if (BINARY_EXTS.some((ext) => entry.name.endsWith(ext))) continue;
+    if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
+      literals.push([rel, stringLiterals(await Deno.readTextFile(entry.path))]);
+    } else {
+      prose.push([rel, await Deno.readTextFile(entry.path)]);
+    }
+  }
+  return { literals, prose };
+}
 
 /** The prose trees a user or their agent reads, walked in full. */
 const PROSE_TREES = [
@@ -101,8 +140,11 @@ async function proseFiles(): Promise<Array<[string, string]>> {
 }
 
 Deno.test("no live surface uses vocabulary the term registry retired", async () => {
-  const prose = await proseFiles();
-  const src: Array<[string, ReturnType<typeof stringLiterals>]> = [];
+  const site = await siteFiles();
+  const prose = [...(await proseFiles()), ...site.prose];
+  const src: Array<[string, ReturnType<typeof stringLiterals>]> = [
+    ...site.literals,
+  ];
   for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
     src.push([
       relative(REPO_ROOT, entry.path),
@@ -169,26 +211,49 @@ Deno.test("every retired-phrase exception still names a real path", async () => 
   }
 });
 
-Deno.test('README keeps exactly one searchable category use, reading "quality harness"', async () => {
+// The category phrase is one fact with several carriers (the constant, the
+// README, the social card). Each carrier lives in the harness family's
+// `allowed` list, so this test iterates that registry: a new carrier must
+// register there to pass the scan above, and registering enrols it here —
+// where its sole use must read the canonical DISCERN_CATEGORY.
+Deno.test(`every registered category carrier reads "${DISCERN_CATEGORY}" exactly once`, async () => {
   const family = retiredSynonyms().find(({ synonym }) =>
     synonym.phrase === "harness"
   );
   assert(
     family !== undefined,
     "the registry no longer retires the harness category — drop this " +
-      "companion test with the README exception, or restore the synonym",
+      "companion test with the carrier exceptions, or restore the synonym",
   );
-  const readme = visibleMarkdown(
-    await Deno.readTextFile(join(REPO_ROOT, "README.md")),
-  );
-  assertEquals(
-    readme.match(retiredPattern(family.synonym)) ?? [],
-    ["harness"],
-    "README.md keeps exactly one searchable category use",
+  const carriers = family.synonym.allowed ?? [];
+  assert(carriers.length > 0, "the harness family must name its carriers");
+  const canonical = new RegExp(String.raw`\b${DISCERN_CATEGORY}\b`, "i");
+  for (const { path } of carriers) {
+    const raw = await Deno.readTextFile(join(REPO_ROOT, path));
+    const text = path.endsWith(".md") ? visibleMarkdown(raw) : raw;
+    assertEquals(
+      text.match(retiredPattern(family.synonym)) ?? [],
+      ["harness"],
+      `${path} keeps exactly one searchable category use`,
+    );
+    assert(
+      canonical.test(text),
+      `${path}'s sole category use must read "${DISCERN_CATEGORY}"`,
+    );
+  }
+});
+
+// Positive control on the widened universe: the site walk really reaches the
+// carriers the scan is meant to police (an empty walk would pass vacuously).
+Deno.test("the vocabulary scan universe reaches the site tree", async () => {
+  const site = await siteFiles();
+  assert(
+    site.prose.some(([rel]) => rel === "site/pages/assets/og-card.svg"),
+    "site prose files should include the social card",
   );
   assert(
-    /\bquality harness\b/i.test(readme),
-    'README.md\'s sole category use must read "quality harness"',
+    site.literals.some(([rel]) => rel.startsWith("site/")),
+    "site TypeScript modules should contribute their string literals",
   );
 });
 
