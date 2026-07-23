@@ -144,7 +144,7 @@ PHPStorm
 pinnable
 plaintext
 prefixer
-prepended
+prepend(?:s|ed|ing)?
 preprints?
 pushback
 rasteriz(e|ed|es|ing)

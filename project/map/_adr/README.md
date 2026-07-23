@@ -176,6 +176,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0179 — The feature canon carries an agent-experience axis](0179-the-feature-canon-carries-an-agent-experience-axis.md)
 - [0180 — Every spawn surface declares its interrupt contract](0180-every-spawn-surface-declares-its-interrupt-contract.md)
 - [0181 — An SSOT claim must anchor a declared canonical set](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md)
+- [0182 — Operator commands resolve `discern` to the running engine](0182-operator-commands-resolve-discern-to-the-running-engine.md)
 
 <!-- END GENERATED: current ADR records -->
 
