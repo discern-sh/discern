@@ -20,9 +20,13 @@ import {
 /**
  * A config with two jobs in the SAME parallel stage: a `lint` (check-stage)
  * capability that fails immediately and a `test` capability that is slow. (check
- * and test run together.)
+ * and test run together.) `sleepS` sets how long the slow sibling would run
+ * uncancelled — a cancellation test needs a window wide enough that a loaded
+ * machine cannot let the sleep win the race against the abort.
  */
-function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
+function failFastConfig(
+  opts: { failFast: boolean; stream?: boolean; sleepS?: number },
+): string {
   return [
     "[project]",
     'slug = "engine-test"',
@@ -32,7 +36,8 @@ function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
     "",
     "[jobs]",
     'lint = "exit 1"', // fails fast (check stage)
-    'test = "sleep 5; echo RAN-TO-END"', // slow sibling in the same parallel stage
+    // slow sibling in the same parallel stage
+    `test = "sleep ${opts.sleepS ?? 5}; echo RAN-TO-END"`,
     "",
     "[gate]",
     `stream = ${opts.stream ? "true" : "false"}`,
@@ -44,7 +49,7 @@ function failFastConfig(opts: { failFast: boolean; stream?: boolean }): string {
 Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, failFastConfig({ failFast: true }));
+    await writeConfig(dir, failFastConfig({ failFast: true, sleepS: 30 }));
     await gitInit(dir);
 
     const start = Date.now();
@@ -57,8 +62,10 @@ Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => 
       !r.output.includes("RAN-TO-END"),
       "fail_fast should cancel the slow sibling before it completes",
     );
-    // ...and the gate returned well before the 5s sleep would have elapsed.
-    assert(elapsed < 10_000, `expected a fast abort, took ${elapsed}ms`);
+    // ...and the gate returned well before the 30s sleep would have elapsed.
+    // The bound stays far under the sleep so the assertions discriminate, and
+    // far over a loaded machine's engine startup so they don't flake.
+    assert(elapsed < 20_000, `expected a fast abort, took ${elapsed}ms`);
   });
 });
 
@@ -77,7 +84,7 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
         "",
         "[jobs]",
         'lint = "exit 1"',
-        'test = "sleep 5; echo RAN-TO-END"',
+        'test = "sleep 30; echo RAN-TO-END"',
         "",
       ].join("\n"),
     );
@@ -92,7 +99,7 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
       !r.output.includes("RAN-TO-END"),
       "fail_fast should be the default and cancel the slow sibling",
     );
-    assert(elapsed < 10_000, `expected a fast abort, took ${elapsed}ms`);
+    assert(elapsed < 20_000, `expected a fast abort, took ${elapsed}ms`);
   });
 });
 
