@@ -1,4 +1,4 @@
-# ADR 0179: Every spawn surface declares its interrupt contract
+# ADR 0180: Every spawn surface declares its interrupt contract
 
 **Status**: accepted; extends [ADR 0054](0054-subprocess-single-source.md)'s subprocess funnels with an interrupt-coverage contract, applying the [ADR 0051](0051-canonical-set-parity.md)/[ADR 0176](0176-the-closed-sets-are-a-closed-set.md) registry discipline to process spawning.
 

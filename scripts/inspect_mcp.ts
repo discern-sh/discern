@@ -30,6 +30,7 @@
  */
 
 import { fromFileUrl } from "@std/path";
+import { runOwnedChild } from "../src/engine/owned_child.ts";
 
 /** The least-privilege permissions discern's MCP server runs under — the same set
  * the `dev` task and the compiled binary carry: read (config/git/docs), write
@@ -45,10 +46,11 @@ const SERVER_PERMISSIONS = [
  * so the launch does not depend on the working directory. */
 const MAIN_TS = fromFileUrl(new URL("../src/main.ts", import.meta.url));
 
-/** Spawn the Inspector over `npx`, wired to discern's MCP server, and return its
+/** Run the Inspector over `npx`, wired to discern's MCP server, and return its
  * exit code. The server command leads; the user's args trail it and are parsed
  * as the Inspector's own options (UI by default, `--cli ...` for a one-shot
- * call). */
+ * call). The Inspector owns the terminal, so it launches through the
+ * owned-child boundary for the interruption and reap lifecycle. */
 async function main(): Promise<number> {
   const args = [
     "-y",
@@ -61,14 +63,9 @@ async function main(): Promise<number> {
     ...Deno.args,
   ];
 
-  let child: Deno.ChildProcess;
   try {
-    child = new Deno.Command("npx", {
-      args,
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
+    const { status } = await runOwnedChild("npx", { args });
+    return status.code;
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
       console.error(
@@ -78,9 +75,6 @@ async function main(): Promise<number> {
     }
     throw e;
   }
-
-  const { code } = await child.status;
-  return code;
 }
 
 if (import.meta.main) {

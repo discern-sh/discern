@@ -6,8 +6,7 @@
 
 import { assert, assertStringIncludes } from "@std/assert";
 import {
-  assertInWorktree,
-  assertNotInWorktree,
+  assertOpSide,
   ensureWorktreeBranch,
   missingIntegrationBranchWarning,
   WorktreeGitError,
@@ -28,24 +27,20 @@ async function refusal(run: () => Promise<void | string>): Promise<string> {
 
 Deno.test("worktree location errors define the term and end in a recovery", async () => {
   await withTempDir(async (dir) => {
-    const outside = await refusal(() =>
-      assertInWorktree("discern update", dir)
-    );
+    const outside = await refusal(() => assertOpSide("update", dir));
     assertStringIncludes(outside, "needs a Git repository");
     assertStringIncludes(outside, "git init");
     assertStringIncludes(outside, "then re-run");
 
     await Deno.writeTextFile(`${dir}/README.md`, "fixture\n");
     await gitInit(dir);
-    const main = await refusal(() => assertInWorktree("discern update", dir));
+    const main = await refusal(() => assertOpSide("update", dir));
     assertStringIncludes(main, "separate checkout and branch for one change");
     assertStringIncludes(main, "discern start");
     assertStringIncludes(main, "then re-run");
 
     const worktree = await addWorktree(dir, "copy-guard");
-    const linked = await refusal(() =>
-      assertNotInWorktree("discern start", worktree)
-    );
+    const linked = await refusal(() => assertOpSide("start", worktree));
     assertStringIncludes(linked, "main checkout");
     assertStringIncludes(linked, "git worktree list");
     assertStringIncludes(linked, "then re-run");

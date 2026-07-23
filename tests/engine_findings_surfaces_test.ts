@@ -64,7 +64,7 @@ function event(n: number, over: Partial<VerbEvent>): VerbEvent {
     kind: "verb",
     verb: "done",
     surface: "cli",
-    writer: "1.0.0",
+    writer: "9.9.9",
     driver: {
       session: "cli:surface",
       json: true,

@@ -36,7 +36,7 @@ function seededEvent(at: string, outcome: "ok" | "failed"): string {
     kind: "verb",
     verb: "done",
     surface: "cli",
-    writer: "1.0.0",
+    writer: "9.9.9",
     driver: { session: "cli:7", json: true, tty: false, ci: false },
     branch: "agent/seeded",
     head: "abc1234",
@@ -67,7 +67,7 @@ async function seedLogbook(dir: string): Promise<void> {
         kind: "verb",
         verb: "status",
         surface: "cli",
-        writer: "1.0.0",
+        writer: "9.9.9",
         driver: {
           session: "cli:7",
           json: true,

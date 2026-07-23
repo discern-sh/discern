@@ -28,25 +28,24 @@
  * diff, so every exception is visible and justified at review — the opposite of
  * a silent denylist. Reach for it sparingly; the default is to reword.
  *
- * Scope: the TypeScript under `src/` and `scripts/`, plus the `#`-comment surface
- * of the shipped config (`templates/discern.toml.tmpl`, the gitignore fragment)
- * and this repo's own root `discern.toml` — the places a stale reference reaches
+ * Scope: every authored TypeScript tree, plus the `#`-comment surface of the
+ * shipped config (`templates/discern.toml.tmpl`, the gitignore fragment) and
+ * this repo's own root `discern.toml` — the places a stale reference reaches
  * a reader with no context for discern's internal history. Out of scope by
  * design: `tests/` (they legitimately narrate the past they guard), and `docs/`
  * prose plus `templates/` guidance/skills (where documenting history, ADR
  * lifecycle, and troubleshooting symptoms is the correct thing to do), and ADRs.
- * The trees are walked and the config files listed here, so a new source file
- * auto-enrols with nothing to remember.
+ * The scan set derives from the authored-paths registry and the config files
+ * are listed here, so a new source file auto-enrols with nothing to remember.
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { join } from "@std/path";
+import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-
-/** TypeScript trees scanned for backward-looking `//` and block comments. */
-const TS_ROOTS = [join(REPO_ROOT, "src"), join(REPO_ROOT, "scripts")];
+/** TypeScript scanned for backward-looking `//` and block comments: the
+ * authored universe minus `tests/`, the one documented exclusion above. */
+const TS_FILES = AUTHORED_TS_FILES.filter((rel) => !rel.startsWith("tests/"));
 
 /**
  * `#`-commented files scanned the same way — the shipped config surface every
@@ -365,14 +364,9 @@ export function scanHashSource(src: string): CommentViolation[] {
 
 Deno.test("comments describe current behaviour, not the codebase's past", async () => {
   const offenders: string[] = [];
-  for (const root of TS_ROOTS) {
-    for await (
-      const entry of walk(root, { includeDirs: false, exts: [".ts"] })
-    ) {
-      const rel = relative(REPO_ROOT, entry.path);
-      for (const v of scanSource(await Deno.readTextFile(entry.path))) {
-        offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
-      }
+  for (const rel of TS_FILES) {
+    for (const v of scanSource(await Deno.readTextFile(join(REPO_ROOT, rel)))) {
+      offenders.push(`${rel}:${v.line}  [${v.marker}]  ${v.text}`);
     }
   }
   for (const rel of HASH_FILES) {
@@ -387,8 +381,9 @@ Deno.test("comments describe current behaviour, not the codebase's past", async 
     `backward-looking comment(s) found — describe what the code does now, move ` +
       `history to docs/ADRs, or annotate "${SUPPRESS} <reason>" if the ` +
       `reference is genuinely load-bearing.\n\n` +
-      `This guard scans src/, scripts/, and the shipped config (discern.toml*, ` +
-      `the gitignore fragment) — NOT docs/, tests/, or templates/ prose. If this ` +
+      `This guard scans every authored TypeScript tree except tests/, plus the ` +
+      `shipped config (discern.toml*, the gitignore fragment) — NOT docs/, ` +
+      `tests/, or templates/ prose. If this ` +
       `change wrote the same backward-looking phrasing into one of those, the ` +
       `guard can't see it: fix those by hand in the same sweep.\n\n  ` +
       `${offenders.join("\n  ")}`,

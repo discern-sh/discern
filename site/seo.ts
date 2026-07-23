@@ -18,7 +18,7 @@ export const META_DESCRIPTION_MAX = 160;
 
 /** Section-level route moves that cannot live on one destination document.
  * The site is not public yet, so the registry starts empty. Add entries only
- * after the slug freeze establishes a historical URL contract. */
+ * after the slug freeze makes published URLs a permanent contract. */
 export const STATIC_REDIRECTS: Readonly<Record<string, string>> = {};
 
 export interface SiteRedirectTable {

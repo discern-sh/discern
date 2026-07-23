@@ -113,14 +113,14 @@ import {
 } from "../../shared/hints.ts";
 import {
   addWorktree,
-  assertInWorktree,
   assertMainMerged,
-  assertNotInWorktree,
+  assertOpSide,
   branchIsMerged,
   ensureWorktreeBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
   inheritMainEnvVars,
+  inLinkedWorktree,
   integrationBranch,
   integrationDelta,
   listWorktreeFleet,
@@ -514,7 +514,7 @@ export async function worktreeSetup(
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
   // 1. must be inside a worktree
-  await assertInWorktree("discern worktree setup", ctx.cwd);
+  await assertOpSide("worktree-setup", ctx.cwd);
 
   // Build the plan ONCE — the dry-run renders it and the apply records its
   // outcomes against it, so the preview and the `--json` report can't drift.
@@ -815,9 +815,7 @@ export async function worktreeEnsure(
   ctx: LifecycleContext,
 ): Promise<EnsureResult> {
   // Skip when not inside a linked worktree (including the main checkout).
-  try {
-    await assertInWorktree("session-start", ctx.cwd);
-  } catch {
+  if (!(await inLinkedWorktree(ctx.cwd))) {
     return { kind: "skipped" };
   }
   if (await worktreeSetupComplete(ctx.cwd)) {
@@ -848,7 +846,7 @@ export async function worktreeTeardown(
   ctx: LifecycleContext,
   opts: WorktreeOpOptions = {},
 ): Promise<void> {
-  await assertInWorktree("discern worktree teardown", ctx.cwd);
+  await assertOpSide("worktree-teardown", ctx.cwd);
 
   const plan = await buildTeardownPlan(ctx);
   if (opts.dryRun ?? false) {
@@ -904,7 +902,7 @@ async function buildDropPlan(
   ctx: LifecycleContext,
   target: string,
 ): Promise<DropPlan> {
-  await assertNotInWorktree("discern worktree drop", ctx.cwd);
+  await assertOpSide("worktree-drop", ctx.cwd);
   if (target.trim() === "") {
     throw new WorktreeGitError(
       "discern worktree drop needs a target. Pass a worktree id or path, then re-run.",
@@ -2233,7 +2231,7 @@ async function buildUpdatePlan(
   ctx: LifecycleContext,
   from?: string,
 ): Promise<UpdatePlan> {
-  await assertInWorktree("discern update", ctx.cwd);
+  await assertOpSide("update", ctx.cwd);
   const run = makeGitRunner(ctx);
   const current = (await run(["branch", "--show-current"])).stdout.trim();
   const worktreeBranch = current !== "" ? current : "(detached)";
@@ -2730,7 +2728,7 @@ async function assertProjectRootIsRepoToplevel(
  * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
  * or the created worktree — without emitting or exiting. The single source the CLI's
  * `--json` ({@link start}) and the MCP server both render. Runs from the MAIN
- * checkout only ({@link assertNotInWorktree}); an agent already inside a worktree
+ * checkout only ({@link assertOpSide}); an agent already inside a worktree
  * must not spin up a pointless sibling, so it refuses there (mapped to
  * `precondition_failed` by {@link worktreeErrorResult}). It MINTS a fresh, unique id
  * (collision-checked against existing branches/dirs), creates the linked worktree at
@@ -2752,7 +2750,7 @@ export async function startResult(
     from?: string;
   },
 ): Promise<DiscernResult<StartData>> {
-  await assertNotInWorktree("discern start", ctx.cwd);
+  await assertOpSide("start", ctx.cwd);
   await assertProjectRootIsRepoToplevel(ctx);
   const startPoint = await resolveStartPoint(ctx, opts.from);
 
@@ -2920,7 +2918,7 @@ export async function probeWorktreeViability(
   // The probe branches from the main checkout's HEAD; anywhere else is a skip, not a
   // red (nothing to fault the app for).
   try {
-    await assertNotInWorktree("worktree probe", ctx.cwd);
+    await assertOpSide("worktree-probe", ctx.cwd);
   } catch (e) {
     return { kind: "uncreatable", reason: asMsg(e) };
   }
@@ -3097,7 +3095,7 @@ export async function worktreePrune(
   ctx: LifecycleContext,
   opts: WorktreePruneOptions = {},
 ): Promise<void> {
-  await assertNotInWorktree("discern worktree prune", ctx.cwd);
+  await assertOpSide("worktree-prune", ctx.cwd);
   const json = opts.json ?? false;
   const plan = await buildPrunePlan(ctx, opts.extraScanDirs);
   const enginePlan = prunePlanToEngine(plan);

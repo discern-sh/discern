@@ -21,6 +21,8 @@ import {
 import { preflightAdminStateWrites } from "../src/engine/gate/receipt.ts";
 import {
   GIT_ADMIN_STATE,
+  type GitAdminStateKey,
+  gitAdminStatePath,
   VALIDATION_ADMIN_STATE_KEYS,
 } from "../src/shared/git_admin_state.ts";
 
@@ -49,22 +51,23 @@ async function directoryEntryNames(path: string): Promise<string[]> {
   return names.sort();
 }
 
-/** Resolve one admin-state path, then make its containing Git admin directory
- * unwritable for exactly one assertion. All current admin-state files share this
- * directory; production derives the complete set from its own registry. */
+/** Resolve one registered admin-state path through the production resolver —
+ * this suite exercises preflight behaviour at those paths, not the resolution
+ * itself, which has its own independent oracle in git_admin_state_test.ts. */
 async function gitAdminPath(
   root: string,
-  relativePath: string,
+  key: GitAdminStateKey,
 ): Promise<string> {
-  const raw = await gitOut(root, "rev-parse", "--git-path", relativePath);
-  return isAbsolute(raw) ? raw : join(root, raw);
+  const path = await gitAdminStatePath(root, key);
+  assert(path !== undefined, `expected a Git repository at ${root}`);
+  return path;
 }
 
 async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,
 ): Promise<void> {
-  const path = await gitAdminPath(root, GIT_ADMIN_STATE.gateReceipt.path);
+  const path = await gitAdminPath(root, "gateReceipt");
   const dir = dirname(path);
   await Deno.mkdir(dir, { recursive: true });
   const originalMode = (await Deno.stat(dir)).mode;
@@ -215,7 +218,7 @@ for (const role of VALIDATION_ADMIN_STATE_KEYS) {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await gitInit(dir);
-      const target = await gitAdminPath(dir, filename);
+      const target = await gitAdminPath(dir, role);
       await Deno.mkdir(dirname(target), { recursive: true });
       await Deno.mkdir(target);
 
@@ -230,9 +233,7 @@ Deno.test("a successful admin-state preflight removes every temporary probe", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const adminDir = dirname(
-      await gitAdminPath(dir, GIT_ADMIN_STATE.gateReceipt.path),
-    );
+    const adminDir = dirname(await gitAdminPath(dir, "gateReceipt"));
     assertEquals(await pathExists(adminDir), false);
 
     const result = await preflightAdminStateWrites(dir);

@@ -22,7 +22,11 @@ import {
   toCommand,
   toCommandList,
 } from "../src/shared/config_schema.ts";
-import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
+import {
+  DEAD_CONFIG_POSITIONS,
+  deadConfigPosition,
+  RETIRED_CONFIG_KEY_REDIRECTS,
+} from "../src/shared/vocabulary.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -101,34 +105,66 @@ Deno.test("current configs reject repository settings left under [project]", () 
   }
 });
 
-Deno.test("a config still carrying [features] is rejected with the upgrade hint", () => {
-  // The toggles were retired (ADR 0101); a pre-16 config that still carries the
-  // section gets a dead-config message pointing at the migration, never a bare
-  // "unknown section".
-  const { config, issues } = parseConfig("[features]\ndocs = false\n");
-  assertEquals(config, undefined);
-  assertEquals(issues.length, 1);
-  assert(issues[0]?.message.includes("discern upgrade"), issues[0]?.message);
-  assert(issues[0]?.message.includes("[features]"), issues[0]?.message);
+Deno.test("every retired top-level key is redirected to its successor", () => {
+  // Driven off the redirect table itself: a newly retired key enrols by being
+  // added there. Doubles as a collision guard — if a retired name is ever
+  // reintroduced as a live key, its config parses and this fails.
+  for (
+    const [retired, successor] of Object.entries(RETIRED_CONFIG_KEY_REDIRECTS)
+  ) {
+    const { config, issues } = parseConfig(`[${retired}.entry]\nvalue = 1\n`);
+    assertEquals(config, undefined, `[${retired}] should be rejected`);
+    assertEquals(issues.length, 1, JSON.stringify(issues));
+    assertEquals(issues[0]?.path, retired);
+    assertStringIncludes(issues[0]?.message ?? "", `[${successor}]`);
+    assertStringIncludes(issues[0]?.message ?? "", "discern upgrade");
+  }
 });
 
-Deno.test("a config still carrying the retired standards table gets the successor redirect", () => {
-  const retired = Object.keys(RETIRED_CONFIG_KEY_REDIRECTS)[0];
-  assert(retired !== undefined);
-  const { config, issues } = parseConfig(
-    `[${retired}.coverage]\nlimit = 80\nrun = "measure"\n`,
+Deno.test("every dead config position rejects with its recorded guidance", () => {
+  // Driven off the DEAD_CONFIG_POSITIONS table the schema itself reads: each
+  // row's example must trip exactly that row's message, never the generic
+  // unknown-key wording — so a new retirement is exercised by adding its row.
+  for (const dead of DEAD_CONFIG_POSITIONS) {
+    const { config, issues } = parseConfig(dead.example);
+    assertEquals(
+      config,
+      undefined,
+      `example should be rejected:\n${dead.example}`,
+    );
+    assertEquals(issues.length, 1, JSON.stringify(issues));
+    const issue = issues[0];
+    assert(issue !== undefined);
+    assertEquals(issue.path, dead.path);
+    // The row's message, checked around its keys placeholder so the test
+    // needs no knowledge of which key the example trips.
+    const sentinel = "@@KEYS@@";
+    for (const part of dead.message(sentinel).split(sentinel)) {
+      assertStringIncludes(issue.message, part);
+    }
+    assertStringIncludes(issue.message, "discern upgrade");
+  }
+});
+
+Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {
+  // Synthetic control for the matcher the schema translator uses, proving the
+  // semantics a future row will inherit without touching the shipped table.
+  const table = [
+    { path: "area", key: "old", message: (): string => "keyed", example: "" },
+    { path: "area", message: (): string => "wildcard", example: "" },
+    { path: "", key: "gone", message: (): string => "root", example: "" },
+  ];
+  assertEquals(
+    deadConfigPosition("area", ["old"], table)?.message(""),
+    "keyed",
   );
-  assertEquals(config, undefined);
-  assertEquals(issues.length, 1);
-  assertStringIncludes(issues[0]?.message ?? "", "[standards]");
-  assertStringIncludes(issues[0]?.message ?? "", "discern upgrade");
-});
-
-Deno.test("a config still carrying [worktree].enabled is rejected with the upgrade hint", () => {
-  const { config, issues } = parseConfig("[worktree]\nenabled = true\n");
-  assertEquals(config, undefined);
-  assertEquals(issues.length, 1);
-  assert(issues[0]?.message.includes("discern upgrade"), issues[0]?.message);
+  assertEquals(
+    deadConfigPosition("area", ["anything"], table)?.message(""),
+    "wildcard",
+  );
+  assertEquals(deadConfigPosition("", ["gone"], table)?.message(""), "root");
+  assertEquals(deadConfigPosition("", ["other"], table), undefined);
+  assertEquals(deadConfigPosition("elsewhere", ["old"], table), undefined);
 });
 
 Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {

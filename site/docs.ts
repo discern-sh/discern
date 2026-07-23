@@ -71,7 +71,7 @@ export interface DocsPage {
   /** Site route, e.g. `/docs/quality-gate/the-receipt`. */
   route: string;
   entry: DocEntry;
-  /** Map-relative source path used to resolve local links. */
+  /** Map-relative source path that resolves local links. */
   mapPath: string;
   /** URL segment for the section, numeric prefix stripped. */
   sectionSlug: string;
@@ -84,7 +84,7 @@ export interface DecisionPage {
   kind: "decision";
   route: string;
   entry: DocEntry;
-  /** Map-relative source path used to resolve local links. */
+  /** Map-relative source path that resolves local links. */
   mapPath: string;
   number: string;
   superseded: boolean;
