@@ -1,8 +1,7 @@
 /** Class guard for Discern-owned paths inside Git's administrative area. */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, isAbsolute, join, relative } from "@std/path";
+import { isAbsolute, join } from "@std/path";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -11,8 +10,11 @@ import {
 } from "../src/shared/git_admin_state.ts";
 import { addWorktree, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
+import {
+  AUTHORED_TS_FILES,
+  authoredTsFiles,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
 
 function absoluteFrom(cwd: string, path: string): string {
   return isAbsolute(path) ? path : join(cwd, path);
@@ -76,26 +78,51 @@ Deno.test("Git-admin paths are unavailable outside a repository", async () => {
   });
 });
 
-Deno.test("only the Git-admin registry resolver may invoke --git-path", async () => {
-  const allowed = "src/shared/git_admin_state.ts";
+/** Every listed TypeScript source invoking `--git-path`, minus `allowed`. */
+async function gitPathInvokers(
+  root: string,
+  files: string[],
+  allowed: readonly string[],
+): Promise<string[]> {
   const offenders: string[] = [];
-  for await (
-    const entry of walk(join(REPO_ROOT, "src"), {
-      includeDirs: false,
-      exts: [".ts"],
-    })
-  ) {
-    const text = await Deno.readTextFile(entry.path);
+  for (const rel of files) {
+    if (allowed.includes(rel)) continue;
+    const text = await Deno.readTextFile(join(root, rel));
     if (/['"]--git-path['"]/.test(text)) {
-      const path = relative(REPO_ROOT, entry.path);
-      if (path !== allowed) {
-        offenders.push(path);
-      }
+      offenders.push(rel);
     }
   }
+  return offenders.sort();
+}
+
+const GIT_PATH_ALLOWED = [
+  // The registry resolver itself — the one production `--git-path` call.
+  "src/shared/git_admin_state.ts",
+  // This file: the resolver's independent oracle must resolve the same
+  // artifacts without going through the code under test.
+  "tests/git_admin_state_test.ts",
+];
+
+Deno.test("only the Git-admin registry resolver may invoke --git-path", async () => {
   assertEquals(
-    offenders,
+    await gitPathInvokers(REPO_ROOT, AUTHORED_TS_FILES, GIT_PATH_ALLOWED),
     [],
     "register the artifact and resolve it through gitAdminStatePath",
   );
+});
+
+Deno.test("the --git-path guard enrolls a fresh caller in any authored tree", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    await Deno.mkdir(join(dir, "scripts"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "scripts", "fresh_probe.ts"),
+      `await run("git", ["rev-parse", "--git-path", "hooks"]);\n`,
+    );
+    assertEquals(
+      await gitPathInvokers(dir, await authoredTsFiles(dir), []),
+      ["scripts/fresh_probe.ts"],
+    );
+  });
 });

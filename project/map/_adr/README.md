@@ -173,6 +173,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0176 — The closed sets are a closed set](0176-the-closed-sets-are-a-closed-set.md)
 - [0177 — The compiled agent file opens as the project's own document](0177-compiled-agent-file-opens-as-the-projects-own.md)
 - [0178 — `discern tidy` is the embedded convention for discern-owned surfaces](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)
+- [0179 — The feature canon carries an agent-experience axis](0179-the-feature-canon-carries-an-agent-experience-axis.md)
+- [0180 — Every spawn surface declares its interrupt contract](0180-every-spawn-surface-declares-its-interrupt-contract.md)
 
 <!-- END GENERATED: current ADR records -->
 

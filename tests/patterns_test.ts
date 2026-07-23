@@ -1114,7 +1114,7 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
           at: t(6 + i),
           verb: "done",
           duration_ms: 30_000,
-          writer: "0.9.5",
+          writer: "9.9.9",
         }),
     ),
   ];
@@ -1125,7 +1125,7 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assert(
-    finding.observed.includes("0.9.0 → 0.9.5"),
+    finding.observed.includes("0.9.0 → 9.9.9"),
     `the attribution must name the release move: ${finding.observed}`,
   );
 });

@@ -1,79 +1,147 @@
 /**
- * Architectural guard (ADR 0054): every git invocation, and every buffered
- * `sh -c`, funnels through a shared runner in src/shared/subprocess.ts, so GIT_BIN
- * handling, output decoding, the `:` no-op, and the spawn-failure fallback are
- * single-sourced. A raw `new Deno.Command(gitBin()|"git", …)` anywhere else under
- * src/ fails this test — route it through runGit(). A raw `new Deno.Command("sh",
- * …)` likewise fails, except in the two sanctioned spawners named below: the
- * gate's streaming, cancellable job runner and the logger-routed setup runner.
+ * Architectural guard (ADR 0054): every subprocess the engine spawns is
+ * accounted for.
+ *
+ * Three layers, all driven off the spawn-surface registry
+ * (`tests/spawn_surfaces.ts`):
+ *   1. every `new Deno.Command(…)` constructor site under `src/` — whatever
+ *      binary it names, literal or variable — lives in a registered home with
+ *      an exact site count, so a new spawner (or a new site inside an old
+ *      home) fails here until it registers and declares its interrupt
+ *      contract;
+ *   2. a git spawn (`gitBin()` or a literal) funnels through the shared
+ *      runGit home, so GIT_BIN handling, output decoding, and the
+ *      spawn-failure fallback stay single-sourced;
+ *   3. a literal `sh` spawn funnels through the homes registered for the
+ *      shell — route a buffered shell command through runShell().
  */
 
 import { assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import {
+  declaredInterruptSurfaces,
+  homesThatMaySpawn,
+  SPAWN_HOMES,
+} from "./spawn_surfaces.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
 
-/** Every `.ts` file under `src/`, as `[repo-relative path, contents]`. */
-async function srcFiles(): Promise<Array<[string, string]>> {
+/** Every `.ts` file under `root`, as `[display-relative path, contents]`. */
+async function tsFiles(
+  root: string,
+  displayRoot = root,
+): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
-  for await (const entry of walk(SRC, { includeDirs: false })) {
+  for await (const entry of walk(root, { includeDirs: false })) {
     if (!entry.path.endsWith(".ts")) continue;
     out.push([
-      relative(REPO_ROOT, entry.path),
+      relative(displayRoot, entry.path).replaceAll("\\", "/"),
       await Deno.readTextFile(entry.path),
     ]);
   }
   return out;
 }
 
-/** The one file permitted to spawn git directly — the shared runner's home. */
-const GIT_SPAWN_HOME = join("src", "shared", "subprocess.ts");
+/**
+ * A `Deno.Command` constructor site, regardless of the binary it names — the
+ * generative mechanism for spawning a child, so a spawner using a variable
+ * binary name cannot slip past a literal-name pattern. `node:child_process`
+ * counts too: it is the same mechanism through the Node compatibility layer.
+ */
+const SPAWN_SITE = /new\s+Deno\.Command\s*\(|["']node:child_process["']/g;
+
+/** Count the constructor sites per file under `root`; zero-count files omitted. */
+async function spawnSites(
+  root: string,
+  displayRoot = root,
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (const [rel, text] of await tsFiles(root, displayRoot)) {
+    const found = text.match(SPAWN_SITE)?.length ?? 0;
+    if (found > 0) counts.set(rel, found);
+  }
+  return counts;
+}
+
+Deno.test("every subprocess constructor site lives in a registered spawn home", async () => {
+  const found = await spawnSites(SRC, REPO_ROOT);
+  const actual = Object.fromEntries([...found].sort());
+  const expected = Object.fromEntries(
+    SPAWN_HOMES.map((entry) => [entry.home, entry.sites] as const).sort(),
+  );
+  assertEquals(
+    actual,
+    expected,
+    "the spawn sites under src/ diverge from tests/spawn_surfaces.ts — " +
+      "register the new home (or update the changed one) and declare its " +
+      "interrupt contract: an E2E surface in engine_interrupt_surfaces_test.ts, " +
+      "or a written exemption a reviewer can audit",
+  );
+});
+
+Deno.test("the spawn-site guard enrolls an unrelated future spawner", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.mkdir(`${dir}/another/container`, { recursive: true });
+    await Deno.writeTextFile(
+      `${dir}/another/container/relay.ts`,
+      // A fresh-named binary held in a variable: invisible to a literal
+      // "sh"/"git" pattern, caught by the constructor scan.
+      `const tool = "unrelated-tool";\nnew Deno.Command(tool, {}).spawn();\n`,
+    );
+    assertEquals(
+      Object.fromEntries(await spawnSites(dir)),
+      { "another/container/relay.ts": 1 },
+    );
+  });
+});
+
+Deno.test("every declared interrupt surface id is unique across homes", () => {
+  const declared = declaredInterruptSurfaces();
+  assertEquals(
+    declared,
+    [...new Set(declared)],
+    "two spawn homes declare the same interrupt surface — one scenario would " +
+      "silently stand in for both; give each home its own surface id",
+  );
+});
 
 /** A `new Deno.Command(…)` whose binary is git: the gitBin() resolver or a literal. */
 const GIT_SPAWN = /new Deno\.Command\(\s*(?:gitBin\(\)|["']git["'])/;
 
 Deno.test("every git spawn funnels through the shared runGit", async () => {
+  const gitHomes = homesThatMaySpawn("git");
   const offenders: string[] = [];
-  for (const [rel, text] of await srcFiles()) {
-    if (rel === GIT_SPAWN_HOME) continue;
+  for (const [rel, text] of await tsFiles(SRC, REPO_ROOT)) {
+    if (gitHomes.has(rel)) continue;
     if (GIT_SPAWN.test(text)) offenders.push(rel);
   }
   assertEquals(
     offenders,
     [],
-    `git is spawned outside ${GIT_SPAWN_HOME} — route it through runGit():\n  ${
-      offenders.join("\n  ")
-    }`,
+    `git is spawned outside ${
+      [...gitHomes].join(", ")
+    } — route it through runGit():\n  ${offenders.join("\n  ")}`,
   );
 });
-
-/**
- * The files permitted to spawn `sh -c` directly: the shared runners' home, the
- * gate's streaming/cancellable job runner, and the logger-routed setup runner that
- * reserves its parent's stdout for a machine result.
- */
-const SH_SPAWN_HOMES = new Set([
-  join("src", "shared", "subprocess.ts"),
-  join("src", "engine", "jobs", "command.ts"),
-  join("src", "engine", "worktree", "shell.ts"),
-]);
 
 /** A `new Deno.Command(…)` whose binary is the literal shell. */
 const SH_SPAWN = /new Deno\.Command\(\s*["']sh["']/;
 
 Deno.test("every sh -c spawn funnels through a sanctioned runner", async () => {
+  const shHomes = homesThatMaySpawn("sh");
   const offenders: string[] = [];
-  for (const [rel, text] of await srcFiles()) {
-    if (SH_SPAWN_HOMES.has(rel)) continue;
+  for (const [rel, text] of await tsFiles(SRC, REPO_ROOT)) {
+    if (shHomes.has(rel)) continue;
     if (SH_SPAWN.test(text)) offenders.push(rel);
   }
   assertEquals(
     offenders,
     [],
     `sh is spawned outside the sanctioned runners (${
-      [...SH_SPAWN_HOMES].join(", ")
+      [...shHomes].join(", ")
     }) — run buffered shell commands through runShell():\n  ${
       offenders.join("\n  ")
     }`,

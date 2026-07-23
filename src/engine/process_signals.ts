@@ -11,6 +11,22 @@ export const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {
   SIGTERM: 143,
 };
 
+/** How long an interrupted child may honor the graceful signal before the
+ * owning boundary escalates to SIGKILL. */
+export const KILL_GRACE_MS = 2_000;
+
+/**
+ * How long after a kill the drains of a killed child's pipes may keep waiting
+ * for EOF before pending reads are cancelled. Longer than the SIGTERM→SIGKILL
+ * escalation ({@link KILL_GRACE_MS}), so a child that catches SIGTERM and exits
+ * slowly still flushes its output and closes its pipes naturally; only a pipe
+ * held by a process the tree-kill cannot reach — a descendant that re-parented
+ * into its own session (a self-daemonizing tool) — is clipped. Without this
+ * bound, such an escapee keeps the write ends open and a drain-to-EOF would
+ * block for the daemon's whole lifetime.
+ */
+export const KILLED_PIPE_GRACE_MS = 2_500;
+
 /** Signal only the process group led by `pid`; return false when it is gone. */
 export function signalProcessGroup(
   pid: number,

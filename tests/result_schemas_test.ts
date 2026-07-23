@@ -32,30 +32,11 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
-  AcceptOutputSchema,
   type CouplingData,
-  CouplingOutputSchema,
   DatalessEnvelopeSchema,
-  DoctorOutputSchema,
   EnvelopeSchema,
-  FinishOutputSchema,
   GateDataSchema,
-  HelpOutputSchema,
-  ImpactOutputSchema,
-  ImprovementOutputSchema,
-  MapOutputSchema,
-  PatternsOutputSchema,
-  PatternsResetOutputSchema,
-  PrepareOutputSchema,
-  RefreshOutputSchema,
-  SkillsListOutputSchema,
-  StandardsOutputSchema,
-  StartOutputSchema,
-  StatusOutputSchema,
   StepResultJsonSchema,
-  TestOutputSchema,
-  TidyOutputSchema,
-  UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { skillsListResult } from "../src/lib/skills.ts";
@@ -103,6 +84,29 @@ function expectValid(
       JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
     }\n--- serialized result ---\n${JSON.stringify(serialized, null, 2)}`,
   );
+}
+
+/** Contract ids `expectFaithful` actually exercised this run — the evidence the
+ * file's final test reconciles against FAITHFULNESS_COVERED. */
+const FAITHFULNESS_EXERCISED = new Set<string>();
+
+/** Validate a real verb result against the PUBLISHED schema of the contract it
+ * claims — looked up in the registry, so the id and the schema cannot be
+ * mismatched — and record the id as faithfulness evidence. The id is recorded
+ * before the validity assertion: a currently-failing faithfulness test is
+ * still coverage (its assertion is what reports the drift). */
+function expectFaithful(
+  contractId: string,
+  result: DiscernResult,
+  label: string,
+): void {
+  const contract = CLI_JSON_RESULT_CONTRACTS.find((c) => c.id === contractId);
+  assert(
+    contract !== undefined,
+    `expectFaithful("${contractId}") names no published contract`,
+  );
+  FAITHFULNESS_EXERCISED.add(contractId);
+  expectValid(contract.schema, result, label);
 }
 
 Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
@@ -172,10 +176,14 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
 // parity guards do (ADR 0051): every contract in CLI_JSON_RESULT_CONTRACTS must
 // be enrolled below, so registering a new one fails this file until its
 // faithfulness test exists — or its absence is recorded as explicit, reviewable
-// debt.
+// debt. Membership in the covered set is not taken on trust: the file's FINAL
+// test reconciles it against the ids `expectFaithful` actually exercised, so an
+// id added here without its test (the drift incident's dishonest-enrolment
+// variant) fails the reconciliation.
 
-/** Contract ids whose REAL core output a test in this file validates. Add the
- * id here together with its faithfulness test. */
+/** Contract ids whose REAL core output a test in this file validates via
+ * `expectFaithful`. Enrolment is evidence-checked: the final test asserts this
+ * set EQUALS the ids exercised, so the only way in is writing the test. */
 const FAITHFULNESS_COVERED = new Set<string>([
   "coupling",
   "map",
@@ -343,12 +351,12 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    expectValid(
-      FinishOutputSchema,
+    expectFaithful(
+      "done",
       await finishResult(dir, { dryRun: true }),
       "finish dry-run",
     );
-    expectValid(FinishOutputSchema, await finishResult(dir), "finish clean");
+    expectFaithful("done", await finishResult(dir), "finish clean");
 
     // A failing capability → steps + a diagnostic + data.failed_stage.
     await writeConfig(
@@ -364,7 +372,7 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
     );
     const failing = await finishResult(dir);
     assertEquals(failing.ok, false);
-    expectValid(FinishOutputSchema, failing, "finish failing");
+    expectFaithful("done", failing, "finish failing");
   });
 });
 
@@ -379,8 +387,8 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
       await prepareResult(dir),
       "prepare clean",
     );
-    expectValid(
-      PrepareOutputSchema,
+    expectFaithful(
+      "prepare",
       await prepareResult(dir),
       "prepare clean public schema",
     );
@@ -389,8 +397,8 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
       await testResult(dir),
       "test unconfigured",
     );
-    expectValid(
-      TestOutputSchema,
+    expectFaithful(
+      "test",
       await testResult(dir),
       "test unconfigured public schema",
     );
@@ -409,10 +417,10 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
     );
     const prep = await prepareResult(dir);
     assertEquals(prep.ok, false);
-    expectValid(PrepareOutputSchema, prep, "prepare failing");
+    expectFaithful("prepare", prep, "prepare failing");
     const test = await testResult(dir);
     assertEquals(test.ok, false);
-    expectValid(TestOutputSchema, test, "test failing");
+    expectFaithful("test", test, "test failing");
   });
 });
 
@@ -420,7 +428,7 @@ Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(RefreshOutputSchema, await refreshResult(dir), "refresh clean");
+    expectFaithful("refresh", await refreshResult(dir), "refresh clean");
 
     await writeConfig(
       dir,
@@ -437,19 +445,19 @@ Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)
     const partial = await refreshResult(dir);
     assertEquals(partial.ok, false);
     assertEquals(partial.error, "partial_refresh");
-    expectValid(RefreshOutputSchema, partial, "refresh partial");
+    expectFaithful("refresh", partial, "refresh partial");
   });
 });
 
 Deno.test("tidy result is faithful in preview and apply modes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    expectValid(
-      TidyOutputSchema,
+    expectFaithful(
+      "tidy",
       await tidyResult(dir, { dryRun: true }),
       "tidy preview",
     );
-    expectValid(TidyOutputSchema, await tidyResult(dir), "tidy apply");
+    expectFaithful("tidy", await tidyResult(dir), "tidy apply");
   });
 });
 
@@ -457,7 +465,7 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(DoctorOutputSchema, await doctorResult(dir), "doctor healthy");
+    expectFaithful("doctor", await doctorResult(dir), "doctor healthy");
 
     await writeConfig(
       dir,
@@ -471,7 +479,7 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
     );
     const failing = await doctorResult(dir);
     assertEquals(failing.ok, false);
-    expectValid(DoctorOutputSchema, failing, "doctor failing");
+    expectFaithful("doctor", failing, "doctor failing");
   });
 });
 
@@ -514,7 +522,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, s
     // The whole envelope — execution_model included — validates against the schema the
     // MCP server advertises as discern_doctor's outputSchema (a strict object, so a
     // conditional step that didn't fit would be rejected here).
-    expectValid(DoctorOutputSchema, result, "doctor rich execution_model");
+    expectFaithful("doctor", result, "doctor rich execution_model");
     const model =
       (result.data as { execution_model?: { verb: string }[] }).execution_model;
     assert(
@@ -529,11 +537,7 @@ Deno.test("impact result is faithful", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(
-      ImpactOutputSchema,
-      await impactResult(dir),
-      "impact",
-    );
+    expectFaithful("impact", await impactResult(dir), "impact");
   });
 });
 
@@ -563,7 +567,7 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
 
     // query mode names b.ts as a partner of a.ts — a non-empty partner list.
     const query = await couplingResult(dir, { paths: ["a.ts"] });
-    expectValid(CouplingOutputSchema, query, "coupling query");
+    expectFaithful("coupling", query, "coupling query");
     assert(
       (query.data as CouplingData).partners.some((p) => p.path === "b.ts"),
       "query mode should surface b.ts as a partner of a.ts",
@@ -572,7 +576,7 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
     // diff-aware mode: stage a.ts only → b.ts surfaces as a missing partner.
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
     const diff = await couplingResult(dir);
-    expectValid(CouplingOutputSchema, diff, "coupling diff");
+    expectFaithful("coupling", diff, "coupling diff");
     assert(
       (diff.data as CouplingData).mode === "diff",
       "no-path mode is diff-aware",
@@ -581,7 +585,7 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
     // evidence mode (two paths): the shared-history payload — its commit sub-schema and
     // the of-N denominators — validates too, not just the empty-list envelope.
     const evidence = await couplingResult(dir, { paths: ["a.ts", "b.ts"] });
-    expectValid(CouplingOutputSchema, evidence, "coupling evidence");
+    expectFaithful("coupling", evidence, "coupling evidence");
     const ev = evidence.data as CouplingData;
     assert(
       ev.mode === "evidence" && (ev.together ?? 0) >= 1 &&
@@ -596,11 +600,7 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
     await scaffoldEngine(dir);
     await gitInit(dir);
     // The empty-logbook state is first-class and must validate too.
-    expectValid(
-      PatternsOutputSchema,
-      await patternsResult(dir),
-      "patterns empty",
-    );
+    expectFaithful("patterns", await patternsResult(dir), "patterns empty");
 
     // Seed one synthetic month: a done-thrash stream (exercises the finding
     // sub-schema), a torn line (the unparsed counter), and a pin event.
@@ -644,7 +644,7 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
       ].join("\n") + "\n",
     );
     const seeded = await patternsResult(dir);
-    expectValid(PatternsOutputSchema, seeded, "patterns seeded");
+    expectFaithful("patterns", seeded, "patterns seeded");
     const data = seeded.data;
     assert(
       data !== undefined && "findings" in data && data.findings.length > 0,
@@ -652,18 +652,18 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
     );
 
     // The reset's plan (dry-run), apply, and already-empty modes all validate.
-    expectValid(
-      PatternsResetOutputSchema,
+    expectFaithful(
+      "patternsReset",
       await patternsResetResult(dir, { dryRun: true }),
       "patterns reset dry-run",
     );
-    expectValid(
-      PatternsResetOutputSchema,
+    expectFaithful(
+      "patternsReset",
       await patternsResetResult(dir),
       "patterns reset",
     );
-    expectValid(
-      PatternsResetOutputSchema,
+    expectFaithful(
+      "patternsReset",
       await patternsResetResult(dir),
       "patterns reset (nothing left)",
     );
@@ -676,27 +676,23 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
     await gitInit(dir);
     // Main checkout, local view.
     const mainStatus = await statusResult(dir);
-    expectValid(StatusOutputSchema, mainStatus, "status main");
+    expectFaithful("status", mainStatus, "status main");
     // Main checkout with the fleet survey forced on (exercises StatusFleetEntry).
-    expectValid(
-      StatusOutputSchema,
+    expectFaithful(
+      "status",
       await statusResult(dir, { all: true }),
       "status main --all",
     );
     // Conflicting flags → an operational refusal envelope.
-    expectValid(
-      StatusOutputSchema,
+    expectFaithful(
+      "status",
       await statusResult(dir, { all: true, local: true }),
       "status conflicting flags",
     );
 
     // From inside a worktree → location "worktree", a worktree block.
     const wt = await addWorktree(dir, "stat");
-    expectValid(
-      StatusOutputSchema,
-      await statusResult(wt),
-      "status worktree",
-    );
+    expectFaithful("status", await statusResult(wt), "status worktree");
   });
 
   // A not-yet-bootstrapped project → data.setup_unfinished present.
@@ -709,7 +705,7 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
         undefined,
       "expected setup_unfinished while un-bootstrapped",
     );
-    expectValid(StatusOutputSchema, result, "status unset-up");
+    expectFaithful("status", result, "status unset-up");
   });
 });
 
@@ -717,28 +713,24 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    expectValid(
-      ImprovementOutputSchema,
+    expectFaithful(
+      "improvement",
       await improvementResult(dir),
       "improvement full",
     );
-    expectValid(
-      ImprovementOutputSchema,
+    expectFaithful(
+      "improvement",
       await improvementResult(dir, { category: "gate" }),
       "improvement one category",
     );
     const belowMin = await improvementResult(dir, { minScore: 200 });
     assertEquals(belowMin.ok, false);
-    expectValid(ImprovementOutputSchema, belowMin, "improvement below-min");
+    expectFaithful("improvement", belowMin, "improvement below-min");
     const unknown = await improvementResult(dir, {
       category: "no-such-category",
     });
     assertEquals(unknown.ok, false);
-    expectValid(
-      ImprovementOutputSchema,
-      unknown,
-      "improvement unknown category",
-    );
+    expectFaithful("improvement", unknown, "improvement unknown category");
   });
 });
 
@@ -748,7 +740,7 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
     await gitInit(dir);
 
     // No map/ tree yet → a no_map error envelope (no data).
-    expectValid(MapOutputSchema, await mapResult(dir), "map no-tree");
+    expectFaithful("map", await mapResult(dir), "map no-tree");
 
     // Seed a tiny tree → index + single doc + not-found.
     await Deno.mkdir(join(dir, "map", "00-orientation"), {
@@ -759,44 +751,40 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
       "# Concepts\n\nThe core ideas.\n",
     );
     const index = await mapResult(dir);
-    expectValid(MapOutputSchema, index, "map index");
+    expectFaithful("map", index, "map index");
     const slug = (index.data as { docs: { slug: string }[] }).docs[0]?.slug;
     assert(slug !== undefined);
-    expectValid(
-      MapOutputSchema,
-      await mapResult(dir, { target: slug }),
-      "map single",
-    );
-    expectValid(
-      MapOutputSchema,
+    expectFaithful("map", await mapResult(dir, { target: slug }), "map single");
+    expectFaithful(
+      "map",
       await mapResult(dir, { target: "no-such-doc" }),
       "map not-found",
     );
-    expectValid(
-      MapOutputSchema,
+    expectFaithful(
+      "map",
       await mapResult(dir, { search: "core ideas" }),
       "map search",
     );
-    expectValid(
-      MapOutputSchema,
+    expectFaithful(
+      "map",
       await mapResult(dir, { target: "00-orientation" }),
       "map region",
     );
 
     // help reads discern's OWN bundled docs (always present in this repo's build).
-    expectValid(HelpOutputSchema, await helpResult(dir), "help index");
-    expectValid(
-      HelpOutputSchema,
+    expectFaithful("help", await helpResult(dir), "help index");
+    expectFaithful(
+      "help",
       await helpResult(dir, { target: "config-reference" }),
       "help single",
     );
-    expectValid(
-      HelpOutputSchema,
+    expectFaithful(
+      "help",
       await helpResult(dir, { target: "no-such-doc" }),
       "help not-found",
     );
-    expectValid(
-      HelpOutputSchema,
+    expectFaithful(
+      "help",
       await helpResult(dir, { search: "worktree resources" }),
       "help search",
     );
@@ -827,14 +815,14 @@ Deno.test("standards result is faithful (dry-run plan and applied steps)", async
       await standardsResult(dir, { dryRun: true }),
       "standards dry-run",
     );
-    expectValid(
-      StandardsOutputSchema,
+    expectFaithful(
+      "standards",
       await standardsResult(dir, { dryRun: true }),
       "standards dry-run public schema",
     );
     const applied = await standardsResult(dir);
     assertEquals(applied.ok, true);
-    expectValid(StandardsOutputSchema, applied, "standards applied");
+    expectFaithful("standards", applied, "standards applied");
   });
 });
 
@@ -865,17 +853,13 @@ Deno.test("update result is faithful (dry-run prediction and applied data-bearin
     assertEquals(preview.dry_run, true);
     assert(preview.data !== undefined, "update dry-run predicts data");
     assertEquals(preview.data.range.after, undefined);
-    expectValid(
-      UpdateOutputSchema,
-      preview,
-      "update dry-run prediction",
-    );
+    expectFaithful("update", preview, "update dry-run prediction");
 
     const applied = await updateResult(ctx);
     assertEquals(applied.ok, true);
     assert(applied.data !== undefined, "update apply carries data");
     assert(typeof applied.data.range.after === "string");
-    expectValid(UpdateOutputSchema, applied, "update applied");
+    expectFaithful("update", applied, "update applied");
   });
 });
 
@@ -894,7 +878,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     );
     const preview = await acceptResult(ctx, { dryRun: true });
     assertEquals(preview.dry_run, true);
-    expectValid(AcceptOutputSchema, preview, "accept dry-run");
+    expectFaithful("accept", preview, "accept dry-run");
   });
 
   await withTempDir(async (dir) => {
@@ -913,7 +897,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
-    expectValid(AcceptOutputSchema, applied, "accept applied rerun");
+    expectFaithful("accept", applied, "accept applied rerun");
   });
 
   await withTempDir(async (dir) => {
@@ -935,7 +919,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
-    expectValid(AcceptOutputSchema, applied, "accept applied receipt");
+    expectFaithful("accept", applied, "accept applied receipt");
   });
 });
 
@@ -970,7 +954,7 @@ Deno.test("skills list result is faithful (bundled, authored override, and exclu
     const result = await skillsListResult(dir, await loadConfig(dir));
     // Every row arm at once — bundled, authored-only, authored override, and
     // excluded — must serialize to a shape the published contract accepts.
-    expectValid(SkillsListOutputSchema, result, "skills list");
+    expectFaithful("skillsList", result, "skills list");
 
     const rows = new Map((result.data?.skills ?? []).map((r) => [r.name, r]));
     assertEquals(rows.get("my-own-skill")?.hasBundled, false);
@@ -995,12 +979,12 @@ Deno.test("start result is faithful (dry-run preview and applied worktree)", asy
     // dry-run: a preview plan, no data.
     const preview = await startResult(ctx, { dryRun: true, worktreeRoot });
     assertEquals(preview.dry_run, true);
-    expectValid(StartOutputSchema, preview, "start dry-run");
+    expectFaithful("start", preview, "start dry-run");
 
     // applied: steps + data (the new worktree) + the re-root hint.
     const applied = await startResult(ctx, { worktreeRoot });
     assertEquals(applied.ok, true);
-    expectValid(StartOutputSchema, applied, "start applied");
+    expectFaithful("start", applied, "start applied");
 
     // named: the caller's name flows into the branch slug, and the normalisation is
     // surfaced through name_note (and stays schema-valid with the new field present).
@@ -1009,7 +993,7 @@ Deno.test("start result is faithful (dry-run preview and applied worktree)", asy
       name: "Fix the Upload Retry",
     });
     assertEquals(named.ok, true);
-    expectValid(StartOutputSchema, named, "start named");
+    expectFaithful("start", named, "start named");
     assert(
       named.data?.branch.includes("fix-the-upload-retry") ?? false,
       `named branch should carry the slug: ${named.data?.branch}`,
@@ -1019,4 +1003,18 @@ Deno.test("start result is faithful (dry-run preview and applied worktree)", asy
       `expected a normalisation note: ${named.data?.name_note}`,
     );
   });
+});
+
+// Keep this test LAST in the file: it reconciles the declared covered set
+// against the evidence the tests above accumulated while running. Deno runs a
+// module's tests in registration order, so by the time this executes every
+// faithfulness test has fired its expectFaithful calls.
+Deno.test("FAITHFULNESS_COVERED is evidence-derived: it equals the ids expectFaithful exercised", () => {
+  assertEquals(
+    [...FAITHFULNESS_COVERED].sort(),
+    [...FAITHFULNESS_EXERCISED].sort(),
+    "FAITHFULNESS_COVERED must equal the contract ids exercised through " +
+      "expectFaithful — enrol a contract by writing its faithfulness test, " +
+      "never by editing the set",
+  );
 });

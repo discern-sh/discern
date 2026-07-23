@@ -4,7 +4,9 @@
  * entries that drive the worktree workflow. They are now thin `discern
  * worktree ensure` / `worktree create` / `worktree remove` dispatches: the binary
  * reads the hook's JSON payload from stdin itself, so the hooks no longer shell
- * out to `jq` (ADR 0039). Each test extracts the command from the RENDERED
+ * out to `jq` (ADR 0039) — and a positive-form guard below holds every shipped
+ * hook to that shape, so no other external binary can take jq's place. Each
+ * test extracts the command from the RENDERED
  * settings and runs it exactly as the harness would — `sh -c <command>` with the
  * event's JSON payload on stdin — so a regression in the hook contract surfaces
  * here. The file matches `engine_*_test.ts`, so it runs in CI's dash/bash matrix.
@@ -63,15 +65,81 @@ async function runHook(
   };
 }
 
-Deno.test("hooks: no worktree hook shells out to jq anymore", async () => {
+/** Why `command` is not a bare `discern` dispatch — or undefined when it is.
+ * Positive form of the retired-`jq` cure: a shipped hook may only invoke the
+ * discern binary itself, with no shell plumbing that could reintroduce a
+ * second program (`jq`, `awk`, `python3 -c`, or any successor). */
+function hookCommandViolation(command: string): string | undefined {
+  if (!/^discern(?:\s|$)/.test(command)) {
+    return "does not dispatch the discern binary";
+  }
+  const operator = command.match(/[|;&<>`$(){}\r\n\\]/);
+  if (operator !== null) {
+    return `carries shell operator "${operator[0]}"`;
+  }
+  return undefined;
+}
+
+Deno.test("hooks: the dispatch predicate rejects external binaries and shell plumbing", () => {
+  assertEquals(hookCommandViolation("discern worktree ensure"), undefined);
+  assertEquals(hookCommandViolation("discern"), undefined);
+  // The cured instance and its future siblings: any external program…
+  assert(hookCommandViolation("jq -r '.worktree_path'") !== undefined);
+  assert(hookCommandViolation("awk '{print}'") !== undefined);
+  assert(hookCommandViolation("python3 -c 'print(1)'") !== undefined);
+  assert(hookCommandViolation("discernible-tool run") !== undefined);
+  // …including one smuggled behind a legitimate dispatch.
+  assert(
+    hookCommandViolation("discern worktree ensure | tee log") !== undefined,
+  );
+  assert(
+    hookCommandViolation("discern worktree ensure && rm cache") !== undefined,
+  );
+  assert(hookCommandViolation("discern worktree remove $(cat)") !== undefined);
+  assert(
+    hookCommandViolation("echo ready; discern worktree ensure") !== undefined,
+  );
+});
+
+Deno.test("hooks: every shipped hook is a bare discern dispatch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const raw = await Deno.readTextFile(join(dir, ".claude/settings.json"));
-    assert(
-      !/\bjq\b/.test(raw),
-      `settings.json should not reference jq:\n${raw}`,
+    // Parse the RENDERED settings and walk every event → group → hook, so a
+    // hook added later auto-enrols instead of needing its own denylist line.
+    const settings = JSON.parse(
+      await Deno.readTextFile(join(dir, ".claude/settings.json")),
+    ) as {
+      hooks: Record<string, { hooks: { type: string; command: string }[] }[]>;
+    };
+    const violations: string[] = [];
+    let total = 0;
+    for (const [event, groups] of Object.entries(settings.hooks)) {
+      for (const group of groups) {
+        for (const hook of group.hooks) {
+          total += 1;
+          if (hook.type !== "command") {
+            violations.push(`${event}: unexpected hook type "${hook.type}"`);
+            continue;
+          }
+          const reason = hookCommandViolation(hook.command);
+          if (reason !== undefined) {
+            violations.push(`${event}: \`${hook.command}\` ${reason}`);
+          }
+        }
+      }
+    }
+    assert(total >= 3, `expected the three lifecycle hooks, saw ${total}`);
+    assertEquals(
+      violations,
+      [],
+      "every shipped hook must invoke `discern` directly — no external " +
+        `binaries, no shell plumbing:\n  ${violations.join("\n  ")}`,
     );
-    // The create/remove hooks are the thin binary dispatches that replaced it.
+    // The thin lifecycle dispatches that replaced the jq plumbing stay pinned.
+    assertStringIncludes(
+      await hookCommand(dir, "SessionStart"),
+      "worktree ensure",
+    );
     assertStringIncludes(
       await hookCommand(dir, "WorktreeCreate"),
       "worktree create",

@@ -1,89 +1,86 @@
 /**
- * Guard against duplicating the package version. `deno.json` is the single
- * source; code imports `KIT_VERSION` from `src/lib/version.ts`, and tests
- * assert against that import rather than pinning the literal. A pinned test
- * masks exactly the drift it appears to prevent: after a version bump, a
- * surface that hardcoded the old version keeps its stale pin green.
+ * Guard against duplicating the package version in source. `deno.json` is the
+ * single source; code imports `KIT_VERSION` from `src/lib/version.ts`. The ban
+ * covers every authored TypeScript tree: a hardcoded version in a test pins an
+ * assertion that breaks on the next release, and one in `scripts/` codegen
+ * writes the stale number into committed artifacts.
  */
 
-import { assert, assertEquals } from "@std/assert";
-import { join, relative } from "@std/path";
+import { assertEquals } from "@std/assert";
+import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import {
+  AUTHORED_TS_FILES,
+  authoredTsFiles,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
+import { gitInit } from "./engine_helpers.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
-const REPO = new URL("../", import.meta.url).pathname;
-const SRC = new URL("../src/", import.meta.url).pathname;
-const TESTS = new URL("./", import.meta.url).pathname;
-
-async function* tsFiles(dir: string): AsyncGenerator<string> {
-  for await (const entry of Deno.readDir(dir)) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory) {
-      yield* tsFiles(path);
-    } else if (entry.isFile && entry.name.endsWith(".ts")) {
-      yield path;
-    }
-  }
-}
-
-/** True when `text` carries the current package version as a quoted literal. */
-function pinsCurrentVersion(text: string): boolean {
-  return [
-    `"${KIT_VERSION}"`,
-    `'${KIT_VERSION}'`,
-    `\`${KIT_VERSION}\``,
-  ].some((quoted) => text.includes(quoted));
-}
-
-Deno.test("src does not hardcode the current package semver outside version.ts", async () => {
+/** Every listed TypeScript source quoting `version` verbatim, minus `allowed`. */
+async function hardcodedVersionSites(
+  root: string,
+  files: string[],
+  version: string,
+  allowed: readonly string[],
+): Promise<string[]> {
+  const quotes = [`"${version}"`, `'${version}'`, `\`${version}\``];
   const offenders: string[] = [];
-  for await (const path of tsFiles(SRC)) {
-    const rel = relative(REPO, path);
-    if (rel === "src/lib/version.ts") {
-      continue;
-    }
-    if (pinsCurrentVersion(await Deno.readTextFile(path))) {
+  for (const rel of files) {
+    if (allowed.includes(rel)) continue;
+    const text = await Deno.readTextFile(join(root, rel));
+    if (quotes.some((quote) => text.includes(quote))) {
       offenders.push(rel);
     }
   }
-  assert(
-    offenders.length === 0,
-    `source files must import KIT_VERSION instead of hardcoding ${KIT_VERSION}: ${
-      offenders.join(", ")
-    }`,
+  return offenders.sort();
+}
+
+// The single source itself — the one place the semver may appear quoted.
+const ALLOWED = ["src/lib/version.ts"];
+
+Deno.test("authored TypeScript never hardcodes the package semver", async () => {
+  assertEquals(
+    await hardcodedVersionSites(
+      REPO_ROOT,
+      AUTHORED_TS_FILES,
+      KIT_VERSION,
+      ALLOWED,
+    ),
+    [],
+    `import KIT_VERSION instead of hardcoding ${KIT_VERSION}; sample semvers ` +
+      `in fixtures must not collide with the current package version`,
   );
 });
 
-// The same mechanism on the test side: a test that pins the current version as
-// a literal stops checking derivation — after a bump it either gets hand-edited
-// (an honest pin) or stays green against a stale surface (a masking pin). Every
-// new test file auto-enrols via the directory walk.
-Deno.test("tests do not pin the current package semver as a literal", async () => {
-  const offenders: string[] = [];
-  for await (const path of tsFiles(TESTS)) {
-    if (pinsCurrentVersion(await Deno.readTextFile(path))) {
-      offenders.push(relative(REPO, path));
-    }
-  }
-  assert(
-    offenders.length === 0,
-    "tests must interpolate KIT_VERSION when asserting a version-reporting " +
-      'surface, and use a clearly-fake semver (e.g. "9.9.9") for fixture ' +
-      `data — never the current literal ${KIT_VERSION}: ${
-        offenders.join(", ")
-      }`,
-  );
+Deno.test("the version guard enrolls a fresh literal in any authored tree", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    await Deno.mkdir(join(dir, "scripts"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "scripts", "emit_release.ts"),
+      `export const banner = "unrelated v3.2.1";\n`,
+    );
+    assertEquals(
+      await hardcodedVersionSites(dir, await authoredTsFiles(dir), "3.2.1", []),
+      [],
+      "a version inside a longer string is not a quoted literal",
+    );
+    await Deno.writeTextFile(
+      join(dir, "scripts", "emit_release.ts"),
+      `export const version = "3.2.1";\n`,
+    );
+    assertEquals(
+      await hardcodedVersionSites(dir, await authoredTsFiles(dir), "3.2.1", []),
+      ["scripts/emit_release.ts"],
+    );
+  });
 });
 
-// Positive control: the detector rejects a fresh-name pin (built dynamically so
-// this file never carries the literal itself).
-Deno.test("the version-pin detector catches an unrelated fresh literal", () => {
-  assert(pinsCurrentVersion(`const anyNewName = "${KIT_VERSION}";`));
-  assert(!pinsCurrentVersion('const fixtureSemver = "9.9.9";'));
-});
-
-// The class, end to end: every surface that REPORTS the kit version must derive
-// it from KIT_VERSION. One install, each reporting surface read for real.
+// The behavioral half of the guard: static absence of the literal proves
+// nothing about what the surfaces actually print, so scaffold an install and
+// hold every version-reporting surface to the imported KIT_VERSION.
 Deno.test("every version-reporting surface derives from KIT_VERSION", async () => {
   await withTempDir(async (dir) => {
     const setup = await runCli(

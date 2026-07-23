@@ -101,7 +101,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/engine_verb_parity_test.ts",
-      "tests/engine_plan_parity_test.ts",
       "tests/cli_reference_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/glossary_enrolment_test.ts",
@@ -119,6 +118,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members:
       async () => [...(await import("../src/engine/dispatch.ts")).KNOWN_VERBS],
+  },
+  {
+    id: "dry-run-verbs",
+    title: "Dry-run-capable verbs",
+    what:
+      "Every command path that registers --dry-run — the plan/apply verbs whose preview must be faithful: a dry run writes nothing, and an apply performs nothing the plan never listed.",
+    source: {
+      kind: "module",
+      module: "src/main.ts",
+      exportName: "dryRunCapableVerbs",
+    },
+    guards: ["tests/engine_plan_parity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own",
+      },
+      featureCanon: { nodeId: "plan-apply" },
+    },
+    members: async () => [
+      ...(await import("../src/main.ts")).dryRunCapableVerbs(),
+    ],
   },
   {
     id: "mcp-tools",
@@ -280,7 +302,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "agent-providers",
     title: "Agent providers",
-    what: "The agent providers discern writes files for.",
+    what:
+      "The agent providers discern writes files for, each with a compact mark and horizontal logo lockup.",
     source: {
       kind: "module",
       module: "src/shared/agent_catalogue.ts",
@@ -594,13 +617,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
-      "Retired commands, retired config keys, and synonym redirects — the vocabulary the CLI redirects rather than accepts.",
+      "Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.",
     source: {
       kind: "module",
       module: "src/shared/vocabulary.ts",
       exportName: "RETIRED_COMMAND_REDIRECTS",
     },
-    guards: ["tests/dev_vocab_guard_test.ts"],
+    guards: ["tests/dev_vocab_guard_test.ts", "tests/config_schema_test.ts"],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -614,6 +637,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       return [
         ...Object.keys(vocabulary.RETIRED_COMMAND_REDIRECTS),
         ...Object.keys(vocabulary.RETIRED_CONFIG_KEY_REDIRECTS),
+        ...vocabulary.DEAD_CONFIG_POSITIONS.map((position) =>
+          position.key === undefined
+            ? `${position.path}.*`
+            : [position.path, position.key].filter((p) => p !== "").join(".")
+        ),
         ...Object.keys(vocabulary.COMMAND_SYNONYM_SUGGESTIONS),
         ...Object.keys(vocabulary.VERB_FORM_VARIANTS),
       ];
@@ -681,6 +709,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         (await import("../src/shared/third_party_codegen.ts"))
           .THIRD_PARTY_ARTIFACT_PATHS,
       ),
+  },
+  {
+    id: "spawn-surfaces",
+    title: "Spawn surfaces",
+    what:
+      "Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.",
+    source: {
+      kind: "module",
+      module: "tests/spawn_surfaces.ts",
+      exportName: "SPAWN_HOMES",
+    },
+    guards: [
+      "tests/engine_subprocess_ssot_test.ts",
+      "tests/engine_interrupt_surfaces_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal subprocess-ownership contract, not product vocabulary",
+      },
+      featureCanon: { nodeId: "interruption-safety" },
+    },
+    members: async () =>
+      (await import("../tests/spawn_surfaces.ts")).SPAWN_HOMES
+        .map((entry) => entry.home),
   },
   {
     id: "canonical-sets",

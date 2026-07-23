@@ -33,6 +33,71 @@ export function retiredConfigKeySuccessor(key: string): string | undefined {
   return RETIRED_CONFIG_KEY_REDIRECTS[key];
 }
 
+/** One retired config position that is DEAD — nothing to rename to, only
+ * guidance — matched against a schema unrecognized-keys issue. */
+export interface DeadConfigPosition {
+  /** Dotted parent path of the unrecognized key ("" is the document root). */
+  readonly path: string;
+  /** The dead key itself, or undefined to match ANY unknown key at `path`. */
+  readonly key?: string;
+  /** Renders the rejection message for the offending key list. */
+  readonly message: (keys: string) => string;
+  /** A minimal TOML document that trips this position. The schema test parses
+   * every entry's example and asserts this entry's message, so a new row is
+   * exercised by existing here. */
+  readonly example: string;
+}
+
+/**
+ * Retired config positions with no successor key. The schema's issue
+ * translator and its class test both read this table — retiring a config
+ * position means adding a row here, nowhere else. Order matters: the first
+ * matching row wins, so keyed rows precede a same-path wildcard.
+ */
+export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [
+  {
+    path: "worktree",
+    key: "enabled",
+    message: (keys) =>
+      `dead config ${keys} — the worktree workflow is core now, not a toggle; run \`discern upgrade\` to drop it.`,
+    example: "[worktree]\nenabled = true\n",
+  },
+  {
+    path: "worktree",
+    key: "graduate_to",
+    message: (keys) =>
+      `dead config ${keys} — \`discern accept\` always lands on the trunk now (there is one landing target); run \`discern upgrade\` to drop the key.`,
+    example: '[worktree]\ngraduate_to = "main"\n',
+  },
+  {
+    path: "worktree",
+    message: (keys) =>
+      `dead config ${keys} — the engine reads [worktree.resources.<name>] now; run \`discern upgrade\` to migrate it.`,
+    example: '[worktree.db]\ncreate = "make-db"\n',
+  },
+  {
+    path: "",
+    key: "features",
+    message: () =>
+      "dead config [features] — the subsystem toggles were retired (every subsystem is core now); run `discern upgrade` to drop the section.",
+    example: "[features]\ndocs = false\n",
+  },
+];
+
+/** The first dead-position row matching an unrecognized-keys issue, if any.
+ * `positions` is injectable so tests can prove the matching semantics
+ * (key-before-wildcard order, root vs section paths) on synthetic tables. */
+export function deadConfigPosition(
+  path: string,
+  keys: readonly string[],
+  positions: readonly DeadConfigPosition[] = DEAD_CONFIG_POSITIONS,
+): DeadConfigPosition | undefined {
+  return positions.find((position) =>
+    position.path === path &&
+    (position.key === undefined || keys.includes(position.key))
+  );
+}
+
 /**
  * Familiar words from other tools' vocabularies, each mapped to the canonical
  * verb the unknown-command path should SUGGEST. Suggestions only — none of
