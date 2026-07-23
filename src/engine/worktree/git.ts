@@ -33,6 +33,11 @@ import {
   stripQuotes,
   writeEnvVar,
 } from "./env_file.ts";
+import {
+  SIDE_RESTRICTED_OPS,
+  type SideRestrictedOpName,
+  type WorktreeSide,
+} from "./side_restrictions.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -183,60 +188,67 @@ async function resolveGitDirs(cwd: string = Deno.cwd()): Promise<GitDirs> {
   return { absoluteGitDir, commonGitDir };
 }
 
-/**
- * Refuse unless the cwd is inside a *linked* worktree (not the main checkout).
- * Returns silently on success; throws `WorktreeGitError` otherwise. Mirrors
- * `assert-in-worktree`. `label` prefixes the refusal message.
- */
-export async function assertInWorktree(
-  label = "this script",
-  cwd: string = Deno.cwd(),
-): Promise<void> {
+/** Where a path sits relative to the main-checkout / linked-worktree boundary. */
+type BoundarySide =
+  /** Outside any git repository. */
+  | "no-repo"
+  /** In a repository whose shared git directory cannot be identified. */
+  | "unresolvable"
+  | WorktreeSide;
+
+/** Classify `cwd` against the boundary — the ONE definition every side probe
+ * and side assertion reads, so the two can never disagree on where a path is. */
+async function classifyBoundarySide(cwd: string): Promise<BoundarySide> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   if (absoluteGitDir === undefined) {
+    return "no-repo";
+  }
+  if (commonGitDir === undefined) {
+    return "unresolvable";
+  }
+  return absoluteGitDir === commonGitDir ? "main" : "worktree";
+}
+
+/** Whether `cwd` is inside a *linked* worktree (not the main checkout, not
+ * outside a repo). The silent probe for callers that skip rather than refuse. */
+export async function inLinkedWorktree(cwd: string): Promise<boolean> {
+  return (await classifyBoundarySide(cwd)) === "worktree";
+}
+
+/**
+ * Refuse unless `cwd` is on the side {@link SIDE_RESTRICTED_OPS} declares for
+ * `op`. Returns silently on the right side; throws `WorktreeGitError`
+ * otherwise. Taking a registry key — never a free label — is the enrolment
+ * forcing function: an operation cannot acquire a side restriction without
+ * declaring itself in the registry, where the derived wrong-side refusal test
+ * picks it up.
+ */
+export async function assertOpSide(
+  op: SideRestrictedOpName,
+  cwd: string = Deno.cwd(),
+): Promise<void> {
+  const { side, label } = SIDE_RESTRICTED_OPS[op];
+  const where = await classifyBoundarySide(cwd);
+  if (where === "no-repo") {
     throw new WorktreeGitError(
       `${label} needs a Git repository, but this directory is outside one. Move ` +
         `into the project checkout, or run \`git init\` here first, then re-run.`,
     );
   }
-  if (commonGitDir === undefined) {
+  if (where === "unresolvable") {
     throw new WorktreeGitError(
       `${label} could not identify this repository's shared Git directory. Run ` +
         `\`git worktree repair\`, then re-run.`,
     );
   }
-  if (absoluteGitDir === commonGitDir) {
+  if (side === "worktree" && where === "main") {
     throw new WorktreeGitError(
       `${label} runs only inside a worktree — a separate checkout and branch for ` +
         `one change — not the main checkout. Run \`discern start\` from the main ` +
         `checkout, move into the path it prints, then re-run.`,
     );
   }
-}
-
-/**
- * Refuse when the cwd is inside a *linked* worktree (main-checkout-only guard).
- * Returns silently from the main checkout; throws otherwise. Mirrors
- * `assert-not-in-worktree`.
- */
-export async function assertNotInWorktree(
-  label = "this script",
-  cwd: string = Deno.cwd(),
-): Promise<void> {
-  const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
-  if (absoluteGitDir === undefined) {
-    throw new WorktreeGitError(
-      `${label} needs a Git repository, but this directory is outside one. Move ` +
-        `into the project checkout, or run \`git init\` here first, then re-run.`,
-    );
-  }
-  if (commonGitDir === undefined) {
-    throw new WorktreeGitError(
-      `${label} could not identify this repository's shared Git directory. Run ` +
-        `\`git worktree repair\`, then re-run.`,
-    );
-  }
-  if (absoluteGitDir !== commonGitDir) {
+  if (side === "main" && where === "worktree") {
     throw new WorktreeGitError(
       `${label} runs only from the main checkout, not a worktree. Move to the ` +
         `first path shown by \`git worktree list\`, then re-run.`,

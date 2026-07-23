@@ -23,6 +23,11 @@ import {
   writeDiscernToml,
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import type { assertOpSide } from "../src/engine/worktree/git.ts";
+import {
+  cliRefusalCases,
+  SIDE_RESTRICTED_OPS,
+} from "../src/engine/worktree/side_restrictions.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -776,38 +781,65 @@ Deno.test("accept: refuses from the main checkout (worktree-only, the CLI mirror
   });
 });
 
-Deno.test("every worktree-lifecycle verb maps a wrong-side refusal to error:precondition_failed", async () => {
-  // accept/update are worktree-only; start is main-only. A wrong-side run is a
-  // refused precondition, and the --json envelope must carry the machine slug an
-  // agent branches on — not just human text any message could satisfy. Pinned as one
-  // set so a new lifecycle verb's refusal can't silently degrade to a bare exit-1
-  // (start already asserted the slug; the update/accept CLI paths did not).
-  const REFUSALS = [
-    // accept is consent-gated (ADR 0134): pass --confirmed so the WRONG-SIDE
-    // precondition refusal is what fires, not the awaiting_consent gate.
-    { verb: "accept", side: "main" as const, extra: ["--confirmed"] },
-    { verb: "update", side: "main" as const, extra: [] as string[] },
-    { verb: "start", side: "worktree" as const, extra: [] as string[] },
-  ];
-  for (const { verb, side, extra } of REFUSALS) {
-    await withTempDir(async (dir) => {
-      const wt = await mainWithWorktree(dir, `refuse-${verb}`);
-      const r = await runAgent(side === "main" ? dir : wt, [
-        verb,
-        ...extra,
-        "--json",
-      ]);
-      assertEquals(r.code, 1, `${verb} from ${side}: ${r.output}`);
+Deno.test("every CLI-reachable side-restricted op maps a wrong-side refusal to error:precondition_failed", async () => {
+  // A wrong-side run is a refused precondition, and the --json envelope must
+  // carry the machine slug an agent branches on — not just human text any
+  // message could satisfy. The cases DERIVE from SIDE_RESTRICTED_OPS — the same
+  // registry assertOpSide enforces — so a new side-restricted lifecycle op with
+  // a CLI surface enrols here without a test edit, and can't silently degrade
+  // to a bare exit-1. Every refusal fires read-only before the op acts, so one
+  // shared main+worktree fixture serves all of them.
+  const cases = cliRefusalCases(SIDE_RESTRICTED_OPS);
+  assert(cases.length >= 7, "the registry lost its CLI-reachable members");
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "refusals");
+    for (const c of cases) {
+      // The wrong side: a worktree-only op runs from the main checkout; a
+      // main-only op runs from inside the worktree.
+      const from = c.side === "worktree" ? dir : wt;
+      const r = await runAgent(from, [...c.argv, "--json"]);
+      assertEquals(r.code, 1, `${c.op} from the wrong side: ${r.output}`);
       const result = JSON.parse(r.stdout);
-      assertEquals(result.ok, false, `${verb} from ${side}`);
-      assertEquals(result.verb, verb, `${verb} from ${side}`);
+      assertEquals(result.ok, false, c.op);
+      assertEquals(result.verb, c.verb, c.op);
       assertEquals(
         result.error,
         "precondition_failed",
-        `${verb} refused from the ${side} side must map to precondition_failed`,
+        `${c.op} refused from the wrong side must map to precondition_failed`,
       );
-    });
-  }
+    }
+  });
+});
+
+Deno.test("a fresh-named side-restricted op auto-enrols in the derived refusal cases", () => {
+  // The adversarial future sibling: an op sharing no name with today's members,
+  // declared the only way assertOpSide permits (a registry entry), must surface
+  // in the derived CLI cases untouched — and an internal-only entry must not.
+  const cases = cliRefusalCases({
+    "compact-ledger": {
+      side: "main",
+      label: "discern compact-ledger",
+      cli: { argv: ["compact-ledger"], verb: "compact-ledger" },
+    },
+    "internal-only-op": { side: "worktree", label: "internal op", cli: null },
+  });
+  assertEquals(cases, [{
+    op: "compact-ledger",
+    side: "main",
+    argv: ["compact-ledger"],
+    verb: "compact-ledger",
+  }]);
+});
+
+Deno.test("the side assert accepts only registry keys (compile-level enrolment)", () => {
+  // The proof is the directive itself: assertOpSide's op parameter is the
+  // registry key union, so a fresh-named op cannot reach the side assert
+  // without joining SIDE_RESTRICTED_OPS — where the derived test above picks it
+  // up. If the expected error ever vanishes (the parameter widened to string),
+  // `deno check` fails this file: the forcing function was removed.
+  // @ts-expect-error — a fresh-named op is not a registry key
+  const rejected: Parameters<typeof assertOpSide>[0] = "compact-ledger";
+  void rejected;
 });
 
 Deno.test("update: no-op when the branch already contains main", async () => {
