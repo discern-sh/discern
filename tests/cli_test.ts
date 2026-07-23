@@ -9,6 +9,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 
 /** True when a path exists on disk. */
 async function pathExists(path: string): Promise<boolean> {
@@ -268,9 +269,12 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
   });
 });
 
-// B33 — the class: a help/informational path must render FULLY and exit 0 on bad
-// project state (a broken, missing, or schema-invalid discern.toml) — help is
-// exactly when a user most needs it to keep working.
+// B33 — the class: EVERY help/informational path must render FULLY and exit 0
+// on bad project state (a broken, missing, or schema-invalid discern.toml) —
+// help is exactly when a user most needs it to keep working. Two sweeps below:
+// the root --help/-h render in full detail, then every other informational
+// member — each built-in verb's --help (driven off KNOWN_VERBS, so a new verb
+// auto-enrols), --version, licenses, and the help verb.
 const BAD_PROJECT_STATES: ReadonlyArray<{ name: string; toml: string | null }> =
   [
     { name: "missing discern.toml", toml: null },
@@ -324,4 +328,67 @@ for (const state of BAD_PROJECT_STATES) {
       });
     });
   }
+}
+
+/** One informational path: its argv and the markers a full render carries. */
+interface InformationalPath {
+  label: string;
+  args: string[];
+  markers: string[];
+}
+
+/** Every informational path beyond the root --help/-h: the member axis is
+ * KNOWN_VERBS (the routing SSOT), so a new verb enrols without a test edit. */
+function informationalPaths(): InformationalPath[] {
+  return [
+    { label: "--version", args: ["--version"], markers: [KIT_VERSION] },
+    {
+      label: "licenses",
+      args: ["licenses"],
+      markers: ["Third-Party Software Notices"],
+    },
+    { label: "help", args: ["help"], markers: ["discern help"] },
+    ...[...KNOWN_VERBS].sort().map((verb) => ({
+      label: `${verb} --help`,
+      args: [verb, "--help"],
+      markers: ["Usage:", verb, "--help"],
+    })),
+  ];
+}
+
+for (const state of BAD_PROJECT_STATES) {
+  Deno.test(`every informational path renders and exits 0 with a ${state.name}`, async () => {
+    await withTempDir(async (dir) => {
+      if (state.toml !== null) {
+        await Deno.writeTextFile(join(dir, "discern.toml"), state.toml);
+      }
+      const queue = informationalPaths();
+      const failures: string[] = [];
+      const drain = async (): Promise<void> => {
+        for (let m = queue.shift(); m !== undefined; m = queue.shift()) {
+          const r = await runCli(m.args, dir);
+          const out = r.stdout + r.stderr;
+          if (r.code !== 0) {
+            failures.push(`${m.label}: exit ${r.code}\n${out}`);
+          } else if (out.includes("Uncaught")) {
+            failures.push(`${m.label}: dumped a stack trace:\n${out}`);
+          } else {
+            for (const marker of m.markers) {
+              if (!out.includes(marker)) {
+                failures.push(`${m.label}: rendered without "${marker}"`);
+              }
+            }
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: 8 }, drain));
+      assertEquals(
+        failures,
+        [],
+        `informational paths must survive a ${state.name}:\n${
+          failures.join("\n")
+        }`,
+      );
+    });
+  });
 }
