@@ -381,7 +381,9 @@ for (const state of BAD_PROJECT_STATES) {
           }
         }
       };
-      await Promise.all(Array.from({ length: 8 }, drain));
+      // A narrow pool: the full suite runs many files in parallel, and a wide
+      // subprocess fan-out here starves its timing-sensitive neighbours.
+      await Promise.all(Array.from({ length: 3 }, drain));
       assertEquals(
         failures,
         [],
