@@ -85,40 +85,78 @@ export interface FencedCommand {
   command: string;
 }
 
+/** One fenced code block, as the renderer sees it. */
+export interface FencedBlock {
+  /** The info string after the opening marker, trimmed (empty when absent). */
+  info: string;
+  /** 1-based source line of the block's FIRST body line. */
+  startLine: number;
+  /** The body lines, verbatim — the fence markers themselves excluded. */
+  lines: string[];
+}
+
+/**
+ * Every fenced code block in a doc (the fence grammar mirrors the renderer's:
+ * a ``` or ~~~ opener, closed by a matching marker; an unclosed fence runs to
+ * the end of the document).
+ */
+export function fencedBlocks(md: string): FencedBlock[] {
+  const out: FencedBlock[] = [];
+  const lines = md.split("\n");
+  let fence: string | undefined;
+  let block: FencedBlock | undefined;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    const open = line.match(/^\s*(```|~~~)/)?.[1];
+    if (fence === undefined || block === undefined) {
+      if (open !== undefined) {
+        fence = open;
+        block = {
+          info: line.trim().slice(open.length).trim(),
+          startLine: i + 2,
+          lines: [],
+        };
+      }
+      continue;
+    }
+    if (open !== undefined && line.trim().startsWith(fence)) {
+      out.push(block);
+      fence = undefined;
+      block = undefined;
+      continue;
+    }
+    block.lines.push(line);
+  }
+  if (block !== undefined) out.push(block);
+  return out;
+}
+
 /** A line inside a fenced block that IS a `discern` invocation (an optional
  * `$ ` prompt, then the word). Output transcripts quoting discern mid-line
  * don't match. */
 const COMMAND_LINE = /^\s*(?:\$\s+)?(discern(?:\s.*)?)$/;
 
 /**
- * Every fenced `discern …` command in a doc, fence-aware (the fence grammar
- * mirrors the renderer's) and `\`-continuation-aware. Anything else in a block
+ * Every fenced `discern …` command in a doc, fence-aware (via
+ * {@link fencedBlocks}) and `\`-continuation-aware. Anything else in a block
  * — output lines, other tools — is left alone.
  */
 export function extractFencedCommands(md: string): FencedCommand[] {
   const out: FencedCommand[] = [];
-  const lines = md.split("\n");
-  let fence: string | undefined;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    const open = line.match(/^\s*(```|~~~)/)?.[1];
-    if (fence === undefined) {
-      fence = open;
-      continue;
+  for (const block of fencedBlocks(md)) {
+    for (let i = 0; i < block.lines.length; i += 1) {
+      const command = (block.lines[i] ?? "").match(COMMAND_LINE)?.[1];
+      if (command === undefined) continue;
+      const startLine = block.startLine + i;
+      let joined = command;
+      while (joined.endsWith("\\") && i + 1 < block.lines.length) {
+        i += 1;
+        joined = `${joined.slice(0, -1).trimEnd()} ${
+          (block.lines[i] ?? "").trim()
+        }`;
+      }
+      out.push({ line: startLine, command: joined.trim() });
     }
-    if (open !== undefined && line.trim().startsWith(fence)) {
-      fence = undefined;
-      continue;
-    }
-    const command = line.match(COMMAND_LINE)?.[1];
-    if (command === undefined) continue;
-    const startLine = i + 1;
-    let joined = command;
-    while (joined.endsWith("\\") && i + 1 < lines.length) {
-      i += 1;
-      joined = `${joined.slice(0, -1).trimEnd()} ${(lines[i] ?? "").trim()}`;
-    }
-    out.push({ line: startLine, command: joined.trim() });
   }
   return out;
 }
