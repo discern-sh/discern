@@ -101,7 +101,9 @@
       "project/TODO.md",
       "project/guidance.md",
       "project/map/**",
+      "project/skills/",
       "schema/discern-config.schema.json",
+      "templates/skills/",
       "tests/fixtures/"
     ]
   },
