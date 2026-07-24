@@ -1106,21 +1106,28 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // The structured receipt: git facts + the rendered markdown, one derivation.
+    // The structured receipt: git facts + the two renderings, one derivation.
     const receipt = obj.data.receipt;
     assert(receipt !== undefined, `expected data.receipt: ${r.stdout}`);
     assertEquals(receipt.branch, "agent/alpha");
     assertEquals(receipt.trunk, "main");
-    assertEquals(receipt.commits_total, 1);
-    assertEquals(receipt.commits[0].subject, "Add the feature");
     assertEquals(receipt.files_total, 1);
-    assertEquals(receipt.files[0].path, "feature.txt");
+    const shortHead = (await gitOut(wt, "rev-parse", "--short=12", "HEAD"))
+      .trim();
+    assertEquals(receipt.head, shortHead);
+    assertStringIncludes(
+      receipt.line,
+      `Receipt: gate passed on agent/alpha @ ${shortHead} · 1 file `,
+    );
+    assertStringIncludes(
+      receipt.line,
+      "full receipt: discern status --verbose",
+    );
     assertStringIncludes(receipt.markdown, "### Receipt — `agent/alpha`");
     assertStringIncludes(
       receipt.markdown,
       "| test | `echo receipt-gate-ok` | ok",
     );
-    assertStringIncludes(receipt.markdown, "- `feature.txt`");
     assertStringIncludes(
       receipt.markdown,
       "Inspect: `git diff main...agent/alpha`",
@@ -1131,15 +1138,16 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     assertHasHint(obj, HINTS["gate-prove-it-works"]);
     assertHasHint(obj, HINTS["gate-relay-receipt"]);
 
-    // The marker stores the markdown beside the sha it vouches for, so status and
-    // accept can surface the receipt without re-running the gate.
+    // The marker stores the line and the page beside the sha it vouches for, so
+    // status and accept can surface the receipt without re-running the gate.
     assertEquals(obj.data.gate_receipt.status, "recorded");
     const marker = await Deno.readTextFile(obj.data.gate_receipt.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
-      marker.startsWith(`${head}\n\n### Receipt`),
-      `marker must carry sha + markdown: ${marker.slice(0, 80)}`,
+      marker.startsWith(`${head}\nline: Receipt: `),
+      `marker must carry sha + line: ${marker.slice(0, 80)}`,
     );
+    assertStringIncludes(marker, "\n\n### Receipt");
 
     // Deterministic: the same tree and result render the same receipt (durations
     // excepted).

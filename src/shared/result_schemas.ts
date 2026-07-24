@@ -197,9 +197,8 @@ function datalessResultOutputSchema(
 
 // ── per-verb `data` schemas (the source; the core's `data` type infers from it) ──
 
-/** One commit on a branch (short `sha` + `subject`) — the identity shape shared by
- * the receipt's commit list and `update`'s landed-commit list (ADR 0064), so the
- * two can never disagree on how a commit is reported. */
+/** One commit on a branch (short `sha` + `subject`) — the identity shape of
+ * `update`'s landed-commit list (ADR 0064). */
 const branchCommitSchema = z.strictObject({
   sha: z.string(),
   subject: z.string(),
@@ -208,7 +207,7 @@ const branchCommitSchema = z.strictObject({
 /** One changed file with its line counts. `added`/`removed` are null for a binary
  * file; `status` is git's single-letter code (`A`/`M`/`D`/`T`); renames are
  * decomposed to a delete + add (via `--no-renames`) so every entry is one matchable
- * path. Shared by the receipt's diffstat and `update`'s file delta. */
+ * path. The shape of `update`'s file delta. */
 const changedFileSchema = z.strictObject({
   path: z.string(),
   status: z.string(),
@@ -217,23 +216,24 @@ const changedFileSchema = z.strictObject({
 });
 
 /**
- * The **receipt** — the compact, deterministic review summary a green gate emits
- * over a clean committed tree: the branch, its commits and diffstat vs the trunk
- * (each capped, with pre-cap totals; `insertions`/`deletions` count the whole
- * diff), and `markdown` — the rendered summary the agent relays verbatim to its
- * owner at the review moment. Derived ONCE from the result envelope: `markdown`
- * is a rendering of these fields plus the envelope's `steps[]` (what ran, with
- * command and duration), never a second computation.
+ * The **receipt** — the deterministic review claim a green gate emits over a
+ * clean committed tree, in two renderings from one set of facts (ADR 0184): the
+ * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
+ * vs the trunk; `line` — the one sentence an agent closes its report with; and
+ * `markdown` — the review page the owner pulls from discern. Derived ONCE from
+ * the result envelope: both renderings are a function of these fields plus the
+ * envelope's `steps[]` (what ran, with command and duration), never a second
+ * computation. Commit and per-file lists are git's to report (`git diff
+ * <trunk>...<branch>`), so they are not mirrored here.
  */
 export const ReceiptSchema = z.strictObject({
   branch: z.string(),
   trunk: z.string(),
-  commits: z.array(branchCommitSchema),
-  commits_total: z.number(),
-  files: z.array(changedFileSchema),
+  head: z.string(),
   files_total: z.number(),
   insertions: z.number(),
   deletions: z.number(),
+  line: z.string(),
   markdown: z.string(),
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
@@ -336,10 +336,11 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
-/** How the current worktree's recorded receipt stands against HEAD. `receipt` is
- * the stored receipt markdown, present only when the record is honored (it names
- * exactly the current clean HEAD) — the artifact an agent relays at the review
- * moment without re-running the gate. */
+/** How the current worktree's recorded receipt stands against HEAD. Present only
+ * when the record is honored (it names exactly the current clean HEAD):
+ * `receipt` is the stored receipt page, and `receipt_line` the stored one-line
+ * form — the only receipt content an agent puts in a message (ADR 0184). Both
+ * come from the marker, without re-running the gate. */
 export const GateReceiptCheckSchema = z.strictObject({
   status: z.enum([
     "honored",
@@ -354,6 +355,7 @@ export const GateReceiptCheckSchema = z.strictObject({
   head: z.string().optional(),
   reason: z.string().optional(),
   receipt: z.string().optional(),
+  receipt_line: z.string().optional(),
 });
 export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
 

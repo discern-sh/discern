@@ -704,6 +704,7 @@ async function runGate(
         failedStage === null,
         treePin,
         receipt?.markdown,
+        receipt?.line,
       );
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
   // receipt: its git facts were gathered AFTER the move, so its markdown describes a

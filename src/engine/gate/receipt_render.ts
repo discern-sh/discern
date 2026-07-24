@@ -1,15 +1,22 @@
 /**
- * The **receipt** (v1) — the compact review summary a green gate hands the human
- * at the review moment: the branch, what ran (each declared job with its
- * command, outcome, and duration), the diffstat vs the trunk, and the branch's
- * commit list, rendered as one screen of markdown an agent relays verbatim (and
- * that pastes cleanly into a PR body).
+ * The **receipt** (ADR 0114, relay contract amended by ADR 0184) — what a green
+ * gate hands the review moment, rendered in two forms from one set of facts:
  *
- * Single source of truth: the receipt derives from the {@link DiscernResult}
+ * - the **line** — one sentence (branch, validated sha, diffstat vs the trunk,
+ *   standards state, the command that prints the page). The only receipt content
+ *   an agent puts in a message; the sha lets the owner check the claim against
+ *   the marker instead of trusting the message.
+ * - the **page** (`markdown`) — the review summary the owner pulls from discern
+ *   (`done` at a terminal, `status --verbose`, `accept`'s landing record; always
+ *   in `--json`/MCP). Standards render before the job table so a deviation is
+ *   never below routine, and git's own facts (commits, per-file stats) stay with
+ *   git — `Inspect:` names the command.
+ *
+ * Single source of truth: both renderings derive from the {@link DiscernResult}
  * envelope — "what ran" is read from `steps[]`, never recomputed — plus git facts
  * gathered ONCE here and carried in the envelope's `data.receipt` beside the
- * rendered `markdown` ({@link ReceiptSchema}). Deterministic: same tree, same
- * result → same receipt (durations excepted).
+ * rendered `line` and `markdown` ({@link ReceiptSchema}). Deterministic: same
+ * tree, same result → same receipt (durations excepted).
  *
  * A receipt exists only for the state the review moment is about: a GREEN gate
  * over a CLEAN committed tree, on a branch ahead of the trunk. A dirty tree gets
@@ -28,13 +35,8 @@ import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./receipt.ts";
 import { fmtRate } from "./standards.ts";
 
-/** Commits listed in the receipt before "… and N more" (one-screen budget). */
-const RECEIPT_COMMIT_CAP = 10;
-/** Files listed in the receipt before "… and N more" (one-screen budget). */
-const RECEIPT_FILE_CAP = 10;
-
-/** The facts half of a {@link Receipt} — everything but the rendered markdown. */
-type ReceiptFacts = Omit<Receipt, "markdown">;
+/** The facts half of a {@link Receipt} — everything but the two renderings. */
+type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
 
 /** Escape a table-cell fragment so a `|` in a command can't break the row. */
 function cell(s: string): string {
@@ -44,14 +46,6 @@ function cell(s: string): string {
 /** A markdown code span that survives content containing backticks. */
 function code(s: string): string {
   return s.includes("`") ? `\`\` ${s} \`\`` : `\`${s}\``;
-}
-
-/** One file bullet: the path plus its `+`/`−` counts (binary files have none). */
-function fileLine(f: Receipt["files"][number]): string {
-  const counts = f.added === null || f.removed === null
-    ? "binary"
-    : `+${f.added} −${f.removed}`;
-  return `- ${code(f.path)} (${counts})`;
 }
 
 /** One "what ran" table row from an envelope step. */
@@ -88,10 +82,12 @@ function standardLine(o: GateStandard): string {
   return `- ${o.name} ${value}(${bound} ${o.limit}, ${standing})${how}`;
 }
 
-/** The receipt's standards section: the Tier-1 verification line — "limits
+/** The page's standards section: the Tier-1 verification line — "limits
  * verified against the trunk", or the LOUD unverified disclosure — then one
  * line per standard. Empty when no standards are configured (the section
- * earns its space only when there is something to vouch for). */
+ * earns its space only when there is something to vouch for). It renders BEFORE
+ * the job table: this is the only section that can carry a deviation, and a
+ * deviation must never sit below routine. */
 function standardsSection(
   standards: GateStandard[],
   limits: StandardsLimitsData | undefined,
@@ -122,8 +118,66 @@ function standardsSection(
   return lines;
 }
 
+/** The line's standards segment: `standards held` with improved/deferred counts
+ * appended, `standards deferred` when nothing was measured, the UNVERIFIED
+ * disclosure when the trunk's limits could not be checked — or `undefined` when
+ * no standards are configured (nothing to claim). A receipt only exists for a
+ * green gate, so a measured standard here held or improved by construction. */
+function lineStandardsSegment(
+  standards: GateStandard[],
+  limits: StandardsLimitsData | undefined,
+): string | undefined {
+  if (limits !== undefined && limits.status !== "verified") {
+    return "standards UNVERIFIED";
+  }
+  if (standards.length === 0) {
+    return undefined;
+  }
+  const deferred = standards.filter(
+    (o) => o.measurement === "deferred" || o.measurement === "skipped",
+  ).length;
+  if (deferred === standards.length) {
+    return `standards deferred (${deferred})`;
+  }
+  const improved = standards.filter((o) => o.verdict === "improved").length;
+  const counts = [
+    ...(improved > 0 ? [`${improved} improved`] : []),
+    ...(deferred > 0 ? [`${deferred} deferred`] : []),
+  ];
+  return counts.length > 0
+    ? `standards held, ${counts.join(", ")}`
+    : "standards held";
+}
+
+/** The diffstat fragment both renderings share: `2 files +42 −7`. */
+function diffstat(facts: ReceiptFacts): string {
+  const files = `${facts.files_total} file${
+    facts.files_total === 1 ? "" : "s"
+  }`;
+  return `${files} +${facts.insertions} −${facts.deletions}`;
+}
+
 /**
- * Render the receipt markdown from its envelope pieces: the gathered git `facts`
+ * Render the receipt line — the one sentence an agent closes its report with.
+ * Pure — exported so a test can pin the exact output for fixed inputs.
+ */
+export function renderReceiptLine(
+  facts: ReceiptFacts,
+  standards: GateStandard[] = [],
+  limits?: StandardsLimitsData,
+): string {
+  const standardsSegment = lineStandardsSegment(standards, limits);
+  const segments = [
+    `gate passed on ${facts.branch} @ ${facts.head}`,
+    `${diffstat(facts)} vs ${facts.trunk}`,
+    ...(standardsSegment !== undefined ? [standardsSegment] : []),
+    "full receipt: discern status --verbose",
+  ];
+  return `Receipt: ${segments.join(" · ")}`;
+}
+
+/**
+ * Render the receipt page from its envelope pieces: the gathered git `facts`
  * and the result's `steps[]`. Pure — exported so a test can pin the exact output
  * for fixed inputs (the diff-stability guarantee).
  */
@@ -136,12 +190,13 @@ export function renderReceiptMarkdown(
   const lines: string[] = [
     `### Receipt — ${code(facts.branch)}`,
     "",
-    `All gate checks passed on a clean tree · diff vs ${code(facts.trunk)}: ` +
-    `${facts.files_total} file${facts.files_total === 1 ? "" : "s"} ` +
-    `(+${facts.insertions} −${facts.deletions})`,
-    "",
+    `All gate checks passed on a clean tree at ${code(facts.head)} · ` +
+    `diff vs ${code(facts.trunk)}: ${diffstat(facts)}`,
   ];
 
+  lines.push(...standardsSection(standards, limits));
+
+  lines.push("");
   const jobSteps = steps.filter(
     (r) => r.step.kind === "job" || r.step.kind === "scope-gate",
   );
@@ -154,26 +209,6 @@ export function renderReceiptMarkdown(
     lines.push("(no job is wired — nothing ran)");
   }
 
-  lines.push(...standardsSection(standards, limits));
-
-  lines.push("", `Commits (${facts.commits_total}):`, "");
-  for (const c of facts.commits) {
-    lines.push(`- \`${c.sha}\` ${c.subject}`);
-  }
-  if (facts.commits_total > facts.commits.length) {
-    lines.push(`- … and ${facts.commits_total - facts.commits.length} more`);
-  }
-
-  if (facts.files.length > 0) {
-    lines.push("", `Files (${facts.files_total}):`, "");
-    for (const f of facts.files) {
-      lines.push(fileLine(f));
-    }
-    if (facts.files_total > facts.files.length) {
-      lines.push(`- … and ${facts.files_total - facts.files.length} more`);
-    }
-  }
-
   lines.push(
     "",
     `Inspect: ${code(`git diff ${facts.trunk}...${facts.branch}`)}`,
@@ -181,36 +216,21 @@ export function renderReceiptMarkdown(
   return lines.join("\n");
 }
 
-/** The branch's commits ahead of the trunk (`%h<TAB>%s`), capped, with the pre-cap
- * total. Fails open to a zero total (no trunk, no repo, unreadable log). */
-async function commitsAhead(
-  cwd: string,
-  trunk: string,
-): Promise<{ commits: Receipt["commits"]; total: number }> {
-  const r = await runGit(
-    ["log", "--pretty=format:%h%x09%s", `${trunk}..HEAD`],
-    { cwd },
-  );
-  if (!r.success) {
-    return { commits: [], total: 0 };
-  }
-  const lines = r.stdout.split("\n").filter((l) => l !== "");
-  const commits = lines.slice(0, RECEIPT_COMMIT_CAP).map((line) => {
-    const tab = line.indexOf("\t");
-    return {
-      sha: tab >= 0 ? line.slice(0, tab) : line,
-      subject: tab >= 0 ? line.slice(tab + 1) : "",
-    };
-  });
-  return { commits, total: lines.length };
+/** The branch's commit count ahead of the trunk. Fails open to 0 (no trunk, no
+ * repo, unreadable log) — and 0 means "nothing to receipt". */
+async function commitsAheadCount(cwd: string, trunk: string): Promise<number> {
+  const r = await runGit(["rev-list", "--count", `${trunk}..HEAD`], { cwd });
+  const count = Number(r.stdout.trim());
+  return r.success && Number.isFinite(count) ? count : 0;
 }
 
 /**
  * Build the receipt for a green gate run at `root`: gather the git facts vs
- * `trunk`, render the markdown from them plus the envelope's `steps`, and return
- * the complete {@link Receipt} — or `undefined` when there is nothing to receipt
- * (a dirty tree, detached HEAD, the trunk itself, an unreadable repo, or a branch
- * with no commits ahead). Best-effort: never throws, never fails the gate.
+ * `trunk`, render the line and the page from them plus the envelope's `steps`,
+ * and return the complete {@link Receipt} — or `undefined` when there is nothing
+ * to receipt (a dirty tree, detached HEAD, the trunk itself, an unreadable repo,
+ * or a branch with no commits ahead). Best-effort: never throws, never fails the
+ * gate.
  */
 export async function buildGateReceipt(
   root: string,
@@ -227,23 +247,31 @@ export async function buildGateReceipt(
   if (!branchRun.success || branch === "" || branch === trunk) {
     return undefined;
   }
-  const { commits, total } = await commitsAhead(root, trunk);
-  if (total === 0) {
+  // Abbreviated to a fixed width (not git's repo-scaled default) so the same
+  // history renders the same line in every clone, and so it matches the width
+  // `status` uses when it reports a stale marker.
+  const headRun = await runGit(["rev-parse", "--short=12", "HEAD"], {
+    cwd: root,
+  });
+  const head = headRun.stdout.trim();
+  if (!headRun.success || head === "") {
     return undefined;
   }
-  const delta = await diffFiles(root, `${trunk}...HEAD`, RECEIPT_FILE_CAP);
+  if ((await commitsAheadCount(root, trunk)) === 0) {
+    return undefined;
+  }
+  const delta = await diffFiles(root, `${trunk}...HEAD`, 0);
   const facts: ReceiptFacts = {
     branch,
     trunk,
-    commits,
-    commits_total: total,
-    files: delta.files,
+    head,
     files_total: delta.filesTotal,
     insertions: delta.insertions,
     deletions: delta.deletions,
   };
   return {
     ...facts,
+    line: renderReceiptLine(facts, standards, limits),
     markdown: renderReceiptMarkdown(facts, steps, standards, limits),
   };
 }

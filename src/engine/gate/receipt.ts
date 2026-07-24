@@ -10,9 +10,9 @@
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
  * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
- * tree the gate actually read; the rest is the rendered **receipt** markdown that
- * finish emitted for that tree — the review-moment summary `status` and `accept`
- * surface without re-running the gate.
+ * tree the gate actually read; the rest is the rendered **receipt** — the line and
+ * the page markdown finish emitted for that tree — the review-moment summary
+ * `status` and `accept` surface without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `update` creates), amend, or uncommitted
@@ -290,9 +290,9 @@ function receiptRecord(
  * receipt must vouch only for the exact tree the gate actually read:
  *
  * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
- *   vouch accept honors), plus `receiptMarkdown` when the run rendered a receipt,
- *   so `status` and `accept` can surface the review summary without re-running
- *   the gate.
+ *   vouch accept honors), plus `receiptMarkdown` and `receiptLine` when the run
+ *   rendered a receipt, so `status` and `accept` can surface the review summary
+ *   without re-running the gate.
  * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
  *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
  *   is left untouched (still truthful at its own sha).
@@ -314,6 +314,7 @@ export async function recordGateOutcome(
   passed: boolean,
   pin: ValidatedTreePin,
   receiptMarkdown?: string,
+  receiptLine?: string,
 ): Promise<GateReceiptRecordData> {
   const path = authorityPath(cwd, authority, "gateReceipt");
   if (path === undefined) {
@@ -361,9 +362,15 @@ export async function recordGateOutcome(
       });
     }
     try {
+      // Marker format: the sha, then (when the run rendered a receipt) an
+      // optional `line: ` component and the page markdown. A marker written
+      // without the line component (an older binary's) still parses.
+      const line = receiptLine === undefined || receiptLine === ""
+        ? ""
+        : `line: ${receiptLine}\n`;
       const body = receiptMarkdown === undefined || receiptMarkdown === ""
         ? `${pin.head}\n`
-        : `${pin.head}\n\n${receiptMarkdown.trim()}\n`;
+        : `${pin.head}\n${line}\n${receiptMarkdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
@@ -415,12 +422,23 @@ export async function inspectGateReceipt(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. The rest (when present): the receipt
-  // markdown finish stored alongside it. A pre-markdown marker (sha only) still
-  // parses — its markdown is simply empty.
+  // First line: the validated HEAD sha. Then, when present: a `line: ` component
+  // (the receipt line) and the receipt page markdown finish stored alongside it.
+  // Markers from older binaries (sha only, or sha + markdown with no line
+  // component) still parse — the absent pieces are simply empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
-  const markdown = newline < 0 ? "" : content.slice(newline).trim();
+  let rest = newline < 0 ? "" : content.slice(newline + 1);
+  let line = "";
+  if (rest.startsWith("line: ")) {
+    const eol = rest.indexOf("\n");
+    line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
+      "line: ".length,
+      eol,
+    )).trim();
+    rest = eol < 0 ? "" : rest.slice(eol + 1);
+  }
+  const markdown = rest.trim();
   if (recorded === "") {
     return { status: "missing", path, reason: "receipt file was empty" };
   }
@@ -445,6 +463,7 @@ export async function inspectGateReceipt(
     recorded,
     head,
     ...(markdown === "" ? {} : { receipt: markdown }),
+    ...(line === "" ? {} : { receipt_line: line }),
   };
 }
 
