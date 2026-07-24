@@ -178,6 +178,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0181 — An SSOT claim must anchor a declared canonical set](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md)
 - [0182 — Operator commands resolve `discern` to the running engine](0182-operator-commands-resolve-discern-to-the-running-engine.md)
 - [0183 — Agent task search uses an audience-specific ranker](0183-agent-task-search-uses-an-audience-specific-ranker.md)
+- [0186 — ADR number uniqueness is gate-enforced, with an in-flight collision scan](0186-adr-number-uniqueness-is-gate-enforced.md)
 
 <!-- END GENERATED: current ADR records -->
 
