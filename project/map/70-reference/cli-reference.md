@@ -118,10 +118,11 @@ Run finishing steps that may change files, then verify the gate — the project'
 
 Usage: `discern done [options]`
 
-| Option      | Description                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `--json`    | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics). |
-| `--dry-run` | Show the gate plan (the jobs and scope-gates that would run); touch nothing.  |
+| Option        | Description                                                                                                                                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`      | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                               |
+| `--dry-run`   | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                |
+| `--confirmed` | Attest that re-running the gate on the exact tree it last judged is deliberate — probing a flaky verdict, or re-measuring. Without it, an unchanged-tree rerun refuses read-only; a dry-run never needs it. |
 
 ### `discern test`
 

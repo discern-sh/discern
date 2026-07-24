@@ -203,6 +203,32 @@ Rendered example:
 Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
 ```
 
+## `done-unchanged-tree-green`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `done-rerun`
+- Emitting context: `done` is asked to re-run on the exact tree it last judged green, without `--confirmed`.
+
+Rendered example:
+
+```text
+Run `discern status` — this exact tree already passed `discern done`, and status shows the receipt's standing without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
+```
+
+## `done-unchanged-tree-red`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `done-rerun`
+- Emitting context: `done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.
+
+Rendered example:
+
+```text
+Fix the failure the last run reported, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Probing for a flaky verdict is the one reason to re-run unchanged: `discern done --confirmed` does that, and records the rerun as a deliberate probe.
+```
+
 ## `fleet-ownership`
 
 - Category: `guardrail`
