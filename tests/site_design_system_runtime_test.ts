@@ -22,7 +22,7 @@ import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderLanding } from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
-import { PROVIDERS } from "../src/lib/providers.ts";
+import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 // @ts-types="@types/jsdom"
@@ -99,6 +99,15 @@ async function walk(directory: string): Promise<string[]> {
 
 function bundleRoot(name: DesignSystemBundleName): string {
   return join(ROOT, "site", DESIGN_SYSTEM_BUNDLES[name].output);
+}
+
+function cssRuleBody(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  assert(start >= 0, `missing CSS rule for ${selector}`);
+  const bodyStart = css.indexOf("{", start) + 1;
+  const end = css.indexOf("}", bodyStart);
+  assert(end > bodyStart, `unterminated CSS rule for ${selector}`);
+  return css.slice(bodyStart, end);
 }
 
 async function bundleManifest(
@@ -444,6 +453,16 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     AGENT_NAMES.map(() => "landing-provider-logo"),
   );
   assertEquals(
+    integrationItems.map((item) =>
+      item.querySelector(".landing-provider-logo-frame")?.getAttribute("style")
+    ),
+    AGENT_NAMES.map((name) =>
+      `--landing-provider-logo-mask:url("${
+        providerBrandSilhouette(PROVIDERS[name].brand).path
+      }")`
+    ),
+  );
+  assertEquals(
     body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
     `${AGENT_NAMES.length} native coding agent integrations`,
   );
@@ -488,6 +507,29 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
+  assertStringIncludes(
+    cssRuleBody(
+      landingCss,
+      'html[data-discern-theme="dark"] .landing-provider-logo-frame',
+    ),
+    "background: transparent;",
+  );
+  const darkSilhouetteRule = cssRuleBody(
+    landingCss,
+    'html[data-discern-theme="dark"] .landing-provider-logo-frame::before',
+  );
+  assertStringIncludes(darkSilhouetteRule, "background: currentColor;");
+  assertStringIncludes(
+    darkSilhouetteRule,
+    "mask: var(--landing-provider-logo-mask)",
+  );
+  assertStringIncludes(
+    cssRuleBody(
+      landingCss,
+      'html[data-discern-theme="dark"] .landing-provider-logo',
+    ),
+    "opacity: 0;",
+  );
   assertEquals(landingCss.includes(".landing-benefit"), false);
   assertEquals(landingCss.includes(".landing-footprint"), false);
   assertEquals(landingCss.includes(".landing-provider-logo--"), false);
