@@ -109,7 +109,7 @@
   text-wrap: pretty;
 }
 
-/* Vendor marks stay on the light field their source assets expect. */
+/* Source artwork stays on its expected light field. Dark mode uses silhouettes. */
 .landing-provider-logo-frame {
   position: relative;
   inset-block-start: -3px;
@@ -129,6 +129,23 @@
   block-size: 100%;
   padding: 0.125rem;
   object-fit: contain;
+}
+
+html[data-discern-theme="dark"] .landing-provider-logo-frame {
+  background: transparent;
+}
+
+html[data-discern-theme="dark"] .landing-provider-logo-frame::before {
+  position: absolute;
+  inset: 0.125rem;
+  background: currentColor;
+  content: "";
+  -webkit-mask: var(--landing-provider-logo-mask) center / contain no-repeat;
+  mask: var(--landing-provider-logo-mask) center / contain no-repeat;
+}
+
+html[data-discern-theme="dark"] .landing-provider-logo {
+  opacity: 0;
 }
 
 @media (max-width: 880px) {

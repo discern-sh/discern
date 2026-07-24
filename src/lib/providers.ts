@@ -368,7 +368,7 @@ export interface ProviderBrandAsset {
   readonly upstream: string;
 }
 
-/** The two logo forms the site can use for one integrated agent provider. */
+/** The logo forms the site can use for one integrated agent provider. */
 export interface ProviderBrand {
   /** The vendor's human-readable brand or press page. */
   readonly sourceUrl: `https://${string}`;
@@ -376,10 +376,23 @@ export interface ProviderBrand {
   readonly assetSourceUrl: `https://${string}`;
   /** A compact, approximately square product or vendor mark. */
   readonly mark: ProviderBrandAsset;
+  /**
+   * A backgroundless alpha silhouette for one-color treatments. Use `mark`
+   * when the compact mark already has no painted canvas; otherwise declare a
+   * separate first-party SVG.
+   */
+  readonly silhouette: "mark" | ProviderBrandAsset;
   /** A horizontal product or vendor lockup with its wordmark. */
   readonly wordmark: ProviderBrandAsset;
   /** Provenance detail for a vendor that publishes no product-specific pair. */
   readonly note?: string;
+}
+
+/** Resolve the backgroundless asset used for one-color provider marks. */
+export function providerBrandSilhouette(
+  brand: ProviderBrand,
+): ProviderBrandAsset {
+  return brand.silhouette === "mark" ? brand.mark : brand.silhouette;
 }
 
 /** Everything provider-specific for one agent, in one typed record. The single
@@ -1088,6 +1101,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         upstream:
           "Anthropic media resources/Anthropic logos/Claude logos/4 Claude icon/SVG/ClaudeIcon-Square.svg",
       },
+      silhouette: {
+        path: "/assets/integrations/claude-code-silhouette.svg",
+        upstream:
+          "Anthropic media resources/Anthropic logos/Claude logos/4 Claude icon/SVG/ClaudeIcon-Square.svg (glyph layer)",
+      },
       wordmark: {
         path: "/assets/integrations/claude-code-wordmark.svg",
         upstream:
@@ -1156,6 +1174,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         path: "/assets/integrations/codex-mark.svg",
         upstream: "OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg",
       },
+      silhouette: "mark",
       wordmark: {
         path: "/assets/integrations/codex-wordmark.svg",
         upstream: "OpenAI-logos/SVGs/OAI_OpenAI_Wordmark_Black.svg",
@@ -1239,6 +1258,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         path: "/assets/integrations/gemini-mark.svg",
         upstream: "inline header SVG (mark layer)",
       },
+      silhouette: "mark",
       wordmark: {
         path: "/assets/integrations/gemini-wordmark.svg",
         upstream: "inline header SVG",
@@ -1311,6 +1331,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         path: "/assets/integrations/cursor-mark.svg",
         upstream: "General Logos/Cube/SVG/CUBE_2D_LIGHT.svg",
       },
+      silhouette: "mark",
       wordmark: {
         path: "/assets/integrations/cursor-wordmark.svg",
         upstream:
@@ -1387,6 +1408,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         path: "/assets/integrations/github-copilot-mark.svg",
         upstream: "GitHub Logos/SVG/Copilot_Icon_Black.svg",
       },
+      silhouette: "mark",
       wordmark: {
         path: "/assets/integrations/github-copilot-wordmark.svg",
         upstream: "GitHub Logos/SVG/GitHub_Copilot_Lockup_Black.svg",
