@@ -1204,6 +1204,19 @@ Rendered example:
 Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
 ```
 
+## `status-adr-number-collisions`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: Two or more in-flight branches claim the same ADR record number.
+
+Rendered example:
+
+```text
+Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
+```
+
 ## `status-branch-behind`
 
 - Category: `next-step`

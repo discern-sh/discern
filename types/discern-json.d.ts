@@ -2789,6 +2789,11 @@ export type DiscernStatusResult = {
       overlap: Array<string>;
       total: number;
     }>;
+    adr_collisions?: Array<{
+      number: string;
+      branches: Array<string>;
+      paths: Array<string>;
+    }>;
   } | {
     issues: Array<{
       path: string;

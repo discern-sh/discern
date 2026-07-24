@@ -9312,6 +9312,34 @@
                       "total"
                     ]
                   }
+                },
+                "adr_collisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "number": {
+                        "type": "string"
+                      },
+                      "branches": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "number",
+                      "branches",
+                      "paths"
+                    ]
+                  }
                 }
               },
               "required": [

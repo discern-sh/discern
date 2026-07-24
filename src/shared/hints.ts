@@ -644,6 +644,35 @@ export const HINTS = {
       } (paths in \`data.fleet_collisions\`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run \`discern update\` and re-read the shared paths.`,
   }),
 
+  /** In-flight ADR number collisions — number-keyed where the fleet-collision
+   * scan is path-keyed: the records are different files that merge cleanly, so
+   * this is the only warning before the gate refuses the landed duplicate. */
+  "status-adr-number-collisions": defineHint<{
+    total: number;
+    claims: readonly string[];
+  }>({
+    id: "status-adr-number-collisions",
+    category: "notice",
+    audience: "all",
+    when: "Two or more in-flight branches claim the same ADR record number.",
+    example: {
+      total: 2,
+      claims: [
+        "0007 (agent/one ↔ agent/two)",
+        "0008 (agent/one ↔ agent/three)",
+      ],
+    },
+    template: ({ total, claims }): string =>
+      `Expect a renumber: ${total} ADR number${
+        total === 1 ? " is" : "s are"
+      } claimed by more than one in-flight branch: ${
+        boundedNameSummary(total, claims)
+      } (records in \`data.adr_collisions\`). The records are different files ` +
+      `that merge cleanly, so nothing collides until both sit in one tree and ` +
+      `the gate refuses the duplicate — whoever lands second takes the next ` +
+      `free number.`,
+  }),
+
   /** One bounded summary for every fleet member whose git state is unreadable. */
   "status-fleet-member-unreadable": defineHint<{
     total: number;
