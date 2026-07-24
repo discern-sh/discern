@@ -1,4 +1,8 @@
 import { createFromBuffer, type Formatter } from "@dprint/formatter";
+import {
+  frontmatterParseIssue,
+  readFrontmatterBlock,
+} from "./frontmatter.ts";
 
 /** Pinned embedded plugin versions. An upgrade changes discern's convention. */
 export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
@@ -17,6 +21,18 @@ export const MARKDOWN_CONFIG = {
 } as const;
 
 export const TOML_CONFIG = {} as const;
+
+/** A Markdown formatter refusal: the file's frontmatter does not parse, or
+ * formatting would have altered the block. */
+export class MarkdownFormatError extends Error {
+  constructor(
+    readonly filePath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "MarkdownFormatError";
+  }
+}
 
 /** A TOML formatter refusal, distinct from filesystem and migration failures. */
 export class TomlFormatError extends Error {
@@ -69,18 +85,31 @@ async function toml(): Promise<Formatter> {
 }
 
 /**
- * Format Markdown without formatting the contents of fenced code blocks.
+ * Format Markdown without formatting the contents of fenced code blocks, and
+ * without ever rewriting YAML frontmatter.
  *
  * The Markdown plugin can recursively format a fence whose info string names a
  * language it understands. `discern tidy` deliberately owns Markdown structure
  * only, so each fence receives a collision-proof, per-call ignore directive. The
  * directive is removed after formatting; the fenced block stays byte-for-byte
  * unchanged.
+ *
+ * A leading frontmatter block is under the same contract, both directions: a
+ * block that does not parse as a YAML mapping refuses the whole file (a
+ * formatter that "recovers" broken YAML restructures it into differently
+ * broken YAML), and a block that does parse must come out of the plugin with
+ * its content unchanged — {@link assertFrontmatterPreserved} turns a plugin
+ * that starts rewriting frontmatter into a refusal instead of a rewrite. Line
+ * endings follow the plugin's document-wide LF convention.
  */
 export async function formatMarkdownText(
   filePath: string,
   fileText: string,
 ): Promise<string> {
+  const refusal = frontmatterParseIssue(fileText);
+  if (refusal !== undefined) {
+    throw new MarkdownFormatError(filePath, refusal);
+  }
   const protectedCode = protectFencedCode(fileText);
   const formatted = (await markdown()).formatText({
     filePath,
@@ -97,7 +126,29 @@ export async function formatMarkdownText(
       output.push(...preserved.lines);
     }
   }
-  return output.join("\n");
+  const result = output.join("\n");
+  assertFrontmatterPreserved(filePath, fileText, result);
+  return result;
+}
+
+/**
+ * The write-side half of the frontmatter contract: formatting may never change
+ * what the leading block says. Compares the blocks' verbatim interior — the
+ * shared reader already accepts both line-ending conventions — so a formatter
+ * that re-indents, drops, or invents a block is refused before any write.
+ */
+export function assertFrontmatterPreserved(
+  filePath: string,
+  before: string,
+  after: string,
+): void {
+  if (readFrontmatterBlock(before)?.raw !== readFrontmatterBlock(after)?.raw) {
+    throw new MarkdownFormatError(
+      filePath,
+      "the embedded Markdown formatter would have altered the frontmatter " +
+        "block; discern preserves frontmatter as written",
+    );
+  }
 }
 
 interface ProtectedFencedCode {
