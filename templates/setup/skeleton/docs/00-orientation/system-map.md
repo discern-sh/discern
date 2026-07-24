@@ -10,7 +10,7 @@ Bird's-eye view of how {{project_name}} fits together. Read this once and the re
 
 <!-- setup fills this -->
 
-Replace the sketch below with an ASCII diagram of the real components and the flow between them. Show the major pieces as boxes and the direction data or control moves as arrows. Keep it to one screen; depth belongs in the subsystem leaves.
+Replace the sketch below with an ASCII diagram of the real components and the flow between them. Show the major pieces as boxes and the direction data or control moves as arrows. Keep every border and arrow column-aligned: `discern tidy` checks the geometry and names any glyph out of place. Keep it to one screen; depth belongs in the subsystem leaves.
 
 ```
 ┌─────────────┐      ┌─────────────┐      ┌─────────────┐

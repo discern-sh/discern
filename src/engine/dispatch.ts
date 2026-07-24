@@ -467,7 +467,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both.",
+      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both.",
     )
     .option(
       "--json",
