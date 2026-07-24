@@ -9,8 +9,8 @@
  * literal-rerun case where the verdict is already known.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import { isAbsolute, join } from "@std/path";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -24,6 +24,7 @@ import {
 } from "./engine_helpers.ts";
 import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/receipt.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
@@ -188,10 +189,8 @@ Deno.test("done: the last-run marker lives in the worktree's git admin dir and a
     const wt = await worktreeWithWork(dir, GREEN_CONFIG);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
 
-    const rawPath =
-      (await gitOut(wt, "rev-parse", "--git-path", "discern/last-gate-run"))
-        .trim();
-    const markerPath = isAbsolute(rawPath) ? rawPath : join(wt, rawPath);
+    const markerPath = await gitAdminStatePath(wt, "lastGateRun");
+    assert(markerPath !== undefined, "the marker path must resolve");
     const marker = JSON.parse(await Deno.readTextFile(markerPath));
     assertEquals(marker.passed, true);
     assertEquals(marker.head, (await gitOut(wt, "rev-parse", "HEAD")).trim());

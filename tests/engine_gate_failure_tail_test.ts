@@ -43,7 +43,10 @@ async function assertActionableFailureTail(
   assert(repros.length > 0, `${verb}: fixture must produce a diagnostic`);
 
   // The real time-interleaved stream an agent captures with `<verb> 2>&1 | …`.
-  const r = await runAgentMerged(dir, argv);
+  // For `done` the tree is unchanged since the --json run above, so the
+  // output-parity rerun carries the attestation the rerun precondition requires.
+  const humanArgv = argv[0] === "done" ? [...argv, "--confirmed"] : argv;
+  const r = await runAgentMerged(dir, humanArgv);
   assertEquals(r.code, 1, r.output);
   const lines = r.stdout.split("\n").filter((l) => l.trim() !== "");
 
