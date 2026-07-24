@@ -1332,6 +1332,18 @@ export const HINTS = {
       "Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Agent runtimes cannot read invalid frontmatter.",
   }),
 
+  /** Two ADR records claim the same number. */
+  "gate-failure-adr-numbers": defineHint({
+    id: "gate-failure-adr-numbers",
+    category: "next-step",
+    audience: "all",
+    when: "Two or more ADR records in the tree claim the same number.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.",
+  }),
+
   /** The worktree branch does not contain the current trunk. */
   "gate-failure-merge": defineHint({
     id: "gate-failure-merge",
@@ -2159,6 +2171,7 @@ export const GATE_FAILURE_REMEDIES = {
   guidance: HINTS["gate-failure-guidance"],
   skills: HINTS["gate-failure-skills"],
   skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
+  adr_numbers: HINTS["gate-failure-adr-numbers"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
   write_access: HINTS["gate-failure-write-access"],

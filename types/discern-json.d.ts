@@ -1535,6 +1535,7 @@ export type DiscernDoneResult = {
       | "guidance"
       | "skills"
       | "skill_frontmatter"
+      | "adr_numbers"
       | "merge"
       | "standards"
       | "write_access"
