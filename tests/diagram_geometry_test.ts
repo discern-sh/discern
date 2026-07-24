@@ -22,7 +22,7 @@ import { join } from "@std/path";
 import {
   type DiagramViolation,
   scanMarkdownDiagrams,
-} from "./diagram_geometry.ts";
+} from "../src/lib/diagram_geometry.ts";
 import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
 
 function fenced(...lines: string[]): string {
@@ -109,6 +109,18 @@ Deno.test("adversarial future sibling: unrelated names and another glyph family 
     "╰─────────╯",
   ));
   assertEquals(at(rounded), ["3:12 │", "4:11 ╯"]);
+});
+
+Deno.test("a fence tagged freeform is exempt; the same art untagged is not", () => {
+  const art = ["╔══════╗", "║ art     ║", "╚══════╝"];
+  assertEquals(
+    scanMarkdownDiagrams(["```freeform", ...art, "```", ""].join("\n")),
+    [],
+  );
+  assert(
+    scanMarkdownDiagrams(["```", ...art, "```", ""].join("\n")).length > 0,
+    "the escape, not the art, is what passes",
+  );
 });
 
 // ── tolerance proofs: the corpus's legal idioms stay legal ────────────────────

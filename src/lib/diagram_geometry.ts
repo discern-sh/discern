@@ -1,32 +1,41 @@
 /**
  * Diagram-geometry scanner — the executable predicate behind the
- * misaligned-box-drawing-diagram class (tests/diagram_geometry_test.ts).
+ * misaligned-box-drawing-diagram class.
  *
- * The mechanism that permits the defect: fenced code blocks are formatter
- * territory nobody owns — `deno fmt` skips fence bodies and `discern tidy`
- * keeps them byte-for-byte — so a diagram's 2D geometry survives only as long
- * as every editor re-counts columns by hand. This scanner makes the geometry
+ * The mechanism that permits the defect: fence bodies are the one Markdown
+ * surface no formatter rewrites (the embedded Markdown formatter keeps them
+ * byte-for-byte), so a diagram's 2D geometry survives only as long as every
+ * editor re-counts columns by hand. This scanner makes the geometry
  * checkable: inside any fenced block that contains box-drawing STRUCTURE (a
  * corner or junction glyph), every drawing glyph's vertical claims must be
  * honoured — a glyph that connects upward must find a downward-connecting
  * glyph (or label text, a legal anchor) directly above it, never space or a
  * non-connecting drawing glyph — and every arrowhead must sit on its shaft.
  *
+ * Two consumers, one definition of "aligned": `discern tidy` checks the
+ * Markdown surfaces it formats (src/engine/tidy/tidy.ts), and this repo's
+ * own gate sweeps every tracked Markdown file
+ * (tests/diagram_geometry_test.ts).
+ *
  * Deliberate leniency, so real idioms stay legal:
  *  - label text vertically anchors a line (`person` above `│`, a tree name
  *    above `└──`) — only space and unreciprocated DRAWING glyphs violate;
  *  - horizontal claims are enforced only between two drawing glyphs, because
  *    labels legally interrupt shafts (`──discern start──►`);
+ *  - an arrowhead may POINT at the glyph it meets instead of continuing its
+ *    shaft (`▲` directly under a border's `┬`);
  *  - a fence with no corner/junction glyph is not a diagram (quoted `── job │`
  *    output lines, plain flows) and is skipped, as is everything outside
- *    fences, where proportional rendering makes geometry meaningless.
+ *    fences, where proportional rendering makes geometry meaningless;
+ *  - a fence whose info string carries the word `freeform` is exempt — the
+ *    escape for intentional character art that is not a box diagram.
  *
  * Residual (documented, not covered): pure-ASCII art (`+--|`), half-line and
  * mixed-weight glyphs, and display-width hazards from wide characters. Those
  * glyph families can be added to the claims tables; the rules need no change.
  */
 
-import { fencedBlocks } from "../src/lib/docs_integrity.ts";
+import { fencedBlocks } from "./docs_integrity.ts";
 
 /** One geometry violation inside a fenced diagram block. */
 export interface DiagramViolation {
@@ -156,6 +165,9 @@ function describe(glyph: string | undefined): string {
   return `"${glyph}"`;
 }
 
+/** The info-string word that exempts a fence from the geometry check. */
+export const FREEFORM_FENCE_WORD = "freeform";
+
 /**
  * Scan one Markdown document: every fenced block containing box-drawing
  * structure is checked as a character grid (code-point columns, the unit an
@@ -164,6 +176,7 @@ function describe(glyph: string | undefined): string {
 export function scanMarkdownDiagrams(md: string): DiagramViolation[] {
   const out: DiagramViolation[] = [];
   for (const block of fencedBlocks(md)) {
+    if (block.info.split(/\s+/).includes(FREEFORM_FENCE_WORD)) continue;
     const grid = block.lines.map((line) => Array.from(line));
     if (!grid.some((row) => row.some(isStructural))) continue;
     scanGrid(grid, block.startLine, out);
@@ -193,7 +206,7 @@ function scanGrid(
           row,
           col,
           "\\t",
-          "tab character inside a diagram block — tabs break column alignment",
+          "tab character inside a diagram block: tabs break column alignment",
         );
         continue;
       }
