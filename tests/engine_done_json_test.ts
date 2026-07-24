@@ -739,7 +739,8 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
 
     // Human mode renders the exact same hint strings (one source of truth).
-    const human = await runAgent(dir, ["done"]);
+    // The tree is unchanged, so the deliberate rerun carries the attestation.
+    const human = await runAgent(dir, ["done", "--confirmed"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
       assertStringIncludes(human.output, hint);

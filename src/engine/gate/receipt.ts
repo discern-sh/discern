@@ -47,7 +47,7 @@ import {
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
+import { workingStateFingerprint } from "../../shared/tree_identity.ts";
 import {
   type PlannedWriteTarget,
   preflightPlannedWrites,
@@ -403,8 +403,8 @@ export const UNCHANGED_TREE_RERUN_SLUG = "unchanged_tree_rerun";
 export interface LastGateRun {
   /** HEAD at the end of the run (full sha). */
   readonly head: string;
-  /** Dirty-diff fingerprint, absent when the tree was clean
-   * ({@link treeDiffFingerprint}). */
+  /** Working-state fingerprint, absent when the tree was clean
+   * ({@link workingStateFingerprint}). */
   readonly tree?: string;
   /** Whether the gate passed. */
   readonly passed: boolean;
@@ -414,8 +414,8 @@ export interface LastGateRun {
 export type TreeIdentity = Pick<LastGateRun, "head" | "tree">;
 
 /**
- * Sample the tree identity at `cwd` NOW: HEAD, plus the dirty-diff fingerprint
- * when uncommitted changes exist. `undefined` whenever git cannot answer —
+ * Sample the tree identity at `cwd` NOW: HEAD, plus the working-state
+ * fingerprint when uncommitted changes exist. `undefined` whenever git cannot answer —
  * an unreadable tree never earns a refusal or a marker (fail-open: the rerun
  * precondition is a guard against certainty, and an uncertain identity is not
  * the certain case).
@@ -434,7 +434,7 @@ export async function currentTreeIdentity(
   if (dirty.length === 0) {
     return { head };
   }
-  const tree = await treeDiffFingerprint(cwd);
+  const tree = await workingStateFingerprint(cwd);
   return tree === undefined ? undefined : { head, tree };
 }
 
