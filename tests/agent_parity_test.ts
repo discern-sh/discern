@@ -32,6 +32,7 @@ import {
   emitsGuidanceFile,
   neutralAgentScopePaths,
   PROVIDER_BRAND_ASSET_ROOT,
+  providerBrandSilhouette,
   providerFor,
   providersWithHooks,
 } from "../src/lib/providers.ts";
@@ -76,6 +77,74 @@ function svgAspectRatio(svg: string, path: string): number {
   );
   return width / height;
 }
+
+function renderedFullCanvasRects(svg: string, path: string): string[] {
+  const viewBox = svg.match(/<svg\b[^>]*\bviewBox=["']([^"']+)["']/i);
+  assert(viewBox !== null, `${path}: SVG root must declare a viewBox`);
+  const raw = viewBox[1];
+  assert(raw !== undefined, `${path}: SVG viewBox is empty`);
+  const values = raw.trim().split(/[\s,]+/).map(Number);
+  assertEquals(values.length, 4, `${path}: SVG viewBox needs four numbers`);
+  const [minX, minY, width, height] = values;
+  assert(
+    minX !== undefined &&
+      minY !== undefined &&
+      width !== undefined &&
+      height !== undefined,
+    `${path}: SVG viewBox needs four numbers`,
+  );
+
+  let rendered = svg;
+  for (const tag of ["defs", "clipPath", "mask", "symbol"]) {
+    rendered = rendered.replace(
+      new RegExp(`<${tag}\\b[\\s\\S]*?</${tag}>`, "gi"),
+      "",
+    );
+  }
+  return [...rendered.matchAll(/<rect\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((rect) => {
+      const attribute = (name: string): string | undefined =>
+        rect.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1];
+      const x = attribute("x") ?? String(minX);
+      const y = attribute("y") ?? String(minY);
+      const rectWidth = attribute("width");
+      const rectHeight = attribute("height");
+      return Number(x) === minX &&
+        Number(y) === minY &&
+        (rectWidth === "100%" || Number(rectWidth) === width) &&
+        (rectHeight === "100%" || Number(rectHeight) === height);
+    });
+}
+
+Deno.test("landing silhouette detector rejects an unrelated opaque SVG canvas", () => {
+  const futureSibling = `
+    <svg viewBox="0 0 24 24">
+      <rect width="24" height="24" fill="rebeccapurple" />
+      <path d="M4 4h16v16H4z" fill="white" />
+    </svg>
+  `;
+  assertEquals(
+    renderedFullCanvasRects(futureSibling, "future-provider-mark.svg").length,
+    1,
+  );
+});
+
+Deno.test("every landing provider mark has a backgroundless silhouette", async () => {
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider for ${name}`);
+    const asset = providerBrandSilhouette(provider.brand);
+    const svg = await Deno.readTextFile(
+      join(REPO, "site", "pages", asset.path.slice(1)),
+    );
+    assertEquals(
+      renderedFullCanvasRects(svg, asset.path),
+      [],
+      `${name}: the landing silhouette must not paint its SVG canvas`,
+    );
+  }
+});
 
 Deno.test("the shipped .gitignore fragment is the same canonical block upgrade writes", () => {
   assertEquals(
@@ -122,7 +191,7 @@ Deno.test("every known agent declares one open and at most one continue CLI acti
   }
 });
 
-Deno.test("every known agent has one registered mark and wordmark SVG", async () => {
+Deno.test("every known agent has registered mark, silhouette, and wordmark SVGs", async () => {
   const registered: string[] = [];
   for (const name of AGENT_NAMES) {
     const provider = providerFor(name);
@@ -136,6 +205,7 @@ Deno.test("every known agent has one registered mark and wordmark SVG", async ()
     for (
       const [kind, asset] of [
         ["mark", provider.brand.mark],
+        ["silhouette", providerBrandSilhouette(provider.brand)],
         ["wordmark", provider.brand.wordmark],
       ] as const
     ) {
@@ -150,11 +220,14 @@ Deno.test("every known agent has one registered mark and wordmark SVG", async ()
         asset.upstream.trim().length > 0,
         `${name}: ${kind} must name its upstream vendor asset`,
       );
+      const alreadyRegistered = registered.includes(asset.path);
       assert(
-        !registered.includes(asset.path),
+        !alreadyRegistered ||
+          (kind === "silhouette" &&
+            asset.path === provider.brand.mark.path),
         `${name}: ${kind} reuses the registered path ${asset.path}`,
       );
-      registered.push(asset.path);
+      if (!alreadyRegistered) registered.push(asset.path);
 
       const diskPath = join(REPO, "site", "pages", asset.path.slice(1));
       let svg: string;
@@ -183,10 +256,10 @@ Deno.test("every known agent has one registered mark and wordmark SVG", async ()
       );
 
       const ratio = svgAspectRatio(svg, asset.path);
-      if (kind === "mark") {
+      if (kind !== "wordmark") {
         assert(
           ratio >= 0.75 && ratio <= 1.34,
-          `${asset.path}: compact mark must be approximately square (ratio ${ratio})`,
+          `${asset.path}: compact mark or silhouette must be approximately square (ratio ${ratio})`,
         );
       } else {
         assert(
