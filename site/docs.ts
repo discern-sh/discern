@@ -608,7 +608,7 @@ function glossaryTermHtml(
   const glossaryLabel = escapeMarkdownHtml(
     `Open ${entry.term} in the glossary`,
   );
-  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}">${trigger}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel"><span class="discern-glossary-term__card"><span class="docs-glossary-heading"><strong class="discern-glossary-term__term">${term}</strong><a class="docs-glossary-link" href="${glossaryHref}" aria-label="${glossaryLabel}"><span aria-hidden="true">↗</span></a></span><span class="discern-glossary-term__definition">${summaryHtml}</span></span></span></span>`;
+  return `<span class="discern-hover-card discern-hover-card--top discern-hover-card--align-center discern-hover-card--width-md discern-hover-card--inline discern-glossary-term" data-discern-floating-root="" data-discern-floating-placement="top" data-discern-floating-align="center"><dfn class="discern-glossary-term__trigger discern-dotted-underline discern-hover-card__trigger" tabindex="0" aria-details="${panelId}" data-discern-floating-trigger="">${trigger}</dfn><span id="${panelId}" role="group" aria-label="${label}" class="discern-hover-card__panel" data-discern-floating-panel=""><span class="discern-glossary-term__card"><span class="docs-glossary-heading"><strong class="discern-glossary-term__term">${term}</strong><a class="docs-glossary-link" href="${glossaryHref}" aria-label="${glossaryLabel}"><span aria-hidden="true">↗</span></a></span><span class="discern-glossary-term__definition">${summaryHtml}</span></span></span></span>`;
 }
 
 /**
@@ -840,6 +840,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
 <link rel="stylesheet" href="/assets/docs.css" />
 <script defer src="${THEME_SCRIPT_PATH}"></script>
+<script defer src="${designSystemAssetPath("docs", "discern.js")}"></script>
 <script type="module" src="/assets/docs.js"></script>
 </head>
 <body>

@@ -30,7 +30,7 @@ import { JSDOM } from "jsdom";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SITE_ROOT = join(ROOT, "site");
-const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.7.0";
+const DESIGN_SYSTEM_SPECIFIER = "jsr:@discern-sh/design-system@0.8.0";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -182,8 +182,8 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   const lock = JSON.parse(
     await Deno.readTextFile(join(ROOT, "deno.lock")),
   ) as DenoLock;
-  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.7.0");
-  assert("@discern-sh/design-system@0.7.0" in lock.jsr);
+  assertEquals(lock.specifiers[DESIGN_SYSTEM_SPECIFIER], "0.8.0");
+  assert("@discern-sh/design-system@0.8.0" in lock.jsr);
 
   const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
     /\.[cm]?[jt]sx?$/.test(path)
@@ -290,6 +290,7 @@ Deno.test("the docs bundle emits the glossary term and its hover-card dependency
   const runtime = await bundleManifest("docs");
   assert(runtime.selection.resolvedComponents.includes("glossary-term"));
   assert(runtime.selection.resolvedComponents.includes("hover-card"));
+  assertEquals(runtime.outputs.scripts, ["discern.js"]);
   const css = await Deno.readTextFile(join(bundleRoot("docs"), "discern.css"));
   assertStringIncludes(css, ".discern-glossary-term");
   assertStringIncludes(css, ".discern-hover-card");
@@ -584,6 +585,14 @@ Deno.test("bundle routes use local static assets and ship no React runtime", asy
       assertStringIncludes(html, "data-discern-root");
       const runtimeRefs = runtimeAssetReferences(html);
       assert(runtimeRefs.length > 0, `${route} has no runtime assets`);
+      const runtime = await bundleManifest(name);
+      for (const script of runtime.outputs.scripts) {
+        const expected = designSystemAssetPath(name, script);
+        assert(
+          runtimeRefs.includes(expected),
+          `${route} omits emitted package script ${expected}`,
+        );
+      }
       assert(
         runtimeRefs.every((value) => value.startsWith("/")),
         `${route} remote runtime references: ${runtimeRefs.join(", ")}`,

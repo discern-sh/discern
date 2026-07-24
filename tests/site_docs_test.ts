@@ -434,13 +434,24 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
   for (const [index, card] of cards.entries()) {
     const trigger = triggers[index];
     assert(trigger !== null && trigger !== undefined);
+    assertEquals(card.getAttribute("data-discern-floating-root"), "");
+    assertEquals(
+      card.getAttribute("data-discern-floating-placement"),
+      "top",
+    );
+    assertEquals(
+      card.getAttribute("data-discern-floating-align"),
+      "center",
+    );
     assertEquals(trigger.tagName, "DFN");
     assertEquals(trigger.getAttribute("tabindex"), "0");
+    assertEquals(trigger.getAttribute("data-discern-floating-trigger"), "");
     const panelId = trigger.getAttribute("aria-details");
     assert(panelId !== null);
     panelIds.add(panelId);
     const panel = card.querySelector<HTMLElement>(`#${panelId}`);
     assert(panel !== null);
+    assertEquals(panel.getAttribute("data-discern-floating-panel"), "");
     assertEquals(panel.getAttribute("role"), "group");
     assertEquals(
       panel.getAttribute("aria-label"),
