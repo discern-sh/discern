@@ -538,7 +538,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 Rendered example:
 
 ```text
-If this completes the task, relay the receipt to your owner and stop. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -1370,7 +1370,7 @@ Run `discern start` to begin work. There are no active worktrees.
 Rendered example:
 
 ```text
-Relay the honored receipt in data.gate_receipt.receipt to your owner and wait. This clean HEAD is committed and up to date with main. Inspect the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the one-line receipt in data.gate_receipt.receipt_line, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-start-off-trunk`

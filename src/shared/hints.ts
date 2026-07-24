@@ -526,8 +526,10 @@ export const HINTS = {
 
   /** Agent-audience: every fact here (clean HEAD, honored receipt, up to
    * date) already renders in the interactive summary lines, and the
-   * instructions — relay, wait, land only on an explicit ask — are the agent's
-   * consent workflow, not a person's. */
+   * instructions — report, close with the line, wait, land only on an explicit
+   * ask — are the agent's consent workflow, not a person's. The composition
+   * contract (account first, one-line receipt last, page stays with discern)
+   * is ADR 0184's. */
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
     id: "status-ready-for-review",
     category: "next-step",
@@ -536,10 +538,12 @@ export const HINTS = {
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
-      `Relay the honored receipt in data.gate_receipt.receipt to your owner and ` +
-      `wait. This clean HEAD is committed and up to date with ${trunk}. Inspect ` +
-      `the raw diff with \`git diff ${trunk}...${branch}\`. Run \`discern accept\` ` +
-      `only after the user explicitly asks you to land it.`,
+      `Report this branch to your owner in your own words and end with the ` +
+      `one-line receipt in data.gate_receipt.receipt_line, then wait. This ` +
+      `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
+      `full receipt: your owner pulls it with \`discern status --verbose\`, ` +
+      `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
+      `\`discern accept\` only after the user explicitly asks you to land it.`,
   }),
 
   "status-missing-done-receipt": defineHint<{ trunk: string }>({
@@ -1382,9 +1386,11 @@ export const HINTS = {
       "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
   }),
 
-  /** The owner-consent step after a green gate. Agent-audience: relaying to an
+  /** The owner-consent step after a green gate. Agent-audience: reporting to an
    * owner and waiting is an agent's move — a person running `done` at a
-   * terminal IS the owner, with nobody further to relay to. */
+   * terminal IS the owner, with nobody further to report to. The composition
+   * contract (account first, one-line receipt last, page stays with discern)
+   * is ADR 0184's. */
   "gate-relay-receipt": defineHint({
     id: "gate-relay-receipt",
     category: "next-step",
@@ -1392,7 +1398,7 @@ export const HINTS = {
     when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, relay the receipt to your owner and stop. Run `discern accept` only after they accept.",
+      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
   }),
 
   "gate-update-docs": defineHint({
