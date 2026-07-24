@@ -11,8 +11,10 @@ import {
   DESCRIPTION_MAX_LENGTH,
   DESCRIPTION_MIN_LENGTH,
   DOC_META_KEYS,
+  frontmatterParseIssue,
   parseFrontmatter,
   TITLE_MAX_LENGTH,
+  UNTERMINATED_FRONTMATTER_ISSUE,
   validateFrontmatter,
 } from "../src/lib/frontmatter.ts";
 
@@ -204,4 +206,27 @@ Deno.test("an unterminated or unparseable block fails loudly, not silently", () 
   const nested = validateFrontmatter(doc("metadata:", "  author: someone"));
   assertEquals(nested.length, 1);
   assert(nested[0]?.startsWith("metadata: unknown key"), nested[0]);
+});
+
+Deno.test("frontmatterParseIssue: the writer-side strict parse", () => {
+  // No leading fence: nothing to refuse.
+  assertEquals(frontmatterParseIssue("# Title\n\nBody.\n"), undefined);
+  // A valid mapping, and an empty block, both pass.
+  assertEquals(frontmatterParseIssue(doc("description: fine")), undefined);
+  assertEquals(frontmatterParseIssue("---\n---\n\nBody.\n"), undefined);
+  // An unquoted `: ` inside a value is invalid YAML and must be refused
+  // before a writer can restructure the block around it.
+  const invalid = frontmatterParseIssue(
+    doc("description: foo bar: baz", "metadata:", "  author: discern"),
+  );
+  assert(invalid !== undefined && invalid.includes("not valid YAML"), invalid);
+  // The unterminated-fence phrasing is the one the skills validator shares.
+  assertEquals(
+    frontmatterParseIssue("---\ntitle: x\n\nBody.\n"),
+    UNTERMINATED_FRONTMATTER_ISSUE,
+  );
+  // Valid YAML that is not a mapping is still not frontmatter a writer may
+  // format around.
+  const list = frontmatterParseIssue(doc("- a", "- b"));
+  assert(list !== undefined && list.includes("must be a YAML mapping"), list);
 });
