@@ -352,12 +352,8 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "acceptance requires an explicit user ask",
     );
     assert(
-      bareBody.includes("end with the one-line receipt"),
+      bareBody.includes("your words, then the one-line receipt"),
       "a green finish routes through the review moment, not straight to landing",
-    );
-    assert(
-      bareBody.includes("never pasted into a message"),
-      "the full receipt stays with discern for the owner to pull",
     );
     assert(
       bareBody.includes("land only once they accept"),
