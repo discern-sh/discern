@@ -467,7 +467,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both.",
+      "Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.",
     )
     .option(
       "--json",

@@ -1,8 +1,5 @@
 import { createFromBuffer, type Formatter } from "@dprint/formatter";
-import {
-  frontmatterParseIssue,
-  readFrontmatterBlock,
-} from "./frontmatter.ts";
+import { frontmatterParseIssue, readFrontmatterBlock } from "./frontmatter.ts";
 
 /** Pinned embedded plugin versions. An upgrade changes discern's convention. */
 export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
