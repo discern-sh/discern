@@ -29,6 +29,7 @@ Your agent reads these fields directly and usually fixes the failure without hel
 | A declared job or scope gate failed         | Run its `reproduce_cmd`, fix the reported problem, then return to `discern done`.                                                                                      |
 | A job timed out                             | Replace watch or server mode with a single-run command. Raise that job's `timeout` only when the command legitimately needs longer.                                    |
 | The gate left tracked changes               | Review the named diff, commit the gate's output, and rerun on the clean commit ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).                 |
+| `done` refused an unchanged-tree rerun      | Change the tree (fix the failure, or commit) and rerun. Probing a flaky verdict on purpose? Run `discern done --confirmed`; the probe is recorded.                     |
 
 ## Give the result to an agent
 
