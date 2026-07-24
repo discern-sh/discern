@@ -2774,6 +2774,9 @@ export type DiscernStatusResult = {
       id?: string;
       port?: number;
       broken?: boolean;
+      receipt_honored?: boolean;
+      receipt?: string;
+      receipt_line?: string;
     }>;
     fleet_collisions?: Array<{
       branches: unknown;

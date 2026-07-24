@@ -118,6 +118,13 @@ export interface StatusOptions {
   local?: boolean;
 }
 
+/** CLI-only presentation flags. `verbose` prints the full receipt page for an
+ * honored branch (and each ready fleet row); the wire payload is identical with
+ * or without it — `--json` and MCP always carry the receipt (ADR 0184). */
+export interface StatusRenderOptions {
+  verbose?: boolean;
+}
+
 // ── the `data` payload shapes ──────────────────────────────────────────────────
 // The wire contract (discriminated by `location` and the presence of `fleet`) lives
 // as Zod schemas in `result_schemas.ts` — the SSOT the MCP `outputSchema` advertises.
@@ -505,6 +512,22 @@ async function fleetEntryFor(
   if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
     entry.broken = true;
   }
+  // The row's review readiness, read from its own gate-receipt marker — inspected
+  // HERE, once, so the ready hints and the wire fields cannot disagree. An honored
+  // row carries the stored receipt page and line: the supervisor at the main
+  // checkout reviews from this survey without visiting the worktree.
+  if (!row.isMain && entry.broken !== true && entry.git_unavailable !== true) {
+    const receipt = await inspectGateReceipt(row.path);
+    if (receipt.status === "honored") {
+      entry.receipt_honored = true;
+      if (receipt.receipt !== undefined) {
+        entry.receipt = receipt.receipt;
+      }
+      if (receipt.receipt_line !== undefined) {
+        entry.receipt_line = receipt.receipt_line;
+      }
+    }
+  }
   const files = cfg.worktree.env_files;
   const recordedId = await readEnvValueAcross(
     row.path,
@@ -792,14 +815,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      const ready: StatusFleetEntry[] = [];
-      for (const e of others) {
-        const receiptHonored = (await inspectGateReceipt(e.path)).status ===
-          "honored";
-        if (isReadyToLand(e, receiptHonored)) {
-          ready.push(e);
-        }
-      }
+      // Review readiness was read once, into each row (`receipt_honored`), so the
+      // hint and the wire field cannot disagree.
+      const ready = others.filter((e) =>
+        isReadyToLand(e, e.receipt_honored === true)
+      );
       if (ready.length > 0) {
         hints.push(
           fire(HINTS["status-fleet-member-ready"], {
@@ -921,7 +941,7 @@ async function isMainCheckoutDirty(
  * (0 for any successful observation, 1 for a refusal / not-initialized).
  */
 export async function runStatus(
-  opts: { json: boolean; all: boolean; local: boolean },
+  opts: { json: boolean; all: boolean; local: boolean; verbose: boolean },
 ): Promise<number> {
   const root = await findRoot();
   if (root === undefined) {
@@ -941,7 +961,7 @@ export async function runStatus(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  renderStatusHuman(result);
+  renderStatusHuman(result, { verbose: opts.verbose });
   return result.ok ? 0 : 1;
 }
 
@@ -952,10 +972,15 @@ function label(text: string): string {
   return text.padEnd(11);
 }
 
-function gateReceiptSummary(receipt: GateReceiptCheckData): string {
+function gateReceiptSummary(
+  receipt: GateReceiptCheckData,
+  verbose: boolean,
+): string {
   switch (receipt.status) {
     case "honored":
-      return "clean HEAD has a recorded pass";
+      return verbose || receipt.receipt === undefined
+        ? "clean HEAD has a recorded pass"
+        : "clean HEAD has a recorded pass — print the receipt with --verbose";
     case "missing":
       return "no recorded receipt for this clean commit";
     case "stale":
@@ -1007,9 +1032,11 @@ export function relativeAge(
 }
 
 /** Render the status result as a compact human summary on stdout (quiet under
- * `--json`, which never calls this). */
+ * `--json`, which never calls this). `verbose` additionally prints each honored
+ * receipt page — the owner-side pull for the review moment (ADR 0184). */
 function renderStatusHuman(
   result: DiscernResult<StatusData>,
+  render: StatusRenderOptions = {},
 ): void {
   const out = makeOut(colorEnabled());
   if (!result.ok || result.data === undefined) {
@@ -1119,10 +1146,16 @@ function renderStatusHuman(
     out.raw(`  ${label("gate")}${jobs}${sg}\n`);
   }
 
+  const verbose = render.verbose ?? false;
   if (data.gate_receipt !== undefined) {
     out.raw(
-      `  ${label("done")}${gateReceiptSummary(data.gate_receipt)}\n`,
+      `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}\n`,
     );
+    // The owner-side pull: --verbose prints the honored receipt page here, from
+    // discern's own marker. Unindented so it reads (and pastes) as markdown.
+    if (verbose && data.gate_receipt.receipt !== undefined) {
+      out.raw(`\n${data.gate_receipt.receipt}\n\n`);
+    }
   }
 
   if (data.standards.length > 0) {
@@ -1131,6 +1164,17 @@ function renderStatusHuman(
 
   if (data.fleet !== undefined) {
     renderFleetTable(out, data.fleet);
+    if (verbose) {
+      // Each ready row's receipt page, straight from its marker — the supervisor
+      // reviews the whole fleet from here without visiting a worktree.
+      const receipts = data.fleet.filter((e) => e.receipt !== undefined);
+      for (const e of receipts) {
+        out.raw(`\n${e.receipt}\n`);
+      }
+      if (receipts.length > 0) {
+        out.raw("\n");
+      }
+    }
   }
 
   // The interactive projection: agent-audience hints stay wire-only. It covers

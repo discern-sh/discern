@@ -614,6 +614,14 @@ const statusFleetEntrySchema = z.strictObject({
    * self-heals next session isn't either). Not a healthy fleet member; the
    * hints carry the removal path (`discern worktree drop`). */
   broken: z.boolean().optional(),
+  /** Present (true) when the row's clean HEAD has an honored receipt from
+   * `discern done` — reviewable without visiting the worktree. `receipt` /
+   * `receipt_line` carry the stored page and one-line form when the marker
+   * recorded them (ADR 0184), so a supervisor at the main checkout reads the
+   * review summary from here (`--verbose` prints it interactively). */
+  receipt_honored: z.boolean().optional(),
+  receipt: z.string().optional(),
+  receipt_line: z.string().optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 

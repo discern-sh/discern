@@ -9216,6 +9216,15 @@
                       },
                       "broken": {
                         "type": "boolean"
+                      },
+                      "receipt_honored": {
+                        "type": "boolean"
+                      },
+                      "receipt": {
+                        "type": "string"
+                      },
+                      "receipt_line": {
+                        "type": "string"
                       }
                     },
                     "required": [

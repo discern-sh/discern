@@ -643,23 +643,54 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertEquals(obj.data.git.ahead_integration, 1);
     assertEquals(obj.data.git.behind_integration, 0);
     assertEquals(obj.data.gate_receipt.status, "honored");
-    // The honored record carries the stored receipt markdown — the artifact the
-    // review-ready hint tells the agent to relay.
+    // The honored record carries the stored receipt page, and the one-line form
+    // the review-ready hint tells the agent to end its report with.
     assertStringIncludes(obj.data.gate_receipt.receipt, "### Receipt");
+    assertStringIncludes(
+      obj.data.gate_receipt.receipt_line,
+      "Receipt: gate passed on agent/alpha @ ",
+    );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
       trunk: "main",
       branch: "agent/alpha",
     });
 
+    // Interactive: the receipt page prints only under --verbose; without it, the
+    // done line points at the flag instead of dumping a screen of markdown.
+    const plain = await runAgent(wt, ["status"]);
+    assertEquals(plain.code, 0, plain.output);
+    assertStringIncludes(plain.output, "print the receipt with --verbose");
+    assert(
+      !plain.output.includes("### Receipt"),
+      `plain status must not print the page:\n${plain.output}`,
+    );
+    const verbose = await runAgent(wt, ["status", "--verbose"]);
+    assertEquals(verbose.code, 0, verbose.output);
+    assertStringIncludes(verbose.output, "### Receipt — `agent/alpha`");
+
     // From the main checkout, the fleet's review-ready hint names the same
-    // inspection command, so the owner can look at the work from where they sit.
+    // inspection command, so the owner can look at the work from where they sit —
+    // and the ready row carries the receipt itself, page and line.
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
+    const fleetObj = parseStatus(fleet.stdout);
     assertHasHint(
-      parseStatus(fleet.stdout),
+      fleetObj,
       HINTS["status-fleet-member-ready"],
       { total: 1, names: ["alpha"], trunk: "main" },
     );
+    const row = fleetObj.data.fleet.find(
+      (e: { branch: string }) => e.branch === "agent/alpha",
+    );
+    assertEquals(row.receipt_honored, true);
+    assertStringIncludes(row.receipt, "### Receipt — `agent/alpha`");
+    assertStringIncludes(row.receipt_line, "Receipt: gate passed on agent/alpha @ ");
+
+    // The supervisor's pull: --verbose from the main checkout prints the ready
+    // row's page beneath the fleet table.
+    const fleetVerbose = await runAgent(dir, ["status", "--verbose"]);
+    assertEquals(fleetVerbose.code, 0, fleetVerbose.output);
+    assertStringIncludes(fleetVerbose.output, "### Receipt — `agent/alpha`");
   });
 });
 

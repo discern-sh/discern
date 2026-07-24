@@ -602,6 +602,11 @@ export function attachEngineCommands(
       "Show only this checkout, even in the main checkout.",
     )
     .option(
+      "--verbose",
+      "Also print the full receipt page for an honored branch (and each ready " +
+        "fleet row). Interactive output only; --json always carries the receipt.",
+    )
+    .option(
       "--json",
       "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
     )
@@ -610,6 +615,7 @@ export function attachEngineCommands(
         json: o.json ?? false,
         all: o.all ?? false,
         local: o.local ?? false,
+        verbose: o.verbose ?? false,
       })));
 
   root
