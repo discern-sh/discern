@@ -423,6 +423,22 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       { verb: "standards", flags: ["force"] },
     ]),
   },
+  "confirmed-rerun": {
+    firing: run([
+      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["confirmed"] },
+    ]),
+    quiet: run([
+      { verb: "done", flags: ["confirmed"] },
+      { verb: "done" },
+      { verb: "done" },
+    ]),
+    sparse: run([
+      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["confirmed"] },
+    ]),
+  },
   "docs-gap": {
     firing: run([
       { verb: "help", target: "gates", outcome: "refused", error: "not_found" },
