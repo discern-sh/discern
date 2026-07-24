@@ -1,5 +1,6 @@
 /** The authored homepage, rendered to static HTML by site/build.ts. */
 
+import type { CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   Brand,
@@ -10,7 +11,7 @@ import {
   SiteFooter,
   SkipLink,
 } from "discern-design-system/react";
-import { PROVIDERS } from "../../src/lib/providers.ts";
+import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
@@ -20,10 +21,16 @@ const GITHUB = "https://github.com/jackwh/discern";
 /** The native provider set, in the catalogue's canonical display order. */
 const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
   const provider = PROVIDERS[name];
+  const silhouette = providerBrandSilhouette(provider.brand);
   return {
     name: provider.label,
     mark: (
-      <span className="landing-provider-logo-frame">
+      <span
+        className="landing-provider-logo-frame"
+        style={{
+          "--landing-provider-logo-mask": `url("${silhouette.path}")`,
+        } as CSSProperties}
+      >
         <img
           className="landing-provider-logo"
           src={provider.brand.mark.path}
