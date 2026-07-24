@@ -1194,6 +1194,36 @@ export const HINTS = {
       `previous gate receipt${reasonSuffix(reason)}.`,
   }),
 
+  "done-unchanged-tree-red": defineHint({
+    id: "done-unchanged-tree-red",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.",
+    family: "done-rerun",
+    example: undefined,
+    template: (): string =>
+      "Fix the failure the last run reported, then re-run `discern done` — " +
+      "nothing changed since it judged this exact tree red, so an identical " +
+      "rerun expects the identical verdict. Probing for a flaky verdict is the " +
+      "one reason to re-run unchanged: `discern done --confirmed` does that, " +
+      "and records the rerun as a deliberate probe.",
+  }),
+
+  "done-unchanged-tree-green": defineHint({
+    id: "done-unchanged-tree-green",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`done` is asked to re-run on the exact tree it last judged green, without `--confirmed`.",
+    family: "done-rerun",
+    example: undefined,
+    template: (): string =>
+      "Run `discern status` — this exact tree already passed `discern done`, " +
+      "and status shows the receipt's standing without re-running anything. " +
+      "To re-run the full gate on it anyway, run `discern done --confirmed`.",
+  }),
+
   "gate-failure-gotchas": defineHint<{ doc: string }>({
     id: "gate-failure-gotchas",
     category: "next-step",

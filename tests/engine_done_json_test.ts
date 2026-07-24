@@ -1142,8 +1142,11 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     );
 
     // Deterministic: the same tree and result render the same receipt (durations
-    // excepted).
-    const again = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
+    // excepted). The unchanged tree makes this a rerun, so it carries the
+    // attestation the rerun precondition requires.
+    const again = parseJson(
+      (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
+    );
     assertEquals(
       stripDurations(again.data.receipt.markdown),
       stripDurations(receipt.markdown),

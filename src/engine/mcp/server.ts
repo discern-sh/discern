@@ -425,10 +425,19 @@ export const TOOLS: McpTool[] = orderTools([
       dry_run: z.boolean().optional().describe(
         "Preview the gate plan and touch nothing (default false).",
       ),
+      confirmed: z.boolean().optional().describe(
+        "Attest that re-running the gate on the exact tree it last judged is " +
+          "deliberate — probing a flaky verdict, or re-measuring. Without it, " +
+          "an unchanged-tree rerun refuses read-only (default false).",
+      ),
       ...PATH_PARAM,
     },
     run: (root, args, signal) =>
-      finishResult(root, { dryRun: args.dry_run === true, signal }),
+      finishResult(root, {
+        dryRun: args.dry_run === true,
+        confirmed: args.confirmed === true,
+        signal,
+      }),
   }),
   defineTool({
     name: "discern_prepare",

@@ -273,6 +273,35 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
   });
 });
 
+Deno.test("logbook: an unchanged-tree rerun refusal records its slug, and a confirmed rerun records the flag", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `[jobs]\ntest = "echo ok"\n`);
+    await gitInit(dir);
+    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    // The bare rerun refuses; the confirmed rerun runs. Both are events.
+    assertEquals((await runAgent(dir, ["done", "--json"])).code, 1);
+    assertEquals(
+      (await runAgent(dir, ["done", "--confirmed", "--json"])).code,
+      0,
+    );
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 3);
+    const [first, refusal, probe] = events;
+    assertEquals(first?.outcome, "ok");
+    assertEquals(first?.flags, undefined);
+    // The refusal is `refused` — not red — with the machine-stable slug, so a
+    // reader can tell "the gate said no" from "the gate said broken".
+    assertEquals(refusal?.outcome, "refused");
+    assertEquals(refusal?.error, "unchanged_tree_rerun");
+    // The attestation lands as a flag NAME: the habituation signal a detector
+    // reads, exactly as `--force` does.
+    assertEquals(probe?.outcome, "ok");
+    assertEquals(probe?.flags, ["confirmed"]);
+  });
+});
+
 Deno.test("logbook: a standards pin lands pin events and holds the epoch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

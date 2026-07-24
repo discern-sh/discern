@@ -299,6 +299,12 @@ export function attachEngineCommands(
       "--dry-run",
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
+    .option(
+      "--confirmed",
+      "Attest that re-running the gate on the exact tree it last judged is " +
+        "deliberate — probing a flaky verdict, or re-measuring. Without it, an " +
+        "unchanged-tree rerun refuses read-only; a dry-run never needs it.",
+    )
     .action(
       recordedExit(
         "done",
@@ -306,6 +312,7 @@ export function attachEngineCommands(
           await runFinish(await requireRoot("done", o.json ?? false), {
             json: o.json ?? false,
             dryRun: o.dryRun ?? false,
+            confirmed: o.confirmed ?? false,
           }),
       ),
     );
