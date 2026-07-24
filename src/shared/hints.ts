@@ -1734,7 +1734,7 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a landing receipt.",
     example: undefined,
     template: (): string =>
-      "Share the landing receipt in data.receipt with the change's owner. It pastes cleanly into a PR body.",
+      "data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
