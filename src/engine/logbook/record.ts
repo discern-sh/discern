@@ -43,7 +43,7 @@ import { z } from "@zod/zod";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { cksumString } from "../../shared/crc.ts";
+import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
@@ -158,18 +158,6 @@ async function gatherChangeScale(
   };
 }
 
-/** Fingerprint the uncommitted diff (tracked files only) so `head` + `tree`
- * names "the same exact tree" across runs — what a flake reader compares. */
-async function gatherTreeFingerprint(
-  root: string,
-): Promise<string | undefined> {
-  const diff = await runGit(["diff", "HEAD"], { cwd: root });
-  if (!diff.success) {
-    return undefined;
-  }
-  return cksumString(diff.stdout).toString(16);
-}
-
 /**
  * Gather the invocation context: project root, the toggle, git state, the
  * change's scale, and the config epoch. Resolves to undefined whenever
@@ -205,7 +193,7 @@ async function gatherContext(
     return undefined; // not a git repository — nowhere local to write
   }
   const clean = status.success ? status.stdout.trim() === "" : null;
-  const tree = clean === false ? await gatherTreeFingerprint(root) : undefined;
+  const tree = clean === false ? await treeDiffFingerprint(root) : undefined;
   return { commonGitDir, branch, head, clean, tree, change, epoch };
 }
 
