@@ -968,7 +968,7 @@ async function unchangedTreeRerunRefusal(
     error: UNCHANGED_TREE_RERUN_SLUG,
     message: `\`discern done\` already judged this exact tree ${verdict} at ` +
       `${now.head.slice(0, 8)}, and nothing has changed since. Pass ` +
-      `\`--confirmed\` to re-run the gate on it deliberately; the rerun is ` +
+      `\`--confirmed\` to re-run the gate on it anyway; the rerun is ` +
       `recorded. Nothing has run — the tree is untouched.`,
     hints: hintTexts([fire(hint)]),
   };

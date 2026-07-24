@@ -47,7 +47,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## Re-running an unchanged tree
 
-Beside the receipt, every completed run — red included — records the exact tree it judged and the verdict in a last-run marker. Ask `discern done` to run again on that identical tree and it refuses read-only before any job or fixer runs: an unchanged tree expects an unchanged verdict, so a green rerun repays full gate time for the answer `discern status` already shows, and a red one retried until it passes hides a flake. `discern done --confirmed` re-runs it as a deliberate, recorded probe; any edit, commit, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)).
+Beside the receipt, every completed run — red included — records the exact tree it judged and the verdict in a last-run marker. Ask `discern done` to run again on that identical tree and it refuses read-only before any job or fixer runs: an unchanged tree expects an unchanged verdict, so a green rerun repays full gate time for the answer `discern status` already shows, and a red one retried until it passes hides a flake. `discern done --confirmed` re-runs it as an attested, recorded probe; any edit, commit, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

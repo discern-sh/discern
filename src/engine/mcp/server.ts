@@ -426,9 +426,9 @@ export const TOOLS: McpTool[] = orderTools([
         "Preview the gate plan and touch nothing (default false).",
       ),
       confirmed: z.boolean().optional().describe(
-        "Attest that re-running the gate on the exact tree it last judged is " +
-          "deliberate — probing a flaky verdict, or re-measuring. Without it, " +
-          "an unchanged-tree rerun refuses read-only (default false).",
+        "Attest this rerun: run the full gate again on the exact tree it last " +
+          "judged — a flake probe, or a re-measure — and record it. Without " +
+          "the flag, an unchanged-tree rerun refuses read-only (default false).",
       ),
       ...PATH_PARAM,
     },

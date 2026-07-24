@@ -1207,7 +1207,7 @@ export const HINTS = {
       "nothing changed since it judged this exact tree red, so an identical " +
       "rerun expects the identical verdict. Probing for a flaky verdict is the " +
       "one reason to re-run unchanged: `discern done --confirmed` does that, " +
-      "and records the rerun as a deliberate probe.",
+      "and records the rerun as a probe.",
   }),
 
   "done-unchanged-tree-green": defineHint({

@@ -306,13 +306,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "unchanged-tree-rerun",
-        title: "A rerun on an unchanged tree is deliberate",
+        title: "A rerun on an unchanged tree is attested",
         what:
           "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. Asked to run again on that identical tree, `done` refuses read-only before the fix stage can touch a file; `discern done --confirmed` re-runs it as an attested, recorded probe. Any change to the tree runs as normal, and so does `--dry-run`.",
         why:
           "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for a receipt `discern status` already shows; a red one retried until it passes teaches that red is negotiable.",
         agent:
-          "The refusal names the verdict that already stands and the two honest moves: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
+          "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
         hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
       },
     ],
