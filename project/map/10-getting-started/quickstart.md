@@ -50,7 +50,7 @@ In the fresh session, ask for a small, real change, and watch what the agent doe
 1. It runs `discern start` and gets an isolated worktree on an `agent/…` branch — your checkout stays clean.
 2. It makes the change there, like any other work.
 3. It runs `discern done`. The gate runs the format, build, lint, and test commands your repo declared in `discern.toml`; a failure hands the agent the exact failing command and its output, so it fixes and re-runs instead of guessing.
-4. On green, the agent reports ready with a receipt of what passed — and waits. It does not land anything on its own.
+4. On green, the agent reports ready, ending with a one-line receipt of what passed — and waits. It does not land anything on its own. Read the full receipt with `discern status --verbose`.
 
 Review the branch. When you're happy, say so: the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance honors the receipt only while the branch is unchanged — a commit after the green run invalidates it, and the agent runs `discern done` again.
 

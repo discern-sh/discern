@@ -328,7 +328,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Receipt",
     definition:
-      "The review summary `discern done` emits after a clean, committed worktree passes the full gate. It identifies the branch and exact `HEAD`, lists the commits, changed files, check results, and held [standards](#standard), and can be reused by `discern accept` while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
+      "The review claim `discern done` emits after a clean, committed worktree passes the full gate, in two forms: a one-line summary the agent ends its report with, and a full page — check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD` — that the owner reads with `discern status --verbose`. `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
   },
   {
     term: "Schema version",

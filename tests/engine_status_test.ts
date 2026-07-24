@@ -684,7 +684,10 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     );
     assertEquals(row.receipt_honored, true);
     assertStringIncludes(row.receipt, "### Receipt — `agent/alpha`");
-    assertStringIncludes(row.receipt_line, "Receipt: gate passed on agent/alpha @ ");
+    assertStringIncludes(
+      row.receipt_line,
+      "Receipt: gate passed on agent/alpha @ ",
+    );
 
     // The supervisor's pull: --verbose from the main checkout prints the ready
     // row's page beneath the fleet table.

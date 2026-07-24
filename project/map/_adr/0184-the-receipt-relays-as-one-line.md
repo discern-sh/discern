@@ -7,7 +7,7 @@
 ADR 0114 made a green `done` render the receipt and instructed the agent to relay the markdown verbatim to its owner. In practice that relay contract worked against the review moment it serves:
 
 - **Verbatim relay through an agent proves nothing.** The receipt's value is that discern authored it, yet the owner reads it out of the agent's own message and cannot tell a faithful relay from a paraphrase or a fabrication. The artifact reads like mechanical proof without being one. The mechanical guarantee already lives elsewhere: `accept` re-verifies the marker (sha + clean tree) before landing, so the chat message was never the enforcement point.
-- **On the happy path the page carries almost no information.** Each job line reports ok; the commit and file lists duplicate what `git diff`, the harness diff view, and any PR page show better. The single fact that matters — the gate passed on this exact commit — is one line. The signal (a deferred standard, an unverified-limits disclosure, a moved standard) sits below a screen of routine.
+- **On the happy path the page carries almost no information.** Each job line reports ok; the commit and file lists duplicate what `git diff`, the coding agent's own diff view, and any PR page show better. The single fact that matters — the gate passed on this exact commit — is one line. The signal (a deferred standard, an unverified-limits disclosure, a moved standard) sits below a screen of routine.
 - **The paste displaces the account only the agent can give.** The owner's attention at review is finite. What it should go to — what changed and why, trade-offs, what was exercised beyond the gate (the `gate-prove-it-works` observations) — competes with a screen of boilerplate that is cheaper to produce, so the boilerplate wins.
 
 ## Decision
@@ -28,6 +28,6 @@ ADR 0114 made a green `done` render the receipt and instructed the agent to rela
 
 ## Alternatives considered
 
-- **Keep the paste but collapse it** (e.g. `<details>`). Rejected: rendering is harness-dependent, and the habit being trained — receipt as final message — is the defect.
+- **Keep the paste but collapse it** (e.g. `<details>`). Rejected: rendering depends on the chat surface, and the habit being trained — receipt as final message — is the defect.
 - **No receipt content in messages at all.** Rejected: the one-line claim with a sha is what lets an owner act on a message without asking "did the gate pass?".
 - **Sign the receipt so a paste is tamper-evident.** Rejected: key machinery to guarantee at message time what `accept` already guarantees at the only moment with consequences.
