@@ -57,7 +57,7 @@ Run `discern refresh` in /workspace/project. Acceptance landed on main, but the 
 Rendered example:
 
 ```text
-Share the landing receipt in data.receipt with the change's owner. It pastes cleanly into a PR body.
+data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.
 ```
 
 ## `accept-review-via-status`
