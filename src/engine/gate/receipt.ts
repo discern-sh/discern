@@ -47,6 +47,7 @@ import {
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import {
   type PlannedWriteTarget,
   preflightPlannedWrites,
@@ -386,6 +387,136 @@ export async function recordGateOutcome(
       reason: failureReason(error),
     });
   }
+}
+
+/**
+ * The refusal slug `done` serves when it is asked to re-run on the exact tree
+ * it last judged without the `--confirmed` attestation. Gate-owned, not part of
+ * the consent-gated class: that class refuses unconditionally until an owner's
+ * consent arrives, while this gate fires only when the tree is unchanged and is
+ * satisfied by the caller's own attestation that the rerun is deliberate.
+ */
+export const UNCHANGED_TREE_RERUN_SLUG = "unchanged_tree_rerun";
+
+/** What the last completed gate run judged: the tree identity it ended on and
+ * the verdict it reached. */
+export interface LastGateRun {
+  /** HEAD at the end of the run (full sha). */
+  readonly head: string;
+  /** Dirty-diff fingerprint, absent when the tree was clean
+   * ({@link treeDiffFingerprint}). */
+  readonly tree?: string;
+  /** Whether the gate passed. */
+  readonly passed: boolean;
+}
+
+/** A tree identity `done` can compare against a {@link LastGateRun}. */
+export type TreeIdentity = Pick<LastGateRun, "head" | "tree">;
+
+/**
+ * Sample the tree identity at `cwd` NOW: HEAD, plus the dirty-diff fingerprint
+ * when uncommitted changes exist. `undefined` whenever git cannot answer —
+ * an unreadable tree never earns a refusal or a marker (fail-open: the rerun
+ * precondition is a guard against certainty, and an uncertain identity is not
+ * the certain case).
+ */
+export async function currentTreeIdentity(
+  cwd: string,
+): Promise<TreeIdentity | undefined> {
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return undefined;
+  }
+  const dirty = await worktreeStatusPaths(cwd);
+  if (dirty === undefined) {
+    return undefined;
+  }
+  if (dirty.length === 0) {
+    return { head };
+  }
+  const tree = await treeDiffFingerprint(cwd);
+  return tree === undefined ? undefined : { head, tree };
+}
+
+/** Whether two sampled identities name the same exact tree. */
+export function sameTreeIdentity(a: TreeIdentity, b: TreeIdentity): boolean {
+  return a.head === b.head && (a.tree ?? null) === (b.tree ?? null);
+}
+
+/**
+ * Record what this `done` run judged into the last-run marker: the tree
+ * identity at the END of the run (the fix stage may have rewritten files, and
+ * the verdict belongs to the tree the check/test jobs actually read) plus the
+ * verdict. Written on EVERY completed run — green or red, clean or dirty —
+ * because the rerun precondition needs the red runs the receipt marker
+ * deliberately forgets. Best-effort: an unreadable identity clears the marker
+ * instead of leaving a stale claim, and a write failure changes nothing about
+ * the run's verdict.
+ */
+export async function recordLastGateRun(
+  cwd: string,
+  authority: AdminStateWriteAuthority,
+  passed: boolean,
+): Promise<void> {
+  const path = authorityPath(cwd, authority, "lastGateRun");
+  if (path === undefined) {
+    return;
+  }
+  const identity = await currentTreeIdentity(cwd);
+  try {
+    if (identity === undefined) {
+      await Deno.remove(path);
+      return;
+    }
+    await Deno.writeTextFile(
+      path,
+      `${JSON.stringify({ ...identity, passed })}\n`,
+    );
+  } catch {
+    // Best-effort by design; the precondition fails open without a marker.
+  }
+}
+
+/**
+ * Read the last-run marker for the worktree at `cwd`, `undefined` when absent
+ * or unreadable — either way the rerun precondition simply does not fire. A
+ * marker naming a different tree is returned as-is; identity comparison is the
+ * caller's job ({@link sameTreeIdentity}).
+ */
+export async function inspectLastGateRun(
+  cwd: string,
+): Promise<LastGateRun | undefined> {
+  const path = await gitAdminStatePath(cwd, "lastGateRun");
+  if (path === undefined) {
+    return undefined;
+  }
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== "object") {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
+    return undefined;
+  }
+  if (record.tree !== undefined && typeof record.tree !== "string") {
+    return undefined;
+  }
+  return {
+    head: record.head,
+    passed: record.passed,
+    ...(record.tree !== undefined ? { tree: record.tree } : {}),
+  };
 }
 
 /**

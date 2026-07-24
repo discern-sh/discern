@@ -39,6 +39,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: true,
   },
+  lastGateRun: {
+    path: "discern/last-gate-run",
+    scope: "worktree",
+    kind: "file",
+    validation: true,
+  },
   standardMeasurements: {
     path: "discern/standard-measurements",
     scope: "worktree",
