@@ -44,7 +44,7 @@ import type {
   DetectorTier,
 } from "../../shared/patterns_vocabulary.ts";
 import { HINTS } from "../../shared/hints.ts";
-import { driverAgent, driverKind } from "./cohorts.ts";
+import { dominantClientEras, driverAgent, driverKind } from "./cohorts.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
@@ -70,14 +70,21 @@ export interface StreamFacts {
   horizon: string | undefined;
 }
 
+/** The analysis population of a raw stream: verb events minus CI noise and
+ * `--dry-run` previews — shared by {@link buildStreamFacts} and the boundary
+ * vocabulary in {@link comparableTail}, so the two can't diverge. */
+function analyzableVerbs(events: readonly LogbookEvent[]): VerbEvent[] {
+  return events.filter((e): e is VerbEvent => e.kind === "verb")
+    .filter((e) => e.driver?.ci !== true && e.dry_run !== true);
+}
+
 /** Build the pre-digested facts every detector receives. */
 export function buildStreamFacts(
   events: LogbookEvent[],
   trunk: string,
   configuredAgents: readonly string[] = [],
 ): StreamFacts {
-  const verbs = events.filter((e): e is VerbEvent => e.kind === "verb")
-    .filter((e) => e.driver?.ci !== true && e.dry_run !== true);
+  const verbs = analyzableVerbs(events);
   const agentish = verbs.filter((e) => driverKind(e) !== "human");
   return {
     events,
@@ -210,10 +217,15 @@ function testRed(e: VerbEvent): boolean {
 
 /**
  * The stream's comparable tail: the longest run of newest events sharing the
- * final event's config epoch AND writer version — the only window a trend may
- * compare within. When older events exist beyond it, `boundary` names what
- * moved and when (the section list from the matching `config-change` event
- * where one exists), so a trend detector can attribute instead of blending.
+ * final event's config epoch, writer version, AND dominant-client version era
+ * ({@link dominantClientEras}) — the only window a trend may compare within.
+ * The three boundary kinds carry equal weight: a shift that lands exactly at
+ * the dominant client's upgrade is attributed to the driver's release, not
+ * blended into the trend or blamed on the setup. When older events exist
+ * beyond the tail, `boundary` names what moved and when (the section list
+ * from the matching `config-change` event where one exists; the client, its
+ * version pair, and the date for a client release), so a trend detector can
+ * attribute instead of blending.
  */
 export function comparableTail(
   events: VerbEvent[],
@@ -226,12 +238,14 @@ export function comparableTail(
   if (last === undefined) {
     return { tail: [] };
   }
+  const eras = dominantClientEras(analyzableVerbs(all));
   let start = events.length - 1;
   while (start > 0) {
     const prev = events[start - 1];
     if (
       prev === undefined || prev.epoch !== last.epoch ||
-      prev.writer !== last.writer
+      prev.writer !== last.writer ||
+      eras.eraOf(prev) !== eras.eraOf(last)
     ) {
       break;
     }
@@ -265,6 +279,13 @@ export function comparableTail(
         last.writer ?? "unversioned"
       } release`,
     );
+  }
+  if (eras.eraOf(before) !== eras.eraOf(last)) {
+    const from = eras.versionOf(eras.eraOf(before));
+    const to = eras.versionOf(eras.eraOf(last));
+    if (eras.label !== undefined && from !== undefined && to !== undefined) {
+      moved.push(`the ${eras.label} ${from} → ${to} client release`);
+    }
   }
   return {
     tail,

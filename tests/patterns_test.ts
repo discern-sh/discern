@@ -1146,6 +1146,105 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
   );
 });
 
+/** A driver bundle declaring an MCP client the recorder recognized. */
+function recognizedMcpClient(
+  agent: string,
+  name: string,
+  version: string,
+): VerbEvent["driver"] {
+  return {
+    session: "mcp:1",
+    json: false,
+    tty: false,
+    ci: false,
+    agent_signals: [
+      { agent, source: "mcp-client", markers: ["clientInfo.name"] },
+    ],
+    mcp_client: { name, version },
+  };
+}
+
+Deno.test("patterns attribution: the dominant client's version change bounds the window, naming the client, version pair, and date", () => {
+  const events: LogbookEvent[] = [
+    ...Array.from(
+      { length: 5 },
+      (_, i) =>
+        verb({
+          at: t(i),
+          verb: "done",
+          surface: "mcp",
+          duration_ms: 10_000,
+          driver: recognizedMcpClient(
+            "codex",
+            "codex-mcp-client",
+            "0.145.0-alpha.27",
+          ),
+        }),
+    ),
+    ...Array.from(
+      { length: 4 },
+      (_, i) =>
+        verb({
+          at: t(6 + i),
+          verb: "done",
+          surface: "mcp",
+          duration_ms: 30_000,
+          driver: recognizedMcpClient(
+            "codex",
+            "codex-mcp-client",
+            "0.145.0-alpha.30",
+          ),
+        }),
+    ),
+  ];
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(
+    outcome.findings.length,
+    1,
+    "a client-release boundary with too short a tail must be attributed, not silent",
+  );
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assert(
+    finding.observed.includes(
+      "Codex 0.145.0-alpha.27 → 0.145.0-alpha.30 client release",
+    ),
+    `the attribution must name the client and version pair: ${finding.observed}`,
+  );
+  assert(
+    finding.observed.includes("2026-07-01"),
+    `the attribution must date the boundary: ${finding.observed}`,
+  );
+});
+
+Deno.test("patterns attribution: a version-blind stream trends normally — absence of client evidence is silent", () => {
+  // The same shift with no client declarations anywhere: the trend compares
+  // across the whole window and reports the creep itself, with no client
+  // attribution and no error.
+  const events: LogbookEvent[] = [
+    ...Array.from(
+      { length: 4 },
+      (_, i) => verb({ at: t(i), verb: "done", duration_ms: 10_000 }),
+    ),
+    ...Array.from(
+      { length: 4 },
+      (_, i) => verb({ at: t(6 + i), verb: "done", duration_ms: 30_000 }),
+    ),
+  ];
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(outcome.findings.length, 1);
+  assert(
+    !(outcome.findings[0]?.observed.includes("client release") ?? true),
+    `no client attribution may appear without client evidence: ${
+      outcome.findings[0]?.observed
+    }`,
+  );
+});
+
 Deno.test("patterns attribution: comparableTail keeps only the newest epoch+writer run", () => {
   const events = [
     verb({ at: t(0), epoch: "a", writer: "9.9.9" }),
