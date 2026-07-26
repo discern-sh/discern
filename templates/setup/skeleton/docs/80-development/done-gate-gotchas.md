@@ -1,4 +1,4 @@
-# Done-gate gotchas
+# Gate gotchas
 
 _Non-obvious ways `discern done` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._
 
@@ -19,6 +19,22 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 **Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to update and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
 
 **Fix.** Commit your work, then run `discern update` — it brings `main` into your branch and re-materializes the agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to update into.)
+
+### A generated or local discern artifact was force-added
+
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized Skills, or machine-local provider state.
+
+**Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the guidance source, `[skills].dir`, or provider config — and the generated or local artifact stays untracked even when its bytes are current.
+
+**Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
+
+### A gate stage dirtied a file you already committed
+
+**Symptom.** `done` reaches the end with every stage green, then reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
+
+**Cause.** The fix stage mutates by design — formatters rewrite files — and a build stage can mutate through its wiring, regenerating tracked artifacts from their sources. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following acceptance onto the trunk.
+
+**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and re-run `done`. You can avoid that extra pass by running `done` or `prepare` before your final commit. Tree drift applies only when a stage changes an already-committed file.
 
 ### A check passes alone but fails in the full run
 
@@ -42,15 +58,15 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Cause.** In an isolated worktree (and often elsewhere), dependencies are not in version control. A merge updates the _lockfile text_ but installs nothing. The new code references a dependency that was never fetched into this checkout.
 
-**Fix.** Reinstall dependencies in this checkout (your stack's `install`/`restore`/`sync` step) **before** re-running the gate. If your toolchain has a generated index, autoloader, or classmap, regenerate it too — a merge that adds a new source path can leave the generated index stale, which some tools report as a silent bootstrap failure (an empty error, an unexpected non-zero exit) rather than a clear "not found".
+**Fix.** Reinstall dependencies in this checkout (your stack's `install`/`restore`/`sync` step) **before** re-running the gate. If your toolchain has a generated index, autoloader, or classmap, regenerate it too — a merge that adds a new source path can leave the generated index stale, which some tools report as a blank bootstrap failure (an empty error, an unexpected non-zero exit) rather than a clear "not found".
 
 ### A command hangs, then fails with a timeout
 
-**Symptom.** `discern done` sits on a stage with no further output, then — after `[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that the command "timed out … without exiting". The command works fine when you run it by hand.
+**Symptom.** `discern done` sits on a stage with no further output, then — after `[gate].timeout` seconds (default 600) — fails that stage with a diagnostic that the command "timed out … and was killed". The command works fine when you run it by hand.
 
-**Cause.** A gate command never exits. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a job. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to _watching_ for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely.
+**Cause.** A gate command never finishes. The usual culprit is a **watch-mode test runner** or a **dev server** wired into a job. Run by hand in your terminal it may pick a single run, but the gate runs it with stdin closed, no TTY, and piped output, where many runners default to _watching_ for file changes and wait forever. The gate exports `CI=1` (with `NO_COLOR` / `TERM=dumb`) to push runners into their single-run form, but one that ignores `CI` still hangs — so the timeout watchdog tree-kills the whole process group and fails the stage rather than waiting indefinitely. Another variant: the command exits but leaves a background process holding its output stream open; the watchdog handles it as a timeout and releases the held pipes after killing the group.
 
-**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is _legitimately_ longer than the budget (a large suite), raise `[gate].timeout`; set it to `0` only to disable the bound entirely (not recommended — the gate can then hang again).
+**Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is _legitimately_ longer than the budget (a large suite), raise `[gate].timeout`; setting it to `0` disables the bound and permits another indefinite hang.
 
 ### A gate command fails with exit 127 (command not found)
 
@@ -58,7 +74,9 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Cause.** A fresh worktree starts with only your tracked files. The tools and dependency directories that put that command on `PATH` — an untracked package `bin` directory, a local tools or cache directory, a per-checkout language environment — do not exist in the new worktree until something creates them, so the shell cannot find the command.
 
-**Fix.** Converge those directories in every worktree with `[worktree.setup].ensure` — commands that run on every setup pass (install dependencies, build the toolchain). One-shot scaffolding that only needs to run at creation goes in `[worktree.setup].steps`. Then the command is on `PATH` wherever the gate runs.
+**Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure` — discern runs them in every managed worktree and, after acceptance, in the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources, and `[worktree.setup].steps` for one-shot scaffolding that only runs at creation. Then the command is on `PATH` wherever the gate runs.
+
+One command can never be the missing one: `discern` itself. The gate prepends a self-shim to every job command's `PATH`, so the seeded `format = "discern tidy"` resolves to the discern running the gate even where the surrounding environment has no discern on `PATH`.
 
 ### A failure shows up as exit 0
 
@@ -86,7 +104,7 @@ This section is yours to grow. As you build and hit failures the error message a
 
 - A tool in one of your `[jobs]` that fails for a reason its own output does not make clear.
 - An ordering constraint specific to your build (an artifact one stage must produce before another reads it).
-- A test-isolation footgun unique to your framework or test runner.
+- A test-isolation trap unique to your framework or test runner.
 - A toolchain step a merge can invalidate (a generated file, a native build, a cache) that needs regenerating before the gate is green.
 
 _(No project-specific traps recorded yet.)_
