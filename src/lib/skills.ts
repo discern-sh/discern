@@ -39,6 +39,7 @@ import {
   describeYamlValue,
   parseFrontmatterMapping,
   readFrontmatterBlock,
+  UNTERMINATED_FRONTMATTER_ISSUE,
 } from "./frontmatter.ts";
 import { providerFor, skillsDirsForAgents } from "./providers.ts";
 import { guidanceContext } from "../engine/guidance_render.ts";
@@ -132,7 +133,7 @@ export function skillFrontmatterIssues(
   if (block === undefined) {
     return [
       text.split(/\r?\n/, 1)[0]?.trim() === "---"
-        ? "unterminated frontmatter fence (no closing '---')"
+        ? UNTERMINATED_FRONTMATTER_ISSUE
         : "missing opening '---' frontmatter fence",
     ];
   }

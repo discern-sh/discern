@@ -117,6 +117,83 @@ Deno.test("status: the fleet view surfaces cross-worktree file collisions", asyn
   });
 });
 
+/** Commit one `0007-<slug>.md` record in a worktree — the "next free number"
+ * pick that collides only number-wise, never path-wise. */
+async function commitAdr(worktree: string, slug: string): Promise<void> {
+  const adrDir = join(worktree, "map", "_adr");
+  await Deno.mkdir(adrDir, { recursive: true });
+  await Deno.writeTextFile(join(adrDir, `0007-${slug}.md`), "# record\n");
+  await git(worktree, "add", "-A");
+  await git(worktree, "commit", "-q", "-m", slug, "--no-gpg-sign");
+}
+
+Deno.test("status: in-flight branches claiming one ADR number are surfaced — even when one has no worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const alpha = await addWorktree(dir, "alpha");
+    const beta = await addWorktree(dir, "beta");
+    // Both efforts pick the next free record number: DIFFERENT files, so the
+    // changed-file collision scan sees nothing and both merge cleanly.
+    await commitAdr(alpha, "alpha-take");
+    await commitAdr(beta, "beta-take");
+    // Park beta as an unlanded branch with no worktree — the claimant shape a
+    // fleet pair scan would never see.
+    await git(dir, "worktree", "remove", "--force", beta);
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    const collisions = obj.data.adr_collisions;
+    assert(
+      Array.isArray(collisions) && collisions.length === 1,
+      `expected exactly one ADR collision: ${r.stdout}`,
+    );
+    assertEquals(collisions[0].number, "0007");
+    assertEquals(collisions[0].branches, ["agent/alpha", "agent/beta"]);
+    assertEquals(collisions[0].paths, [
+      "map/_adr/0007-alpha-take.md",
+      "map/_adr/0007-beta-take.md",
+    ]);
+    assertHasHint(obj, HINTS["status-adr-number-collisions"], {
+      total: 1,
+      claims: ["0007 (agent/alpha ↔ agent/beta)"],
+    });
+
+    // The remaining worktree's LOCAL view carries the collision too — its own
+    // branch is a party, and that session is the one that may need to renumber.
+    const local = await runAgent(alpha, ["status", "--json"]);
+    assertEquals(local.code, 0, local.output);
+    const localObj = parseStatus(local.stdout);
+    assertEquals(localObj.data.location, "worktree");
+    assertEquals(localObj.data.adr_collisions?.length, 1);
+    assertHasHint(localObj, HINTS["status-adr-number-collisions"], {
+      total: 1,
+      claims: ["0007 (agent/alpha ↔ agent/beta)"],
+    });
+  });
+});
+
+Deno.test("status: a worktree outside an ADR collision does not carry other branches' contested numbers", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const alpha = await addWorktree(dir, "alpha");
+    const beta = await addWorktree(dir, "beta");
+    const gamma = await addWorktree(dir, "gamma");
+    await commitAdr(alpha, "alpha-take");
+    await commitAdr(beta, "beta-take");
+
+    // Gamma's local view: the 0007 contest is alpha↔beta's to resolve, not
+    // gamma's — no rows, no hint.
+    const r = await runAgent(gamma, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const obj = parseStatus(r.stdout);
+    assertEquals(obj.data.adr_collisions, undefined);
+    assertLacksHint(obj, HINTS["status-adr-number-collisions"]);
+  });
+});
+
 Deno.test("status: from the main checkout, the default leads with the fleet (and a main row)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

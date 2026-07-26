@@ -39,6 +39,10 @@ import {
   recordStandardMeasurements,
 } from "./receipt.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
+import {
+  type AdrNumberDuplicate,
+  duplicateAdrNumbers,
+} from "../../lib/adr_numbers.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
@@ -212,6 +216,34 @@ async function skillFrontmatterDiagnostic(
     tool: "skill-frontmatter",
     severity: "error",
     message: `invalid SKILL.md frontmatter: ${files}`,
+    reproduce_cmd: "discern done",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for DUPLICATED ADR numbers: each number and the record files
+ * claiming it. Neither refresh nor a re-run clears this — the records are
+ * different files whose merge was clean, so the remedy is renumbering the
+ * newer one, and the diagnostic says which files are in contention.
+ */
+async function adrNumbersDiagnostic(
+  dupes: AdrNumberDuplicate[],
+): Promise<Diagnostic> {
+  const numbers = dupes.map((d) => d.number).join(", ");
+  const outputFields = await diagnosticOutputFields(
+    `ADR numbers claimed by more than one record:\n\n` +
+      dupes.map((d) =>
+        `${d.number}:\n${d.paths.map((p) => `  - ${p}`).join("\n")}`
+      ).join("\n\n") +
+      "\n\nKeep the number on the record that landed first (or the superseded " +
+      "record that retired it), and move the newer record to the next free " +
+      "number — filename, title, and any references to it.",
+  );
+  return {
+    tool: "adr-numbers",
+    severity: "error",
+    message: `ADR number(s) claimed by more than one record: ${numbers}`,
     reproduce_cmd: "discern done",
     ...outputFields,
   };
@@ -403,6 +435,22 @@ async function runGate(
     if (malformed.length > 0) {
       failedStage = "skill_frontmatter";
       skillFrontmatterDiag = await skillFrontmatterDiagnostic(malformed);
+    }
+  }
+
+  // 1d-ter. ADR number uniqueness — a number identifies one decision forever, and
+  //     two records claiming it are different files that MERGE CLEANLY: the state
+  //     two in-flight branches land in whenever both picked the next free number.
+  //     `discern update` brings the first lander's record into this tree, so the
+  //     duplicate is visible right here, right when the second lander can still
+  //     renumber cheaply. Tree-wide (not branch-relative) by design: a duplicate
+  //     is wrong wherever it came from, and any branch can carry the renumber.
+  let adrNumbersDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const dupes = await duplicateAdrNumbers(root, cfg.map.dir);
+    if (dupes.length > 0) {
+      failedStage = "adr_numbers";
+      adrNumbersDiag = await adrNumbersDiagnostic(dupes);
     }
   }
 
@@ -609,6 +657,9 @@ async function runGate(
   }
   if (skillFrontmatterDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), skillFrontmatterDiag];
+  }
+  if (adrNumbersDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), adrNumbersDiag];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];

@@ -529,7 +529,7 @@ export const HINTS = {
    * instructions — report, close with the line, wait, land only on an explicit
    * ask — are the agent's consent workflow, not a person's. The composition
    * contract (account first, one-line receipt last, page stays with discern)
-   * is ADR 0184's. */
+   * is ADR 0188's. */
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
     id: "status-ready-for-review",
     category: "next-step",
@@ -646,6 +646,35 @@ export const HINTS = {
       } changing the same files: ${
         boundedNameSummary(total, pairs)
       } (paths in \`data.fleet_collisions\`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run \`discern update\` and re-read the shared paths.`,
+  }),
+
+  /** In-flight ADR number collisions — number-keyed where the fleet-collision
+   * scan is path-keyed: the records are different files that merge cleanly, so
+   * this is the only warning before the gate refuses the landed duplicate. */
+  "status-adr-number-collisions": defineHint<{
+    total: number;
+    claims: readonly string[];
+  }>({
+    id: "status-adr-number-collisions",
+    category: "notice",
+    audience: "all",
+    when: "Two or more in-flight branches claim the same ADR record number.",
+    example: {
+      total: 2,
+      claims: [
+        "0007 (agent/one ↔ agent/two)",
+        "0008 (agent/one ↔ agent/three)",
+      ],
+    },
+    template: ({ total, claims }): string =>
+      `Expect a renumber: ${total} ADR number${
+        total === 1 ? " is" : "s are"
+      } claimed by more than one in-flight branch: ${
+        boundedNameSummary(total, claims)
+      } (records in \`data.adr_collisions\`). The records are different files ` +
+      `that merge cleanly, so nothing collides until both sit in one tree and ` +
+      `the gate refuses the duplicate — whoever lands second takes the next ` +
+      `free number.`,
   }),
 
   /** One bounded summary for every fleet member whose git state is unreadable. */
@@ -1336,6 +1365,18 @@ export const HINTS = {
       "Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Agent runtimes cannot read invalid frontmatter.",
   }),
 
+  /** Two ADR records claim the same number. */
+  "gate-failure-adr-numbers": defineHint({
+    id: "gate-failure-adr-numbers",
+    category: "next-step",
+    audience: "all",
+    when: "Two or more ADR records in the tree claim the same number.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.",
+  }),
+
   /** The worktree branch does not contain the current trunk. */
   "gate-failure-merge": defineHint({
     id: "gate-failure-merge",
@@ -1390,7 +1431,7 @@ export const HINTS = {
    * owner and waiting is an agent's move — a person running `done` at a
    * terminal IS the owner, with nobody further to report to. The composition
    * contract (account first, one-line receipt last, page stays with discern)
-   * is ADR 0184's. */
+   * is ADR 0188's. */
   "gate-relay-receipt": defineHint({
     id: "gate-relay-receipt",
     category: "next-step",
@@ -2165,6 +2206,7 @@ export const GATE_FAILURE_REMEDIES = {
   guidance: HINTS["gate-failure-guidance"],
   skills: HINTS["gate-failure-skills"],
   skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
+  adr_numbers: HINTS["gate-failure-adr-numbers"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
   write_access: HINTS["gate-failure-write-access"],

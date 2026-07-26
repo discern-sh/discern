@@ -136,7 +136,7 @@ Usage: `discern test [options]`
 
 ### `discern tidy`
 
-Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both.
+Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.
 
 Usage: `discern tidy [type] [options]`
 

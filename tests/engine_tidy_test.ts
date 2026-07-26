@@ -2,11 +2,17 @@ import {
   assert,
   assertEquals,
   assertMatch,
+  assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
 import { ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
-import { formatMarkdownText, formatTomlText } from "../src/lib/tidy_format.ts";
+import {
+  assertFrontmatterPreserved,
+  formatMarkdownText,
+  formatTomlText,
+} from "../src/lib/tidy_format.ts";
 import { planTidy, tidyResult } from "../src/engine/tidy/tidy.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
@@ -278,4 +284,194 @@ Deno.test("the real map corpus and discern.toml are formatter-idempotent", async
   const once = await formatTomlText(configPath, before);
   assertEquals(await formatTomlText(configPath, once), once);
   assertEquals(commentLines(once), commentLines(before));
+});
+
+Deno.test("tidy fails on a misaligned fenced diagram, naming file, line, and column", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    await write(
+      join(root, "docs", "diagram.md"),
+      ["# D", "", "```", "┌───┐", "│ x  │", "└───┘", "```", ""].join("\n"),
+    );
+    const result = await tidyResult(root);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "diagrams_misaligned");
+    const messages = (result.diagnostics ?? []).map((d) => d.message);
+    assert(
+      messages.some((m) => m.startsWith("docs/diagram.md:5:6")),
+      messages.join("\n"),
+    );
+    // Formatting still converged the rest of the tree in the same run.
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n- item\n",
+    );
+  });
+});
+
+Deno.test("a freeform-tagged fence and the toml selector skip the diagram check", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const art = ["```freeform", "┌───┐", "│ x  │", "└───┘", "```", ""]
+      .join("\n");
+    await write(join(root, "docs", "art.md"), `# Art\n\n${art}`);
+    const tagged = await tidyResult(root);
+    assertEquals(tagged.ok, true);
+
+    await write(
+      join(root, "docs", "art.md"),
+      `# Art\n\n${art.replace("```freeform", "```")}`,
+    );
+    const toml = await tidyResult(root, { type: "toml" });
+    assertEquals(toml.ok, true);
+    const md = await tidyResult(root, { type: "md" });
+    assertEquals(md.ok, false);
+  });
+});
+
+Deno.test("tidy --dry-run reports diagram findings and writes nothing", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    await write(
+      join(root, "docs", "diagram.md"),
+      ["# D", "", "```", "┌───┐", "│ x  │", "└───┘", "```", ""].join("\n"),
+    );
+    const result = await tidyResult(root, { dryRun: true });
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "diagrams_misaligned");
+    assert((result.diagnostics ?? []).length > 0);
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n-   item\n",
+    );
+  });
+});
+
+Deno.test("markdown formatting refuses unparseable frontmatter instead of rewriting it", async () => {
+  // The incident shape: an unquoted `: ` inside a value turns the block into
+  // invalid YAML; a recovering formatter re-indents the flush-left siblings
+  // underneath it. The embedded formatter must refuse the file instead.
+  const incident = [
+    "---",
+    "name: repro-fixture",
+    "description: foo bar: baz",
+    "metadata:",
+    "  author: discern",
+    "  version: 1.0.0",
+    "---",
+    "",
+    "# Repro",
+    "",
+    "Body.",
+    "",
+  ].join("\n");
+  await assertRejects(
+    () => formatMarkdownText("SKILL.md", incident),
+    Error,
+    "not valid YAML",
+  );
+
+  // A future sibling of the same mechanism under unrelated names and in an
+  // unrelated container must be refused without any name-specific rule.
+  const sibling = [
+    "---",
+    "sprocket: gear: tooth",
+    "widgets:",
+    "  rim: brass",
+    "---",
+    "",
+    "Notes.",
+    "",
+  ].join("\n");
+  await assertRejects(
+    () => formatMarkdownText("notes.md", sibling),
+    Error,
+    "not valid YAML",
+  );
+
+  // An opening fence that never closes is a broken block, not content.
+  await assertRejects(
+    () => formatMarkdownText("doc.md", "---\ntitle: x\n\nBody.\n"),
+    Error,
+    "unterminated frontmatter fence",
+  );
+
+  // A list is valid YAML but not a frontmatter mapping.
+  await assertRejects(
+    () => formatMarkdownText("doc.md", "---\n- a\n- b\n---\n\nBody.\n"),
+    Error,
+    "must be a YAML mapping",
+  );
+});
+
+Deno.test("markdown formatting preserves a valid frontmatter block verbatim", async () => {
+  // Non-canonical YAML spacing must come through byte-for-byte while the
+  // Markdown body still formats.
+  const block = [
+    "---",
+    'description:     "a: quoted value"',
+    "metadata:",
+    "    author:   ada",
+    "---",
+  ].join("\n");
+  const input = `${block}\n\n#  Title\n\n-   item\n`;
+  const output = await formatMarkdownText("doc.md", input);
+  assert(
+    output.startsWith(`${block}\n`),
+    `frontmatter block must survive unchanged, got:\n${output}`,
+  );
+  assertStringIncludes(output, "# Title");
+  assertStringIncludes(output, "- item");
+
+  // Line endings follow the document-wide LF convention; the block's content
+  // is otherwise untouched.
+  const crlf = "---\r\ndescription: x\r\n---\r\n\r\n# T\r\n";
+  const crlfOut = await formatMarkdownText("doc.md", crlf);
+  assert(crlfOut.startsWith("---\ndescription: x\n---\n"), crlfOut);
+});
+
+Deno.test("unparseable frontmatter aborts tidy md before any write", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const badPath = join(root, "docs", "broken.md");
+    const bad = [
+      "---",
+      "description: foo bar: baz",
+      "metadata:",
+      "  author: discern",
+      "---",
+      "",
+      "# Broken",
+      "",
+      "-   item",
+      "",
+    ].join("\n");
+    await write(badPath, bad);
+    const readmePath = join(root, "docs", "README.md");
+    const readmeBefore = await Deno.readTextFile(readmePath);
+
+    const result = await runAgent(root, ["tidy", "--json"]);
+    assertEquals(result.code, 1);
+    const json = JSON.parse(result.stdout) as {
+      error: string;
+      diagnostics: Array<{ message: string }>;
+    };
+    assertEquals(json.error, "tidy_parse_failed");
+    const message = json.diagnostics[0]?.message ?? "";
+    assertStringIncludes(message, "broken.md");
+    assertStringIncludes(message, "not valid YAML");
+    assertEquals(await Deno.readTextFile(badPath), bad);
+    assertEquals(await Deno.readTextFile(readmePath), readmeBefore);
+  });
+});
+
+Deno.test("a formatter that altered frontmatter is refused, never written", () => {
+  const before = "---\ndescription: x\n---\n\n# T\n";
+  const altered = "---\ndescription: x\n  extra: y\n---\n\n# T\n";
+  assertFrontmatterPreserved("doc.md", before, before);
+  assertThrows(
+    () => assertFrontmatterPreserved("doc.md", before, altered),
+    Error,
+    "altered the frontmatter",
+  );
 });

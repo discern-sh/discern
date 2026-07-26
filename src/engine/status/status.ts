@@ -73,6 +73,8 @@ import {
   untrackedGuidanceFilesHint,
 } from "../../lib/agent_gitignore.ts";
 import {
+  type AdrNumberCollision,
+  adrNumberCollisions,
   assertMainMerged,
   detectSilentDivergence,
   type FleetCollision,
@@ -84,9 +86,11 @@ import {
   listWorktreeFleet,
   localBranchExists,
   mainRepoPath,
+  prefixBranches,
   unlandedPrefixBranches,
   worktreeGitKey,
 } from "../worktree/git.ts";
+import { ADR_SUBDIR } from "../../lib/adr_numbers.ts";
 import {
   deriveIdentity,
   IdentityError,
@@ -120,7 +124,7 @@ export interface StatusOptions {
 
 /** CLI-only presentation flags. `verbose` prints the full receipt page for an
  * honored branch (and each ready fleet row); the wire payload is identical with
- * or without it — `--json` and MCP always carry the receipt (ADR 0184). */
+ * or without it — `--json` and MCP always carry the receipt (ADR 0188). */
 export interface StatusRenderOptions {
   verbose?: boolean;
 }
@@ -376,6 +380,31 @@ export async function statusResult(
     }
   }
 
+  // In-flight ADR number collisions — number-keyed where the changed-file scan
+  // above is path-keyed: two efforts that each picked the next free record
+  // number added DIFFERENT files, so no path intersects and both merge cleanly;
+  // the gate refuses the duplicate only once both records sit in one tree. The
+  // universe is every `<branch_prefix>` branch (worktree-backed and unlanded
+  // alike — the second claimant is often a parked branch with no worktree). The
+  // local worktree view keeps only collisions involving THIS branch: they are
+  // the ones this session can renumber its way out of.
+  let adrCollisions: AdrNumberCollision[] | undefined;
+  if (includeFleet || location === "worktree") {
+    const inFlight = await prefixBranches(root, cfg.repository.branch_prefix);
+    if (inFlight.length >= 2) {
+      const adrDir = `${cfg.map.dir.replace(/\/+$/, "")}/${ADR_SUBDIR}`;
+      let found = await adrNumberCollisions(root, inFlight, mainBranch, adrDir);
+      if (!includeFleet) {
+        const branch = git?.branch ?? "";
+        found = found.filter((c) => c.branches.includes(branch));
+      }
+      if (found.length > 0) {
+        adrCollisions = found;
+        data.adr_collisions = found;
+      }
+    }
+  }
+
   // Silent divergence (worktree view): this worktree is pristine while the main
   // checkout accumulates changes — the signature of edits landing on the trunk
   // while the gate runs here. One wording, shared with `done`.
@@ -395,6 +424,7 @@ export async function statusResult(
     unlandedBranches,
     fleet,
     fleetCollisions: fleetCollisionPairs,
+    adrCollisions,
     liveCount,
     guidanceDrift,
     skillsDrift,
@@ -600,6 +630,9 @@ interface HintContext {
   /** Cross-worktree changed-file collisions (fleet view; hint fodder — the
    * rows themselves ride `data.fleet_collisions`). */
   fleetCollisions: FleetCollision[] | undefined;
+  /** In-flight ADR number collisions (both views; the rows ride
+   * `data.adr_collisions`). */
+  adrCollisions: AdrNumberCollision[] | undefined;
   liveCount: number;
   /** Agent files that don't match what `discern refresh` would write. */
   guidanceDrift: GuidanceDriftEntry[];
@@ -791,6 +824,21 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // Location-agnostic: fires from the main checkout and under --all from a worktree.
   if (ctx.fleet?.some((e) => !e.is_main && !e.is_current)) {
     hints.push(fire(HINTS["fleet-ownership"]));
+  }
+
+  // In-flight ADR number collisions — location-agnostic like the data: the
+  // fleet view sees every contested number, a worktree sees the ones its own
+  // branch is party to. The rows ride data.adr_collisions.
+  const adrCollisions = ctx.adrCollisions ?? [];
+  if (adrCollisions.length > 0) {
+    hints.push(
+      fire(HINTS["status-adr-number-collisions"], {
+        total: adrCollisions.length,
+        claims: adrCollisions.map((c) =>
+          `${c.number} (${c.branches.join(" ↔ ")})`
+        ),
+      }),
+    );
   }
 
   // Main-checkout worktree-activity next-steps assume a configured, set-up project.
@@ -1033,7 +1081,7 @@ export function relativeAge(
 
 /** Render the status result as a compact human summary on stdout (quiet under
  * `--json`, which never calls this). `verbose` additionally prints each honored
- * receipt page — the owner-side pull for the review moment (ADR 0184). */
+ * receipt page — the owner-side pull for the review moment (ADR 0188). */
 function renderStatusHuman(
   result: DiscernResult<StatusData>,
   render: StatusRenderOptions = {},

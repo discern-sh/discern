@@ -1,4 +1,4 @@
-# ADR 0184: The receipt relays as one line; the page is pulled
+# ADR 0188: The receipt relays as one line; the page is pulled
 
 **Status**: accepted; amends the relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) (the derivation, storage, and no-review-verb decisions stand).
 

@@ -229,6 +229,19 @@ Rendered example:
 Measure 2 deferred standards with `discern standards` as needed: coverage, binary_size. Their measurements are on demand, but the never-loosen limit check still ran.
 ```
 
+## `gate-failure-adr-numbers`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: Two or more ADR records in the tree claim the same number.
+
+Rendered example:
+
+```text
+Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.
+```
+
 ## `gate-failure-build`
 
 - Category: `next-step`
@@ -1189,6 +1202,19 @@ Rendered example:
 
 ```text
 Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
+```
+
+## `status-adr-number-collisions`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: Two or more in-flight branches claim the same ADR record number.
+
+Rendered example:
+
+```text
+Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
 ```
 
 ## `status-branch-behind`

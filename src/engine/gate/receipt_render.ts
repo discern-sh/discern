@@ -1,5 +1,5 @@
 /**
- * The **receipt** (ADR 0114, relay contract amended by ADR 0184) — what a green
+ * The **receipt** (ADR 0114, relay contract amended by ADR 0188) — what a green
  * gate hands the review moment, rendered in two forms from one set of facts:
  *
  * - the **line** — one sentence (branch, validated sha, diffstat vs the trunk,

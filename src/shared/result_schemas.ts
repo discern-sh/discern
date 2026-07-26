@@ -217,7 +217,7 @@ const changedFileSchema = z.strictObject({
 
 /**
  * The **receipt** — the deterministic review claim a green gate emits over a
- * clean committed tree, in two renderings from one set of facts (ADR 0184): the
+ * clean committed tree, in two renderings from one set of facts (ADR 0188): the
  * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
  * vs the trunk; `line` — the one sentence an agent closes its report with; and
  * `markdown` — the review page the owner pulls from discern. Derived ONCE from
@@ -339,7 +339,7 @@ export type GateData = z.infer<typeof GateDataSchema>;
 /** How the current worktree's recorded receipt stands against HEAD. Present only
  * when the record is honored (it names exactly the current clean HEAD):
  * `receipt` is the stored receipt page, and `receipt_line` the stored one-line
- * form — the only receipt content an agent puts in a message (ADR 0184). Both
+ * form — the only receipt content an agent puts in a message (ADR 0188). Both
  * come from the marker, without re-running the gate. */
 export const GateReceiptCheckSchema = z.strictObject({
   status: z.enum([
@@ -617,7 +617,7 @@ const statusFleetEntrySchema = z.strictObject({
   /** Present (true) when the row's clean HEAD has an honored receipt from
    * `discern done` — reviewable without visiting the worktree. `receipt` /
    * `receipt_line` carry the stored page and one-line form when the marker
-   * recorded them (ADR 0184), so a supervisor at the main checkout reads the
+   * recorded them (ADR 0188), so a supervisor at the main checkout reads the
    * review summary from here (`--verbose` prints it interactively). */
   receipt_honored: z.boolean().optional(),
   receipt: z.string().optional(),
@@ -634,6 +634,16 @@ const statusFleetCollisionSchema = z.strictObject({
   total: z.number(),
 });
 export type StatusFleetCollision = z.infer<typeof statusFleetCollisionSchema>;
+
+/** One in-flight ADR number collision: a record number claimed by files ADDED
+ * on two or more in-flight branches — different paths with one number, which
+ * the changed-file collision scan can never intersect. */
+const statusAdrCollisionSchema = z.strictObject({
+  number: z.string(),
+  branches: z.array(z.string()),
+  paths: z.array(z.string()),
+});
+export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
 
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
@@ -666,6 +676,10 @@ export const StatusDataSchema = z.strictObject({
    * non-empty): pairs of fleet branches whose fork diffs touch the same
    * paths. */
   fleet_collisions: z.array(statusFleetCollisionSchema).optional(),
+  /** In-flight ADR number collisions (present when non-empty): the fleet view
+   * carries every contested number; the local worktree view carries the ones
+   * the current branch is party to. */
+  adr_collisions: z.array(statusAdrCollisionSchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
 

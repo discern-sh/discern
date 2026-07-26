@@ -23,7 +23,7 @@ Fresh installations put bare `discern tidy` in the [format job](../00-orientatio
 | Markdown | Every `.md` file under `[map].dir`, the `[project].todo` file, and files matched by `[guidance].sources`. | The project brief, authored skills, generated agent files, and Markdown outside those configured sources. |
 | TOML     | The root `discern.toml`.                                                                                  | Every other TOML file, including files owned by the project's stack or a coding-agent provider.           |
 
-Markdown prose is stored unwrapped, with two-space indentation, spaces rather than tabs, and LF line endings. Fenced code stays byte-for-byte unchanged. TOML uses the same indentation and line-ending convention while preserving comments. The plugins and their formatter host are pinned and embedded in the binary, so formatting makes no network call and needs no project runtime.
+Markdown prose is stored unwrapped, with two-space indentation, spaces rather than tabs, and LF line endings. Fenced code stays byte-for-byte unchanged, though a fenced box-drawing diagram must stay column-aligned: a misaligned glyph fails the run under `diagrams_misaligned` with its file, line, and column, and a fence tagged `freeform` is exempt. TOML uses the same indentation and line-ending convention while preserving comments. The plugins and their formatter host are pinned and embedded in the binary, so formatting makes no network call and needs no project runtime.
 
 ## Run it directly
 
