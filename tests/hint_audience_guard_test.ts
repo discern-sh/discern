@@ -101,6 +101,7 @@ const ALLOWED_AGENT_VOCABULARY: Record<string, readonly string[]> = {
   "status-fleet-member-ready": ["data.<field>"],
   "status-fleet-member-stale": ["data.<field>"],
   "status-fleet-collisions": ["data.<field>"],
+  "status-adr-number-collisions": ["data.<field>"],
 };
 
 Deno.test("all-audience templates carry agent vocabulary only by allowlisted decision", () => {

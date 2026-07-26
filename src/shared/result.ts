@@ -150,6 +150,9 @@ export interface StepResult {
  *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
  *    consumer contract (valid YAML with a non-empty `name`/`description`
  *    identity), so an agent runtime would reject or misread it;
+ *  - `adr_numbers` — two ADR records in the map's `_adr/` tree claim the same
+ *    number. The files differ, so a merge lands the duplicate cleanly; the
+ *    gate is the surface that refuses it;
  *  - `merge` — the branch is behind the integration branch (the fail-fast
  *    precondition, ADR 0050);
  *  - `standards` — a `[standards]` limit failed verification against the trunk:
@@ -175,6 +178,7 @@ export const FAILED_STAGES = [
   "guidance",
   "skills",
   "skill_frontmatter",
+  "adr_numbers",
   "merge",
   "standards",
   "write_access",

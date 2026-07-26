@@ -27,7 +27,11 @@
  * cannot parse fails loudly at the gate instead of vanishing silently.
  * `SKILL.md` identity blocks share {@link readFrontmatterBlock} and
  * {@link parseFrontmatterMapping} through `skillFrontmatterIssues`
- * (src/lib/skills.ts).
+ * (src/lib/skills.ts). Markdown WRITERS share {@link frontmatterParseIssue}:
+ * before rewriting a document they ask the same strict question the gate asks,
+ * and refuse the file when its block does not parse — rewriting a document
+ * around a broken metadata block can only restructure it into a differently
+ * broken one.
  */
 
 import { parse as parseYaml } from "@std/yaml";
@@ -128,6 +132,26 @@ export function parseFrontmatterMapping(
     };
   }
   return { attrs: parsed as Record<string, unknown> };
+}
+
+/** The issue a `---` opener with no closing fence reports, shared by every
+ * strict reader so the failure is phrased one way everywhere. */
+export const UNTERMINATED_FRONTMATTER_ISSUE =
+  "unterminated frontmatter fence (no closing '---')";
+
+/**
+ * The strict question a Markdown writer asks before it rewrites a document:
+ * does the leading frontmatter parse? Returns undefined when the document
+ * opens with no block at all, or with a valid YAML mapping; returns the issue
+ * when the opening fence never closes or the block does not parse. A writer
+ * refuses on an issue instead of formatting around the broken block.
+ */
+export function frontmatterParseIssue(md: string): string | undefined {
+  if (md.split(/\r?\n/, 1)[0]?.trimEnd() !== "---") return undefined;
+  const block = readFrontmatterBlock(md);
+  if (block === undefined) return UNTERMINATED_FRONTMATTER_ISSUE;
+  const parsed = parseFrontmatterMapping(block.raw);
+  return "issue" in parsed ? parsed.issue : undefined;
 }
 
 /** True when `value` is an array holding only strings. */

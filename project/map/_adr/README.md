@@ -178,7 +178,9 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0181 — An SSOT claim must anchor a declared canonical set](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md)
 - [0182 — Operator commands resolve `discern` to the running engine](0182-operator-commands-resolve-discern-to-the-running-engine.md)
 - [0183 — Agent task search uses an audience-specific ranker](0183-agent-task-search-uses-an-audience-specific-ranker.md)
-- [0184 — tidy checks diagram geometry in the Markdown it formats](0184-tidy-checks-diagram-geometry.md)
+- [0184 — Markdown writers preserve or refuse frontmatter, never restructure it](0184-markdown-writers-preserve-or-refuse-frontmatter.md)
+- [0186 — ADR number uniqueness is gate-enforced, with an in-flight collision scan](0186-adr-number-uniqueness-is-gate-enforced.md)
+- [0187 — tidy checks diagram geometry in the Markdown it formats](0187-tidy-checks-diagram-geometry.md)
 
 <!-- END GENERATED: current ADR records -->
 

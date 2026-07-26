@@ -1,4 +1,4 @@
-# ADR 0184: tidy checks diagram geometry in the Markdown it formats
+# ADR 0187: tidy checks diagram geometry in the Markdown it formats
 
 **Status**: accepted
 
