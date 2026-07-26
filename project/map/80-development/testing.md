@@ -2,7 +2,7 @@
 
 _The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes._
 
-The `test` job in `discern.toml` is what the `done` gate runs; this doc explains how to write tests that pass it and how to run them while iterating.
+The `test` job in `discern.toml` is what the `done` gate runs; this doc explains how to write tests that pass it and how to run them while iterating. GitHub Actions runs the full gate on Ubuntu and an Apple-silicon macOS runner, so every pull request exercises both supported kernels.
 
 ## How tests run
 
