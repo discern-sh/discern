@@ -25,14 +25,13 @@ import {
   AGENT_SIGNAL_SOURCE_LIFETIMES,
   AGENT_SIGNAL_SOURCES,
 } from "../src/shared/agent_catalogue.ts";
+import { driverAgent, driverKind } from "../src/engine/logbook/cohorts.ts";
 import {
   buildStreamFacts,
   comparableTail,
   type Detector,
   type DetectorReport,
   DETECTORS,
-  driverAgent,
-  driverKind,
   runDetector,
 } from "../src/engine/logbook/detectors.ts";
 import {
@@ -57,6 +56,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 const LOGBOOK_READER_MODULES = [
   "src/engine/logbook/patterns.ts",
   "src/engine/logbook/detectors.ts",
+  "src/engine/logbook/cohorts.ts",
 ] as const;
 
 /** Schema members a reader deliberately does not consume, each with its

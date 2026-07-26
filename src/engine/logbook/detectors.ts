@@ -20,26 +20,23 @@
  *    detector reports insufficient evidence rather than extrapolating. A young
  *    logbook produces a short report, not a confident one.
  *
- * Segmentation before judgment: driver signals are scored here, in reader
- * logic (`driverKind`, `driverAgent`) — never stored — so an owner's
- * interactive runs don't read as agent pathology, CI noise drops out, and a
- * smarter future reader can re-score all accumulated history. Identity
- * evidence follows the catalogue's lifetime classification: invocation-scoped
- * signals may drive a reading, ambient host state never does, and conflicting
- * evidence stays honestly unresolved. Trend detectors compare only within one
- * config epoch and writer version ({@link comparableTail}); across a boundary
- * they attribute — naming what moved and when — rather than staying silent or
- * comparing blindly.
+ * Segmentation before judgment: driver signals are scored in reader logic
+ * (`driverKind`, `driverAgent`, and the cohort seam — `cohorts.ts`) — never
+ * stored — so an owner's interactive runs don't read as agent pathology, CI
+ * noise drops out, and a smarter future reader can re-score all accumulated
+ * history. Identity evidence follows the catalogue's lifetime classification:
+ * invocation-scoped signals may drive a reading, ambient host state never
+ * does, and conflicting evidence stays honestly unresolved. Trend detectors
+ * compare only within one config epoch and writer version
+ * ({@link comparableTail}); across a boundary they attribute — naming what
+ * moved and when — rather than staying silent or comparing blindly.
  *
  * Thresholds are recorded judgment: each carries a comment saying why that
  * number, all start conservative, and accumulated dogfood history is the
  * intended tuner.
  */
 
-import {
-  AGENT_CATALOGUE,
-  AGENT_SIGNAL_SOURCE_LIFETIMES,
-} from "../../shared/agent_catalogue.ts";
+import { AGENT_CATALOGUE } from "../../shared/agent_catalogue.ts";
 import type {
   DetectorFamily,
   DetectorScope,
@@ -47,6 +44,7 @@ import type {
   DetectorTier,
 } from "../../shared/patterns_vocabulary.ts";
 import { HINTS } from "../../shared/hints.ts";
+import { driverAgent, driverKind } from "./cohorts.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
@@ -70,62 +68,6 @@ export interface StreamFacts {
   /** The newest event's timestamp — the stream's own "now", so age-relative
    * detectors are pure functions of the stream (and deterministic in tests). */
   horizon: string | undefined;
-}
-
-/** One recorded identity-evidence bundle, as the schema admits it. */
-type AgentSignalFact = NonNullable<
-  NonNullable<VerbEvent["driver"]>["agent_signals"]
->[number];
-
-/**
- * The invocation-scoped identity signals one event carries. Ambient evidence
- * (per the catalogue's lifetime classification) is filtered before any
- * scoring: persistent host state can corroborate a reading a human makes, but
- * it never drives one here — it would attribute every run on that host.
- */
-function invocationSignals(e: VerbEvent): AgentSignalFact[] {
-  return (e.driver?.agent_signals ?? []).filter(
-    (s) => AGENT_SIGNAL_SOURCE_LIFETIMES[s.source] === "invocation",
-  );
-}
-
-/**
- * Who plausibly drove one invocation, scored from the raw driver signals the
- * recorder stored as evidence: the MCP surface is an agent by construction;
- * `--json` on the CLI is the guidance-taught agent marker; an invocation-scoped
- * identity signal without a terminal is an agent that skipped `--json`. An
- * interactive terminal normally reads as a human at the keyboard — but when it
- * carries an invocation-scoped signal the two disagree (environments leak into
- * shells opened inside agent sessions), so the verdict is revoked to unknown
- * rather than claimed either way. Everything unresolved stays IN the analysis
- * population — excluding it would blind the detectors to unmarked CLI agents.
- */
-export function driverKind(e: VerbEvent): "agent" | "human" | "unknown" {
-  if (e.surface === "mcp") {
-    return "agent";
-  }
-  if (e.driver?.json === true) {
-    return "agent";
-  }
-  if (invocationSignals(e).length > 0) {
-    return e.driver?.tty === true ? "unknown" : "agent";
-  }
-  if (e.driver?.tty === true) {
-    return "human";
-  }
-  return "unknown";
-}
-
-/**
- * The one agent identity an event's invocation-scoped evidence names, or
- * undefined when the evidence is absent, ambient-only, or names two different
- * identities — corroboration across sources strengthens a reading;
- * disagreement voids it rather than electing a winner.
- */
-export function driverAgent(e: VerbEvent): string | undefined {
-  const ids = new Set(invocationSignals(e).map((s) => s.agent));
-  const [only] = ids;
-  return ids.size === 1 ? only : undefined;
 }
 
 /** Build the pre-digested facts every detector receives. */
