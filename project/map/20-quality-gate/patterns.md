@@ -8,6 +8,8 @@ aliases:
   - detectors
   - practice health
   - logbook reader
+  - agent cohorts
+  - guidance parity
 ---
 
 # Practice patterns
@@ -35,9 +37,9 @@ A registry of named detectors runs over the event stream, grouped by family:
 
 | Family     | Watches for                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Behaviour  | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, dirty-tree churn, edits on the trunk, recurring `--force`, recurring `done --confirmed` reruns, missed doc lookups, worktrees started but never green, out-of-protocol orderings, recurring drivers the identity catalogue can't name, a returning agent whose native integration isn't configured. |
+| Behaviour  | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, dirty-tree churn, edits on the trunk, recurring `--force`, recurring `done --confirmed` reruns, missed doc lookups, worktrees started but never green, out-of-protocol orderings, recurring drivers the identity catalogue can't name, a returning agent whose native integration isn't configured, red streaks split by driver cohort, and a guidance-parity read of gaps one cohort keeps hitting. |
 | Gate fit   | One job dominating gate wall time, duration creep on an unchanged setup, a fix stage with no visible effect, one diagnostic class failing across branches, divergent verdicts on an identical tree — the flake signature.                                                                                                                                                                         |
-| Funnel     | Red runs before the first green per branch, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                                                                                                                                                                                |
+| Funnel     | Red runs before the first green per branch and per driver cohort, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                                                                                                                                                          |
 | Trajectory | Each standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                                                                                                                                                                                                                                |
 
 Detector thresholds start conservative and are recorded beside each entry in the registry source.
@@ -50,7 +52,15 @@ The recorder stores raw driver signals; scoring them is reader logic here, compu
 
 Identity evidence follows its recorded lifetime ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). A signal scoped to the invocation (a process marker, a recognized MCP client) can mark a run as agent-driven; persistent host state can never drive a reading, only sit beside one. A signal on an interactive-looking run makes that run ambiguous rather than proving either party, and evidence naming two different agents attributes nothing — corroboration strengthens a reading, disagreement voids it. A finding built on identity evidence only ever proposes: the provider-fit detector asks the owner to consider a configuration, and nothing detected changes setup, guidance, or output on its own.
 
-Trend detectors compare only within one config epoch and one discern release. When a config change or a release bisects the window, the report names the boundary (the section that moved, the version pair, the date) instead of blending incomparable runs or staying silent. Where rotation has removed raw months, the prune digests extend coarse series, marked as coarse.
+Trend detectors compare only within one config epoch, one discern release, and one version of the dominant MCP client — the agent's own releases move the practice too. When any of the three bisects the window, the report names the boundary (the config section that moved, or the version pair and the date) instead of blending incomparable runs or staying silent ([ADR 0189](../_adr/0189-cohort-findings-lift-the-provider-comparison-deferral.md)). A corpus with no client declarations has no client boundaries, and its trends compare as before. Where rotation has removed raw months, the prune digests extend coarse series, marked as coarse.
+
+## What a cohort finding claims
+
+Where the corpus holds enough attributed evidence, three detectors segment their findings by driver identity: `cohort-done-thrash`, `cohort-loops-to-green`, and `guidance-parity`. A cohort finding lays each population's counts beside their denominators ("Claude Code 1 of 30 branches, Codex 1 of 25") and always states the unattributed remainder. It claims nothing beyond those counts: task mixes differ by cohort, so the report never ranks one agent over another, and drawing the comparison stays your call ([ADR 0189](../_adr/0189-cohort-findings-lift-the-provider-comparison-deferral.md)).
+
+A cohort key follows the same lifetime rule as the driver split, so a persistent host marker can never mint a cohort, and a branch two agents drove counts for neither. Splits speak only past recorded minimums (two qualifying cohorts, each holding a floor of runs and a share of the attributed corpus); below them the detector reports insufficient evidence. The minimums are recorded beside the seam in the registry source, tuned so a balanced corpus speaks and a trace second cohort stays quiet.
+
+`guidance-parity` closes a loop specific to discern: one authored source compiles to every provider's guidance file, so a refusal or missing-page lookup that one population keeps hitting while its peers sit at zero points at that provider's compiled surface. The finding's next step names the file to check (`CLAUDE.md`, `GEMINI.md`, the canonical `AGENTS.md`), and a gap every cohort hits stays un-split: a shared gap is a shared fix.
 
 ## Reset the history
 
@@ -68,12 +78,14 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 | Concern                                  | Source                                                                 |
 | ---------------------------------------- | ---------------------------------------------------------------------- |
 | The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
+| Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
 | The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
 | The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
 | Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
 | Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
 | Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
 | Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
 | Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
 | Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
 
