@@ -768,7 +768,7 @@ Deno.test("with-gotchas stays silent and returns 0 when the wrapped command succ
   });
 });
 
-Deno.test("with-gotchas points at the configured gotchas doc when one is set", async () => {
+Deno.test("with-gotchas keeps the configured path when the gotchas doc is outside the map", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // A configured doc switches the pointer to the "it's written down here" path,
@@ -788,5 +788,35 @@ Deno.test("with-gotchas points at the configured gotchas doc when one is set", a
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "a gate step failed");
     assertStringIncludes(r.output, "docs/GOTCHAS.md");
+    assert(
+      !r.output.includes("discern map"),
+      `an out-of-map doc must keep the path fallback\n${r.output}`,
+    );
+  });
+});
+
+Deno.test("with-gotchas prints the canonical map fetch for an in-map doc", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        'gotchas_doc = "knowledge/80-development/gate-notes.md"',
+        "",
+        "[map]",
+        'dir = "knowledge/"',
+        "",
+      ].join("\n"),
+    );
+
+    const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 1"]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "a gate step failed");
+    assertStringIncludes(
+      r.output,
+      "`discern map 80-development/gate-notes --json`",
+    );
   });
 });

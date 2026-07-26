@@ -9,8 +9,10 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  engineEnv,
   gitInit,
   runAgent,
   runAgentMerged,
@@ -24,6 +26,51 @@ function reprosOf(stdout: string): string[] {
   const obj = JSON.parse(stdout.trim());
   // deno-lint-ignore no-explicit-any
   return (obj.diagnostics ?? []).map((d: any) => d.reproduce_cmd as string);
+}
+
+/** The registered gotchas hint, as carried by a failed result envelope. */
+function gotchasHintOf(stdout: string): string {
+  const obj = JSON.parse(stdout.trim()) as { hints?: string[] };
+  const hint = obj.hints?.find((text) =>
+    text.includes("known gate failures and their fixes")
+  );
+  assert(hint !== undefined, `expected a gotchas hint in ${stdout}`);
+  return hint;
+}
+
+/** The pasteable map command from the shared human failure pointer. */
+function gotchasMapCommand(output: string): {
+  line: string;
+  command: string;
+} {
+  const line = output.split("\n").find((candidate) =>
+    candidate.includes("known gate failures and their fixes")
+  );
+  assert(line !== undefined, `expected a gotchas pointer in ${output}`);
+  const command = /`(discern map [^`]+)`/.exec(line)?.[1];
+  assert(command !== undefined, `expected a quoted map fetch in ${line}`);
+  return { line, command };
+}
+
+/** Run a failure pointer's command byte-for-byte through the user's shell. */
+async function runPrintedCommand(
+  dir: string,
+  command: string,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const child = new Deno.Command("sh", {
+    args: ["-c", command],
+    cwd: dir,
+    env: await engineEnv(),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const result = await child.output();
+  const decoder = new TextDecoder();
+  return {
+    code: result.code,
+    stdout: decoder.decode(result.stdout),
+    stderr: decoder.decode(result.stderr),
+  };
 }
 
 /**
@@ -136,5 +183,114 @@ Deno.test("test: a failing test capability ends on the actionable recap, like fi
     await writeConfig(dir, FAILING_TEST);
     await gitInit(dir);
     await assertActionableFailureTail(dir, ["test"], "test");
+  });
+});
+
+Deno.test("gate failure: an in-map gotchas pointer prints the canonical fetch and every result surface agrees", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const mapDir = "knowledge";
+    const target = "91-unrelated/operator notes";
+    const doc = `${mapDir}/${target}.md`;
+    const body = "# Operator notes\n\nFresh-name gotchas body.\n";
+    await Deno.mkdir(join(dir, mapDir, "91-unrelated"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(join(dir, doc), body);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        `gotchas_doc = "${doc}"`,
+        "",
+        "[map]",
+        `dir = "${mapDir}/"`,
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'lint = "exit 7"',
+        'test = "exit 9"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    // JSON is the same result core MCP returns. Every gate verb that prints the
+    // shared human pointer must carry the same hint on its structured surface.
+    const doneJson = await runAgent(dir, ["done", "--json"]);
+    assertEquals(doneJson.code, 1, doneJson.output);
+    const expectedCommand = `discern map '${target}' --json`;
+    const envelopeHint = gotchasHintOf(doneJson.stdout);
+    assertStringIncludes(envelopeHint, `\`${expectedCommand}\``);
+    for (const verb of ["prepare", "test"]) {
+      const result = await runAgent(dir, [verb, "--json"]);
+      assertEquals(result.code, 1, result.output);
+      assertEquals(
+        gotchasHintOf(result.stdout),
+        envelopeHint,
+        `${verb}'s structured failure pointer must match done's`,
+      );
+    }
+
+    // `done` now needs an attestation because the JSON run judged this exact
+    // tree red. Its human failure tail must print the envelope hint verbatim.
+    const human = await runAgent(dir, ["done", "--confirmed"]);
+    assertEquals(human.code, 1, human.output);
+    const printed = gotchasMapCommand(human.stderr);
+    assertEquals(printed.command, expectedCommand);
+    assertStringIncludes(printed.line, envelopeHint);
+
+    // The adversarial future sibling: an unrelated map root and a nested page
+    // containing a space. The command must survive shell parsing unchanged and
+    // return the structured page, using the map verb's canonical target.
+    const fetched = await runPrintedCommand(dir, printed.command);
+    assertEquals(fetched.code, 0, fetched.stderr);
+    const result = JSON.parse(fetched.stdout);
+    assertEquals(result.ok, true);
+    assertEquals(result.data.doc.path, doc);
+    assertEquals(result.data.doc.content, body);
+  });
+});
+
+Deno.test("gate failure: a gotchas doc outside the map keeps the path pointer", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const doc = "notes/gate-gotchas.md";
+    await Deno.mkdir(join(dir, "notes"), { recursive: true });
+    await Deno.writeTextFile(join(dir, doc), "# Gate notes\n");
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        `gotchas_doc = "${doc}"`,
+        "",
+        "[map]",
+        'dir = "knowledge/"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'lint = "exit 7"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const failure = await runAgent(dir, ["done"]);
+    assertEquals(failure.code, 1, failure.output);
+    const line = failure.stderr.split("\n").find((candidate) =>
+      candidate.includes("known gate failures and their fixes")
+    );
+    assert(line !== undefined, failure.stderr);
+    assertStringIncludes(line, join(dir, doc));
+    assert(
+      !line.includes("discern map"),
+      `an out-of-map doc must keep the path fallback: ${line}`,
+    );
   });
 });

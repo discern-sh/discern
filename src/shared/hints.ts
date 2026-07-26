@@ -1257,15 +1257,21 @@ export const HINTS = {
       "To re-run the full gate on it anyway, run `discern done --confirmed`.",
   }),
 
-  "gate-failure-gotchas": defineHint<{ doc: string }>({
+  "gate-failure-gotchas": defineHint<
+    { command: string; path?: never } | { path: string; command?: never }
+  >({
     id: "gate-failure-gotchas",
     category: "next-step",
     audience: "all",
     when:
       "A gate failure occurs and the project configures a gotchas document.",
-    example: { doc: "docs/when-the-gate-fails.md" },
-    template: ({ doc }): string =>
-      `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in ${doc}.`,
+    example: {
+      command: "discern map 80-development/done-gate-gotchas --json",
+    },
+    template: (reference): string =>
+      reference.command !== undefined
+        ? `If the failure above isn't self-explanatory, run \`${reference.command}\` to read this project's known gate failures and their fixes.`
+        : `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in \`${reference.path}\`.`,
   }),
 
   /** The diagnostic-driven remedy for a failed fix stage. */

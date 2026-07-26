@@ -773,7 +773,7 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
     assertEquals(obj.ok, false);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     assertHasHint(obj, HINTS["gate-failure-gotchas"], {
-      doc: "docs/gotchas.md",
+      path: join(await Deno.realPath(dir), "docs/gotchas.md"),
     });
   });
 });

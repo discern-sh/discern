@@ -74,6 +74,7 @@ import {
   worktreeDirtyPaths,
 } from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
+import { gateFailureGotchasHint } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
@@ -822,6 +823,7 @@ async function runGate(
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
+      root,
       cfg,
       changed,
       failedStage,
@@ -885,6 +887,7 @@ function gateReceiptHint(
  * deferred standards, view a previewable change.
  */
 function buildGateHints(
+  root: string,
   cfg: DiscernConfig,
   changed: string[],
   failedStage: FailedStage | null,
@@ -892,12 +895,8 @@ function buildGateHints(
   deferredStandards: string[],
 ): FiredHint[] {
   if (failedStage !== null) {
-    const doc = cfg.project.gotchas_doc;
-    return doc !== ""
-      ? [
-        fire(HINTS["gate-failure-gotchas"], { doc }),
-      ]
-      : [];
+    const gotchas = gateFailureGotchasHint(cfg, root);
+    return gotchas === undefined ? [] : [gotchas];
   }
   const hints = receiptEmitted
     ? [
