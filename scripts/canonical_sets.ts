@@ -842,6 +842,25 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
   },
   {
+    id: "seeded-gotchas-traps",
+    title: "Seeded gate traps",
+    what:
+      "The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.",
+    source: {
+      kind: "file",
+      path: "templates/setup/skeleton/docs/80-development/done-gate-gotchas.md",
+      mustContain: "## Stack-independent traps",
+    },
+    guards: ["tests/gotchas_parity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "seeded documentation content, not product vocabulary",
+      },
+      featureCanon: { nodeId: "gotchas-pointer" },
+    },
+  },
+  {
     id: "third-party-artifacts",
     title: "Third-party artifacts",
     what: "The generated third-party notice artifacts and their license cache.",
