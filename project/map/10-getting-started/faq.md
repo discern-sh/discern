@@ -1,6 +1,6 @@
 ---
 title: FAQ and troubleshooting
-description: Diagnose common setup, command, MCP, platform, monorepo, worktree, and removal problems.
+description: Diagnose common setup, command, MCP, platform, monorepo, worktree, agent-behavior, and removal problems.
 order: 40
 aliases:
   - faq
@@ -38,6 +38,10 @@ Restart the coding-agent session first. MCP servers and hooks load when a sessio
 If the tools remain unavailable, run `discern doctor`. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. The diagnostic names the provider-specific action.
 
 Use the CLI with `--json` while the MCP connection is unavailable. Every discern MCP tool has a CLI verb behind it.
+
+## My agent isn't following the workflow
+
+Any model can drive discern: every refusal and failure report names the next step. How reliably an agent follows those steps tracks the model, so pair discern with a current frontier model for day-to-day work. If a capable agent still drifts, run `discern patterns` for the recorded behavior findings; each names the loop and the fix.
 
 ## `discern done` failed
 
