@@ -133,7 +133,7 @@ _Procedures that took a hard session to learn become one file every future sessi
   - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup` seeds under the map's `_internal/` scaffolding.
   - **Teach the project** — Route a session's lesson into the project's own surfaces — a guidance line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.
   - **Write an ADR** — Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.
-  - **Write it once** — A stack-neutral discipline for shared facts: one authority, derived or parity-checked consumers, declared universes for repo-wide rules, one plan for effectful workflows, convergent reruns, and comments that carry only facts absent from code and history.
+  - **Write it once** — The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.
 
 ## The map
 

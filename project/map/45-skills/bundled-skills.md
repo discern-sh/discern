@@ -20,18 +20,18 @@ discern skills list
 
 ## The bundled catalog
 
-| Skill                                                                                         | Reach for it when…                                                                                       |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Duplicated helpers, dead code, or leftover scaffolding need a proven-safe sweep.                         |
-| [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | A bug needs diagnosis, a class-level cure, or the suite needs auditing for guards weaker than they look. |
-| [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Work needs a self-contained handoff, parallel fan-out, or staged briefs.                                 |
-| [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) | A documentation subtree needs a grounded README and leaves.                                              |
-| [`discern-set-the-standard`](../../../templates/skills/discern-set-the-standard/SKILL.md)     | A quality number needs a never-loosen floor or ceiling — or a legacy pattern needs outlawing to zero.    |
-| [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)   | A session produced a durable lesson future agents need to inherit.                                       |
-| [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | A significant decision needs its context and reasoning recorded.                                         |
-| [`discern-write-it-once`](../../../templates/skills/discern-write-it-once/SKILL.md)           | A shared fact spans several consumers, a growing set needs parity, or generated output keeps drifting.   |
+| Skill                                                                                         | Reach for it when…                                                                                                                                            |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Duplicated helpers, dead code, or leftover scaffolding need a proven-safe sweep.                                                                              |
+| [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | A bug needs diagnosis, a class-level cure, or the suite needs auditing for guards weaker than they look.                                                      |
+| [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Work needs a self-contained handoff, parallel fan-out, or staged briefs.                                                                                      |
+| [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) | A documentation subtree needs a grounded README and leaves.                                                                                                   |
+| [`discern-set-the-standard`](../../../templates/skills/discern-set-the-standard/SKILL.md)     | A quality number needs a never-loosen floor or ceiling — or a legacy pattern needs outlawing to zero.                                                         |
+| [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)   | A session produced a durable lesson future agents need to inherit.                                                                                            |
+| [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | A significant decision needs its context and reasoning recorded.                                                                                              |
+| [`discern-write-it-once`](../../../templates/skills/discern-write-it-once/SKILL.md)           | An ask for the practices agent-written code should follow — or a fact spans consumers, a set outgrows its guards, or an effectful workflow needs safe reruns. |
 
-The table summarizes each live `SKILL.md` description. Open a Skill for its triggers, procedure, and finish condition. A merged Skill carries its absorbed procedures as files inside its directory — `discern-cure-a-bug` holds the diagnose and suite-audit procedures, `discern-set-the-standard` holds the outlaw procedure.
+The table summarizes each live `SKILL.md` description. Open a Skill for its triggers, procedure, and finish condition. A Skill can carry deeper procedures as files inside its directory — `discern-cure-a-bug` holds the diagnose and suite-audit procedures, `discern-set-the-standard` holds the outlaw procedure, and `discern-write-it-once` holds the bind-the-fact and plan-the-effects procedures.
 
 ## Current state & gotchas
 

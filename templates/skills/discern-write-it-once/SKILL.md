@@ -1,6 +1,6 @@
 ---
 name: discern-write-it-once
-description: "Write each shared fact once, then derive every representation or bind it with a check that fails on drift. Use when asked for coding practices, principles, conventions, or house rules; when a fact spans config, commands, APIs, UI, docs, or tests; when a growing set needs matching handlers or coverage; when generated files drift; or when an effectful workflow needs one plan, safe reruns, and boundary-level proof. Bundled with discern."
+description: "The practices discern builds itself with, distilled for any stack: one authority per fact, guards that enroll future members, effects planned before they run. Use when asked what practices or principles agent-written code should follow; when a fact spans code, config, docs, or tests; when generated output drifts; when a growing set needs matching handlers or coverage; or when an effectful workflow needs safe reruns. Bundled with discern."
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -8,98 +8,52 @@ metadata:
 
 # Write it once
 
-One recurring discipline underlies discern's registries, generated files, commands, and tests: shared facts get one authority, and every consumer derives from it or carries a drift check. The procedure applies in any language or framework.
+discern's own codebase is a human/agent collaboration: a human sets the technical and creative direction, and coding agents write nearly all of the implementation, held to the project's own gate. These practices are what survived that arrangement — the disciplines that kept quality rising once no one person read every line. None of them depend on discern, a language, or a framework. They transfer to any project where agents write the code and a human owns the taste.
 
-Use the full procedure when one decision crosses several consumers or effects. Skip it for a local edit with one consumer and no durable invariant. Similar code should share an authority only when both instances express the same decision and must change together. A registry with one consumer adds ceremony without protection.
+Asked what practices to adopt? The survey below is the answer; deliver it with its origin, and recommend the ones the project's own history argues for. Applying a practice mid-change? Some carry a full procedure in this skill's directory — open the file when you reach it:
 
-For an observed defect, use `discern-cure-a-bug`. Use `discern-set-the-standard` for a number or legacy pattern that must never regress, and `discern-clear-the-decks` for duplication that has already accumulated.
+- **Binding a shared fact that several places express** — work through [bind-the-fact.md](bind-the-fact.md).
+- **Building or changing a workflow with several effects** — work through [plan-the-effects.md](plan-the-effects.md).
 
-## State the contract
+Deeper disciplines have their own skills: an observed defect is `discern-cure-a-bug`; a number that must never regress, or a pattern to outlaw, is `discern-set-the-standard`; duplication that has already accumulated is `discern-clear-the-decks`; a decision worth a dated record is `discern-write-adr`.
 
-Before editing, name:
+## One authority per fact
 
-- **Contract:** what a caller can observe, including failure behavior.
-- **Invariant:** the predicate that must hold across every representation and path.
-- **Authority:** the source that owns the fact.
-- **Effects:** the files, state, processes, or remote resources the change may touch.
-- **Proof:** the checks that fail for a broken current case and a future member.
+A fact that several places express — a format list, a default, a set of commands, a version — gets one owner. Every other appearance derives from the owner or is checked against it. Bind each consumer with the strongest mechanism it supports: derive the representation directly; generate it and gate the generated copy's currency; handle the set exhaustively where the language can enforce that; or add a parity check when judgment keeps the consumer hand-written. The payoff arrives with the next member: add one entry, and the parser, the docs table, the help text, and the contract test all follow.
 
-Write a predicate the project can check. “Keep the formats in sync” is a reminder. “Every registered format is accepted, has a serializer, appears in help, and enters the contract test” is an invariant.
+## Write rules a program can check
 
-## Elect one authority
+"Keep these in sync" is a reminder; agents read it, agree, and drift anyway. A rule you care about becomes a predicate over the codebase — "every registered format parses, serializes, appears in help, and enters the contract test" — and the project's gate evaluates it on every run. If a rule resists being restated as a predicate, it isn't ready to enforce; record whose judgment applies instead. The test of any rule: name the check that fails when it's broken. A rule with no failing check is an aspiration.
 
-Place the shared fact at the layer that owns its meaning. Prefer a source a program can iterate: a registry, enum, schema, config table, or directory whose entries define the set.
+## Guards enroll the future member
 
-Tie each consumer to that authority with the strongest available mechanism:
+A check that lists today's cases guards today's population. Drive every guard from the authority it protects, in both directions: every member has its required consumers, and every consumer names a live member. Prove enrollment directly — add a throwaway member in a fixture and watch each consumer either follow automatically or fail with a message that says what to add. The member added six months from now then ships with the same coverage as the founders.
 
-1. Derive an equal representation directly.
-2. Generate a mechanical representation in another format.
-3. Handle every member exhaustively when the language can enforce it.
-4. Add a parity or architectural check when judgment keeps the consumer hand-written.
+## Broad rules read a declared universe
 
-For an intentional subset or superset, assert the relationship. Keep exceptions in a named set with reasons, and fail when an exception no longer names a live member.
+A repo-wide sweep that walks one convenient directory exempts every other. Declare the project's authored-source set once (every root where authored code lives) and make each broad rule consume that declaration, so a new source root widens every rule at once. Keep exclusions in a named set with reasons, checked against live paths: a stale exception should fail, not linger.
 
-## Generate copies and gate their currency
+## Decide, then act
 
-Generate documentation tables, schemas, wire types, and boilerplate when their content is mechanical. Committed generated output is acceptable when the gate regenerates it and fails on a difference.
+A workflow with several effects computes its complete plan before the first mutation; a thin executor applies the plan and nothing else. External input is validated fully at the boundary, before deciding. Reruns are part of the contract: after success, a rerun is a no-op; after partial failure, it converges toward the same intended state. Previews, machine output, and completion reports all render from the plan and the observed outcomes; nothing recomputes after execution what the workflow meant to do.
 
-Mark generated output where its format permits a marker. When it cannot carry one, identify the owning source in the generator or project documentation. In both cases, edit the authority and regenerate. A generator without a currency check leaves the copy free to drift.
+## Comments carry what nothing else records
 
-## Guard growing sets and broad rules
+Code states what it does; version history states what changed. A comment earns its line by stating what neither can: the invariant the types can't express, the trap, the reason the simpler implementation is unsafe. A comment narrating current code, or the edit that produced it, is a copy of a fact with no check tying it to the original — the one representation nothing can bind. Write fewer comments, and only the durable kind.
 
-For judgment-written consumers, check parity in both directions: every authority member has its required consumer, and every consumer still names a live member. Drive the check from the authority. Never repeat its members inside the guard.
+## When not to
 
-Test future enrollment by adding an unrelated member in a fixture or temporary mutation. Each required consumer should derive automatically or fail with a useful message.
+Centralize a fact only when its consumers express one decision and must change together. Code that merely looks similar, with independent reasons to change, stays independent — a false merge is its own future bug. A registry with one consumer is ceremony. A local edit with no durable invariant needs none of this machinery; make the edit.
 
-A repo-wide structural rule also needs an authority for “repo-wide.” Declare the project's authored-source universe once and make every broad sweep consume it. A new source root then widens every rule. Narrow a rule only with a recorded reason, and keep exclusions live.
+## Record the ties
 
-Treat closed vocabularies as closed. Reject catch-all handling that lets a future member inherit generic behavior without a decision.
-
-## Split decisions from effects
-
-Gather state at the boundary, pass ordinary data into a decision, and return a plan:
-
-```text
-inputs + observed state -> decide -> plan
-plan -> apply -> observed outcomes -> result
-```
-
-Compute the complete plan before the first mutation. Let a thin executor apply only operations in that plan. Render previews and machine output from the plan; render completion from the plan plus observed outcomes. Do not recompute after execution what the workflow meant to do.
-
-Use this seam when a workflow has several effects, needs a preview, can stop partway through, or serves several adapters. A small atomic write does not need a plan object.
-
-## Validate boundaries and make reruns converge
-
-Parse external input once. Validate its complete structure, normalize it, apply defaults, and pass a settled model inward. Reject invalid input before effects begin. Name the offending value and location, the violated rule, and one next action.
-
-Preflight predictable failures before the first write. Route each mutation through a narrow boundary, write only when the intended state differs, and prefer atomic replacement or recoverable staging where the platform supports it. When ownership or safety is uncertain, perform fewer effects and run more checks.
-
-Define rerun behavior as part of the contract. A rerun after success or partial failure should move toward the same intended state without duplicate entries, repeated external effects, or lost user-owned data. Record enough observed outcomes to resume or converge.
-
-## Keep comments current
-
-Comment what code and version history do not record: an invariant the type system cannot express, a hidden trap, or the reason a simpler implementation is unsafe. Do not narrate current code or the edit that produced it. Those copies age as soon as the code moves.
-
-## Prove the ties
-
-Use checks that cover the architecture from different seams:
-
-- **Enrollment:** iterate the authority so a future member enters the contract without a copied case list.
-- **Public boundary:** exercise the real command, API, library entry point, or generated artifact.
-- **Failure:** cover malformed input, refused preconditions, partial progress, and uncertain ownership.
-- **Rerun:** prove the second run is a true no-op when current and that representative partial state converges.
-
-Use real schemas, templates, fixtures, and built artifacts where the contract depends on them. Do not add a runtime test for a relationship the compiler already makes exhaustive.
-
-Before finishing, search for every representation of the fact and every write path the workflow can reach. Report the authority, its tied consumers, the effect boundary, the rerun behavior, the future-member proof, and any intentionally independent look-alikes.
+Keep a page in the project's documentation tree — `{{map_dir}}80-development/canonical-sets.md`, created the first time you bind a fact — with one row per shared fact: the fact, its authority, each consumer and its binding, and the check that fails on drift. The next agent asked to add a consumer then finds the authority by reading, instead of forking a copy. Both procedure files end by updating it.
 
 ## Done when
 
-- the shared fact has one justified authority;
-- equal representations derive, while intentional differences and hand-written consumers are checked;
-- broad rules consume a declared universe;
-- effectful workflows apply one plan and report observed outcomes;
-- invalid input and unsafe uncertainty stop before mutation;
-- first run, no-op rerun, and partial-state re-entry have defined behavior;
-- proof reaches the public boundary and enrolls future members;
-- comments carry only facts the code and history cannot.
+- the fact or workflow you touched matches a practice above, applied through its procedure file where one exists;
+- every equal representation derives from or is checked against its authority, and intentional differences are asserted;
+- new members and new source roots enroll in the relevant guards without anyone editing the guards;
+- effectful work applies one plan, validates at the boundary, and defines its reruns;
+- the ties are recorded in `{{map_dir}}80-development/canonical-sets.md`;
+- a contested or hard-to-reverse authority election was offered a record via `discern-write-adr`.

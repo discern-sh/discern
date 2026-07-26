@@ -473,7 +473,7 @@ inputs = ["templates/skills/**"]
 [standards.skills_words]
 metric = "skills_words"
 direction = "down"
-limit = 797
+limit = 795
 run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
 inputs = ["templates/skills/**"]
 

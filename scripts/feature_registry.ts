@@ -680,7 +680,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-write-it-once",
             title: "Write it once",
             what:
-              "A stack-neutral discipline for shared facts: one authority, derived or parity-checked consumers, declared universes for repo-wide rules, one plan for effectful workflows, convergent reruns, and comments that carry only facts absent from code and history.",
+              "The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.",
             surfaces: ["skill:discern-write-it-once"],
           },
         ],
