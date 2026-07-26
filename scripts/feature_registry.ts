@@ -665,6 +665,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               "Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.",
             surfaces: ["skill:discern-write-adr"],
           },
+          {
+            id: "skill-write-it-once",
+            title: "Write it once",
+            what:
+              "A stack-neutral discipline for shared facts: one authority, derived or parity-checked consumers, declared universes for repo-wide rules, one plan for effectful workflows, convergent reruns, and comments that carry only facts absent from code and history.",
+            surfaces: ["skill:discern-write-it-once"],
+          },
         ],
       },
     ],

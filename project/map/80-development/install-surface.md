@@ -146,6 +146,7 @@ The bundled skills a coding agent can invoke ship **in the binary**. Their sourc
 | [`discern-set-the-standard`](../../../templates/skills/discern-set-the-standard/SKILL.md)     | Put a defendable quality metric behind a monotonic standard — or outlaw a pattern down to a permanent ban.           |
 | [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)   | Route a session's lesson into guidance, a skill, a project script, a doc, or an ADR — so future sessions inherit it. |
 | [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.                                                    |
+| [`discern-write-it-once`](../../../templates/skills/discern-write-it-once/SKILL.md)           | Give a shared fact one authority, bind every consumer to it, and make drift fail the gate.                           |
 
 Fresh-install seeding belongs to the `discern setup` command rather than a skill; see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by [ADR 0036](../_adr/0036-unify-setup.md).
 

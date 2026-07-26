@@ -113,7 +113,7 @@ The configurable authored-source locations — guidance, map, skills, scripts, t
 The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
-- Members: 7
+- Members: 8
 - Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
@@ -215,7 +215,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon page: pillars, nodes, and surface claims.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 119
+- Members: 120
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -247,7 +247,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 180
+- Members: 181
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary

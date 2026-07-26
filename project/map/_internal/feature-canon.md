@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list._
 
-10 pillars · 119 nodes · 11 benefit statements · 33 agent-experience accounts · 65 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 120 nodes · 11 benefit statements · 33 agent-experience accounts · 66 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -132,6 +132,7 @@ _Procedures that took a hard session to learn become one file every future sessi
   - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup` seeds under the map's `_internal/` scaffolding.
   - **Teach the project** — Route a session's lesson into the project's own surfaces — a guidance line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.
   - **Write an ADR** — Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.
+  - **Write it once** — A stack-neutral discipline for shared facts: one authority, derived or parity-checked consumers, declared universes for repo-wide rules, one plan for effectful workflows, convergent reruns, and comments that carry only facts absent from code and history.
 
 ## The map
 
@@ -294,6 +295,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `discern-set-the-standard` — skill-set-the-standard
 - `discern-teach-the-project` — skill-teach-the-project
 - `discern-write-adr` — skill-write-adr
+- `discern-write-it-once` — skill-write-it-once
 
 ### `agent`
 
