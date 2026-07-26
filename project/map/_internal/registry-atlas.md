@@ -286,11 +286,11 @@ The voice skill's banned-moves table; the Vale style must match it pattern for p
 
 ## `seeded-gotchas-traps` — Seeded gate traps
 
-The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.
+The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
 
 - Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
 - Members: —
-- Guards: `tests/gotchas_parity_test.ts`
+- Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — seeded documentation content, not product vocabulary
 - Feature canon: described by the `gotchas-pointer` node
 
