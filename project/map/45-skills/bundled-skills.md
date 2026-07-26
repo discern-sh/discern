@@ -38,7 +38,7 @@ The table summarizes each live `SKILL.md` description. Open a Skill for its trig
 - Bundled Skills ship inside the binary. Their source appears in this repository under `templates/skills/`; an installed project receives materialized copies instead of that source tree.
 - Bundled Markdown renders configured project paths when discern materializes it. The source remains generic across stacks and repository layouts.
 - A registry-driven gate test reads the same bundled directory set as the materialization code and fails when this catalog omits a name. Adding a bundled Skill therefore enrolls it in the documentation check automatically.
-- Before launch, the project reduced the set from thirteen to seven through merges, renames, and hint migrations ([ADR 0173](../_adr/0173-trim-the-bundled-skills-to-seven.md)). The owner later approved `discern-write-it-once` as the eighth member after it cleared that record's bar ([ADR 0189](../_adr/0189-an-eighth-bundled-skill-write-it-once.md)). Two `[standards.skills]` ceilings hold the count and the total description budget.
+- Before launch, the project reduced the set from thirteen to seven through merges, renames, and hint migrations ([ADR 0173](../_adr/0173-trim-the-bundled-skills-to-seven.md)). The owner later approved `discern-write-it-once` as the eighth member after it cleared that record's bar ([ADR 0191](../_adr/0191-an-eighth-bundled-skill-write-it-once.md)). Two `[standards.skills]` ceilings hold the count and the total description budget.
 
 ## Where the catalog stays current
 

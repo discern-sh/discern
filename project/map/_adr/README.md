@@ -185,7 +185,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0188 — The receipt relays as one line; the page is pulled](0188-the-receipt-relays-as-one-line.md)
 - [0189 — A matched gotchas trap inlines into the gate failure](0189-a-matched-gotchas-trap-inlines-into-the-gate-failure.md)
 - [0190 — Cohort findings lift the provider-comparison deferral, under standing conditions](0190-cohort-findings-lift-the-provider-comparison-deferral.md)
-- [0189 — An eighth bundled skill teaches the write-once discipline](0189-an-eighth-bundled-skill-write-it-once.md)
+- [0191 — An eighth bundled skill teaches the write-once discipline](0191-an-eighth-bundled-skill-write-it-once.md)
 
 <!-- END GENERATED: current ADR records -->
 

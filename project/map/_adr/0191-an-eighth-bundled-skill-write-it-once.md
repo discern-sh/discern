@@ -1,4 +1,4 @@
-# ADR 0189: An eighth bundled skill teaches the write-once discipline
+# ADR 0191: An eighth bundled skill teaches the write-once discipline
 
 **Status**: accepted; the first owner-approved growth of the set [ADR 0173](0173-trim-the-bundled-skills-to-seven.md) capped.
 
