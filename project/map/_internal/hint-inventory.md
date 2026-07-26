@@ -57,7 +57,7 @@ Run `discern refresh` in /workspace/project. Acceptance landed on main, but the 
 Rendered example:
 
 ```text
-Share the landing receipt in data.receipt with the change's owner. It pastes cleanly into a PR body.
+data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.
 ```
 
 ## `accept-review-via-status`
@@ -201,6 +201,32 @@ Rendered example:
 
 ```text
 Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
+```
+
+## `done-unchanged-tree-green`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `done-rerun`
+- Emitting context: `done` is asked to re-run on the exact tree it last judged green, without `--confirmed`.
+
+Rendered example:
+
+```text
+Run `discern status` — this exact tree already passed `discern done`, and status shows the receipt's standing without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
+```
+
+## `done-unchanged-tree-red`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `done-rerun`
+- Emitting context: `done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.
+
+Rendered example:
+
+```text
+Fix the failure the last run reported, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Probing for a flaky verdict is the one reason to re-run unchanged: `discern done --confirmed` does that, and records the rerun as a probe.
 ```
 
 ## `fleet-ownership`
@@ -551,7 +577,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 Rendered example:
 
 ```text
-If this completes the task, relay the receipt to your owner and stop. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -1396,7 +1422,7 @@ Run `discern start` to begin work. There are no active worktrees.
 Rendered example:
 
 ```text
-Relay the honored receipt in data.gate_receipt.receipt to your owner and wait. This clean HEAD is committed and up to date with main. Inspect the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the one-line receipt in data.gate_receipt.receipt_line, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-start-off-trunk`

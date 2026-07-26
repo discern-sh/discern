@@ -10,9 +10,9 @@
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
  * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
- * tree the gate actually read; the rest is the rendered **receipt** markdown that
- * finish emitted for that tree — the review-moment summary `status` and `accept`
- * surface without re-running the gate.
+ * tree the gate actually read; the rest is the rendered **receipt** — the line and
+ * the page markdown finish emitted for that tree — the review-moment summary
+ * `status` and `accept` surface without re-running the gate.
  *
  * The receipt is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `update` creates), amend, or uncommitted
@@ -47,6 +47,7 @@ import {
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { workingStateFingerprint } from "../../shared/tree_identity.ts";
 import {
   type PlannedWriteTarget,
   preflightPlannedWrites,
@@ -290,9 +291,9 @@ function receiptRecord(
  * receipt must vouch only for the exact tree the gate actually read:
  *
  * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
- *   vouch accept honors), plus `receiptMarkdown` when the run rendered a receipt,
- *   so `status` and `accept` can surface the review summary without re-running
- *   the gate.
+ *   vouch accept honors), plus `receiptMarkdown` and `receiptLine` when the run
+ *   rendered a receipt, so `status` and `accept` can surface the review summary
+ *   without re-running the gate.
  * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
  *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
  *   is left untouched (still truthful at its own sha).
@@ -314,6 +315,7 @@ export async function recordGateOutcome(
   passed: boolean,
   pin: ValidatedTreePin,
   receiptMarkdown?: string,
+  receiptLine?: string,
 ): Promise<GateReceiptRecordData> {
   const path = authorityPath(cwd, authority, "gateReceipt");
   if (path === undefined) {
@@ -361,9 +363,15 @@ export async function recordGateOutcome(
       });
     }
     try {
+      // Marker format: the sha, then (when the run rendered a receipt) an
+      // optional `line: ` component and the page markdown. A marker written
+      // without the line component (an older binary's) still parses.
+      const line = receiptLine === undefined || receiptLine === ""
+        ? ""
+        : `line: ${receiptLine}\n`;
       const body = receiptMarkdown === undefined || receiptMarkdown === ""
         ? `${pin.head}\n`
-        : `${pin.head}\n\n${receiptMarkdown.trim()}\n`;
+        : `${pin.head}\n${line}\n${receiptMarkdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
@@ -386,6 +394,136 @@ export async function recordGateOutcome(
       reason: failureReason(error),
     });
   }
+}
+
+/**
+ * The refusal slug `done` serves when it is asked to re-run on the exact tree
+ * it last judged without the `--confirmed` attestation. Gate-owned, not part of
+ * the consent-gated class: that class refuses unconditionally until an owner's
+ * consent arrives, while this gate fires only when the tree is unchanged and is
+ * satisfied by the caller's own attestation that the rerun is deliberate.
+ */
+export const UNCHANGED_TREE_RERUN_SLUG = "unchanged_tree_rerun";
+
+/** What the last completed gate run judged: the tree identity it ended on and
+ * the verdict it reached. */
+export interface LastGateRun {
+  /** HEAD at the end of the run (full sha). */
+  readonly head: string;
+  /** Working-state fingerprint, absent when the tree was clean
+   * ({@link workingStateFingerprint}). */
+  readonly tree?: string;
+  /** Whether the gate passed. */
+  readonly passed: boolean;
+}
+
+/** A tree identity `done` can compare against a {@link LastGateRun}. */
+export type TreeIdentity = Pick<LastGateRun, "head" | "tree">;
+
+/**
+ * Sample the tree identity at `cwd` NOW: HEAD, plus the working-state
+ * fingerprint when uncommitted changes exist. `undefined` whenever git cannot answer —
+ * an unreadable tree never earns a refusal or a marker (fail-open: the rerun
+ * precondition is a guard against certainty, and an uncertain identity is not
+ * the certain case).
+ */
+export async function currentTreeIdentity(
+  cwd: string,
+): Promise<TreeIdentity | undefined> {
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return undefined;
+  }
+  const dirty = await worktreeStatusPaths(cwd);
+  if (dirty === undefined) {
+    return undefined;
+  }
+  if (dirty.length === 0) {
+    return { head };
+  }
+  const tree = await workingStateFingerprint(cwd);
+  return tree === undefined ? undefined : { head, tree };
+}
+
+/** Whether two sampled identities name the same exact tree. */
+export function sameTreeIdentity(a: TreeIdentity, b: TreeIdentity): boolean {
+  return a.head === b.head && (a.tree ?? null) === (b.tree ?? null);
+}
+
+/**
+ * Record what this `done` run judged into the last-run marker: the tree
+ * identity at the END of the run (the fix stage may have rewritten files, and
+ * the verdict belongs to the tree the check/test jobs actually read) plus the
+ * verdict. Written on EVERY completed run — green or red, clean or dirty —
+ * because the rerun precondition needs the red runs the receipt marker
+ * deliberately forgets. Best-effort: an unreadable identity clears the marker
+ * instead of leaving a stale claim, and a write failure changes nothing about
+ * the run's verdict.
+ */
+export async function recordLastGateRun(
+  cwd: string,
+  authority: AdminStateWriteAuthority,
+  passed: boolean,
+): Promise<void> {
+  const path = authorityPath(cwd, authority, "lastGateRun");
+  if (path === undefined) {
+    return;
+  }
+  const identity = await currentTreeIdentity(cwd);
+  try {
+    if (identity === undefined) {
+      await Deno.remove(path);
+      return;
+    }
+    await Deno.writeTextFile(
+      path,
+      `${JSON.stringify({ ...identity, passed })}\n`,
+    );
+  } catch {
+    // Best-effort by design; the precondition fails open without a marker.
+  }
+}
+
+/**
+ * Read the last-run marker for the worktree at `cwd`, `undefined` when absent
+ * or unreadable — either way the rerun precondition simply does not fire. A
+ * marker naming a different tree is returned as-is; identity comparison is the
+ * caller's job ({@link sameTreeIdentity}).
+ */
+export async function inspectLastGateRun(
+  cwd: string,
+): Promise<LastGateRun | undefined> {
+  const path = await gitAdminStatePath(cwd, "lastGateRun");
+  if (path === undefined) {
+    return undefined;
+  }
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== "object") {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
+    return undefined;
+  }
+  if (record.tree !== undefined && typeof record.tree !== "string") {
+    return undefined;
+  }
+  return {
+    head: record.head,
+    passed: record.passed,
+    ...(record.tree !== undefined ? { tree: record.tree } : {}),
+  };
 }
 
 /**
@@ -415,12 +553,23 @@ export async function inspectGateReceipt(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. The rest (when present): the receipt
-  // markdown finish stored alongside it. A pre-markdown marker (sha only) still
-  // parses — its markdown is simply empty.
+  // First line: the validated HEAD sha. Then, when present: a `line: ` component
+  // (the receipt line) and the receipt page markdown finish stored alongside it.
+  // Markers from older binaries (sha only, or sha + markdown with no line
+  // component) still parse — the absent pieces are simply empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
-  const markdown = newline < 0 ? "" : content.slice(newline).trim();
+  let rest = newline < 0 ? "" : content.slice(newline + 1);
+  let line = "";
+  if (rest.startsWith("line: ")) {
+    const eol = rest.indexOf("\n");
+    line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
+      "line: ".length,
+      eol,
+    )).trim();
+    rest = eol < 0 ? "" : rest.slice(eol + 1);
+  }
+  const markdown = rest.trim();
   if (recorded === "") {
     return { status: "missing", path, reason: "receipt file was empty" };
   }
@@ -445,6 +594,7 @@ export async function inspectGateReceipt(
     recorded,
     head,
     ...(markdown === "" ? {} : { receipt: markdown }),
+    ...(line === "" ? {} : { receipt_line: line }),
   };
 }
 

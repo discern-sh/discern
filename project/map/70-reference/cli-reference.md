@@ -96,11 +96,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option    | Description                                                                       |
-| --------- | --------------------------------------------------------------------------------- |
-| `--all`   | Include every worktree even when called from one (local view plus all worktrees). |
-| `--local` | Show only this checkout, even in the main checkout.                               |
-| `--json`  | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).     |
+| Option      | Description                                                                                                                                    |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                              |
+| `--local`   | Show only this checkout, even in the main checkout.                                                                                            |
+| `--verbose` | Also print the full receipt page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the receipt. |
+| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                                  |
 
 ### `discern prepare`
 
@@ -118,10 +119,11 @@ Run finishing steps that may change files, then verify the gate — the project'
 
 Usage: `discern done [options]`
 
-| Option      | Description                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `--json`    | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics). |
-| `--dry-run` | Show the gate plan (the jobs and scope-gates that would run); touch nothing.  |
+| Option        | Description                                                                                                                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`      | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                        |
+| `--dry-run`   | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                         |
+| `--confirmed` | Attest this rerun: run the full gate again on the exact tree it last judged — a flake probe, or a re-measure — and record it. Without the flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it. |
 
 ### `discern test`
 
@@ -135,7 +137,7 @@ Usage: `discern test [options]`
 
 ### `discern tidy`
 
-Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.
+Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.
 
 Usage: `discern tidy [type] [options]`
 

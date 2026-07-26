@@ -33,10 +33,15 @@ import { gateRunContext, runGroup } from "./execute.ts";
 import {
   type AdminStateWriteAuthority,
   clearStandardMeasurements,
+  currentTreeIdentity,
+  inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
   recordGateOutcome,
+  recordLastGateRun,
   recordStandardMeasurements,
+  sameTreeIdentity,
+  UNCHANGED_TREE_RERUN_SLUG,
 } from "./receipt.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import {
@@ -76,6 +81,7 @@ import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged, detectSilentDivergence } from "../worktree/git.ts";
 import {
   type Diagnostic,
+  dimBlock,
   type DiscernResult,
   type FailedStage,
   previewResult,
@@ -755,7 +761,14 @@ async function runGate(
         failedStage === null,
         treePin,
         receipt?.markdown,
+        receipt?.line,
       );
+  // The last-run marker remembers what this run judged — every verdict, red
+  // included, unlike the receipt above — so the next `done` can refuse an
+  // unchanged-tree rerun unless it carries `--confirmed`.
+  if (writeAuthority !== undefined) {
+    await recordLastGateRun(root, writeAuthority, failedStage === null);
+  }
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
   // receipt: its git facts were gathered AFTER the move, so its markdown describes a
   // tree the gate never read — the hint tells the agent to re-run on the final commit.
@@ -941,7 +954,7 @@ function printSuccessTail(
     }
   }
   if (receiptMarkdown !== undefined) {
-    out.raw(`\n${receiptMarkdown}\n\n`);
+    out.raw(`\n${dimBlock(receiptMarkdown, outSink(out).dim)}\n\n`);
   }
   for (const hint of interactiveHintTexts(hints)) {
     out.info(hint);
@@ -973,17 +986,61 @@ async function dryRunGate(
 }
 
 /**
+ * The read-only refusal `done` serves when it is asked to re-run on the exact
+ * tree the last run already judged, without a `--confirmed` attestation. An
+ * unchanged tree expects an unchanged verdict, so the rerun is either wasted
+ * gate time (the last run was green — `status` already shows the receipt) or a
+ * flake probe that deserves to be deliberate and on the record (the last run
+ * was red; retrying until green teaches that red is negotiable). Fires BEFORE
+ * the gate machinery — the fix stage rewrites files, and a refusal must touch
+ * nothing. Fail-open on every uncertainty: no marker, an unreadable identity,
+ * or a differing tree all run the gate normally; `--dry-run` never refuses.
+ */
+async function unchangedTreeRerunRefusal(
+  root: string,
+  confirmed: boolean,
+): Promise<DiscernResult<GateData> | undefined> {
+  if (confirmed) {
+    return undefined;
+  }
+  const last = await inspectLastGateRun(root);
+  if (last === undefined) {
+    return undefined;
+  }
+  const now = await currentTreeIdentity(root);
+  if (now === undefined || !sameTreeIdentity(now, last)) {
+    return undefined;
+  }
+  const verdict = last.passed ? "green" : "red";
+  const hint = last.passed
+    ? HINTS["done-unchanged-tree-green"]
+    : HINTS["done-unchanged-tree-red"];
+  return {
+    ok: false,
+    verb: "done",
+    error: UNCHANGED_TREE_RERUN_SLUG,
+    message: `\`discern done\` already judged this exact tree ${verdict} at ` +
+      `${now.head.slice(0, 8)}, and nothing has changed since. Pass ` +
+      `\`--confirmed\` to re-run the gate on it anyway; the rerun is ` +
+      `recorded. Nothing has run — the tree is untouched.`,
+    hints: hintTexts([fire(hint)]),
+  };
+}
+
+/**
  * Compute the `done` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server (and any in-process caller) renders instead of the
  * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
  * runs the gate, routing the human narration to stderr (json semantics) so a
  * caller owning stdout — like the MCP stdio channel — stays uncontaminated.
+ * `confirmed` attests that a rerun on the unchanged last-judged tree is
+ * deliberate; without it that rerun refuses read-only.
  * Aborting `signal` (the caller cancelling the call, or shutting down) tree-kills
  * the in-flight gate jobs and returns the run as failed-with-cancellations.
  */
 export async function finishResult(
   root: string,
-  opts: { dryRun?: boolean; signal?: AbortSignal } = {},
+  opts: { dryRun?: boolean; confirmed?: boolean; signal?: AbortSignal } = {},
 ): Promise<DiscernResult<GateData>> {
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
@@ -992,6 +1049,13 @@ export async function finishResult(
       "done",
       gatePlanToEngine(buildGatePlan(cfg, changed, dryRunStandardJobs(cfg))),
     );
+  }
+  const refusal = await unchangedTreeRerunRefusal(
+    root,
+    opts.confirmed ?? false,
+  );
+  if (refusal !== undefined) {
+    return refusal;
   }
   return (await runGate(root, true, opts.signal)).result;
 }
@@ -1010,10 +1074,27 @@ function dryRunStandardJobs(
 /** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
-  opts: { json: boolean; dryRun?: boolean },
+  opts: { json: boolean; dryRun?: boolean; confirmed?: boolean },
 ): Promise<number> {
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json);
+  }
+  const refusal = await unchangedTreeRerunRefusal(
+    root,
+    opts.confirmed ?? false,
+  );
+  if (refusal !== undefined) {
+    observeResult(refusal); // the logbook records the refusal with its slug
+    if (opts.json) {
+      emitResult(refusal);
+      return 1;
+    }
+    const out = makeOut(colorEnabled());
+    out.error(refusal.message ?? "The gate refused to re-run.");
+    for (const hint of interactiveHintTexts(refusal.hints)) {
+      out.warn(hint);
+    }
+    return 1;
   }
   const { result, failedStage, cfg, out } = await runGate(root, opts.json);
   observeResult(result); // the logbook recorder lifts step timings from it

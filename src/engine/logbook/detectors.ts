@@ -614,6 +614,40 @@ const forceHabit: Detector = {
   },
 };
 
+const confirmedRerun: Detector = {
+  id: "confirmed-rerun",
+  title: "Recurring confirmed gate reruns",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  // Each --confirmed re-runs a tree the gate already judged — one is a
+  // deliberate probe; three is a habit worth naming.
+  threshold: 3,
+  next_step:
+    "A confirmed rerun asks an unchanged tree for a changed verdict. When that becomes routine, the gate's verdicts aren't trusted — diagnose the unstable check (`discern-cure-a-bug`, diagnose procedure) instead of paying the gate to re-ask; the same-tree-flake findings name which trees flipped.",
+  detect(facts): DetectorOutcome {
+    const confirmed = facts.agentish.filter((e) =>
+      e.verb === "done" && (e.flags ?? []).includes("confirmed")
+    );
+    const branches = new Set(
+      confirmed.map((e) => e.branch).filter((b): b is string => b !== null),
+    );
+    const findings: DetectorFinding[] = confirmed.length >= 3
+      ? [{
+        observed:
+          `\`done --confirmed\` re-ran the gate on an already-judged tree ${confirmed.length} times` +
+          (branches.size > 0 ? ` across ${branches.size} branches.` : "."),
+        evidence: {
+          confirmed_runs: confirmed.length,
+          branches: branches.size,
+        },
+        strength: confirmed.length,
+      }]
+      : [];
+    return { considered: facts.agentish.length, findings };
+  },
+};
+
 const docsGap: Detector = {
   id: "docs-gap",
   title: "Documentation lookups and misses",
@@ -1582,6 +1616,7 @@ export const DETECTORS: readonly Detector[] = [
   dirtyDoneChurn,
   trunkEdits,
   forceHabit,
+  confirmedRerun,
   docsGap,
   abandonedWorktrees,
   sequenceAnomaly,

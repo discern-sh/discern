@@ -53,7 +53,7 @@ In the fresh session, ask for a small, real change. The agent orients with `disc
 
 The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter fix-and-check loop. When the change is ready, it runs `discern done`. The full gate runs the repository's configured commands and any triggered scope gates or standards.
 
-On green, discern records a receipt for the clean commit. The agent reports that receipt and waits. Review the branch. If you request another commit, the receipt becomes stale and the agent must run `discern done` again.
+On green, discern records a receipt for the clean commit. The agent reports the change in its own words, ends with the one-line receipt, and waits; read the full receipt with `discern status --verbose`. Review the branch. If you request another commit, the receipt becomes stale and the agent must run `discern done` again.
 
 When you approve the landing, the agent runs `discern accept`. It fast-forwards the reviewed branch onto the trunk, destroys any worktree resources, removes the worktree directory, and deletes the merged branch ([ADR 0110](../_adr/0110-the-landing-model.md)).
 

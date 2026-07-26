@@ -739,7 +739,8 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
 
     // Human mode renders the exact same hint strings (one source of truth).
-    const human = await runAgent(dir, ["done"]);
+    // The tree is unchanged, so the deliberate rerun carries the attestation.
+    const human = await runAgent(dir, ["done", "--confirmed"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
       assertStringIncludes(human.output, hint);
@@ -1148,21 +1149,28 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // The structured receipt: git facts + the rendered markdown, one derivation.
+    // The structured receipt: git facts + the two renderings, one derivation.
     const receipt = obj.data.receipt;
     assert(receipt !== undefined, `expected data.receipt: ${r.stdout}`);
     assertEquals(receipt.branch, "agent/alpha");
     assertEquals(receipt.trunk, "main");
-    assertEquals(receipt.commits_total, 1);
-    assertEquals(receipt.commits[0].subject, "Add the feature");
     assertEquals(receipt.files_total, 1);
-    assertEquals(receipt.files[0].path, "feature.txt");
+    const shortHead = (await gitOut(wt, "rev-parse", "--short=12", "HEAD"))
+      .trim();
+    assertEquals(receipt.head, shortHead);
+    assertStringIncludes(
+      receipt.line,
+      `Receipt: gate passed on agent/alpha @ ${shortHead} · 1 file `,
+    );
+    assertStringIncludes(
+      receipt.line,
+      "full receipt: discern status --verbose",
+    );
     assertStringIncludes(receipt.markdown, "### Receipt — `agent/alpha`");
     assertStringIncludes(
       receipt.markdown,
       "| test | `echo receipt-gate-ok` | ok",
     );
-    assertStringIncludes(receipt.markdown, "- `feature.txt`");
     assertStringIncludes(
       receipt.markdown,
       "Inspect: `git diff main...agent/alpha`",
@@ -1173,19 +1181,23 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     assertHasHint(obj, HINTS["gate-prove-it-works"]);
     assertHasHint(obj, HINTS["gate-relay-receipt"]);
 
-    // The marker stores the markdown beside the sha it vouches for, so status and
-    // accept can surface the receipt without re-running the gate.
+    // The marker stores the line and the page beside the sha it vouches for, so
+    // status and accept can surface the receipt without re-running the gate.
     assertEquals(obj.data.gate_receipt.status, "recorded");
     const marker = await Deno.readTextFile(obj.data.gate_receipt.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
-      marker.startsWith(`${head}\n\n### Receipt`),
-      `marker must carry sha + markdown: ${marker.slice(0, 80)}`,
+      marker.startsWith(`${head}\nline: Receipt: `),
+      `marker must carry sha + line: ${marker.slice(0, 80)}`,
     );
+    assertStringIncludes(marker, "\n\n### Receipt");
 
     // Deterministic: the same tree and result render the same receipt (durations
-    // excepted).
-    const again = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
+    // excepted). The unchanged tree makes this a rerun, so it carries the
+    // attestation the rerun precondition requires.
+    const again = parseJson(
+      (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
+    );
     assertEquals(
       stripDurations(again.data.receipt.markdown),
       stripDurations(receipt.markdown),

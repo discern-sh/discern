@@ -88,6 +88,7 @@ import {
 import {
   appliedResult,
   type Diagnostic,
+  dimBlock,
   type DiscernResult,
   type EnginePlan,
   previewResult,
@@ -1864,10 +1865,15 @@ async function executeAcceptPlan(
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   // The landing record: the receipt for the tree that just landed, pasteable
-  // into a PR body. Printed unindented so it relays as clean markdown.
+  // into a PR body. Printed unindented so it relays as clean markdown; dimmed
+  // so the quoted page stays visually secondary (dim is display-only — a
+  // terminal copies the plain text).
   if (receiptMarkdown !== undefined) {
     ctx.log.line("");
-    for (const line of receiptMarkdown.split("\n")) {
+    for (
+      const line of dimBlock(receiptMarkdown, loggerSink(ctx.log).dim)
+        .split("\n")
+    ) {
       ctx.log.line(line);
     }
   }

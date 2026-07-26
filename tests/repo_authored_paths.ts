@@ -54,19 +54,13 @@ export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
  */
 const NON_AUTHORED_PREFIXES = ["tests/fixtures/"];
 
-/**
- * Every authored TypeScript source under `root`, repo-relative and sorted.
- *
- * This is the scan universe for repo-wide structural guards: derive a sweep's
- * file set from here — never from a hand-kept root list — so a new authored
- * tree (say `tools/`) enrols in every guard the moment its first file exists.
- * Derived from Git rather than the filesystem alone: tracked plus
- * untracked-but-not-ignored `.ts`/`.tsx` files, which keeps build products and
- * vendored trees (`dist/`, `node_modules/`, …) out because the gitignore
- * already names them.
- */
-export async function authoredTsFiles(
-  root: string = REPO_ROOT,
+/** Git-derived file enumeration shared by every scan universe below: tracked
+ * plus untracked-but-not-ignored files matching `patterns`, which keeps build
+ * products and vendored trees (`dist/`, `node_modules/`, …) out because the
+ * gitignore already names them. */
+async function gitListedAuthoredFiles(
+  root: string,
+  patterns: readonly string[],
 ): Promise<string[]> {
   const { success, stdout, stderr } = await new Deno.Command("git", {
     args: [
@@ -78,8 +72,7 @@ export async function authoredTsFiles(
       "--others",
       "--exclude-standard",
       "--",
-      "*.ts",
-      "*.tsx",
+      ...patterns,
     ],
     stdout: "piped",
     stderr: "piped",
@@ -104,6 +97,19 @@ export async function authoredTsFiles(
   return present.sort();
 }
 
+/**
+ * Every authored TypeScript source under `root`, repo-relative and sorted.
+ *
+ * This is the scan universe for repo-wide structural guards: derive a sweep's
+ * file set from here — never from a hand-kept root list — so a new authored
+ * tree (say `tools/`) enrols in every guard the moment its first file exists.
+ */
+export async function authoredTsFiles(
+  root: string = REPO_ROOT,
+): Promise<string[]> {
+  return await gitListedAuthoredFiles(root, ["*.ts", "*.tsx"]);
+}
+
 /** The authored-TypeScript universe of this checkout, enumerated once. */
 export const AUTHORED_TS_FILES: string[] = await authoredTsFiles();
 
@@ -111,6 +117,24 @@ export const AUTHORED_TS_FILES: string[] = await authoredTsFiles();
 export const AUTHORED_TS_ROOTS: string[] = [
   ...new Set(AUTHORED_TS_FILES.map((rel) => rel.split("/")[0] ?? rel)),
 ].sort();
+
+/**
+ * Every tracked Markdown file under `root`, repo-relative and sorted — the
+ * scan universe for repo-wide Markdown sweeps, enumerated the same way as the
+ * TypeScript universe so a new tree of pages enrols the moment its first file
+ * exists. Generated Markdown outputs (compiled agent files, codegen'd map
+ * pages) are deliberately IN the universe: a sweep checks bytes wherever they
+ * live, so a generator emitting a defective page fails the gate exactly like
+ * a hand edit.
+ */
+export async function trackedMarkdownFiles(
+  root: string = REPO_ROOT,
+): Promise<string[]> {
+  return await gitListedAuthoredFiles(root, ["*.md"]);
+}
+
+/** The tracked-Markdown universe of this checkout, enumerated once. */
+export const TRACKED_MD_FILES: string[] = await trackedMarkdownFiles();
 
 /** Whether `rel` is the configured map subtree named by `segments`. */
 export function isRepoMapPath(rel: string, ...segments: string[]): boolean {

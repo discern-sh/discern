@@ -299,6 +299,12 @@ export function attachEngineCommands(
       "--dry-run",
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
+    .option(
+      "--confirmed",
+      "Attest this rerun: run the full gate again on the exact tree it last " +
+        "judged — a flake probe, or a re-measure — and record it. Without the " +
+        "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
+    )
     .action(
       recordedExit(
         "done",
@@ -306,6 +312,7 @@ export function attachEngineCommands(
           await runFinish(await requireRoot("done", o.json ?? false), {
             json: o.json ?? false,
             dryRun: o.dryRun ?? false,
+            confirmed: o.confirmed ?? false,
           }),
       ),
     );
@@ -467,7 +474,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.",
+      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.",
     )
     .option(
       "--json",
@@ -602,6 +609,11 @@ export function attachEngineCommands(
       "Show only this checkout, even in the main checkout.",
     )
     .option(
+      "--verbose",
+      "Also print the full receipt page for an honored branch (and each ready " +
+        "fleet row). Interactive output only; --json always carries the receipt.",
+    )
+    .option(
       "--json",
       "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
     )
@@ -610,6 +622,7 @@ export function attachEngineCommands(
         json: o.json ?? false,
         all: o.all ?? false,
         local: o.local ?? false,
+        verbose: o.verbose ?? false,
       })));
 
   root

@@ -286,6 +286,67 @@ Deno.test("the real map corpus and discern.toml are formatter-idempotent", async
   assertEquals(commentLines(once), commentLines(before));
 });
 
+Deno.test("tidy fails on a misaligned fenced diagram, naming file, line, and column", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    await write(
+      join(root, "docs", "diagram.md"),
+      ["# D", "", "```", "┌───┐", "│ x  │", "└───┘", "```", ""].join("\n"),
+    );
+    const result = await tidyResult(root);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "diagrams_misaligned");
+    const messages = (result.diagnostics ?? []).map((d) => d.message);
+    assert(
+      messages.some((m) => m.startsWith("docs/diagram.md:5:6")),
+      messages.join("\n"),
+    );
+    // Formatting still converged the rest of the tree in the same run.
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n- item\n",
+    );
+  });
+});
+
+Deno.test("a freeform-tagged fence and the toml selector skip the diagram check", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const art = ["```freeform", "┌───┐", "│ x  │", "└───┘", "```", ""]
+      .join("\n");
+    await write(join(root, "docs", "art.md"), `# Art\n\n${art}`);
+    const tagged = await tidyResult(root);
+    assertEquals(tagged.ok, true);
+
+    await write(
+      join(root, "docs", "art.md"),
+      `# Art\n\n${art.replace("```freeform", "```")}`,
+    );
+    const toml = await tidyResult(root, { type: "toml" });
+    assertEquals(toml.ok, true);
+    const md = await tidyResult(root, { type: "md" });
+    assertEquals(md.ok, false);
+  });
+});
+
+Deno.test("tidy --dry-run reports diagram findings and writes nothing", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    await write(
+      join(root, "docs", "diagram.md"),
+      ["# D", "", "```", "┌───┐", "│ x  │", "└───┘", "```", ""].join("\n"),
+    );
+    const result = await tidyResult(root, { dryRun: true });
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "diagrams_misaligned");
+    assert((result.diagnostics ?? []).length > 0);
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n-   item\n",
+    );
+  });
+});
+
 Deno.test("markdown formatting refuses unparseable frontmatter instead of rewriting it", async () => {
   // The incident shape: an unquoted `: ` inside a value turns the block into
   // invalid YAML; a recovering formatter re-indents the flush-left siblings

@@ -5191,66 +5191,8 @@
                     "trunk": {
                       "type": "string"
                     },
-                    "commits": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "sha": {
-                            "type": "string"
-                          },
-                          "subject": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "sha",
-                          "subject"
-                        ]
-                      }
-                    },
-                    "commits_total": {
-                      "type": "number"
-                    },
-                    "files": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "added": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "removed": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "path",
-                          "status",
-                          "added",
-                          "removed"
-                        ]
-                      }
+                    "head": {
+                      "type": "string"
                     },
                     "files_total": {
                       "type": "number"
@@ -5261,6 +5203,9 @@
                     "deletions": {
                       "type": "number"
                     },
+                    "line": {
+                      "type": "string"
+                    },
                     "markdown": {
                       "type": "string"
                     }
@@ -5268,12 +5213,11 @@
                   "required": [
                     "branch",
                     "trunk",
-                    "commits",
-                    "commits_total",
-                    "files",
+                    "head",
                     "files_total",
                     "insertions",
                     "deletions",
+                    "line",
                     "markdown"
                   ]
                 },
@@ -9158,6 +9102,9 @@
                     },
                     "receipt": {
                       "type": "string"
+                    },
+                    "receipt_line": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -9270,6 +9217,15 @@
                       },
                       "broken": {
                         "type": "boolean"
+                      },
+                      "receipt_honored": {
+                        "type": "boolean"
+                      },
+                      "receipt": {
+                        "type": "string"
+                      },
+                      "receipt_line": {
+                        "type": "string"
                       }
                     },
                     "required": [
@@ -9943,6 +9899,9 @@
                           "type": "string"
                         },
                         "receipt": {
+                          "type": "string"
+                        },
+                        "receipt_line": {
                           "type": "string"
                         }
                       },

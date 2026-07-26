@@ -217,7 +217,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "tidy",
         title: "Canonical formatting for discern surfaces",
         what:
-          "`discern tidy [md|toml]` canonically formats the configured map, TODO and guidance sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged.",
+          "`discern tidy [md|toml]` canonically formats the configured map, TODO and guidance sources, plus the root `discern.toml`, using formatters embedded in the offline binary. Bare `discern tidy` runs both types; a parse failure leaves every file unchanged. Fenced box-drawing diagrams in those Markdown targets must stay column-aligned; a fence tagged `freeform` is exempt.",
         why:
           "Agent-maintained prose and frequently edited config stop accumulating formatting churn, even when the project's stack has no formatter of its own.",
         surfaces: ["verb:tidy"],
@@ -303,6 +303,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "A commit made while the gate ran can never earn the receipt: the tree is pinned before the first job and re-checked at stamp time. When a green run cannot record one because the tree is dirty, the refusal names the blocking paths, and at the moment done is about to be claimed a hint reminds the agent that a green gate is necessary but not sufficient — exercise the artifact, then relay the receipt and wait.",
         hints: ["gate-prove-it-works", "gate-relay-receipt"],
+      },
+      {
+        id: "unchanged-tree-rerun",
+        title: "A rerun on an unchanged tree is attested",
+        what:
+          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. Asked to run again on that identical tree, `done` refuses read-only before the fix stage can touch a file; `discern done --confirmed` re-runs it as an attested, recorded probe. Any change to the tree runs as normal, and so does `--dry-run`.",
+        why:
+          "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for a receipt `discern status` already shows; a red one retried until it passes teaches that red is negotiable.",
+        agent:
+          "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
+        hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
       },
     ],
   },
