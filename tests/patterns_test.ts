@@ -26,13 +26,16 @@ import {
   AGENT_SIGNAL_SOURCES,
 } from "../src/shared/agent_catalogue.ts";
 import {
+  COHORT_MINIMUMS,
+  driverAgent,
+  driverKind,
+} from "../src/engine/logbook/cohorts.ts";
+import {
   buildStreamFacts,
   comparableTail,
   type Detector,
   type DetectorReport,
   DETECTORS,
-  driverAgent,
-  driverKind,
   runDetector,
 } from "../src/engine/logbook/detectors.ts";
 import {
@@ -57,6 +60,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 const LOGBOOK_READER_MODULES = [
   "src/engine/logbook/patterns.ts",
   "src/engine/logbook/detectors.ts",
+  "src/engine/logbook/cohorts.ts",
 ] as const;
 
 /** Schema members a reader deliberately does not consume, each with its
@@ -286,6 +290,15 @@ function signalledDriver(agent: string, marker: string): VerbEvent["driver"] {
       { agent, source: "process-environment", markers: [marker] },
     ],
   };
+}
+
+/** One agent-attributed run: an identity signal plus the given overrides. */
+function cohortRun(
+  agent: string,
+  marker: string,
+  over: Partial<VerbEvent> = {},
+): Partial<VerbEvent> {
+  return { driver: signalledDriver(agent, marker), ...over };
 }
 
 /** An MCP call whose client declaration the recorder did not recognize. */
@@ -522,6 +535,142 @@ const FIXTURES: Record<string, DetectorFixtures> = {
         driver: signalledDriver("claude", "CLAUDECODE"),
       })),
     ),
+  },
+  // The cohort fixtures model the observed fleet shapes: firing streams are
+  // balanced two-cohort corpora, sparse streams are single-cohort ones. All
+  // are attributed through process evidence alone — version-blind cohorts —
+  // so the cohort guards can also assert nothing renders version attribution.
+  "cohort-done-thrash": {
+    firing: run([
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/thrash" }),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/calm" }),
+      ...Array.from(
+        { length: 5 },
+        (): Partial<VerbEvent> =>
+          cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/steady" }),
+      ),
+    ]),
+    quiet: run([
+      ...Array.from(
+        { length: 5 },
+        (_, i): Partial<VerbEvent> =>
+          cohortRun("claude", "CLAUDECODE", {
+            branch: i < 3 ? "agent/a" : "agent/b",
+          }),
+      ),
+      ...Array.from(
+        { length: 5 },
+        (): Partial<VerbEvent> =>
+          cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/steady" }),
+      ),
+    ]),
+    sparse: run([
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/thrash" })),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/thrash" }),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/calm" }),
+    ]),
+  },
+  "guidance-parity": {
+    // Modeled on the live differential this wave was tuned against: one
+    // cohort repeatedly refused a precondition its peer never hit.
+    firing: run([
+      ...Array.from(
+        { length: 3 },
+        (): Partial<VerbEvent> =>
+          cohortRun("claude", "CLAUDECODE", {
+            outcome: "refused",
+            error: "unchanged_tree_rerun",
+          }),
+      ),
+      cohortRun("claude", "CLAUDECODE", {}),
+      cohortRun("claude", "CLAUDECODE", {}),
+      ...Array.from(
+        { length: 5 },
+        (): Partial<VerbEvent> => cohortRun("codex", "CODEX_THREAD_ID", {}),
+      ),
+    ]),
+    // A gap every cohort hits is a shared gap — it stays un-split.
+    quiet: run([
+      ...Array.from(
+        { length: 3 },
+        (): Partial<VerbEvent> =>
+          cohortRun("claude", "CLAUDECODE", {
+            outcome: "refused",
+            error: "dirty_worktree",
+          }),
+      ),
+      cohortRun("claude", "CLAUDECODE", {}),
+      cohortRun("claude", "CLAUDECODE", {}),
+      ...Array.from(
+        { length: 3 },
+        (): Partial<VerbEvent> =>
+          cohortRun("codex", "CODEX_THREAD_ID", {
+            outcome: "refused",
+            error: "dirty_worktree",
+          }),
+      ),
+      cohortRun("codex", "CODEX_THREAD_ID", {}),
+      cohortRun("codex", "CODEX_THREAD_ID", {}),
+    ]),
+    sparse: run([
+      ...Array.from(
+        { length: 3 },
+        (): Partial<VerbEvent> =>
+          cohortRun("claude", "CLAUDECODE", {
+            outcome: "refused",
+            error: "unchanged_tree_rerun",
+          }),
+      ),
+      cohortRun("claude", "CLAUDECODE", {}),
+      cohortRun("claude", "CLAUDECODE", {}),
+    ]),
+  },
+  "cohort-loops-to-green": {
+    firing: run([
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/a" })),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/a" }),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/b" })),
+      cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/b" })),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/b" }),
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/c" }),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/d" })),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/d" })),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/d" })),
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/d" }),
+    ]),
+    // Comparative on runs, but one cohort holds a single green branch — a
+    // median of one branch is no median, so the split stays quiet.
+    quiet: run([
+      ...Array.from(
+        { length: 4 },
+        (): Partial<VerbEvent> =>
+          cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/solo" })),
+      ),
+      cohortRun("claude", "CLAUDECODE", { branch: "agent/solo" }),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/c1" })),
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/c1" }),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/c2" })),
+      cohortRun("codex", "CODEX_THREAD_ID", redDone({ branch: "agent/c2" })),
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/c2" }),
+    ]),
+    sparse: run([
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/c1" }),
+      ...Array.from(
+        { length: 4 },
+        (): Partial<VerbEvent> =>
+          cohortRun(
+            "codex",
+            "CODEX_THREAD_ID",
+            redDone({ branch: "agent/c2" }),
+          ),
+      ),
+      cohortRun("codex", "CODEX_THREAD_ID", { branch: "agent/c2" }),
+    ]),
   },
   "dominant-stage": {
     firing: run(
@@ -904,6 +1053,156 @@ for (const d of DETECTORS) {
   });
 }
 
+// ── the cohort guards, parameterized off the registry flag ──────────────────
+
+const COHORT_DETECTORS = DETECTORS.filter((d) => d.cohorts === true);
+
+Deno.test("patterns cohorts: the cohort-capable set exists and declares honest routing", () => {
+  assert(
+    COHORT_DETECTORS.length >= 3,
+    "the registry must declare its cohort-capable detectors",
+  );
+  for (const d of COHORT_DETECTORS) {
+    assertEquals(
+      d.tier,
+      "batch",
+      `${d.id}: longitudinal cohort analysis never rides a working surface`,
+    );
+    assertEquals(
+      d.scope,
+      "project",
+      `${d.id}: a cohort split is a project-level reading`,
+    );
+    assertEquals(
+      d.threshold,
+      COHORT_MINIMUMS.cohorts,
+      `${d.id}: considered counts qualifying cohorts against the seam's bar`,
+    );
+  }
+});
+
+for (const d of COHORT_DETECTORS) {
+  Deno.test(`patterns cohorts ${d.id}: findings carry per-cohort denominators and the unattributed share`, () => {
+    const r = report(d, fixturesOf(d).firing);
+    assertEquals(r.status, "fired");
+    for (const f of r.findings) {
+      assertEquals(
+        typeof f.evidence.unattributed_runs,
+        "number",
+        `${d.id}: the unattributed share is always reported`,
+      );
+      const denominators = Object.keys(f.evidence).filter((k) =>
+        k.endsWith("_runs") && k !== "unattributed_runs" &&
+        k !== "below_minimum_runs"
+      );
+      assert(
+        denominators.length >= 2,
+        `${d.id}: a cohort finding needs at least two per-cohort ` +
+          `denominators, got ${Object.keys(f.evidence).join(", ")}`,
+      );
+      assert(
+        f.observed.includes("unattributed"),
+        `${d.id}: the sentence must state the unattributed share: ${f.observed}`,
+      );
+    }
+  });
+
+  Deno.test(`patterns cohorts ${d.id}: ambient evidence mints no cohort`, () => {
+    const ambient = fixturesOf(d).firing.map((e): LogbookEvent =>
+      e.kind === "verb"
+        ? {
+          ...e,
+          driver: {
+            ...e.driver,
+            agent_signals: (e.driver?.agent_signals ?? []).map((s) => ({
+              ...s,
+              source: "host-filesystem" as const,
+            })),
+          },
+        }
+        : e
+    );
+    const r = report(d, ambient);
+    assertEquals(
+      r.status,
+      "insufficient-evidence",
+      `${d.id}: with only ambient identity evidence there is no cohort`,
+    );
+    assertEquals(r.considered, 0);
+  });
+
+  Deno.test(`patterns cohorts ${d.id}: a single-cohort corpus reports insufficient evidence`, () => {
+    const single = fixturesOf(d).firing.map((e): LogbookEvent =>
+      e.kind === "verb"
+        ? {
+          ...e,
+          driver: {
+            ...e.driver,
+            agent_signals: (e.driver?.agent_signals ?? []).map((s) => ({
+              ...s,
+              agent: "codex",
+            })),
+          },
+        }
+        : e
+    );
+    const r = report(d, single);
+    assertEquals(
+      r.status,
+      "insufficient-evidence",
+      `${d.id}: one population is a description, not a comparison`,
+    );
+    assertEquals(r.findings, []);
+  });
+
+  Deno.test(`patterns cohorts ${d.id}: a version-blind cohort renders without version attribution`, () => {
+    for (const e of fixturesOf(d).firing) {
+      if (e.kind === "verb") {
+        assertEquals(
+          e.driver?.mcp_client,
+          undefined,
+          `${d.id}: the cohort fixtures model process-attributed cohorts`,
+        );
+      }
+    }
+    const r = report(d, fixturesOf(d).firing);
+    assertEquals(r.status, "fired");
+    for (const f of r.findings) {
+      assert(
+        !f.observed.includes("client release"),
+        `${d.id}: no version attribution without client evidence: ${f.observed}`,
+      );
+    }
+  });
+}
+
+Deno.test("patterns cohorts: a near-single-cohort corpus with a trace second stays silent", () => {
+  // The observed fleet shape the minimums were tuned against: hundreds of
+  // runs beside a single-digit trace. The trace cohort clears the absolute
+  // floor, so this is the share floor holding at the detector level.
+  const events = run([
+    ...Array.from(
+      { length: 60 },
+      (): Partial<VerbEvent> =>
+        cohortRun(
+          "codex",
+          "CODEX_THREAD_ID",
+          redDone({ branch: "agent/busy" }),
+        ),
+    ),
+    ...Array.from(
+      { length: 6 },
+      (): Partial<VerbEvent> =>
+        cohortRun("claude", "CLAUDECODE", redDone({ branch: "agent/trace" })),
+    ),
+  ]);
+  const thrash = DETECTORS.find((d) => d.id === "cohort-done-thrash");
+  assert(thrash !== undefined);
+  const r = runDetector(thrash, buildStreamFacts(events, "main"));
+  assertEquals(r.status, "insufficient-evidence");
+  assertEquals(r.findings, []);
+});
+
 // ── driver scoring from identity signals ────────────────────────────────────
 
 /** One identity-evidence bundle for a driver-fact fixture. */
@@ -1143,6 +1442,105 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
   assert(
     finding.observed.includes("0.9.0 → 9.9.9"),
     `the attribution must name the release move: ${finding.observed}`,
+  );
+});
+
+/** A driver bundle declaring an MCP client the recorder recognized. */
+function recognizedMcpClient(
+  agent: string,
+  name: string,
+  version: string,
+): VerbEvent["driver"] {
+  return {
+    session: "mcp:1",
+    json: false,
+    tty: false,
+    ci: false,
+    agent_signals: [
+      { agent, source: "mcp-client", markers: ["clientInfo.name"] },
+    ],
+    mcp_client: { name, version },
+  };
+}
+
+Deno.test("patterns attribution: the dominant client's version change bounds the window, naming the client, version pair, and date", () => {
+  const events: LogbookEvent[] = [
+    ...Array.from(
+      { length: 5 },
+      (_, i) =>
+        verb({
+          at: t(i),
+          verb: "done",
+          surface: "mcp",
+          duration_ms: 10_000,
+          driver: recognizedMcpClient(
+            "codex",
+            "codex-mcp-client",
+            "0.145.0-alpha.27",
+          ),
+        }),
+    ),
+    ...Array.from(
+      { length: 4 },
+      (_, i) =>
+        verb({
+          at: t(6 + i),
+          verb: "done",
+          surface: "mcp",
+          duration_ms: 30_000,
+          driver: recognizedMcpClient(
+            "codex",
+            "codex-mcp-client",
+            "0.145.0-alpha.30",
+          ),
+        }),
+    ),
+  ];
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(
+    outcome.findings.length,
+    1,
+    "a client-release boundary with too short a tail must be attributed, not silent",
+  );
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assert(
+    finding.observed.includes(
+      "Codex 0.145.0-alpha.27 → 0.145.0-alpha.30 client release",
+    ),
+    `the attribution must name the client and version pair: ${finding.observed}`,
+  );
+  assert(
+    finding.observed.includes("2026-07-01"),
+    `the attribution must date the boundary: ${finding.observed}`,
+  );
+});
+
+Deno.test("patterns attribution: a version-blind stream trends normally — absence of client evidence is silent", () => {
+  // The same shift with no client declarations anywhere: the trend compares
+  // across the whole window and reports the creep itself, with no client
+  // attribution and no error.
+  const events: LogbookEvent[] = [
+    ...Array.from(
+      { length: 4 },
+      (_, i) => verb({ at: t(i), verb: "done", duration_ms: 10_000 }),
+    ),
+    ...Array.from(
+      { length: 4 },
+      (_, i) => verb({ at: t(6 + i), verb: "done", duration_ms: 30_000 }),
+    ),
+  ];
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(outcome.findings.length, 1);
+  assert(
+    !(outcome.findings[0]?.observed.includes("client release") ?? true),
+    `no client attribution may appear without client evidence: ${
+      outcome.findings[0]?.observed
+    }`,
   );
 });
 

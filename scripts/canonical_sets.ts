@@ -848,13 +848,16 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "seeded-gotchas-traps",
     title: "Seeded gate traps",
     what:
-      "The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.",
+      "The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.",
     source: {
       kind: "file",
       path: "templates/setup/skeleton/docs/80-development/done-gate-gotchas.md",
       mustContain: "## Stack-independent traps",
     },
-    guards: ["tests/gotchas_parity_test.ts"],
+    guards: [
+      "tests/gotchas_parity_test.ts",
+      "tests/gotcha_matchers_drift_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {

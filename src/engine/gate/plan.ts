@@ -412,8 +412,12 @@ function withFixAvailable(
  *    at checkout-shared `[repository].ensure` rather than leaving a bare
  *    `sh: <cmd>: not found`;
  *  - everything else reports its exit code.
+ *
+ * Exported for the seeded-matcher drift guard: the gotchas traps that match on
+ * this evidence replay the real strings from here, so a reword fails the gate
+ * until the matchers move with it.
  */
-function jobFailureMessage(label: string, r: JobResult): string {
+export function jobFailureMessage(label: string, r: JobResult): string {
   if (r.timedOutAfterS !== undefined) {
     return `${label} timed out after ${r.timedOutAfterS}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or give a legitimately long-running command a bigger budget — a \`timeout\` on its own config entry, or the global [gate].timeout.`;
   }

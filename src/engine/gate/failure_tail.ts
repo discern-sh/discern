@@ -8,10 +8,9 @@
  * envelope carries — one source, never a second.
  */
 
-import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Diagnostic } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
-import { gotchasHint } from "./gotchas.ts";
+import { type GotchasFailureTail, renderGotchasTail } from "./gotchas.ts";
 
 /**
  * The scannable per-tool failures block: each failed tool, its Tier-1 location when
@@ -70,20 +69,21 @@ function renderFailBluf(
 
 /**
  * Print the shared human failure tail for a gate verb: the headline (the verb/stage
- * message), the gotchas pointer, the structured recap, and the tail-safe BLUF. The
- * one place finish/prepare/test render a failure, so the three stay consistent and a
- * `… | tail` of any of them lands on actionable signal.
+ * message), the gotchas section (the inlined matched trap, or the pointer, plus any
+ * malformed-matcher warnings — the SAME fired hints the envelope carries), the
+ * structured recap, and the tail-safe BLUF. The one place finish/prepare/test render
+ * a failure, so the three stay consistent and a `… | tail` of any of them lands on
+ * actionable signal.
  */
 export function renderFailureTail(out: Out, opts: {
-  cfg: DiscernConfig;
-  root: string;
   verb: string;
   headline: string;
   diagnostics: Diagnostic[];
+  gotchas: GotchasFailureTail | undefined;
 }): void {
-  const { cfg, root, verb, headline, diagnostics } = opts;
+  const { verb, headline, diagnostics, gotchas } = opts;
   out.error(headline);
-  gotchasHint(cfg, root, out.color);
+  renderGotchasTail(gotchas, out.color);
   renderFailures(out, diagnostics);
   renderFailBluf(out, verb, headline, diagnostics);
 }

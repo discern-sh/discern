@@ -1266,7 +1266,8 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "A gate failure occurs and the project configures a gotchas document.",
+      "A gate failure occurs, the project configures a gotchas document, and no trap matcher matches the failure.",
+    family: "gotchas-doc",
     example: {
       command: "discern map 80-development/done-gate-gotchas --json",
     },
@@ -1274,6 +1275,54 @@ export const HINTS = {
       reference.command !== undefined
         ? `If the failure above isn't self-explanatory, run \`${reference.command}\` to read this project's known gate failures and their fixes.`
         : `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in \`${reference.path}\`.`,
+  }),
+
+  /**
+   * The inlined trap (ADR 0189): a matcher in the gotchas doc recognized this
+   * failure, so the entry's own prose replaces the generic pointer — the fix
+   * arrives inside the failure instead of one fetch away. The body is bounded
+   * by the gotchas surface before firing.
+   */
+  "gate-failure-gotcha-matched": defineHint<
+    & { title: string; body: string }
+    & ({ command: string; path?: never } | { path: string; command?: never })
+  >({
+    id: "gate-failure-gotcha-matched",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A gate failure matches a trap matcher in the configured gotchas document.",
+    family: "gotchas-doc",
+    example: {
+      title: "A command hangs, then fails with a timeout",
+      body:
+        "**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.\n\n**Fix.** Wire the command in its single-run form.",
+      command: "discern map 80-development/done-gate-gotchas --json",
+    },
+    template: ({ title, body, ...reference }): string =>
+      `This failure matches "${title}", a documented trap in this project's gate gotchas:\n\n${body}\n\n` +
+      (reference.command !== undefined
+        ? `Read the full page with \`${reference.command}\`.`
+        : `The full page is \`${reference.path}\`.`),
+  }),
+
+  /**
+   * A malformed trap matcher, surfaced whenever the doc is consulted: a bad
+   * block must warn by entry name, never skip without a trace (ADR 0189).
+   */
+  "gotchas-matcher-invalid": defineHint<{ entry: string; problem: string }>({
+    id: "gotchas-matcher-invalid",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A gate failure consults a gotchas document carrying a malformed trap matcher.",
+    family: "gotchas-doc",
+    example: {
+      entry: "A command hangs, then fails with a timeout",
+      problem: '`stage` is "timeout", which is not a gate stage',
+    },
+    template: ({ entry, problem }): string =>
+      `Fix the \`gotcha-match\` block in the gotchas entry "${entry}": ${problem}. Until it parses, the entry cannot match failures.`,
   }),
 
   /** The diagnostic-driven remedy for a failed fix stage. */
