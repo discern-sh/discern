@@ -107,10 +107,4 @@ This section is yours to grow. As you build and hit failures the error message a
 - A test-isolation trap unique to your framework or test runner.
 - A toolchain step a merge can invalidate (a generated file, a native build, a cache) that needs regenerating before the gate is green.
 
-### A Markdown edit fails the diagram-geometry check
-
-**Symptom.** The format job fails: `discern tidy` reports `diagrams_misaligned` with `file:line:column` findings such as `"│" connects above but finds only space`. Markdown outside tidy's surfaces raises the same findings later, in the test stage's `tests/diagram_geometry_test.ts` sweep.
-
-**Cause.** A fenced code block containing box-drawing characters was edited without re-counting columns. Any fence holding a corner or junction glyph is a diagram: every vertical, corner, and junction must sit in the same code-point column as the glyph it joins on the neighbouring row, and every arrowhead must touch its shaft. No formatter repairs this — `deno fmt` skips fence bodies and `discern tidy` checks them without rewriting — so alignment is part of the edit.
-
-**Fix.** Open each named location and pad with spaces until the columns meet: interior rows as wide as their borders, junctions directly above their hangers. Label text may anchor a line's end (a `│` may hang from a word); space may not. For intentional character art, add `freeform` to the fence's info string. The full rules and tolerances are documented in [`src/lib/diagram_geometry.ts`](../../../src/lib/diagram_geometry.ts).
+_(No project-specific traps recorded yet.)_

@@ -23,19 +23,7 @@ Fresh installations put bare `discern tidy` in the [format job](../00-orientatio
 | Markdown | Every `.md` file under `[map].dir`, the `[project].todo` file, and files matched by `[guidance].sources`. | The project brief, authored skills, generated agent files, and Markdown outside those configured sources. |
 | TOML     | The root `discern.toml`.                                                                                  | Every other TOML file, including files owned by the project's stack or a coding-agent provider.           |
 
-Markdown prose is stored unwrapped, with two-space indentation, spaces rather than tabs, and LF line endings. Fenced code stays byte-for-byte unchanged. TOML uses the same indentation and line-ending convention while preserving comments. The plugins and their formatter host are pinned and embedded in the binary, so formatting makes no network call and needs no project runtime.
-
-## Diagrams stay aligned
-
-A fenced block that draws with box characters is a diagram, and every Markdown target is checked as it is formatted: each vertical, corner, and junction must sit in the column of the glyph it joins, and each arrowhead must touch its shaft. A line may end on label text (a `│` can hang from a word) but never on empty space. A finding names the file, line, column, and glyph, and the run fails under `diagrams_misaligned` until the diagram is realigned; formatting changes are still written. tidy never redraws a diagram itself: a broken diagram has more than one faithful repair, so the fix stays with the author.
-
-For intentional character art that is not a box diagram, add `freeform` to the fence's info string:
-
-````md
-```freeform
-( art the checker leaves alone )
-```
-````
+Markdown prose is stored unwrapped, with two-space indentation, spaces rather than tabs, and LF line endings. Fenced code stays byte-for-byte unchanged, though a fenced box-drawing diagram must stay column-aligned: a misaligned glyph fails the run under `diagrams_misaligned` with its file, line, and column, and a fence tagged `freeform` is exempt. TOML uses the same indentation and line-ending convention while preserving comments. The plugins and their formatter host are pinned and embedded in the binary, so formatting makes no network call and needs no project runtime.
 
 ## Run it directly
 
