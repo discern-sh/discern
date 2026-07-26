@@ -180,7 +180,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0183 — Agent task search uses an audience-specific ranker](0183-agent-task-search-uses-an-audience-specific-ranker.md)
 - [0184 — Markdown writers preserve or refuse frontmatter, never restructure it](0184-markdown-writers-preserve-or-refuse-frontmatter.md)
 - [0186 — ADR number uniqueness is gate-enforced, with an in-flight collision scan](0186-adr-number-uniqueness-is-gate-enforced.md)
-- [0187 — An eighth bundled skill teaches the write-once discipline](0187-an-eighth-bundled-skill-write-it-once.md)
+- [0189 — An eighth bundled skill teaches the write-once discipline](0189-an-eighth-bundled-skill-write-it-once.md)
 
 <!-- END GENERATED: current ADR records -->
 
