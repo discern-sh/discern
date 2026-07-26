@@ -316,9 +316,9 @@ Deno.test("cohort eras: a version-blind stream has no boundaries and no error â€
 
 Deno.test("cohort eras: an unrecognized dominant client keeps its raw declared name", () => {
   const eras = dominantClientEras([
-    mcpRun("mystery-agent", "1.0.0", t(0)),
-    mcpRun("mystery-agent", "1.1.0", t(1)),
+    mcpRun("mystery-agent", "7.0.0", t(0)),
+    mcpRun("mystery-agent", "7.1.0", t(1)),
   ]);
   assertEquals(eras.label, "mystery-agent");
-  assertEquals(eras.boundaries, [{ at: t(1), from: "1.0.0", to: "1.1.0" }]);
+  assertEquals(eras.boundaries, [{ at: t(1), from: "7.0.0", to: "7.1.0" }]);
 });
