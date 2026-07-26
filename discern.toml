@@ -444,11 +444,13 @@ inputs = [
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
 # word count is a context-window budget we spend on their behalf.
-# This ceiling exists to stop verbiage piling in without a thought for that budget:
-# the guidance is for steering discern, NOT for explaining discern's
-# internals (those belong in project/guidance.md), nor mechanics an agent can
-# discover by running a verb. Raise the limit only to make deliberate room for
-# genuinely-needed operating guidance — trim elsewhere otherwise.
+# A sentence earns static delivery only by the routing test (ADR 0189): it must be
+# needed BEFORE the first relevant tool call, and that call must be unable to
+# deliver it. Mechanics an envelope, refusal, or tool description already carries
+# belong to that channel, not here. Standing exemptions — the channel-down CLI
+# fallback, and destructive-class rules that verb-bypassing edits can violate
+# (trunk edits, worktree adoption) — stay static and may repeat.
+# Raise the limit only for guidance that passes the test; trim elsewhere otherwise.
 [standards.guidance]
 metric = "guidance_words"
 direction = "down"
