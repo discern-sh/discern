@@ -1,4 +1,4 @@
-# ADR 0189: Cohort findings lift the provider-comparison deferral, under standing conditions
+# ADR 0190: Cohort findings lift the provider-comparison deferral, under standing conditions
 
 **Status**: accepted; amends the provider-comparison deferral in [ADR 0160](0160-local-logbook-advisory-readers.md), builds on [ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md) (whose evidence boundary and permanent rejection of identity-driven behavior stand unchanged)
 

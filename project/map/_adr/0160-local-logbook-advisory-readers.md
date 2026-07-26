@@ -4,7 +4,7 @@
 
 > **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the logbook now records source-labelled coding-agent identity signals when cheap hints exist. They remain evidence, never a vendor verdict, and never steer product behaviour. The rest of this decision is unchanged.
 
-> **Cohort amendment ([ADR 0189](0189-cohort-findings-lift-the-provider-comparison-deferral.md)):** the provider-comparison deferral in this record's explicit *no*s is lifted — its stated condition, a cheap honest hint, is met — under standing conditions: facts beside denominators and never rankings, invocation-scoped cohort keys only, recorded per-cohort minimums, and the unattributed share always visible. Export, session replay, and guidance-amendment drafting stay deferred.
+> **Cohort amendment ([ADR 0190](0190-cohort-findings-lift-the-provider-comparison-deferral.md)):** the provider-comparison deferral in this record's explicit *no*s is lifted — its stated condition, a cheap honest hint, is met — under standing conditions: facts beside denominators and never rankings, invocation-scoped cohort keys only, recorded per-cohort minimums, and the unattributed share always visible. Export, session replay, and guidance-amendment drafting stay deferred.
 
 ## Context
 
