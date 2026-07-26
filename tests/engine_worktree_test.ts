@@ -177,6 +177,34 @@ Deno.test("worktree ensure sets up once, then is a no-op", async () => {
   });
 });
 
+Deno.test("worktree ensure on the main checkout leads with the worktree-first line", async () => {
+  await withTempDir(async (dir) => {
+    // The SessionStart hook runs `worktree ensure` and injects its stdout as
+    // agent context — the one channel that can pre-empt a trunk edit, which
+    // calls no verb first. On the main-checkout side the orientation must
+    // reach stdout; the registry entry is the single source of its text.
+    await mainWithWorktree(dir, "orient");
+    const expected = HINTS["ensure-main-worktree-first"].template(undefined);
+    const r = await runAgent(dir, ["worktree", "ensure"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, expected);
+  });
+});
+
+Deno.test("worktree ensure orientation stays off the worktree side", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "quiet-orient");
+    const expected = HINTS["ensure-main-worktree-first"].template(undefined);
+    const r = await runAgent(wt, ["worktree", "ensure"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      r.output.includes(expected),
+      false,
+      `a worktree session needs no main-checkout orientation\n${r.output}`,
+    );
+  });
+});
+
 Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gamma");

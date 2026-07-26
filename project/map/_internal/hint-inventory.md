@@ -229,6 +229,19 @@ Rendered example:
 Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Probing for a flaky verdict is the one reason to re-run unchanged: `discern done --confirmed` does that, and records the rerun as a probe.
 ```
 
+## `ensure-main-worktree-first`
+
+- Category: `guardrail`
+- Audience: `agent`
+- Family: —
+- Emitting context: `worktree ensure` runs on the main-checkout side at session start.
+
+Rendered example:
+
+```text
+Session opened in the main checkout — the trunk every effort lands on. Before editing, run `discern start` and work in the worktree it returns. A worktree is for changes; questions and investigation read from anywhere.
+```
+
 ## `fleet-ownership`
 
 - Category: `guardrail`

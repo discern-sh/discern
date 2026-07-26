@@ -832,7 +832,13 @@ export function attachEngineCommands(
             async () =>
               await runWorktreeOp(async (ctx) => {
                 await remindIfSetupUnfinished(ctx);
-                await worktreeEnsure(ctx);
+                const ensured = await worktreeEnsure(ctx);
+                if (ensured.kind === "skipped") {
+                  // Main-checkout side: the session hook injects this stdout
+                  // as agent context, the only channel that can pre-empt a
+                  // trunk edit (a file edit calls no verb first).
+                  ctx.log.info(fire(HINTS["ensure-main-worktree-first"]).text);
+                }
               }),
           ),
         ),

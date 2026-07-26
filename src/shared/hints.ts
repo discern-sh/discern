@@ -1972,6 +1972,22 @@ export const HINTS = {
       } stay in the main checkout. The new worktree branches from '${startPoint}'.`,
   }),
 
+  /** Session start on the main-checkout side. The SessionStart hook injects
+   * this stdout as agent context — the one channel that can pre-empt trunk
+   * edits, which call no verb before the damage. */
+  "ensure-main-worktree-first": defineHint({
+    id: "ensure-main-worktree-first",
+    category: "guardrail",
+    audience: "agent",
+    when: "`worktree ensure` runs on the main-checkout side at session start.",
+    example: undefined,
+    template: (): string =>
+      "Session opened in the main checkout — the trunk every effort lands " +
+      "on. Before editing, run `discern start` and work in the worktree it " +
+      "returns. A worktree is for changes; questions and investigation read " +
+      "from anywhere.",
+  }),
+
   /** Setup's refresh core reports each failed artifact with its next action. */
   "setup-refresh-artifact-failed": defineHint<{ message: string }>({
     id: "setup-refresh-artifact-failed",
