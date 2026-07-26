@@ -46,6 +46,17 @@ const STEPS: StepResult[] = [
   {
     step: {
       kind: "job",
+      label: "lint",
+      disposition: "run",
+      note: "deno lint",
+      group: "Check & test",
+    },
+    outcome: "ok",
+    durationS: 0,
+  },
+  {
+    step: {
+      kind: "job",
       label: "test",
       disposition: "run",
       note: "deno task test",
@@ -88,6 +99,7 @@ Deno.test("receipt render: fixed facts + steps pin the exact page", () => {
     "| ran | command | result |",
     "| --- | --- | --- |",
     "| format | `deno fmt` | ok · 1s |",
+    "| lint | `deno lint` | ok · <1s |",
     "| test | `deno task test` | ok · 41s |",
     "| scope:web | scope unchanged | skipped |",
     "",
@@ -109,6 +121,7 @@ Deno.test("receipt render: standards render before the job table", () => {
     "| ran | command | result |",
     "| --- | --- | --- |",
     "| format | `deno fmt` | ok · 1s |",
+    "| lint | `deno lint` | ok · <1s |",
     "| test | `deno task test` | ok · 41s |",
     "| scope:web | scope unchanged | skipped |",
     "",
@@ -117,6 +130,29 @@ Deno.test("receipt render: standards render before the job table", () => {
   assertEquals(
     renderReceiptMarkdown(FACTS, STEPS, [HELD], VERIFIED),
     expected,
+  );
+});
+
+Deno.test("receipt render: a timed sub-second standard says <1s", () => {
+  const md = renderReceiptMarkdown(
+    FACTS,
+    STEPS,
+    [{ ...HELD, duration_s: 0 }],
+    VERIFIED,
+  );
+  assertStringIncludes(md, "- coverage 83 (floor 80, held) · <1s");
+});
+
+Deno.test("receipt render: an untimed run claims no duration at all", () => {
+  const untimed: StepResult[] = [
+    {
+      step: { kind: "job", label: "smoke", disposition: "run", note: "true" },
+      outcome: "ok",
+    },
+  ];
+  assertStringIncludes(
+    renderReceiptMarkdown(FACTS, untimed),
+    "| smoke | `true` | ok |",
   );
 });
 

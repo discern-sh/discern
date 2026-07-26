@@ -48,12 +48,18 @@ function code(s: string): string {
   return s.includes("`") ? `\`\` ${s} \`\`` : `\`${s}\``;
 }
 
+/** A page duration from whole-second job timing: a run that rounds to zero says
+ * `<1s` — it ran and was timed, just fast — and anything longer says `Ns`. */
+function fmtDuration(durationS: number): string {
+  return durationS > 0 ? `${durationS}s` : "<1s";
+}
+
 /** One "what ran" table row from an envelope step. */
 function stepRow(r: StepResult): string {
   const ran = r.step.disposition === "run";
   const command = ran ? code(r.step.note ?? r.step.label) : r.step.note ?? "—";
-  const duration = ran && r.durationS !== undefined && r.durationS > 0
-    ? ` · ${r.durationS}s`
+  const duration = ran && r.durationS !== undefined
+    ? ` · ${fmtDuration(r.durationS)}`
     : "";
   return `| ${cell(r.step.label)} | ${
     cell(command)
@@ -76,8 +82,8 @@ function standardLine(o: GateStandard): string {
     ? ` — replayed from \`${
       (o.replayed_from ?? "").slice(0, 7)
     }\` (inputs unchanged)`
-    : o.duration_s !== undefined && o.duration_s > 0
-    ? ` · ${o.duration_s}s`
+    : o.duration_s !== undefined
+    ? ` · ${fmtDuration(o.duration_s)}`
     : "";
   return `- ${o.name} ${value}(${bound} ${o.limit}, ${standing})${how}`;
 }
