@@ -293,7 +293,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "Hard-won failure lore reaches the agent at the moment it applies — a matched trap without even a fetch.",
         agent:
-          "Matching reads the failure's failed_stage and diagnostic evidence against the doc's entries in document order; the first match wins and the inlined entry keeps the map fetch as the route to the full page. A malformed matcher warns by entry name whenever the doc is consulted, and a project that never adds matchers keeps the pointer unchanged.",
+          "Matching reads the failure's `failed_stage` and diagnostic evidence against the doc's entries in document order; the first match wins and the inlined entry keeps the map fetch as the route to the full page. A malformed matcher warns by entry name whenever the doc is consulted, and a project that never adds matchers keeps the pointer unchanged.",
         hints: ["gate-failure-gotcha-matched", "gotchas-matcher-invalid"],
       },
       {

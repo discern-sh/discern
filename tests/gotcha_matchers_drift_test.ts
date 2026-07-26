@@ -93,9 +93,7 @@ for (const [name, path] of Object.entries(DOCS)) {
     const corpus = realFailureCorpus();
     const unreached = traps
       .filter((t) => t.matcher !== undefined)
-      .filter((t) =>
-        !corpus.some((failure) => matchTrap(traps, failure) === t)
-      )
+      .filter((t) => !corpus.some((failure) => matchTrap(traps, failure) === t))
       .map((t) => t.title);
     assertEquals(
       unreached,

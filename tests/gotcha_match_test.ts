@@ -7,10 +7,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import {
-  matchTrap,
-  parseGotchasDoc,
-} from "../src/engine/gate/gotcha_match.ts";
+import { matchTrap, parseGotchasDoc } from "../src/engine/gate/gotcha_match.ts";
 
 const DOC = [
   "# Gate gotchas",

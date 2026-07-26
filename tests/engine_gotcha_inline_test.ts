@@ -80,7 +80,10 @@ Deno.test("a real exit-127 failure inlines the seeded trap on the envelope and t
     const matched = hints.find((h) =>
       h.includes(`This failure matches "${EXIT_127_TITLE}"`)
     );
-    assert(matched !== undefined, `expected the inlined trap in ${json.stdout}`);
+    assert(
+      matched !== undefined,
+      `expected the inlined trap in ${json.stdout}`,
+    );
     // The entry's own fix arrived with the failure…
     assertStringIncludes(matched, "[repository].ensure");
     // …with the doc reference kept as the route to the full page…
@@ -178,14 +181,19 @@ Deno.test("a malformed matcher warns by entry name and a later valid matcher sti
     assertEquals(json.code, 1, json.output);
     const hints = hintsOf(json.stdout);
     const warning = hints.find((h) =>
-      h.includes('Fix the `gotcha-match` block in the gotchas entry "Broken matcher"')
+      h.includes(
+        'Fix the `gotcha-match` block in the gotchas entry "Broken matcher"',
+      )
     );
     assert(warning !== undefined, `expected a named warning in ${json.stdout}`);
     assertStringIncludes(warning, '"timeout"');
     const matched = hints.find((h) =>
       h.includes('This failure matches "Matching trap"')
     );
-    assert(matched !== undefined, `the valid matcher must still inline: ${json.stdout}`);
+    assert(
+      matched !== undefined,
+      `the valid matcher must still inline: ${json.stdout}`,
+    );
     assertStringIncludes(matched, "Do the recorded fix.");
 
     // Both surface on the human tail too.

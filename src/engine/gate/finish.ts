@@ -74,10 +74,7 @@ import {
   worktreeDirtyPaths,
 } from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import {
-  gateFailureGotchasTail,
-  type GotchasFailureTail,
-} from "./gotchas.ts";
+import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";

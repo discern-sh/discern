@@ -23,10 +23,7 @@ import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import {
-  gateFailureGotchasTail,
-  type GotchasFailureTail,
-} from "./gotchas.ts";
+import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
@@ -85,10 +82,12 @@ async function runTestGate(
     [group],
     results,
   );
-  const gotchasTail = failedStage === null ? undefined : await gateFailureGotchasTail(cfg, root, {
-    failedStage,
-    diagnostics,
-  });
+  const gotchasTail = failedStage === null
+    ? undefined
+    : await gateFailureGotchasTail(cfg, root, {
+      failedStage,
+      diagnostics,
+    });
   const gotchasHints = gotchasTail !== undefined
     ? [gotchasTail.hint, ...gotchasTail.warnings]
     : [];

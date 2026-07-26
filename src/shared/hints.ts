@@ -1293,7 +1293,8 @@ export const HINTS = {
     family: "gotchas-doc",
     example: {
       title: "A command hangs, then fails with a timeout",
-      body: "**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.\n\n**Fix.** Wire the command in its single-run form.",
+      body:
+        "**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.\n\n**Fix.** Wire the command in its single-run form.",
       command: "discern map 80-development/done-gate-gotchas --json",
     },
     template: ({ title, body, ...reference }): string =>

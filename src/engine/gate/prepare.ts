@@ -24,10 +24,7 @@ import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import {
-  gateFailureGotchasTail,
-  type GotchasFailureTail,
-} from "./gotchas.ts";
+import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
@@ -74,10 +71,12 @@ async function runPrepareGate(
     failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
       ? await couplingGateHints(root)
       : [];
-  const gotchasTail = failedStage === null ? undefined : await gateFailureGotchasTail(cfg, root, {
-    failedStage,
-    diagnostics,
-  });
+  const gotchasTail = failedStage === null
+    ? undefined
+    : await gateFailureGotchasTail(cfg, root, {
+      failedStage,
+      diagnostics,
+    });
   const hints = [
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),

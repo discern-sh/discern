@@ -15,7 +15,7 @@ Several seeded traps describe engine-produced failures with stable evidence: the
 - **Syntax.** A matcher is a fenced code block with the info string `gotcha-match`, placed inside its `###` entry in the gotchas doc — one source of truth, adjacent to the prose it fires. The block body is TOML. `discern tidy` preserves fenced blocks byte-for-byte, so the annotation survives formatting. One matcher per entry; additional `gotcha-match` blocks in the same entry are malformed.
 - **Vocabulary (v1, minimal — each field is compatibility surface).** Two keys, both strings:
   - `stage` — must equal the failure's `failed_stage` and must be a member of the closed failed-stage vocabulary (an unknown stage is malformed, so a typo surfaces instead of never matching);
-  - `evidence` — a regular expression (JavaScript syntax; TOML literal strings avoid double-escaping) tested against each diagnostic's `message` and captured `output`.
+  - `evidence` — a regular expression (JavaScript syntax; TOML literal strings avoid double-escaping) tested against the `message` and captured `output` of each diagnostic.
 
   A matcher must carry at least one key. Both present means both must hold. Unknown keys are malformed — a misspelled key must not become a matcher that can never fire. Exit codes are not a matching input: the engine's own failure messages already name them (`exit 127`), so a pattern over evidence covers that case without growing the vocabulary.
 - **Matching inputs.** The failure's `failed_stage` plus its `diagnostics[]` (message and normalized, capped output). Matching runs only when a gate verb (`done`, `prepare`, `test`) fails and a gotchas doc is configured.
@@ -29,7 +29,7 @@ Several seeded traps describe engine-produced failures with stable evidence: the
 - An agent whose run trips a documented trap reads the fix inside the failure it just received — identical on CLI, `--json`, and MCP — instead of deciding whether to fetch it.
 - The `gotcha-match` info string and the `stage`/`evidence` keys are now shipped grammar. Widening the vocabulary is possible (a new key), but an older engine treats the new key as malformed and warns, so additions are deliberate and rare.
 - A reworded engine failure message can strand a seeded matcher. In this repository the drift guard replays the engine's real messages and `failed_stage` values against the seeded matchers, so the reword fails the gate until the matcher moves with it. Other projects' matchers over their own tools' output carry the ordinary risk of any pattern: they degrade to the pointer, never to silence, and the malformed-matcher warning covers the grammar half of that risk.
-- Inlining is bounded, so a very long entry truncates in the failure tail; the kept reference always reaches the full page.
+- Inlining is bounded, so a long entry truncates in the failure tail; the kept reference always reaches the full page.
 
 ## Alternatives considered
 
