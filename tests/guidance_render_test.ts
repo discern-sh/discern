@@ -352,7 +352,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "acceptance requires an explicit user ask",
     );
     assert(
-      bareBody.includes("relay the receipt to your owner"),
+      bareBody.includes("your words, then the one-line receipt"),
       "a green finish routes through the review moment, not straight to landing",
     );
     assert(

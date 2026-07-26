@@ -182,6 +182,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0185 — done refuses an unchanged-tree rerun without --confirmed](0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0186 — ADR number uniqueness is gate-enforced, with an in-flight collision scan](0186-adr-number-uniqueness-is-gate-enforced.md)
 - [0187 — tidy checks diagram geometry in the Markdown it formats](0187-tidy-checks-diagram-geometry.md)
+- [0188 — The receipt relays as one line; the page is pulled](0188-the-receipt-relays-as-one-line.md)
 
 <!-- END GENERATED: current ADR records -->
 

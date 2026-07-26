@@ -352,8 +352,10 @@ export const TOOLS: McpTool[] = orderTools([
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (declared jobs and triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
-      "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt " +
-      "carries the receipt markdown to relay to your owner at the review moment); " +
+      "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt_line " +
+      "carries the one-line receipt you end your report with at the review moment — " +
+      "data.gate_receipt.receipt is the full page, for your owner to read, never to paste " +
+      "into a message); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.standards lists the configured quality standards — numbers " +
       "that can never get worse. " +
@@ -417,9 +419,11 @@ export const TOOLS: McpTool[] = orderTools([
       "(tool, file/line when available, message, and the exact command to reproduce " +
       "each failure). A green run over a clean committed tree ahead of the trunk — " +
       "the shared landing branch (`{{main_branch}}`) — " +
-      "also carries data.receipt — the compact review summary (data.receipt.markdown) " +
-      "to relay VERBATIM to your owner when the task is complete, waiting for their " +
-      "explicit instruction before calling discern_accept. Set dry_run to preview the plan without " +
+      "also carries data.receipt: when the task is complete, report it to your owner " +
+      "in your own words and end with the one-line receipt in data.receipt.line, then " +
+      "wait for their explicit instruction before calling discern_accept. Never paste " +
+      "the full page (data.receipt.markdown) into a message — your owner pulls it from " +
+      "discern directly. Set dry_run to preview the plan without " +
       "running anything.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(

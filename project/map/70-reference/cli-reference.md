@@ -96,11 +96,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option    | Description                                                                       |
-| --------- | --------------------------------------------------------------------------------- |
-| `--all`   | Include every worktree even when called from one (local view plus all worktrees). |
-| `--local` | Show only this checkout, even in the main checkout.                               |
-| `--json`  | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).     |
+| Option      | Description                                                                                                                                    |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                              |
+| `--local`   | Show only this checkout, even in the main checkout.                                                                                            |
+| `--verbose` | Also print the full receipt page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the receipt. |
+| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                                  |
 
 ### `discern prepare`
 

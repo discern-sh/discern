@@ -1559,20 +1559,11 @@ export type DiscernDoneResult = {
     receipt?: {
       branch: string;
       trunk: string;
-      commits: Array<{
-        sha: string;
-        subject: string;
-      }>;
-      commits_total: number;
-      files: Array<{
-        path: string;
-        status: string;
-        added: number | null;
-        removed: number | null;
-      }>;
+      head: string;
       files_total: number;
       insertions: number;
       deletions: number;
+      line: string;
       markdown: string;
     };
     gate_receipt?: {
@@ -2756,6 +2747,7 @@ export type DiscernStatusResult = {
       head?: string;
       reason?: string;
       receipt?: string;
+      receipt_line?: string;
     };
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
@@ -2783,6 +2775,9 @@ export type DiscernStatusResult = {
       id?: string;
       port?: number;
       broken?: boolean;
+      receipt_honored?: boolean;
+      receipt?: string;
+      receipt_line?: string;
     }>;
     fleet_collisions?: Array<{
       branches: unknown;
@@ -2993,6 +2988,7 @@ export type DiscernAcceptResult = {
         head?: string;
         reason?: string;
         receipt?: string;
+        receipt_line?: string;
       };
     };
     receipt?: string;
