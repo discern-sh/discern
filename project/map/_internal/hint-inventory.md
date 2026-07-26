@@ -320,12 +320,31 @@ Rendered example:
 Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
 ```
 
+## `gate-failure-gotcha-matched`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gotchas-doc`
+- Emitting context: A gate failure matches a trap matcher in the configured gotchas document.
+
+Rendered example:
+
+```text
+This failure matches "A command hangs, then fails with a timeout", a documented trap in this project's gate gotchas:
+
+**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.
+
+**Fix.** Wire the command in its single-run form.
+
+Read the full page with `discern map 80-development/done-gate-gotchas --json`.
+```
+
 ## `gate-failure-gotchas`
 
 - Category: `next-step`
 - Audience: `all`
-- Family: —
-- Emitting context: A gate failure occurs and the project configures a gotchas document.
+- Family: `gotchas-doc`
+- Emitting context: A gate failure occurs, the project configures a gotchas document, and no trap matcher matches the failure.
 
 Rendered example:
 
@@ -643,6 +662,19 @@ Rendered example:
 
 ```text
 Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended guidance changes in [guidance].sources. Refresh overwrites Agent files.
+```
+
+## `gotchas-matcher-invalid`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gotchas-doc`
+- Emitting context: A gate failure consults a gotchas document carrying a malformed trap matcher.
+
+Rendered example:
+
+```text
+Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
 ```
 
 ## `logbook-receipt-finding`
