@@ -44,7 +44,16 @@ import type {
   DetectorTier,
 } from "../../shared/patterns_vocabulary.ts";
 import { HINTS } from "../../shared/hints.ts";
-import { dominantClientEras, driverAgent, driverKind } from "./cohorts.ts";
+import {
+  COHORT_MINIMUMS,
+  cohortDenominators,
+  comparative,
+  denominatorClause,
+  dominantClientEras,
+  driverAgent,
+  driverKind,
+  splitByCohort,
+} from "./cohorts.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
 // ── the stream, pre-digested ────────────────────────────────────────────────
@@ -128,6 +137,12 @@ export interface Detector {
   family: DetectorFamily;
   scope: DetectorScope;
   tier: DetectorTier;
+  /** Present on detectors that segment their population by attributed driver
+   * cohort through the cohort seam (`cohorts.ts`). The parameterized cohort
+   * guards iterate exactly this set; for these detectors `considered` counts
+   * qualifying cohorts, so `threshold` is the seam's two-population bar and a
+   * split that cannot compare reports insufficient evidence. */
+  cohorts?: true;
   /** Minimum `considered` before the detector may speak. */
   threshold: number;
   /** The recommended structural next step (findings may override per shape). */
@@ -906,6 +921,195 @@ const providerFit: Detector = {
   },
 };
 
+/** The compiled guidance file for one cohort's identity, when discern emits
+ * one — the provider surface a guidance-parity finding can name. Signal-only
+ * identities have none: there is no compiled surface to fix, and provider-fit
+ * already proposes adding an integration for a returning agent. */
+function guidanceSurfaceOf(agent: string): string | undefined {
+  const entry = AGENT_CATALOGUE.find((i) => i.id === agent);
+  return entry !== undefined && "guidancePath" in entry
+    ? entry.guidancePath
+    : undefined;
+}
+
+const cohortDoneThrash: Detector = {
+  id: "cohort-done-thrash",
+  title: "Consecutive red done runs, by driver cohort",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  cohorts: true,
+  // `considered` counts cohorts clearing the seam's recorded minimums, so the
+  // threshold is the two-population bar: a corpus that cannot honestly compare
+  // reports insufficient evidence, never a one-sided "comparison".
+  threshold: COHORT_MINIMUMS.cohorts,
+  next_step:
+    "Cohorts draw different task mixes, so these counts are a place to look, never a verdict. The branch-scope done-thrash findings name the exact thrashing branches — diagnose those (`discern-cure-a-bug`); if one cohort keeps meeting red streaks, check how its provider's compiled guidance teaches the `prepare` loop.",
+  detect(facts): DetectorOutcome {
+    const dones = facts.agentish.filter((e) => e.verb === "done");
+    // The unit is the branch — the same unit done-thrash judges — attributed
+    // whole, so a branch two agents drove counts for neither cohort.
+    const units = [...byBranch(dones).entries()].map(([branch, events]) => ({
+      branch,
+      events,
+      thrashed: bySession(events).some((session) =>
+        longestStreak(session, (e) => e.outcome === "failed") >= 3
+      ),
+    }));
+    const split = splitByCohort(units, (u) => u.events);
+    const considered = split.speaking.length;
+    if (!comparative(split)) {
+      return { considered, findings: [] };
+    }
+    const perCohort = split.speaking.map((cohort) => ({
+      cohort,
+      thrashed: cohort.units.filter((u) => u.thrashed).length,
+    }));
+    const total = perCohort.reduce((sum, p) => sum + p.thrashed, 0);
+    if (total === 0) {
+      return { considered, findings: [] };
+    }
+    const evidence = cohortDenominators(split);
+    for (const { cohort, thrashed } of perCohort) {
+      evidence[`${cohort.agent}_branches`] = cohort.units.length;
+      evidence[`${cohort.agent}_thrash_branches`] = thrashed;
+    }
+    const clauses = perCohort.map(({ cohort, thrashed }) =>
+      `${cohort.label} ${thrashed} of ${cohort.units.length} ${
+        cohort.units.length === 1 ? "branch" : "branches"
+      }`
+    );
+    return {
+      considered,
+      findings: [{
+        observed:
+          `branches hitting a 3+ consecutive-red \`done\` streak, by attributed driver: ${
+            clauses.join(", ")
+          } (\`done\` runs: ${denominatorClause(split)}).`,
+        evidence,
+        strength: total,
+      }],
+    };
+  },
+};
+
+const guidanceParity: Detector = {
+  id: "guidance-parity",
+  title: "A gap one cohort keeps hitting that its peers never do",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  cohorts: true,
+  // Cohort-counted `considered`, as for every cohort detector.
+  threshold: COHORT_MINIMUMS.cohorts,
+  next_step:
+    "A gap only one population hits points at the guidance surface compiled for it, not at the agent — fix the surface, then `discern refresh`.",
+  detect(facts): DetectorOutcome {
+    // One authored source compiles to every provider's guidance file, so a
+    // refusal or doc miss ONE population keeps hitting while its peers never
+    // do is an empirical test of whether that provider's compiled output
+    // lands. The population is the agent-scored corpus (unlike docs-gap,
+    // which also reads human lookups): parity is a claim about agent cohorts.
+    const split = splitByCohort(facts.agentish, (e) => [e]);
+    const considered = split.speaking.length;
+    if (!comparative(split)) {
+      return { considered, findings: [] };
+    }
+    const speakingIds = new Set(split.speaking.map((c) => c.agent));
+    interface GapCounts {
+      byCohort: Map<string, number>;
+      /** Hits from unattributed runs or below-minimum cohorts — outside the
+       * comparison, still stated. */
+      outside: number;
+    }
+    const tally = (
+      gaps: Map<string, GapCounts>,
+      key: string,
+      event: VerbEvent,
+    ): void => {
+      const entry = gaps.get(key) ?? { byCohort: new Map(), outside: 0 };
+      const id = driverAgent(event);
+      if (id !== undefined && speakingIds.has(id)) {
+        entry.byCohort.set(id, (entry.byCohort.get(id) ?? 0) + 1);
+      } else {
+        entry.outside += 1;
+      }
+      gaps.set(key, entry);
+    };
+    const refusals = new Map<string, GapCounts>();
+    const misses = new Map<string, GapCounts>();
+    for (const e of facts.agentish) {
+      if (e.outcome !== "refused") {
+        continue;
+      }
+      tally(
+        refusals,
+        `${e.verb}${e.error !== undefined ? ` ${e.error}` : ""}`,
+        e,
+      );
+      if ((e.verb === "help" || e.verb === "map") && e.target !== undefined) {
+        tally(misses, `${e.verb} ${e.target}`, e);
+      }
+    }
+    const findings: DetectorFinding[] = [];
+    const differentials = (
+      gaps: Map<string, GapCounts>,
+      minHits: number,
+      shape: "refusal" | "miss",
+    ): void => {
+      for (const [key, counts] of gaps) {
+        const hitters = split.speaking.filter((c) =>
+          (counts.byCohort.get(c.agent) ?? 0) > 0
+        );
+        // The parity claim needs one population hitting the gap and every
+        // peer at zero — a gap several cohorts hit is a shared gap with a
+        // shared fix, and stays un-split for the base detectors to report.
+        const [only] = hitters;
+        if (hitters.length !== 1 || only === undefined) {
+          continue;
+        }
+        const hits = counts.byCohort.get(only.agent) ?? 0;
+        if (hits < minHits) {
+          continue;
+        }
+        const surface = guidanceSurfaceOf(only.agent);
+        if (surface === undefined) {
+          continue;
+        }
+        const evidence = cohortDenominators(split);
+        for (const c of split.speaking) {
+          evidence[`${c.agent}_hits`] = counts.byCohort.get(c.agent) ?? 0;
+        }
+        if (counts.outside > 0) {
+          evidence.outside_cohort_hits = counts.outside;
+        }
+        const stray = counts.outside > 0
+          ? ` a further ${counts.outside} landed outside the compared cohorts;`
+          : "";
+        findings.push({
+          subject: `${only.label} · ${key}`,
+          observed: `${
+            shape === "refusal"
+              ? `\`${key}\` refused ${only.label} ${hits} times and every peer cohort 0 times;`
+              : `\`${key}\` was asked for ${hits} times, all by ${only.label}, and missed every time;`
+          }${stray} runs: ${denominatorClause(split)}.`,
+          evidence,
+          strength: hits * 10,
+          next_step: shape === "refusal"
+            ? `A refusal one population keeps hitting while its peers never do points at the guidance compiled for it, not at the agent. Check how \`${surface}\` (${only.label}'s guidance surface) teaches the workflow this refusal names, amend the authored guidance source, then run \`discern refresh\`.`
+            : `A page one population keeps asking for while its peers never miss points at how its compiled guidance routes it. Add or cross-link the topic (the \`discern-document-subsystem\` skill fits), and check \`${surface}\` (${only.label}'s guidance surface) routes agents there.`,
+        });
+      }
+    };
+    // Each shape inherits its base detector's bar: three same-slug refusals
+    // (refusal-loop), two same-target misses (docs-gap).
+    differentials(refusals, 3, "refusal");
+    differentials(misses, 2, "miss");
+    findings.sort((a, b) => b.strength - a.strength);
+    return { considered, findings: findings.slice(0, 3) };
+  },
+};
+
 const dominantStage: Detector = {
   id: "dominant-stage",
   title: "One job dominating gate time",
@@ -1223,6 +1427,80 @@ const loopsToGreen: Detector = {
       }
     }
     return { considered: greenBranches, findings };
+  },
+};
+
+const cohortLoopsToGreen: Detector = {
+  id: "cohort-loops-to-green",
+  title: "Red runs before first green, by driver cohort",
+  family: "funnel",
+  scope: "project",
+  tier: "batch",
+  cohorts: true,
+  // Cohort-counted `considered`, as for every cohort detector.
+  threshold: COHORT_MINIMUMS.cohorts,
+  next_step:
+    "Medians sit beside their denominators for the owner to weigh — task difficulty confounds them, so no ranking is implied. To chase a high median, read that cohort's red-run diagnostic classes (`recurring-diagnostic`) before drawing conclusions about the agent.",
+  detect(facts): DetectorOutcome {
+    const loop = facts.agentish.filter((e) =>
+      e.verb === "done" || e.verb === "prepare" || e.verb === "test"
+    );
+    // The unit is a branch that reached a green `done` — the population whose
+    // loops-to-green stat exists — attributed whole across its loop runs.
+    interface GreenBranch {
+      branch: string;
+      events: VerbEvent[];
+      reds: number;
+    }
+    const units: GreenBranch[] = [];
+    for (const [branch, events] of byBranch(loop)) {
+      if (branch === facts.trunk) {
+        continue;
+      }
+      const firstGreen = events.findIndex((e) =>
+        e.verb === "done" && e.outcome === "ok"
+      );
+      if (firstGreen === -1) {
+        continue;
+      }
+      const reds = events.slice(0, firstGreen)
+        .filter((e) => e.outcome === "failed").length;
+      units.push({ branch, events, reds });
+    }
+    const split = splitByCohort(units, (u) => u.events);
+    const considered = split.speaking.length;
+    if (!comparative(split)) {
+      return { considered, findings: [] };
+    }
+    // 2 green branches per cohort on top of the seam's run minimums: the
+    // median of a single branch is just that branch wearing a statistic.
+    if (split.speaking.some((c) => c.units.length < 2)) {
+      return { considered, findings: [] };
+    }
+    const evidence = cohortDenominators(split);
+    const clauses = split.speaking.map((cohort) => {
+      const med = round1(median(cohort.units.map((u) => u.reds)));
+      evidence[`${cohort.agent}_branches`] = cohort.units.length;
+      evidence[`${cohort.agent}_median_reds`] = med;
+      return `${cohort.label} ${cohort.units.length} branches, median ${med} red ${
+        med === 1 ? "run" : "runs"
+      } before it`;
+    });
+    evidence.unattributed_branches = split.unattributedUnits;
+    return {
+      considered,
+      findings: [{
+        observed: `branches reaching a green \`done\`, by attributed driver: ${
+          clauses.join("; ")
+        }; ${split.unattributedUnits} ${
+          split.unattributedUnits === 1 ? "branch" : "branches"
+        } had no single attributed driver (loop runs: ${
+          denominatorClause(split)
+        }).`,
+        evidence,
+        strength: split.speaking.reduce((sum, c) => sum + c.units.length, 0),
+      }],
+    };
   },
 };
 
@@ -1585,12 +1863,15 @@ export const DETECTORS: readonly Detector[] = [
   sequenceAnomaly,
   identityGap,
   providerFit,
+  cohortDoneThrash,
+  guidanceParity,
   dominantStage,
   durationCreep,
   fixStageIdle,
   recurringDiagnostic,
   sameTreeFlake,
   loopsToGreen,
+  cohortLoopsToGreen,
   cycleTime,
   giantCommitLanding,
   updateFriction,
