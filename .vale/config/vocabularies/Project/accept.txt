@@ -149,6 +149,7 @@ preprints?
 pushback
 rasteriz(e|ed|es|ing)
 ratchetable
+reactively
 READMEs?
 recalibrat(e|es|ed|ing|ion)s?
 recompiles?

@@ -902,6 +902,48 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
   });
 });
 
+Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+
+    // The state two in-flight efforts land in when both pick the next free
+    // number: different filenames, clean merge, one number claimed twice.
+    const adrDir = join(dir, "map", "_adr");
+    await Deno.mkdir(adrDir, { recursive: true });
+    await Deno.writeTextFile(join(adrDir, "0007-first.md"), "# first\n");
+    await Deno.writeTextFile(join(adrDir, "0007-second.md"), "# second\n");
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.data.failed_stage, "adr_numbers");
+    const diag = diagFor(obj, "adr-numbers");
+    assert(
+      diag !== undefined,
+      `expected an adr-numbers diagnostic: ${r.stdout}`,
+    );
+    assertStringIncludes(diag.message, "0007");
+    assertStringIncludes(diag.output, "0007-first.md");
+    assertStringIncludes(diag.output, "0007-second.md");
+    assertStringIncludes(diag.output, "next free"); // the remedy
+    assertHasHint(obj, HINTS["gate-failure-adr-numbers"]);
+
+    // Renumbering the newer record clears the check.
+    await Deno.rename(
+      join(adrDir, "0007-second.md"),
+      join(adrDir, "0008-second.md"),
+    );
+    assertEquals(
+      (await runAgent(dir, ["done", "--json"])).code,
+      0,
+      "renumbering should clear the check",
+    );
+  });
+});
+
 Deno.test("done --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

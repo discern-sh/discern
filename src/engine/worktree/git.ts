@@ -18,6 +18,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
@@ -737,6 +738,85 @@ export async function fleetCollisions(
   return out;
 }
 
+/** One in-flight ADR number collision: a record number claimed by files ADDED
+ * on two or more unlanded branches. `paths` lists every claiming record in
+ * branch order. */
+export interface AdrNumberCollision {
+  number: string;
+  branches: string[];
+  paths: string[];
+}
+
+/**
+ * ADR record numbers claimed by more than one in-flight branch — the collision
+ * {@link fleetCollisions} can never see: two efforts that each picked the next
+ * free number added DIFFERENT files, so no path intersects, both merge
+ * cleanly, and the duplicate surfaces only when the second one lands and the
+ * gate's uniqueness check refuses it. This scan is the early warning, while a
+ * renumber is still cheap (nothing cites the number yet). Each branch's claim
+ * set is the record files its fork diff ADDS under `adrDir` (repo-relative,
+ * POSIX), read with a pathspec so the cost stays one scoped diff per branch.
+ * Read-only; every git read fails open to an empty result.
+ */
+export async function adrNumberCollisions(
+  cwd: string,
+  branches: string[],
+  mainBranch: string,
+  adrDir: string,
+): Promise<AdrNumberCollision[]> {
+  const claims = new Map<string, Map<string, string[]>>();
+  for (const branch of [...new Set(branches)]) {
+    const baseRun = await git(["merge-base", mainBranch, branch], cwd);
+    if (!baseRun.success) {
+      continue;
+    }
+    const base = baseRun.stdout.trim();
+    if (base === "") {
+      continue;
+    }
+    const r = await git([
+      "diff",
+      "--name-only",
+      "-z",
+      "--no-renames",
+      "--diff-filter=A",
+      base,
+      branch,
+      "--",
+      adrDir,
+    ], cwd);
+    if (!r.success) {
+      continue;
+    }
+    for (const path of splitNulRecords(r.stdout)) {
+      const number = adrNumberOf(path);
+      if (number === undefined) {
+        continue;
+      }
+      const byBranch = claims.get(number) ?? new Map<string, string[]>();
+      const paths = byBranch.get(branch) ?? [];
+      paths.push(path);
+      byBranch.set(branch, paths);
+      claims.set(number, byBranch);
+    }
+  }
+  const out: AdrNumberCollision[] = [];
+  const numbers = [...claims.keys()].sort((a, b) => a.localeCompare(b));
+  for (const number of numbers) {
+    const byBranch = claims.get(number) ?? new Map<string, string[]>();
+    if (byBranch.size < 2) {
+      continue;
+    }
+    const claimants = [...byBranch.keys()].sort();
+    out.push({
+      number,
+      branches: claimants,
+      paths: claimants.flatMap((b) => (byBranch.get(b) ?? []).sort()),
+    });
+  }
+  return out;
+}
+
 /**
  * Compute an integration's content summary from its {@link IntegrationAnchors} (plus
  * `after` on an apply). Commits are those main authored since the fork (`before..main`
@@ -1150,6 +1230,25 @@ export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
 }
 
 /**
+ * All local `<prefix>*` branches — the in-flight universe: worktree-backed and
+ * unlanded alike, repo-wide from any checkout. Empty for an empty prefix or
+ * outside a repo.
+ */
+export async function prefixBranches(
+  cwd: string,
+  prefix: string,
+): Promise<string[]> {
+  if (prefix === "") {
+    return [];
+  }
+  const refs = await git(
+    ["for-each-ref", "--format=%(refname:short)", `refs/heads/${prefix}`],
+    cwd,
+  );
+  return refs.success ? refs.stdout.split("\n").filter((b) => b !== "") : [];
+}
+
+/**
  * Local `<prefix>*` branches holding UNLANDED work with no worktree — commits not
  * on the trunk, and not checked out in any registered worktree. The abandoned-work
  * signal `status` surfaces from the main checkout: a landed branch is deleted,
@@ -1163,7 +1262,6 @@ export async function unlandedPrefixBranches(
   trunk: string,
 ): Promise<string[]> {
   if (
-    prefix === "" ||
     !(await git(
       ["show-ref", "--verify", "--quiet", `refs/heads/${trunk}`],
       cwd,
@@ -1172,11 +1270,8 @@ export async function unlandedPrefixBranches(
   ) {
     return [];
   }
-  const refs = await git(
-    ["for-each-ref", "--format=%(refname:short)", `refs/heads/${prefix}`],
-    cwd,
-  );
-  if (!refs.success) {
+  const branches = await prefixBranches(cwd, prefix);
+  if (branches.length === 0) {
     return [];
   }
   const checkedOut = new Set<string>();
@@ -1189,7 +1284,7 @@ export async function unlandedPrefixBranches(
     }
   }
   const out: string[] = [];
-  for (const branch of refs.stdout.split("\n").filter((b) => b !== "")) {
+  for (const branch of branches) {
     if (checkedOut.has(branch)) {
       continue;
     }

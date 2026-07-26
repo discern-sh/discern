@@ -8,6 +8,12 @@
  * invocation without a partial Markdown/TOML sweep. The plan carries concrete
  * before/after bytes privately and projects them onto the shared `EnginePlan`
  * vocabulary for `--dry-run` and the public result envelope.
+ *
+ * Markdown targets are also scanned for box-drawing diagram geometry
+ * (src/lib/diagram_geometry.ts). Findings never block the formatting writes —
+ * the tree still converges — but they fail the result, one diagnostic per
+ * misaligned glyph, so the gate's fix stage stops until the author realigns
+ * the diagram (or tags the fence `freeform`).
  */
 
 import { walk } from "@std/fs";
@@ -35,6 +41,10 @@ import {
 import { colorEnabled } from "../output.ts";
 import { makeOut, outSink } from "../output.ts";
 import { formatMarkdownText, formatTomlText } from "../../lib/tidy_format.ts";
+import {
+  FREEFORM_FENCE_WORD,
+  scanMarkdownDiagrams,
+} from "../../lib/diagram_geometry.ts";
 
 /** The explicit selectors accepted after `discern tidy`. */
 export const TIDY_TYPES = ["md", "toml"] as const;
@@ -48,10 +58,23 @@ interface TidyChange {
   after: string;
 }
 
+/** One misaligned glyph in a fenced box-drawing diagram. Checked, never
+ * rewritten: a broken diagram has more than one faithful repair, so the fix
+ * stays with the author. */
+export interface DiagramFinding {
+  display: string;
+  line: number;
+  column: number;
+  glyph: string;
+  reason: string;
+}
+
 /** The complete read-only plan; only changed files become operations. */
 export interface TidyPlan {
   types: readonly TidyType[];
   changes: readonly TidyChange[];
+  /** Diagram-geometry findings across every Markdown target, in order. */
+  diagrams: readonly DiagramFinding[];
 }
 
 /** A target failed while the planner was reading or parsing it. */
@@ -170,14 +193,19 @@ async function formatTarget(
   root: string,
   type: TidyType,
   abs: string,
-): Promise<TidyChange | undefined> {
+): Promise<{ change: TidyChange | undefined; after: string }> {
   const display = displayPath(root, abs);
   try {
     const before = await Deno.readTextFile(abs);
     const after = type === "md"
       ? await formatMarkdownText(abs, before)
       : await formatTomlText(abs, before);
-    return before === after ? undefined : { type, abs, display, before, after };
+    return {
+      change: before === after
+        ? undefined
+        : { type, abs, display, before, after },
+      after,
+    };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new TidyPlanError(type, display, detail);
@@ -191,24 +219,31 @@ export async function planTidy(
 ): Promise<TidyPlan> {
   const types = selectedTypes(type);
   const changes: TidyChange[] = [];
+  const diagrams: DiagramFinding[] = [];
   if (types.includes("md")) {
     for (const target of await markdownTargets(root)) {
-      const change = await formatTarget(root, "md", target);
+      const { change, after } = await formatTarget(root, "md", target);
       if (change !== undefined) {
         changes.push(change);
+      }
+      // Geometry is checked on the bytes the executor will leave on disk, so
+      // a finding's line and column stay accurate after the write.
+      const display = displayPath(root, target);
+      for (const violation of scanMarkdownDiagrams(after)) {
+        diagrams.push({ display, ...violation });
       }
     }
   }
   if (types.includes("toml")) {
     const configPath = join(root, CONFIG_REL);
     if (await statOrMissing(configPath) !== undefined) {
-      const change = await formatTarget(root, "toml", configPath);
+      const { change } = await formatTarget(root, "toml", configPath);
       if (change !== undefined) {
         changes.push(change);
       }
     }
   }
-  return { types, changes };
+  return { types, changes, diagrams };
 }
 
 /** Project a private byte plan onto the shared serializable plan vocabulary. */
@@ -220,6 +255,13 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
       `${plan.changes.length} file${
         plan.changes.length === 1 ? "" : "s"
       } would change`,
+      ...(plan.diagrams.length > 0
+        ? [
+          `${plan.diagrams.length} misaligned diagram glyph${
+            plan.diagrams.length === 1 ? "" : "s"
+          }`,
+        ]
+        : []),
     ],
     steps: plan.changes.map((change) => ({
       kind: "tidy",
@@ -241,6 +283,45 @@ function tidyDiagnostic(
     message: `Could not format ${display}: ${message}`,
     reproduce_cmd: `discern tidy ${type}`,
     file: display,
+  };
+}
+
+const DIAGRAMS_MISALIGNED = "diagrams_misaligned";
+const DIAGRAMS_MESSAGE =
+  "Box-drawing diagrams are misaligned. Realign each listed glyph so it " +
+  `connects, or add \`${FREEFORM_FENCE_WORD}\` to a fence's info string ` +
+  "to leave that block unchecked.";
+
+function diagramDiagnostic(finding: DiagramFinding): Diagnostic {
+  return {
+    tool: "tidy md",
+    severity: "error",
+    message: `${finding.display}:${finding.line}:${finding.column} ` +
+      `"${finding.glyph}" ${finding.reason}`,
+    reproduce_cmd: "discern tidy md",
+    file: finding.display,
+    line: finding.line,
+    col: finding.column,
+  };
+}
+
+/** Fold diagram findings into a computed result: writes stand, `ok` falls. */
+function withDiagramFindings(
+  result: DiscernResult,
+  findings: readonly DiagramFinding[],
+): DiscernResult {
+  if (findings.length === 0) {
+    return result;
+  }
+  return {
+    ...result,
+    ok: false,
+    error: result.ok ? DIAGRAMS_MISALIGNED : result.error,
+    message: result.ok ? DIAGRAMS_MESSAGE : result.message,
+    diagnostics: [
+      ...(result.diagnostics ?? []),
+      ...findings.map(diagramDiagnostic),
+    ],
   };
 }
 
@@ -321,9 +402,12 @@ export async function tidyResult(
     throw error;
   }
   if (opts.dryRun ?? false) {
-    return previewResult("tidy", tidyPlanToEngine(plan));
+    return withDiagramFindings(
+      previewResult("tidy", tidyPlanToEngine(plan)),
+      plan.diagrams,
+    );
   }
-  return await applyTidyPlan(plan);
+  return withDiagramFindings(await applyTidyPlan(plan), plan.diagrams);
 }
 
 /** Run and render `discern tidy`. */
@@ -346,7 +430,7 @@ export async function runTidy(
       title: "Tidy results",
       steps: result.steps,
     });
-    if (result.steps.length === 0) {
+    if (result.steps.length === 0 && result.ok) {
       out.ok("The selected files are already tidy.");
     }
   }

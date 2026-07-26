@@ -1535,6 +1535,7 @@ export type DiscernDoneResult = {
       | "guidance"
       | "skills"
       | "skill_frontmatter"
+      | "adr_numbers"
       | "merge"
       | "standards"
       | "write_access"
@@ -2787,6 +2788,11 @@ export type DiscernStatusResult = {
       branches: unknown;
       overlap: Array<string>;
       total: number;
+    }>;
+    adr_collisions?: Array<{
+      number: string;
+      branches: Array<string>;
+      paths: Array<string>;
     }>;
   } | {
     issues: Array<{

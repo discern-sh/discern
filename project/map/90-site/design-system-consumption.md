@@ -4,7 +4,7 @@
 
 The homepage source can compose the package's typed React adapters in [`site/page-src/`](../../../site/page-src/). The build renders those compositions with `renderToStaticMarkup` and writes static HTML. React remains an authoring tool: the browser receives no React bundle, hydration, or client framework ([ADR 0135](../_adr/0135-site-pages-use-build-time-react-and-static-runtime.md)).
 
-Layout and display components render completely as semantic HTML. Any browser behavior is a small page-owned progressive enhancement. Product copy, routes, commands, bespoke artwork, docs rendering, and composition CSS remain in Discern; none moves into the reusable package.
+Layout and display components render completely as semantic HTML. Reusable component behavior is a selection-scoped, framework-neutral progressive enhancement emitted by the package; page behavior remains page-owned. Product copy, routes, commands, bespoke artwork, docs rendering, and composition CSS remain in Discern; none moves into the reusable package.
 
 [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the reusable public lockup. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. During `site:build`, the tagline-free lockup is written to `site/pages/fragments/brand.html`; the docs shell reads that static fragment into its top bar without importing the React adapter. A homepage composition can import the same adapter.
 
@@ -24,6 +24,7 @@ The generic component catalog, examples, component implementation, assets, and p
 
 - the exact config and lockfile coordinate, public imports, and absence of internal or registry-path reach-through;
 - each bundle's requested selection and package-resolved dependency closure;
+- every package browser script emitted for a selection being loaded by every route that uses that bundle;
 - exclusion of Marketing and Editorial CSS and grain from the docs bundle;
 - route-to-bundle coverage, local assets, media types, integrity, font licenses, and the absence of a React browser runtime; and
 - the rule that consumer styles may compose package classes while leaving component-owned `.discern-*` selectors untouched.

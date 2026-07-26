@@ -163,7 +163,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 120
+- Members: 122
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -247,7 +247,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 179
+- Members: 182
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
@@ -283,6 +283,16 @@ The voice skill's banned-moves table; the Vale style must match it pattern for p
 - Guards: `tests/voice_vale_parity_test.ts`
 - Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
 - Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
+
+## `seeded-gotchas-traps` — Seeded gate traps
+
+The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.
+
+- Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
+- Members: —
+- Guards: `tests/gotchas_parity_test.ts`
+- Glossary: not enrolled — seeded documentation content, not product vocabulary
+- Feature canon: described by the `gotchas-pointer` node
 
 ## `third-party-artifacts` — Third-party artifacts
 
@@ -320,7 +330,7 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 31
+- Members: 32
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

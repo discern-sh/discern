@@ -625,6 +625,16 @@ const statusFleetCollisionSchema = z.strictObject({
 });
 export type StatusFleetCollision = z.infer<typeof statusFleetCollisionSchema>;
 
+/** One in-flight ADR number collision: a record number claimed by files ADDED
+ * on two or more in-flight branches — different paths with one number, which
+ * the changed-file collision scan can never intersect. */
+const statusAdrCollisionSchema = z.strictObject({
+  number: z.string(),
+  branches: z.array(z.string()),
+  paths: z.array(z.string()),
+});
+export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
+
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
@@ -656,6 +666,10 @@ export const StatusDataSchema = z.strictObject({
    * non-empty): pairs of fleet branches whose fork diffs touch the same
    * paths. */
   fleet_collisions: z.array(statusFleetCollisionSchema).optional(),
+  /** In-flight ADR number collisions (present when non-empty): the fleet view
+   * carries every contested number; the local worktree view carries the ones
+   * the current branch is party to. */
+  adr_collisions: z.array(statusAdrCollisionSchema).optional(),
 });
 export type StatusData = z.infer<typeof StatusDataSchema>;
 

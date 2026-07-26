@@ -21,22 +21,21 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
 │   the `discern` binary       │ ◄─────────── │   bundled sources        │
 │  installer verbs + engine    │  (compiled   │  seeds · skills ·        │
 │  (one self-contained binary) │   in)        │  built-in guidance       │
-└──────────────┬───────────────┘              └──────────────────────────┘
+└──────┬───────────────────────┘              └──────────────────────────┘
        │  discern setup / upgrade
        │  write seeds · merge · reconcile .gitignore · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
-│                   An install — on disk                      │
-│  discern.toml — one root file (no engine, no manifest)      │
-│  + discern/ — the visible namespace, 100% yours:            │
-│      guidance.md · TODO.md ·                                │
-│      skills/ · scripts/ · brief.md (each config-pointable)  │
-│  + map/ — the documentation map                             │
-│  + agent files: AGENTS.md, CLAUDE.md/GEMINI.md     │
-│      (tracked)                                              │
-│  + materialized Skills: .claude/skills/, .agents/skills/    │
-│      (gitignored)                                           │
-│  + merged provider settings, shared .gitignore              │
+│                    An install — on disk                    │
+│  discern.toml — one root file (no engine, no manifest)     │
+│  + discern/ — the visible namespace, 100% yours:           │
+│      guidance.md · TODO.md ·                               │
+│      skills/ · scripts/ · brief.md (each config-pointable) │
+│  + map/ — the documentation map                            │
+│  + agent files (tracked): AGENTS.md · CLAUDE.md/GEMINI.md  │
+│  + materialized Skills: .claude/skills/, .agents/skills/   │
+│      (gitignored)                                          │
+│  + merged provider settings, shared .gitignore             │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,20 +45,20 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
 person / coding agent
        │  discern <verb>
        ▼
-┌──────────────────────┐  known verb  ┌─────────────────────────────┐
+┌──────────────────────┐  known verb  ┌──────────────────────────────┐
 │   discern binary     │ ───────────► │  engine handler (in-binary)  │
 │  verb router:        │              │  done · prepare · worktree   │
-│  root + verb routing │              │  standards · refresh · …      │
-└──────────┬───────────┘              └──────────────┬──────────────┘
+│  root + verb routing │              │  standards · refresh · …     │
+└──────────┬───────────┘              └──────────────┬───────────────┘
            │ discern script <name>                   │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  project script (exec'd)     │        │        discern.toml           │
-│  discern/scripts/<name>      │        │  jobs · scopes (+ gates) ·    │
-│  with DISCERN_* exported     │ ─────► │  scopes (+ gates) · standards  │
-│  (built-in names are legal)  │ reads  │  standards · worktree settings│
-└──────────────────────────────┘  via   └──────────────────────────────┘
-                                 discern config get
+│  project script (exec'd)     │        │         discern.toml         │
+│  discern/scripts/<name>      │        │  jobs · scopes (+ gates) ·   │
+│  with DISCERN_* exported     │ ─────► │  standards · worktree        │
+│  (built-in names are legal)  │  reads │  settings                    │
+└──────────────────────────────┘   via  └──────────────────────────────┘
+                                discern config get
 ```
 
 `discern done` checks the worktree's trunk precondition, then walks the declared jobs through their stages:
@@ -73,9 +72,9 @@ trunk-merged  ───►  fix  ───►  build  ───►  check ∥ te
 The worktree workflow brackets a change, keeping the main checkout untouched:
 
 ```
-main checkout ──discern start──► worktree ⟲ discern update
-      ▲                                  │     (pull main in + re-materialize)
-      └─────────────── discern accept ─┘     accept branch + tear down
+main checkout ──discern start──►  worktree  ⟲  discern update
+      ▲                              │          (pull main in + re-materialize)
+      └────── discern accept ────────┘          accept branch + tear down
 ```
 
 ## What the picture implies
