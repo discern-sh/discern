@@ -235,8 +235,9 @@ export const verbEventSchema = z.looseObject({
   dry_run: z.boolean().optional(),
   /** Wall-clock duration of the whole invocation, in milliseconds. */
   duration_ms: z.number(),
-  /** The verb's object, when it has one: a `help` topic, a `map` page slug,
-   * the branch a `start` created. What agents look up, mineable at last. */
+  /** The verb's object, when it has one: the canonical `help`/`map` page a
+   * successful payload served, the requested target on a miss or human-only
+   * read, or the branch a `start` created. */
   target: z.string().optional(),
   /** The ref a `start` forked from (composition below the trunk, recorded). */
   from: z.string().optional(),

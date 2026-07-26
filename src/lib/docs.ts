@@ -785,9 +785,16 @@ export function resolveDocRegion(
   );
 }
 
+/** Turn one docs-root-relative Markdown path into the stable target both
+ * documentation verbs accept. This is the target grammar's serialization
+ * boundary: producers use it instead of independently trimming paths. */
+export function canonicalDocTargetFromPath(relToDocs: string): string {
+  return relToDocs.replace(/\.md$/i, "");
+}
+
 /** Stable target an agent can pass back to either docs command to read one result. */
 export function canonicalDocTarget(entry: DocEntry): string {
-  return entry.relToDocs.replace(/\.md$/i, "");
+  return canonicalDocTargetFromPath(entry.relToDocs);
 }
 
 /** Keep only picker-selected groups without disturbing global reading order. */

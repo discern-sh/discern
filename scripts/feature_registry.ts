@@ -289,7 +289,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "gotchas-pointer",
         title: "The gotchas pointer",
         what:
-          "When a stage fails in a non-obvious way, the gate points at `[project].gotchas_doc` — the project's own record of its stack's traps.",
+          "When a stage fails in a non-obvious way, the gate prints a pasteable `discern map <target> --json` fetch when `[project].gotchas_doc` lives in the map, and the file path otherwise.",
         why:
           "Hard-won failure lore reaches the agent at the moment it applies.",
       },

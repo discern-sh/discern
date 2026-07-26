@@ -330,7 +330,7 @@ Run the reproduce command from each diagnostic, fix the reported problems, then 
 Rendered example:
 
 ```text
-If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in docs/when-the-gate-fails.md.
+If the failure above isn't self-explanatory, run `discern map 80-development/done-gate-gotchas --json` to read this project's known gate failures and their fixes.
 ```
 
 ## `gate-failure-guidance`

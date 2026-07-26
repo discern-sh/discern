@@ -3860,6 +3860,9 @@
                         "type": "string"
                       }
                     },
+                    "target": {
+                      "type": "string"
+                    },
                     "content": {
                       "type": "string"
                     },
@@ -3892,6 +3895,7 @@
                     "slug",
                     "title",
                     "description",
+                    "target",
                     "content"
                   ]
                 },
@@ -4375,6 +4379,9 @@
                         "type": "string"
                       }
                     },
+                    "target": {
+                      "type": "string"
+                    },
                     "content": {
                       "type": "string"
                     },
@@ -4407,6 +4414,7 @@
                     "slug",
                     "title",
                     "description",
+                    "target",
                     "content"
                   ]
                 },

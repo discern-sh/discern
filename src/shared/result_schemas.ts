@@ -904,6 +904,8 @@ export const DocsDataSchema = z.strictObject({
   docs: z.array(docRecordSchema).optional(),
   regions: z.array(mapRegionSchema).optional(),
   doc: docRecordSchema.extend({
+    /** Canonical value accepted by the same documentation verb to fetch this page. */
+    target: z.string(),
     content: z.string(),
     cited_adrs: z.array(adrCitationSchema).optional(),
   }).optional(),
