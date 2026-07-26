@@ -163,7 +163,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 122
+- Members: 124
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -184,7 +184,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
-- Members: 24
+- Members: 27
 - Guards: `tests/patterns_test.ts`, `tests/logbook_routing_test.ts`
 - Glossary: the "Patterns" entry carries the concept
 - Feature canon: described by the `patterns` node
@@ -247,7 +247,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 184
+- Members: 186
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
@@ -286,11 +286,11 @@ The voice skill's banned-moves table; the Vale style must match it pattern for p
 
 ## `seeded-gotchas-traps` — Seeded gate traps
 
-The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.
+The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
 
 - Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
 - Members: —
-- Guards: `tests/gotchas_parity_test.ts`
+- Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — seeded documentation content, not product vocabulary
 - Feature canon: described by the `gotchas-pointer` node
 

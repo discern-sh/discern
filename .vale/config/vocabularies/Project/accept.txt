@@ -97,7 +97,7 @@ idempotently
 Infracost
 init
 injectable
-inlines?
+inlin(es|ed|ing)?
 inspectable
 install
 jose
@@ -115,6 +115,7 @@ lookups?
 Lulla
 maintainer
 Makefiles?
+matchers?
 metacharacters
 migrator
 misalign(s|ed|ing)?
@@ -194,6 +195,7 @@ subdir
 subpath
 subprocess(es)?
 subshell
+substrings?
 subtrees?
 suppressions?
 SVGs?

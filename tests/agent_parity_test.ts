@@ -24,6 +24,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { guidancePathForNative } from "../src/shared/agent_catalogue.ts";
 import {
   agentArtifactPosture,
   allGuidanceFilePaths,
@@ -315,6 +316,21 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
       posture.localStateFiles.length === allLocalStateFiles().length,
     "agentArtifactPosture() must be the union of the per-kind aggregators",
   );
+});
+
+Deno.test("every provider's guidance path derives from the catalogue's declaration", () => {
+  // The catalogue owns the compiled-guidance path beside the native name and
+  // label; a provider entry that reverts to a literal path could drift from
+  // the vocabulary the logbook's guidance-parity findings name.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    assertEquals(
+      p.guidanceFile.path,
+      guidancePathForNative(name),
+      `${name}: guidanceFile.path must come from guidancePathForNative`,
+    );
+  }
 });
 
 Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {

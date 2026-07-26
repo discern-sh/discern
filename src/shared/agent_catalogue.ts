@@ -39,6 +39,10 @@ export interface AgentIdentityDefinition {
   readonly nativeName?: string;
   /** Stable display/config order for native providers. */
   readonly nativeOrder?: number;
+  /** Project-relative path of the compiled guidance file this agent reads —
+   * the provider surface a guidance-parity reading can name. Present exactly
+   * beside `nativeName`; `PROVIDERS` derives its `guidanceFile.path` from it. */
+  readonly guidancePath?: string;
   readonly environment?: readonly AgentEnvironmentRule[];
   readonly aiAgent?: AiAgentRule;
   /** Ambient host markers, deliberately distinct from invocation-scoped ones. */
@@ -59,6 +63,7 @@ export const AGENT_CATALOGUE = [
     label: "Cursor",
     nativeName: "cursor",
     nativeOrder: 3,
+    guidancePath: "AGENTS.md",
     environment: [{ anyOf: ["CURSOR_AGENT"] }],
   },
   {
@@ -66,6 +71,7 @@ export const AGENT_CATALOGUE = [
     label: "Claude Code",
     nativeName: "claude_code",
     nativeOrder: 0,
+    guidancePath: "CLAUDE.md",
     environment: [{
       anyOf: ["CLAUDECODE", "CLAUDE_CODE"],
       noneOf: ["CLAUDE_CODE_IS_COWORK"],
@@ -95,6 +101,7 @@ export const AGENT_CATALOGUE = [
     label: "Gemini",
     nativeName: "gemini",
     nativeOrder: 2,
+    guidancePath: "GEMINI.md",
     environment: [{ anyOf: ["GEMINI_CLI"] }],
     mcpAliases: ["gemini-cli"],
   },
@@ -103,6 +110,7 @@ export const AGENT_CATALOGUE = [
     label: "Codex",
     nativeName: "codex",
     nativeOrder: 1,
+    guidancePath: "AGENTS.md",
     environment: [{
       anyOf: ["CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"],
     }],
@@ -133,6 +141,7 @@ export const AGENT_CATALOGUE = [
     label: "GitHub Copilot",
     nativeName: "copilot",
     nativeOrder: 4,
+    guidancePath: "AGENTS.md",
     environment: [{
       anyOf: [
         "COPILOT_MODEL",
@@ -210,7 +219,11 @@ export function agentLabel(id: string): string {
 
 type NativeAgentEntry = Extract<
   (typeof AGENT_CATALOGUE)[number],
-  { readonly nativeName: string; readonly nativeOrder: number }
+  {
+    readonly nativeName: string;
+    readonly nativeOrder: number;
+    readonly guidancePath: string;
+  }
 >;
 
 /** One agent for which discern provides native project integration. */
@@ -247,4 +260,19 @@ export function agentLabelForNative(name: NativeAgentName): string {
     }
   }
   throw new Error(`missing agent-catalogue entry for native provider ${name}`);
+}
+
+/** The catalogue-owned compiled-guidance path for one native provider. */
+export function guidancePathForNative(name: NativeAgentName): string {
+  for (const identity of AGENT_CATALOGUE) {
+    if (
+      "nativeName" in identity && identity.nativeName === name &&
+      identity.guidancePath !== undefined
+    ) {
+      return identity.guidancePath;
+    }
+  }
+  throw new Error(
+    `missing agent-catalogue guidance path for native provider ${name}`,
+  );
 }

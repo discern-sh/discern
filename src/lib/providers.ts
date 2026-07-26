@@ -28,7 +28,10 @@ import {
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
 import { TomlEditor } from "./toml_edit.ts";
-import { agentLabelForNative } from "../shared/agent_catalogue.ts";
+import {
+  agentLabelForNative,
+  guidancePathForNative,
+} from "../shared/agent_catalogue.ts";
 import type { FileOwnershipDeclaration } from "../shared/file_ownership.ts";
 import { fire, HINTS } from "../shared/hints.ts";
 
@@ -1124,7 +1127,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       ],
     },
     guidanceFile: {
-      path: "CLAUDE.md",
+      path: guidancePathForNative("claude_code"),
       ownership: { generated: true },
       canonical: false,
       pointer: atImportPointer,
@@ -1194,7 +1197,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       ],
     },
     guidanceFile: {
-      path: "AGENTS.md",
+      path: guidancePathForNative("codex"),
       ownership: { generated: true },
       canonical: true,
     },
@@ -1279,7 +1282,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // (verified vendor support — `.md`-only, which `@AGENTS.md` satisfies), exactly
     // like Claude Code, so the body lives in one file and the mirror can't drift.
     guidanceFile: {
-      path: "GEMINI.md",
+      path: guidancePathForNative("gemini"),
       ownership: { generated: true },
       canonical: false,
       pointer: atImportPointer,
@@ -1354,7 +1357,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Cursor reads the canonical AGENTS.md natively at the repo root, so discern emits
     // no Cursor-specific file (reuse-canonical: no duplicate body, no pointer).
     guidanceFile: {
-      path: "AGENTS.md",
+      path: guidancePathForNative("cursor"),
       ownership: { generated: true },
       canonical: false,
       reuseCanonical: true,
@@ -1430,7 +1433,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // instructions (it has no @import directive), so discern emits no
     // Copilot-specific file (reuse-canonical).
     guidanceFile: {
-      path: "AGENTS.md",
+      path: guidancePathForNative("copilot"),
       ownership: { generated: true },
       canonical: false,
       reuseCanonical: true,

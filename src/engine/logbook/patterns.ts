@@ -42,10 +42,9 @@ import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
+import { driverAgent, driverKind } from "./cohorts.ts";
 import {
   buildStreamFacts,
-  driverAgent,
-  driverKind,
   runDetectors,
   type StreamFacts,
 } from "./detectors.ts";
