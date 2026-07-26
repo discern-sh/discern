@@ -27,9 +27,10 @@
  *    verb-sequence reader needs the full stream.
  *  - Envelope `data` is lifted by SHAPE, not by verb name: a payload carrying
  *    the gate's fields feeds `failed_stage`/`scopes`/`standards`, a start's
- *    feeds `from`/`target`, an update's feeds `update`, a pin's feeds `pin`
- *    events — so a renamed verb or a new surface keeps recording correctly.
- *    Everything lifted is names and numbers; message bodies never land.
+ *    feeds `from`/`target`, a fetched doc's feeds its canonical `target`, an
+ *    update's feeds `update`, a pin's feeds `pin` events — so a renamed verb or
+ *    a new surface keeps recording correctly. Everything lifted is names and
+ *    numbers; message bodies never land.
  *
  * Epoch bookkeeping rides the same completion: when this branch's config
  * fingerprint moved since its last recorded event (see `epoch.ts` — a pin does
@@ -99,7 +100,7 @@ export interface FinishReport {
   driver?: DriverFacts | undefined;
   /** Flag NAMES the invocation passed (never values). */
   flags?: string[] | undefined;
-  /** The verb's object (a help topic, a map page), when the surface knows it. */
+  /** The requested object, when the surface knows it; a resolved payload wins. */
   target?: string | undefined;
 }
 
@@ -278,6 +279,13 @@ const liftedPinsShape = z.looseObject({
   })),
 });
 
+/** A successful documentation page fetch, reduced to its canonical target. */
+const liftedDocFetchShape = z.looseObject({
+  doc: z.looseObject({
+    target: z.string(),
+  }),
+});
+
 /** A start's payload: the created branch and the ref it forked from. */
 const liftedStartShape = z.looseObject({
   branch: z.string(),
@@ -354,6 +362,10 @@ function liftData(data: unknown): LiftedData {
       to: p.to,
       measured: p.measured,
     }));
+  }
+  const docFetch = liftedDocFetchShape.safeParse(data);
+  if (docFetch.success) {
+    lifted.target = docFetch.data.doc.target;
   }
   const start = liftedStartShape.safeParse(data);
   if (start.success) {
@@ -443,7 +455,9 @@ export function beginRecording(cwd: string): Recording {
           ? diagnosticClasses(report.result)
           : undefined;
         const lifted = liftData(report.result?.data);
-        const target = report.target ?? lifted.target;
+        // A successful payload names the object actually served. Surface input
+        // remains the fallback for human-only reads and refused lookups.
+        const target = lifted.target ?? report.target;
         const event: VerbEvent = {
           schema: LOGBOOK_SCHEMA_VERSION,
           at,

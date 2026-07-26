@@ -55,6 +55,7 @@ import {
 } from "../lib/docs_search.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
+import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
   HELP_ADR_DOC_DIR,
   isBundledDocEntry,
@@ -616,6 +617,7 @@ async function browse(
     last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;
+    observeVerbTarget(canonicalDocTarget(entry));
     const content = terminalBody(
       desc,
       entry,
@@ -1040,6 +1042,7 @@ async function treeResult(
       data: {
         doc: {
           ...toRecord(res.entry),
+          target: canonicalDocTarget(res.entry),
           content,
           ...(res.entry.citedAdrs.length > 0
             ? { cited_adrs: res.entry.citedAdrs }
@@ -1115,6 +1118,7 @@ async function viewTarget(
     return 1;
   }
 
+  observeVerbTarget(canonicalDocTarget(res.entry));
   const content = await Deno.readTextFile(res.entry.absPath);
   if (options.raw) {
     // Pristine source — exactly the file's bytes, no added newline. The RAW

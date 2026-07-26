@@ -793,6 +793,7 @@ Deno.test("map <slug> --json returns the single doc with its content", async () 
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
     assertEquals(res.data.doc.path, "docs/00-intro/alpha.md");
+    assertEquals(res.data.doc.target, "00-intro/alpha");
     assertStringIncludes(res.data.doc.content, "The alpha body.");
   });
 });

@@ -48,7 +48,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `outcome`      | `"ok"`, `"failed"`, or `"refused"`              |
 | `failed_stage` | the gate stage that went red                    |
 | `duration_ms`  | wall-clock milliseconds                         |
-| `target`       | the `help` topic or `map` page read             |
+| `target`       | `map`/`help` page served, miss, or new branch   |
 | `flags`        | `["force"]` — names, never values               |
 | `change`       | files/insertions/deletions/commits vs the trunk |
 | `scopes`       | the configured scopes touched                   |

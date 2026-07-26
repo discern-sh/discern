@@ -30,6 +30,7 @@ import {
   type LogbookEvent,
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
+import { beginRecording } from "../src/engine/logbook/record.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { HINTS } from "../src/shared/hints.ts";
 
@@ -178,6 +179,86 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
       event.hint_ids,
       [],
       "new writers distinguish no fired hints from legacy missing evidence",
+    );
+  });
+});
+
+Deno.test("logbook: a successful map fetch records the canonical page on CLI and MCP", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const body = "# Concepts\n\nMap-content-sentinel-7f3c1.\n";
+    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "map", "00-orientation", "concepts.md"),
+      body,
+    );
+    await gitInit(dir);
+
+    // The input alias differs from the canonical target. Recording the alias
+    // would say what was typed, not which page the map actually served.
+    const cli = await runAgent(dir, ["map", "concepts", "--json"]);
+    assertEquals(cli.code, 0, cli.output);
+    const human = await runAgent(dir, ["map", "concepts", "--no-pager"]);
+    assertEquals(human.code, 0, human.output);
+
+    const map = TOOLS.find((tool) => tool.name === "discern_map");
+    assert(map !== undefined);
+    const mcp = await runTool(
+      map,
+      new WorkingRoot(dir),
+      { target: "concepts" },
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(mcp.isError, false);
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 3);
+    assertEquals(events.map((event) => event.surface), ["cli", "cli", "mcp"]);
+    for (const event of events) {
+      assertEquals(event.target, "00-orientation/concepts");
+      assertEquals(typeof event.target, "string");
+      assert(
+        !JSON.stringify(event).includes("Map-content-sentinel-7f3c1"),
+        `${event.surface} lifted page content into the metadata-only logbook`,
+      );
+    }
+  });
+});
+
+Deno.test("logbook: map-fetch payloads lift by shape under an unrelated verb", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const recording = beginRecording(dir);
+    await recording.finish({
+      verb: "fresh-page-reader",
+      surface: "mcp",
+      outcome: "ok",
+      durationMs: 1,
+      result: {
+        ok: true,
+        verb: "renamed-reader",
+        data: {
+          doc: {
+            target: "91-future/fresh-name",
+            content: "message-body-must-never-land",
+          },
+        },
+      },
+    });
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 1);
+    const event = events[0];
+    assert(event !== undefined);
+    assertEquals(event.verb, "fresh-page-reader");
+    assertEquals(event.target, "91-future/fresh-name");
+    assert(
+      !JSON.stringify(event).includes("message-body-must-never-land"),
+      "the lift keeps the target string and drops the page body",
     );
   });
 });

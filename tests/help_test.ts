@@ -171,6 +171,7 @@ Deno.test("help <slug> --json strips inline citations, keeps them as fields", as
     assertEquals(res.ok, true);
     assertEquals(res.verb, "help");
     assertEquals(res.data.doc.slug, "concepts");
+    assertEquals(res.data.doc.target, "00-orientation/concepts");
     // Human-facing product docs: the inline citation group is stripped from
     // content, and the clause still reads; the decision survives as a field.
     assertStringIncludes(

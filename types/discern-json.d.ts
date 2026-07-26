@@ -1160,6 +1160,7 @@ export type DiscernMapResult = {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      target: string;
       content: string;
       cited_adrs?: Array<{
         number: string;
@@ -1309,6 +1310,7 @@ export type DiscernHelpResult = {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      target: string;
       content: string;
       cited_adrs?: Array<{
         number: string;
