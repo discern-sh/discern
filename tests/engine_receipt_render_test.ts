@@ -12,7 +12,8 @@ import {
   renderReceiptLine,
   renderReceiptMarkdown,
 } from "../src/engine/gate/receipt_render.ts";
-import type { StepResult } from "../src/shared/result.ts";
+import { dimBlock, type StepResult } from "../src/shared/result.ts";
+import { makeOut, outSink } from "../src/engine/output.ts";
 import type {
   GateStandard,
   Receipt,
@@ -222,4 +223,41 @@ Deno.test("receipt line: unverified limits are disclosed loudly", () => {
 Deno.test("receipt line: no standards configured claims nothing", () => {
   const line = renderReceiptLine(FACTS, []);
   assertEquals(line.includes("standards"), false);
+});
+
+// ── the page's terminal treatment ───────────────────────────────────────────
+//
+// Every TTY print site (`status --verbose`, `done`'s success tail, `accept`'s
+// landing record) routes the page through `dimBlock`, so the quoted markdown
+// reads as secondary against the narration around it. The CLI-level suites run
+// colourless (no TTY), where dim is identity — these pin the colour-ON contract.
+
+Deno.test("dimBlock wraps every non-empty line and leaves blank lines bare", () => {
+  assertEquals(
+    dimBlock("### Receipt\n\n| ran |", (s) => `[${s}]`),
+    "[### Receipt]\n\n[| ran |]",
+  );
+});
+
+Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
+  const page = renderReceiptMarkdown(FACTS, STEPS);
+  assertEquals(dimBlock(page, (s) => s), page);
+});
+
+Deno.test("a receipt page dims per line under the real ANSI palette", () => {
+  const dim = outSink(makeOut(true)).dim;
+  const page = renderReceiptMarkdown(FACTS, STEPS);
+  const block = dimBlock(page, dim);
+  for (const line of block.split("\n")) {
+    if (line === "") {
+      continue;
+    }
+    assertEquals(line.startsWith("\x1b[2m"), true, `undimmed line: ${line}`);
+    assertEquals(line.endsWith("\x1b[0m"), true, `unreset line: ${line}`);
+  }
+  // Attributes never straddle a newline: stripping the codes recovers the page.
+  assertEquals(
+    block.replaceAll("\x1b[2m", "").replaceAll("\x1b[0m", ""),
+    page,
+  );
 });

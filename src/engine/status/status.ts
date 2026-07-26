@@ -25,7 +25,7 @@ import {
   loadConfig,
   toCommandList,
 } from "../../shared/config_schema.ts";
-import type { DiscernResult } from "../../shared/result.ts";
+import { dimBlock, type DiscernResult } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   fire,
@@ -101,7 +101,7 @@ import {
 } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
@@ -1200,9 +1200,10 @@ function renderStatusHuman(
       `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}\n`,
     );
     // The owner-side pull: --verbose prints the honored receipt page here, from
-    // discern's own marker. Unindented so it reads (and pastes) as markdown.
+    // discern's own marker. Unindented so it reads (and pastes) as markdown;
+    // dimmed so the quoted page stays visually secondary to the summary lines.
     if (verbose && data.gate_receipt.receipt !== undefined) {
-      out.raw(`\n${data.gate_receipt.receipt}\n\n`);
+      out.raw(`\n${dimBlock(data.gate_receipt.receipt, outSink(out).dim)}\n\n`);
     }
   }
 
@@ -1217,7 +1218,7 @@ function renderStatusHuman(
       // reviews the whole fleet from here without visiting a worktree.
       const receipts = data.fleet.filter((e) => e.receipt !== undefined);
       for (const e of receipts) {
-        out.raw(`\n${e.receipt}\n`);
+        out.raw(`\n${dimBlock(e.receipt ?? "", outSink(out).dim)}\n`);
       }
       if (receipts.length > 0) {
         out.raw("\n");

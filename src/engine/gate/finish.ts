@@ -76,6 +76,7 @@ import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { assertMainMerged, detectSilentDivergence } from "../worktree/git.ts";
 import {
   type Diagnostic,
+  dimBlock,
   type DiscernResult,
   type FailedStage,
   previewResult,
@@ -942,7 +943,7 @@ function printSuccessTail(
     }
   }
   if (receiptMarkdown !== undefined) {
-    out.raw(`\n${receiptMarkdown}\n\n`);
+    out.raw(`\n${dimBlock(receiptMarkdown, outSink(out).dim)}\n\n`);
   }
   for (const hint of interactiveHintTexts(hints)) {
     out.info(hint);

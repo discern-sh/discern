@@ -21,7 +21,7 @@ Inside a linked worktree, the default view is local. It reports the branch, clea
 
 From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout and branch, git state, ahead/behind counts, last activity, and whether the checkout is broken. A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
 
-`--verbose` prints each honored receipt page in the interactive output — the local branch's, and every ready fleet row's beneath the table. The JSON and MCP payloads carry the receipt with or without the flag ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+`--verbose` prints each honored receipt page in the interactive output — the local branch's, and every ready fleet row's beneath the table. The page prints dimmed, so the quoted Markdown reads as secondary next to the summary lines. The JSON and MCP payloads carry the receipt with or without the flag ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
 Two collision scans watch concurrent efforts. `fleet_collisions` pairs fleet branches whose changes touch the same files. `adr_collisions` lists ADR record numbers claimed by more than one in-flight branch — different files that merge cleanly, so this warning is the only signal before the gate refuses the landed duplicate ([ADR 0186](../_adr/0186-adr-number-uniqueness-is-gate-enforced.md)). The ADR scan covers unlanded branches without a worktree too, and the local worktree view keeps the collisions the current branch is party to.
 
