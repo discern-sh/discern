@@ -190,8 +190,9 @@ function restartSessionHint(leadIn: string): string {
 
 /** Shared diagnostic loop for gate stages whose machine facts carry the detail. */
 const GATE_DIAGNOSTIC_REMEDY_CORE =
-  "Run the reproduce command from each diagnostic, fix the reported problems, " +
-  "then re-run the current discern command.";
+  "Run the reproduce command from each diagnostic and fix the reported " +
+  "problems. Iterate with `discern prepare` (the fast fix-then-check loop) " +
+  "or `discern test`; when the tree is ready, re-run `discern done`.";
 
 /** Maximum names rendered in one hint summary. */
 const HINT_NAME_CAP = 3;
@@ -1236,11 +1237,12 @@ export const HINTS = {
     family: "done-rerun",
     example: undefined,
     template: (): string =>
-      "Fix the failure the last run reported, then re-run `discern done` — " +
-      "nothing changed since it judged this exact tree red, so an identical " +
-      "rerun expects the identical verdict. Probing for a flaky verdict is the " +
-      "one reason to re-run unchanged: `discern done --confirmed` does that, " +
-      "and records the rerun as a probe.",
+      "Fix the failure the last run reported, iterating with `discern " +
+      "prepare` or `discern test`, then re-run `discern done` — nothing " +
+      "changed since it judged this exact tree red, so an identical rerun " +
+      "expects the identical verdict. Probing for a flaky verdict is the one " +
+      "reason to re-run unchanged: `discern done --confirmed` does that, and " +
+      "records the rerun as a probe.",
   }),
 
   "done-unchanged-tree-green": defineHint({
