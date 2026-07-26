@@ -23,7 +23,10 @@ import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import { gateFailureGotchasHint } from "./gotchas.ts";
+import {
+  gateFailureGotchasTail,
+  type GotchasFailureTail,
+} from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
@@ -47,6 +50,7 @@ async function runTestGate(
     out: Out;
     configured: boolean;
     cfg: DiscernConfig;
+    gotchasTail: GotchasFailureTail | undefined;
   }
 > {
   const cfg = await loadConfig(root);
@@ -70,6 +74,7 @@ async function runTestGate(
       out,
       configured: false,
       cfg,
+      gotchasTail: undefined,
     };
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
@@ -80,9 +85,13 @@ async function runTestGate(
     [group],
     results,
   );
-  const gotchas = failedStage === null
-    ? undefined
-    : gateFailureGotchasHint(cfg, root);
+  const gotchasTail = failedStage === null ? undefined : await gateFailureGotchasTail(cfg, root, {
+    failedStage,
+    diagnostics,
+  });
+  const gotchasHints = gotchasTail !== undefined
+    ? [gotchasTail.hint, ...gotchasTail.warnings]
+    : [];
   return {
     result: {
       ok: failedStage === null,
@@ -90,12 +99,12 @@ async function runTestGate(
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
       ...(
-        inProgress !== undefined || hints.length > 0 || gotchas !== undefined
+        inProgress !== undefined || hints.length > 0 || gotchasHints.length > 0
           ? {
             hints: hintTexts([
               ...(inProgress !== undefined ? [inProgress] : []),
               ...hints,
-              ...(gotchas !== undefined ? [gotchas] : []),
+              ...gotchasHints,
             ]),
           }
           : {}
@@ -105,6 +114,7 @@ async function runTestGate(
     out,
     configured: true,
     cfg,
+    gotchasTail,
   };
 }
 
@@ -133,10 +143,11 @@ export async function runTestJob(
     return result.ok ? 0 : 1;
   }
 
-  const { result, failedStage, out, configured, cfg } = await runTestGate(
-    root,
-    false,
-  );
+  const { result, failedStage, out, configured, gotchasTail } =
+    await runTestGate(
+      root,
+      false,
+    );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (!configured) {
     out.info(fire(HINTS["test-job-not-configured"]).text);
@@ -144,11 +155,10 @@ export async function runTestJob(
   }
   if (failedStage !== null) {
     renderFailureTail(out, {
-      cfg,
-      root,
       verb: "test",
       headline: "Tests failed.",
       diagnostics: result.diagnostics ?? [],
+      gotchas: gotchasTail,
     });
     return 1;
   }
