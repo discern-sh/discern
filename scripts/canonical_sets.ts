@@ -105,6 +105,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/engine_verb_parity_test.ts",
       "tests/cli_reference_codegen_test.ts",
+      "tests/guidance_corpus_guard_test.ts",
       "tests/feature_canon_enrolment_test.ts",
       "tests/glossary_enrolment_test.ts",
     ],
@@ -158,6 +159,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/engine_verb_parity_test.ts",
       "tests/result_codegen_test.ts",
+      "tests/guidance_corpus_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -369,6 +371,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/skill_name_parity_test.ts",
       "tests/feature_canon_enrolment_test.ts",
+      "tests/guidance_corpus_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -989,6 +992,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/agent_policy_parity_test.ts":
+    "asserts the two authored operating-model surfaces carry the same policies; a prose-parity contract, not a member-set satellite",
   "tests/adr_vocab_guard_test.ts":
     "sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set",
   "tests/engine_tree_drift_test.ts":

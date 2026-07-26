@@ -12,7 +12,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
 - Members: 29
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
@@ -33,7 +33,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
 - Members: 16
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
 - Feature canon: described by the `mcp-surface` node
 
@@ -114,7 +114,7 @@ The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
 - Members: 7
-- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
+- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
 
@@ -340,6 +340,7 @@ This meta-registry: the closed set of closed sets.
 
 Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, codegen targets that compile from no registry, and modules whose doc comments claim single-source-of-truth status yet anchor no declared set.
 
+- `tests/agent_policy_parity_test.ts` — asserts the two authored operating-model surfaces carry the same policies; a prose-parity contract, not a member-set satellite
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
