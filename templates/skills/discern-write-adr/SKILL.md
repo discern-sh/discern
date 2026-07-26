@@ -38,6 +38,8 @@ When in doubt, ask the user the three questions above rather than guessing.
 
 List `{{map_dir}}_adr/`, find the highest existing `NNNN-…` number, and add one (zero-padded, four digits). Numbers are continuous and never reused; `0000-template.md` is the template, so the first real ADR is `0001`. Choose a short kebab-case slug that names the **decision**, not the problem — e.g. `0007-event-sourced-write-model.md`.
 
+Your tree shows only landed records, so another in-flight branch may have claimed the same next number. `discern status` warns when that happens, and the gate refuses a duplicated number once both records reach one tree — whoever lands second moves to the next free number, so don't fight for a specific one.
+
 ---
 
 ## 3. Draft from the template

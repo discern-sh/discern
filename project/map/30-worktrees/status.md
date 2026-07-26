@@ -21,6 +21,8 @@ Inside a linked worktree, the default view is local. It reports the branch, clea
 
 From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout and branch, git state, ahead/behind counts, last activity, and whether the checkout is broken. `--local` suppresses the fleet. `--all` adds it from a worktree. The 2 flags conflict because they request opposite views.
 
+Two collision scans watch concurrent efforts. `fleet_collisions` pairs fleet branches whose changes touch the same files. `adr_collisions` lists ADR record numbers claimed by more than one in-flight branch — different files that merge cleanly, so this warning is the only signal before the gate refuses the landed duplicate ([ADR 0186](../_adr/0186-adr-number-uniqueness-is-gate-enforced.md)). The ADR scan covers unlanded branches without a worktree too, and the local worktree view keeps the collisions the current branch is party to.
+
 The result remains an observation when the branch is dirty, behind, or missing a receipt. Those states keep `ok: true`; `hints[]` recommends the next command. Operational refusals, such as conflicting flags, use `ok: false`.
 
 ```sh

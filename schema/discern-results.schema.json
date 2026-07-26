@@ -5088,6 +5088,7 @@
                         "guidance",
                         "skills",
                         "skill_frontmatter",
+                        "adr_numbers",
                         "merge",
                         "standards",
                         "write_access"
@@ -9309,6 +9310,34 @@
                       "branches",
                       "overlap",
                       "total"
+                    ]
+                  }
+                },
+                "adr_collisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "number": {
+                        "type": "string"
+                      },
+                      "branches": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "number",
+                      "branches",
+                      "paths"
                     ]
                   }
                 }
