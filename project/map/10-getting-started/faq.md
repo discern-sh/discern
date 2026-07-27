@@ -41,7 +41,7 @@ Use the CLI with `--json` while the MCP connection is unavailable. Every discern
 
 ## My agent isn't following the workflow
 
-Any model can drive discern: every refusal and failure report names the next step. How reliably an agent follows those steps tracks the model, so pair discern with a current frontier model for day-to-day work. If a capable agent still drifts, run `discern patterns` for the recorded behavior findings; each names the loop and the fix.
+Reliability tracks the model: discern's refusals and reports always name the next step, and a current frontier model follows them best. If a capable agent still drifts, run `discern patterns` — each recorded finding names the loop and its fix.
 
 ## `discern done` failed
 
