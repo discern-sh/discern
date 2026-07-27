@@ -16,7 +16,7 @@ Each native provider also declares a compact mark and horizontal logo lockup wit
 
 Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.
 
-Every write discern makes into a vendor surface smooths discern's own workflow — it never enforces security there. Sandboxing, permissions, and approval flows stay with the vendor, and a project's actual security posture stays with the user ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
+Every write discern makes into a vendor surface smooths discern's own workflow — it never enforces security there. Sandbox rules, permissions, and approval flows stay with the vendor, and responsibility for a project's actual security stays with the user ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
 
 For the shared instructions behind these files, read [Agent guidance](../40-agent-guidance/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
 

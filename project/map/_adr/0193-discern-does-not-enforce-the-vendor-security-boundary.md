@@ -7,17 +7,17 @@
 discern writes into vendor configuration surfaces today, and both writes look like security decisions without their context:
 
 - **Codex's exec-policy rules** (`prefix_rule` grants for `git add`/`git commit`, ADR 0082) exist because Codex's sandbox blocks linked worktrees from writing Git metadata under the main checkout's central `.git` directory — without them, a fresh Codex install cannot operate the worktree lifecycle discern scaffolds.
-- **MCP pre-approval** (`enabledMcpjsonServers` in Claude Code's shared settings, and equivalents per provider) removes a manual approval step for discern's *own* server — a step a non-technical user would otherwise hit as unexplained friction on first contact.
+- **MCP pre-approval** (`enabledMcpjsonServers` in Claude Code's shared settings, and equivalents per provider) removes a manual approval step for discern's _own_ server — a step a non-technical user would otherwise hit as unexplained friction on first contact.
 
-Each is workflow-smoothing: it unblocks discern's own documented workflow, nothing else. But the trust-model work ([ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)) makes the boundary tempting: once discern records who may land what, the natural-seeming next step is *enforcing* at the vendor boundary — intercepting tool calls, conditionally blocking Git operations, seeding permission allowlists, hardening sandbox defaults. Three forces argue against ever taking that step:
+Each is workflow-smoothing: it unblocks discern's own documented workflow, nothing else. But the trust-model work ([ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)) makes the boundary tempting: once discern records who may land what, the natural-seeming next step is _enforcing_ at the vendor boundary — intercepting tool calls, conditionally blocking Git operations, seeding permission allowlists, hardening sandbox defaults. Three forces argue against ever taking that step:
 
 1. **Vendor security surfaces churn constantly.** Sandbox models, permission schemas, and approval flows change across providers on a cadence discern cannot track without making boundary enforcement a permanent maintenance treadmill — and a stale enforcement rule at a security boundary is worse than none, because it is trusted.
 2. **discern cannot know a project's security requirements.** It is stack-neutral by design (principle 1) and makes no assumptions about the codebase it is installed into; a generic interception rule is either too loose to matter or breaks a legitimate workflow it never anticipated.
-3. **discern's trust surfaces are legibility mechanisms, not security controls.** The consent gates are attestations, not proofs (ADR 0134 accepts this openly); the gate verifies quality, not intent. Presenting any of it as a security boundary would overpromise exactly where overpromising is most dangerous.
+3. **discern's trust surfaces are legibility mechanisms, not security controls.** The consent gates are attestations, not proofs (ADR 0134 accepts this openly); the gate verifies quality, not intent. Presenting any of it as a security boundary would promise more than it delivers, exactly where an inflated promise is most dangerous.
 
 ## Decision
 
-**The vendor security boundary is not discern's to enforce.** Vendor sandboxing, permissions, and approval flows belong to the vendors; responsibility for a project's actual security stays with the user.
+**The vendor security boundary is not discern's to enforce.** Vendor sandbox rules, permissions, and approval flows belong to the vendors; responsibility for a project's actual security stays with the user.
 
 - **discern's writes into vendor configuration are workflow-smoothing only.** Each existing and future write must be justifiable as unblocking discern's own documented workflow — the two writes above are the shape of the ceiling, not a precedent for expansion.
 - **discern never intercepts, filters, or conditionally blocks a vendor's tool calls**, never manages a vendor's security defaults, and never seeds permission rules beyond what its own workflow needs.
