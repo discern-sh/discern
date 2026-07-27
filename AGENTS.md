@@ -1,6 +1,6 @@
 # Working in discern
 
-The second half of this file is discern's own project guidance. discern's built-in guidance comes first, so you understand how to work correctly with discern's tools and conventions. The project guidance wins on any conflict.
+discern's built-in guidance comes first; discern's own guidance fills the second half and wins on any conflict.
 
 ## Operating discern
 
@@ -11,7 +11,7 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 - **`discern_done` is the bar for "done".** It runs the gate — the project's full quality check; call a change finished only when the final tree passes. Iterate with **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just the tests). On failure, read `diagnostics[]` for the command and output, then fix it.
 - **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
-**Troubleshooting**: MCP tools unreachable? Tell the user, use the **`discern` CLI** with `--json` meanwhile — read whole results; a partial parse misses the hints — and offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) and continuing without discern's protections.
+**Troubleshooting**: MCP tools unreachable? Tell the user, use the **`discern` CLI** with `--json` meanwhile. Read each result whole — never `tail` it, `grep` it, or filter it through a script; a subset drops the hints and remedies. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) and continuing without discern's protections.
 
 ## Generated files — don't hand-edit
 
@@ -26,8 +26,6 @@ discern keeps each task in its own **linked git worktree** so parallel work does
 - **`discern_accept`** is only for an explicit user handoff/land request. After a green `discern done` run on a completed task, report it — your words, then the one-line receipt — and stop; land only once they accept (or gave you a standing pre-authorization). Landing fast-forwards `main` and removes the worktree and branch.
 
 While iterating, use `discern_prepare`, `discern_test`, or a targeted project command, and commit each logical step — acceptance lands your branch history as-is. When the final tree is ready, commit it first, then run `discern_done` once on the clean HEAD — acceptance honors that receipt; a later commit invalidates it.
-
-Acceptance requires a clean worktree and lands committed branch history only.
 
 **Never edit a worktree from outside it without one of those moves, and never start work in one you didn't create.** A clean tree doesn't mean it's free; the ones `discern_status` lists are other efforts in flight, not a pool to claim from.
 
@@ -45,7 +43,7 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The map & decisions
 
-`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Keep it current; staleness is a defect. Humans audit agent understanding. Maintain no documentation outside it unless the user asks. Put significant, hard-to-reverse decisions in **Architecture Decision Records** under `project/map/_adr/`.
+`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Keep it current; staleness is a defect. Humans audit agent understanding. Maintain no documentation outside it unless the user asks. Put significant, hard-to-reverse decisions in **Architecture Decision Records** under `project/map/_adr/`. Stuck or missing context? `search` the map in task language, then fetch the best result's canonical `target`.
 
 - `00-orientation` — Orientation
 - `10-getting-started` — Getting started

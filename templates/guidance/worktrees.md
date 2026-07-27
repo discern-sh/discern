@@ -8,6 +8,4 @@ discern keeps each task in its own **linked git worktree** so parallel work does
 
 While iterating, use `discern_prepare`, `discern_test`, or a targeted project command, and commit each logical step — acceptance lands your branch history as-is. When the final tree is ready, commit it first, then run `discern_done` once on the clean HEAD — acceptance honors that receipt; a later commit invalidates it.
 
-Acceptance requires a clean worktree and lands committed branch history only.
-
 **Never edit a worktree from outside it without one of those moves, and never start work in one you didn't create.** A clean tree doesn't mean it's free; the ones `discern_status` lists are other efforts in flight, not a pool to claim from.

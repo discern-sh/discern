@@ -17,6 +17,8 @@ Two standing exemptions, both because no verb-mediated channel can arrive in tim
 - **The channel-down fallback.** The CLI troubleshooting path is read when the MCP channel is unavailable, so it must be static.
 - **Destructive-class rules that verb-bypassing edits can violate** — working on the trunk, adopting another effort's worktree. A file edit calls no verb first, so static prose (and session hooks) are the only channels that can pre-empt it. These rules may repeat across surfaces; the redundancy is protective, and weaker models lean on it.
 
+Delivery is judged at the client floor. A client that loads tool schemas only on demand cannot learn from a schema that a capability exists, so the existence of a discovery surface — the map's `search` — earns a static line even while its mechanics live in the schema.
+
 The ceiling is pinned at the routed value and moves only for sentences that pass the test.
 
 ## Consequences
