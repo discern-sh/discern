@@ -10,19 +10,18 @@ The question survived both decisions, and it aged badly:
 
 - **It re-teaches the conflation the rename ended.** The first thing a new user hears about the map is an offer to point it at their human-curated documentation — the restructure-someone's-website failure mode ADR 0100 made impossible by construction, reintroduced as a suggestion at first contact.
 - **It spends a consent slot on the wrong default.** The consent conversation is deliberately short (courier agents prune long messages); a question implies a live choice, and adoption is the right choice for almost nobody. A project that truly wants the map discipline over its real docs can still configure that deliberately.
-- **The vocabulary survived in the walls.** "docs tree" persisted across comments, test names (29 map-browser tests still opened with the retired `docs` verb), the landing mockups (which still staged the retired question), the eval rubric (grading a `docs/discern/` recommendation two defaults old), and the map's own installer pages.
+- **The vocabulary survived in the walls.** "docs tree" persisted across comments, test names (29 map-browser tests still opened with the retired `docs` verb), early landing-page drafts, and the map's own installer pages.
 
 ## Decision
 
 - **Setup reassures; it never offers.** When the project has its own `docs/` folder, the consent message states that it stays untouched and that the map is discern's separate tree at its own home — a statement, not a question. The `--map` coda after the message fence retires with it: the consent surface never mentions the flag.
 - **`[map].dir` remains address configuration, not an adoption channel.** The flag and the key still accept any directory, but no shipped surface suggests pointing them at human-curated documentation.
-- **The phrase "docs tree" retires from every authored surface.** The tree is _the map_; a literal directory stays describable as "the `docs/` folder". The development-vocabulary guard grows a class-level check (`tests/dev_vocab_guard_test.ts`) banning the phrase outside frozen records — historical ADRs, archived briefs, recorded eval transcripts, and historical install fixtures.
+- **The phrase "docs tree" retires from every authored surface.** The tree is _the map_; a literal directory stays describable as "the `docs/` folder". The development-vocabulary guard grows a class-level check (`tests/dev_vocab_guard_test.ts`) banning the phrase outside frozen records — historical ADRs, archived briefs, and historical install fixtures.
 
 ## Consequences
 
 - ADR 0100's "offered as a question during setup" consequence is superseded; its map identity, namespace-default, and eager-scaffold decisions stand unchanged (an amendment note marks it there).
 - The consent message now names the map's real default home (`map/`) in its footprint bullet — it previously placed the map inside the `discern/` folder, a leftover of the pre-ADR-0120 default.
-- The eval harness loses its `--map-answer` knob; the scripted continuation answers any docs question an older baseline checkout still asks with a fixed keep-mine-untouched line, and the rubric grades the reassurance instead.
 - A future decision to support deliberate adoption (documentation-migration tooling, say) must clear the guard deliberately — new vocabulary and a new consent design, not a revival of the old question.
 
 ## Alternatives considered
