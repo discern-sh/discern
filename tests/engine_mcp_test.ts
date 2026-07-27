@@ -2594,6 +2594,16 @@ Deno.test("discern mcp: initialization instructions prioritize discern_status", 
   );
 });
 
+Deno.test("discern mcp: accept requires the verbatim landing receipt line", () => {
+  const accept = TOOLS.find((tool) => tool.name === "discern_accept");
+  assert(accept !== undefined, "discern_accept should be registered");
+  assertStringIncludes(accept.description, "data.receipt_line verbatim");
+  assertStringIncludes(
+    accept.description,
+    "data.receipt is the full landing record",
+  );
+});
+
 Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale integrations)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

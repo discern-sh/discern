@@ -476,6 +476,9 @@ export const AcceptDataSchema = z.strictObject({
    * into a PR body (from the honored marker on the fast path, or the fresh gate run
    * on the slow path; absent when neither carried one). */
   receipt: z.string().optional(),
+  /** The system-rendered one-line receipt for the tree that landed. Agents relay
+   * this field verbatim at the end of their landing report. */
+  receipt_line: z.string().optional(),
   ignored_file_changes: z.strictObject({
     status: z.enum([
       "disabled",

@@ -1516,6 +1516,7 @@ async function executeAcceptPlan(
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown: string | undefined;
+  receiptLine: string | undefined;
   convergenceHints: string[];
   diagnostics: Diagnostic[];
 }> {
@@ -1547,19 +1548,21 @@ async function executeAcceptPlan(
     receipt.status === "honored"
       ? { mode: "receipt", receipt }
       : { mode: "rerun", receipt };
-  // The receipt markdown for the tree that lands — the landing record accept
-  // prints and carries: the honored marker stored it on the fast path; the fresh
-  // gate run rendered it on the slow path. `validatedSha` is the ONE commit this
-  // validation vouches for — the honored receipt's recorded sha, or the HEAD pinned
-  // before the gate re-run — and it is the exact rev the fast-forward below lands:
-  // a commit made during the (minutes-long) re-run must never ride along unvalidated.
+  // The two receipt renderings for the tree that lands: the honored marker
+  // stored both on the fast path; the fresh gate run rendered both on the slow
+  // path. `validatedSha` is the ONE commit this validation vouches for — the
+  // honored receipt's recorded sha, or the HEAD pinned before the gate re-run —
+  // and it is the exact rev the fast-forward below lands: a commit made during
+  // the (minutes-long) re-run must never ride along unvalidated.
   let receiptMarkdown: string | undefined;
+  let receiptLine: string | undefined;
   let validatedSha: string | undefined;
   if (gateValidation.mode === "receipt") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
     receiptMarkdown = receipt.receipt;
+    receiptLine = receipt.receipt_line;
     validatedSha = receipt.head;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
@@ -1579,6 +1582,7 @@ async function executeAcceptPlan(
     }
     ctx.log.ok("Gate passed against the tree to be landed.");
     receiptMarkdown = gate.data?.receipt?.markdown;
+    receiptLine = gate.data?.receipt?.line;
     validatedSha = pin.head;
   }
   if (validatedSha === undefined) {
@@ -1881,6 +1885,7 @@ async function executeAcceptPlan(
     steps: results,
     gateValidation,
     receiptMarkdown,
+    receiptLine,
     convergenceHints,
     diagnostics,
   };
@@ -1958,11 +1963,14 @@ export async function acceptResult(
     ...(executed.receiptMarkdown !== undefined
       ? { receipt: executed.receiptMarkdown }
       : {}),
+    ...(executed.receiptLine !== undefined
+      ? { receipt_line: executed.receiptLine }
+      : {}),
     ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
       ? { ignored_file_changes: plan.ignoredFileChanges }
       : {}),
   };
-  result.hints = executed.receiptMarkdown !== undefined
+  result.hints = executed.receiptLine !== undefined
     ? mergeHintTexts(
       hintTexts([fire(HINTS["accept-relay-landing-receipt"])]),
       executed.convergenceHints,

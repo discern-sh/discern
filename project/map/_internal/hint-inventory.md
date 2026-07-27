@@ -50,14 +50,14 @@ Run `discern refresh` in /workspace/project. Acceptance landed on main, but the 
 ## `accept-relay-landing-receipt`
 
 - Category: `next-step`
-- Audience: `all`
+- Audience: `agent`
 - Family: —
-- Emitting context: `accept` lands successfully and returns a landing receipt.
+- Emitting context: `accept` lands successfully and returns a one-line landing receipt.
 
 Rendered example:
 
 ```text
-data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.
+Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.
 ```
 
 ## `accept-review-via-status`
@@ -609,7 +609,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 Rendered example:
 
 ```text
-If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -1467,7 +1467,7 @@ Run `discern start` to begin work. There are no active worktrees.
 Rendered example:
 
 ```text
-Report this branch to your owner in your own words and end with the one-line receipt in data.gate_receipt.receipt_line, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the receipt in `data.gate_receipt.receipt_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-start-off-trunk`

@@ -88,6 +88,27 @@ function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
+// Every successful acceptance path carries the same two-form landing record:
+// the page for a PR body and the system-rendered line an agent relays verbatim.
+// deno-lint-ignore no-explicit-any
+function assertLandingReceiptRelay(obj: any, branch: string): void {
+  assertStringIncludes(
+    obj.data.receipt,
+    `### Receipt — \`agent/${branch}\``,
+  );
+  assertEquals(typeof obj.data.receipt_line, "string");
+  assertStringIncludes(
+    obj.data.receipt_line,
+    `Receipt: gate passed on agent/${branch} @ `,
+  );
+  const relayHint = assertHasHint(
+    obj,
+    HINTS["accept-relay-landing-receipt"],
+  );
+  assertStringIncludes(relayHint, "data.receipt_line");
+  assertStringIncludes(relayHint, "verbatim");
+}
+
 /** Scaffold a main repo wired with the taboo check, committed clean (gate green). */
 async function mainWithCheck(dir: string): Promise<void> {
   await scaffoldEngine(dir);
@@ -375,10 +396,9 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
       false,
       `the gate must NOT re-run when the receipt is valid\n${grad.output}`,
     );
-    // The landing record: the honored marker's receipt rides the envelope, with
-    // the relay hint beside it.
-    assertStringIncludes(obj.data.receipt, "### Receipt — `agent/epsilon`");
-    assertHasHint(obj, HINTS["accept-relay-landing-receipt"]);
+    // The landing record: both forms from the honored marker ride the envelope,
+    // with the verbatim relay instruction beside them.
+    assertLandingReceiptRelay(obj, "epsilon");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });
@@ -394,9 +414,9 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.receipt.status, "missing");
-    // The slow path's fresh gate run rendered the receipt — accept still
-    // carries the landing record.
-    assertStringIncludes(obj.data.receipt, "### Receipt — `agent/zeta`");
+    // The slow path's fresh gate run rendered both receipt forms — accept still
+    // carries the same landing contract as the fast path.
+    assertLandingReceiptRelay(obj, "zeta");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });

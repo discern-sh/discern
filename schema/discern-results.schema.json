@@ -9926,6 +9926,9 @@
                 "receipt": {
                   "type": "string"
                 },
+                "receipt_line": {
+                  "type": "string"
+                },
                 "ignored_file_changes": {
                   "type": "object",
                   "properties": {
