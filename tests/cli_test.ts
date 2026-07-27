@@ -10,6 +10,7 @@ import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 /** True when a path exists on disk. */
 async function pathExists(path: string): Promise<boolean> {
@@ -72,7 +73,7 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
     assert(result.data.compiled.includes("CLAUDE.md"));
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
-    assert(result.data.skeletons.includes("map/"));
+    assert(result.data.skeletons.includes(SOURCE_PATHS.map.defaultPath));
     assert(typeof result.data.instructions === "string");
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));

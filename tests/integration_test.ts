@@ -25,6 +25,7 @@ import { materializeSkills } from "../src/lib/skills.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { guidanceAgents } from "../src/engine/guidance_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
@@ -113,11 +114,12 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // 7. The binary's OWN template subtrees are NEVER seeded into the project tree
     // — they are materialized/read from the binary on demand. A regression here
     // re-pollutes the user's tracked tree, exactly what ADR 0024 removed for the
-    // bootstrap assets. `map/` is likewise lazy (laid by `discern setup`).
+    // bootstrap assets. The configured map is likewise lazy (laid by
+    // `discern setup`).
     await assertAbsent(join(dir, "bootstrap"));
     await assertAbsent(join(dir, "skills"));
     await assertAbsent(join(dir, "guidance"));
-    await assertAbsent(join(dir, "map"));
+    await assertAbsent(join(dir, SOURCE_PATHS.map.defaultPath));
   });
 });
 

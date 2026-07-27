@@ -146,7 +146,7 @@ Deno.test("real commands from the map's conventions validate", () => {
     "discern help --adr --json",
     "discern worktree drop <id> --force",
     "discern config set <dotted.key> <value> [--number | --bool | --string]",
-    "discern config set-standard <name> --limit <n> [--metric <m>] [--direction up|down]",
+    "discern config set-standard <name> --direction <up|down> --limit <n> [--metric <m>]",
     "discern skills list",
     "discern setup begin --config - --confirmed",
     "discern <command> --json",

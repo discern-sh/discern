@@ -6,7 +6,7 @@
 
 import type { Logger } from "./log.ts";
 import type { OpDisposition, Plan, PlanOp } from "./fs_plan.ts";
-import { neutralAgentScopePaths } from "./providers.ts";
+import { agentIntegrationPrefixes } from "./providers.ts";
 
 /** A short, human label for each disposition. */
 const DISPOSITION_LABEL: Record<OpDisposition, string> = {
@@ -47,7 +47,7 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   // merge or append into ones you already have — grouped together regardless of how.
   // The agent-dir prefixes are registry-derived (.claude/, .agents/, …), so a new
   // agent's seeded config is grouped here without editing this view.
-  const agentPrefixes = neutralAgentScopePaths();
+  const agentPrefixes = agentIntegrationPrefixes();
   const integration = pick((o) =>
     o.targetRel === ".gitignore" || o.targetRel === ".mcp.json" ||
     agentPrefixes.some((p) => o.targetRel.startsWith(p))

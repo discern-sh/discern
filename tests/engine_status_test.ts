@@ -19,6 +19,7 @@ import { join, relative } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  defaultMapPath,
   engineEnv,
   git,
   gitInit,
@@ -32,6 +33,7 @@ import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -120,7 +122,7 @@ Deno.test("status: the fleet view surfaces cross-worktree file collisions", asyn
 /** Commit one `0007-<slug>.md` record in a worktree — the "next free number"
  * pick that collides only number-wise, never path-wise. */
 async function commitAdr(worktree: string, slug: string): Promise<void> {
-  const adrDir = join(worktree, "map", "_adr");
+  const adrDir = defaultMapPath(worktree, "_adr");
   await Deno.mkdir(adrDir, { recursive: true });
   await Deno.writeTextFile(join(adrDir, `0007-${slug}.md`), "# record\n");
   await git(worktree, "add", "-A");
@@ -152,8 +154,8 @@ Deno.test("status: in-flight branches claiming one ADR number are surfaced — e
     assertEquals(collisions[0].number, "0007");
     assertEquals(collisions[0].branches, ["agent/alpha", "agent/beta"]);
     assertEquals(collisions[0].paths, [
-      "map/_adr/0007-alpha-take.md",
-      "map/_adr/0007-beta-take.md",
+      `${SOURCE_PATHS.map.defaultPath}_adr/0007-alpha-take.md`,
+      `${SOURCE_PATHS.map.defaultPath}_adr/0007-beta-take.md`,
     ]);
     assertHasHint(obj, HINTS["status-adr-number-collisions"], {
       total: 1,

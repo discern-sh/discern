@@ -1,5 +1,7 @@
 # ADR 0131: Setup never offers to adopt existing docs — and "docs tree" retires with it
 
+> **Placement amendment ([ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)):** The fresh map now lands at `discern/map/`. Setup's no-adoption rule and the separation from a project's own `docs/` remain unchanged.
+
 **Status**: accepted; amends [ADR 0100](0100-project-map-is-the-agents-map.md)
 
 ## Context

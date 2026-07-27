@@ -31,7 +31,7 @@ import {
   sectionBlockFromTemplate,
 } from "./config_template.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { KNOWN_JOBS } from "./config.ts";
+import { defaultNeutralScopePaths, KNOWN_JOBS } from "./config.ts";
 import { bundledSkillNames } from "./skills.ts";
 import { resolveBundledSkillsDir } from "./paths.ts";
 import { DEFAULT_AGENTS } from "../shared/config_schema.ts";
@@ -51,9 +51,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Schema 14's map-path contract, frozen for its 14→15 migration.
- * The live registry now calls the tree `map` and defaults it to `map/`; replaying
- * this older migration must still perform its original docs/→discern/docs/ move
- * before the later map migration pins that installed location.
+ * The live registry now calls the tree `map` and defaults it to `discern/map/`;
+ * replaying this older migration must still perform its original
+ * docs/→discern/docs/ move before the later map migration pins that installed
+ * location.
  */
 const SCHEMA_14_MAP_PATH: SourcePathEntry = {
   key: "docs.dir",
@@ -62,6 +63,7 @@ const SCHEMA_14_MAP_PATH: SourcePathEntry = {
   pathKind: "directory",
   resolution: "configured",
   ownership: { "project-owned": true },
+  gateNeutral: true,
   description: "The schema-14 agent documentation tree.",
 };
 
@@ -73,8 +75,24 @@ const SCHEMA_14_RECIPE_PATH: SourcePathEntry = {
   pathKind: "directory",
   resolution: "configured",
   ownership: { "project-owned": true },
+  gateNeutral: false,
   description: "The schema-14 Project Recipes directory.",
 };
+
+/** Neutral-scope lists shipped before schema 23. Each is a generated default
+ * from one prerelease schema; a project-owned list with any added or removed
+ * path is custom and stays untouched. Order is semantically irrelevant. */
+export const PRE_SCHEMA_23_NEUTRAL_SCOPE_DEFAULTS: readonly (
+  readonly string[]
+)[] = [
+  ["${map.dir}", "discern/", ".claude/", ".agents/"],
+  ["${map.dir}", "discern/skills/", ".claude/", ".agents/"],
+  ["${docs.dir}", "discern/skills/", ".claude/", ".agents/"],
+  ["${docs.dir}", "skills/", ".claude/", ".agents/"],
+  ["docs/", "skills/", ".claude/", ".agents/"],
+  ["docs/", ".claude/", "skills/"],
+  ["docs/", ".discern/", ".claude/"],
+];
 
 type Schema14SourcePathName = Exclude<SourcePathName, "scripts"> | "recipes";
 
@@ -88,6 +106,27 @@ function namespaceMigrationEntry(
   if (name === "map") return SCHEMA_14_MAP_PATH;
   if (name === "recipes") return SCHEMA_14_RECIPE_PATH;
   return SOURCE_PATHS[name];
+}
+
+/** Whether `value` is the same duplicate-free string set as `expected`. */
+function sameStringSet(value: unknown, expected: readonly string[]): boolean {
+  if (
+    !Array.isArray(value) ||
+    !value.every((entry): entry is string => typeof entry === "string")
+  ) {
+    return false;
+  }
+  const actual = new Set(value);
+  return actual.size === value.length &&
+    actual.size === expected.length &&
+    expected.every((entry) => actual.has(entry));
+}
+
+/** Whether a neutral-scope path list is one of discern's prerelease defaults. */
+function isPreSchema23NeutralDefault(value: unknown): boolean {
+  return PRE_SCHEMA_23_NEUTRAL_SCOPE_DEFAULTS.some((expected) =>
+    sameStringSet(value, expected)
+  );
 }
 
 /** Escape one literal token for interpolation into a regular expression. */
@@ -1554,6 +1593,61 @@ export const MIGRATIONS: Migration[] = [
       }
       await ctx.rewrite("discern.toml", () => migrated);
       ctx.note("merged [capabilities] and [checks] into [jobs]");
+    },
+  },
+  {
+    from: 22,
+    describe:
+      "enable gate-tail coupling advice and narrow the generated neutral scope to non-executable discern paths",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+
+      const coupling = raw.coupling === undefined
+        ? undefined
+        : isRecord(raw.coupling)
+        ? raw.coupling
+        : null;
+      if (coupling === null) {
+        throw new Error(
+          "[coupling] must be a table. Fix discern.toml, then run `discern upgrade` again.",
+        );
+      }
+      const scopes = isRecord(raw.scopes) ? raw.scopes : {};
+      const docs = isRecord(scopes.docs) ? scopes.docs : undefined;
+      const enableCoupling = coupling?.in_gate !== true;
+      const narrowNeutral = isPreSchema23NeutralDefault(docs?.paths);
+      if (!enableCoupling && !narrowNeutral) {
+        return;
+      }
+
+      await ctx.editToml((editor) => {
+        if (enableCoupling) {
+          editor.setBool("coupling.in_gate", true);
+        }
+        if (narrowNeutral) {
+          editor.setStringArray(
+            "scopes.docs.paths",
+            defaultNeutralScopePaths(),
+          );
+        }
+      });
+      if (enableCoupling) {
+        ctx.note("enabled [coupling].in_gate");
+      }
+      if (narrowNeutral) {
+        ctx.note(
+          "narrowed [scopes.docs].paths to discern's non-executable authored and materialized paths",
+        );
+      }
     },
   },
 ];

@@ -1556,14 +1556,18 @@ export function allSkillsDirs(): string[] {
   return skillsDirsForAgents(AGENT_NAMES);
 }
 
-/**
- * The gate-neutral region for each agent's generated footprint: the top path
- * segment of every known agent's skills directory (`.claude/skills` → `.claude/`,
- * `.agents/skills` → `.agents/`), deduped in first-seen order. Seeds the neutral
- * scopes so a change under ANY agent's generated dir needs no gate — uniformly,
- * for every agent the registry knows, present and future.
- */
+/** The exact gate-neutral materialized-skills directory for every known agent,
+ * with a trailing slash so scope matching treats it as a directory prefix.
+ * Provider-owned siblings such as commands, hooks, and settings stay outside
+ * this set and therefore remain real project changes. */
 export function neutralAgentScopePaths(): string[] {
+  return allSkillsDirs().map((dir) => `${dir.replace(/\/+$/, "")}/`);
+}
+
+/** Top-level provider directory prefixes used only to group setup's integration
+ * file review. This presentation concern is intentionally broader than the exact
+ * materialized-skills paths the neutral scope owns. */
+export function agentIntegrationPrefixes(): string[] {
   const out: string[] = [];
   for (const dir of allSkillsDirs()) {
     const top = `${dir.split("/")[0]}/`;

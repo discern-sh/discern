@@ -215,8 +215,8 @@ const standardValue = z.strictObject({
   metric: z.string().optional().describe(
     "Metric name the run emits (default: the standard name).",
   ),
-  direction: z.enum(["up", "down"]).default("up").describe(
-    '"up": limit is a floor; "down": limit is a ceiling.',
+  direction: z.enum(["up", "down"]).describe(
+    'Required. "up": limit is a floor; "down": limit is a ceiling.',
   ),
   limit: z.number().describe("The floor (up) or ceiling (down)."),
   run: commandOrList.describe(
@@ -428,7 +428,7 @@ const worktreeSection = z.strictObject({
     'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees", visible and adjacent outside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.',
   ),
   port: z.boolean().default(false).describe(
-    "Give each worktree a deterministic dev-server port (hashed from its id) to prevent collisions between concurrent worktrees. The port is derived identity and provisions nothing.",
+    "Record each worktree's deterministic dev-server port in its configured env files. The port remains available through `discern identity --port` when this is false; it is derived identity and provisions nothing.",
   ),
   ignored_file_drift: z.boolean().default(true).describe(
     "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
@@ -479,8 +479,8 @@ const gateSection = z.strictObject({
 );
 
 const couplingSection = z.strictObject({
-  in_gate: z.boolean().default(false).describe(
-    "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. Off by default.",
+  in_gate: z.boolean().default(true).describe(
+    "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. On by default; set false to keep coupling on demand.",
   ),
 }).prefault({}).describe(
   "Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.",
@@ -628,8 +628,8 @@ export const configDocSchema = z.strictObject({
 );
 
 /** The config-document shape — the *input* view (what an author writes, before
- * defaults), so optional attributes (a scope's `neutral`, a standard's
- * `direction`) stay optional. Internal alias of the inferred Zod type. */
+ * defaults), so optional attributes such as a scope's `neutral` stay optional.
+ * Internal alias of the inferred Zod type. */
 type InferredDiscernConfigDoc = z.input<typeof configDocSchema>;
 export type DiscernConfigDoc = Omit<InferredDiscernConfigDoc, "jobs"> & {
   /** The open document view: runtime validation applies the known-name/custom-

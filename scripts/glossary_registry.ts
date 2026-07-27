@@ -285,7 +285,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       `The documentation tree discern maintains at \`[map].dir\` (default \`${
         sourcePathDefault("map")
-      }\`): written by agents, kept current under the gate, and read by humans both as documentation and as an audit of what their agents understand. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)).`,
+      }\`): written by agents, kept current under the gate, and read by humans both as documentation and as an audit of what their agents understand. \`publish: false\` in a page's frontmatter withholds it from every published surface ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Pointing \`[map].dir\` at existing docs is explicit consent to manage them ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
   },
   {
     term: "Migration",
@@ -295,7 +295,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Namespace",
     definition:
-      `The visible \`${NAMESPACE_DIR}\` directory: the default home for your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the \`TODO.md\` ledger. Nothing generated is ever written inside it, and every source has a config key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).`,
+      `The visible \`${NAMESPACE_DIR}\` directory: the default home for the [map](#map), your [guidance source](#guidance-source), authored [skills](#skill), [project scripts](#project-script), the project brief, and the \`TODO.md\` ledger. Nothing generated is ever written inside it, and every configurable source has a key that points it anywhere ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).`,
   },
   {
     term: "Patterns",

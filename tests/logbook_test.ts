@@ -215,6 +215,7 @@ Deno.test("logbook schema: config-change, pin, and prune events validate", () =>
 
 const STANDARD_CONFIG = (limit: number, run: string): string => `
 [standards.cov]
+direction = "up"
 limit = ${limit}
 run = "${run}"
 `;

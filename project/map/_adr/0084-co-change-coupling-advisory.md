@@ -1,6 +1,6 @@
 # ADR 0084: Co-change coupling detection is a non-blocking advisory, recomputed on demand
 
-> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged.
+> **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged. **Default amendment ([ADR 0196](0196-coupling-advice-runs-with-the-gate-by-default.md)):** The cross-repository calibration is complete, so `[coupling].in_gate` now defaults to `true`. The advisory remains non-blocking and the explicit preference remains.
 
 **Status**: accepted
 

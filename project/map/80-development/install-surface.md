@@ -25,10 +25,10 @@ Directory paths ending in `/**` cover every maintained file below that directory
 | -------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | `discern/brief.md`                     | Project-owned  | The project brief captured at setup — authored intent, read by the setup instructions.                         |
 | `discern/guidance.md`                  | Project-owned  | The project's guidance source discern compiles into the agent files.                                           |
+| `discern/map/**`                       | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `discern/scripts/**`                   | Project-owned  | Where the project's own executable scripts live.                                                               |
 | `discern/skills/**`                    | Project-owned  | Where the project's authored skills live.                                                                      |
 | `discern/TODO.md`                      | Project-owned  | The deferred-work ledger — the running TODO list agents read and maintain.                                     |
-| `map/**`                               | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `.claude/settings.json`                | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/config.toml`                   | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/environments/environment.toml` | Shared         | Provider app configuration. discern maintains its setup and cleanup entries.                                   |
@@ -71,7 +71,7 @@ Every source path has a prescriptive default and a config key that points it any
 | Source               | Default               | Config key           |
 | -------------------- | --------------------- | -------------------- |
 | guidance source      | `discern/guidance.md` | `[guidance].sources` |
-| the map              | `map/`                | `[map].dir`          |
+| the map              | `discern/map/`        | `[map].dir`          |
 | authored skills      | `discern/skills`      | `[skills].dir`       |
 | project scripts      | `discern/scripts`     | `[scripts].dir`      |
 | deferred-work ledger | `discern/TODO.md`     | `[project].todo`     |
@@ -152,7 +152,7 @@ Fresh-install seeding belongs to the `discern setup` command rather than a skill
 
 ## The map & the ledger
 
-`discern setup begin` lays the map's skeleton at `[map].dir` (default `map/`, including the ADR pack and the `_internal/` documenter brief with its scope-manifest template) and the deferred-work ledger at `[project].todo` (default `discern/TODO.md`). The setup brief's authoring pass fills them, and the map has its skeleton from the start ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The skeleton sources ship with their producer: [`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup and a `skeleton/` directory inside each carrying skill. They are copied to the **configured** destinations with path tokens rendered ([ADR 0080](../_adr/0080-configured-agent-map-root.md), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+`discern setup begin` lays the map's skeleton at `[map].dir` (default `discern/map/`, including the ADR pack and the `_internal/` documenter brief with its scope-manifest template) and the deferred-work ledger at `[project].todo` (default `discern/TODO.md`). The setup brief's authoring pass fills them, and the map has its skeleton from the start ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). The skeleton sources ship with their producer: [`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup and a `skeleton/` directory inside each carrying skill. They are copied to the **configured** destinations with path tokens rendered ([ADR 0080](../_adr/0080-configured-agent-map-root.md), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ## Bookkeeping & integration
 

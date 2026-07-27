@@ -417,7 +417,7 @@ Usage: `discern config set-standard <name> [options]`
 | ------------------- | -------------------------------------------- |
 | `--limit <n>`       | The floor (up) or ceiling (down).            |
 | `--metric <name>`   | Metric name the run emits (default: <name>). |
-| `--direction <dir>` | Either "up" or "down" (default: up).         |
+| `--direction <dir>` | Either "up" or "down".                       |
 | `--run <cmd>`       | The command that emits the metric line.      |
 | `--dry-run`         | Print the edit and write nothing.            |
 

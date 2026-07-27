@@ -61,6 +61,8 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.setup.ensure, []);
   assertEquals(c.worktree.inherit_env, []);
   assertEquals(c.worktree.ignored_file_drift, true);
+  assertEquals(c.worktree.port, false);
+  assertEquals(c.coupling.in_gate, true);
 });
 
 Deno.test("projectDisplayName: [project].name, else the slug verbatim, else a neutral stand-in", () => {
@@ -240,9 +242,20 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
   );
 });
 
-Deno.test("standard direction defaults up; metric is optional (falls back to name at read)", () => {
-  const c = parseConfigOrThrow(
+Deno.test("every standard requires a direction; metric remains optional", () => {
+  const missing = parseConfig(
     `[standards.coverage]\nlimit = 80\nrun = "cov"\n`,
+  );
+  assertEquals(missing.config, undefined);
+  assert(
+    missing.issues.some((issue) =>
+      issue.path === "standards.coverage.direction"
+    ),
+    JSON.stringify(missing.issues),
+  );
+
+  const c = parseConfigOrThrow(
+    `[standards.coverage]\ndirection = "up"\nlimit = 80\nrun = "cov"\n`,
   );
   const r = c.standards.coverage;
   assert(r !== undefined);
@@ -257,7 +270,7 @@ Deno.test("a standard margin cannot be negative (a negative margin pins a failin
   // the measurement). Refuse it at load — margin is headroom, never a tightening —
   // so the bad state is unrepresentable. Zero and positive margins stay valid.
   const bad = parseConfig(
-    `[standards.cov]\nlimit = 80\nrun = "x"\nmargin = -5\n`,
+    `[standards.cov]\ndirection = "up"\nlimit = 80\nrun = "x"\nmargin = -5\n`,
   );
   assertEquals(bad.config, undefined);
   assert(
@@ -267,7 +280,7 @@ Deno.test("a standard margin cannot be negative (a negative margin pins a failin
   for (const margin of ["0", "0.5", "5", "100000"]) {
     assertEquals(
       parseConfig(
-        `[standards.cov]\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`,
+        `[standards.cov]\ndirection = "up"\nlimit = 80\nrun = "x"\nmargin = ${margin}\n`,
       )
         .issues,
       [],
@@ -285,7 +298,7 @@ Deno.test("a standard `per` extent with an empty pathspec array is refused (neve
   // measure set) so a new extent auto-enrols in the guard.
   for (const extent of EXTENTS) {
     const { config, issues } = parseConfig(
-      `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
+      `[standards.d]\ndirection = "down"\nlimit = 5\nrun = "x"\nper = { ${extent} = [] }\n`,
     );
     assertEquals(config, undefined, `empty ${extent} array must be refused`);
     assert(
@@ -297,14 +310,14 @@ Deno.test("a standard `per` extent with an empty pathspec array is refused (neve
     // A non-empty list (and a bare string) stay valid — the guard refuses only [].
     assertEquals(
       parseConfig(
-        `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
+        `[standards.d]\ndirection = "down"\nlimit = 5\nrun = "x"\nper = { ${extent} = ["a"] }\n`,
       ).issues,
       [],
       `one-pathspec ${extent} must validate`,
     );
     assertEquals(
       parseConfig(
-        `[standards.d]\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
+        `[standards.d]\ndirection = "down"\nlimit = 5\nrun = "x"\nper = { ${extent} = "a" }\n`,
       ).issues,
       [],
       `string ${extent} must validate`,

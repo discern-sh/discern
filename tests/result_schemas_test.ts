@@ -18,6 +18,7 @@ import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  defaultMapPath,
   git,
   gitInit,
   scaffoldEngine,
@@ -739,15 +740,15 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // No map/ tree yet → a no_map error envelope (no data).
+    // No map tree yet → a no_map error envelope (no data).
     expectFaithful("map", await mapResult(dir), "map no-tree");
 
     // Seed a tiny tree → index + single doc + not-found.
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas.\n",
     );
     const index = await mapResult(dir);

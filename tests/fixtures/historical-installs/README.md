@@ -19,6 +19,9 @@ capture was not available:
 - `schema-16`: derived from `schema-15` by applying the real 15→16 step — the
   config still carries `[worktree].graduate_to` (with its doc comment), so the
   16→17 drop of the graduate destination (ADR 0110) is exercised on real bytes
+- `schema-20` through `schema-22`: focused captures of each schema's changed
+  contract, including repository policy, the unified jobs table, and the
+  prerelease coupling and neutral-scope defaults
 
 The fixtures keep only `discern.toml`, `.gitignore`, and
 `.claude/settings.json` (plus, from `schema-14`, the movable authored surface):

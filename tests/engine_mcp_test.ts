@@ -35,6 +35,7 @@ import { withTempDir } from "./helpers.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import {
   addWorktree,
+  defaultMapPath,
   DENO_JSON,
   engineEnv,
   git,
@@ -827,20 +828,20 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // The scaffold ships no map/ tree until bootstrap — seed a tiny one.
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    // The scaffold ships no map tree until setup — seed a tiny one.
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "task-left.md"),
+      defaultMapPath(dir, "00-orientation", "task-left.md"),
       "# Copper orchard\n",
     );
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "task-right.md"),
+      defaultMapPath(dir, "00-orientation", "task-right.md"),
       "# Velvet beacon\n",
     );
     const mcp = await spawnMcp(dir);
@@ -989,11 +990,11 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // The host project has its own docs/ — discern_help must ignore it and serve
+    // The host project has its own map — discern_help must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
-    await Deno.mkdir(join(dir, "map"), { recursive: true });
+    await Deno.mkdir(defaultMapPath(dir), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "map", "project-only.md"),
+      defaultMapPath(dir, "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -2914,11 +2915,11 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     await scaffoldEngine(dir);
     await gitInit(dir);
     // Seed a project map so discern://map has content.
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
     const mcp = await spawnMcp(dir);
@@ -3077,11 +3078,11 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
     // Seed a project doc UNDER A SECTION, so its `section/slug` and path forms are
     // genuinely slash-bearing (the forms the bare template could never match).
     const marker = "Sectioned doc body for the B37 addressing guard.";
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       `# Concepts\n\n${marker}\n`,
     );
     const mcp = await spawnMcp(dir);

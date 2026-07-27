@@ -13,7 +13,7 @@ aliases:
 
 _Put a number behind a quality promise, then prevent later branches from moving it the wrong way._
 
-A standard is a measured floor or ceiling in `discern.toml`. `direction = "up"` holds a floor. `direction = "down"` holds a ceiling. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
+A standard is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
 
 ## Add a standard
 

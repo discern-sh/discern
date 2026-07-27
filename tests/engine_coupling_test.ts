@@ -46,8 +46,8 @@ import { prepareResult } from "../src/engine/gate/prepare.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
 
 /** A bare set-up project (no capabilities; guidance/skills off so the gate is a clean
- * green no-op) — coupling needs zero config, so the only thing a test sets is `in_gate`. */
-async function setup(dir: string, inGate = false): Promise<void> {
+ * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
+async function setup(dir: string, inGate = true): Promise<void> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   await writeConfig(
@@ -532,7 +532,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
     await noise(dir, 6);
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
-    // in_gate off (the default): the gate is green and carries NO coupling advisory.
+    // Explicitly disabled: the gate is green and carries no coupling advisory.
     const off = await finishResult(dir);
     assertEquals(off.ok, true);
     assertEquals(off.data?.failed_stage ?? null, null);
@@ -707,7 +707,7 @@ Deno.test("prepare appends the coupling advisory only when [coupling].in_gate is
     await noise(dir, 6);
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
-    // in_gate off (the default): the fast loop is green and carries NO coupling advisory.
+    // Explicitly disabled: the fast loop is green and carries no coupling advisory.
     const off = await prepareResult(dir);
     assertEquals(off.ok, true);
     assertLacksHint(off, HINTS["coupling-diff-header"]);

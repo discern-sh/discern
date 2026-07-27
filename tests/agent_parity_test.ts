@@ -484,23 +484,23 @@ Deno.test("every rule in the canonical block maps to a registry-declared materia
   }
 });
 
-Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir", () => {
-  const neutral = defaultNeutralScopes(); // already TOML-quoted, e.g. '".claude/"'
-  for (const top of neutralAgentScopePaths()) {
+Deno.test("the seed neutral scopes neutralize EVERY known agent's materialized skills dir", () => {
+  const neutral = defaultNeutralScopes(); // TOML-quoted, e.g. '".claude/skills/"'
+  for (const dir of neutralAgentScopePaths()) {
     assert(
-      neutral.includes(`"${top}"`),
-      `defaultNeutralScopes() does not neutralize ${top} — a change under an agent's ` +
-        `generated dir would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
+      neutral.includes(`"${dir}"`),
+      `defaultNeutralScopes() does not neutralize ${dir} — a materialized skill ` +
+        `would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
     );
   }
   // Every known agent contributes a neutral region (none silently absent).
   for (const name of AGENT_NAMES) {
     const dir = providerFor(name)?.skillsDir?.path;
     if (dir === undefined) continue;
-    const top = `${dir.split("/")[0]}/`;
+    const scopePath = `${dir.replace(/\/+$/, "")}/`;
     assert(
-      neutralAgentScopePaths().includes(top),
-      `${name}'s generated region ${top} is missing from neutralAgentScopePaths()`,
+      neutralAgentScopePaths().includes(scopePath),
+      `${name}'s materialized skills dir ${scopePath} is missing from neutralAgentScopePaths()`,
     );
   }
 });
@@ -527,10 +527,10 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
         fragmentIgnoresDir(p.skillsDir.path),
         `${name}: skills dir ${p.skillsDir.path} not gitignored by the seed fragment`,
       );
-      const top = `${p.skillsDir.path.split("/")[0]}/`;
+      const scopePath = `${p.skillsDir.path.replace(/\/+$/, "")}/`;
       assert(
-        defaultNeutralScopes().includes(`"${top}"`),
-        `${name}: generated region ${top} not in the seed neutral scopes`,
+        defaultNeutralScopes().includes(`"${scopePath}"`),
+        `${name}: materialized skills dir ${scopePath} not in the seed neutral scopes`,
       );
     }
 

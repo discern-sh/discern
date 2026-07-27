@@ -26,7 +26,7 @@ These are project sources. Your agents maintain them as the project changes.
 | `discern/brief.md`    | The project description captured during setup.                 | Update it when the project's purpose materially moves.   |
 | `discern/skills/`     | Skills your project authors or overrides.                      | Add or edit each skill at its source.                    |
 | `discern/scripts/`    | Project-specific executables reached through `discern script`. | Edit and test the executable itself.                     |
-| `map/`                | The documentation map your agents keep current with the code.  | Edit the authored Markdown. `[map].dir` can relocate it. |
+| `discern/map/`        | The documentation map your agents keep current with the code.  | Edit the authored Markdown. `[map].dir` can relocate it. |
 
 The `discern/` namespace contains authored material only. Generated copies do not belong there ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 

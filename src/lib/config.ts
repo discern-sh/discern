@@ -14,7 +14,7 @@ import { KIT_VERSION } from "./version.ts";
 // share one identity source without making signal-only agents setup choices.
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import { MAP_DIR_REFERENCE } from "../shared/map_path.ts";
-import { NAMESPACE_DIR, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { SOURCE_PATH_NAMES, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { neutralAgentScopePaths } from "./providers.ts";
 
 /** The agent/provider files the kit knows how to emit. */
@@ -48,21 +48,37 @@ export const DEFAULTS = {
   scopesPreviewable: ['"public/**"'],
 } as const;
 
-/**
- * The neutral-scope globs a fresh install seeds (already TOML-quoted): docs, the
- * `discern/` namespace (guidance sources, authored skills, project scripts, the ledger,
- * the brief — every default from the paths registry lives under it), and EVERY
- * known agent's generated dir — the last derived from the provider registry via
- * {@link neutralAgentScopePaths}, so adding an agent neutralizes its dir
- * automatically instead of leaving a hand-maintained `.claude/`-only list to
- * drift. Root-level *.md is treated as neutral by the classifier regardless.
- */
-export function defaultNeutralScopes(): string[] {
+/** Render one registry path as a scope pattern. The map keeps its live config
+ * reference; other directories gain the trailing slash the scope matcher uses
+ * for prefix matching. */
+function neutralSourceScopePath(
+  name: (typeof SOURCE_PATH_NAMES)[number],
+): string {
+  const entry = SOURCE_PATHS[name];
+  if (name === "map") {
+    return MAP_DIR_REFERENCE;
+  }
+  return entry.pathKind === "directory"
+    ? `${entry.defaultPath.replace(/\/+$/, "")}/`
+    : entry.defaultPath;
+}
+
+/** The raw neutral-scope paths a fresh install seeds. Authored paths derive from
+ * the path registry's explicit classification; materialized skills derive from
+ * the provider registry. Executable project scripts and provider-owned sibling
+ * files remain gated. */
+export function defaultNeutralScopePaths(): string[] {
   return [
-    `"${MAP_DIR_REFERENCE}"`,
-    `"${NAMESPACE_DIR}"`,
-    ...neutralAgentScopePaths().map((p) => `"${p}"`),
+    ...SOURCE_PATH_NAMES
+      .filter((name) => SOURCE_PATHS[name].gateNeutral)
+      .map(neutralSourceScopePath),
+    ...neutralAgentScopePaths(),
   ];
+}
+
+/** The fresh neutral-scope paths, quoted for template substitution. */
+export function defaultNeutralScopes(): string[] {
+  return defaultNeutralScopePaths().map((path) => `"${path}"`);
 }
 
 /** The fully-resolved answers that drive scaffolding. */

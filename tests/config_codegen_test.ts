@@ -14,6 +14,7 @@ import {
   resolveConfiguredAgents,
 } from "../src/shared/config_schema.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -153,7 +154,7 @@ async function renderedTemplate(): Promise<string> {
     branch_prefix: "agent/",
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
-    map_dir: "map/",
+    map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: '"${map.dir}"',
     scopes_previewable: '"public/**"',
     kit_version: KIT_VERSION,

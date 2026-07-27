@@ -299,7 +299,7 @@ export async function runConfigSetScope(
 }
 
 /**
- * `config set-standard <name> --limit <n> --run <cmd> [--metric] [--direction]`
+ * `config set-standard <name> --direction <up|down> --limit <n> --run <cmd> [--metric]`
  *
  * Every standard is a `[standards.<name>]` table — `coverage` is just a
  * conventional name, with no special handling. The `run` command emits the
@@ -311,7 +311,7 @@ export async function runConfigSetStandard(
     limit: string;
     run: string;
     metric?: string | undefined;
-    direction?: string | undefined;
+    direction: string;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
@@ -320,7 +320,7 @@ export async function runConfigSetStandard(
       `standard name must be letters, digits, '_' or '-' (got "${name}").`,
     );
   }
-  const direction = opts.direction ?? "up";
+  const direction = opts.direction;
   if (direction !== "up" && direction !== "down") {
     return fail(
       opts,

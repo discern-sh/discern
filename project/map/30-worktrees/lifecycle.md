@@ -23,16 +23,16 @@ The default location is a sibling directory, `<repo>.worktrees/<id>`. `[worktree
 
 Setup runs in this order:
 
-| Phase                | Result                                                                            |
-| -------------------- | --------------------------------------------------------------------------------- |
-| Branch               | Creates or confirms the worktree branch.                                          |
-| Environment          | Copies declared values from the main checkout.                                    |
-| Resources            | Creates each declared resource and records its handle.                            |
-| Identity             | Records the deterministic port when an env file exists.                           |
-| One-time setup       | Runs `[worktree.setup].steps` only for a fresh worktree.                          |
-| Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state. |
-| Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.     |
-| Agent files          | Rebuilds guidance and materializes skills in the new checkout.                    |
+| Phase                | Result                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| Branch               | Creates or confirms the worktree branch.                                            |
+| Environment          | Copies declared values from the main checkout.                                      |
+| Resources            | Creates each declared resource and records its handle.                              |
+| Identity             | Records the deterministic port when `[worktree].port` is on and an env file exists. |
+| One-time setup       | Runs `[worktree.setup].steps` only for a fresh worktree.                            |
+| Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.   |
+| Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.       |
+| Agent files          | Rebuilds guidance and materializes skills in the new checkout.                      |
 
 `start` creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
 

@@ -174,16 +174,17 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 #                        scope's gate job only (0 disables its bound)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Paths that need no gate at all: docs and agent-guidance sources. (Generated
-# guidance outputs are refreshed by the gate itself; editing the source changes
-# no behaviour.) Root-level *.md is always treated as neutral.
+# Paths that need no gate at all: the map, authored agent instructions, ledger,
+# and exact materialized-skills directories. Project Scripts and provider-owned
+# sibling files still run the gate. Root-level *.md is always treated as neutral.
 [scopes.docs]
 paths = [
   "${map.dir}",
   "project/guidance.md",
   "project/skills/",
   "project/TODO.md",
-  ".claude/",
+  ".claude/skills/",
+  ".agents/skills/",
 ]
 neutral = true
 
@@ -569,8 +570,8 @@ timeout = 600
 [coupling]
 # Surface the advisory during the gate too — `discern done` AND the fast inner
 # loop `discern prepare` (as hints, at the tail — it never affects pass/fail), so
-# the nudge meets a change while it is hot. Dogfooded ON in this repo; the shipped
-# template defaults it off until validated on a second repo.
+# the nudge meets a change while it is hot. On by default; set false to keep
+# coupling on demand.
 in_gate = true
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -597,5 +598,5 @@ dir = "project/scripts"
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 22
+schema_version = 23
 bootstrapped = true

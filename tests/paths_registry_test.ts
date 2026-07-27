@@ -24,20 +24,17 @@ import {
   resolveTodoPath,
 } from "../src/lib/paths.ts";
 
-Deno.test("registry defaults follow the namespace policy, with the project map at root", () => {
+Deno.test("registry defaults follow the namespace policy and classify gate-neutral sources", () => {
   for (const name of SOURCE_PATH_NAMES) {
     const entry = SOURCE_PATHS[name];
-    if (name === "map") {
-      assertEquals(entry.defaultPath, "map/");
-      assertEquals(entry.legacyPath, "discern/docs/");
-      assert(entry.description.length > 0, `${name}: needs a description`);
-      continue;
-    }
     assert(
       entry.defaultPath.startsWith(NAMESPACE_DIR),
       `${name}: default "${entry.defaultPath}" must live under ${NAMESPACE_DIR}`,
     );
-    if (name === "scripts") {
+    if (name === "map") {
+      assertEquals(entry.defaultPath, "discern/map/");
+      assertEquals(entry.legacyPath, "discern/docs/");
+    } else if (name === "scripts") {
       assertEquals(entry.legacyPath, "discern/recipes");
     } else {
       assert(
@@ -45,6 +42,11 @@ Deno.test("registry defaults follow the namespace policy, with the project map a
         `${name}: legacy "${entry.legacyPath}" predates the namespace`,
       );
     }
+    assertEquals(
+      entry.gateNeutral,
+      name !== "scripts",
+      `${name}: executable Project Scripts are the only gated authored source`,
+    );
     assert(entry.description.length > 0, `${name}: needs a description`);
   }
 });

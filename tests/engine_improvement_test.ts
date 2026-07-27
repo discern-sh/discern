@@ -121,6 +121,7 @@ test = "true"
 [worktree]
 
 [standards.coverage]
+direction = "up"
 limit = 1
 run = "echo DISCERN_METRIC coverage 1"
 

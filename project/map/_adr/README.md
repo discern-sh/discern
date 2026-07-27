@@ -189,6 +189,10 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0192 — static guidance earns delivery by the routing test](0192-static-guidance-earns-delivery-by-the-routing-test.md)
 - [0193 — discern does not enforce at the vendor security boundary](0193-discern-does-not-enforce-the-vendor-security-boundary.md)
 - [0194 — Standing pre-authorization is a recorded, machine-checked grant — `[acceptance]`, covered landings, and the desk's effort grant](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)
+- [0195 — Fresh maps and neutral scopes stay inside discern-owned paths](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)
+- [0196 — Coupling advice runs with the gate by default](0196-coupling-advice-runs-with-the-gate-by-default.md)
+- [0197 — Every standard declares its direction](0197-standard-direction-is-required.md)
+- [0198 — Worktree port export is opt-in](0198-worktree-port-export-is-opt-in.md)
 
 <!-- END GENERATED: current ADR records -->
 

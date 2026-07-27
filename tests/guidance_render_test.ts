@@ -17,6 +17,7 @@ import {
 } from "../src/engine/guidance_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
+import { defaultMapPath } from "./engine_helpers.ts";
 
 /** A temp project emitting both providers, with one user guidance source. */
 async function scaffold(
@@ -223,11 +224,11 @@ Deno.test("renderAgentFiles: two renders of the same committed inputs are byte-i
 Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn", async () => {
   const dir = await scaffold('["codex"]');
   try {
-    await Deno.mkdir(join(dir, "map", "20-quality-gate"), {
+    await Deno.mkdir(defaultMapPath(dir, "20-quality-gate"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "20-quality-gate", "README.md"),
+      defaultMapPath(dir, "20-quality-gate", "README.md"),
       "# Quality gate\n\nHow the project proves changes.\n",
     );
     const first = (await renderAgentFiles(dir)).get("AGENTS.md");
@@ -237,7 +238,7 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
     // A leaf joins search and the region index, but the compact generated list
     // depends only on the top-level region and its front-door title.
     await Deno.writeTextFile(
-      join(dir, "map", "20-quality-gate", "jobs.md"),
+      defaultMapPath(dir, "20-quality-gate", "jobs.md"),
       "# Jobs\n\nOne leaf.\n",
     );
     assertEquals(
@@ -246,9 +247,11 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
       "adding a leaf inside an existing region must not churn agent guidance",
     );
 
-    await Deno.mkdir(join(dir, "map", "30-worktrees"), { recursive: true });
+    await Deno.mkdir(defaultMapPath(dir, "30-worktrees"), {
+      recursive: true,
+    });
     await Deno.writeTextFile(
-      join(dir, "map", "30-worktrees", "README.md"),
+      defaultMapPath(dir, "30-worktrees", "README.md"),
       "# Worktrees\n\nIsolated checkouts.\n",
     );
     const expanded = (await renderAgentFiles(dir)).get("AGENTS.md");
@@ -300,6 +303,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         "[guidance]",
         'agents = ["codex"]',
         "[standards.coverage]",
+        'direction = "up"',
         "limit = 80",
         'run = "echo DISCERN_METRIC coverage 80"',
         "[worktree.resources.db]",
@@ -421,6 +425,7 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
         "[guidance]",
         'agents = ["claude_code", "codex"]',
         "[standards.coverage]",
+        'direction = "up"',
         "limit = 80",
         'run = "echo hi"',
         "[worktree.resources.db]",
