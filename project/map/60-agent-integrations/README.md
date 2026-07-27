@@ -16,6 +16,8 @@ Each native provider also declares a compact mark and horizontal logo lockup wit
 
 Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.
 
+Every write discern makes into a vendor surface smooths discern's own workflow — it never enforces security there. Sandboxing, permissions, and approval flows stay with the vendor, and a project's actual security posture stays with the user ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
+
 For the shared instructions behind these files, read [Agent guidance](../40-agent-guidance/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
 
 The identity catalogue supplies the supported set, and the total provider registry makes every native integration complete ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md), [ADR 0031](../_adr/0031-typed-provider-integration.md)).

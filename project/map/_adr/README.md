@@ -187,6 +187,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0190 — Cohort findings lift the provider-comparison deferral, under standing conditions](0190-cohort-findings-lift-the-provider-comparison-deferral.md)
 - [0191 — An eighth bundled skill teaches the write-once discipline](0191-an-eighth-bundled-skill-write-it-once.md)
 - [0192 — static guidance earns delivery by the routing test](0192-static-guidance-earns-delivery-by-the-routing-test.md)
+- [0193 — discern does not enforce at the vendor security boundary](0193-discern-does-not-enforce-the-vendor-security-boundary.md)
 
 <!-- END GENERATED: current ADR records -->
 
