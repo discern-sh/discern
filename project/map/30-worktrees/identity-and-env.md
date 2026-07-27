@@ -1,7 +1,7 @@
 ---
 title: Identity and environment
 description: How a worktree gets stable names, a deterministic port, inherited env values, and discoverable resource handles.
-order: 30
+order: 40
 aliases:
   - worktree identity
   - discern identity

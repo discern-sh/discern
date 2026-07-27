@@ -1,7 +1,7 @@
 ---
 title: Parallel and team work
 description: How people and agents share a repository while each change stays in its own worktree and branch.
-order: 40
+order: 50
 aliases:
   - team workflow
   - parallel agents

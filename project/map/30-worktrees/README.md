@@ -22,9 +22,9 @@ Treat every worktree as occupied, even when git reports it clean. [`discern stat
 | Order | Read next                                       | What's in it                                                          |
 | ----: | ----------------------------------------------- | --------------------------------------------------------------------- |
 |    10 | [Start, update, and accept](lifecycle.md)       | The full lifecycle, including cleanup and refusal paths.              |
-|    15 | [The trunk](the-trunk.md)                       | What the shared branch is, what moves it, and why work stays off it.  |
-|    20 | [Per-worktree resources](the-resources.md)      | Provisioning, teardown, the resource ledger, and orphan cleanup.      |
-|    30 | [Identity and environment](identity-and-env.md) | Stable names, ports, env inheritance, and runtime discovery.          |
-|    40 | [Parallel and team work](team-workflow.md)      | Fleet ownership, branch composition, multiple repos, and new clones.  |
-|    50 | [Status and session hints](status.md)           | Read current worktree or fleet state and the next actions it implies. |
-|    60 | [The desk](the-desk.md)                         | Start tasks, open agents, and supervise every active worktree.        |
+|    20 | [The trunk](the-trunk.md)                       | What the shared branch is, what moves it, and why work stays off it.  |
+|    30 | [Per-worktree resources](the-resources.md)      | Provisioning, teardown, the resource ledger, and orphan cleanup.      |
+|    40 | [Identity and environment](identity-and-env.md) | Stable names, ports, env inheritance, and runtime discovery.          |
+|    50 | [Parallel and team work](team-workflow.md)      | Fleet ownership, branch composition, multiple repos, and new clones.  |
+|    60 | [Status and session hints](status.md)           | Read current worktree or fleet state and the next actions it implies. |
+|    70 | [The desk](the-desk.md)                         | Start tasks, open agents, and supervise every active worktree.        |

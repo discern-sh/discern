@@ -1,7 +1,7 @@
 ---
 title: The trunk
 description: The shared branch accepted work lands on — what moves it, and why work stays off it.
-order: 15
+order: 20
 aliases:
   - the trunk
   - trunk branch

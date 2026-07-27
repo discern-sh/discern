@@ -1,7 +1,7 @@
 ---
 title: Per-worktree resources
 description: Configure external resources that discern creates, reuses, destroys, and reclaims with each worktree.
-order: 20
+order: 30
 aliases:
   - worktree resources
   - resource lifecycle
