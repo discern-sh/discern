@@ -1,4 +1,4 @@
-# ADR 0191: static guidance earns delivery by the routing test
+# ADR 0192: static guidance earns delivery by the routing test
 
 **Status**: accepted; gives the guidance-words ceiling its admission rule, builds on the moment-of-need channels of [ADR 0172](0172-hints-compile-from-a-registry.md) and [ADR 0185](0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md), and continues the practice [ADR 0188](0188-the-receipt-relays-as-one-line.md) applied to one sentence.
 

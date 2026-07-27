@@ -679,6 +679,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               "Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.",
             surfaces: ["skill:discern-write-adr"],
           },
+          {
+            id: "skill-write-it-once",
+            title: "Write it once",
+            what:
+              "The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.",
+            surfaces: ["skill:discern-write-it-once"],
+          },
         ],
       },
     ],

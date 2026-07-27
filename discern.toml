@@ -444,7 +444,7 @@ inputs = [
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
 # word count is a context-window budget we spend on their behalf.
-# A sentence earns static delivery only by the routing test (ADR 0191): it must be
+# A sentence earns static delivery only by the routing test (ADR 0192): it must be
 # needed BEFORE the first relevant tool call, and that call must be unable to
 # deliver it. Mechanics an envelope, refusal, or tool description already carries
 # belong to that channel, not here. Standing exemptions — the channel-down CLI
@@ -475,7 +475,7 @@ inputs = ["templates/skills/**"]
 [standards.skills_words]
 metric = "skills_words"
 direction = "down"
-limit = 857
+limit = 795
 run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
 inputs = ["templates/skills/**"]
 
