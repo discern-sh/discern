@@ -24,4 +24,3 @@ Tests drive off the exported route table: every declared route must serve its pa
 - The gate formats, lints, type-checks, and tests the site alongside the engine; a broken route or missing page fails `discern done`.
 - The site inherits this repo's release cadence: publishing a page is a landing on `main` plus a deploy, not a separate pipeline.
 - Deno Deploy is the production target but not a lock-in: the handler is a plain `fetch` function, portable to Cloudflare Workers or a container behind any reverse proxy.
-- The mockups under `mockups/landing/` remain the design archive; pages are promoted from there into `site/pages/` deliberately, not synced.
