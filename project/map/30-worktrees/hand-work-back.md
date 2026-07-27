@@ -20,7 +20,7 @@ A green gate starts review. Landing remains the owner's decision. Keep the workt
 
 Commit the intended tree and bring the latest trunk into the branch with [`discern update`](lifecycle.md#bring-the-trunk-into-the-branch) when the branch is behind. Review any incoming overlap before calling the work complete.
 
-Run `discern done` on the clean final commit. A qualifying green run records a receipt for that `HEAD`: a one-line review claim and a full page listing the jobs, scopes, standards, and diff command. If the gate passes without a receipt, follow its hint, settle the branch state, and rerun it. A dirty tree or a later commit cannot carry proof for the commit under review.
+Run `discern done` on the clean final commit. A qualifying green run records a receipt for that `HEAD`: a one-line review claim and a full page listing the jobs, scopes, standards, and diff command. If the gate passes without a receipt, follow its hint, settle the branch state, and rerun it.
 
 ## Report and wait
 
@@ -33,7 +33,7 @@ Give the owner an account in your own words:
 
 End the report with `data.receipt.line`. Keep the full receipt page out of the message. The owner reads it with `discern status --verbose` and opens the raw change with the diff command named there. [`Status and session hints`](status.md) also exposes the honored receipt from the main checkout's fleet view.
 
-Stop after the receipt line and wait. Further edits change `HEAD` and invalidate the handoff. If review requests a change, make it in the same worktree, commit it, and run `discern done` again before reporting the new receipt.
+Stop after the receipt line and wait. An uncommitted edit dirties the tree. A later commit changes `HEAD`. Either invalidates the handoff. If review requests a change, make it in the same worktree, commit it, and run `discern done` again before reporting the new receipt.
 
 ## Accept after authorization
 
@@ -47,7 +47,7 @@ You can also supervise a ready branch from [the desk](the-desk.md). Its Accept a
 
 ## Spin out follow-on work
 
-Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The Skill turns the work into self-contained prompts, assigns real file boundaries, and gives each fresh agent its own worktree.
+Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The Skill prepares self-contained prompts for agents to run in fresh worktrees and hands the prompts back by default. If your agent can launch those sessions or worktrees and you prefer that, it can launch them directly.
 
 Leave the ready worktree untouched while its landing decision is pending. Independent follow-ups start from the trunk in separate worktrees. A dependent follow-up starts from the unlanded branch with `discern start --from <ref>` or pulls that ref into its own worktree with `discern update --from <ref>`. [Parallel and team work](team-workflow.md) covers that composition model.
 
