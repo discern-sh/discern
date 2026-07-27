@@ -1,3 +1,11 @@
+---
+aliases:
+  - test suite
+  - deno tests
+  - write tests
+  - coverage
+---
+
 # Testing
 
 _The testing approach in this repo — how tests are written, how they run, and the patterns the gate assumes._

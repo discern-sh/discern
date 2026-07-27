@@ -1,3 +1,11 @@
+---
+aliases:
+  - contributor guide
+  - development
+  - contribute to discern
+  - work on discern
+---
+
 # Working on this project
 
 _The contributor's view of the codebase — set up, write, test, ship._

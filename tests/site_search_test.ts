@@ -7,6 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { DocEntry } from "../src/lib/docs.ts";
+import { loadDocsSite } from "../site/docs.ts";
 import { buildSearchIndex, type SearchSource } from "../site/search.ts";
 import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import { searchPages } from "../site/pages/assets/search.js";
@@ -134,6 +135,55 @@ Deno.test("exact commands, config keys, error strings, and aliases return contex
       assertStringIncludes(result.snippet.toLowerCase(), query.toLowerCase());
     }
   }
+});
+
+Deno.test("task-shaped searches land on the manual page that owns the procedure", async () => {
+  const site = await loadDocsSite();
+  const index = await buildSearchIndex([
+    {
+      route: site.landing.route,
+      section: "Manual",
+      entry: site.landing.entry,
+    },
+    ...site.pages.map((page) => ({
+      route: page.route,
+      section: site.sections.find((section) =>
+        section.slug === page.sectionSlug
+      )?.title ?? "",
+      entry: page.entry,
+    })),
+  ]);
+
+  const cases = [
+    ["give this back", "/docs/worktrees/hand-work-back"],
+    ["can't edit main", "/docs/worktrees/lifecycle"],
+    ["check failed", "/docs/quality-gate/when-the-gate-fails"],
+    [
+      "remember this rule",
+      "/docs/agent-guidance/write-project-guidance",
+    ],
+    ["update my branch", "/docs/worktrees/lifecycle"],
+  ] as const;
+
+  for (const [query, expectedRoute] of cases) {
+    const result = searchPages(index.pages, query)[0];
+    assert(result !== undefined, `top result for ${query}`);
+    assertEquals(
+      result.page.route,
+      expectedRoute,
+      `top result for ${query}`,
+    );
+  }
+});
+
+Deno.test("every public numbered-tier page declares search aliases", async () => {
+  const site = await loadDocsSite();
+  assertEquals(
+    site.pages
+      .filter((page) => page.entry.aliases.length === 0)
+      .map((page) => page.entry.relToDocs),
+    [],
+  );
 });
 
 Deno.test("search field weights stay title > aliases > headings > code > body", async () => {

@@ -7,6 +7,8 @@ aliases:
   - discern update
   - discern accept
   - worktree lifecycle
+  - can't edit main
+  - update my branch
 ---
 
 # Start, update, and accept a worktree

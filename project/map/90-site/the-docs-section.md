@@ -1,3 +1,11 @@
+---
+aliases:
+  - documentation site
+  - docs routes
+  - manual website
+  - docs search
+---
+
 # The docs section
 
 `/docs` renders the same product-guidance tree `discern help` serves. The engine's `discoverDocs` finds that tree. [`MANUAL_SECTION_REGISTRY`](../../../src/lib/paths.ts) lists every numbered map section in reading order and classifies its audience. `BUNDLED_PUBLIC_DOC_DIRS` selects the public entries and decides which subtrees ship inside every customer binary ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). A leaf added to a public tier appears in the nav, search index, llms.txt, and test suite automatically. A new numbered tier must first join the total registry. The map's decision records use the same document model through a separate, explicitly historical route family ([ADR 0143](../_adr/0143-decisions-on-the-web.md)).
