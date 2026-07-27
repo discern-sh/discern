@@ -1,7 +1,7 @@
 ---
 title: Tasks by lifecycle
 description: Find the manual page for installing, working, checking, handing off, and maintaining discern.
-order: 0
+order: 10
 aliases:
   - task index
   - find a task
