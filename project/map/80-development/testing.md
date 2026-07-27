@@ -14,10 +14,13 @@ deno test tests/upgrade_migrations_test.ts # a single file while iterating
 deno test --filter "convergence"        # a filtered subset by test name
 ```
 
-`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run` (the suite runs the engine via `deno run src/main.ts` and shells out to `git`). The site tests read the built site, which the gate's build stage produces via `deno task site:build`; on a fresh checkout that has never run the gate, run `deno task site:build` once before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
+`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. The suite invokes the engine through `deno run src/main.ts` and shells out to `git`. Deno runs test modules in parallel; tests inside one module remain serial.
 
-There are **two layers**, sharing two helper modules:
+The site tests read the built site, which the gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the gate, run `deno task site:build` before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
+Tests work at these layers:
+
+- **In-process tests** call the production parser, planner, result core, or renderer that owns a decision. Put input variants here and drive them from a table when they share one contract.
 - **Installer tests** drive the Deno CLI as a real subprocess via `runCli` ([tests/helpers.ts](../../../tests/helpers.ts)), exercising Cliffy parsing, global flags, `--json` output, and exit codes through the CLI boundary.
 - **Engine tests** (`tests/engine_*`) scaffold the **real** `templates/` (the `discern.toml` seed) into a temp dir using the installer's own plan/apply path, then run the engine as a real subprocess via `runAgent` ([tests/engine_helpers.ts](../../../tests/engine_helpers.ts)). They run `deno run src/main.ts <verb>` inside that directory, with a `discern` shim on `PATH` so project scripts resolve. The engine verbs (`done`, `worktree`, …) and their `--json` contracts are exercised against a faithful install.
 
@@ -25,7 +28,7 @@ There are **two layers**, sharing two helper modules:
 
 ## How tests are written
 
-- **Assert on observable behavior.** Prefer the subprocess helpers (`runCli`, `runAgent`) and assert on captured `stdout`/`stderr`/exit code. Color is forced off (`NO_COLOR`) so assertions match plain text.
+- **Test each decision at its production seam.** Put a variant matrix in an in-process test, then keep a representative `runCli` or `runAgent` case for CLI parsing, output, exit codes, and boundary wiring. Each subprocess loads the CLI and may start Git or project commands, so reuse an existing boundary fixture when it already crosses the same path. The helpers disable color (`NO_COLOR`), so boundary assertions match plain text.
 - **Scaffold from the real templates.** Engine tests use `scaffoldEngine` (which lays down `REAL_TEMPLATES` through `assembleInitPlan`/`applyPlan`), so the bytes under test are the bytes a real `discern setup` ships. Use `writeConfig` to set the `[jobs]`/`[scopes]`/`[standards]` a case needs, and `addWorktree` for the worktree-command layout.
 - **Use fixtures for unit-level installer tests.** `FIXTURE_TEMPLATES` plus `testTokens` give a small synthetic tree for testing rendering/plan logic in isolation, separate from the full real templates.
 - **Assert idempotency/convergence where it matters.** `snapshotTree` + `assertConverges` express the "upgrade ≡ fresh init" invariant ([ADR 0014](../_adr/0014-versioned-migration-system.md)); reach for them when a change touches the install/upgrade/migration path.
