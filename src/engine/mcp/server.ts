@@ -184,7 +184,7 @@ const UPDATE: ToolAnnotations = {
  * the handler, inferred from the tool's own Zod input shape. */
 type ToolArgs<TShape extends z.ZodRawShape> = z.infer<z.ZodObject<TShape>>;
 
-/** What a {@link McpTool.reaimOnSuccess} hook decides the re-aim from. `heldRootMissing`
+/** What a {@link McpTool.reaimAfterResult} hook decides the re-aim from. `heldRootMissing`
  * is true when the server's held working root does not exist after the call — the signal
  * that a destructive verb (accept) removed the directory it pointed at, so the held
  * root is dangling and must move even though `path` was passed. */
@@ -228,17 +228,18 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
    * other tool operates on the project and genuinely needs a root. Omitted (falsey)
    * for all the rest. */
   rootIndependent?: boolean;
-  /** After a SUCCESSFUL, non-preview call, compute the server's new working root —
-   * the data-driven re-aim (ADR 0062), so {@link runTool} needs no per-tool name
-   * switch. `discern_start` points it at the worktree it just created
-   * (`result.data.path`); `discern_accept` points it at the main checkout the branch
-   * landed in (`result.data.root`) — but ONLY when its own held root is now gone
-   * (`ctx.heldRootMissing`), i.e. accept removed the worktree the root pointed at.
+  /** After a non-preview call, compute the server's new working root from the
+   * result's effect evidence. The data-driven re-aim (ADR 0062) means
+   * {@link runTool} needs no per-tool name switch. `discern_start` points it at the
+   * worktree it just created (`result.data.path`); `discern_accept` points it at the
+   * main checkout the branch landed in (`result.data.root`) when its landing state
+   * says that it removed the worktree and its own held root is now gone
+   * (`ctx.heldRootMissing`).
    * That guard is what lets the re-aim run even on a `path` override (accept can
    * delete the held root, unlike a one-call read) without disturbing a held root that
    * points at a DIFFERENT, still-live worktree (§2). Return undefined to leave the
    * working root unchanged — the default for every other tool, which never moves it. */
-  reaimOnSuccess?(
+  reaimAfterResult?(
     result: DiscernResult,
     ctx: ReaimContext,
   ): string | undefined;
@@ -770,9 +771,12 @@ export const TOOLS: McpTool[] = orderTools([
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
       "step (e.g. call discern_update first). Landing authority comes from either " +
       "a `confirmed` conversation or a machine-verified grant recorded on the " +
-      "trunk or at the desk. Without either, it refuses read-only and re-serves " +
-      "the review moment (relay the receipt, wait for the owner) instead of " +
-      "landing. Set dry_run to preview " +
+      "trunk or at the desk. Before recovering an interrupted acceptance, it " +
+      "also accepts consent bound to that recorded transaction. Journal-bound " +
+      "consent finishes only that transaction; it never authorizes a new trunk " +
+      "transition. Without current or journal-bound authority, it refuses " +
+      "read-only and re-serves the review moment (relay the receipt, wait for " +
+      "the owner) instead of landing. Set dry_run to preview " +
       "the plan without touching anything. " +
       "Operates on the worktree this call selects: the server's current target by " +
       "default, or the discern worktree containing an explicit absolute `path`.",
@@ -787,16 +791,17 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    // A successful acceptance removes the worktree the server operated on — re-aim the
-    // working root to the MAIN CHECKOUT the branch landed in (`result.data.root`), the
-    // path subsequent calls should operate on. NOT the spawn root: that is the trunk
-    // only when the server was launched from the trunk (Claude Code) — a server launched
-    // INSIDE a worktree (Codex's app-managed worktree) has the just-removed worktree as
-    // its spawn root, and re-aiming there would strand it in a grave (ADR 0062).
-    reaimOnSuccess: (result, ctx) =>
-      ctx.heldRootMissing
-        ? (result.data as AcceptData | undefined)?.root
-        : undefined,
+    // Acceptance can remove the worktree before a later cleanup fails. Re-aim from
+    // the typed landing state rather than `ok`, so both complete and partial landings
+    // leave the server at the main checkout. The held-root guard preserves a live
+    // worktree selected by a one-call `path` override (ADR 0062).
+    reaimAfterResult: (result, ctx) => {
+      const data = result.data as AcceptData | undefined;
+      return ctx.heldRootMissing &&
+          data?.landing?.worktree_removed === true
+        ? data.root
+        : undefined;
+    },
     run: (root, args) =>
       acceptToolResult(root, {
         dryRun: args.dry_run === true,
@@ -928,7 +933,8 @@ export const TOOLS: McpTool[] = orderTools([
     },
     // A successful start re-aims the working root at the worktree it just created, so
     // the subsequent done/update/accept calls operate on it with nothing to thread.
-    reaimOnSuccess: (result) => (result.data as StartData | undefined)?.path,
+    reaimAfterResult: (result) =>
+      result.ok ? (result.data as StartData | undefined)?.path : undefined,
     run: (root, args) =>
       startToolResult(root, {
         dryRun: args.dry_run === true,
@@ -1290,8 +1296,8 @@ async function completeToolCall(
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
  * directory inside a worktree resolves to its root and a non-project path falls
  * through to `not_initialized`), else the server's current working root — re-pointed
- * by `discern_start` / reset by `discern_accept` via {@link McpTool.reaimOnSuccess},
- * applied here after a successful, non-preview call. Every refusal returns a normal
+ * by `discern_start` / reset by `discern_accept` via {@link McpTool.reaimAfterResult},
+ * applied here after a non-preview call with matching effect evidence. Every refusal returns a normal
  * error {@link DiscernResult} to {@link runTool}'s one completion boundary — a
  * missing project, a dispatch refusal, or an unexpected throw from the verb.
  * `signal` (optional — a direct caller may omit it) aborts when the
@@ -1371,20 +1377,18 @@ async function dispatchToolCall(
     };
   }
   const result = await runVerb(tool, root, args, signal);
-  // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
-  // the working root per the tool's own hook (start → the new worktree it created;
-  // accept → the main checkout it landed in). A `path` override is normally a
+  // Data-driven re-aim (ADR 0062): after a non-preview lifecycle call, move the
+  // working root per the tool's own effect-aware hook (start → the new worktree it
+  // created; accept → the main checkout it landed in). A `path` override is normally a
   // one-call steer that does NOT move the held root (§2) — but accept can REMOVE the
   // directory the held root points at, so the hook re-roots when that root is now gone
   // (`heldRootMissing`), even on a path override; otherwise the next no-path call would
   // resolve a deleted worktree (the Codex failure mode). A dry-run never moves it.
-  if (
-    result.ok && result.dry_run !== true && tool.reaimOnSuccess !== undefined
-  ) {
+  if (result.dry_run !== true && tool.reaimAfterResult !== undefined) {
     const heldRoot = working.get();
     const heldRootMissing = heldRoot !== undefined &&
       !(await pathExists(heldRoot));
-    const next = tool.reaimOnSuccess(result, { heldRootMissing });
+    const next = tool.reaimAfterResult(result, { heldRootMissing });
     if (next !== undefined) {
       working.set(next);
     }

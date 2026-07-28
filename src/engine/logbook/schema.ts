@@ -42,6 +42,7 @@
 
 import { z } from "@zod/zod";
 import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
+import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
@@ -55,6 +56,8 @@ export type LogbookSurface = (typeof LOGBOOK_SURFACES)[number];
 /**
  * How an invocation ended:
  *  - `ok` — exit 0 / `ok: true`;
+ *  - `partial` — an irreversible effect ran before the verb reported an error;
+ *    the event carries the effect state that says exactly what happened;
  *  - `refused` — the verb declined to act and said why (the envelope carried a
  *    machine-stable `error` slug: a dirty tree, an unknown standard, a missing
  *    precondition). The work never ran;
@@ -64,7 +67,12 @@ export type LogbookSurface = (typeof LOGBOOK_SURFACES)[number];
  * is fighting the workflow (a guidance gap); an agent looping on `failed` is
  * iterating toward green (the tool working as designed).
  */
-export const LOGBOOK_OUTCOMES = ["ok", "failed", "refused"] as const;
+export const LOGBOOK_OUTCOMES = [
+  "ok",
+  "failed",
+  "partial",
+  "refused",
+] as const;
 /** One invocation outcome ({@link LOGBOOK_OUTCOMES}). */
 export type LogbookOutcome = (typeof LOGBOOK_OUTCOMES)[number];
 
@@ -196,6 +204,11 @@ const landingConsentSchema = z.looseObject({
   scopes: z.array(z.string()).optional(),
 });
 
+/** Irreversible acceptance effects lifted from the result envelope. */
+const acceptanceLandingSchema = z.looseObject(
+  AcceptLandingStateSchema.shape,
+);
+
 /** The fields every event kind carries. */
 const eventBase = {
   /** The event-format major ({@link LOGBOOK_SCHEMA_VERSION}). */
@@ -270,6 +283,8 @@ export const verbEventSchema = z.looseObject({
   update: updateShapeSchema.optional(),
   /** How a successful landing was authorized, with scope names only. */
   consent: landingConsentSchema.optional(),
+  /** Which acceptance effects happened before a partial or successful result. */
+  landing: acceptanceLandingSchema.optional(),
   /** The config-epoch fingerprint (see `epoch.ts`), or null when config was unreadable. */
   epoch: z.string().nullable(),
 });
@@ -329,6 +344,7 @@ const pruneDigestSchema = z.looseObject({
   events: z.number(),
   ok: z.number().optional(),
   failed: z.number().optional(),
+  partial: z.number().optional(),
   refused: z.number().optional(),
   /** Verb-event counts by verb name. */
   by_verb: z.record(z.string(), z.number()).optional(),

@@ -181,11 +181,11 @@ Accept and land this worktree's finished branch on the trunk, the shared landing
 
 Usage: `discern accept [options]`
 
-| Option        | Description                                                                                                                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`      | Emit a machine-readable (plan, results) object on stdout.                                                                                                                                                      |
-| `--dry-run`   | Show the acceptance plan; touch nothing.                                                                                                                                                                       |
-| `--confirmed` | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Without either source, acceptance refuses read-only; a dry-run needs none. |
+| Option        | Description                                                                                                                                                                                                                                                                                                       |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`      | Emit a machine-readable (plan, results) object on stdout.                                                                                                                                                                                                                                                         |
+| `--dry-run`   | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                          |
+| `--confirmed` | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none. |
 
 ### `discern worktree <subcommand>`
 

@@ -704,8 +704,10 @@ export function attachEngineCommands(
     .option(
       "--confirmed",
       "Attest that your owner accepted this landing in the current conversation. " +
-        "Recorded standing and effort grants are checked directly. Without either " +
-        "source, acceptance refuses read-only; a dry-run needs none.",
+        "Recorded standing and effort grants are checked directly. Consent bound " +
+        "to an interrupted transaction may authorize recovery of that transaction " +
+        "only. Without applicable evidence, acceptance refuses read-only; a " +
+        "dry-run needs none.",
     )
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;

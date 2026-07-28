@@ -7,7 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
-import { basename, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import {
   CouplingOutputSchema,
   DoctorOutputSchema,
@@ -26,6 +26,7 @@ import {
 } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type LogbookEvent,
   parseLogbookLine,
@@ -40,6 +41,7 @@ import {
   engineEnv,
   git,
   gitInit,
+  gitOut,
   MAIN_TS,
   runAgent,
   scaffoldEngine,
@@ -1582,6 +1584,25 @@ Deno.test("WorkingRoot: an undefined spawn root (outside a project) stays undefi
   assertEquals(w.get(), "/now/a/project");
 });
 
+Deno.test("mcp lifecycle re-aim: a failed start cannot move the held root even when its payload carries a path", () => {
+  const start = TOOLS.find((tool) => tool.name === "discern_start");
+  assert(start?.reaimAfterResult !== undefined);
+  const refusal: DiscernResult = {
+    ok: false,
+    verb: "start",
+    error: "precondition_failed",
+    message: "Start refused.",
+    data: {
+      path: "/repo.worktrees/must-not-become-root",
+    },
+  };
+
+  assertEquals(
+    start.reaimAfterResult(refusal, { heldRootMissing: false }),
+    undefined,
+  );
+});
+
 Deno.test("discern mcp: project commands execute in the path-resolved worktree, not the server cwd", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1800,6 +1821,93 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     assertEquals(status.result.structuredContent.data.root, landedRoot);
 
     assertEquals(await inWt.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: a partial accept that removed its held worktree still re-aims and records the landed effects", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "partial-branch-delete");
+    await commitWorktreeForAcceptance(worktree);
+    const branch = await gitOut(worktree, "branch", "--show-current");
+
+    // Let landing and worktree removal complete, then fail only the final branch
+    // deletion. A loose-ref lock is Git's deterministic refusal at that seam.
+    const branchLock = join(
+      dir,
+      ".git",
+      "refs",
+      "heads",
+      `${branch}.lock`,
+    );
+    await Deno.mkdir(dirname(branchLock), { recursive: true });
+    await Deno.writeTextFile(branchLock, "held by test\n");
+
+    const acceptTool = TOOLS.find((tool) => tool.name === "discern_accept");
+    const statusTool = TOOLS.find((tool) => tool.name === "discern_status");
+    assert(acceptTool !== undefined);
+    assert(statusTool !== undefined);
+    const working = new WorkingRoot(worktree);
+
+    const partial = await runTool(
+      acceptTool,
+      working,
+      { confirmed: true },
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(partial.isError, true);
+    assertEquals(partial.structuredContent.error, "partial_acceptance");
+    const partialData = partial.structuredContent.data as {
+      root?: unknown;
+      consent?: unknown;
+      landing?: unknown;
+    } | undefined;
+    const canonicalRoot = await Deno.realPath(dir);
+    assertEquals(partialData?.root, canonicalRoot);
+    assertEquals(partialData?.consent, {
+      source: "conversation",
+    });
+    assertEquals(partialData?.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: false,
+    });
+    assertEquals(await exists(worktree), false);
+    assertEquals(
+      working.get(),
+      canonicalRoot,
+      "the deleted held root must re-aim even though the envelope is partial",
+    );
+
+    const follow = await runTool(
+      statusTool,
+      working,
+      {},
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(follow.isError, false, JSON.stringify(follow));
+    const followData = follow.structuredContent.data as {
+      location?: unknown;
+      root?: unknown;
+    } | undefined;
+    assertEquals(followData?.location, "main");
+    assertEquals(followData?.root, canonicalRoot);
+
+    const event = (await readMcpVerbEvents(dir)).findLast((candidate) =>
+      candidate.verb === "accept"
+    );
+    assert(event !== undefined);
+    assertEquals(event.outcome, "partial");
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      partialData?.landing,
+    );
+
+    await Deno.remove(branchLock);
   });
 });
 

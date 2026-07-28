@@ -299,6 +299,7 @@ export const ERROR_SLUGS = [
   "not_on_integration_branch",
   "not_set_up",
   "not_setup_branch",
+  "partial_acceptance",
   "partial_materialization",
   "partial_refresh",
   "pin_failed",

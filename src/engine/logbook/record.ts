@@ -41,6 +41,7 @@
  */
 
 import { z } from "@zod/zod";
+import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -301,12 +302,17 @@ const liftedUpdateShape = z.looseObject({
   overlap_total: z.number(),
 });
 
-/** A successful acceptance's recorded consent evidence. */
+/** An acceptance's recorded consent evidence. */
 const liftedConsentShape = z.looseObject({
   consent: z.looseObject({
     source: z.enum(LANDING_CONSENT_SOURCES),
     scopes: z.array(z.string()).optional(),
   }),
+});
+
+/** An acceptance's irreversible effect state. */
+const liftedLandingShape = z.looseObject({
+  landing: z.looseObject(AcceptLandingStateSchema.shape),
 });
 
 /** One applied pin, as lifted from the standards verb's payload. */
@@ -328,6 +334,7 @@ interface LiftedData {
   from?: string;
   update?: UpdateShape;
   consent?: VerbEvent["consent"];
+  landing?: VerbEvent["landing"];
 }
 
 /** Reduce an envelope's `data` to the liftable facts it carries, by shape. */
@@ -399,17 +406,34 @@ function liftData(data: unknown): LiftedData {
         : {}),
     };
   }
+  const landing = liftedLandingShape.safeParse(data);
+  if (landing.success) {
+    lifted.landing = { ...landing.data.landing };
+  }
   return lifted;
 }
 
-/** The recorded outcome: a verb that declined to act (a machine-stable `error`
- * slug on the envelope) is `refused`, distinct from work that ran and failed. */
+function landingChanged(
+  landing: VerbEvent["landing"] | undefined,
+): boolean {
+  return landing !== undefined &&
+    (landing.recovery_performed || landing.trunk_landed ||
+      landing.worktree_removed || landing.branch_deleted);
+}
+
+/** The recorded outcome: irreversible effect evidence wins over an error slug
+ * (`partial`); otherwise a slug means the verb declined to act (`refused`),
+ * distinct from work that ran and failed. */
 function recordedOutcome(
   reported: "ok" | "failed",
   result: DiscernResult | undefined,
+  landing: VerbEvent["landing"] | undefined,
 ): LogbookOutcome {
   if (reported === "ok") {
     return "ok";
+  }
+  if (landingChanged(landing)) {
+    return "partial";
   }
   return result?.error !== undefined ? "refused" : "failed";
 }
@@ -489,7 +513,11 @@ export function beginRecording(cwd: string): Recording {
           head: ctx.head,
           clean: ctx.clean,
           ...(ctx.tree !== undefined ? { tree: ctx.tree } : {}),
-          outcome: recordedOutcome(report.outcome, report.result),
+          outcome: recordedOutcome(
+            report.outcome,
+            report.result,
+            lifted.landing,
+          ),
           ...(report.result?.error !== undefined
             ? { error: report.result.error }
             : {}),
@@ -513,6 +541,7 @@ export function beginRecording(cwd: string): Recording {
             : {}),
           ...(lifted.update !== undefined ? { update: lifted.update } : {}),
           ...(lifted.consent !== undefined ? { consent: lifted.consent } : {}),
+          ...(lifted.landing !== undefined ? { landing: lifted.landing } : {}),
           epoch: ctx.epoch.fingerprint,
         };
         await appendEvent(ctx.commonGitDir, event);

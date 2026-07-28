@@ -50,6 +50,9 @@ import {
   withFailureRecoveryHint,
 } from "../src/shared/hints.ts";
 import {
+  ACCEPT_LANDING_STATE_FIELDS,
+  AcceptLandingStateSchema,
+  AcceptOutputSchema,
   type CouplingData,
   DatalessEnvelopeSchema,
   EnvelopeSchema,
@@ -389,6 +392,38 @@ Deno.test("runtime result schemas accept only the canonical error-slug vocabular
       error: "future_error_slug",
     }).success,
     "runtime result schemas must reject error slugs outside ERROR_SLUGS",
+  );
+});
+
+Deno.test("accept's partial envelope carries the exact irreversible effect state", () => {
+  const partial = {
+    ok: false,
+    verb: "accept",
+    error: "partial_acceptance",
+    message: "The trunk landed, but cleanup did not finish.",
+    data: {
+      root: "/repo",
+      consent: { source: "conversation" },
+      landing: {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: true,
+        branch_deleted: false,
+      },
+    },
+  };
+  assert(
+    AcceptOutputSchema.safeParse(partial).success,
+    "an accept failure after irreversible effects must retain typed landing state",
+  );
+  assertEquals(
+    Object.keys(partial.data.landing),
+    ACCEPT_LANDING_STATE_FIELDS,
+    "the partial fixture must enroll every canonical landing-state field",
+  );
+  assertEquals(
+    Object.keys(AcceptLandingStateSchema.shape),
+    ACCEPT_LANDING_STATE_FIELDS,
   );
 });
 
@@ -1237,6 +1272,15 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
+    assertEquals(
+      (applied.data as unknown as { landing?: unknown } | undefined)?.landing,
+      {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: true,
+        branch_deleted: true,
+      },
+    );
     expectFaithful("accept", applied, "accept applied rerun");
   });
 
@@ -1259,6 +1303,15 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "receipt");
+    assertEquals(
+      (applied.data as unknown as { landing?: unknown } | undefined)?.landing,
+      {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: true,
+        branch_deleted: true,
+      },
+    );
     expectFaithful("accept", applied, "accept applied receipt");
   });
 });

@@ -303,6 +303,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ).ACCEPTANCE_TRANSACTION_BOUNDARIES.map((boundary) => boundary.id),
   },
   {
+    id: "accept-landing-state-fields",
+    title: "Acceptance landing-state fields",
+    what:
+      "The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and logbook events.",
+    source: {
+      kind: "module",
+      module: "src/shared/accept_landing_state.ts",
+      exportName: "ACCEPT_LANDING_STATE_FIELDS",
+    },
+    guards: ["tests/result_schemas_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine fields of the documented acceptance result, not separate product terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/accept_landing_state.ts"))
+        .ACCEPT_LANDING_STATE_FIELDS,
+    ],
+  },
+  {
     id: "worktree-lifecycle-repo-root-verbs",
     title: "Repository-root worktree lifecycle verbs",
     what:
@@ -750,6 +774,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () => [
       ...(await import("../src/shared/hints.ts")).FAILURE_RECOVERY_EVIDENCE,
+    ],
+  },
+  {
+    id: "logbook-outcomes",
+    title: "Logbook outcomes",
+    what:
+      "How one verb invocation ended: cleanly, red after running, partial after an irreversible effect, or read-only refusal.",
+    source: {
+      kind: "module",
+      module: "src/engine/logbook/schema.ts",
+      exportName: "LOGBOOK_OUTCOMES",
+    },
+    guards: [
+      "tests/logbook_test.ts",
+      "tests/engine_logbook_test.ts",
+      "tests/patterns_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "recording vocabulary behind the documented Logbook concept, not separate product terms",
+      },
+      featureCanon: { nodeId: "logbook" },
+    },
+    members: async () => [
+      ...(await import("../src/engine/logbook/schema.ts")).LOGBOOK_OUTCOMES,
     ],
   },
   {

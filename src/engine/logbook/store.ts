@@ -118,6 +118,7 @@ async function digestMonthFile(
   const lines = text.split("\n").filter((line) => line.trim() !== "");
   let ok = 0;
   let failed = 0;
+  let partial = 0;
   let refused = 0;
   let unparsed = 0;
   const byVerb: Record<string, number> = {};
@@ -133,6 +134,8 @@ async function digestMonthFile(
     byVerb[parsed.event.verb] = (byVerb[parsed.event.verb] ?? 0) + 1;
     if (parsed.event.outcome === "ok") {
       ok += 1;
+    } else if (parsed.event.outcome === "partial") {
+      partial += 1;
     } else if (parsed.event.outcome === "refused") {
       refused += 1;
     } else {
@@ -144,6 +147,7 @@ async function digestMonthFile(
     events: lines.length,
     ...(ok > 0 ? { ok } : {}),
     ...(failed > 0 ? { failed } : {}),
+    ...(partial > 0 ? { partial } : {}),
     ...(refused > 0 ? { refused } : {}),
     ...(Object.keys(byVerb).length > 0 ? { by_verb: byVerb } : {}),
     ...(unparsed > 0 ? { unparsed } : {}),

@@ -9,6 +9,10 @@
  */
 
 import { dirname, isAbsolute } from "@std/path";
+import {
+  LANDING_CONSENT_SOURCES,
+  type LandingConsent,
+} from "../../shared/consent.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -46,8 +50,7 @@ export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
 export type AcceptanceTransactionBoundary =
   (typeof ACCEPTANCE_TRANSACTION_BOUNDARIES)[number]["id"];
 
-interface AcceptanceTransaction {
-  readonly version: 1;
+interface AcceptanceTransactionBase {
   readonly id: string;
   readonly worktree_branch: string;
   readonly trunk: string;
@@ -57,7 +60,17 @@ interface AcceptanceTransaction {
   readonly effort_claim: boolean;
 }
 
-interface RecordedAcceptanceTransaction {
+type AcceptanceTransaction =
+  | (AcceptanceTransactionBase & {
+    readonly version: 1;
+  })
+  | (AcceptanceTransactionBase & {
+    readonly version: 2;
+    /** Consent already checked before this exact expected→target boundary. */
+    readonly consent: LandingConsent;
+  });
+
+export interface RecordedAcceptanceTransaction {
   readonly path: string;
   readonly transaction: AcceptanceTransaction;
 }
@@ -70,6 +83,28 @@ type AcceptanceTransactionRead =
     readonly reason: string;
   }
   | ({ readonly status: "recorded" } & RecordedAcceptanceTransaction);
+
+/** Read-only interrupted-transaction evidence consulted before recovery acts. */
+export type InterruptedAcceptanceInspection =
+  | { readonly kind: "none" }
+  | (RecordedAcceptanceTransaction & {
+    readonly kind: "recorded";
+    /** Prior consent bound to this transaction, when it can be proven. */
+    readonly consent?: LandingConsent;
+  });
+
+/** What one authorized recovery did and whether ordinary acceptance may resume. */
+export type InterruptedAcceptanceRecovery =
+  | {
+    readonly kind: "ready";
+    readonly recoveryPerformed: boolean;
+  }
+  | {
+    readonly kind: "stopped";
+    readonly recoveryPerformed: boolean;
+    readonly trunkLanded: boolean;
+    readonly message: string;
+  };
 
 export type AcceptanceTransitionResult =
   | {
@@ -184,6 +219,36 @@ function isRefName(value: unknown): value is string {
     !containsControlCharacter(value);
 }
 
+function parseLandingConsent(value: unknown): LandingConsent | undefined {
+  if (!isPlainObject(value)) {
+    return undefined;
+  }
+  const source = value.source;
+  if (
+    typeof source !== "string" ||
+    !LANDING_CONSENT_SOURCES.includes(
+      source as (typeof LANDING_CONSENT_SOURCES)[number],
+    )
+  ) {
+    return undefined;
+  }
+  const scopes = value.scopes;
+  if (
+    scopes !== undefined &&
+    (!Array.isArray(scopes) ||
+      !scopes.every((scope) => typeof scope === "string"))
+  ) {
+    return undefined;
+  }
+  if (source !== "standing-grant" && scopes !== undefined) {
+    return undefined;
+  }
+  return {
+    source: source as LandingConsent["source"],
+    ...(scopes === undefined ? {} : { scopes: [...scopes] as string[] }),
+  };
+}
+
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
   try {
@@ -194,8 +259,11 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (!isPlainObject(parsed)) {
     throw new Error("the record is not a JSON object");
   }
+  const consent = parsed.version === 2
+    ? parseLandingConsent(parsed.consent)
+    : undefined;
   if (
-    parsed.version !== 1 ||
+    (parsed.version !== 1 && parsed.version !== 2) ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
     !isRefName(parsed.worktree_branch) ||
@@ -206,16 +274,18 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     !OBJECT_ID.test(parsed.target) ||
     typeof parsed.main_repo !== "string" ||
     !isAbsolute(parsed.main_repo) ||
-    typeof parsed.effort_claim !== "boolean"
+    typeof parsed.effort_claim !== "boolean" ||
+    (parsed.version === 2 && consent === undefined) ||
+    (parsed.version === 2 &&
+      (consent?.source === "effort-grant") !== parsed.effort_claim)
   ) {
     throw new Error(
-      "the record needs version 1, a transaction id, branch/trunk names, " +
+      "the record needs version 1 or 2, a transaction id, branch/trunk names, " +
         "expected and target object IDs, an absolute main checkout, and an " +
-        "effort-claim flag",
+        "effort-claim flag; version 2 also binds matching consent evidence",
     );
   }
-  return {
-    version: 1,
+  const base: AcceptanceTransactionBase = {
     id: parsed.id,
     worktree_branch: parsed.worktree_branch,
     trunk: parsed.trunk,
@@ -224,6 +294,9 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     main_repo: parsed.main_repo,
     effort_claim: parsed.effort_claim,
   };
+  return parsed.version === 1
+    ? { version: 1, ...base }
+    : { version: 2, ...base, consent: consent as LandingConsent };
 }
 
 async function readAcceptanceTransaction(
@@ -286,7 +359,9 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
 
 async function writeAcceptanceTransaction(
   cwd: string,
-  input: Omit<AcceptanceTransaction, "version" | "id">,
+  input: Omit<AcceptanceTransactionBase, "id"> & {
+    readonly consent: LandingConsent;
+  },
 ): Promise<RecordedAcceptanceTransaction> {
   const current = await readAcceptanceTransaction(cwd);
   if (current.status !== "missing") {
@@ -300,7 +375,7 @@ async function writeAcceptanceTransaction(
     );
   }
   const transaction: AcceptanceTransaction = {
-    version: 1,
+    version: 2,
     id: crypto.randomUUID(),
     ...input,
   };
@@ -361,6 +436,7 @@ export async function performAcceptanceTransition(
     readonly expectedTrunk: string;
     readonly target: string;
     readonly effortClaim: boolean;
+    readonly consent: LandingConsent;
   },
 ): Promise<AcceptanceTransitionResult> {
   const recorded = await writeAcceptanceTransaction(cwd, {
@@ -370,6 +446,7 @@ export async function performAcceptanceTransition(
     target: input.target,
     main_repo: input.mainRepo,
     effort_claim: input.effortClaim,
+    consent: input.consent,
   });
   const { transaction } = recorded;
 
@@ -451,32 +528,27 @@ function effortConsumedClause(transaction: AcceptanceTransaction): string {
     : "";
 }
 
-async function clearRecoveredJournal(
-  recorded: RecordedAcceptanceTransaction,
-): Promise<void> {
-  if (!(await removeJournal(recorded.path))) {
-    throw new WorktreeGitError(
-      `Discern reconciled the interrupted acceptance but could not remove its ` +
-        `journal at ${recorded.path}. Re-run \`discern accept\` to retry that ` +
-        "idempotent cleanup before starting another landing.",
-    );
-  }
+function cloneConsent(consent: LandingConsent): LandingConsent {
+  return {
+    source: consent.source,
+    ...(consent.scopes === undefined ? {} : { scopes: [...consent.scopes] }),
+  };
 }
 
 /**
- * Reconcile an interrupted acceptance before authority resolution or ordinary
- * checkout cleanliness checks. A pre-CAS/explicitly rolled-back claim is
- * restored and normal acceptance continues. A durable CAS consumes authority,
- * converges only an exact journal-owned old checkout, then stops with the
- * cleanup command instead of replaying the landing.
+ * Inspect interrupted-transaction evidence without mutating it. A v2 journal
+ * carries the consent checked before its exact expected→target boundary. A
+ * legacy effort journal can still prove authority through its matching claim.
+ * Legacy conversation/standing journals carry no such proof and therefore need
+ * current authority before recovery may act.
  */
-export async function recoverInterruptedAcceptance(
+export async function inspectInterruptedAcceptance(
   cwd: string,
   configuredTrunk: string,
-): Promise<void> {
+): Promise<InterruptedAcceptanceInspection> {
   const read = await readAcceptanceTransaction(cwd);
   if (read.status === "missing") {
-    return;
+    return { kind: "none" };
   }
   if (read.status === "invalid") {
     throw new WorktreeGitError(
@@ -485,7 +557,7 @@ export async function recoverInterruptedAcceptance(
         "file. Inspect that journal before retrying acceptance.",
     );
   }
-  const recorded = read;
+  const recorded: RecordedAcceptanceTransaction = read;
   const transaction = recorded.transaction;
   if (transaction.trunk !== configuredTrunk) {
     throw new WorktreeGitError(
@@ -507,6 +579,65 @@ export async function recoverInterruptedAcceptance(
         `repository. It preserved the journal at ${recorded.path}.`,
     );
   }
+  let consent: LandingConsent | undefined;
+  if (transaction.version === 2) {
+    consent = cloneConsent(transaction.consent);
+  } else if (transaction.effort_claim) {
+    const claim = await readEffortGrantClaim(
+      cwd,
+      transaction.worktree_branch,
+      transaction.id,
+    );
+    if (claim.status === "claimed") {
+      consent = { source: "effort-grant" };
+    }
+  }
+  return {
+    kind: "recorded",
+    path: recorded.path,
+    transaction,
+    ...(consent === undefined ? {} : { consent }),
+  };
+}
+
+async function clearRecoveredJournal(
+  recorded: RecordedAcceptanceTransaction,
+): Promise<boolean> {
+  return await removeJournal(recorded.path);
+}
+
+function journalCleanupFailure(
+  recorded: RecordedAcceptanceTransaction,
+): string {
+  return `Discern reconciled the interrupted acceptance but could not remove its ` +
+    `journal at ${recorded.path}. Re-run \`discern accept\` to retry that ` +
+    "idempotent cleanup before starting another landing.";
+}
+
+function stoppedRecovery(
+  message: string,
+  recoveryPerformed: boolean,
+  trunkLanded: boolean,
+): InterruptedAcceptanceRecovery {
+  return { kind: "stopped", recoveryPerformed, trunkLanded, message };
+}
+
+/**
+ * Reconcile one already-inspected, already-authorized interrupted acceptance.
+ * A pre-CAS/explicitly rolled-back claim is restored and ordinary acceptance
+ * may continue under freshly checked authority. A durable CAS consumes its
+ * one-shot authority, converges only an exact journal-owned old checkout, and
+ * stops with the cleanup command instead of replaying the landing.
+ */
+export async function recoverInterruptedAcceptance(
+  cwd: string,
+  inspected: Exclude<
+    InterruptedAcceptanceInspection,
+    { readonly kind: "none" }
+  >,
+): Promise<InterruptedAcceptanceRecovery> {
+  const recorded: RecordedAcceptanceTransaction = inspected;
+  const transaction = recorded.transaction;
 
   const ref = await runGit(
     [
@@ -540,24 +671,37 @@ export async function recoverInterruptedAcceptance(
   const provenPreCas = marker.kind === "missing";
   if (current === transaction.expected_trunk && provenPreCas) {
     if (!(await restoreRecordedClaim(cwd, transaction))) {
-      throw new WorktreeGitError(
+      return stoppedRecovery(
         `Discern found the interrupted acceptance before its trunk transition, ` +
           `but could not restore its effort claim. It preserved the journal at ` +
           `${recorded.path}; inspect the desk grant and claim before retrying.`,
+        transaction.effort_claim,
+        false,
       );
     }
-    await clearRecoveredJournal(recorded);
-    return;
+    if (!(await clearRecoveredJournal(recorded))) {
+      return stoppedRecovery(
+        journalCleanupFailure(recorded),
+        transaction.effort_claim,
+        false,
+      );
+    }
+    return { kind: "ready", recoveryPerformed: true };
   }
 
   if (
     current === transaction.expected_trunk && marker.kind === "present"
   ) {
     const consumed = await consumeRecordedClaim(cwd, transaction);
-    if (consumed) {
-      await clearRecoveredJournal(recorded);
+    const cleared = consumed && await clearRecoveredJournal(recorded);
+    if (consumed && !cleared) {
+      return stoppedRecovery(
+        journalCleanupFailure(recorded),
+        transaction.effort_claim,
+        false,
+      );
     }
-    throw new WorktreeGitError(
+    return stoppedRecovery(
       `The interrupted acceptance advanced ${transaction.trunk} to ` +
         `${transaction.target} and was later reset to its expected commit ` +
         `${transaction.expected_trunk} without Discern's marker-clearing ` +
@@ -566,7 +710,9 @@ export async function recoverInterruptedAcceptance(
         ` Inspect \`git reflog show ${transaction.trunk}\` in ` +
         `${transaction.main_repo} before deciding whether to re-authorize and ` +
         `retry the intact branch ${transaction.worktree_branch}.` +
-        (consumed ? "" : ` The recovery journal remains at ${recorded.path}.`),
+        (cleared ? "" : ` The recovery journal remains at ${recorded.path}.`),
+      cleared || (transaction.effort_claim && consumed),
+      false,
     );
   }
 
@@ -579,7 +725,7 @@ export async function recoverInterruptedAcceptance(
       transaction.target,
     );
     if (checkout.kind === "preserved") {
-      throw new WorktreeGitError(
+      return stoppedRecovery(
         `Discern found that the interrupted landing already advanced ` +
           `${transaction.trunk} to ${transaction.target}, but preserved the ` +
           `trunk checkout because ${checkout.detail}. Run \`git diff\` in ` +
@@ -587,42 +733,66 @@ export async function recoverInterruptedAcceptance(
           `re-run \`discern accept\` to retry convergence. The recovery journal ` +
           `remains at ${recorded.path}.` +
           (consumed ? effortConsumedClause(transaction) : ""),
+        transaction.effort_claim && consumed,
+        true,
       );
     }
-    if (consumed) {
-      await clearRecoveredJournal(recorded);
+    const cleared = consumed && await clearRecoveredJournal(recorded);
+    const performed = checkout.changed || cleared ||
+      (transaction.effort_claim && consumed);
+    if (consumed && !cleared) {
+      return stoppedRecovery(
+        journalCleanupFailure(recorded),
+        performed,
+        true,
+      );
     }
-    throw new WorktreeGitError(
+    return stoppedRecovery(
       `Discern reconciled the interrupted landing of ${transaction.target} ` +
         `onto ${transaction.trunk}. No landing authority was replayed.` +
         effortConsumedClause(transaction) +
         ` Run \`discern worktree prune\` from ${transaction.main_repo} to finish ` +
         `the already-landed branch's cleanup.` +
-        (consumed ? "" : ` The recovery journal remains at ${recorded.path}.`),
+        (cleared ? "" : ` The recovery journal remains at ${recorded.path}.`),
+      performed,
+      true,
     );
   }
 
   if (provenPreCas) {
     if (!(await restoreRecordedClaim(cwd, transaction))) {
-      throw new WorktreeGitError(
+      return stoppedRecovery(
         `Another process moved ${transaction.trunk} before this acceptance's ` +
           `trunk ref update, ` +
           `and Discern could not restore its effort claim. The journal remains at ` +
           `${recorded.path}.`,
+        transaction.effort_claim,
+        false,
       );
     }
-    await clearRecoveredJournal(recorded);
-    return;
+    if (!(await clearRecoveredJournal(recorded))) {
+      return stoppedRecovery(
+        journalCleanupFailure(recorded),
+        transaction.effort_claim,
+        false,
+      );
+    }
+    return { kind: "ready", recoveryPerformed: true };
   }
 
   const consumed = await consumeRecordedClaim(cwd, transaction);
-  if (consumed) {
-    await clearRecoveredJournal(recorded);
+  const cleared = consumed && await clearRecoveredJournal(recorded);
+  if (consumed && !cleared) {
+    return stoppedRecovery(
+      journalCleanupFailure(recorded),
+      transaction.effort_claim,
+      false,
+    );
   }
   const evidenceDetail = marker.kind === "present"
     ? `its per-worktree marker proves it previously advanced to ${transaction.target}`
     : `Git could not read the per-worktree marker (${marker.detail}), so Discern cannot prove that the trunk transition never happened`;
-  throw new WorktreeGitError(
+  return stoppedRecovery(
     `Discern found interrupted acceptance ${transaction.id} after ` +
       `${transaction.trunk} moved to ${current}; ${evidenceDetail}. It preserved ` +
       `the checkout and will not replay one-shot authority.` +
@@ -630,6 +800,8 @@ export async function recoverInterruptedAcceptance(
       ` Inspect \`git reflog show ${transaction.trunk}\` and the intact branch ` +
       `${transaction.worktree_branch} before deciding whether to update or ` +
       `re-authorize it.` +
-      (consumed ? "" : ` The recovery journal remains at ${recorded.path}.`),
+      (cleared ? "" : ` The recovery journal remains at ${recorded.path}.`),
+    cleared || (transaction.effort_claim && consumed),
+    false,
   );
 }

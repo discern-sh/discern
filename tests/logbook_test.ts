@@ -21,6 +21,7 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import {
+  LOGBOOK_OUTCOMES,
   LOGBOOK_SCHEMA_VERSION,
   logbookEventSchema,
   parseLogbookLine,
@@ -140,6 +141,42 @@ Deno.test("logbook schema: a written line round-trips through the parser", () =>
   assertEquals(parsed.event, event);
 });
 
+Deno.test("logbook schema: partial acceptance records the landing effects that already happened", () => {
+  const parsed = parseLogbookLine(JSON.stringify({
+    ...sampleEvent(),
+    verb: "accept",
+    outcome: "partial",
+    error: "partial_acceptance",
+    landing: {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: true,
+      branch_deleted: false,
+    },
+  }));
+  assert(parsed.kind === "event", "partial is a first-class logbook outcome");
+  assert(parsed.event.kind === "verb");
+  assertEquals(parsed.event.outcome, "partial");
+  assertEquals((parsed.event as unknown as { landing?: unknown }).landing, {
+    recovery_performed: false,
+    trunk_landed: true,
+    worktree_removed: true,
+    branch_deleted: false,
+  });
+});
+
+Deno.test("logbook schema: every canonical outcome round-trips as a verb event", () => {
+  for (const outcome of LOGBOOK_OUTCOMES) {
+    const parsed = parseLogbookLine(JSON.stringify({
+      ...sampleEvent(),
+      outcome,
+    }));
+    assert(parsed.kind === "event", `outcome ${outcome} must remain readable`);
+    assert(parsed.event.kind === "verb");
+    assertEquals(parsed.event.outcome, outcome);
+  }
+});
+
 Deno.test("logbook schema: unknown fields pass through untouched (forward compat)", () => {
   const line = JSON.stringify({
     ...sampleEvent(),
@@ -214,6 +251,7 @@ Deno.test("logbook schema: config-change, pin, and prune events validate", () =>
       events: 12,
       ok: 9,
       failed: 2,
+      partial: 1,
       refused: 1,
       by_verb: { done: 5, status: 7 },
     }],
@@ -342,6 +380,11 @@ Deno.test("store: rotation prunes oldest-first, keeps the cap, and leaves digest
         verb: "done",
         outcome: "refused",
       }),
+      JSON.stringify({
+        ...verbEventAt("2020-01-06T12:00:00.000Z"),
+        verb: "accept",
+        outcome: "partial",
+      }),
       '{"schema":1,"kind":"ver',
     ].join("\n") + "\n";
     for (let i = 0; i < MAX_MONTH_FILES + 2; i++) {
@@ -381,11 +424,12 @@ Deno.test("store: rotation prunes oldest-first, keeps the cap, and leaves digest
     );
     assertEquals(prune.event.removed[0], {
       file: "2020-01.jsonl",
-      events: 5,
+      events: 6,
       ok: 2,
       failed: 1,
+      partial: 1,
       refused: 1,
-      by_verb: { status: 2, done: 2 },
+      by_verb: { status: 2, done: 2, accept: 1 },
       unparsed: 1,
     });
     assertEquals(prune.event.removed[1], { file: "2020-02.jsonl", events: 0 });
