@@ -45,12 +45,14 @@ const RESULT_CONTRACT_REFERENCE_ROLES = Object.keys(
 
 interface ComparisonContext {
   readonly policy: PublicSchemaCompatibility;
+  readonly allowTypeSetWidening: boolean;
   readonly previousContractRefs: ContractReferenceSets;
   readonly newContractRefs: ContractReferenceSets;
   readonly contractAggregateRoles: ReadonlyMap<
     string,
     ResultContractReferenceRole
   >;
+  readonly newRoleAggregateEntrypoints: ReadonlySet<string>;
 }
 
 type PublicSchemaArtifactPath =
@@ -66,6 +68,7 @@ const CURRENT_SCHEMA_BUILDERS: Record<
 
 const ANNOTATION_KEYS = new Set([
   "$comment",
+  "default",
   "description",
   "deprecated",
   "examples",
@@ -129,6 +132,40 @@ function compareStringSets(
   for (const member of after) {
     if (!before.includes(member)) {
       issues.push(`${path}: added value ${JSON.stringify(member)}`);
+    }
+  }
+}
+
+function schemaTypeSet(value: JsonValue | undefined): string[] | undefined {
+  return typeof value === "string" ? [value] : stringSet(value);
+}
+
+function compareTypeSetInclusion(
+  previous: JsonValue | undefined,
+  current: JsonValue | undefined,
+  path: string,
+  issues: string[],
+): void {
+  if (current === undefined) {
+    return;
+  }
+  if (previous === undefined) {
+    issues.push(`${path}: added type constraint ${json(current)}`);
+    return;
+  }
+  const before = schemaTypeSet(previous);
+  const after = schemaTypeSet(current);
+  if (before === undefined || after === undefined) {
+    if (!sameJson(previous, current)) {
+      issues.push(
+        `${path}: changed from ${json(previous)} to ${json(current)}`,
+      );
+    }
+    return;
+  }
+  for (const member of before) {
+    if (!after.includes(member)) {
+      issues.push(`${path}: removed accepted type ${JSON.stringify(member)}`);
     }
   }
 }
@@ -203,7 +240,6 @@ function compareProperties(
   const previousProperties = previous ?? {};
   compareMap(previousProperties, current, path, context, issues);
   if (
-    context.policy !== CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
     !isObject(previousProperties) ||
     !isObject(current)
   ) {
@@ -227,7 +263,11 @@ function compareProperties(
         catchall,
         currentValue,
         childPath,
-        context,
+        {
+          ...context,
+          allowTypeSetWidening:
+            context.policy === CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+        },
         localIssues,
       );
       if (localIssues.length === 0) {
@@ -360,11 +400,18 @@ function compareAlternatives(
       : current.filter((candidate) =>
         referenceAlternative(candidate) === reference
       ).length;
-    if (
-      aggregatorRole !== undefined &&
+    const createsRoleAggregate =
+      context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY &&
+      keyword === "oneOf" &&
+      path === "$.oneOf" &&
       reference !== undefined &&
-      context.newContractRefs[aggregatorRole].has(reference) &&
-      occurrences === 1
+      context.newRoleAggregateEntrypoints.has(reference);
+    if (
+      reference !== undefined &&
+      occurrences === 1 &&
+      (createsRoleAggregate ||
+        (aggregatorRole !== undefined &&
+          context.newContractRefs[aggregatorRole].has(reference)))
     ) {
       return;
     }
@@ -424,6 +471,26 @@ function contractRecords(value: JsonValue | undefined): JsonValue[] {
   return Array.isArray(value) ? value : [];
 }
 
+function contractReferenceSets(
+  contracts: readonly JsonValue[],
+): Record<ResultContractReferenceRole, Set<string>> {
+  const references = Object.fromEntries(
+    RESULT_CONTRACT_REFERENCE_ROLES.map((role) => [role, new Set<string>()]),
+  ) as Record<ResultContractReferenceRole, Set<string>>;
+  for (const contract of contracts) {
+    for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
+      const reference = contractSchemaReference(
+        contract,
+        RESULT_CONTRACT_REFERENCE_FIELDS[role],
+      );
+      if (reference !== undefined) {
+        references[role].add(reference);
+      }
+    }
+  }
+  return references;
+}
+
 function definitionName(reference: string): string | undefined {
   const prefix = "#/$defs/";
   if (!reference.startsWith(prefix)) {
@@ -436,10 +503,14 @@ function definitionName(reference: string): string | undefined {
   return encoded.replaceAll("~1", "/").replaceAll("~0", "~");
 }
 
+function definitionReference(name: string): string {
+  return `#/$defs/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+}
+
 /**
- * Give widening authority to the sole role aggregate reached from the trunk
- * schema's top-level entrypoints. A nested union with the same references is
- * still part of its existing contract and must stay closed.
+ * Give widening authority to a role aggregate reached by one acyclic,
+ * same-instance route from the trunk entrypoints. Repeated branches and
+ * wrapper references retain their multiplicity and close the aggregate.
  */
 function contractAggregateRoles(
   previous: JsonObject,
@@ -449,22 +520,38 @@ function contractAggregateRoles(
   if (!Array.isArray(previous.oneOf)) {
     return new Map();
   }
-  const candidates: [string, ResultContractReferenceRole][] = [];
+  const candidates: ContractAggregateReach[] = [];
+  const transparentPaths = new Set<string>();
   for (const entrypoint of previous.oneOf) {
-    candidates.push(
-      ...reachableContractAggregates(
-        entrypoint,
-        previousDefinitions,
-        previousContractRefs,
-      ),
+    const reachable = reachableContractAggregates(
+      entrypoint,
+      previousDefinitions,
+      previousContractRefs,
     );
+    candidates.push(...reachable);
+    const reference = referenceAlternative(entrypoint);
+    const name = reference === undefined
+      ? undefined
+      : definitionName(reference);
+    if (name === undefined) {
+      continue;
+    }
+    const directPath = pathKey(
+      pathKey(pathKey("$", "$defs"), name),
+      "oneOf",
+    );
+    if (reachable.some(([path]) => path === directPath)) {
+      transparentPaths.add(directPath);
+    }
   }
   const roleCounts = new Map<ResultContractReferenceRole, number>();
   for (const [, role] of candidates) {
     roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
   }
   return new Map(
-    candidates.filter(([, role]) => roleCounts.get(role) === 1),
+    candidates.filter(([path, role]) =>
+      roleCounts.get(role) === 1 && transparentPaths.has(path)
+    ),
   );
 }
 
@@ -478,23 +565,31 @@ const SAME_INSTANCE_SCHEMA_KEYS = [
   "not",
 ] as const;
 
+type ContractAggregateReach = readonly [
+  string,
+  ResultContractReferenceRole,
+];
+
 function reachableContractAggregates(
   entrypoint: JsonValue,
   definitions: JsonObject,
   references: ContractReferenceSets,
-): ReadonlyMap<string, ResultContractReferenceRole> {
-  const aggregates = new Map<string, ResultContractReferenceRole>();
-  const visitedDefinitions = new Set<string>();
+): readonly ContractAggregateReach[] {
+  const aggregates: ContractAggregateReach[] = [];
 
-  const visit = (schema: JsonValue | undefined): void => {
+  const visit = (
+    schema: JsonValue | undefined,
+    activeDefinitions: ReadonlySet<string>,
+  ): void => {
     if (!isObject(schema)) {
       return;
     }
     const name = typeof schema.$ref === "string"
       ? definitionName(schema.$ref)
       : undefined;
-    if (name !== undefined && !visitedDefinitions.has(name)) {
-      visitedDefinitions.add(name);
+    if (name !== undefined && !activeDefinitions.has(name)) {
+      const nextActiveDefinitions = new Set(activeDefinitions);
+      nextActiveDefinitions.add(name);
       const definition = definitions[name];
       if (isObject(definition)) {
         const alternatives = definition.oneOf;
@@ -506,28 +601,128 @@ function reachableContractAggregates(
           : undefined;
         if (role !== undefined) {
           const definitionPath = pathKey(pathKey("$", "$defs"), name);
-          aggregates.set(pathKey(definitionPath, "oneOf"), role);
+          aggregates.push([pathKey(definitionPath, "oneOf"), role]);
         } else {
-          visit(definition);
+          visit(definition, nextActiveDefinitions);
         }
       }
     }
     for (const key of SAME_INSTANCE_SCHEMA_KEYS) {
       const nested = schema[key];
       if (Array.isArray(nested)) {
-        nested.forEach(visit);
+        nested.forEach((candidate) => visit(candidate, activeDefinitions));
       } else {
-        visit(nested);
+        visit(nested, activeDefinitions);
       }
     }
     const dependentSchemas = schema.dependentSchemas;
     if (isObject(dependentSchemas)) {
-      Object.values(dependentSchemas).forEach(visit);
+      Object.values(dependentSchemas).forEach((candidate) =>
+        visit(candidate, activeDefinitions)
+      );
     }
   };
 
-  visit(entrypoint);
+  visit(entrypoint, new Set());
   return aggregates;
+}
+
+function sameReferences(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  return left.size === right.size &&
+    [...left].every((reference) => right.has(reference));
+}
+
+function aggregateContainsExactly(
+  definition: JsonValue | undefined,
+  references: ReadonlySet<string>,
+): boolean {
+  if (!isObject(definition) || !Array.isArray(definition.oneOf)) {
+    return false;
+  }
+  const alternatives = definition.oneOf;
+  if (alternatives.length !== references.size) {
+    return false;
+  }
+  const seen = new Set<string>();
+  for (const alternative of alternatives) {
+    const reference = referenceAlternative(alternative);
+    if (
+      reference === undefined ||
+      !references.has(reference) ||
+      seen.has(reference)
+    ) {
+      return false;
+    }
+    seen.add(reference);
+  }
+  return seen.size === references.size;
+}
+
+function newRoleAggregateEntrypoints(
+  current: JsonObject,
+  previousDefinitions: JsonObject,
+  currentDefinitions: JsonObject,
+  previousContractRefs: ContractReferenceSets,
+  currentContractRefs: ContractReferenceSets,
+  newContractRefs: ContractReferenceSets,
+): ReadonlySet<string> {
+  if (!Array.isArray(current.oneOf)) {
+    return new Set();
+  }
+  const reachable = current.oneOf.flatMap((entrypoint) =>
+    reachableContractAggregates(
+      entrypoint,
+      currentDefinitions,
+      currentContractRefs,
+    )
+  );
+  const authorized = new Set<string>();
+  for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
+    const priorReferences = previousContractRefs[role];
+    const currentReferences = currentContractRefs[role];
+    if (
+      priorReferences.size > 0 ||
+      currentReferences.size === 0 ||
+      !sameReferences(currentReferences, newContractRefs[role])
+    ) {
+      continue;
+    }
+    const aggregateNames = Object.entries(currentDefinitions)
+      .filter(([name, definition]) =>
+        previousDefinitions[name] === undefined &&
+        aggregateContainsExactly(definition, currentReferences)
+      )
+      .map(([name]) => name);
+    if (aggregateNames.length !== 1) {
+      continue;
+    }
+    const name = aggregateNames[0];
+    if (name === undefined) {
+      continue;
+    }
+    const reference = definitionReference(name);
+    const aggregatePath = pathKey(
+      pathKey(pathKey("$", "$defs"), name),
+      "oneOf",
+    );
+    const roleRoutes = reachable.filter(([, candidateRole]) =>
+      candidateRole === role
+    );
+    const pureEntrypoints = current.oneOf.filter((entrypoint) =>
+      referenceAlternative(entrypoint) === reference
+    );
+    if (
+      roleRoutes.length === 1 &&
+      roleRoutes[0]?.[0] === aggregatePath &&
+      pureEntrypoints.length === 1
+    ) {
+      authorized.add(reference);
+    }
+  }
+  return authorized;
 }
 
 function comparisonContext(
@@ -546,20 +741,8 @@ function comparisonContext(
       previousContractsById.set(id, contract);
     }
   }
-  const previousContractRefs = Object.fromEntries(
-    RESULT_CONTRACT_REFERENCE_ROLES.map((role) => [role, new Set<string>()]),
-  ) as Record<ResultContractReferenceRole, Set<string>>;
-  for (const contract of previousContracts) {
-    for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
-      const reference = contractSchemaReference(
-        contract,
-        RESULT_CONTRACT_REFERENCE_FIELDS[role],
-      );
-      if (reference !== undefined) {
-        previousContractRefs[role].add(reference);
-      }
-    }
-  }
+  const previousContractRefs = contractReferenceSets(previousContracts);
+  const currentContractRefs = contractReferenceSets(currentContracts);
   const previousDefinitions = isObject(previous.$defs) ? previous.$defs : {};
   const currentDefinitions = isObject(current.$defs) ? current.$defs : {};
   const newContractRefs = Object.fromEntries(
@@ -614,12 +797,21 @@ function comparisonContext(
   }
   return {
     policy,
+    allowTypeSetWidening: false,
     previousContractRefs,
     newContractRefs,
     contractAggregateRoles: contractAggregateRoles(
       previous,
       previousDefinitions,
       previousContractRefs,
+    ),
+    newRoleAggregateEntrypoints: newRoleAggregateEntrypoints(
+      current,
+      previousDefinitions,
+      currentDefinitions,
+      previousContractRefs,
+      currentContractRefs,
+      newContractRefs,
     ),
   };
 }
@@ -757,8 +949,14 @@ function compareNode(
         compareRequired(before, after, childPath, context, issues);
         break;
       case "enum":
-      case "type":
         compareStringSets(before, after, childPath, issues);
+        break;
+      case "type":
+        if (context.allowTypeSetWidening) {
+          compareTypeSetInclusion(before, after, childPath, issues);
+        } else {
+          compareStringSets(before, after, childPath, issues);
+        }
         break;
       case "oneOf":
       case "anyOf":
