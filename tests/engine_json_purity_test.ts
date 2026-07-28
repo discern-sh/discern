@@ -33,7 +33,15 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
-import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
+import {
+  CLI_JSON_PREDICATE_CONTRACTS,
+  CLI_JSON_RESULT_CONTRACTS,
+  CLI_PREDICATE_INVOCATION_MODES,
+  CLI_PREDICATE_STATES,
+  type CliPredicateInvocationMode,
+  type CliPredicateState,
+  type RegisteredCliJsonPredicateContract,
+} from "../src/shared/result_contracts.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
@@ -49,13 +57,13 @@ function assertEnvelopeOnly(
   r: RunResult,
   verb: string,
   context = verb,
-): void {
+): Record<string, unknown> {
   const combined = r.output.trim();
   assert(
     combined.length > 0 && !combined.includes("\n"),
     `${context} --json must emit exactly one line (the envelope), nothing else on stdout OR stderr.\n--- got ---\n${r.output}\n-----------`,
   );
-  let obj: { ok?: unknown; verb?: unknown };
+  let obj: unknown;
   try {
     obj = JSON.parse(combined);
   } catch {
@@ -63,12 +71,18 @@ function assertEnvelopeOnly(
       `${context} --json combined output is not valid JSON:\n${r.output}`,
     );
   }
+  assert(isRecord(obj), `${context}: envelope must be an object`);
   assertEquals(
     typeof obj.ok,
     "boolean",
     `${verb}: envelope missing boolean ok`,
   );
   assertEquals(obj.verb, verb, `${verb}: envelope carries the wrong verb`);
+  return obj;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** A config whose every gate command and standard prints loudly to stdout AND
@@ -299,6 +313,65 @@ const PROJECT_CASES: readonly PurityCase[] = [
   },
 ];
 
+interface PredicateFixture {
+  readonly contractId: string;
+  readonly values: Readonly<Record<CliPredicateState, string>>;
+}
+
+/**
+ * Only the project facts that make each canonical predicate true or false.
+ * Command spelling, option placement, output path, exit semantics, and the
+ * Cartesian modes all come from `result_contracts.ts`.
+ */
+const PREDICATE_FIXTURES: readonly PredicateFixture[] = [
+  {
+    contractId: "config-has",
+    values: { true: "project.slug", false: "missing.key" },
+  },
+  {
+    contractId: "impact-has",
+    values: { true: "code", false: "missing-scope" },
+  },
+];
+
+function predicateArgs(
+  contract: RegisteredCliJsonPredicateContract,
+  value: string,
+): string[] {
+  const args = contract.command.split(" ");
+  return contract.option === undefined
+    ? [...args, value]
+    : [...args, contract.option, value];
+}
+
+function predicateModeArgs(
+  mode: CliPredicateInvocationMode,
+  args: readonly string[],
+): string[] {
+  switch (mode.jsonFlag) {
+    case "none":
+      return [...args];
+    case "before-command":
+      return ["--json", ...args];
+    case "after-arguments":
+      return [...args, "--json"];
+  }
+}
+
+function valueAtPath(
+  value: unknown,
+  path: readonly string[],
+): unknown {
+  let cursor = value;
+  for (const segment of path) {
+    if (!isRecord(cursor)) {
+      return undefined;
+    }
+    cursor = cursor[segment];
+  }
+  return cursor;
+}
+
 /** The registry verbs whose output path consults `[gate].stream` — the only
  * ones the streamed config variant can affect, so the only ones re-swept
  * under it (the rest would just repeat their buffered run verbatim). */
@@ -483,6 +556,112 @@ Deno.test("a future nested contract cannot hide behind an enrolled parent verb",
     ),
     ["config zz-future"],
   );
+});
+
+Deno.test("every canonical predicate has a behavioral fixture, with no stale fixture", () => {
+  const contracts = CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id);
+  const fixtures = PREDICATE_FIXTURES.map((entry) => entry.contractId);
+  assertEquals(
+    setDifference(contracts, fixtures),
+    [],
+    "a canonical predicate contract has no true/false behavioral fixture",
+  );
+  assertEquals(
+    setDifference(fixtures, contracts),
+    [],
+    "the predicate fixture table names a stale contract",
+  );
+});
+
+Deno.test("a future predicate mode under an enrolled command cannot hide behind its default case", () => {
+  assertEquals(
+    setDifference(
+      [
+        ...CLI_JSON_PREDICATE_CONTRACTS.map((entry) => entry.id),
+        "zz-future-predicate",
+      ],
+      PREDICATE_FIXTURES.map((entry) => entry.contractId),
+    ),
+    ["zz-future-predicate"],
+  );
+});
+
+Deno.test("predicate modes preserve bare 0/1 and publish true/false JSON observations in both flag positions", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, NOISY_CONFIG);
+    await gitInit(dir);
+    // One non-neutral working-tree change makes impact's canonical `code`
+    // predicate true; config membership is unaffected.
+    await Deno.writeTextFile(join(dir, "predicate-change.ts"), "change\n");
+
+    const fixtures = new Map(
+      PREDICATE_FIXTURES.map((fixture) => [
+        fixture.contractId,
+        fixture,
+      ]),
+    );
+    for (const contract of CLI_JSON_PREDICATE_CONTRACTS) {
+      const fixture = fixtures.get(contract.id);
+      assert(fixture !== undefined, `${contract.id} needs a fixture`);
+      const parent = CLI_JSON_RESULT_CONTRACTS.find((candidate) =>
+        candidate.commands.includes(contract.command)
+      );
+      assert(parent !== undefined, `${contract.id} needs a parent contract`);
+
+      for (const state of CLI_PREDICATE_STATES) {
+        const present = state === "true";
+        const args = predicateArgs(contract, fixture.values[state]);
+        for (const mode of CLI_PREDICATE_INVOCATION_MODES) {
+          const context = `${contract.id} ${state} ${mode.id}`;
+          const result = await runAgent(
+            dir,
+            predicateModeArgs(mode, args),
+          );
+          const expectedExit = mode.exit === "success" ? 0 : present ? 0 : 1;
+          assertEquals(
+            result.code,
+            expectedExit,
+            `${context}: ${result.output}`,
+          );
+
+          if (mode.jsonFlag === "none") {
+            assertEquals(
+              result.output,
+              "",
+              `${context}: bare predicates stay silent`,
+            );
+            continue;
+          }
+
+          assertEquals(result.stderr, "", `${context}: stderr must stay empty`);
+          const envelope = assertEnvelopeOnly(
+            result,
+            contract.verb,
+            context,
+          );
+          assertEquals(envelope.ok, true, `${context}: query should succeed`);
+          assertEquals(
+            valueAtPath(envelope, contract.subjectPath),
+            fixture.values[state],
+            `${context}: predicate subject drifted`,
+          );
+          assertEquals(
+            valueAtPath(envelope, contract.presentPath),
+            present,
+            `${context}: predicate payload drifted`,
+          );
+          const parsed = parent.schema.safeParse(envelope);
+          assert(
+            parsed.success,
+            `${context}: envelope fails ${parent.id} runtime schema: ${
+              JSON.stringify(parsed.success ? [] : parsed.error.issues)
+            }`,
+          );
+        }
+      }
+    }
+  });
 });
 
 Deno.test("every swept --json verb emits ONLY the envelope (no human or subprocess leak)", async () => {

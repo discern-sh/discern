@@ -107,6 +107,10 @@ function newerDiscernHint(): FiredHint {
   });
 }
 
+function pendingUpgradeHint(): FiredHint {
+  return fire(HINTS["upgrade-check-pending"]);
+}
+
 function restartAgentsHint(): FiredHint {
   return fire(HINTS["upgrade-restart-session"]);
 }
@@ -195,7 +199,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.result({
         ok,
         verb: "upgrade",
-        ...(ok ? { hints: hintTexts([newerDiscernHint()]) } : {}),
+        hints: hintTexts([
+          ok ? newerDiscernHint() : pendingUpgradeHint(),
+        ]),
         data: {
           check: true,
           kit_version: KIT_VERSION,

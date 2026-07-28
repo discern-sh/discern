@@ -406,9 +406,16 @@ export const RefreshDataSchema = z.strictObject({
 });
 export type RefreshData = z.infer<typeof RefreshDataSchema>;
 
-/** `impact` — the classified scope/marker list. */
+/** One explicit `impact --has` observation inside the normal scope result. */
+const scopeMembershipDataSchema = z.strictObject({
+  scope: z.string(),
+  present: z.boolean(),
+});
+
+/** `impact` — the classified scope/marker list and optional membership query. */
 export const ScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
+  membership: scopeMembershipDataSchema.optional(),
 });
 export type ScopesData = z.infer<typeof ScopesDataSchema>;
 

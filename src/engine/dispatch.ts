@@ -514,11 +514,11 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers).",
+      "Emit a JSON DiscernResult: changes in `data.scopes`; `--has` in `data.membership`.",
     )
     .option(
       "--has <scope:string>",
-      "Exit 0/1 membership test for one scope (silent).",
+      "Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0.",
     )
     .action(
       recordedExit(

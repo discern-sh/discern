@@ -653,6 +653,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.keys((await import("../src/shared/hints.ts")).HINTS),
   },
   {
+    id: "failure-recovery-evidence",
+    title: "Generic failure-recovery evidence",
+    what:
+      "The result fields the generic recovery instruction may truthfully cite; without one, a failure needs a tailored next step.",
+    source: {
+      kind: "module",
+      module: "src/shared/hints.ts",
+      exportName: "FAILURE_RECOVERY_EVIDENCE",
+    },
+    guards: ["tests/result_schemas_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "wire-envelope evidence behind the documented advisory contract, not product vocabulary",
+      },
+      featureCanon: { nodeId: "hints" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/hints.ts")).FAILURE_RECOVERY_EVIDENCE,
+    ],
+  },
+  {
     id: "logbook-events",
     title: "Logbook events",
     what:
@@ -885,6 +908,78 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       (await import("../src/shared/result_contracts.ts"))
         .CLI_JSON_RESULT_CONTRACTS.map((contract) => contract.id),
+  },
+  {
+    id: "cli-json-predicates",
+    title: "CLI JSON predicate contracts",
+    what:
+      "The option- and positional-selected predicates whose bare exit status becomes a successful boolean observation under --json.",
+    source: {
+      kind: "module",
+      module: "src/shared/result_contracts.ts",
+      exportName: "CLI_JSON_PREDICATE_CONTRACTS",
+    },
+    guards: [
+      "tests/result_codegen_test.ts",
+      "tests/engine_json_purity_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "invocation modes inside documented commands, not reader-facing vocabulary",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      (await import("../src/shared/result_contracts.ts"))
+        .CLI_JSON_PREDICATE_CONTRACTS.map((contract) => contract.id),
+  },
+  {
+    id: "cli-predicate-invocation-modes",
+    title: "CLI predicate invocation modes",
+    what:
+      "The bare and global/local JSON placements every registered CLI predicate must prove, including their exit semantics.",
+    source: {
+      kind: "module",
+      module: "src/shared/result_contracts.ts",
+      exportName: "CLI_PREDICATE_INVOCATION_MODES",
+    },
+    guards: ["tests/engine_json_purity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine-output placements inside documented commands, not product terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      (await import("../src/shared/result_contracts.ts"))
+        .CLI_PREDICATE_INVOCATION_MODES.map((mode) => mode.id),
+  },
+  {
+    id: "cli-predicate-states",
+    title: "CLI predicate states",
+    what:
+      "The true and false states every registered CLI predicate must preserve in bare and JSON modes.",
+    source: {
+      kind: "module",
+      module: "src/shared/result_contracts.ts",
+      exportName: "CLI_PREDICATE_STATES",
+    },
+    guards: ["tests/engine_json_purity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "boolean test states, not reader-facing product vocabulary",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/result_contracts.ts"))
+        .CLI_PREDICATE_STATES,
+    ],
   },
   {
     id: "public-schema-publications",

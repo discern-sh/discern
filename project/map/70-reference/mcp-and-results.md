@@ -147,12 +147,12 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 | Status                       | Meaning                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `0`                          | The command completed successfully, or a predicate such as `config has` / `impact --has` was true.         |
-| `1`                          | A controlled failure or refusal, a false predicate, or an enforcement threshold that was not met.          |
+| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.    |
+| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.     |
 | Project Script's own code    | `discern script <name>` passes through the script's exit code because the script owns its result contract. |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.         |
 
-For a published JSON result, exit `0` means `ok: true`; a controlled non-zero result means `ok: false`. `identity` and config read helpers stay bare without `--json` and emit published envelopes with it.
+For published JSON results, exit `0` means `ok: true`; controlled nonzero means `ok: false`. JSON predicates are successful observations in either state: they exit `0` and carry the boolean in `data`. Bare `config has` and `impact --has` print nothing, exiting `0` when true and `1` when false. `identity` and config read helpers stay bare without `--json` and emit published envelopes with it.
 
 ## Published schemas and types
 

@@ -8233,6 +8233,21 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "membership": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string"
+                    },
+                    "present": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "present"
+                  ]
                 }
               },
               "required": [

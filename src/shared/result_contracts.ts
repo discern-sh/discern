@@ -53,6 +53,37 @@ import {
   WorktreeTeardownOutputSchema,
 } from "./result_schemas.ts";
 
+/**
+ * The complete invocation matrix for a CLI predicate. Bare mode is the
+ * shell-friendly exit-status contract; both JSON placements make the predicate
+ * a successful observation whose boolean rides in the envelope.
+ */
+export const CLI_PREDICATE_INVOCATION_MODES = [
+  { id: "bare", jsonFlag: "none", exit: "predicate" },
+  { id: "json-global", jsonFlag: "before-command", exit: "success" },
+  { id: "json-local", jsonFlag: "after-arguments", exit: "success" },
+] as const;
+export type CliPredicateInvocationMode =
+  (typeof CLI_PREDICATE_INVOCATION_MODES)[number];
+
+/** The two truth states every predicate contract must prove. */
+export const CLI_PREDICATE_STATES = ["true", "false"] as const;
+export type CliPredicateState = (typeof CLI_PREDICATE_STATES)[number];
+
+/** One option- or positional-selected predicate mode under a result contract. */
+export interface CliJsonPredicateContract {
+  /** Stable id used by behavioral fixtures and canonical-set enrollment. */
+  id: string;
+  /** Canonical command path that owns the predicate. */
+  command: string;
+  /** Option introducing the tested value; absent means a positional value. */
+  option?: string | undefined;
+  /** Path to the queried key/scope inside the serialized envelope. */
+  subjectPath: readonly string[];
+  /** Path to the boolean fact inside the serialized envelope. */
+  presentPath: readonly string[];
+}
+
 export interface ResultContract {
   /** Stable id used for generated `$defs` and TypeScript type names. */
   id: string;
@@ -64,6 +95,8 @@ export interface ResultContract {
   schema: z.ZodType;
   /** MCP tool name when this same result is exposed over MCP. */
   mcpTool?: string | undefined;
+  /** Additional predicate invocations selected inside one command path. */
+  predicates?: readonly CliJsonPredicateContract[] | undefined;
 }
 
 export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
@@ -164,6 +197,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     ],
     verb: "config",
     schema: ConfigOutputSchema,
+    predicates: [{
+      id: "config-has",
+      command: "config has",
+      subjectPath: ["data", "key"],
+      presentPath: ["data", "present"],
+    }],
   },
   {
     id: "done",
@@ -219,6 +258,13 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "impact",
     schema: ImpactOutputSchema,
     mcpTool: "discern_impact",
+    predicates: [{
+      id: "impact-has",
+      command: "impact",
+      option: "--has",
+      subjectPath: ["data", "membership", "scope"],
+      presentPath: ["data", "membership", "present"],
+    }],
   },
   {
     id: "coupling",
@@ -335,6 +381,25 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: SkillsEjectOutputSchema,
   },
 ] as const;
+
+/** A predicate contract with its parent envelope discriminator attached. */
+export interface RegisteredCliJsonPredicateContract
+  extends CliJsonPredicateContract {
+  verb: string;
+}
+
+/**
+ * Every predicate invocation flattened from the result-contract authority.
+ * Tests consume this projection; they never maintain a parallel command list.
+ */
+export const CLI_JSON_PREDICATE_CONTRACTS:
+  readonly RegisteredCliJsonPredicateContract[] = CLI_JSON_RESULT_CONTRACTS
+    .flatMap((contract) =>
+      (contract.predicates ?? []).map((predicate) => ({
+        ...predicate,
+        verb: contract.verb,
+      }))
+    );
 
 /** One CLI command path that intentionally does not emit a public result. */
 export interface CliJsonContractExclusion {

@@ -297,7 +297,7 @@ export async function classifyScopes(
 /** Options for the `impact` subcommand surface. */
 export interface ImpactOptions {
   json?: boolean;
-  /** Exit-status-only membership test for a single scope/marker name. */
+  /** Membership test: bare mode uses exit status; JSON carries the boolean. */
   has?: string;
 }
 
@@ -305,11 +305,19 @@ export interface ImpactOptions {
  * the CLI `--json` and the MCP tool render. */
 function impactEnvelope(
   scopes: string[],
+  has?: string,
 ): DiscernResult<ScopesData> {
+  const data: ScopesData = has === undefined ? { scopes } : {
+    scopes,
+    membership: {
+      scope: has,
+      present: scopes.includes(has),
+    },
+  };
   return {
     ok: true,
     verb: "impact",
-    data: { scopes } satisfies ScopesData,
+    data,
   };
 }
 
@@ -324,20 +332,21 @@ export async function impactResult(
 }
 
 /**
- * The `impact` subcommand: print the scopes (one per line), a JSON array
- * (`--json`), or test membership silently (`--has <name>` → exit 0/1).
+ * The `impact` subcommand: print the scopes (one per line), emit one result
+ * envelope (`--json`), or test membership silently in bare mode
+ * (`--has <name>` → exit 0/1).
  */
 export async function runImpact(
   root: string,
   opts: ImpactOptions,
 ): Promise<number> {
   const scopes = await classifyScopes(root);
+  if (opts.json) {
+    emitResult(impactEnvelope(scopes, opts.has));
+    return 0;
+  }
   if (opts.has !== undefined) {
     return scopes.includes(opts.has) ? 0 : 1;
-  }
-  if (opts.json) {
-    emitResult(impactEnvelope(scopes));
-    return 0;
   }
   for (const s of scopes) {
     console.log(s);

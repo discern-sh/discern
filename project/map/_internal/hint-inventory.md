@@ -216,6 +216,19 @@ Rendered example:
 Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
 ```
 
+## `doctor-failed-checks`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `doctor` reports one or more failed install checks.
+
+Rendered example:
+
+```text
+Apply the fix listed under each failed check, then run `discern doctor` again.
+```
+
 ## `done-unchanged-tree-green`
 
 - Category: `next-step`
@@ -1754,6 +1767,19 @@ Rendered example:
 
 ```text
 Run `discern done` to verify the merged tree. The detailed main integration summary was unavailable.
+```
+
+## `upgrade-check-pending`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `upgrade --check` finds pending migrations or install reconciliation.
+
+Rendered example:
+
+```text
+Run `discern upgrade` to apply pending migrations and reconcile this install.
 ```
 
 ## `upgrade-newer-discern`

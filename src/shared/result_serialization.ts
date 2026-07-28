@@ -6,7 +6,11 @@
  * consumer (`hints.ts` already imports result types).
  */
 
-import { hasRegisteredActionableHint } from "./hints.ts";
+import {
+  hasFailureRecoveryEvidence,
+  hasGenericFailureRecoveryHint,
+  hasRegisteredActionableHint,
+} from "./hints.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
 
 /**
@@ -16,6 +20,14 @@ import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
  * surface can emit one.
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
+  if (
+    !r.ok && hasGenericFailureRecoveryHint(r.hints) &&
+    !hasFailureRecoveryEvidence(r)
+  ) {
+    throw new Error(
+      `internal result invariant: failed \`discern ${r.verb}\` result's generic failure-recovery hint requires a message or diagnostic`,
+    );
+  }
   if (!r.ok && !hasRegisteredActionableHint(r.hints)) {
     throw new Error(
       `internal result invariant: failed \`discern ${r.verb}\` result has no registered next-step hint`,

@@ -783,7 +783,9 @@ export function buildCli(
       ),
     );
   const configHas = new Command()
-    .description("Exit 0 if a key or section exists, 1 otherwise (silent).")
+    .description(
+      "Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.",
+    )
     .arguments("<key:string>")
     .option("--json", readJsonHelp)
     .action(
