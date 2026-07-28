@@ -110,6 +110,12 @@ import {
   inlineFindingRoutes,
   receiptFindingHints,
 } from "../logbook/surfaces.ts";
+import {
+  inspectLandingAuthority,
+  landingAuthorityProjection,
+  type LandingAuthorityResolution,
+  uncoveredLandingAuthorityDetails,
+} from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   checkGuidanceCurrent,
@@ -929,10 +935,19 @@ async function runGate(
   const emittedReceipt = gateReceipt.status === "skipped_head_moved"
     ? undefined
     : receipt;
+  const landingAuthority = failedStage === null && emittedReceipt !== undefined
+    ? await inspectLandingAuthority(root, mainBranch)
+    : undefined;
   if (result.data !== undefined) {
     result.data.gate_receipt = gateReceipt;
     if (emittedReceipt !== undefined) {
       result.data.receipt = emittedReceipt;
+    }
+    const authorityProjection = landingAuthority === undefined
+      ? undefined
+      : landingAuthorityProjection(landingAuthority);
+    if (authorityProjection !== undefined) {
+      result.data.landing_authority = authorityProjection;
     }
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
@@ -982,6 +997,7 @@ async function runGate(
       gotchasTail,
       emittedReceipt !== undefined,
       deferredStandards,
+      landingAuthority,
     ),
     ...trailingJobHints,
     ...couplingHints,
@@ -1047,16 +1063,29 @@ function buildGateHints(
   gotchasTail: GotchasFailureTail | undefined,
   receiptEmitted: boolean,
   deferredStandards: string[],
+  landingAuthority: LandingAuthorityResolution | undefined,
 ): FiredHint[] {
   if (failedStage !== null) {
     return gotchasTail === undefined
       ? []
       : [gotchasTail.hint, ...gotchasTail.warnings];
   }
+  const receiptRoute = landingAuthority?.kind === "authorized"
+    ? fire(HINTS["gate-land-under-verified-authority"], {
+      source: landingAuthority.consent.source,
+      scopes: landingAuthority.consent.scopes ?? [],
+    })
+    : landingAuthority !== undefined &&
+        landingAuthorityProjection(landingAuthority) !== undefined
+    ? fire(HINTS["gate-relay-uncovered-authority"], {
+      uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
+      warnings: landingAuthority.warnings,
+    })
+    : fire(HINTS["gate-relay-receipt"]);
   const hints = receiptEmitted
     ? [
       fire(HINTS["gate-prove-it-works"]),
-      fire(HINTS["gate-relay-receipt"]),
+      receiptRoute,
     ]
     : [];
   hints.push(fire(HINTS["gate-update-docs"]));

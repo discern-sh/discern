@@ -45,14 +45,27 @@ Then it's your turn:
 1. **Start a fresh agent session.** The MCP tools and session hooks setup wired load at session start, so the session that ran setup can't see them yet.
 2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits on a branch you can read.
 
+<!-- discern-workflow:procedure -->
+
 ## 4. Ship a change through the gate
 
-In the fresh session, ask for a small, real change, and watch what the agent does:
+In the fresh session, ask for a small, real change. The agent takes it through the same isolated lifecycle every time.
 
-1. It runs `discern start` and gets an isolated worktree on an `agent/…` branch — your checkout stays clean.
-2. It makes the change there, like any other work.
-3. It runs `discern done`. The gate runs the format, build, lint, and test commands your repo declared in `discern.toml`; a failure hands the agent the exact failing command and its output, so it fixes and re-runs instead of guessing.
-4. On green, the agent reports ready, ending with a one-line receipt of what passed — and waits. It does not land anything on its own. Read the full receipt with `discern status --verbose`.
+**Before you start:**
+
+- [ ] Setup's `discern-setup` branch is reviewed and landed.
+- [ ] The coding agent is running in a fresh session.
+
+**Steps:**
+
+1. **Start the worktree.** The agent runs `discern start` and gets an isolated checkout on an `agent/…` branch, leaving your checkout clean.
+2. **Make the change.** It edits and checks the requested work inside that worktree.
+3. **Run the full gate.** It runs `discern done`. The gate runs the format, build, lint, and test commands declared in `discern.toml`; a failure gives the agent the failing command and its output.
+4. **Report the result.** On green, the agent ends its report with the one-line receipt and waits. Read the full receipt with `discern status --verbose`.
+
+**You are done when:** You have reviewed the branch and its receipt, authorized the landing, and `discern accept` has fast-forwarded the trunk.
+
+<!-- /discern-workflow -->
 
 Review the branch. When you're happy, say so: the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance honors the receipt only while the branch is unchanged — a commit after the green run invalidates it, and the agent runs `discern done` again.
 
@@ -60,4 +73,11 @@ To drive the handoff yourself, run bare `discern` from the main checkout. [The d
 
 That's the loop you'll live in: your agent works in isolation, the gate says when the work is done, and nothing lands without your word.
 
-Next: the [walkthrough](walkthrough.md) narrates a full session in detail, and the [FAQ](faq.md) covers the first things that go wrong.
+<!-- discern-workflow:branch-choice -->
+
+**Choose what happens next**
+
+- **Recommended:** Follow the [walkthrough](walkthrough.md) through one complete session.
+- **Something went wrong:** Match the symptom in the [FAQ](faq.md) to its fix.
+
+<!-- /discern-workflow -->

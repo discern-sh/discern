@@ -22,6 +22,7 @@ aliases:
   - generated file
   - guidance source
   - installer
+  - landing authority
   - logbook
   - map
   - migration
@@ -120,6 +121,10 @@ Your own agent instructions, at the paths named by `[guidance].sources` (default
 ### Installer
 
 The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](../70-reference/cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
+
+### Landing authority
+
+Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [receipt](#receipt) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).
 
 ### Logbook
 

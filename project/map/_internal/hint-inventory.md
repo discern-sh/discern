@@ -18,7 +18,7 @@ Audience `all` renders on every surface. Audience `agent` marks an instruction o
 Rendered example:
 
 ```text
-Re-run `discern accept --confirmed` once the owner has accepted this landing. The flag attests that acceptance, so a pre-authorized landing still takes one call.
+Re-run `discern accept --confirmed` once the owner has accepted this landing in the current conversation. The flag attests only to that conversation; recorded standing and effort grants are checked directly.
 ```
 
 ## `accept-convergence-changed-tracked`
@@ -547,6 +547,19 @@ Rendered example:
 Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 error-like lines across 80 output lines.
 ```
 
+## `gate-land-under-verified-authority`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: A successful gate records a receipt for a tree with machine-verified landing authority.
+
+Rendered example:
+
+```text
+The receipt's clean HEAD is covered by the standing grant for docs. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.receipt_line` afterward.
+```
+
 ## `gate-previewable-change`
 
 - Category: `next-step`
@@ -649,6 +662,19 @@ Rendered example:
 
 ```text
 If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
+```
+
+## `gate-relay-uncovered-authority`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: A successful gate records a receipt but recorded authority does not cover its tree.
+
+Rendered example:
+
+```text
+Report this task to your owner in your own words, end with `data.receipt.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Don't paste the full receipt: your owner pulls it with `discern status --verbose`.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -1249,6 +1275,19 @@ Rendered example:
 Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, measured 92.4, pinning to 92.4). On this commit, the pin reuses this check's measurements.
 ```
 
+## `start-landing-authority`
+
+- Category: `notice`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: `start` creates an effort under a recorded landing grant or finds authority evidence that needs attention.
+
+Rendered example:
+
+```text
+Standing landing authority is recorded for docs. Changes kept within that scope can land without a further conversation; discern will check the final changed paths.
+```
+
 ## `start-main-changes-stay`
 
 - Category: `notice`
@@ -1392,6 +1431,19 @@ Rendered example:
 Use `discern prepare` or targeted tests while iterating on changes in code, docs. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
 ```
 
+## `status-fleet-authorized-landings`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: A fleet survey finds ready worktrees with machine-verified landing authority.
+
+Rendered example:
+
+```text
+2 ready worktrees have machine-verified landing authority: docs-refresh, release-notes. Open each worktree and run `discern accept` now; acceptance rechecks its grant before landing.
+```
+
 ## `status-fleet-collisions`
 
 - Category: `notice`
@@ -1457,6 +1509,19 @@ Rendered example:
 Investigate 5 worktrees whose git state cannot be read: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. To discard one, run `discern worktree drop <name>`. It refuses without `--force` while the git state cannot be read.
 ```
 
+## `status-land-under-verified-authority`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: A clean, current branch has an honored receipt and machine-verified landing authority.
+
+Rendered example:
+
+```text
+The clean HEAD is covered by the standing grant for docs and has an honored receipt. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
+```
+
 ## `status-main-checkout-dirty`
 
 - Category: `next-step`
@@ -1520,6 +1585,19 @@ Rendered example:
 
 ```text
 Report this branch to your owner in your own words and end with the receipt in `data.gate_receipt.receipt_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+```
+
+## `status-ready-uncovered-authority`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `landing-authority`
+- Emitting context: A clean, current branch has an honored receipt but recorded authority does not cover it.
+
+Rendered example:
+
+```text
+Report this branch to your owner and end with `data.gate_receipt.receipt_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
 ```
 
 ## `status-start-off-trunk`

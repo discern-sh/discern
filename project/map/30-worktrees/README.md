@@ -13,11 +13,11 @@ _Every change gets its own checkout, branch, identity, and local dependencies._
 
 `discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view.
 
-Each worktree gets a stable identity, deterministic development port, and any declared external resources. Setup commands prepare the checkout and converge it again after the trunk changes.
+Each worktree gets a stable identity, development port, and declared resources. Setup prepares the checkout and converges it after the trunk changes.
 
-The lifecycle has one recommended path. Start from the main checkout, make and commit the change inside the new worktree, run `discern update` when the trunk advances, and finish with `discern done`. After review, `discern accept --confirmed` fast-forwards the validated commit onto the trunk, tears down its resources, removes the checkout, and deletes the merged branch.
+Follow one path: start from the main checkout, commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
 
-Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to start tasks or make fleet decisions: open a coding agent, inspect, update, land, enter, or discard.
+Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to inspect, update, land, or drop tasks across the fleet.
 
 | Order | Read next                                         | What's in it                                                                    |
 | ----: | ------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -29,4 +29,5 @@ Treat every worktree as occupied, even when git reports it clean. [`discern stat
 |    60 | [Multi-repo workspaces](multi-repo-workspaces.md) | One install per repository: trunk links, registries, umbrellas, and submodules. |
 |    70 | [Status and session hints](status.md)             | Read current worktree or fleet state and the next actions it implies.           |
 |    80 | [The desk](the-desk.md)                           | Start tasks, open agents, and supervise every active worktree.                  |
-|    90 | [Hand work back](hand-work-back.md)               | Finish, report the receipt, wait for review, and accept after approval.         |
+|    90 | [Landing authority](landing-authority.md)         | See how conversation consent and recorded grants control landing.               |
+|   100 | [Hand work back](hand-work-back.md)               | Finish, report the receipt, wait for review, and accept after approval.         |

@@ -111,6 +111,12 @@ import {
   inlineFindingRoutes,
   statusFindingHints,
 } from "../logbook/surfaces.ts";
+import {
+  inspectLandingAuthority,
+  landingAuthorityProjection,
+  type LandingAuthorityResolution,
+  uncoveredLandingAuthorityDetails,
+} from "../worktree/landing_authority.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -251,6 +257,15 @@ export async function statusResult(
     : undefined;
   if (gateReceipt !== undefined) {
     data.gate_receipt = gateReceipt;
+  }
+  const landingAuthority = location === "worktree"
+    ? await inspectLandingAuthority(root, mainBranch)
+    : undefined;
+  const authorityProjection = landingAuthority === undefined
+    ? undefined
+    : landingAuthorityProjection(landingAuthority);
+  if (authorityProjection !== undefined) {
+    data.landing_authority = authorityProjection;
   }
 
   // Local-only heavy blocks: the changed scopes and what the gate would fire.
@@ -446,6 +461,7 @@ export async function statusResult(
     untrackedGuidance,
     setupPending,
     gateReceipt,
+    landingAuthority,
   });
   const result: DiscernResult<StatusData> = {
     ok: true,
@@ -570,6 +586,12 @@ async function fleetEntryFor(
         entry.receipt_line = receipt.receipt_line;
       }
     }
+    const authority = landingAuthorityProjection(
+      await inspectLandingAuthority(row.path, cfg.repository.trunk),
+    );
+    if (authority !== undefined) {
+      entry.landing_authority = authority;
+    }
   }
   const files = cfg.worktree.env_files;
   const recordedId = await readEnvValueAcross(
@@ -664,6 +686,8 @@ interface HintContext {
   setupPending: string[] | undefined;
   /** Whether the current clean HEAD has an honored receipt from `discern done`. */
   gateReceipt: GateReceiptCheckData | undefined;
+  /** The current branch's authority, from the one resolver used by acceptance. */
+  landingAuthority: LandingAuthorityResolution | undefined;
 }
 
 /**
@@ -828,12 +852,35 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           ctx.gateReceipt?.status === "honored",
         )
       ) {
-        hints.push(
-          fire(HINTS["status-ready-for-review"], {
-            trunk: main,
-            branch: g.branch,
-          }),
-        );
+        if (ctx.landingAuthority?.kind === "authorized") {
+          hints.push(
+            fire(HINTS["status-land-under-verified-authority"], {
+              source: ctx.landingAuthority.consent.source,
+              scopes: ctx.landingAuthority.consent.scopes ?? [],
+            }),
+          );
+        } else if (
+          ctx.landingAuthority !== undefined &&
+          landingAuthorityProjection(ctx.landingAuthority) !== undefined
+        ) {
+          hints.push(
+            fire(HINTS["status-ready-uncovered-authority"], {
+              uncovered: uncoveredLandingAuthorityDetails(
+                ctx.landingAuthority,
+              ),
+              warnings: ctx.landingAuthority.warnings,
+              trunk: main,
+              branch: g.branch,
+            }),
+          );
+        } else {
+          hints.push(
+            fire(HINTS["status-ready-for-review"], {
+              trunk: main,
+              branch: g.branch,
+            }),
+          );
+        }
       } else {
         hints.push(
           fire(HINTS["status-missing-done-receipt"], { trunk: main }),
@@ -891,11 +938,25 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       const ready = others.filter((e) =>
         isReadyToLand(e, e.receipt_honored === true)
       );
-      if (ready.length > 0) {
+      const authorizedReady = ready.filter((e) =>
+        e.landing_authority?.kind === "authorized"
+      );
+      if (authorizedReady.length > 0) {
+        hints.push(
+          fire(HINTS["status-fleet-authorized-landings"], {
+            total: authorizedReady.length,
+            names: authorizedReady.map((e) => e.id ?? e.branch),
+          }),
+        );
+      }
+      const reviewReady = ready.filter((e) =>
+        e.landing_authority?.kind !== "authorized"
+      );
+      if (reviewReady.length > 0) {
         hints.push(
           fire(HINTS["status-fleet-member-ready"], {
-            total: ready.length,
-            names: ready.map((e) => e.id ?? e.branch),
+            total: reviewReady.length,
+            names: reviewReady.map((e) => e.id ?? e.branch),
             trunk: main,
           }),
         );
@@ -1230,6 +1291,14 @@ function renderStatusHuman(
     }
   }
 
+  if (data.landing_authority !== undefined) {
+    out.raw(
+      `  ${label("authority")}${
+        landingAuthoritySummary(data.landing_authority)
+      }\n`,
+    );
+  }
+
   if (data.standards.length > 0) {
     out.raw(`  ${label("standards")}${data.standards.join(", ")}\n`);
   }
@@ -1256,6 +1325,30 @@ function renderStatusHuman(
     out.info(hint);
   }
 }
+
+function landingAuthoritySummary(
+  authority: NonNullable<StatusData["landing_authority"]>,
+): string {
+  if (authority.kind === "authorized") {
+    return authority.source === "standing-grant"
+      ? `standing grant: ${authority.scopes?.join(", ") ?? "(none)"}`
+      : "effort grant";
+  }
+  if ((authority.standing_scopes?.length ?? 0) > 0) {
+    return `conversation required; standing grant: ${
+      authority.standing_scopes?.join(", ")
+    }`;
+  }
+  return "conversation required; authority warning";
+}
+
+const FLEET_AUTHORITY_COLUMN: AlignedColumn<StatusFleetEntry> = {
+  header: "AUTHORITY",
+  value: (e) =>
+    e.landing_authority === undefined
+      ? "—"
+      : landingAuthoritySummary(e.landing_authority),
+};
 
 const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
   // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
@@ -1300,10 +1393,17 @@ const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
  * so an identifier is always shown in full (see {@link FLEET_COLUMN_SPECS}). */
 function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   const c = out.c;
-  const [header = "", ...rows] = renderAlignedTable(
-    FLEET_COLUMN_SPECS,
-    fleet,
-  );
+  const columns = fleet.some((entry) => entry.landing_authority !== undefined)
+    ? [
+      ...FLEET_COLUMN_SPECS.slice(0, -1),
+      FLEET_AUTHORITY_COLUMN,
+      FLEET_COLUMN_SPECS[
+        FLEET_COLUMN_SPECS.length - 1
+      ] as AlignedColumn<StatusFleetEntry>,
+    ]
+    : FLEET_COLUMN_SPECS;
+
+  const [header = "", ...rows] = renderAlignedTable(columns, fleet);
   out.raw(`\n  ${c.dim}${header}${c.reset}\n`);
   for (const [index, e] of fleet.entries()) {
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";

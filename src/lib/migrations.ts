@@ -1650,6 +1650,42 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    from: 23,
+    describe:
+      "add the documented [acceptance] standing-grant section after named scopes",
+    apply: async (ctx) => {
+      const text = await ctx.readConfig();
+      if (text === undefined) {
+        return;
+      }
+      let raw: Record<string, unknown>;
+      try {
+        raw = parseDiscernToml(text).raw;
+      } catch {
+        return; // upgrade validates syntax before migration; belt-and-braces.
+      }
+      if (raw.acceptance !== undefined) {
+        return;
+      }
+
+      const template = await readConfigTemplate(ctx.env);
+      const block = template === undefined
+        ? undefined
+        : sectionBlockFromTemplate(template, "acceptance");
+      const editor = new TomlEditor(text);
+      if (block !== undefined) {
+        const scopeNames = isRecord(raw.scopes) ? Object.keys(raw.scopes) : [];
+        const lastScope = scopeNames.at(-1);
+        const anchor = lastScope === undefined ? "jobs" : `scopes.${lastScope}`;
+        editor.insertSectionBlockAfter(anchor, block);
+      } else {
+        editor.setStringArray("acceptance.pre_authorized", []);
+      }
+      await ctx.rewrite("discern.toml", () => editor.toString());
+      ctx.note("added [acceptance].pre_authorized");
+    },
+  },
 ];
 
 /** Remove discern's ruled banner for one retired record family, preserving every

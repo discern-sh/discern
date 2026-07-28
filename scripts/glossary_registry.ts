@@ -276,6 +276,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](../70-reference/cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).",
   },
   {
+    term: "Landing authority",
+    definition:
+      "Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [receipt](#receipt) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).",
+  },
+  {
     term: "Logbook",
     definition:
       "The local record of discern's own use: one metadata-only line per verb run, appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).",

@@ -426,7 +426,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "accept",
         title: "Accept",
         what:
-          "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by the receipt), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. It requires a `--confirmed` attestation.",
+          "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by the receipt), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. Authority comes from a fresh `--confirmed` conversation attestation or a machine-checked standing or effort grant.",
         why:
           "Landing is atomic and consented: the tree the owner reviewed is the tree that lands, and nothing of the task is left behind.",
         agent:
@@ -510,7 +510,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "desk",
         title: "The desk",
         what:
-          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, and offers each worktree its valid next actions, owning the child sessions it launches.",
+          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches.",
         why:
           "The human's day-to-day surface is one screen, and every action on it is one keypress.",
         surfaces: ["verb:desk"],
@@ -895,13 +895,14 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "consent-attestations",
-        title: "Consent is attested per invocation",
+        title: "Landing authority is proved per invocation",
         what:
-          "Scaffolding a fresh install and landing on the trunk refuse unless the invocation itself carries `--confirmed`. The attestation is stateless — no sidecar marker, no remembered yes — so it must be asserted fresh each time, and both verbs share one refusal contract held by a class test.",
+          "Scaffolding a fresh install requires a `--confirmed` conversation attestation. Landing accepts either that fresh attestation or a machine-checked grant recorded on the trunk or at the desk; absent both, it refuses read-only. Every successful landing records which source authorized it.",
         why:
-          "Consent cannot go stale, and cannot be inherited from an earlier call.",
+          "Consent comes from evidence at the landing boundary, never from an agent's memory of an earlier conversation.",
         agent:
-          "An agent that skipped the conversation is routed back into it: the refusal re-serves the consent moment and the exact command to continue, so the guardrail teaches rather than dead-ends.",
+          "The same resolver feeds `start`, `status`, green `done`, and the acceptance boundary. An uncovered agent is routed back into the conversation; a covered one proceeds only after discern verifies the recorded grant against the exact changed paths.",
+        surfaces: ["config:acceptance"],
       },
       {
         id: "doctor",

@@ -33,6 +33,8 @@ export type DeskBucket = (typeof DESK_BUCKETS)[number];
 /** Every action the desk can offer on a row, in menu order. */
 export const DESK_ACTIONS = [
   "accept",
+  "grant",
+  "revoke_grant",
   "update",
   "script",
   "agent",
@@ -67,6 +69,8 @@ export interface DeskRow {
   readonly task: DeskTaskLabel;
   /** Whether the row's clean HEAD holds a recorded gate receipt. */
   readonly receiptHonored: boolean;
+  /** Whether the desk has granted this branch a worktree-scoped landing. */
+  readonly effortGranted: boolean;
   /** Executable Project Scripts discovered through this worktree's config. */
   readonly scripts: readonly ProjectScript[];
   /** Configured agents whose declared CLI binary is currently on PATH. */
@@ -148,6 +152,7 @@ export function classifyBucket(
  */
 export function legalActions(
   entry: StatusFleetEntry,
+  effortGranted: boolean,
   scripts: readonly ProjectScript[],
   agentLaunches: readonly DeskAgentLaunch[],
 ): readonly DeskAction[] {
@@ -161,6 +166,7 @@ export function legalActions(
   if (entry.clean === true && (entry.ahead ?? 0) > 0) {
     actions.push("accept");
   }
+  actions.push(effortGranted ? "revoke_grant" : "grant");
   if ((entry.behind ?? 0) > 0) {
     actions.push("update");
   }
@@ -273,6 +279,7 @@ function byActivityDesc(a: StatusFleetEntry, b: StatusFleetEntry): number {
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
   receiptHonoredByPath: ReadonlyMap<string, boolean>,
+  effortGrantedByPath: ReadonlyMap<string, boolean>,
   scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
   agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
   nowMs: number,
@@ -281,16 +288,23 @@ export function buildDeskRows(
     .filter((entry) => !entry.is_main)
     .map((entry): DeskRow => {
       const receiptHonored = receiptHonoredByPath.get(entry.path) ?? false;
+      const effortGranted = effortGrantedByPath.get(entry.path) ?? false;
       const scripts = scriptsByPath.get(entry.path) ?? [];
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
       return {
         entry,
         task: taskLabel(entry),
         receiptHonored,
+        effortGranted,
         scripts,
         agentLaunches,
         bucket: classifyBucket(entry, receiptHonored, nowMs),
-        actions: legalActions(entry, scripts, agentLaunches),
+        actions: legalActions(
+          entry,
+          effortGranted,
+          scripts,
+          agentLaunches,
+        ),
         summary: rowSummary(entry, receiptHonored, nowMs),
       };
     });

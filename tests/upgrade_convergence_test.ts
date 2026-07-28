@@ -119,6 +119,26 @@ async function assertSecondUpgradeIsByteStable(dir: string): Promise<void> {
   assertEquals(await readStableTargets(dir), before);
 }
 
+/** Assert every migration from `from` through the result's canonical current
+ * schema ran exactly once and in order. */
+function assertAppliedMigrationRange(
+  res: {
+    data: {
+      migrations_applied: Array<{ from: number }>;
+      schema: { current: number };
+    };
+  },
+  from: number,
+): void {
+  assertEquals(
+    res.data.migrations_applied.map((migration) => migration.from),
+    Array.from(
+      { length: res.data.schema.current - from },
+      (_, index) => from + index,
+    ),
+  );
+}
+
 /** True when a path exists under an install dir. */
 async function pathExists(dir: string, rel: string): Promise<boolean> {
   try {
@@ -364,33 +384,7 @@ Deno.test("a schema-1 install missing main_branch upgrades to the current schema
       await setSchema(older, 1);
 
       const res = await upgrade(older); // runs 1→2 … current, materializes, stamps
-      assertEquals(
-        res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18,
-          19,
-          20,
-          21,
-          22,
-        ],
-      );
+      assertAppliedMigrationRange(res, 1);
 
       await setup(fresh); // a fresh install at the current schema
 
@@ -458,31 +452,7 @@ Deno.test("a schema-3 [slots] install upgrades to the jobs shape and the current
       await regressToV3(older); // reverse the seed config to the pre-4 shape
 
       const res = await upgrade(older); // runs 3→4 … current, materializes, stamps
-      assertEquals(
-        res.data.migrations_applied.map((m: { from: number }) => m.from),
-        [
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18,
-          19,
-          20,
-          21,
-          22,
-        ],
-      );
+      assertAppliedMigrationRange(res, 3);
 
       await setup(fresh);
       // The migrated install reaches the same schema as a fresh one.
@@ -555,30 +525,7 @@ Deno.test("a legacy install whose schema lives only in a manifest upgrades, prun
 
     const res = await upgrade(dir);
     // The manifest anchored the chain at schema 4, so every later step runs.
-    assertEquals(
-      res.data.migrations_applied.map((m: { from: number }) => m.from),
-      [
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        21,
-        22,
-      ],
-    );
+    assertAppliedMigrationRange(res, 4);
     // The shell engine, dispatcher, manifest, and the whole .discern/ namespace
     // are gone; the config now lives at the root footprint.
     assertEquals(await pathExists(dir, ".discern"), false);
