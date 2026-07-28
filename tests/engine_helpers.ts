@@ -364,15 +364,24 @@ export async function gitInit(dir: string): Promise<void> {
       );
     }
   };
-  await git("init", "-q");
-  await git("config", "user.email", "engine-test@example.com");
-  await git("config", "user.name", "Engine Test");
-  await git("config", "commit.gpgsign", "false");
+  // `-b main` pins the branch name (the engine's default integration branch)
+  // regardless of the local git's init.defaultBranch.
+  await git("init", "-q", "-b", "main");
+  // Repo-local identity and signing-off, appended straight into .git/config:
+  // identity must live in CONFIG (not GIT_AUTHOR_*/GIT_COMMITTER_* env) because
+  // the engine's own identity probe reads `git config user.name`/`user.email`
+  // and must resolve in every scaffolded repo. A fresh `git init` always makes
+  // `.git` a directory, so the config path is stable. Appending the section is
+  // equivalent to three `git config` calls, without three subprocesses — this
+  // helper runs hundreds of times per suite run.
+  await Deno.writeTextFile(
+    join(dir, ".git", "config"),
+    "[user]\n\tname = Engine Test\n\temail = engine-test@example.com\n" +
+      "[commit]\n\tgpgsign = false\n",
+    { append: true },
+  );
   await git("add", "-A");
   await git("commit", "-q", "-m", "scaffold", "--no-gpg-sign");
-  // Normalise the branch name to `main` (the engine's default integration
-  // branch) regardless of the local git's init.defaultBranch.
-  await git("branch", "-M", "main");
 }
 
 /**
