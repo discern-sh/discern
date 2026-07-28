@@ -9,9 +9,8 @@
 #   brew bundle check      # sanity-check the toolchain is present
 #   brew bundle install    # install anything missing
 #
-# `codesign` is also needed to cut the macOS release binaries, but this
-# ships with the Xcode Command Line Tools - already required by Homebrew - so
-# assumed present already.
+# `codesign` and `notarytool` are also needed to cut the macOS release binaries.
+# They ship with Xcode, so they are not Homebrew dependencies.
 #
 # ---------------------------------------------------------------------------
 

@@ -65,11 +65,86 @@ jobs:
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}
 
+      - name: Install Apple release credentials
+        if: ${{ runner.os == 'macOS' }}
+        env:
+          APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          : "${APPLE_DEVELOPER_ID_P12_BASE64:?missing APPLE_DEVELOPER_ID_P12_BASE64 secret}"
+          : "${APPLE_DEVELOPER_ID_P12_PASSWORD:?missing APPLE_DEVELOPER_ID_P12_PASSWORD secret}"
+          : "${APPLE_NOTARY_APPLE_ID:?missing APPLE_NOTARY_APPLE_ID secret}"
+          : "${APPLE_NOTARY_PASSWORD:?missing APPLE_NOTARY_PASSWORD secret}"
+          : "${APPLE_TEAM_ID:?missing APPLE_TEAM_ID secret}"
+
+          certificate_path="$RUNNER_TEMP/developer-id-application.p12"
+          keychain_path="$RUNNER_TEMP/discern-release.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          printf '%s' "$APPLE_DEVELOPER_ID_P12_BASE64" \
+            | base64 --decode -o "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$APPLE_DEVELOPER_ID_P12_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
+          security list-keychain -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" \
+              | awk '/Developer ID Application:/ {
+                  count += 1
+                  identity = $2
+                }
+                END {
+                  if (count == 1) print identity
+                  else exit 1
+                }'
+          )"
+
+          xcrun notarytool store-credentials discern-release \
+            --apple-id "$APPLE_NOTARY_APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_NOTARY_PASSWORD" \
+            --keychain "$keychain_path"
+
+          printf 'APPLE_SIGNING_IDENTITY=%s\n' "$signing_identity" >> "$GITHUB_ENV"
+          printf 'APPLE_SIGNING_KEYCHAIN=%s\n' "$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Sign ${{ matrix.output }} with Developer ID
+        if: ${{ runner.os == 'macOS' }}
+        run: >-
+          codesign --force --timestamp --options runtime
+          --identifier sh.discern.cli
+          --entitlements scripts/macos_release_entitlements.plist
+          --keychain "${APPLE_SIGNING_KEYCHAIN}"
+          --sign "${APPLE_SIGNING_IDENTITY}"
+          "dist/${{ matrix.output }}"
+
       - name: Smoke compiled binary
         run: >-
           deno run --allow-read --allow-write --allow-run --allow-env
           scripts/release_smoke.ts "dist/${{ matrix.output }}"
           "${{ needs.plan.outputs.version }}"
+
+      - name: Notarize ${{ matrix.output }}
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          archive="$RUNNER_TEMP/${{ matrix.output }}.zip"
+          ditto -c -k --keepParent "dist/${{ matrix.output }}" "$archive"
+          xcrun notarytool submit "$archive" \
+            --keychain-profile discern-release \
+            --keychain "${APPLE_SIGNING_KEYCHAIN}" \
+            --wait
+          codesign --verify --strict --verbose=2 "dist/${{ matrix.output }}"
+          codesign -vvvv -R="notarized" --check-notarization \
+            "dist/${{ matrix.output }}"
 
       - name: Checksum
         working-directory: dist
@@ -93,6 +168,14 @@ jobs:
             dist/${{ matrix.output }}
             dist/${{ matrix.output }}.sha256
           if-no-files-found: error
+
+      - name: Remove Apple release credentials
+        if: ${{ always() && runner.os == 'macOS' }}
+        run: |
+          keychain_path="${APPLE_SIGNING_KEYCHAIN:-$RUNNER_TEMP/discern-release.keychain-db}"
+          security delete-keychain "$keychain_path" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/developer-id-application.p12"
+          rm -f "$RUNNER_TEMP/${{ matrix.output }}.zip"
 
   release:
     name: publish release

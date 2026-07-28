@@ -2,6 +2,7 @@
 
 import { ensureDir, exists } from "@std/fs";
 import { isAbsolute, join, resolve } from "@std/path";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 const DECODER = new TextDecoder();
 
@@ -154,8 +155,8 @@ export async function smokeReleaseBinary(
     for (
       const relative of [
         "discern.toml",
-        "discern/guidance.md",
-        "map/README.md",
+        SOURCE_PATHS.guidance.defaultPath,
+        join(SOURCE_PATHS.map.defaultPath, "README.md"),
       ]
     ) {
       if (!(await exists(join(project, relative)))) {
