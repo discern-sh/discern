@@ -238,20 +238,52 @@ function firstMarkdownHeading(markdown: string): string | undefined {
   return undefined;
 }
 
+/** A record file whose first heading defeats the index's title derivation.
+ * The remedy is editing that record, so consumers phrase it apart from a
+ * document-shape problem ({@link AdrIndexMarkerError}). */
+export class AdrRecordTitleError extends Error {
+  /** The offending record, relative to the ADR directory. */
+  readonly record: string;
+  constructor(record: string, message: string) {
+    super(message);
+    this.name = "AdrRecordTitleError";
+    this.record = record;
+  }
+}
+
+/** An index marker pair the README mangled: a start marker whose end marker
+ * is missing (or precedes it). The remedy is repairing the README's markers —
+ * every record file may be fine. */
+export class AdrIndexMarkerError extends Error {
+  readonly startMarker: string;
+  readonly endMarker: string;
+  constructor(startMarker: string, endMarker: string) {
+    super(
+      `the index block beginning with ${startMarker} has no matching ` +
+        `${endMarker} after it`,
+    );
+    this.name = "AdrIndexMarkerError";
+    this.startMarker = startMarker;
+    this.endMarker = endMarker;
+  }
+}
+
 async function adrRecordTitle(record: AdrRecord): Promise<string> {
   const heading = firstMarkdownHeading(
     await Deno.readTextFile(record.entry.absPath),
   );
   const prefix = `ADR ${record.number}: `;
   if (heading === undefined || !heading.startsWith(prefix)) {
-    throw new Error(
+    throw new AdrRecordTitleError(
+      record.entry.relToDocs,
       `${record.entry.relToDocs}: the first heading must start with ` +
         `"${prefix}" so the ADR index can derive its title`,
     );
   }
   const title = heading.slice(prefix.length).trim();
   if (title.length === 0) {
-    throw new Error(
+    throw new AdrRecordTitleError(
+      record.entry.relToDocs,
       `${record.entry.relToDocs}: the ADR heading needs a title after ` +
         `"${prefix}"`,
     );
@@ -318,10 +350,7 @@ function replaceAdrIndexBlock(
   const start = document.indexOf(startMarker);
   const end = document.indexOf(endMarker);
   if (start < 0 || end < start) {
-    throw new Error(
-      `ADR README is missing the generated block from ${startMarker} to ` +
-        endMarker,
-    );
+    throw new AdrIndexMarkerError(startMarker, endMarker);
   }
   const after = end + endMarker.length;
   return `${document.slice(0, start)}${rendered}${document.slice(after)}`;

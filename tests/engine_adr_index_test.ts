@@ -177,6 +177,39 @@ Deno.test("engine adr-index: a record the derivation cannot title fails the gate
   });
 });
 
+Deno.test("engine adr-index: a marker pair missing its end marker points the remedy at the README, not a record", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The BEGIN marker survives a bad edit; the END marker is gone. The record
+    // file is fine, so the remedy must name the README's marker pair.
+    await writeAdrDir(
+      dir,
+      "# Decisions\n\n<!-- BEGIN GENERATED: current ADR records -->\n",
+      { "0001-first-choice.md": "# ADR 0001: A first choice" },
+    );
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = JSON.parse(r.stdout);
+    assertEquals(obj.data.failed_stage, "adr_index");
+    const diag = (obj.diagnostics ?? []).find(
+      (d: { tool: string }) => d.tool === "adr-index",
+    );
+    assert(diag !== undefined, `expected an adr-index diagnostic: ${r.stdout}`);
+    assertStringIncludes(diag.message, ADR_README_REL);
+    assertStringIncludes(diag.output, "END GENERATED: current ADR records");
+    assertStringIncludes(
+      diag.output,
+      `Repair the marker pair in ${ADR_README_REL}`,
+    );
+    assert(
+      !diag.output.includes("Fix the named record file"),
+      `a mangled pair must not point the reader at a record file:\n${diag.output}`,
+    );
+  });
+});
+
 Deno.test("engine adr-index: the fresh setup skeleton yields a working index end-to-end", async () => {
   await withTempDir(async (dir) => {
     const setup = await runAgent(dir, [

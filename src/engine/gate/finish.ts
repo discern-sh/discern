@@ -258,13 +258,33 @@ async function adrNumbersDiagnostic(
 }
 
 /**
- * A diagnostic for the maintained ADR index. Two shapes behind one stage:
- * STALE — the record lists between the markers do not match the record
- * files, and `discern refresh` rewrites them (the currency remedy, with the
- * capped drift diff); INVALID — a record file defeats the derivation (its
- * first heading carries no record number), so the remedy is editing that
- * source, and the diagnostic says which file.
+ * A diagnostic for the maintained ADR index. STALE — the record lists between
+ * the markers do not match the record files, and `discern refresh` rewrites
+ * them (the currency remedy, with the capped drift diff). INVALID — the index
+ * cannot be derived; the remedy follows the state's cause, so the reader is
+ * never pointed at the wrong artifact: a record whose heading defeats the
+ * derivation (edit that record), a start marker whose end marker is gone
+ * (repair the README's pair), or an unexpected derivation failure (fix what
+ * the issue reports).
  */
+function adrIndexInvalidRemedy(
+  state: Extract<AdrIndexState, { kind: "invalid" }>,
+): string {
+  switch (state.cause) {
+    case "record":
+      return "Fix the named record file — its first heading must carry the " +
+        "record's number and a title — then run `discern refresh`.";
+    case "markers":
+      return `Repair the marker pair in ${state.path}: restore the missing ` +
+        "END marker named above after its BEGIN marker (or remove the pair " +
+        "to retire the maintained list). The record files may all be fine. " +
+        "Then run `discern refresh`.";
+    case "error":
+      return "The derivation itself failed. Fix the underlying problem " +
+        "reported above, then run `discern refresh`.";
+  }
+}
+
 async function adrIndexDiagnostic(
   state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
 ): Promise<Diagnostic> {
@@ -283,8 +303,7 @@ async function adrIndexDiagnostic(
         })
       : `The maintained ADR index in ${state.path} cannot be derived:\n\n` +
         `  ${state.issue}\n\n` +
-        "Fix the named record file — its first heading must carry the " +
-        "record's number and a title — then run `discern refresh`.",
+        adrIndexInvalidRemedy(state),
   );
   return {
     tool: "adr-index",

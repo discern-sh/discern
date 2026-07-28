@@ -19,11 +19,27 @@ import { ADR_SUBDIR } from "./adr_numbers.ts";
 import {
   ADR_CURRENT_RECORDS_START,
   ADR_SUPERSEDED_RECORDS_START,
+  AdrIndexMarkerError,
   adrRecords,
+  AdrRecordTitleError,
   discoverDocs,
   maintainAdrIndexDocument,
   renderAdrIndexBlocks,
 } from "./docs.ts";
+
+/**
+ * Why an index cannot be derived. Each cause names a different artifact to
+ * fix, so every consumer's remedy switches on it rather than pointing the
+ * reader at the wrong file:
+ * - `record` — a record file's first heading defeats title derivation; the
+ *   remedy is editing that record (`issue` names it).
+ * - `markers` — the README carries a start marker whose end marker is gone;
+ *   the remedy is repairing the README's marker pair (the record files may
+ *   all be fine).
+ * - `error` — the derivation itself failed unexpectedly (an unreadable file,
+ *   a denied read); the remedy is whatever underlying problem `issue` reports.
+ */
+export type AdrIndexInvalidCause = "record" | "markers" | "error";
 
 /** How the maintained ADR index stands against the records on disk. */
 export type AdrIndexState =
@@ -33,11 +49,14 @@ export type AdrIndexState =
   | { kind: "current"; path: string }
   /** A refresh would rewrite the lists — `expected` is what it writes. */
   | { kind: "stale"; path: string; current: string; expected: string }
-  /** The index cannot be derived — a record file a rewrite cannot title
-   * (its first heading does not carry the record number), or a start marker
-   * whose end marker is gone. A refresh cannot clear this; the named source
-   * needs editing. */
-  | { kind: "invalid"; path: string; issue: string };
+  /** The index cannot be derived. A refresh cannot clear this; `cause` says
+   * which artifact needs fixing and `issue` names it. */
+  | {
+    kind: "invalid";
+    path: string;
+    cause: AdrIndexInvalidCause;
+    issue: string;
+  };
 
 /** The maintained README's project-relative path for a configured map dir. */
 export function adrIndexPath(mapDir: string): string {
@@ -85,6 +104,11 @@ export async function adrIndexState(
     return {
       kind: "invalid",
       path: rel,
+      cause: err instanceof AdrRecordTitleError
+        ? "record"
+        : err instanceof AdrIndexMarkerError
+        ? "markers"
+        : "error",
       issue: err instanceof Error ? err.message : String(err),
     };
   }

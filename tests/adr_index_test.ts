@@ -12,7 +12,7 @@
  * not a second implementation.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
 import { adrIndexState } from "../src/lib/adr_index.ts";
@@ -146,9 +146,41 @@ Deno.test("control: a record whose heading defeats the derivation reports invali
     );
     const state = await adrIndexState(dir, "docs/");
     assertEquals(state.kind, "invalid");
-    assert(
-      state.kind === "invalid" && state.issue.includes("0001-first-choice.md"),
+    assert(state.kind === "invalid");
+    assertEquals(state.cause, "record");
+    assertStringIncludes(
+      state.issue,
+      "0001-first-choice.md",
       "the issue must name the offending record file",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("control: a start marker missing its end marker reports the markers cause, not a record", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-markers-" });
+  try {
+    const adrDir = join(dir, "docs", "_adr");
+    await Deno.mkdir(adrDir, { recursive: true });
+    // The BEGIN marker survives an edit; the END marker is gone. Every record
+    // file is fine — the remedy must point at the README's pair.
+    await Deno.writeTextFile(
+      join(adrDir, "README.md"),
+      "# Decisions\n\n<!-- BEGIN GENERATED: current ADR records -->\n",
+    );
+    await Deno.writeTextFile(
+      join(adrDir, "0001-first-choice.md"),
+      "# ADR 0001: A first choice\n",
+    );
+    const state = await adrIndexState(dir, "docs/");
+    assertEquals(state.kind, "invalid");
+    assert(state.kind === "invalid");
+    assertEquals(state.cause, "markers");
+    assertStringIncludes(
+      state.issue,
+      "END GENERATED: current ADR records",
+      "the issue must name the missing end marker",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

@@ -1490,7 +1490,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic names a record file instead, fix that record's first heading (it must carry the record's number and a title) — a refresh cannot derive an index from it.",
+      "Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, fix what it names first — a record's first heading, or a marker pair in the README missing its END marker — and refresh again.",
   }),
 
   /** The worktree branch does not contain the current trunk. */
