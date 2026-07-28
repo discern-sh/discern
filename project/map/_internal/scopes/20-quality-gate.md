@@ -8,19 +8,19 @@ This subtree documents the public quality-gate workflow: fixing a failed run, th
 
 ## Files to produce
 
-| File                     | Topic                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------ |
-| `README.md`              | Public-facing 200–350-word overview, led by the route from a red gate to its fix.          |
-| `when-the-gate-fails.md` | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
-| `standards.md`           | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
-| `the-receipt.md`         | Guide to the review receipt and the exact-tree identity it records; `order: 30`.           |
-| `receipt-notes.md`       | Guide to local receipt notes, opt-in fetch transport, and publication; `order: 40`.        |
-| `strand-detection.md`    | Concept page for tracked output left by a gate stage; `order: 50`.                         |
-| `ci.md`                  | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                        |
-| `improvement.md`         | Concept and command guide for the continuous-improvement coach; `order: 70`.               |
-| `coupling.md`            | Concept and command guide for coupling; `order: 80`.                                       |
-| `patterns.md`            | Guide to the advisory practice-pattern report; `order: 90`.                                |
-| `tidy.md`                | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
+| File                      | Topic                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `README.md`               | Public-facing 200–350-word overview, led by the route from a red gate to its fix.          |
+| `when-the-gate-fails.md`  | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
+| `standards.md`            | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
+| `the-receipt.md`          | Guide to the review receipt and the exact-tree identity it records; `order: 30`.           |
+| `receipt-notes.md`        | Guide to local receipt notes, opt-in fetch transport, and publication; `order: 40`.        |
+| `strand-detection.md`     | Concept page for tracked output left by a gate stage; `order: 50`.                         |
+| `ci.md`                   | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                        |
+| `improvement.md`          | Concept and command guide for the continuous-improvement coach; `order: 70`.               |
+| `coupling.md`             | Concept and command guide for coupling; `order: 80`.                                       |
+| `patterns.md`             | Guide to the advisory practice-pattern report; `order: 90`.                                |
+| `tidy.md`                 | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
 | `concurrent-test-runs.md` | Guide to the fleet-wide test-stage concurrency cap; `order: 110`.                          |
 
 ## Source files to read
