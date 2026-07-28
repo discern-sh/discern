@@ -15,6 +15,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
+import { crossedRepoBoundaries } from "../src/shared/env.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
@@ -1213,5 +1214,54 @@ Deno.test("doctor: the logbook check stays out of non-repository installs", asyn
       payload.data.checks.find((c) => c.name === "logbook"),
       undefined,
     );
+  });
+});
+
+Deno.test("doctor: warns when the working directory is a nested repository resolving outward", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const child = join(dir, "vendor", "childrepo");
+    await Deno.mkdir(child, { recursive: true });
+    await Deno.writeTextFile(join(child, "README.md"), "a nested repo\n");
+    await gitInit(child);
+
+    // From inside the nested repo, root discovery walks up to the outer
+    // project — the crossing is disclosed as advice, exit stays 0.
+    const { code, stdout } = await runCli(["doctor", "--json"], child);
+    assertEquals(code, 0);
+    const payload = JSON.parse(stdout) as DoctorPayload;
+    const boundary = check(payload, "root discovery");
+    assertEquals(boundary.status, "warn");
+    assertStringIncludes(boundary.detail, "childrepo");
+    assertStringIncludes(boundary.fix ?? "", "discern setup");
+
+    // From the project root itself the row stays absent: nothing was crossed.
+    const clean = await runDoctorJson(dir);
+    assertEquals(
+      clean.payload.data.checks.find((c) => c.name === "root discovery"),
+      undefined,
+    );
+  });
+});
+
+Deno.test("crossedRepoBoundaries: spots .git files and stays empty off the walk", async () => {
+  await withTempDir(async (dir) => {
+    const root = join(dir, "project");
+    const nested = join(root, "sub", "member");
+    await Deno.mkdir(nested, { recursive: true });
+    // A `.git` FILE is how linked worktrees and submodule checkouts mark their
+    // root — existence is the signal, not directory-ness.
+    await Deno.writeTextFile(
+      join(nested, ".git"),
+      "gitdir: ../../.git/modules/member\n",
+    );
+
+    const crossed = await crossedRepoBoundaries(nested, root);
+    assertEquals(crossed.length, 1);
+    assert(crossed[0]?.endsWith("member"), crossed.join(", "));
+
+    // Starts at or outside the root cross nothing on this walk.
+    assertEquals(await crossedRepoBoundaries(root, root), []);
+    assertEquals(await crossedRepoBoundaries(dir, root), []);
   });
 });
