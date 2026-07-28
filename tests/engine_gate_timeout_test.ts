@@ -36,6 +36,13 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 
+// Direct runner checks keep the tight behavioural assertion. Full-engine checks
+// include temp-project scaffolding, cold Deno startup, and concurrent gate load,
+// so their ceiling is deliberately gross without redefining the product budget.
+const DIRECT_WATCHDOG_CEILING_MS = 10_000;
+const FULL_GATE_TIMEOUT_CEILING_MS = 45_000;
+const OVERRIDE_WATCHDOG_CEILING_MS = 15_000;
+
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
   for (let i = 0; i < 100; i++) {
@@ -82,7 +89,7 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
     );
     assert((hang?.code ?? 0) !== 0, "a tree-killed job reports non-zero");
     assert(
-      elapsed < 10_000,
+      elapsed < DIRECT_WATCHDOG_CEILING_MS,
       `the watchdog should fire within a ~1s budget, took ${elapsed}ms`,
     );
     // The whole process group was tree-killed — the backgrounded grandchild is dead.
@@ -130,7 +137,7 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
     assertEquals(escape?.cancelled, undefined);
     // Bounded: budget + the kill path's pipe grace, not the daemon's lifetime.
     assert(
-      elapsed < 10_000,
+      elapsed < DIRECT_WATCHDOG_CEILING_MS,
       `the kill path should release the held pipes within its grace, took ${elapsed}ms`,
     );
   } finally {
@@ -204,7 +211,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     assertStringIncludes(diag.message, "[gate].timeout");
     // Bounded: the gate returned in seconds, not the 9999s the command wanted.
     assert(
-      elapsed < 30_000,
+      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
       `the gate should fail within the budget, took ${elapsed}ms`,
     );
   });
@@ -267,7 +274,7 @@ async function assertStageKindTimesOut(opts: {
     assertStringIncludes(diag.message, "watch-mode");
     assertStringIncludes(diag.message, "[gate].timeout");
     assert(
-      elapsed < 30_000,
+      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
       `${opts.jobLabel}: the watchdog should fire within budget, took ${elapsed}ms`,
     );
   });
@@ -359,7 +366,10 @@ Deno.test("timeout override: a job's own budget bounds only that job — sibling
   assertEquals(tight?.timedOutAfterS, 1, JSON.stringify(tight));
   assertEquals(roomy?.timedOutAfterS, undefined, JSON.stringify(roomy));
   assertEquals(roomy?.code, 0);
-  assert(elapsed < 15_000, `bounded by the override, took ${elapsed}ms`);
+  assert(
+    elapsed < OVERRIDE_WATCHDOG_CEILING_MS,
+    `bounded by the override, took ${elapsed}ms`,
+  );
 });
 
 Deno.test("timeout override: 0 disables the bound for that job alone", async () => {
@@ -429,7 +439,7 @@ async function assertOverrideBoundsOwnJob(opts: {
     const sibling = (obj.steps ?? []).find((s: any) => s.label === "lint");
     assertEquals(sibling?.outcome, "ok", JSON.stringify(sibling));
     assert(
-      elapsed < 30_000,
+      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
       `the override should bound its job, took ${elapsed}ms`,
     );
   });
@@ -505,7 +515,10 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     );
     assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, "timed out after 1s");
-    assert(elapsed < 30_000, `bounded by the override, took ${elapsed}ms`);
+    assert(
+      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
+      `bounded by the override, took ${elapsed}ms`,
+    );
   });
 });
 

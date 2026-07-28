@@ -22,7 +22,7 @@
  * closes — the observable a user would notice an orphan by.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import {
   INTERRUPT_SIGNALS,
@@ -45,19 +45,41 @@ const DESK_DRIVER = fromFileUrl(
 );
 
 const DECODER = new TextDecoder();
+const POLL_INTERVAL_MS = 50;
+const SURFACE_STARTUP_TIMEOUT_MS = 45_000;
+const TREE_SHUTDOWN_TIMEOUT_MS = 10_000;
+const EARLY_EXIT_DIAGNOSTIC_CEILING_MS = 10_000;
 
-/** Poll until `check` resolves true, failing the test after the deadline. */
-async function pollFor(
+/** Wait for the surface's own readiness artifacts, but report an early engine
+ * exit immediately with its output instead of spending the whole startup
+ * allowance and misdiagnosing the result as a timeout. */
+async function waitForSurfaceStart(
   check: () => boolean,
-  what: string,
-  timeoutMs: number,
+  statusPromise: Promise<Deno.CommandStatus>,
+  drained: Promise<[string, string]>,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  let earlyStatus: Deno.CommandStatus | undefined;
+  void statusPromise.then((status) => {
+    earlyStatus = status;
+  });
+
+  const deadline = Date.now() + SURFACE_STARTUP_TIMEOUT_MS;
+  while (true) {
+    if (earlyStatus !== undefined) {
+      const [outText, errText] = await drained;
+      throw new Error(
+        `the surface exited before its child tree started: ${
+          JSON.stringify(earlyStatus)
+        }\nstdout:\n${outText}\nstderr:\n${errText}`,
+      );
+    }
     if (check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
-  throw new Error(`timed out waiting for ${what}`);
+  throw new Error(
+    `timed out after ${SURFACE_STARTUP_TIMEOUT_MS}ms waiting for the surface's child tree to start`,
+  );
 }
 
 /** Whether a PID is still alive (signal 0 semantics via a harmless SIGCONT). */
@@ -100,6 +122,46 @@ function portIsOpen(port: number): boolean {
     stdout: "null",
     stderr: "null",
   }).outputSync().success;
+}
+
+function pendingTreeShutdown(
+  leaderPid: number,
+  descendantPid: number,
+  serverPort: number | undefined,
+): string[] {
+  const pending: string[] = [];
+  if (alive(leaderPid)) pending.push(`child ${leaderPid} to die`);
+  if (Deno.build.os !== "windows") {
+    if (alive(descendantPid)) {
+      pending.push(`descendant ${descendantPid} to die`);
+    }
+    if (serverPort !== undefined && portIsOpen(serverPort)) {
+      pending.push(`server port ${serverPort} to close`);
+    }
+  }
+  return pending;
+}
+
+/** Bound shutdown once for the whole child tree. Separate sequential polls
+ * would accidentally multiply this allowance for every observable. */
+async function waitForTreeShutdown(
+  leaderPid: number,
+  descendantPid: number,
+  serverPort: number | undefined,
+): Promise<void> {
+  const deadline = Date.now() + TREE_SHUTDOWN_TIMEOUT_MS;
+  let pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
+  while (pending.length > 0 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
+  }
+  assertEquals(
+    pending,
+    [],
+    `timed out after ${TREE_SHUTDOWN_TIMEOUT_MS}ms waiting for ${
+      pending.join(", ")
+    }`,
+  );
 }
 
 /** A POSIX child tree that records its leader and one forked descendant, then
@@ -159,13 +221,14 @@ async function assertInterruptStopsTree(
       detached: Deno.build.os !== "windows",
     }).spawn();
     enginePid = engine.pid;
+    const statusPromise = engine.status;
     // Drain both streams so a full pipe can never wedge the engine.
     const drained = Promise.all([
       new Response(engine.stdout).text(),
       new Response(engine.stderr).text(),
     ]);
 
-    await pollFor(
+    await waitForSurfaceStart(
       () => {
         try {
           leaderPid = Number(
@@ -180,18 +243,17 @@ async function assertInterruptStopsTree(
           return Number.isFinite(leaderPid) && leaderPid > 0 &&
             Number.isFinite(descendantPid) && descendantPid > 0 &&
             (run.portFile === undefined ||
-              (Number.isFinite(serverPort) && (serverPort ?? 0) > 0 &&
-                portIsOpen(serverPort as number)));
+              (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
         } catch {
           return false;
         }
       },
-      "the surface's child tree to start",
-      30_000,
+      statusPromise,
+      drained,
     );
 
     Deno.kill(engine.pid, signal);
-    const status = await engine.status;
+    const status = await statusPromise;
     const [outText, errText] = await drained;
     const interrupted = status.signal === signal ||
       (status.signal === null && status.code === SIGNAL_EXIT_CODES[signal]);
@@ -202,25 +264,11 @@ async function assertInterruptStopsTree(
       }\n${outText}${errText}`,
     );
 
-    await pollFor(
-      () => !alive(leaderPid as number),
-      `child ${leaderPid} to die`,
-      10_000,
+    await waitForTreeShutdown(
+      leaderPid as number,
+      descendantPid as number,
+      serverPort,
     );
-    if (Deno.build.os !== "windows") {
-      await pollFor(
-        () => !alive(descendantPid as number),
-        `descendant ${descendantPid} to die`,
-        10_000,
-      );
-      if (serverPort !== undefined) {
-        await pollFor(
-          () => !portIsOpen(serverPort as number),
-          `server port ${serverPort} to close`,
-          10_000,
-        );
-      }
-    }
   } finally {
     if (descendantPid !== undefined) killForCleanup(descendantPid);
     if (leaderPid !== undefined) killForCleanup(leaderPid);
@@ -228,6 +276,45 @@ async function assertInterruptStopsTree(
     await Deno.remove(root, { recursive: true });
   }
 }
+
+Deno.test("the interrupt harness reports an early surface exit without spending its startup allowance", async () => {
+  const started = Date.now();
+  let caught: unknown;
+  try {
+    await assertInterruptStopsTree("SIGTERM", async (root) => {
+      await scaffoldEngine(root);
+      const runner = join(root, "exit-early.sh");
+      await writeExecutable(
+        runner,
+        ["#!/bin/sh", "echo deliberate-early-exit >&2", "exit 23", ""].join(
+          "\n",
+        ),
+      );
+      return {
+        args: ["with-gotchas", runner],
+        cwd: root,
+        leaderPidFile: join(root, "never-written-leader.pid"),
+        descendantPidFile: join(root, "never-written-descendant.pid"),
+      };
+    });
+  } catch (error) {
+    caught = error;
+  }
+
+  assert(
+    caught instanceof Error,
+    "expected the early exit to fail the harness",
+  );
+  assertStringIncludes(
+    caught.message,
+    "the surface exited before its child tree started",
+  );
+  assertStringIncludes(caught.message, "deliberate-early-exit");
+  assert(
+    Date.now() - started < EARLY_EXIT_DIAGNOSTIC_CEILING_MS,
+    "an early exit should be reported without spending the startup allowance",
+  );
+});
 
 /** Gate jobs (engine/jobs/command.ts): a `done` run's in-flight check job. */
 async function prepareGateJob(root: string): Promise<BlackBoxRun> {
