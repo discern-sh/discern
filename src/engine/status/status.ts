@@ -66,6 +66,7 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
+import { type AlignedColumn, renderAlignedTable } from "../../lib/text.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
@@ -1256,15 +1257,7 @@ function renderStatusHuman(
   }
 }
 
-/** One fleet-table column: its header and how to read its (plain-text) cell from a
- * row. The set is defined once and drives the header, the width measurement, and
- * every data row, so those three can never fall out of alignment. */
-interface FleetColumn {
-  header: string;
-  value: (e: StatusFleetEntry) => string;
-}
-
-const FLEET_COLUMN_SPECS: FleetColumn[] = [
+const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
   // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
   // `discern worktree drop <id>` or a `git …<branch>` command, so their columns
   // size to the widest value and are never truncated: a clipped id is one the
@@ -1307,32 +1300,14 @@ const FLEET_COLUMN_SPECS: FleetColumn[] = [
  * so an identifier is always shown in full (see {@link FLEET_COLUMN_SPECS}). */
 function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
   const c = out.c;
-
-  // Each column's width is the widest of its header and every cell it holds. Cells
-  // are plain text; the only ANSI is the `← you` marker appended after the final
-  // column, so it never skews a width.
-  const sized = FLEET_COLUMN_SPECS.map((col) => ({
-    ...col,
-    width: Math.max(
-      col.header.length,
-      ...fleet.map((e) => col.value(e).length),
-    ),
-  }));
-
-  // One rendered row: each cell padded to its column width except the last (no
-  // trailing pad before the newline or the `← you` marker), joined by a 2-space
-  // gutter. `valueOf` supplies either the header or a row's cell.
-  const line = (valueOf: (col: typeof sized[number]) => string): string =>
-    sized
-      .map((col, i) =>
-        i === sized.length - 1 ? valueOf(col) : valueOf(col).padEnd(col.width)
-      )
-      .join("  ");
-
-  out.raw(`\n  ${c.dim}${line((col) => col.header)}${c.reset}\n`);
-  for (const e of fleet) {
+  const [header = "", ...rows] = renderAlignedTable(
+    FLEET_COLUMN_SPECS,
+    fleet,
+  );
+  out.raw(`\n  ${c.dim}${header}${c.reset}\n`);
+  for (const [index, e] of fleet.entries()) {
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
-    out.raw(`  ${line((col) => col.value(e))}${you}\n`);
+    out.raw(`  ${rows[index] ?? ""}${you}\n`);
   }
 
   // The ownership framing for humans (the agent-facing form is the --json-only hint):
