@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://discern.sh/schema/v1/discern-config.schema.json",
+  "x-discern-compatibility-policy": "config-input",
   "title": "discern config document",
   "type": "object",
   "properties": {

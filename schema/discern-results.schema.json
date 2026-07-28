@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://discern.sh/schema/v1/discern-results.schema.json",
+  "x-discern-compatibility-policy": "result-output",
   "title": "discern CLI and MCP JSON results",
   "description": "The public JSON contract for discern CLI --json results and MCP tool results. Runtime schemas remain strict, but this published schema intentionally permits additive object fields so older pinned schemas can validate newer compatible output.",
   "oneOf": [

@@ -70,6 +70,15 @@ export type CliPredicateInvocationMode =
 export const CLI_PREDICATE_STATES = ["true", "false"] as const;
 export type CliPredicateState = (typeof CLI_PREDICATE_STATES)[number];
 
+/**
+ * The schema-reference fields published for each result contract. Their roles
+ * determine which new union alternatives are compatible within one major.
+ */
+export const RESULT_CONTRACT_REFERENCE_FIELDS = {
+  cli: "schema",
+  mcp: "mcpToolResultSchema",
+} as const;
+
 /** One option- or positional-selected predicate mode under a result contract. */
 export interface CliJsonPredicateContract {
   /** Stable id used by behavioral fixtures and canonical-set enrollment. */

@@ -19,7 +19,23 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
   "discern-results.schema.json",
 );
 
-export type PublicSchemaCompatibility = "config-input" | "result-output";
+/** Generated-artifact field that records the policy owning its baseline. */
+export const PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY =
+  "x-discern-compatibility-policy";
+
+export const CONFIG_SCHEMA_COMPATIBILITY_POLICY = "config-input";
+export const RESULT_SCHEMA_COMPATIBILITY_POLICY = "result-output";
+
+export type PublicSchemaCompatibility =
+  | typeof CONFIG_SCHEMA_COMPATIBILITY_POLICY
+  | typeof RESULT_SCHEMA_COMPATIBILITY_POLICY;
+
+export function isPublicSchemaCompatibility(
+  value: unknown,
+): value is PublicSchemaCompatibility {
+  return value === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+    value === RESULT_SCHEMA_COMPATIBILITY_POLICY;
+}
 
 export interface PublicSchemaPublication {
   readonly id: `https://discern.sh/schema/${string}`;
@@ -35,7 +51,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     id: CONFIG_SCHEMA_ID,
     artifactPath: "schema/discern-config.schema.json",
     major: CONFIG_SCHEMA_MAJOR,
-    compatibility: "config-input",
+    compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "`discern.toml` configuration",
     contract: "Configuration file structure, keys, and value types.",
   },
@@ -43,7 +59,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     id: RESULT_SCHEMA_ID,
     artifactPath: "schema/discern-results.schema.json",
     major: RESULT_SCHEMA_MAJOR,
-    compatibility: "result-output",
+    compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "CLI and MCP results",
     contract: "CLI result envelopes and MCP tool-result wrappers.",
   },
@@ -57,7 +73,7 @@ export const PUBLIC_SCHEMA_REFERENCE_END =
 function compatibilityContract(
   policy: PublicSchemaCompatibility,
 ): string {
-  return policy === "result-output"
+  return policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
     ? "Existing contracts keep their fields, types, and required guarantees. Optional fields, contracts, and known error slugs may be added."
     : "Existing types and accepted values stay valid. Optional keys and sections may be added.";
 }

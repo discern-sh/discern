@@ -987,6 +987,40 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .CLI_JSON_RESULT_CONTRACTS.map((contract) => contract.id),
   },
   {
+    id: "result-contract-reference-fields",
+    title: "Result contract reference fields",
+    what:
+      "The semantic CLI and MCP schema-reference fields published for each result contract.",
+    source: {
+      kind: "module",
+      module: "src/shared/result_contracts.ts",
+      exportName: "RESULT_CONTRACT_REFERENCE_FIELDS",
+    },
+    guards: [
+      "tests/public_schema_compatibility_guard_test.ts",
+      "tests/result_codegen_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine schema metadata fields, documented through the result contract reference",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      Object.values(
+        (await import("../src/shared/result_contracts.ts"))
+          .RESULT_CONTRACT_REFERENCE_FIELDS,
+      ),
+  },
+  {
     id: "cli-json-predicates",
     title: "CLI JSON predicate contracts",
     what:

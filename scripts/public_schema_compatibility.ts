@@ -7,13 +7,17 @@
  * scalar validation constraints. Annotation prose may change.
  */
 
-import type {
-  PUBLIC_SCHEMA_PUBLICATIONS,
-  PublicSchemaCompatibility,
-  PublicSchemaPublication,
+import {
+  isPublicSchemaCompatibility,
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  type PUBLIC_SCHEMA_PUBLICATIONS,
+  type PublicSchemaCompatibility,
+  type PublicSchemaPublication,
+  RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { buildResultJsonSchema } from "../src/shared/result_codegen.ts";
+import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 
 export type JsonValue =
   | null
@@ -27,10 +31,20 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
+type ResultContractReferenceRole =
+  keyof typeof RESULT_CONTRACT_REFERENCE_FIELDS;
+type ContractReferenceSets = Readonly<
+  Record<ResultContractReferenceRole, ReadonlySet<string>>
+>;
+
+const RESULT_CONTRACT_REFERENCE_ROLES = Object.keys(
+  RESULT_CONTRACT_REFERENCE_FIELDS,
+) as ResultContractReferenceRole[];
+
 interface ComparisonContext {
   readonly policy: PublicSchemaCompatibility;
-  readonly previousContractRefs: ReadonlySet<string>;
-  readonly newContractRefs: ReadonlySet<string>;
+  readonly previousContractRefs: ContractReferenceSets;
+  readonly newContractRefs: ContractReferenceSets;
 }
 
 type PublicSchemaArtifactPath =
@@ -127,7 +141,7 @@ function compareRequired(
       issues.push(`${path}: added required field ${JSON.stringify(field)}`);
     }
   }
-  if (context.policy === "result-output") {
+  if (context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY) {
     for (const field of before) {
       if (!after.includes(field)) {
         issues.push(
@@ -194,6 +208,20 @@ function referenceAlternative(value: JsonValue): string | undefined {
   return value.$ref;
 }
 
+function contractAggregatorRole(
+  alternatives: readonly JsonValue[],
+  context: ComparisonContext,
+): ResultContractReferenceRole | undefined {
+  const matchingRoles = RESULT_CONTRACT_REFERENCE_ROLES.filter((role) =>
+    alternatives.every((alternative) => {
+      const reference = referenceAlternative(alternative);
+      return reference !== undefined &&
+        context.previousContractRefs[role].has(reference);
+    })
+  );
+  return matchingRoles.length === 1 ? matchingRoles[0] : undefined;
+}
+
 function compareAlternatives(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -233,14 +261,12 @@ function compareAlternatives(
       issues,
     );
   }
-  const isContractAggregator = context.policy === "result-output" &&
-    keyword === "oneOf" &&
-    previous.length > 0 &&
-    previous.every((alternative) => {
-      const reference = referenceAlternative(alternative);
-      return reference !== undefined &&
-        context.previousContractRefs.has(reference);
-    });
+  const aggregatorRole =
+    context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY &&
+      keyword === "oneOf" &&
+      previous.length > 0
+      ? contractAggregatorRole(previous, context)
+      : undefined;
   current.forEach((alternative, index) => {
     if (matched.has(index)) {
       return;
@@ -252,9 +278,9 @@ function compareAlternatives(
         referenceAlternative(candidate) === reference
       ).length;
     if (
-      isContractAggregator &&
+      aggregatorRole !== undefined &&
       reference !== undefined &&
-      context.newContractRefs.has(reference) &&
+      context.newContractRefs[aggregatorRole].has(reference) &&
       occurrences === 1
     ) {
       return;
@@ -267,15 +293,18 @@ function contractId(value: JsonValue): string | undefined {
   return isObject(value) && typeof value.id === "string" ? value.id : undefined;
 }
 
-function contractSchemaReferences(value: JsonValue): string[] {
+function contractSchemaReference(
+  value: JsonValue,
+  field: string,
+): string | undefined {
   if (!isObject(value)) {
-    return [];
+    return undefined;
   }
-  return Object.values(value).filter(
-    (candidate): candidate is string =>
-      typeof candidate === "string" &&
-      definitionName(candidate) !== undefined,
-  );
+  const candidate = value[field];
+  return typeof candidate === "string" &&
+      definitionName(candidate) !== undefined
+    ? candidate
+    : undefined;
 }
 
 function contractRecords(value: JsonValue | undefined): JsonValue[] {
@@ -303,26 +332,76 @@ function comparisonContext(
     previous["x-discern-contracts"],
   );
   const currentContracts = contractRecords(current["x-discern-contracts"]);
-  const previousContractRefs = new Set(
-    previousContracts.flatMap(contractSchemaReferences),
-  );
+  const previousContractsById = new Map<string, JsonValue>();
+  for (const contract of previousContracts) {
+    const id = contractId(contract);
+    if (id !== undefined) {
+      previousContractsById.set(id, contract);
+    }
+  }
+  const previousContractRefs = Object.fromEntries(
+    RESULT_CONTRACT_REFERENCE_ROLES.map((role) => [role, new Set<string>()]),
+  ) as Record<ResultContractReferenceRole, Set<string>>;
+  for (const contract of previousContracts) {
+    for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
+      const reference = contractSchemaReference(
+        contract,
+        RESULT_CONTRACT_REFERENCE_FIELDS[role],
+      );
+      if (reference !== undefined) {
+        previousContractRefs[role].add(reference);
+      }
+    }
+  }
   const previousDefinitions = isObject(previous.$defs) ? previous.$defs : {};
   const currentDefinitions = isObject(current.$defs) ? current.$defs : {};
-  const newContractRefs = new Set<string>();
+  const newContractRefs = Object.fromEntries(
+    RESULT_CONTRACT_REFERENCE_ROLES.map((role) => [role, new Set<string>()]),
+  ) as Record<ResultContractReferenceRole, Set<string>>;
   for (const contract of currentContracts) {
     const id = contractId(contract);
     if (id === undefined) {
       continue;
     }
-    for (const reference of contractSchemaReferences(contract)) {
+    const previousContract = previousContractsById.get(id);
+    const previousCliReference = previousContract === undefined
+      ? undefined
+      : contractSchemaReference(
+        previousContract,
+        RESULT_CONTRACT_REFERENCE_FIELDS.cli,
+      );
+    const currentCliReference = contractSchemaReference(
+      contract,
+      RESULT_CONTRACT_REFERENCE_FIELDS.cli,
+    );
+    const firstMcpExposure = previousContract !== undefined &&
+      isObject(previousContract) &&
+      previousCliReference !== undefined &&
+      currentCliReference === previousCliReference &&
+      previousContract.mcpTool === undefined &&
+      previousContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] === undefined &&
+      isObject(contract) &&
+      typeof contract.mcpTool === "string";
+    for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
+      const field = RESULT_CONTRACT_REFERENCE_FIELDS[role];
+      const authorized = previousContract === undefined ||
+        (firstMcpExposure &&
+          field === RESULT_CONTRACT_REFERENCE_FIELDS.mcp);
+      if (!authorized) {
+        continue;
+      }
+      const reference = contractSchemaReference(contract, field);
+      if (reference === undefined) {
+        continue;
+      }
       const name = definitionName(reference);
       if (
-        !previousContractRefs.has(reference) &&
+        !previousContractRefs[role].has(reference) &&
         name !== undefined &&
         previousDefinitions[name] === undefined &&
         currentDefinitions[name] !== undefined
       ) {
-        newContractRefs.add(reference);
+        newContractRefs[role].add(reference);
       }
     }
   }
@@ -392,7 +471,7 @@ function compareContracts(
       }
     }
   }
-  if (context.policy !== "result-output") {
+  if (context.policy !== RESULT_SCHEMA_COMPATIBILITY_POLICY) {
     for (const contract of current) {
       const id = contractId(contract);
       if (
@@ -501,7 +580,7 @@ function compareNode(
         const localIssues: string[] = [];
         compareStringSets(before, after, childPath, localIssues);
         issues.push(
-          ...(context.policy === "result-output"
+          ...(context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
             ? localIssues.filter((issue) => !issue.includes(": added value "))
             : localIssues),
         );
@@ -575,6 +654,21 @@ function parsePublicSchemaIdentity(
   return { major, name };
 }
 
+function publicSchemaCompatibilityPolicy(
+  schema: JsonObject,
+  issues: string[],
+): PublicSchemaCompatibility | undefined {
+  const value = schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY];
+  if (!isPublicSchemaCompatibility(value)) {
+    issues.push(
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: ${json(value)} is not a ` +
+        "public schema compatibility policy",
+    );
+    return undefined;
+  }
+  return value;
+}
+
 /**
  * Validate the generated identity against its registry record independently
  * of any trunk artifact. Initial publication enrollment still proves this
@@ -609,7 +703,16 @@ export function publicSchemaPublicationIdentityIssues(
     );
     return issues;
   }
-  const expectedArtifactPath = `schema/${registered.name}`;
+  if (!isPublicSchemaCompatibility(publication.compatibility)) {
+    issues.push(
+      `publication compatibility ${json(publication.compatibility)} is not a ` +
+        "public schema compatibility policy",
+    );
+    return issues;
+  }
+  const expectedArtifactPath = publication.major === 1
+    ? `schema/${registered.name}`
+    : `schema/v${publication.major}/${registered.name}`;
   if (publication.artifactPath !== expectedArtifactPath) {
     issues.push(
       `publication artifact ${JSON.stringify(publication.artifactPath)} does ` +
@@ -621,6 +724,17 @@ export function publicSchemaPublicationIdentityIssues(
     issues.push(
       `$.$id: generated id ${json(current.$id)} does not match registered id ` +
         JSON.stringify(publication.id),
+    );
+  }
+  const artifactPolicy = publicSchemaCompatibilityPolicy(current, issues);
+  if (
+    artifactPolicy !== undefined &&
+    artifactPolicy !== publication.compatibility
+  ) {
+    issues.push(
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: generated policy ` +
+        `${JSON.stringify(artifactPolicy)} does not match registered policy ` +
+        JSON.stringify(publication.compatibility),
     );
   }
   return issues;
@@ -649,9 +763,9 @@ export function publicSchemaArtifactEnrollmentIssues(
 /**
  * Enforce one enrolled publication across a trunk transition.
  *
- * A structurally incompatible schema starts a new baseline only when its
- * canonical identity keeps the same name and advances to a larger major.
- * Everything else either compares within the current major or fails closed.
+ * An artifact path and its public identity are append-only. Same-major changes
+ * use the policy recorded by the trunk artifact; a new major starts at a new
+ * artifact path while the old publication and route remain enrolled.
  */
 export function publicSchemaPublicationCompatibilityIssues(
   previous: JsonObject,
@@ -684,12 +798,28 @@ export function publicSchemaPublicationCompatibilityIssues(
     ];
   }
   if (prior.major < registered.major) {
-    return [];
+    return [
+      `$.$id: schema major changed in place from v${prior.major} to ` +
+      `v${registered.major}; retain the v${prior.major} publication and add ` +
+      `v${registered.major} at a new artifact path`,
+    ];
+  }
+  const previousPolicy = publicSchemaCompatibilityPolicy(previous, issues);
+  if (previousPolicy === undefined) {
+    return issues;
+  }
+  if (previousPolicy !== publication.compatibility) {
+    return [
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: same-major policy changed ` +
+      `from ${JSON.stringify(previousPolicy)} to ` +
+      `${JSON.stringify(publication.compatibility)}; add a new-major ` +
+      "publication instead",
+    ];
   }
   return publicSchemaCompatibilityIssues(
     previous,
     current,
-    publication.compatibility,
+    previousPolicy,
   );
 }
 

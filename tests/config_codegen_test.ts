@@ -15,7 +15,11 @@ import {
 } from "../src/shared/config_schema.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { CONFIG_SCHEMA_ID } from "../src/shared/public_schemas.ts";
+import {
+  CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  CONFIG_SCHEMA_ID,
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+} from "../src/shared/public_schemas.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -47,6 +51,10 @@ Deno.test("the generated editor schema fixes the two historical staleness bugs",
   );
   assert(!json.includes(".discern"), "must not reference any .discern/ path");
   assertEquals(schema.$id, CONFIG_SCHEMA_ID);
+  assertEquals(
+    schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  );
   // The document is strict (an editor flags a typo'd key).
   assertEquals(schema.additionalProperties, false);
 });

@@ -22,9 +22,9 @@ No top-level `schema_version` field is added. The schema `$id` is the contract i
 
 ## Enforcement update — July 28, 2026
 
-`PUBLIC_SCHEMA_PUBLICATIONS` now records each schema's major and compatibility policy beside its public `$id` and generated artifact. Once that registry exists on the configured trunk, every enrolled artifact path must remain enrolled. The gate validates each canonical identity against the trunk's committed artifact, then compares structure while the major stays the same. Only an increase at the same schema name starts a new comparison baseline. A changed artifact path, host, or schema name, a malformed identity, or a major regression fails the guard.
+`PUBLIC_SCHEMA_PUBLICATIONS` records each schema's major and compatibility policy beside its public `$id` and generated artifact. The generator writes that policy into the artifact. Once the registry exists on the configured trunk, every enrolled artifact path and its public identity are append-only. The gate reads the trunk artifact's recorded policy before comparing structure within a major. A breaking major adds a publication and artifact while retaining the earlier publication and route. A changed path, identity, same-major policy, or malformed marker fails the guard.
 
-The structural comparison rejects field, result-contract, definition, and known-error-slug removals, plus type and validation changes. It permits optional properties. Result output also permits new command or tool contracts and additions to the open known-error-slug metadata. Existing union alternatives and contract records are matched by `$ref` and contract id, so order has no compatibility meaning.
+The structural comparison rejects field, result-contract, definition, and known-error-slug removals, plus type and validation changes. It permits optional properties. Result output also permits new command or tool contracts and additions to the open known-error-slug metadata. Existing union alternatives and contract records are matched by `$ref` and contract id, so order has no compatibility meaning. The result-contract registry owns the CLI and MCP fields that may introduce new definition references. A new contract may add both references; an existing CLI contract may add its first MCP reference. Other metadata cannot authorize a union change.
 
 For result output, an existing contract retains its required fields. A new field must be optional. A new command or tool contract widens the current global union without changing any existing command's output; a consumer pinned to an older schema needs the current schema before validating that new contract.
 
@@ -36,7 +36,7 @@ For configuration, the comparison proves that documents accepted by the trunk re
 - Generators and tests must preserve the deliberate difference between strict runtime schemas and additive public validation.
 - A same-major schema change must pass the configured-trunk compatibility comparison. Breaking changes move to a new public major.
 - Configuration tools may cache the version-1 schema, but must refresh it before validating configuration that uses keys introduced by a newer discern release.
-- Breaking changes require a new served schema path and an explicit consumer migration.
+- Breaking changes require an additional served schema path, retention of earlier major routes, and an explicit consumer migration.
 - The known-slug extension is discovery metadata, not a public enum that closes validation.
 
 ## Alternatives considered
