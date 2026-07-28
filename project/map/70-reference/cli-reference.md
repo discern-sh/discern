@@ -486,7 +486,7 @@ Usage: `discern config keys <key> [options]`
 
 ### `discern refresh`
 
-Refresh the agent files, skills, and provider integrations. Use `discern update` for this branch; use `discern upgrade` for discern itself.
+Refresh the agent files, skills, provider integrations, and the maintained ADR index. Use `discern update` for this branch; use `discern upgrade` for discern itself.
 
 Usage: `discern refresh [options]`
 

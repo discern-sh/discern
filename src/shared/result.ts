@@ -153,6 +153,10 @@ export interface StepResult {
  *  - `adr_numbers` — two ADR records in the map's `_adr/` tree claim the same
  *    number. The files differ, so a merge lands the duplicate cleanly; the
  *    gate is the surface that refuses it;
+ *  - `adr_index` — the maintained ADR index (the marker-delimited record
+ *    lists in the map's ADR README) does not match the record files on
+ *    disk, or cannot be derived from them. Only a README carrying the
+ *    markers is checked — the index is opt-in by construction;
  *  - `map_integrity` — the map or a guidance source carries a reference a
  *    reader would follow and fail: a dead link or anchor, a metadata block the
  *    lenient reader would swallow, a fenced `discern` example the current CLI
@@ -184,6 +188,7 @@ export const FAILED_STAGES = [
   "skills",
   "skill_frontmatter",
   "adr_numbers",
+  "adr_index",
   "map_integrity",
   "merge",
   "standards",

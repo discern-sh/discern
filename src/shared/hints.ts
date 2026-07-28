@@ -395,6 +395,22 @@ export const HINTS = {
       ),
   }),
 
+  /** Stale maintained-ADR-index context for the shared generated-drift remedy. */
+  "adr-index-stale": defineHint<{ path: string }>({
+    id: "adr-index-stale",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The maintained ADR index no longer matches the record files on disk.",
+    family: "generated-drift",
+    example: { path: "docs/_adr/README.md" },
+    template: ({ path }): string =>
+      generatedDriftHint(
+        `The ADR index is out of date (${path}).`,
+        "Edit record files, not the generated lists. Refresh rewrites the lists between the markers.",
+      ),
+  }),
+
   /**
    * The on-the-trunk guardrail, agent-facing. It leads with the start-and-move
    * action, then preserves the ownership rule that prevents an agent from
@@ -1464,6 +1480,19 @@ export const HINTS = {
       "Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.",
   }),
 
+  /** The maintained ADR index drifted from (or cannot be derived from) the records. */
+  "gate-failure-adr-index": defineHint({
+    id: "gate-failure-adr-index",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The maintained ADR index is out of date, or a record defeats its derivation.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, fix what it names first — a record's first heading, or a marker pair in the README missing its END marker — and refresh again.",
+  }),
+
   /** The map or a guidance source carries a reference readers cannot follow. */
   "gate-failure-map-integrity": defineHint({
     id: "gate-failure-map-integrity",
@@ -2324,6 +2353,7 @@ export const GATE_FAILURE_REMEDIES = {
   skills: HINTS["gate-failure-skills"],
   skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
   adr_numbers: HINTS["gate-failure-adr-numbers"],
+  adr_index: HINTS["gate-failure-adr-index"],
   map_integrity: HINTS["gate-failure-map-integrity"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],

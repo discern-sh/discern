@@ -65,9 +65,10 @@ An ADR nobody can find from the code it governs is half-wasted. After writing:
 - If it explains a subsystem's behaviour, link it from that subtree's doc.
 - If it **supersedes** an earlier ADR, set the older one's status to `superseded by ADR-NNNN` and link forward — leave the old file in place as the record of what was once true.
 - If the decision changes something the docs describe, update those docs too (docs say what _is_; the ADR says _why_).
+- Run `discern refresh`. When `{{map_dir}}_adr/README.md` carries the maintained-index markers, refresh rewrites the record list between them to include the new record — commit the rewritten README with the record. Never edit the list by hand; the gate refuses an index that has drifted from the files.
 
 ---
 
 ## Done when
 
-The ADR exists at `{{map_dir}}_adr/NNNN-slug.md`, follows the canonical format, and is linked from the principle or doc it relates to (and any superseded ADR is marked).
+The ADR exists at `{{map_dir}}_adr/NNNN-slug.md`, follows the canonical format, is linked from the principle or doc it relates to (and any superseded ADR is marked), and the maintained index in `{{map_dir}}_adr/README.md` — when the project carries one — lists it after a `discern refresh`.

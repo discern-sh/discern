@@ -22,6 +22,7 @@
 
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
+import { adrIndexState } from "../lib/adr_index.ts";
 import { loadConfig } from "../shared/config_schema.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { RefreshData } from "../shared/result_schemas.ts";
@@ -64,6 +65,10 @@ export interface GuidelinesResult {
   worktreeAppWired: string[];
   /** Project-local provider policy/rules files written, such as Codex exec rules. */
   projectRulesWired: string[];
+  /** The ADR README whose maintained record lists this run regenerated — at
+   * most one path; empty when the index is current or the project carries no
+   * index markers (the index is opt-in by construction). */
+  adrIndexWritten: string[];
   /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
   hints: string[];
   /** Bundled skills copied, summed across every configured agent's skills dir. */
@@ -104,6 +109,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
     hooks_wired: result.hooksWired,
     worktree_app_wired: result.worktreeAppWired,
     project_rules_wired: result.projectRulesWired,
+    adr_index_written: result.adrIndexWritten,
     skills: {
       copied: result.skillsCopied,
       linked: result.skillsLinked,
@@ -281,6 +287,33 @@ export async function compileGuidelines(
     errors.push(msg);
   }
 
+  // --- job 2d: the maintained ADR index ---------------------------------------
+  // The record lists in the ADR README (`<map dir>/_adr/README.md`) are
+  // regenerated from the record files on disk whenever the README carries the
+  // index markers; a README without them is never touched, so the index is
+  // opt-in by construction. Stateless like the agent-file compile: the expected
+  // content is recomputed each run, and the same computation backs the
+  // `status`/`done` currency checks. Best-effort: a failure is recorded, never
+  // fatal.
+  let adrIndexWritten: string[] = [];
+  try {
+    const state = await adrIndexState(root, config.map.dir);
+    if (state.kind === "stale") {
+      await Deno.writeTextFile(join(root, state.path), state.expected);
+      adrIndexWritten = [state.path];
+      log.info(`regenerated the ADR index in ${state.path}`);
+    } else if (state.kind === "invalid") {
+      const msg =
+        `could not regenerate the ADR index in ${state.path}: ${state.issue}`;
+      log.warn(msg);
+      errors.push(msg);
+    }
+  } catch (error) {
+    const msg = `could not maintain the ADR index: ${errText(error)}`;
+    log.warn(msg);
+    errors.push(msg);
+  }
+
   // --- job 3: compile the agent files -----------------------------------------
   const agentsWritten: string[] = [];
   const agentFilesChanged: string[] = [];
@@ -303,6 +336,7 @@ export async function compileGuidelines(
       hooksWired,
       worktreeAppWired,
       projectRulesWired,
+      adrIndexWritten,
       hints,
       skills,
       errors,
@@ -373,6 +407,7 @@ export async function compileGuidelines(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
+    adrIndexWritten,
     hints,
     skills,
     errors,
@@ -388,6 +423,7 @@ function summarize(
   hooksWired: string[],
   worktreeAppWired: string[],
   projectRulesWired: string[],
+  adrIndexWritten: string[],
   hints: FiredHint[],
   skills: { copied: number; linked: number; pruned: number },
   errors: string[],
@@ -401,12 +437,14 @@ function summarize(
         ...hooksWired,
         ...worktreeAppWired,
         ...projectRulesWired,
+        ...adrIndexWritten,
       ]),
     ],
     mcpWired,
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
+    adrIndexWritten,
     hints: hintTexts(hints),
     skillsCopied: skills.copied,
     skillsLinked: skills.linked,

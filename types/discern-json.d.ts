@@ -1538,6 +1538,7 @@ export type DiscernDoneResult = {
       | "skills"
       | "skill_frontmatter"
       | "adr_numbers"
+      | "adr_index"
       | "map_integrity"
       | "merge"
       | "standards"
@@ -2100,6 +2101,7 @@ export type DiscernRefreshResult = {
     hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;
     project_rules_wired: Array<string>;
+    adr_index_written: Array<string>;
     skills: {
       copied: number;
       linked: number;
@@ -2755,6 +2757,7 @@ export type DiscernStatusResult = {
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
     stale_integrations?: Array<string>;
+    stale_adr_index?: Array<string>;
     tracked_ignored_artifacts?: Array<string>;
     setup_unfinished?: {
       pending_markers: Array<string>;
