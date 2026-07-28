@@ -41,7 +41,7 @@ import {
   takeObservedResult,
   takeSupplementalHintIds,
 } from "../../shared/result_capture.ts";
-import { beginRecording } from "../logbook/record.ts";
+import { beginRecording, type Recording } from "../logbook/record.ts";
 import type { DriverFacts } from "../logbook/schema.ts";
 import {
   type AgentSignal,
@@ -1132,18 +1132,6 @@ export class WorkingRoot {
   }
 }
 
-/**
- * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
- * result — so a single tool blowing up can never take the whole stdio server down.
- * The single place {@link runTool} invokes a verb (both the normal path and the
- * root-independent fallback), so the catch-all lives once — and the single place
- * every MCP invocation records its logbook event, the MCP mirror of the CLI's
- * `recordedExit` wrapper. Recording begins before the verb (context gathers
- * concurrently, so `accept` still attributes to its branch) and finishes from
- * the returned envelope; it never throws and never touches the result. A
- * never-aborting default keeps the verb contract simple (a verb always receives
- * a signal).
- */
 /** One opaque id per server INSTANCE — the MCP session grouping hint: every
  * invocation this long-lived process serves belongs to one client conversation,
  * which is exactly the grouping a session reader wants. */
@@ -1199,91 +1187,124 @@ function mcpCallFacts(
   return { flags: names.length > 0 ? names : undefined, target };
 }
 
+/** Recording state opened as soon as a call's project root is known. Context
+ * gathering runs beside the verb so a lifecycle call that removes its worktree
+ * still records the branch it began on. */
+interface McpRecording {
+  recorder: Recording;
+  driver: Promise<DriverFacts>;
+  started: number;
+}
+
+/** Start the known-root half of an MCP invocation. Finishing remains centralized
+ * at {@link completeToolCall}, after every delivered hint has been attached. */
+function beginMcpRecording(
+  root: string,
+  mcpClient?: RecordedMcpClient,
+): McpRecording {
+  return {
+    recorder: beginRecording(root),
+    driver: mcpDriverFacts(mcpClient),
+    started: performance.now(),
+  };
+}
+
+/** A dispatch result plus the optional recording opened once its root was known.
+ * Dispatch may refuse early; {@link runTool} still sends every member through the
+ * same completion boundary. */
+interface PendingToolCall {
+  result: DiscernResult;
+  recording: McpRecording | undefined;
+}
+
+/**
+ * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
+ * result — so a single tool blowing up can never take the whole stdio server down.
+ * This is the single place tool handlers are invoked (normal and root-independent
+ * paths alike). Observation and recording deliberately happen later, at
+ * {@link completeToolCall}, because dispatch refusals never enter a handler and
+ * delivery can still append a stale-server hint after the handler returns.
+ */
 async function runVerb(
   tool: McpTool,
   root: string,
   args: Record<string, unknown>,
   signal?: AbortSignal,
-  mcpClient?: RecordedMcpClient,
 ): Promise<DiscernResult> {
-  // Supplemental ids describe CLI-only output such as a session-start
-  // `ctx.log` line. A long-lived MCP server drains stale state defensively and
-  // never fabricates an envelope or attributes that output to a tool call.
-  takeSupplementalHintIds();
-  const recording = beginRecording(root);
-  const driver = mcpDriverFacts(mcpClient);
-  const started = performance.now();
-  let result: DiscernResult;
   try {
-    result = await tool.run(root, args, signal ?? new AbortController().signal);
+    return await tool.run(
+      root,
+      args,
+      signal ?? new AbortController().signal,
+    );
   } catch (e) {
-    result = {
+    return {
       ok: false,
       verb: verbOf(tool.name),
       error: "internal_error",
       message: e instanceof Error ? e.message : String(e),
     };
   }
-  result = withFailureRecoveryHint(result);
-  // Feed and drain the shared observation seam for this call. The long-lived
-  // server must not leak one call's envelope or hint ids into the next.
+}
+
+/** Finish the one result the caller will receive. This is the MCP observation and
+ * recording chokepoint: final delivery hints are attached first, the shared result
+ * seam is fed and drained once, a known-root invocation records once, and only
+ * then is that same envelope rendered on the wire. */
+async function completeToolCall(
+  tool: McpTool,
+  args: Record<string, unknown>,
+  pending: PendingToolCall,
+  stale: FiredHint | undefined,
+): Promise<ToolResult> {
+  const prepared = withFailureRecoveryHint(pending.result);
+  const result = stale === undefined ? prepared : appendHint(prepared, stale);
   observeResult(result);
   const observed = takeObservedResult();
+  // Supplemental ids describe CLI-only output such as a session-start
+  // `ctx.log` line. A long-lived MCP server drains stale state defensively and
+  // never attributes that output to a tool call.
   takeSupplementalHintIds();
-  const { flags, target } = mcpCallFacts(args);
-  await recording.finish({
-    verb: verbOf(tool.name),
-    surface: "mcp",
-    outcome: result.ok ? "ok" : "failed",
-    durationMs: performance.now() - started,
-    result,
-    hintIds: observed?.hintIds ?? [],
-    driver: await driver,
-    ...(result.dry_run === true ? { dryRun: true } : {}),
-    ...(flags !== undefined ? { flags } : {}),
-    ...(target !== undefined ? { target } : {}),
-  });
-  return result;
+
+  const recording = pending.recording;
+  if (recording !== undefined) {
+    const { flags, target } = mcpCallFacts(args);
+    await recording.recorder.finish({
+      verb: verbOf(tool.name),
+      surface: "mcp",
+      outcome: result.ok ? "ok" : "failed",
+      durationMs: performance.now() - recording.started,
+      result,
+      hintIds: observed?.hintIds ?? [],
+      driver: await recording.driver,
+      ...(result.dry_run === true ? { dryRun: true } : {}),
+      ...(flags !== undefined ? { flags } : {}),
+      ...(target !== undefined ? { target } : {}),
+    });
+  }
+  return renderResult(result);
 }
 
 /**
- * Run one tool call and render its DiscernResult. The per-call root is the explicit
+ * Resolve and run one tool call. The per-call root is the explicit
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
  * directory inside a worktree resolves to its root and a non-project path falls
  * through to `not_initialized`), else the server's current working root — re-pointed
  * by `discern_start` / reset by `discern_accept` via {@link McpTool.reaimOnSuccess},
- * applied here after a successful, non-preview call. Every refusal is rendered as a
- * normal (error) {@link DiscernResult} — a missing project, or an unexpected throw
- * from the verb (caught here so a single tool error can never take the whole stdio
- * server down). `signal` (optional — a direct caller may omit it) aborts when the
+ * applied here after a successful, non-preview call. Every refusal returns a normal
+ * error {@link DiscernResult} to {@link runTool}'s one completion boundary — a
+ * missing project, a dispatch refusal, or an unexpected throw from the verb.
+ * `signal` (optional — a direct caller may omit it) aborts when the
  * client cancels the request or the server shuts down; it is forwarded to the verb
  * so a long-running gate dies with the call instead of running on as an orphan.
  */
-export async function runTool(
+async function dispatchToolCall(
   tool: McpTool,
   working: WorkingRoot,
   args: Record<string, unknown>,
   signal?: AbortSignal,
-  resolveInstalledVersion: () => Promise<string | undefined> =
-    defaultInstalledVersion,
   mcpClient?: RecordedMcpClient,
-): Promise<ToolResult> {
-  // Version handshake: if the discern binary on disk was replaced with a different
-  // version since this long-lived server started, its engine and embedded templates
-  // are stale, so every result carries a restart hint (see version_check.ts). Cheap
-  // — a single stat per call, only spawning `--version` on the replace itself — so
-  // it runs on every path, refusals included.
-  const stale = versionMismatchHint(
-    KIT_VERSION,
-    await resolveInstalledVersion(),
-  );
-  const render = (result: DiscernResult): ToolResult => {
-    const prepared = withFailureRecoveryHint(result);
-    return renderResult(
-      stale === undefined ? prepared : appendHint(prepared, stale),
-    );
-  };
-
+): Promise<PendingToolCall> {
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
   const pathArg = typeof args.path === "string" ? args.path : undefined;
@@ -1294,16 +1315,22 @@ export async function runTool(
   // tool's `path` flows through — with an actionable error, so no verb inherits the
   // confidently-wrong answer (B40).
   if (pathArg !== undefined && !isAbsolute(pathArg)) {
-    return render({
-      ok: false,
-      verb: verbOf(tool.name),
-      error: "invalid_arguments",
-      message:
-        `\`path\` must be an absolute path, but got "${pathArg}". The MCP server's ` +
-        `working directory is not the caller's directory, so it cannot resolve a ` +
-        `relative path safely. Pass an absolute path inside the discern project or ` +
-        `worktree this call should use.`,
-    });
+    const heldRoot = working.get();
+    return {
+      result: {
+        ok: false,
+        verb: verbOf(tool.name),
+        error: "invalid_arguments",
+        message:
+          `\`path\` must be an absolute path, but got "${pathArg}". The MCP server's ` +
+          `working directory is not the caller's directory, so it cannot resolve a ` +
+          `relative path safely. Pass an absolute path inside the discern project or ` +
+          `worktree this call should use.`,
+      },
+      recording: heldRoot === undefined
+        ? undefined
+        : beginMcpRecording(heldRoot, mcpClient),
+    };
   }
   const root = pathArg ? await findRoot(pathArg) : working.get();
   if (root === undefined) {
@@ -1314,12 +1341,17 @@ export async function runTool(
     // genuinely needs a project and refuses (B38). The property is declared on the tool
     // (the TOOLS-table single source of truth) — no per-name special case here.
     if (tool.rootIndependent === true) {
-      return render(
-        await runVerb(tool, Deno.cwd(), args, signal, mcpClient),
-      );
+      return {
+        result: await runVerb(tool, Deno.cwd(), args, signal),
+        recording: undefined,
+      };
     }
-    return render(notInitializedResult(verbOf(tool.name)));
+    return {
+      result: notInitializedResult(verbOf(tool.name)),
+      recording: undefined,
+    };
   }
+  const recording = beginMcpRecording(root, mcpClient);
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_map`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
@@ -1328,14 +1360,17 @@ export async function runTool(
   if (
     verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
   ) {
-    return render({
-      ok: false,
-      verb: verbOf(tool.name),
-      error: "not_set_up",
-      message: NOT_SET_UP_MESSAGE,
-    });
+    return {
+      result: {
+        ok: false,
+        verb: verbOf(tool.name),
+        error: "not_set_up",
+        message: NOT_SET_UP_MESSAGE,
+      },
+      recording,
+    };
   }
-  const result = await runVerb(tool, root, args, signal, mcpClient);
+  const result = await runVerb(tool, root, args, signal);
   // Data-driven re-aim (ADR 0062): on a successful, non-preview lifecycle call, move
   // the working root per the tool's own hook (start → the new worktree it created;
   // accept → the main checkout it landed in). A `path` override is normally a
@@ -1354,7 +1389,42 @@ export async function runTool(
       working.set(next);
     }
   }
-  return render(result);
+  return { result, recording };
+}
+
+/**
+ * Run one tool call and render its final DiscernResult. Dispatch may return from
+ * several branches, but every result crosses {@link completeToolCall} exactly
+ * once. The version handshake is resolved before dispatch and attached before
+ * that boundary records, so the logbook's hint identities match the envelope
+ * delivered to the client.
+ */
+export async function runTool(
+  tool: McpTool,
+  working: WorkingRoot,
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+  resolveInstalledVersion: () => Promise<string | undefined> =
+    defaultInstalledVersion,
+  mcpClient?: RecordedMcpClient,
+): Promise<ToolResult> {
+  // Drain state left by CLI-only output in this long-lived process before this
+  // call starts. The final boundary drains again after observing this result.
+  takeSupplementalHintIds();
+  // If the binary on disk changed since this server started, every result needs
+  // the restart hint — including dispatch refusals.
+  const stale = versionMismatchHint(
+    KIT_VERSION,
+    await resolveInstalledVersion(),
+  );
+  const pending = await dispatchToolCall(
+    tool,
+    working,
+    args,
+    signal,
+    mcpClient,
+  );
+  return await completeToolCall(tool, args, pending, stale);
 }
 
 /** True when `path` exists on disk — the held-working-root liveness check the re-aim

@@ -1,7 +1,7 @@
 /**
  * The logbook **recorder** — the layer between an interceptor (the CLI action
- * wrapper in `cli.ts`, the MCP `runVerb` chokepoint) and the store, holding the
- * two promises the substrate makes:
+ * wrapper in `cli.ts`, the MCP `runTool` completion chokepoint) and the store,
+ * holding the two promises the substrate makes:
  *
  *  - **Recording never interferes.** Every failure — no project, unreadable
  *    config, no git, a read-only disk — degrades to SILENCE: the verb's own

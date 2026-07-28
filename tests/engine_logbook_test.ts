@@ -32,9 +32,16 @@ import {
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
 import { beginRecording } from "../src/engine/logbook/record.ts";
-import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { fire, HINTS } from "../src/shared/hints.ts";
+import {
+  runTool,
+  TOOLS,
+  verbOf,
+  WorkingRoot,
+} from "../src/engine/mcp/server.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
+import { fire, firedHintsFromTexts, HINTS } from "../src/shared/hints.ts";
 import { observeSupplementalHints } from "../src/shared/result_capture.ts";
+import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 
 /** All well-formed events across the project's logbook, in file line order. */
 async function readEvents(dir: string): Promise<LogbookEvent[]> {
@@ -67,6 +74,20 @@ function verbEvents(
   events: LogbookEvent[],
 ): Extract<LogbookEvent, { kind: "verb" }>[] {
   return events.filter((e) => e.kind === "verb");
+}
+
+/** Stable hint identities from the exact result an MCP caller received. */
+function deliveredHintIds(
+  result: { structuredContent: Record<string, unknown> },
+): string[] {
+  const hints = result.structuredContent.hints;
+  assert(
+    hints === undefined || Array.isArray(hints),
+    "an MCP result returned malformed hints",
+  );
+  return firedHintsFromTexts(hints as string[] | undefined).map((hint) =>
+    hint.id
+  );
 }
 
 Deno.test("logbook: a verb run appends one valid, branch-attributed event", async () => {
@@ -582,7 +603,7 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       new WorkingRoot(dir),
       {},
       undefined,
-      () => Promise.resolve(undefined),
+      () => Promise.resolve(`${KIT_VERSION}-newer`),
       {
         name: "codex-mcp-client",
         title: "Codex",
@@ -598,11 +619,17 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     assertEquals(event.surface, "mcp");
     assertEquals(event.branch, "main");
     assertEquals(event.outcome, "ok");
+    assertEquals(
+      event.hint_ids,
+      deliveredHintIds(result),
+      "the ordinary verb path must record the exact final delivered hints",
+    );
     assertEquals(event.hint_ids, [
       HINTS["generated-agent-files-missing"].id,
       HINTS["materialized-skills-missing"].id,
       HINTS["status-start-on-trunk"].id,
       HINTS["status-no-active-worktrees"].id,
+      HINTS["mcp-version-mismatch"].id,
     ]);
     assert(
       event.driver !== undefined && event.driver.session !== undefined &&
@@ -622,4 +649,80 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       "the raw MCP declaration and its normalized advisory signal both land",
     );
   });
+});
+
+// The two dispatch refusals whose project root is already known are exercised as
+// mechanism classes. Each population comes from its production source of truth:
+// every path-declaring tool and every tool admitted by SETUP_GATED_VERBS through
+// verbNeedsSetup. A new tool therefore enrols automatically. Dispatch returns only
+// PendingToolCall values, so a future early-return sibling also has no rendering or
+// recording escape hatch around runTool's completion boundary.
+Deno.test("logbook: every known-root MCP refusal records its final delivered result exactly once", async () => {
+  const cases = [
+    {
+      name: "relative path",
+      bootstrapped: true,
+      tools: () =>
+        TOOLS.filter((tool) => Object.keys(tool.inputSchema).includes("path")),
+      args: { path: "some/relative/dir", dry_run: true },
+      error: "invalid_arguments",
+    },
+    {
+      name: "pre-setup gate",
+      bootstrapped: false,
+      tools: () => TOOLS.filter((tool) => verbNeedsSetup(verbOf(tool.name))),
+      args: { dry_run: true },
+      error: "not_set_up",
+    },
+  ] as const;
+
+  for (const refusal of cases) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { bootstrapped: refusal.bootstrapped });
+      await gitInit(dir);
+      const tools = refusal.tools();
+      assert(
+        tools.length > 0,
+        `${refusal.name}: expected at least one enrolled MCP tool`,
+      );
+
+      for (const [index, tool] of tools.entries()) {
+        const delivered = await runTool(
+          tool,
+          new WorkingRoot(dir),
+          refusal.args,
+          undefined,
+          () => Promise.resolve(`${KIT_VERSION}-newer`),
+        );
+        assertEquals(
+          delivered.structuredContent.error,
+          refusal.error,
+          `${refusal.name}: ${tool.name} reached the wrong result path`,
+        );
+
+        const events = verbEvents(await readEvents(dir));
+        assertEquals(
+          events.length,
+          index + 1,
+          `${refusal.name}: ${tool.name} must add exactly one verb event`,
+        );
+        const event = events[index];
+        assert(event !== undefined);
+        assertEquals(event.verb, verbOf(tool.name));
+        assertEquals(event.outcome, "refused");
+
+        const finalHintIds = deliveredHintIds(delivered);
+        const recordedHintIds = event.hint_ids ?? [];
+        assertEquals(
+          recordedHintIds,
+          finalHintIds,
+          `${refusal.name}: ${tool.name} must record the hints it delivered`,
+        );
+        assert(
+          recordedHintIds.includes(HINTS["mcp-version-mismatch"].id),
+          `${refusal.name}: ${tool.name} must record the final restart hint`,
+        );
+      }
+    });
+  }
 });
