@@ -12,7 +12,7 @@ aliases:
 
 _With recording on and `discern.toml` readable, each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project adds local, metadata-only history. Effectful verbs add a paired start and completion._
 
-With recording on and the project's `discern.toml` readable, discern appends one completion line for each CLI verb run and MCP invocation resolved to that project, whether the call passes or fails. An effectful invocation first appends a `begin` line. The 2 lines share an invocation id. Every worktree shares the plain-text file under `.git`.
+With `discern.toml` readable and recording on, each CLI or MCP call appends a completion line. Effectful calls first append `begin`; the pair shares an invocation id. Worktrees share the plain-text file under `.git`.
 
 An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. That path has no project logbook to host the event and no readable project setting to consent to it.
 
@@ -67,7 +67,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 
 `partial` means the command reported an error after an irreversible effect. For acceptance, `landing` says whether this call performed recovery, landed the trunk, removed the worktree, and deleted the branch.
 
-Each line carries a schema version. Readers skip lines they don't recognize, and fields only accrete. A `begin` line carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id known at the start. The completion carries the outcome and duration fields above. Rarer kinds sit beside them: `config-change` when your config genuinely changes (section names, never values), `pin` when `discern standards --pin` tightens a limit (old bound, new bound, measured value — your ratchet's history), and `prune` when rotation removes old months.
+Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
 ### Possible agent identity signals
 
