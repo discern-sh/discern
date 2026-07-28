@@ -232,6 +232,15 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
       recursive: true,
     });
     await Deno.writeTextFile(join(dir, doc), body);
+    // The template's intro links to its real skeleton siblings; lay them so
+    // the map-integrity preflight (which precedes the failing jobs this test
+    // is about) has nothing to say.
+    for (const sibling of ["getting-started.md", "code-conventions.md"]) {
+      await Deno.writeTextFile(
+        join(dir, mapDir, "91-unrelated", sibling),
+        "# Placeholder\n",
+      );
+    }
     await writeConfig(
       dir,
       [

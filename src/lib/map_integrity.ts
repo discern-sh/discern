@@ -5,9 +5,10 @@
  * links to files that moved, anchors to headings that were reworded, fenced
  * `discern …` examples quoting a retired verb or flag, metadata blocks the
  * lenient reader would swallow, published pages linking into the internal
- * trees, and skill citations naming a skill that no longer exists (or was
- * excluded). Each is a defect a reader only discovers by following the
- * reference and failing — so the gate finds them first.
+ * trees, and skill citations naming a skill absent from the effective set (a
+ * rename, or a `[skills].exclude` entry). Each is a defect a reader only
+ * discovers by following the reference and failing — so the gate finds them
+ * first.
  *
  * PURE observation: `(root, config, cli) → findings`, reads only. The corpus is
  * the CURRENT configured map — every doc outside `_`-prefixed subtrees, root
@@ -270,6 +271,20 @@ function citationFindings(
     }
   }
   return findings;
+}
+
+/**
+ * The live CLI command model, built lazily from the command registry. The
+ * dynamic import keeps the whole command tree off the load path of every
+ * caller that never validates an example (the registry module is heavy and
+ * self-contained, so no static engine→CLI edge exists either).
+ */
+export async function liveCliModel(): Promise<CliCommand> {
+  const { buildCli } = await import("../main.ts");
+  const { cliCommandModel } = await import(
+    "../shared/cli_reference_codegen.ts"
+  );
+  return cliCommandModel(buildCli(false));
 }
 
 /**

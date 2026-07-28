@@ -53,8 +53,8 @@ import {
   DOCS_INTEGRITY_REMEDIES,
   type DocsIntegrityFinding,
   type DocsIntegrityRule,
+  liveCliModel,
 } from "../../lib/map_integrity.ts";
-import { cliCommandModel } from "../../shared/cli_reference_codegen.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
@@ -511,16 +511,11 @@ async function runGate(
   //     skills outside the effective set. Blocking, beside the other artifact
   //     preflights: each finding is a defect a reader only discovers by
   //     following the reference and failing, and no later stage can clear it.
-  //     The CLI model is built from the live command registry via a lazy
-  //     import, so the command tree stays off every other verb's load path.
+  //     The CLI model comes from the live command registry via the core's lazy
+  //     loader, so the command tree stays off every other verb's load path.
   let mapIntegrityDiag: Diagnostic | undefined;
   if (failedStage === null) {
-    const { buildCli } = await import("../../main.ts");
-    const findings = await checkDocsIntegrity(
-      root,
-      cfg,
-      cliCommandModel(buildCli(false)),
-    );
+    const findings = await checkDocsIntegrity(root, cfg, await liveCliModel());
     if (findings.length > 0) {
       failedStage = "map_integrity";
       mapIntegrityDiag = await mapIntegrityDiagnostic(findings);
