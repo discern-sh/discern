@@ -65,12 +65,17 @@ Deno.test("a tag/package mismatch is refused before the matrix exists", () => {
 Deno.test("the compiled release smoke gates artifact upload", () => {
   const compile = releaseSource.indexOf("deno task build ${{ matrix.target }}");
   const smoke = releaseSource.indexOf("scripts/release_smoke.ts");
+  const notarize = releaseSource.indexOf("- name: Notarize");
   const checksum = releaseSource.indexOf("- name: Checksum");
   const upload = releaseSource.indexOf("- name: Upload build artifacts");
   assert(compile >= 0, "the release compiles its matrix target");
   assert(smoke > compile, "the compiled binary is smoked after compilation");
+  assert(
+    notarize > smoke,
+    "macOS notarization follows the compiled binary smoke",
+  );
   assert(checksum > smoke, "checksums are made only after the smoke passes");
-  assert(upload > checksum, "artifact upload is the final build step");
+  assert(upload > checksum, "artifact upload follows the checksum");
   assertStringIncludes(releaseSource, '"dist/${{ matrix.output }}"');
   assertStringIncludes(
     releaseSource,
