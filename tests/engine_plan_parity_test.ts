@@ -48,6 +48,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  mapPool,
   runAgent,
   scaffoldEngine,
   worktreePath,
@@ -568,65 +569,82 @@ Deno.test("dry-run class: every capable verb previews faithfully (writes nothing
       "command paths — add a probe for the new member (or delete the stale one)",
   );
 
-  for (const verb of verbs) {
+  // Every probe drives its own scaffold, so the members fan out as
+  // concurrent steps. Concurrent sibling steps need their per-step sanitizers
+  // off (Deno refuses to start a step while a sanitized sibling runs); the
+  // parent test's sanitizers still hold the whole sweep.
+  await mapPool(verbs, 8, async (verb) => {
     const probe = PROBES[verb];
     if (probe === undefined) {
-      continue; // unreachable: the assertEquals above already failed
+      return; // unreachable: the assertEquals above already failed
     }
-    await t.step(verb, async () => {
-      await withTempDir(async (dir) => {
-        const run = await probe.arrange(dir);
+    await t.step({
+      name: verb,
+      sanitizeOps: false,
+      sanitizeResources: false,
+      sanitizeExit: false,
+      fn: async () => {
+        await withTempDir(async (dir) => {
+          const run = await probe.arrange(dir);
 
-        // 1. A dry run writes nothing (logbook appends aside).
-        const before = await snapshotTree(dir);
-        const dry = await runAgent(run.cwd, run.dry, { env: run.env ?? {} });
-        assertEquals(dry.code, 0, `${verb}: dry-run failed\n${dry.output}`);
-        const after = await snapshotTree(dir);
-        assertTreeUnchanged(before, after, verb);
+          // 1. A dry run writes nothing (logbook appends aside).
+          const before = await snapshotTree(dir);
+          const dry = await runAgent(run.cwd, run.dry, { env: run.env ?? {} });
+          assertEquals(dry.code, 0, `${verb}: dry-run failed\n${dry.output}`);
+          const after = await snapshotTree(dir);
+          assertTreeUnchanged(before, after, verb);
 
-        // 2. The envelope carries the uniform preview marker.
-        const envelope = parse(dry.stdout);
-        assertEquals(
-          envelope.dry_run,
-          true,
-          `${verb}: a dry-run envelope must carry dry_run: true`,
-        );
-
-        if (probe.envelope === "engine-plan") {
-          // 3. Applied ⊆ planned on the SAME fixture, and the fixture is real
-          // work (an empty applied set would make the subset vacuous).
-          assert(
-            envelope.plan !== undefined,
-            `${verb}: an engine-plan member must emit plan.steps on --dry-run`,
-          );
-          assert(run.apply !== undefined, `${verb}: probe lists no apply argv`);
-          const apply = await runAgent(run.cwd, run.apply, {
-            env: run.env ?? {},
-          });
-          assertEquals(apply.code, 0, `${verb}: apply failed\n${apply.output}`);
-          assert(
-            appliedSet(apply.stdout).size > 0,
-            `${verb}: fixture applied nothing\n${apply.output}`,
-          );
-          assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
-        } else {
-          // 3'. The recorded exception stays honest: the preview rides in
-          // `data`, and the envelope carries no engine plan. A member that
-          // grows one must move to the engine-plan side of the table.
+          // 2. The envelope carries the uniform preview marker.
+          const envelope = parse(dry.stdout);
           assertEquals(
-            envelope.plan,
-            undefined,
-            `${verb}: emits an engine plan — move its probe to ` +
-              `envelope: "engine-plan" so applied ⊆ planned is enforced`,
+            envelope.dry_run,
+            true,
+            `${verb}: a dry-run envelope must carry dry_run: true`,
           );
-          assert(
-            envelope.data !== undefined,
-            `${verb}: a data-preview member must carry its preview in data`,
-          );
-        }
-      });
+
+          if (probe.envelope === "engine-plan") {
+            // 3. Applied ⊆ planned on the SAME fixture, and the fixture is real
+            // work (an empty applied set would make the subset vacuous).
+            assert(
+              envelope.plan !== undefined,
+              `${verb}: an engine-plan member must emit plan.steps on --dry-run`,
+            );
+            assert(
+              run.apply !== undefined,
+              `${verb}: probe lists no apply argv`,
+            );
+            const apply = await runAgent(run.cwd, run.apply, {
+              env: run.env ?? {},
+            });
+            assertEquals(
+              apply.code,
+              0,
+              `${verb}: apply failed\n${apply.output}`,
+            );
+            assert(
+              appliedSet(apply.stdout).size > 0,
+              `${verb}: fixture applied nothing\n${apply.output}`,
+            );
+            assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
+          } else {
+            // 3'. The recorded exception stays honest: the preview rides in
+            // `data`, and the envelope carries no engine plan. A member that
+            // grows one must move to the engine-plan side of the table.
+            assertEquals(
+              envelope.plan,
+              undefined,
+              `${verb}: emits an engine plan — move its probe to ` +
+                `envelope: "engine-plan" so applied ⊆ planned is enforced`,
+            );
+            assert(
+              envelope.data !== undefined,
+              `${verb}: a data-preview member must carry its preview in data`,
+            );
+          }
+        });
+      },
     });
-  }
+  });
 });
 
 Deno.test("control: the enumeration catches a fresh-named verb in a fresh group", () => {

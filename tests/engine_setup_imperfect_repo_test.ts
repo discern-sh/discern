@@ -21,6 +21,7 @@ import {
   git,
   gitInit,
   gitOut,
+  mapPool,
   parsedCommitTrailers,
   runAgent,
   scaffoldEngine,
@@ -879,8 +880,9 @@ Deno.test("re-entry attribution guard: every resumed machinery candidate must st
 
   // The case table comes from the actual staged setup output for every registered
   // provider. A future provider or machinery category is therefore enrolled without
-  // adding its path here.
-  for (const path of machinery) {
+  // adding its path here. Every candidate drives its own scaffold, so the
+  // sweep fans out.
+  await mapPool(machinery, 8, async (path) => {
     await withTempDir(async (dir) => {
       const failed = await beginWithRejectedMachineryCommit(dir);
       assert(
@@ -899,7 +901,7 @@ Deno.test("re-entry attribution guard: every resumed machinery candidate must st
         `unstaged byte mutation of ${path}`,
       );
     });
-  }
+  });
 
   await withTempDir(async (dir) => {
     const failed = await beginWithRejectedMachineryCommit(dir);

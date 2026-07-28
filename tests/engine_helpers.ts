@@ -35,6 +35,42 @@ import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
+/**
+ * Map `items` through `fn` with at most `limit` in flight — the bounded
+ * fan-out for sweep guards whose cases are independent (each case driving its
+ * own scaffold, or read-only runs against a shared one). Results keep item
+ * order. On a failure the pool stops claiming new items, lets the in-flight
+ * cases settle (so no dangling ops trip the test sanitizers), then rethrows
+ * the first error.
+ */
+export async function mapPool<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  const errors: unknown[] = [];
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (next < items.length && errors.length === 0) {
+        const i = next++;
+        try {
+          results[i] = await fn(items[i] as T, i);
+        } catch (e) {
+          errors.push(e);
+        }
+      }
+    },
+  );
+  await Promise.all(workers);
+  if (errors.length > 0) {
+    throw errors[0];
+  }
+  return results;
+}
+
 /** The captured result of one `agent` invocation. */
 export interface RunResult {
   code: number;
@@ -364,15 +400,24 @@ export async function gitInit(dir: string): Promise<void> {
       );
     }
   };
-  await git("init", "-q");
-  await git("config", "user.email", "engine-test@example.com");
-  await git("config", "user.name", "Engine Test");
-  await git("config", "commit.gpgsign", "false");
+  // `-b main` pins the branch name (the engine's default integration branch)
+  // regardless of the local git's init.defaultBranch.
+  await git("init", "-q", "-b", "main");
+  // Repo-local identity and signing-off, appended straight into .git/config:
+  // identity must live in CONFIG (not GIT_AUTHOR_*/GIT_COMMITTER_* env) because
+  // the engine's own identity probe reads `git config user.name`/`user.email`
+  // and must resolve in every scaffolded repo. A fresh `git init` always makes
+  // `.git` a directory, so the config path is stable. Appending the section is
+  // equivalent to three `git config` calls, without three subprocesses — this
+  // helper runs hundreds of times per suite run.
+  await Deno.writeTextFile(
+    join(dir, ".git", "config"),
+    "[user]\n\tname = Engine Test\n\temail = engine-test@example.com\n" +
+      "[commit]\n\tgpgsign = false\n",
+    { append: true },
+  );
   await git("add", "-A");
   await git("commit", "-q", "-m", "scaffold", "--no-gpg-sign");
-  // Normalise the branch name to `main` (the engine's default integration
-  // branch) regardless of the local git's init.defaultBranch.
-  await git("branch", "-M", "main");
 }
 
 /**
