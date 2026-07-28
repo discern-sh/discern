@@ -205,6 +205,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0209 — Fresh seed grants cover pure documentation](0209-fresh-seed-grants-cover-pure-documentation.md)
 - [0210 — Effectful verb starts are paired logbook events](0210-effectful-verb-starts-are-paired-logbook-events.md)
 - [0211 — Agent-context artifacts carry no provenance marker](0211-agent-context-artifacts-carry-no-provenance-marker.md)
+- [0212 — The fleet test-run cap is N OS-file-lock slots under the git common dir](0212-fleet-test-run-cap-os-lock-slots.md)
 
 <!-- END GENERATED: current ADR records -->
 

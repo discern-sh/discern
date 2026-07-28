@@ -17,6 +17,8 @@ The gate is the repository's definition of done. It first checks that the branch
 
 Use `discern prepare` while you work. It runs the fix and check stages without paying for builds or tests. Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a receipt for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
+Running parallel agents on one machine? Set `[gate].concurrent_test_runs` to cap how many test-stage runs — `discern done`'s and `discern test`'s test group, and `discern standards`' measurement pass — are in flight across all of the repository's checkouts at once. A run past the cap waits for a slot before its tests start, says what it is waiting for, and continues the moment one frees; fix and check stages never wait, and a killed run's slot is released by the operating system ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
+
 For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
 | Read next                                     | What it helps you do                                                        |
