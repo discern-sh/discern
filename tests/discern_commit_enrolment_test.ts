@@ -154,7 +154,11 @@ Deno.test("the staged-index commit source rolls back a hook-expanded tree withou
     const hook = join(dir, ".git", "hooks", "pre-commit");
     await Deno.writeTextFile(
       hook,
-      `#!/bin/sh\nprintf 'hook staged user bytes\\n' > ${hookPath}\ngit add -- ${hookPath}\n`,
+      `#!/bin/sh
+printf 'hook staged user bytes\\n' > ${hookPath}
+git add -- ${hookPath}
+printf 'later hook worktree bytes\\n' > ${hookPath}
+`,
     );
     await Deno.chmod(hook, 0o755);
 
@@ -175,13 +179,173 @@ Deno.test("the staged-index commit source rolls back a hook-expanded tree withou
     );
     assertEquals(
       await gitOut(dir, "status", "--porcelain", "--", hookPath),
-      `A  ${hookPath}`,
+      `AM ${hookPath}`,
       "rollback must preserve the hook's staged index entry",
     );
     assertEquals(
+      await gitOut(dir, "show", `:${hookPath}`),
+      "hook staged user bytes",
+      "rollback must preserve the exact blob the hook staged",
+    );
+    assertEquals(
       await Deno.readTextFile(join(dir, hookPath)),
-      "hook staged user bytes\n",
+      "later hook worktree bytes\n",
       "rollback must preserve the hook's worktree bytes",
+    );
+  });
+});
+
+Deno.test("the worktree-pathspec commit source rejects a hook-expanded tree without losing the hook's bytes", async () => {
+  await withTempDir(async (dir) => {
+    const composedPath = "composed.txt";
+    const hookPath = "hook-staged-user.txt";
+    await Deno.writeTextFile(join(dir, composedPath), "base\n");
+    await gitInit(dir);
+    const originalHead = await gitOut(dir, "rev-parse", "HEAD");
+    await Deno.writeTextFile(join(dir, composedPath), "discern bytes\n");
+    await git(dir, "add", "--", composedPath);
+    const hook = join(dir, ".git", "hooks", "pre-commit");
+    await Deno.writeTextFile(
+      hook,
+      `#!/bin/sh
+printf 'hook staged user bytes\\n' > ${hookPath}
+git add -- ${hookPath}
+printf 'later hook worktree bytes\\n' > ${hookPath}
+`,
+    );
+    await Deno.chmod(hook, 0o755);
+
+    const commit = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+      cwd: dir,
+      subject: "Record composed bytes",
+      pathspecs: [composedPath],
+    });
+
+    assertEquals(commit.success, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD"),
+      originalHead,
+      "the hook-expanded commit must be removed from the branch",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain", "--", hookPath),
+      `AM ${hookPath}`,
+      "rejection must preserve the hook's staged index entry",
+    );
+    assertEquals(
+      await gitOut(dir, "show", `:${hookPath}`),
+      "hook staged user bytes",
+      "rejection must preserve the exact blob the hook staged",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, hookPath)),
+      "later hook worktree bytes\n",
+      "rejection must not restage later hook worktree bytes",
+    );
+  });
+});
+
+Deno.test("the staged-index commit source never rolls back a post-commit later tip", async () => {
+  await withTempDir(async (dir) => {
+    const proofPath = "proof.txt";
+    const laterPath = "later-tip-user.txt";
+    const laterOidPath = "later-tip.oid";
+    await Deno.writeTextFile(join(dir, proofPath), "base\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, proofPath), "proven staged bytes\n");
+    await git(dir, "add", "--", proofPath);
+    const stagedProof = {
+      branch: await gitOut(dir, "branch", "--show-current"),
+      head: await gitOut(dir, "rev-parse", "HEAD"),
+      tree: await gitOut(dir, "write-tree"),
+    };
+    const hook = join(dir, ".git", "hooks", "post-commit");
+    await Deno.writeTextFile(
+      hook,
+      `#!/bin/sh
+printf 'later user bytes\\n' > ${laterPath}
+git add -- ${laterPath}
+parent=$(git rev-parse HEAD)
+tree=$(git write-tree)
+later=$(printf 'Later tip\\n' | git commit-tree "$tree" -p "$parent")
+git update-ref HEAD "$later" "$parent"
+printf '%s\\n' "$later" > ${laterOidPath}
+`,
+    );
+    await Deno.chmod(hook, 0o755);
+
+    const commit = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      cwd: dir,
+      subject: "Record proven bytes",
+      pathspecs: [proofPath],
+      source: "staged-index",
+      stagedProof,
+    });
+
+    const laterTip = (await Deno.readTextFile(join(dir, laterOidPath))).trim();
+    const discernChild = await gitOut(dir, "rev-parse", `${laterTip}^`);
+    assertEquals(commit.success, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD"),
+      laterTip,
+      "a later tip must never be moved back with the discern commit",
+    );
+    assertEquals(
+      await gitOut(dir, "rev-parse", `${discernChild}^`),
+      stagedProof.head,
+      "the hook's tip must remain beyond the direct child Git created",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain", "--", laterPath),
+      "",
+      "the later commit owns the hook's index and worktree bytes",
+    );
+  });
+});
+
+Deno.test("the staged-index commit source rejects a same-tree post-commit later tip", async () => {
+  await withTempDir(async (dir) => {
+    const proofPath = "proof.txt";
+    const laterOidPath = "later-tip.oid";
+    await Deno.writeTextFile(join(dir, proofPath), "base\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, proofPath), "proven staged bytes\n");
+    await git(dir, "add", "--", proofPath);
+    const stagedProof = {
+      branch: await gitOut(dir, "branch", "--show-current"),
+      head: await gitOut(dir, "rev-parse", "HEAD"),
+      tree: await gitOut(dir, "write-tree"),
+    };
+    const hook = join(dir, ".git", "hooks", "post-commit");
+    await Deno.writeTextFile(
+      hook,
+      `#!/bin/sh
+parent=$(git rev-parse HEAD)
+tree=$(git rev-parse "$parent^{tree}")
+later=$(printf 'Same-tree later tip\\n' | git commit-tree "$tree" -p "$parent")
+git update-ref HEAD "$later" "$parent"
+printf '%s\\n' "$later" > ${laterOidPath}
+`,
+    );
+    await Deno.chmod(hook, 0o755);
+
+    const commit = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      cwd: dir,
+      subject: "Record proven bytes",
+      pathspecs: [proofPath],
+      source: "staged-index",
+      stagedProof,
+    });
+
+    const laterTip = (await Deno.readTextFile(join(dir, laterOidPath))).trim();
+    assertEquals(commit.success, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD"),
+      laterTip,
+      "tree equality must not make a later commit look like our direct child",
     );
   });
 });
