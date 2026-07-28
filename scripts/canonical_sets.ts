@@ -899,10 +899,16 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/config_codegen_test.ts",
       "tests/result_codegen_test.ts",
+      "tests/reference_docs_test.ts",
       "tests/site_serve_test.ts",
       "tests/site_smoke_test.ts",
     ],
-    artifacts: [],
+    artifacts: [
+      {
+        path: "project/map/70-reference/mcp-and-results.md",
+        kind: "maintained-block",
+      },
+    ],
     enrolledIn: {
       glossary: {
         absent:

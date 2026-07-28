@@ -31,6 +31,10 @@ import {
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
 import {
+  renderPublicSchemaReference,
+  replacePublicSchemaReference,
+} from "../src/shared/public_schemas.ts";
+import {
   generateThirdPartyArtifacts,
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
@@ -60,6 +64,10 @@ const configReference = relative(
 const cliReference = relative(
   repoRoot,
   join(mapDir, "70-reference", "cli-reference.md"),
+);
+const mcpReference = relative(
+  repoRoot,
+  join(mapDir, "70-reference", "mcp-and-results.md"),
 );
 const hintInventory = relative(
   repoRoot,
@@ -170,6 +178,19 @@ console.log(
 );
 await write("schema/discern-results.schema.json", renderResultJsonSchema());
 await write("types/discern-json.d.ts", renderResultTypesDts());
+console.log(
+  "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",
+);
+const mcpReferenceDoc = await Deno.readTextFile(
+  join(repoRoot, mcpReference),
+);
+await write(
+  mcpReference,
+  replacePublicSchemaReference(
+    mcpReferenceDoc,
+    renderPublicSchemaReference(),
+  ),
+);
 console.log(
   "Regenerating third-party notices from the compile graph of src/main.ts:",
 );
