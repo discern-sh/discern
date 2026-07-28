@@ -14,6 +14,7 @@ import {
   buildAgentLaunches,
   buildDeskRows,
   classifyBucket,
+  DESK_ACTIONS,
   type DeskAction,
   type DeskAgentLaunch,
   type DeskBucket,
@@ -133,6 +134,7 @@ Deno.test("classifyBucket: the decision-order table", () => {
 const ACTION_CASES: ReadonlyArray<{
   name: string;
   entry: StatusFleetEntry;
+  effortGranted?: boolean;
   scripts?: readonly ProjectScript[];
   agentLaunches?: readonly DeskAgentLaunch[];
   expect: readonly DeskAction[];
@@ -150,13 +152,13 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "clean and ahead → accept leads; no update when not behind",
     entry: entry({ ahead: 2 }),
-    expect: ["accept", "jump", "inspect", "drop"],
+    expect: ["accept", "grant", "jump", "inspect", "drop"],
   },
   {
     name: "scripts available in this checkout → run script before jump",
     entry: entry({ ahead: 2 }),
     scripts: [{ name: "deploy", description: "deploy the project" }],
-    expect: ["accept", "script", "jump", "inspect", "drop"],
+    expect: ["accept", "grant", "script", "jump", "inspect", "drop"],
   },
   {
     name: "configured agent available on PATH → agent launcher before jump",
@@ -170,22 +172,28 @@ const ACTION_CASES: ReadonlyArray<{
       label: "Open in Codex",
       args: [],
     }],
-    expect: ["accept", "agent", "jump", "inspect", "drop"],
+    expect: ["accept", "grant", "agent", "jump", "inspect", "drop"],
   },
   {
     name: "dirty and behind → update offered, accept not",
     entry: entry({ clean: false, changed_files: 1, behind: 4 }),
-    expect: ["update", "jump", "inspect", "drop"],
+    expect: ["grant", "update", "jump", "inspect", "drop"],
   },
   {
     name: "clean, ahead AND behind → both accept and update",
     entry: entry({ ahead: 2, behind: 1 }),
-    expect: ["accept", "update", "jump", "inspect", "drop"],
+    expect: ["accept", "grant", "update", "jump", "inspect", "drop"],
   },
   {
     name: "clean, nothing ahead → no accept (nothing to land)",
     entry: entry({}),
-    expect: ["jump", "inspect", "drop"],
+    expect: ["grant", "jump", "inspect", "drop"],
+  },
+  {
+    name: "granted effort offers revocation instead of a duplicate grant",
+    entry: entry({ ahead: 2 }),
+    effortGranted: true,
+    expect: ["accept", "revoke_grant", "jump", "inspect", "drop"],
   },
   {
     name: "broken with scripts and agents present → still drop only",
@@ -207,11 +215,23 @@ const ACTION_CASES: ReadonlyArray<{
 Deno.test("legalActions: the legality table", () => {
   for (const c of ACTION_CASES) {
     assertEquals(
-      [...legalActions(c.entry, c.scripts ?? [], c.agentLaunches ?? [])],
+      [
+        ...legalActions(
+          c.entry,
+          c.effortGranted ?? false,
+          c.scripts ?? [],
+          c.agentLaunches ?? [],
+        ),
+      ],
       [...c.expect],
       c.name,
     );
   }
+  assertEquals(
+    [...new Set(ACTION_CASES.flatMap((c) => c.expect))].sort(),
+    [...DESK_ACTIONS].sort(),
+    "the table must exercise every canonical desk action",
+  );
 });
 
 // ── ordering and exclusions ────────────────────────────────────────────────────
@@ -258,6 +278,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
   const rows = buildDeskRows(
     [stale, main, readyOld, flying, readyNew],
     receipts,
+    new Map(),
     scripts,
     new Map(),
     NOW,
@@ -278,6 +299,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
 Deno.test("buildDeskRows: a path absent from the receipt map is never treated as vouched", () => {
   const rows = buildDeskRows(
     [entry({ ahead: 5, path: "/p/unvouched" })],
+    new Map(),
     new Map(),
     new Map(),
     new Map(),

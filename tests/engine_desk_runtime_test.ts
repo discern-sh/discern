@@ -142,6 +142,15 @@ function scriptedRuntime(
     status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
     receiptHonored: () => false,
+    effortGrant: () => ({ status: "missing" }),
+    grantEffort: (_path, branch) => ({
+      status: "granted",
+      grant: {
+        branch,
+        granted_at: "2026-07-11T12:00:00.000Z",
+      },
+    }),
+    clearEffortGrant: () => true,
     makeOut: () => output.out,
     error: (message) => output.stderr.push(`console:${message}`),
     select: () => QUIT,
@@ -267,12 +276,17 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
     unlanded_branches: ["agent/orphan"],
   };
   const receiptPaths: string[] = [];
+  const grantPaths: string[] = [];
   const optionText: string[] = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     receiptHonored: (path) => {
       receiptPaths.push(path);
       return path === ready.path;
+    },
+    effortGrant: (path) => {
+      grantPaths.push(path);
+      return { status: "missing" };
     },
     select: (options) => {
       assertEquals(options.info, false);
@@ -285,6 +299,7 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(receiptPaths, [ready.path, flying.path]);
+  assertEquals(grantPaths, [ready.path, flying.path]);
   const text = joined(output);
   assertStringIncludes(text, `heading:${DISCERN_MARK} demo`);
   assertStringIncludes(text, "4 tasks");
@@ -298,6 +313,99 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
   assert(
     !options.includes("Ready to land  a1b2c3"),
     "a unique task name should not display its id tail",
+  );
+});
+
+Deno.test("desk grants and revokes one effort only through its human action", async () => {
+  const output = transcript();
+  const effort = fleetEntry("agent/overnight", "/worktrees/overnight", {
+    ahead: 2,
+  });
+  const data = statusData([
+    fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+    effort,
+  ]);
+  const choices = [
+    effort.path,
+    "grant",
+    effort.path,
+    "revoke_grant",
+    QUIT,
+  ];
+  const menus: string[] = [];
+  const confirmations: string[] = [];
+  const grants: Array<{ path: string; branch: string }> = [];
+  const revokes: string[] = [];
+  let granted = false;
+  let pauses = 0;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    effortGrant: () =>
+      granted
+        ? {
+          status: "granted",
+          grant: {
+            branch: effort.branch,
+            granted_at: "2026-07-11T12:00:00.000Z",
+          },
+        }
+        : { status: "missing" },
+    select: (options) => {
+      menus.push(JSON.stringify(options.options));
+      return choices.shift() ?? QUIT;
+    },
+    confirm: (message) => {
+      confirmations.push(message);
+      return true;
+    },
+    grantEffort: (path, branch) => {
+      grants.push({ path, branch });
+      granted = true;
+      return {
+        status: "granted",
+        grant: {
+          branch,
+          granted_at: "2026-07-11T12:00:00.000Z",
+        },
+      };
+    },
+    clearEffortGrant: (path) => {
+      revokes.push(path);
+      granted = false;
+      return true;
+    },
+    pause: () => {
+      pauses++;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(grants, [{ path: effort.path, branch: effort.branch }]);
+  assertEquals(revokes, [effort.path]);
+  assertEquals(pauses, 2);
+  assertEquals(confirmations, [
+    `Allow ${effort.branch} to land once green without a further conversation?`,
+    `Revoke landing pre-authorization for ${effort.branch}?`,
+  ]);
+  assertStringIncludes(
+    menus.join("\n"),
+    "Pre-authorize landing once green",
+  );
+  assertStringIncludes(
+    menus.join("\n"),
+    "Revoke landing pre-authorization",
+  );
+  assertStringIncludes(
+    joined(output),
+    `${effort.branch} may land once green without a further conversation.`,
+  );
+  assertStringIncludes(
+    joined(output),
+    `Landing pre-authorization revoked for ${effort.branch}.`,
+  );
+  assert(
+    !joined(output).includes("discern grant"),
+    "the human-only grant must not imply an agent-run command",
   );
 });
 

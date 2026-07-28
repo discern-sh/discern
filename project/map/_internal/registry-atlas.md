@@ -17,6 +17,8 @@ One row per set, in registry order; the sections below follow the same order and
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                           | `src/engine/mcp/server.ts#TOOLS`                                               | 16      | —                | node `mcp-surface`          |
 | [`command-groups`](#command-groups--command-groups)                            | `src/cli_help.ts#COMMAND_GROUPS`                                               | 6       | —                | node `bundled-help`         |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)             | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                    | 2       | —                | node `consent-attestations` |
+| [`desk-actions`](#desk-actions--desk-actions)                                  | `src/engine/desk/model.ts#DESK_ACTIONS`                                        | 9       | —                | node `desk`                 |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                         | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                | 8       | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                     | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                    | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
 | [`step-kinds`](#step-kinds--step-kinds)                                        | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
@@ -44,9 +46,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 33      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 35      | —                | node `canonical-sets`       |
 
-33 sets · 58 guard tests · 14 committed artifacts.
+35 sets · 63 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -68,20 +70,25 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
+| `tests/engine_desk_model_test.ts`         | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                |
+| `tests/engine_desk_runtime_test.ts`       | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                |
+| `tests/engine_effort_grant_test.ts`       | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                       |
 | `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
 | `tests/engine_interrupt_surfaces_test.ts` | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
 | `tests/engine_logbook_test.ts`            | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
 | `tests/engine_nondefault_paths_test.ts`   | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
-| `tests/engine_patterns_test.ts`           | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/engine_patterns_test.ts`           | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                  |
 | `tests/engine_plan_parity_test.ts`        | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                     |
 | `tests/engine_setup_pages_test.ts`        | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                               |
 | `tests/engine_setup_phase_parity_test.ts` | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                         |
 | `tests/engine_subprocess_ssot_test.ts`    | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
 | `tests/engine_verb_parity_test.ts`        | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                     |
+| `tests/engine_write_preflight_test.ts`    | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                       |
 | `tests/execution_model_test.ts`           | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                         |
 | `tests/feature_canon_codegen_test.ts`     | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                             |
 | `tests/feature_canon_enrolment_test.ts`   | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon) |
 | `tests/gate_plan_test.ts`                 | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/git_admin_state_test.ts`           | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                       |
 | `tests/glossary_codegen_test.ts`          | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
 | `tests/glossary_enrolment_test.ts`        | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                             |
 | `tests/gotcha_matchers_drift_test.ts`     | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                           |
@@ -184,6 +191,26 @@ The verbs that refuse without a fresh `--confirmed` attestation; the consent-gat
 - Guards: `tests/engine_consent_gate_test.ts`
 - Glossary: not enrolled — an attestation modality of two verbs, documented on each verb rather than as a term of its own
 - Feature canon: described by the `consent-attestations` node
+
+## `desk-actions` — Desk actions
+
+The operator desk's per-worktree action vocabulary and menu order; the legality table exercises every member, while the runtime test holds each interactive effect boundary.
+
+- Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
+- Members: 9
+- Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`
+- Glossary: not enrolled — menu actions on the human desk, described in place rather than as standalone terms
+- Feature canon: described by the `desk` node
+
+## `git-admin-state` — Git-admin state
+
+Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
+
+- Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
+- Members: 8
+- Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
+- Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
+- Feature canon: not enrolled — one internal storage registry supports several independently documented product features
 
 ## `jobs` — Gate jobs
 
@@ -467,7 +494,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 33
+- Members: 35
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
@@ -502,6 +529,5 @@ Modules whose doc comments claim single-source-of-truth status without anchoring
 - `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — a single staging-directory name shared by the build writer and the bundled-docs reader — one value, not a member set
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
 - `src/lib/version.ts` — the kit version constant: a single value with no members and no satellites of its own to drift
-- `src/shared/git_admin_state.ts` — candidate for enrolment: a true registry of each Git-admin artifact's path and lifetime, whose class test (tests/git_admin_state_test.ts) is named outside the guard convention
 - `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES` — the typed companion of the enrolled patterns-detectors set — declared in that entry's account and held by tests/logbook_routing_test.ts, a guard that entry declares
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

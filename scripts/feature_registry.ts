@@ -510,7 +510,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "desk",
         title: "The desk",
         what:
-          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, and offers each worktree its valid next actions, owning the child sessions it launches.",
+          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches.",
         why:
           "The human's day-to-day surface is one screen, and every action on it is one keypress.",
         surfaces: ["verb:desk"],
