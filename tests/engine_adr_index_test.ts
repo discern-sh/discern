@@ -124,7 +124,9 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     assertEquals(status.code, 0, status.output);
     const statusObj = JSON.parse(status.stdout);
     assertEquals(statusObj.data.stale_adr_index, [ADR_README_REL]);
-    assertHasHint(statusObj, HINTS["adr-index-stale"]);
+    assertHasHint(statusObj, HINTS["adr-index-stale"], {
+      path: ADR_README_REL,
+    });
 
     // done: the adr_index precondition blocks with the refresh remedy.
     const red = await runAgent(dir, ["done", "--json"]);
