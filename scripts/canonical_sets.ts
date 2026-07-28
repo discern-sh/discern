@@ -963,7 +963,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "artifact-validators",
     title: "Artifact validators",
     what:
-      "Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot quietly end up applied only by this repository's tests.",
+      "Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.",
     source: {
       kind: "module",
       module: "tests/validator_registry.ts",

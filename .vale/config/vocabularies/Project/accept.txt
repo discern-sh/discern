@@ -60,7 +60,7 @@ digitalapplied
 dirs
 discern
 discoverability
-dogfood(s|ing)?
+dogfood(s|ed|ing)?
 dotdir
 dotenv
 dotfile
@@ -150,6 +150,7 @@ preprints?
 pushback
 rasteriz(e|ed|es|ing)
 ratchetable
+reachability
 reactively
 READMEs?
 recalibrat(e|es|ed|ing|ion)s?
@@ -224,8 +225,10 @@ unmanaged
 unmarketed
 unmaskable
 unrunnable
+unshipped
 untrack(ed|ing|s)
 untrusted
+unwir(ed|ing)
 uppercased
 validators?
 vendored

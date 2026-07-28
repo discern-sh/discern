@@ -454,7 +454,7 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
 
 ## `artifact-validators` — Artifact validators
 
-Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot quietly end up applied only by this repository's tests.
+Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.
 
 - Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
 - Members: 9
