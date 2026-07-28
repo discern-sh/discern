@@ -170,8 +170,8 @@ Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`
 
 ### Version 1 compatibility
 
-Public schema `$id`s change major for breaks, not package releases. Runtime result schemas stay strict; the published result schema remains open to optional fields and unknown `error` slugs.
+Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
 
-The gate compares current generators with configured-trunk artifacts while `$id` is unchanged. It permits the additions in the table and rejects removals or changes to existing types, required result fields, and validation. Contract-union order is immaterial. Config keys may also become optional ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
+While `$id` is unchanged, the gate compares current generators with configured-trunk artifacts. It permits the table's additions, optional config keys, and reordered contract unions. It rejects removals and changes to existing types, required result fields, or validation ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
 The config schema is a closed snapshot. Refresh a cached copy before validating newer optional keys.
