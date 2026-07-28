@@ -1,4 +1,4 @@
-# ADR 0212: `await` blocks on authoritative fleet conditions, with the logbook as wake signal only
+# ADR 0213: `await` blocks on authoritative fleet conditions, with the logbook as wake signal only
 
 **Status**: accepted; builds on [ADR 0160](0160-local-logbook-advisory-readers.md)'s advisory-only boundary and [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md)'s begin events; extends the landing model of [ADR 0110](0110-the-landing-model.md)
 

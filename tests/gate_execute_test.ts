@@ -62,6 +62,7 @@ Deno.test("runGroup refuses a job label already recorded by an earlier group", a
         results,
         RUN_OPTS,
         makeOut(false, { quiet: true }),
+        undefined,
       ),
     Error,
     "duplicate gate job label",
@@ -79,6 +80,7 @@ Deno.test("runGroup refuses duplicate labels within one group, before anything r
         results,
         RUN_OPTS,
         makeOut(false, { quiet: true }),
+        undefined,
       ),
     Error,
     "duplicate gate job label",
@@ -93,6 +95,7 @@ Deno.test("runGroup records distinct labels normally", async () => {
     results,
     RUN_OPTS,
     makeOut(false, { quiet: true }),
+    undefined,
   );
   assertEquals(ok, true);
   assertEquals([...results.keys()].sort(), ["lint", "typecheck"]);

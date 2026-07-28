@@ -1752,9 +1752,15 @@ async function runLandingSmoke(
   log.info("Running the smoke job in the landing checkout...");
   // Always keep the gate runner quiet here: accept owns stdout (especially its
   // JSON envelope), while serializeJobSteps retains failure output as structured
-  // diagnostics exactly as the normal gate does.
-  const { runOpts, out } = gateRunContext(mainRepo, config, true);
-  const { results, failedStage } = await runJobGroups([group], runOpts, out);
+  // diagnostics exactly as the normal gate does. The smoke group is a
+  // test-stage run, so the fleet test-run cap counts it like any other.
+  const { runOpts, out, slots } = gateRunContext(mainRepo, config, true);
+  const { results, failedStage } = await runJobGroups(
+    [group],
+    runOpts,
+    out,
+    slots,
+  );
   const serialized = await serializeJobSteps([group], results);
   if (failedStage === null) {
     log.ok("Landing-checkout smoke passed.");

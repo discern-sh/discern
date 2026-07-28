@@ -21,7 +21,7 @@ import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
   buildGateResultWithHints,
-  checkTestGroup,
+  checkTestGroups,
   composeGatePlan,
   gatePlanToEngine,
   type JobGroup,
@@ -409,7 +409,7 @@ async function runGate(
   // quiet — the result envelope is the entire output (ADR 0030), so the runner
   // and the Out are silenced and nothing streams to any fd. The shared run context
   // (job RunOptions + the narration Out) is the one `prepare`/`test` use too.
-  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
+  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
 
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
@@ -662,7 +662,7 @@ async function runGate(
     if (failedStage !== null) {
       break;
     }
-    if (!(await runGroup(group, results, runOpts, out))) {
+    if (!(await runGroup(group, results, runOpts, out, slots))) {
       failedStage = group.stage;
       break;
     }
@@ -681,41 +681,49 @@ async function runGate(
     ? await resolveStandardActions(root, stdPlan.standards)
     : resolveStandardActionsFromConfig(stdPlan.standards);
   const gateStandards = buildStandardJobs(root, resolved);
-  const checkTest = checkTestGroup(cfg, gateStandards.jobs);
+  const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
 
-  // 2b. The check∥test group — declared jobs AND the standards'
-  //     measurement jobs, one parallel group under one scheduler (fail-fast,
-  //     buffering, the per-job timeout). Replayed standards settle first: their
+  // 2b. The check/test groups — declared jobs AND the standards' measurement
+  //     jobs under one scheduler (fail-fast, buffering, the per-job timeout).
+  //     Uncapped this is the one combined check∥test group; under the fleet
+  //     test-run cap the check stage runs first so it can fail before the test
+  //     group waits for a slot (the split is checkTestGroups' contract).
+  //     Replayed standards settle when their group is reached: their
   //     synthesized results are seeded so the serialization reads them like any
   //     other outcome — and a replayed value the branch's own tightened limit
   //     now fails is a genuine gate failure.
   let replayFailure = false;
-  if (failedStage === null && checkTest !== undefined) {
-    for (const [label, result] of gateStandards.synthesized) {
-      results.set(label, result);
-      if (result.code !== 0) {
-        replayFailure = true;
+  for (const group of ctGroups) {
+    if (failedStage !== null) {
+      break;
+    }
+    const holdsStandards = group.jobs.some((j) => j.kind === "standard");
+    if (holdsStandards) {
+      for (const [label, result] of gateStandards.synthesized) {
+        results.set(label, result);
+        if (result.code !== 0) {
+          replayFailure = true;
+        }
       }
     }
     if (
       !(await runGroup(
-        checkTest,
+        group,
         results,
         runOpts,
         out,
+        slots,
         gateStandards.evaluators,
       ))
     ) {
-      failedStage = "check/test";
-    } else if (replayFailure) {
-      failedStage = "check/test";
+      failedStage = group.stage;
+    } else if (holdsStandards && replayFailure) {
+      failedStage = group.stage;
     } else {
-      await snapshotAfter("check/test");
+      await snapshotAfter(group.stage);
     }
   }
-  const stageGroups = checkTest !== undefined
-    ? [...preGroups, checkTest]
-    : preGroups;
+  const stageGroups = [...preGroups, ...ctGroups];
 
   // 3. Classify the changed scopes AFTER the stage groups — preserving the gate's
   //    original timing, so a fix-stage edit is reflected and scope selection keeps
@@ -727,7 +735,7 @@ async function runGate(
 
   // 4. Scope gates (only when the stage groups passed).
   if (failedStage === null && sgGroup !== undefined) {
-    if (!(await runGroup(sgGroup, results, runOpts, out))) {
+    if (!(await runGroup(sgGroup, results, runOpts, out, slots))) {
       failedStage = "scope_gates";
     } else {
       await snapshotAfter("scope_gates");
@@ -989,6 +997,9 @@ async function runGate(
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
+    // The fleet test-run cap's wait notices (the same lines the human run
+    // narrated live), so a --json/MCP caller sees why the run took longer.
+    ...(slots?.waits ?? []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
       cfg,

@@ -1400,6 +1400,53 @@ export const HINTS = {
       "though the gate passed for this HEAD.",
   }),
 
+  "gate-test-run-queued": defineHint<{
+    cap: number;
+    inFlight: string | undefined;
+    typical: string | undefined;
+    logbookOff: boolean;
+  }>({
+    id: "gate-test-run-queued",
+    category: "notice",
+    audience: "all",
+    when:
+      "A test-stage run arrives with every [gate].concurrent_test_runs slot held.",
+    example: {
+      cap: 1,
+      inFlight: "done on agent/fix-upload-retry",
+      typical: "3m",
+      logbookOff: false,
+    },
+    template: ({ cap, inFlight, typical, logbookOff }): string => {
+      const queued = `Tests queued: ${cap} of ${cap} concurrent test runs ` +
+        `in use across this repository's checkouts ` +
+        `([gate].concurrent_test_runs); the tests start the moment a slot ` +
+        `frees.`;
+      const flight = inFlight === undefined
+        ? ""
+        : ` In flight: ${inFlight}${
+          typical === undefined ? "" : `, typically ~${typical}`
+        }.`;
+      const estimate = logbookOff
+        ? " The logbook is off ([project].logbook = false), so there is no " +
+          "wait estimate."
+        : "";
+      return `${queued}${flight}${estimate}`;
+    },
+  }),
+
+  "gate-test-slots-unavailable": defineHint<{ reason: string }>({
+    id: "gate-test-slots-unavailable",
+    category: "notice",
+    audience: "all",
+    when:
+      "[gate].concurrent_test_runs is set but the slot files under .git could not be prepared.",
+    example: { reason: "could not create the slot directory" },
+    template: ({ reason }): string =>
+      `The concurrent test-run cap is not enforced for this run: ${reason}. ` +
+      `The tests run uncapped.`,
+  }),
+
   "gate-standards-limits-unverified": defineHint<{
     reason: string;
     trunk: string;

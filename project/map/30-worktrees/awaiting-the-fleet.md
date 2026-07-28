@@ -25,7 +25,7 @@ Pass one condition per call:
 | `--landed <branch>` | The branch's work — its tip at call start — is reachable from the trunk.             | Git ancestry         |
 | `--trunk-moved`     | The trunk ref differs from its position at call start.                               | The trunk ref itself |
 
-Every verdict comes from authoritative state: a git ancestry read or a receipt inspection. The logbook — one append per verb completion anywhere in the fleet — only wakes the wait early and prices the retry advice; recorded history never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)).
+Every verdict comes from authoritative state: a git ancestry read or a receipt inspection. The logbook — one append per verb completion anywhere in the fleet — only wakes the wait early and prices the retry advice; recorded history never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
 `--landed` pins the tip sha when the call starts, because acceptance deletes a landed branch: the sha stays answerable after the ref is gone. A branch already missing at call start is a refusal that names both readings — not started yet, or landed and cleaned up.
 
@@ -41,7 +41,7 @@ The CLI exits `0` when the condition was met, `1` on a refusal, and `124` on "no
 discern await --landed agent/upload-retry --timeout 100 && discern update
 ```
 
-Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the recorded per-client research ([ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)). `--timeout 0` checks once and answers immediately.
+Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the recorded per-client research ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)). `--timeout 0` checks once and answers immediately.
 
 ## Compose below the trunk
 
