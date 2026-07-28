@@ -84,7 +84,7 @@ import { searchPages } from "./search.js";
     if (navDisclosureLabel) {
       navDisclosureLabel.textContent = focused
         ? "Full manual"
-        : "Current section";
+        : "Focused navigation";
     }
   };
 
@@ -104,9 +104,14 @@ import { searchPages } from "./search.js";
     if (first) first.focus();
   };
 
+  const syncDrawerAvailability = () => {
+    if (nav) nav.inert = drawerMedia.matches && !drawerOpen;
+  };
+
   const setDrawer = (open, shouldRestore = true) => {
     if (!nav || !burger || !drawerMedia.matches && open) return;
     drawerOpen = open;
+    syncDrawerAvailability();
     nav.classList.toggle("is-open", open);
     if (drawerVeil) drawerVeil.hidden = !open;
     burger.setAttribute("aria-expanded", String(open));
@@ -136,7 +141,9 @@ import { searchPages } from "./search.js";
   drawerVeil?.addEventListener("click", () => setDrawer(false));
   drawerMedia.addEventListener("change", (event) => {
     if (!event.matches && drawerOpen) setDrawer(false, false);
+    else syncDrawerAvailability();
   });
+  syncDrawerAvailability();
 
   // ── Prose enhancements ───────────────────────────────────────────────────
 

@@ -245,7 +245,7 @@ Deno.test("navigation disclosure preserves focus and one canonical tree", async 
     currentPages: 1,
   });
   assertEquals(full, {
-    label: "Current section",
+    label: "Focused navigation",
     expanded: "true",
     hidden: 0,
     routes: site.pages.length,
@@ -335,8 +335,20 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     runScripts: "outside-only",
     url: "https://discern.sh/docs",
   });
+  let drawerMediaListener:
+    | ((event: { matches: boolean }) => void)
+    | undefined;
+  const drawerMedia = {
+    matches: true,
+    addEventListener: (
+      type: string,
+      listener: (event: { matches: boolean }) => void,
+    ) => {
+      if (type === "change") drawerMediaListener = listener;
+    },
+  };
   Object.defineProperty(dom.window, "matchMedia", {
-    value: () => ({ matches: true, addEventListener: () => undefined }),
+    value: () => drawerMedia,
   });
   dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
 
@@ -358,7 +370,14 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
   if (!burger || !nav || !firstLink || !lastLink) {
     throw new Error("mobile drawer fixture has no complete focus surface");
   }
+  if (!drawerMediaListener) {
+    throw new Error("mobile drawer did not subscribe to breakpoint changes");
+  }
 
+  const initiallyClosed = {
+    navInert: nav.inert,
+    expanded: burger.getAttribute("aria-expanded"),
+  };
   burger.focus();
   burger.click();
   await Promise.resolve();
@@ -370,6 +389,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     navLabel: nav.getAttribute("aria-label"),
     focusedFirstLink: document.activeElement === firstLink,
     backgroundInert: background.every((element) => element.inert),
+    navInteractive: !nav.inert,
   };
 
   lastLink.focus();
@@ -397,9 +417,26 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     navLabel: nav.getAttribute("aria-label"),
     restoredToBurger: document.activeElement === burger,
     backgroundInteractive: background.every((element) => !element.inert),
+    navInert: nav.inert,
+  };
+  drawerMedia.matches = false;
+  drawerMediaListener({ matches: false });
+  const wide = {
+    navInteractive: !nav.inert,
+    expanded: burger.getAttribute("aria-expanded"),
+  };
+  drawerMedia.matches = true;
+  drawerMediaListener({ matches: true });
+  const narrowAgain = {
+    navInert: nav.inert,
+    expanded: burger.getAttribute("aria-expanded"),
   };
   dom.window.close();
 
+  assertEquals(initiallyClosed, {
+    navInert: true,
+    expanded: "false",
+  });
   assertEquals(opened, {
     expanded: "true",
     label: "Close navigation",
@@ -408,6 +445,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     navLabel: "Documentation navigation",
     focusedFirstLink: true,
     backgroundInert: true,
+    navInteractive: true,
   });
   assertEquals(forwardWrapsToBurger, true);
   assertEquals(backwardWrapsToLastLink, true);
@@ -419,6 +457,15 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     navLabel: null,
     restoredToBurger: true,
     backgroundInteractive: true,
+    navInert: true,
+  });
+  assertEquals(wide, {
+    navInteractive: true,
+    expanded: "false",
+  });
+  assertEquals(narrowAgain, {
+    navInert: true,
+    expanded: "false",
   });
 });
 
