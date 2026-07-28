@@ -17,9 +17,13 @@ import {
   publicSchemaPublicationIdentityIssues,
 } from "../scripts/public_schema_compatibility.ts";
 import {
+  CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_PUBLICATIONS,
   type PublicSchemaPublication,
+  RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
+import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -31,6 +35,7 @@ function clone(value: JsonObject): JsonObject {
 const CONFIG_INPUT_FIXTURE: JsonObject = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "https://discern.sh/schema/v1/voyage-config.schema.json",
+  [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   type: "object",
   properties: {
     beacon: { type: "string" },
@@ -45,6 +50,7 @@ const CONFIG_INPUT_FIXTURE: JsonObject = {
 const RESULT_OUTPUT_FIXTURE: JsonObject = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "https://discern.sh/schema/v1/voyage-results.schema.json",
+  [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]: RESULT_SCHEMA_COMPATIBILITY_POLICY,
   oneOf: [
     { $ref: "#/$defs/VoyageCliResult" },
     { $ref: "#/$defs/VoyageMcpResult" },
@@ -90,8 +96,9 @@ const RESULT_OUTPUT_FIXTURE: JsonObject = {
       verb: "launch",
       commands: ["launch"],
       mcpTool: "voyage_launch",
-      schema: "#/$defs/VoyageLaunchResult",
-      mcpToolResultSchema: "#/$defs/VoyageLaunchMcpToolResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLaunchResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]:
+        "#/$defs/VoyageLaunchMcpToolResult",
     },
   ],
   "x-discern-error-slugs": ["launch_failed"],
@@ -101,7 +108,7 @@ const VOYAGE_PUBLICATION: PublicSchemaPublication = {
   id: "https://discern.sh/schema/v1/voyage-results.schema.json",
   artifactPath: "schema/voyage-results.schema.json",
   major: 1,
-  compatibility: "result-output",
+  compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
   label: "voyage results",
   contract: "voyage result envelopes",
 };
@@ -114,7 +121,7 @@ Deno.test("same-major compatibility catches removed fields, type changes, and re
     publicSchemaCompatibilityIssues(
       CONFIG_INPUT_FIXTURE,
       removed,
-      "config-input",
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     ),
     ["$.properties.beacon: removed"],
   );
@@ -126,7 +133,7 @@ Deno.test("same-major compatibility catches removed fields, type changes, and re
     publicSchemaCompatibilityIssues(
       CONFIG_INPUT_FIXTURE,
       narrowed,
-      "config-input",
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     ).some((issue) => issue.startsWith("$.properties.channel.type:")),
   );
 
@@ -136,7 +143,7 @@ Deno.test("same-major compatibility catches removed fields, type changes, and re
     publicSchemaCompatibilityIssues(
       CONFIG_INPUT_FIXTURE,
       required,
-      "config-input",
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     ),
     ['$.required: added required field "future"'],
   );
@@ -151,7 +158,7 @@ Deno.test("config compatibility permits optional keys without promising old cach
     publicSchemaCompatibilityIssues(
       CONFIG_INPUT_FIXTURE,
       current,
-      "config-input",
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
   );
@@ -194,8 +201,8 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
       verb: "land",
       commands: ["land"],
       mcpTool: "voyage_land",
-      schema: "#/$defs/VoyageLandResult",
-      mcpToolResultSchema: "#/$defs/VoyageLandMcpToolResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: "#/$defs/VoyageLandMcpToolResult",
     },
     ...(current["x-discern-contracts"] as JsonValue[]),
   ];
@@ -208,7 +215,7 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       current,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
   );
@@ -236,7 +243,7 @@ Deno.test("result compatibility permits adding MCP exposure to an existing CLI c
       id: "voyageSurvey",
       verb: "survey",
       commands: ["survey"],
-      schema: "#/$defs/VoyageSurveyResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageSurveyResult",
     },
   ];
 
@@ -258,19 +265,45 @@ Deno.test("result compatibility permits adding MCP exposure to an existing CLI c
   const survey = contracts.find((contract) => contract.id === "voyageSurvey");
   assert(survey !== undefined);
   survey.mcpTool = "voyage_survey";
-  survey.mcpToolResultSchema = "#/$defs/VoyageSurveyMcpToolResult";
+  survey[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
+    "#/$defs/VoyageSurveyMcpToolResult";
 
   assertEquals(
     publicSchemaCompatibilityIssues(
       previous,
       current,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
   );
+
+  const misplaced = clone(current);
+  const misplacedDefs = misplaced.$defs as JsonObject;
+  const misplacedCli = misplacedDefs.VoyageCliResult as JsonObject;
+  misplacedCli.oneOf = [
+    ...(misplacedCli.oneOf as JsonValue[]),
+    { $ref: "#/$defs/VoyageSurveyMcpToolResult" },
+  ];
+  const misplacedMcp = misplacedDefs.VoyageMcpResult as JsonObject;
+  misplacedMcp.oneOf = (misplacedMcp.oneOf as JsonValue[]).filter(
+    (alternative) =>
+      (alternative as JsonObject).$ref !==
+        "#/$defs/VoyageSurveyMcpToolResult",
+  );
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      misplaced,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageSurveyMcpToolResult"}',
+    ],
+    "a first MCP exposure cannot widen the CLI aggregate",
+  );
 });
 
-Deno.test("result compatibility discovers future contract-definition references without a field allowlist", () => {
+Deno.test("only canonical contract-reference fields can authorize a new union alternative", () => {
   const current = clone(RESULT_OUTPUT_FIXTURE);
   const defs = current.$defs as JsonObject;
   defs.VoyageRelayEnvelope = {
@@ -294,9 +327,12 @@ Deno.test("result compatibility discovers future contract-definition references 
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       current,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
-    [],
+    [
+      '$.$defs.VoyageMcpResult.oneOf: added alternative {"$ref":"#/$defs/VoyageRelayEnvelope"}',
+    ],
+    "an arbitrary metadata field cannot widen an existing command's output",
   );
 });
 
@@ -309,7 +345,7 @@ Deno.test("result compatibility preserves required guarantees on existing contra
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       added,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ).includes(
       '$.$defs.VoyageLaunchResult.required: added required field "signal"',
     ),
@@ -323,7 +359,7 @@ Deno.test("result compatibility preserves required guarantees on existing contra
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       removed,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ).includes(
       '$.$defs.VoyageLaunchResult.required: made required result field "ok" optional',
     ),
@@ -343,7 +379,7 @@ Deno.test("result compatibility reorders existing field alternatives but does no
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       reordered,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
   );
@@ -361,7 +397,7 @@ Deno.test("result compatibility reorders existing field alternatives but does no
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       widened,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ).includes(
       '$.$defs.VoyageLaunchResult.properties.signal.oneOf: added alternative {"type":"boolean"}',
     ),
@@ -380,7 +416,7 @@ Deno.test("result compatibility rejects removed contracts and known error slugs"
     publicSchemaCompatibilityIssues(
       RESULT_OUTPUT_FIXTURE,
       current,
-      "result-output",
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [
       '$.$defs.VoyageCliResult.oneOf: removed alternative {"$ref":"#/$defs/VoyageLaunchResult"}',
@@ -388,6 +424,115 @@ Deno.test("result compatibility rejects removed contracts and known error slugs"
       '$.x-discern-error-slugs: removed value "launch_failed"',
     ],
   );
+});
+
+Deno.test("same-major transitions keep the policy recorded by the trunk artifact", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const structurallyWeakened = clone(RESULT_OUTPUT_FIXTURE);
+  const weakenedDefs = structurallyWeakened.$defs as JsonObject;
+  const weakenedLaunch = weakenedDefs.VoyageLaunchResult as JsonObject;
+  weakenedLaunch.required = ["verb"];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      structurallyWeakened,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "the config policy alone would miss a removed result guarantee",
+  );
+
+  const current = clone(structurallyWeakened);
+  current[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY] =
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY;
+  assertEquals(
+    publicSchemaPublicationCompatibilityIssues(
+      previous,
+      current,
+      {
+        ...VOYAGE_PUBLICATION,
+        compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+      },
+    ),
+    [
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: same-major policy changed ` +
+      `from ${JSON.stringify(RESULT_SCHEMA_COMPATIBILITY_POLICY)} to ` +
+      `${JSON.stringify(CONFIG_SCHEMA_COMPATIBILITY_POLICY)}; add a ` +
+      "new-major publication instead",
+    ],
+  );
+});
+
+Deno.test("generated publications carry their registry-owned policy", () => {
+  const missing = clone(RESULT_OUTPUT_FIXTURE);
+  delete missing[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY];
+  assertEquals(
+    publicSchemaPublicationIdentityIssues(missing, VOYAGE_PUBLICATION),
+    [
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: undefined is not a public ` +
+      "schema compatibility policy",
+    ],
+  );
+
+  const malformed = clone(RESULT_OUTPUT_FIXTURE);
+  malformed[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY] = "future-output";
+  assertEquals(
+    publicSchemaPublicationIdentityIssues(malformed, VOYAGE_PUBLICATION),
+    [
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: "future-output" is not a ` +
+      "public schema compatibility policy",
+    ],
+  );
+
+  const drifted = clone(RESULT_OUTPUT_FIXTURE);
+  drifted[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY] =
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY;
+  assertEquals(
+    publicSchemaPublicationIdentityIssues(drifted, VOYAGE_PUBLICATION),
+    [
+      `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: generated policy ` +
+      `${JSON.stringify(CONFIG_SCHEMA_COMPATIBILITY_POLICY)} does not match ` +
+      `registered policy ${JSON.stringify(RESULT_SCHEMA_COMPATIBILITY_POLICY)}`,
+    ],
+  );
+});
+
+Deno.test("same-major transitions fail closed without a valid trunk policy", () => {
+  const controls: readonly {
+    readonly name: string;
+    readonly value?: JsonValue;
+    readonly expected: string;
+  }[] = [
+    {
+      name: "missing",
+      expected:
+        `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: undefined is not a ` +
+        "public schema compatibility policy",
+    },
+    {
+      name: "malformed",
+      value: 7,
+      expected: `$.${PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY}: 7 is not a ` +
+        "public schema compatibility policy",
+    },
+  ];
+  for (const control of controls) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    if (control.value === undefined) {
+      delete previous[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY];
+    } else {
+      previous[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY] = control.value;
+    }
+    assertEquals(
+      publicSchemaPublicationCompatibilityIssues(
+        previous,
+        RESULT_OUTPUT_FIXTURE,
+        VOYAGE_PUBLICATION,
+      ),
+      [control.expected],
+      control.name,
+    );
+  }
 });
 
 Deno.test("schema publication identity rejects every non-major drift and malformed transition", () => {
@@ -467,7 +612,7 @@ Deno.test("schema publication identity rejects every non-major drift and malform
   }
 });
 
-Deno.test("schema publication identity rejects generated-id drift and resets only for an increasing major", () => {
+Deno.test("schema identities stay append-only and a new major starts a separate baseline", () => {
   const drifted = clone(RESULT_OUTPUT_FIXTURE);
   drifted.$id = "https://discern.sh/schema/v1/other-voyage-results.schema.json";
   assertEquals(
@@ -496,18 +641,49 @@ Deno.test("schema publication identity rejects generated-id drift and resets onl
   );
 
   nextMajor.$id = "https://discern.sh/schema/v2/voyage-results.schema.json";
+  nextMajor[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY] =
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY;
+  const nextMajorPublication = {
+    ...VOYAGE_PUBLICATION,
+    id: "https://discern.sh/schema/v2/voyage-results.schema.json",
+    artifactPath: "schema/v2/voyage-results.schema.json",
+    major: 2,
+    compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  } satisfies PublicSchemaPublication;
   assertEquals(
     publicSchemaPublicationCompatibilityIssues(
       previous,
       nextMajor,
-      {
-        ...VOYAGE_PUBLICATION,
-        id: "https://discern.sh/schema/v2/voyage-results.schema.json",
-        major: 2,
-      },
+      nextMajorPublication,
+    ),
+    [
+      "$.$id: schema major changed in place from v1 to v2; retain the v1 " +
+      "publication and add v2 at a new artifact path",
+    ],
+    "one artifact cannot replace the URL serving its earlier major",
+  );
+  assertEquals(
+    publicSchemaPublicationIdentityIssues(nextMajor, nextMajorPublication),
+    [],
+    "a new artifact may establish a new major and policy baseline",
+  );
+  assertEquals(
+    publicSchemaArtifactEnrollmentIssues(
+      [VOYAGE_PUBLICATION.artifactPath],
+      [nextMajorPublication],
+    ),
+    [
+      "schema/voyage-results.schema.json: trunk public schema artifact is no longer enrolled",
+    ],
+    "the new baseline cannot remove the earlier publication",
+  );
+  assertEquals(
+    publicSchemaArtifactEnrollmentIssues(
+      [VOYAGE_PUBLICATION.artifactPath],
+      [VOYAGE_PUBLICATION, nextMajorPublication],
     ),
     [],
-    "v1 to v2 starts a fresh structural baseline",
+    "retaining v1 while adding v2 preserves both routes",
   );
 });
 
@@ -541,7 +717,7 @@ Deno.test("schema publication paths keep every trunk artifact enrolled while all
   );
 });
 
-Deno.test("generated public schemas remain compatible with the configured trunk artifact or advance their major", async () => {
+Deno.test("generated public schemas remain compatible with each configured-trunk artifact", async () => {
   const config = await loadConfig(REPO_ROOT);
   const trunk = config.repository.trunk;
   const listed = await runGit(

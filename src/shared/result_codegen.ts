@@ -12,9 +12,14 @@ import { z } from "@zod/zod";
 import {
   CLI_JSON_RESULT_CONTRACTS,
   MCP_RESULT_CONTRACTS,
+  RESULT_CONTRACT_REFERENCE_FIELDS,
   type ResultContract,
 } from "./result_contracts.ts";
-import { RESULT_SCHEMA_ID } from "./public_schemas.ts";
+import {
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  RESULT_SCHEMA_ID,
+} from "./public_schemas.ts";
 import { ERROR_SLUGS } from "./result.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
@@ -172,6 +177,8 @@ export function buildResultJsonSchema(): JsonObject {
   return publicSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: RESULT_SCHEMA_ID,
+    [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
     title: SCHEMA_TITLE,
     description:
       "The public JSON contract for discern CLI --json results and MCP tool results. Runtime schemas remain strict, but this published schema intentionally permits additive object fields so older pinned schemas can validate newer compatible output.",
@@ -185,10 +192,12 @@ export function buildResultJsonSchema(): JsonObject {
       verb: contract.verb,
       commands: [...contract.commands],
       ...(contract.mcpTool === undefined ? {} : { mcpTool: contract.mcpTool }),
-      schema: `#/$defs/${typeName(contract)}`,
-      ...(contract.mcpTool === undefined
-        ? {}
-        : { mcpToolResultSchema: `#/$defs/${mcpTypeName(contract)}` }),
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: `#/$defs/${typeName(contract)}`,
+      ...(contract.mcpTool === undefined ? {} : {
+        [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: `#/$defs/${
+          mcpTypeName(contract)
+        }`,
+      }),
     })),
     "x-discern-error-slugs": [...ERROR_SLUGS],
   }) as JsonObject;

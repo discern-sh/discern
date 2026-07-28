@@ -15,8 +15,13 @@ import {
   cliJsonContractCoverage,
   MCP_RESULT_CONTRACTS,
   normalizeCliCommandPath,
+  RESULT_CONTRACT_REFERENCE_FIELDS,
 } from "../src/shared/result_contracts.ts";
-import { RESULT_SCHEMA_ID } from "../src/shared/public_schemas.ts";
+import {
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  RESULT_SCHEMA_ID,
+} from "../src/shared/public_schemas.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
@@ -34,8 +39,40 @@ Deno.test("schema/discern-results.schema.json matches the generator (run `deno t
   );
 });
 
-Deno.test("the generated result schema uses the versioned public id", () => {
-  assertEquals(buildResultJsonSchema().$id, RESULT_SCHEMA_ID);
+Deno.test("the generated result schema carries its public identity and policy", () => {
+  const schema = buildResultJsonSchema();
+  assertEquals(schema.$id, RESULT_SCHEMA_ID);
+  assertEquals(
+    schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
+    RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  );
+});
+
+Deno.test("result contract metadata uses only the canonical schema-reference fields", () => {
+  const contracts = buildResultJsonSchema()["x-discern-contracts"];
+  assert(Array.isArray(contracts));
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const generated = contracts.find((value) =>
+      isRecord(value) && value.id === contract.id
+    );
+    assert(isRecord(generated), `${contract.id} should publish metadata`);
+    const referenceFields = Object.entries(generated)
+      .filter(([, value]) =>
+        typeof value === "string" && value.startsWith("#/$defs/")
+      )
+      .map(([field]) => field)
+      .sort();
+    assertEquals(
+      referenceFields,
+      [
+        RESULT_CONTRACT_REFERENCE_FIELDS.cli,
+        ...(contract.mcpTool === undefined
+          ? []
+          : [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]),
+      ].sort(),
+      `${contract.id} should publish only its semantic CLI/MCP references`,
+    );
+  }
 });
 
 Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen`)", async () => {

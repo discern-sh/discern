@@ -13,7 +13,11 @@
 
 import { z } from "@zod/zod";
 import { configDocSchema, configSchema } from "./config_schema.ts";
-import { CONFIG_SCHEMA_ID } from "./public_schemas.ts";
+import {
+  CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  CONFIG_SCHEMA_ID,
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+} from "./public_schemas.ts";
 
 /** Human title for the editor JSON Schema. */
 const SCHEMA_TITLE = "discern config document";
@@ -60,6 +64,8 @@ export function buildConfigDocJsonSchema(): Record<string, unknown> {
   return {
     $schema: $schema ?? "https://json-schema.org/draft/2020-12/schema",
     $id: CONFIG_SCHEMA_ID,
+    [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     title: SCHEMA_TITLE,
     ...body,
   };
