@@ -6,7 +6,8 @@
  * class rather than memorizing today's result definitions.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { Ajv2020 } from "ajv-2020";
 import {
   buildCurrentPublicSchema,
   type JsonObject,
@@ -24,12 +25,51 @@ import {
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
+import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 function clone(value: JsonObject): JsonObject {
   return structuredClone(value);
+}
+
+function accepts(schema: JsonObject, value: JsonValue): boolean {
+  const result = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: true,
+  }).compile(schema)(value);
+  if (typeof result !== "boolean") {
+    throw new Error("the public schema fixture must validate synchronously");
+  }
+  return result;
+}
+
+function compileError(schema: JsonObject): string {
+  const error = assertThrows(() =>
+    new Ajv2020({
+      allErrors: true,
+      strict: false,
+      validateSchema: true,
+    }).compile(schema)
+  );
+  return error instanceof Error ? error.message : String(error);
+}
+
+function compileErrorOrUndefined(
+  schema: JsonObject,
+): string | undefined {
+  try {
+    new Ajv2020({
+      allErrors: true,
+      strict: false,
+      validateSchema: true,
+    }).compile(schema);
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 const CONFIG_INPUT_FIXTURE: JsonObject = {
@@ -164,8 +204,205 @@ Deno.test("config compatibility permits optional keys without promising old cach
   );
 });
 
+Deno.test("config property additions preserve values admitted by the parent catchall", () => {
+  const previous = buildConfigDocJsonSchema() as JsonObject;
+  const current = clone(previous);
+  const rootProperties = current.properties as JsonObject;
+  const jobs = rootProperties.jobs as JsonObject;
+  const jobArms = jobs.allOf as JsonObject[];
+  const namedJobs = jobArms.find((arm) => {
+    const properties = arm.properties;
+    return typeof properties === "object" &&
+      properties !== null &&
+      !Array.isArray(properties);
+  });
+  assert(namedJobs !== undefined);
+  const knownJobs = namedJobs.properties as JsonObject;
+  knownJobs.voyage = clone(knownJobs.format as JsonObject);
+
+  const existingCustomJob = {
+    jobs: {
+      voyage: {
+        stage: "check",
+        run: "voyage inspect",
+      },
+    },
+  } satisfies JsonObject;
+  assert(
+    accepts(previous, existingCustomJob),
+    "the trunk catchall must admit the existing custom job",
+  );
+  assertEquals(
+    accepts(current, existingCustomJob),
+    false,
+    "the new named-job schema narrows that existing custom job",
+  );
+  const issues = publicSchemaCompatibilityIssues(
+    previous,
+    current,
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    issues.some((issue) =>
+      issue.includes(".properties.voyage:") &&
+      issue.includes("additionalProperties")
+    ),
+    `expected the open-parent narrowing issue, got ${JSON.stringify(issues)}`,
+  );
+
+  const openPrevious: JsonObject = {
+    type: "object",
+    additionalProperties: true,
+  };
+  const openCurrent = clone(openPrevious);
+  openCurrent.properties = {
+    voyage: { type: "string" },
+  };
+  assert(accepts(openPrevious, { voyage: 7 }));
+  assertEquals(accepts(openCurrent, { voyage: 7 }), false);
+  assert(
+    publicSchemaCompatibilityIssues(
+      openPrevious,
+      openCurrent,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) =>
+      issue.includes(".properties.voyage:") &&
+      issue.includes("additionalProperties")
+    ),
+    "a true catchall must remain open at a newly named property",
+  );
+});
+
+Deno.test("config property additions may preserve an open parent's accepted values", () => {
+  const controls: {
+    readonly name: string;
+    readonly additionalProperties?: JsonValue;
+    readonly added: JsonValue;
+  }[] = [
+    {
+      name: "same schema",
+      additionalProperties: { type: "string" },
+      added: { type: "string" },
+    },
+    {
+      name: "default remains an annotation",
+      additionalProperties: { type: "string" },
+      added: { type: "string", default: "clear" },
+    },
+    {
+      name: "schema catchall widened to true",
+      additionalProperties: { type: "string" },
+      added: true,
+    },
+    {
+      name: "schema catchall widened to an empty schema",
+      additionalProperties: { type: "string" },
+      added: {},
+    },
+    {
+      name: "true remains unconstrained",
+      additionalProperties: true,
+      added: {},
+    },
+    {
+      name: "omitted remains unconstrained",
+      added: true,
+    },
+  ];
+  for (const control of controls) {
+    const previous: JsonObject = {
+      type: "object",
+      properties: {
+        existing: { type: "string" },
+      },
+      ...(control.additionalProperties === undefined
+        ? {}
+        : { additionalProperties: control.additionalProperties }),
+    };
+    const current = clone(previous);
+    const properties = current.properties as JsonObject;
+    properties.future = control.added;
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [],
+      control.name,
+    );
+  }
+});
+
+Deno.test("config catchall inclusion permits a named type-set superset", () => {
+  const previous: JsonObject = {
+    type: "object",
+    additionalProperties: { type: "string" },
+  };
+  const current = clone(previous);
+  current.properties = {
+    signal: { type: ["string", "number"] },
+  };
+
+  assert(accepts(previous, { signal: "clear" }));
+  assert(accepts(current, { signal: "clear" }));
+  assertEquals(accepts(previous, { signal: 7 }), false);
+  assert(accepts(current, { signal: 7 }));
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+});
+
+Deno.test("catchall type-set widening stays directional and config-only", () => {
+  const previous: JsonObject = {
+    type: "object",
+    additionalProperties: { type: ["string", "number"] },
+  };
+  const current = clone(previous);
+  current.properties = {
+    signal: { type: "string" },
+  };
+  assert(accepts(previous, { signal: 7 }));
+  assertEquals(accepts(current, { signal: 7 }), false);
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("additionalProperties")),
+  );
+
+  const resultCurrent = clone(RESULT_OUTPUT_FIXTURE);
+  const resultDefs = resultCurrent.$defs as JsonObject;
+  const launch = resultDefs.VoyageLaunchResult as JsonObject;
+  const properties = launch.properties as JsonObject;
+  properties.ok = { type: ["boolean", "string"] };
+  assertEquals(
+    accepts(RESULT_OUTPUT_FIXTURE, { verb: "launch", ok: "yes" }),
+    false,
+  );
+  assert(accepts(resultCurrent, { verb: "launch", ok: "yes" }));
+  assert(
+    publicSchemaCompatibilityIssues(
+      RESULT_OUTPUT_FIXTURE,
+      resultCurrent,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) =>
+      issue.startsWith(
+        "$.$defs.VoyageLaunchResult.properties.ok.type:",
+      )
+    ),
+  );
+});
+
 Deno.test("result compatibility permits optional fields, new CLI and MCP contracts, and new error slugs", () => {
-  const current = clone(RESULT_OUTPUT_FIXTURE);
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const current = clone(previous);
   const defs = current.$defs as JsonObject;
   const launch = defs.VoyageLaunchResult as JsonObject;
   const launchProperties = launch.properties as JsonObject;
@@ -213,11 +450,72 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
 
   assertEquals(
     publicSchemaCompatibilityIssues(
-      RESULT_OUTPUT_FIXTURE,
+      previous,
       current,
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
+  );
+});
+
+Deno.test("ordinary open result objects permit optional fields", () => {
+  for (const additionalProperties of [undefined, true] as const) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    const previousDefs = previous.$defs as JsonObject;
+    const previousLaunch = previousDefs.VoyageLaunchResult as JsonObject;
+    if (additionalProperties !== undefined) {
+      previousLaunch.additionalProperties = additionalProperties;
+    }
+    const current = clone(previous);
+    const defs = current.$defs as JsonObject;
+    const launch = defs.VoyageLaunchResult as JsonObject;
+    const properties = launch.properties as JsonObject;
+    properties.elapsed = { type: "number" };
+    const result = {
+      verb: "launch",
+      ok: true,
+      elapsed: "legacy",
+    } satisfies JsonObject;
+
+    assert(accepts(previous, result));
+    assertEquals(accepts(current, result), false);
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [],
+      `ordinary result with additionalProperties ${
+        String(additionalProperties)
+      } permits an optional field`,
+    );
+  }
+});
+
+Deno.test("result-role aggregate property additions stay closed", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const current = clone(previous);
+  const defs = current.$defs as JsonObject;
+  const aggregate = defs.VoyageCliResult as JsonObject;
+  aggregate.properties = {
+    verb: { const: "other" },
+  };
+  const launch = { verb: "launch", ok: true } satisfies JsonObject;
+
+  assert(accepts(previous, launch));
+  assertEquals(accepts(current, launch), false);
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) =>
+      issue.includes(
+        "$.$defs.VoyageCliResult.properties.verb:",
+      )
+    ),
+    "a result-role aggregate cannot gain a property constraint",
   );
 });
 
@@ -303,6 +601,320 @@ Deno.test("new contract references widen only their canonical role aggregates", 
   });
 });
 
+Deno.test("contract widening requires one top-level entrypoint to reach the role aggregate", () => {
+  const controls: {
+    readonly name: string;
+    readonly addEntrypoint: (schema: JsonObject) => void;
+  }[] = [
+    {
+      name: "constrained ref sibling",
+      addEntrypoint: (schema) => {
+        (schema.oneOf as JsonValue[]).push({
+          $ref: "#/$defs/VoyageCliResult",
+          properties: {
+            verb: { const: "land" },
+          },
+          required: ["verb"],
+        });
+      },
+    },
+    {
+      name: "indirect allOf wrapper",
+      addEntrypoint: (schema) => {
+        const defs = schema.$defs as JsonObject;
+        defs.VoyageFilteredCliEntrypoint = {
+          allOf: [
+            { $ref: "#/$defs/VoyageCliResult" },
+            {
+              type: "object",
+              properties: {
+                verb: { const: "land" },
+              },
+              required: ["verb"],
+            },
+          ],
+        };
+        (schema.oneOf as JsonValue[]).push({
+          $ref: "#/$defs/VoyageFilteredCliEntrypoint",
+        });
+      },
+    },
+    {
+      name: "dependentSchemas wrapper",
+      addEntrypoint: (schema) => {
+        const defs = schema.$defs as JsonObject;
+        defs.VoyageDependentCliEntrypoint = {
+          type: "object",
+          properties: {
+            verb: { const: "land" },
+          },
+          required: ["verb"],
+          dependentSchemas: {
+            verb: { $ref: "#/$defs/VoyageCliResult" },
+          },
+        };
+        (schema.oneOf as JsonValue[]).push({
+          $ref: "#/$defs/VoyageDependentCliEntrypoint",
+        });
+      },
+    },
+  ];
+
+  for (const control of controls) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    control.addEntrypoint(previous);
+    const current = clone(previous);
+    const defs = current.$defs as JsonObject;
+    defs.VoyageLandResult = {
+      type: "object",
+      properties: {
+        verb: { const: "land" },
+        ok: { type: "boolean" },
+      },
+      required: ["verb", "ok"],
+    };
+    const cli = defs.VoyageCliResult as JsonObject;
+    (cli.oneOf as JsonValue[]).push({
+      $ref: "#/$defs/VoyageLandResult",
+    });
+    (current["x-discern-contracts"] as JsonValue[]).push({
+      id: "voyageLand",
+      verb: "land",
+      commands: ["land"],
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+    });
+
+    assert(
+      accepts(previous, { verb: "launch", ok: true }),
+      `${control.name}: the existing result must match one root branch`,
+    );
+    assertEquals(
+      accepts(current, { verb: "land", ok: true }),
+      false,
+      `${control.name}: widening makes the new result match 2 root branches`,
+    );
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [
+        '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+      ],
+      control.name,
+    );
+  }
+});
+
+Deno.test("contract widening requires one reachable route to the role aggregate", () => {
+  const controls: {
+    readonly name: string;
+    readonly addWrapper: (schema: JsonObject) => void;
+  }[] = [
+    {
+      name: "repeated aggregate ref",
+      addWrapper: (schema) => {
+        const defs = schema.$defs as JsonObject;
+        defs.VoyageCliChoice = {
+          oneOf: [
+            { $ref: "#/$defs/VoyageCliResult" },
+            {
+              $ref: "#/$defs/VoyageCliResult",
+              properties: {
+                verb: { const: "land" },
+              },
+              required: ["verb"],
+            },
+          ],
+        };
+        (schema.oneOf as JsonValue[])[0] = {
+          $ref: "#/$defs/VoyageCliChoice",
+        };
+      },
+    },
+    {
+      name: "repeated wrapper ref",
+      addWrapper: (schema) => {
+        const defs = schema.$defs as JsonObject;
+        defs.VoyageCliRoute = {
+          allOf: [{ $ref: "#/$defs/VoyageCliResult" }],
+        };
+        defs.VoyageCliChoice = {
+          oneOf: [
+            { $ref: "#/$defs/VoyageCliRoute" },
+            {
+              $ref: "#/$defs/VoyageCliRoute",
+              properties: {
+                verb: { const: "land" },
+              },
+              required: ["verb"],
+            },
+          ],
+        };
+        (schema.oneOf as JsonValue[])[0] = {
+          $ref: "#/$defs/VoyageCliChoice",
+        };
+      },
+    },
+  ];
+
+  for (const control of controls) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    control.addWrapper(previous);
+    const current = clone(previous);
+    const defs = current.$defs as JsonObject;
+    defs.VoyageLandResult = {
+      type: "object",
+      properties: {
+        verb: { const: "land" },
+        ok: { type: "boolean" },
+      },
+      required: ["verb", "ok"],
+    };
+    const cli = defs.VoyageCliResult as JsonObject;
+    (cli.oneOf as JsonValue[]).push({
+      $ref: "#/$defs/VoyageLandResult",
+    });
+    (current["x-discern-contracts"] as JsonValue[]).push({
+      id: "voyageLand",
+      verb: "land",
+      commands: ["land"],
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+    });
+
+    assert(
+      accepts(previous, { verb: "launch", ok: true }),
+      `${control.name}: the existing result must match one wrapper branch`,
+    );
+    assertEquals(
+      accepts(current, { verb: "land", ok: true }),
+      false,
+      `${control.name}: widening makes the new result match 2 wrapper branches`,
+    );
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [
+        '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+      ],
+      control.name,
+    );
+  }
+});
+
+Deno.test("contract widening requires a transparent canonical root route", () => {
+  const controls: {
+    readonly name: string;
+    readonly replaceEntrypoint: (schema: JsonObject) => void;
+  }[] = [
+    {
+      name: "sole constrained ref",
+      replaceEntrypoint: (schema) => {
+        (schema.oneOf as JsonValue[])[0] = {
+          $ref: "#/$defs/VoyageCliResult",
+          required: ["verb"],
+        };
+      },
+    },
+    {
+      name: "sole indirect ref",
+      replaceEntrypoint: (schema) => {
+        const defs = schema.$defs as JsonObject;
+        defs.VoyageCliEntrypoint = {
+          allOf: [{ $ref: "#/$defs/VoyageCliResult" }],
+        };
+        (schema.oneOf as JsonValue[])[0] = {
+          $ref: "#/$defs/VoyageCliEntrypoint",
+        };
+      },
+    },
+  ];
+
+  for (const control of controls) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    control.replaceEntrypoint(previous);
+    const current = clone(previous);
+    const defs = current.$defs as JsonObject;
+    defs.VoyageLandResult = {
+      type: "object",
+      properties: {
+        verb: { const: "land" },
+        ok: { type: "boolean" },
+      },
+      required: ["verb", "ok"],
+    };
+    const cli = defs.VoyageCliResult as JsonObject;
+    (cli.oneOf as JsonValue[]).push({
+      $ref: "#/$defs/VoyageLandResult",
+    });
+    (current["x-discern-contracts"] as JsonValue[]).push({
+      id: "voyageLand",
+      verb: "land",
+      commands: ["land"],
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+    });
+
+    assert(accepts(previous, { verb: "launch", ok: true }));
+    assert(accepts(current, { verb: "land", ok: true }));
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [
+        '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+      ],
+      control.name,
+    );
+  }
+});
+
+Deno.test("contract widening requires a transparent existing role aggregate", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const previousDefs = previous.$defs as JsonObject;
+  const previousAggregate = previousDefs.VoyageCliResult as JsonObject;
+  previousAggregate.required = ["verb"];
+
+  const current = clone(previous);
+  const defs = current.$defs as JsonObject;
+  defs.VoyageLandResult = {
+    type: "object",
+    properties: {
+      verb: { const: "land" },
+      ok: { type: "boolean" },
+    },
+    required: ["verb", "ok"],
+  };
+  const aggregate = defs.VoyageCliResult as JsonObject;
+  (aggregate.oneOf as JsonValue[]).push({
+    $ref: "#/$defs/VoyageLandResult",
+  });
+  (current["x-discern-contracts"] as JsonValue[]).push({
+    id: "voyageLand",
+    verb: "land",
+    commands: ["land"],
+    [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+  });
+
+  assert(accepts(previous, { verb: "launch", ok: true }));
+  assert(accepts(current, { verb: "land", ok: true }));
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+    ],
+  );
+});
+
 Deno.test("result compatibility permits adding MCP exposure to an existing CLI contract", () => {
   const previous = clone(RESULT_OUTPUT_FIXTURE);
   const previousDefs = previous.$defs as JsonObject;
@@ -382,6 +994,138 @@ Deno.test("result compatibility permits adding MCP exposure to an existing CLI c
       '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageSurveyMcpToolResult"}',
     ],
     "a first MCP exposure cannot widen the CLI aggregate",
+  );
+});
+
+Deno.test("result compatibility permits creating the first role aggregate", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  previous.oneOf = [{ $ref: "#/$defs/VoyageCliResult" }];
+  const previousDefs = previous.$defs as JsonObject;
+  delete previousDefs.VoyageMcpResult;
+  delete previousDefs.VoyageLaunchMcpToolResult;
+  const previousContract = (previous["x-discern-contracts"] as JsonObject[])[0];
+  assert(previousContract !== undefined);
+  delete previousContract.mcpTool;
+  delete previousContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp];
+
+  const current = clone(previous);
+  const currentDefs = current.$defs as JsonObject;
+  currentDefs.VoyageLaunchMcpToolResult = {
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageLaunchResult" },
+    },
+    required: ["structuredContent"],
+  };
+  currentDefs.VoyageMcpResult = {
+    oneOf: [{ $ref: "#/$defs/VoyageLaunchMcpToolResult" }],
+  };
+  (current.oneOf as JsonValue[]).push({
+    $ref: "#/$defs/VoyageMcpResult",
+  });
+  const currentContract = (current["x-discern-contracts"] as JsonObject[])[0];
+  assert(currentContract !== undefined);
+  currentContract.mcpTool = "voyage_launch";
+  currentContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
+    "#/$defs/VoyageLaunchMcpToolResult";
+
+  const mcpResult = {
+    structuredContent: {
+      verb: "launch",
+      ok: true,
+    },
+  } satisfies JsonObject;
+  assertEquals(accepts(previous, mcpResult), false);
+  assert(accepts(current, mcpResult));
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const constrainedAggregate = clone(current);
+  const constrainedDefs = constrainedAggregate.$defs as JsonObject;
+  const constrainedMcp = constrainedDefs.VoyageMcpResult as JsonObject;
+  constrainedMcp.required = ["structuredContent"];
+  assert(accepts(constrainedAggregate, mcpResult));
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      constrainedAggregate,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).includes(
+      '$.oneOf: added alternative {"$ref":"#/$defs/VoyageMcpResult"}',
+    ),
+    "a constrained aggregate definition cannot create a role entrypoint",
+  );
+
+  const ambiguousSchemas = [
+    (() => {
+      const constrained = clone(current);
+      (constrained.oneOf as JsonValue[]).push({
+        $ref: "#/$defs/VoyageMcpResult",
+        required: ["structuredContent"],
+      });
+      return ["constrained aggregate ref", constrained] as const;
+    })(),
+    (() => {
+      const indirect = clone(current);
+      const defs = indirect.$defs as JsonObject;
+      defs.VoyageMcpEntrypoint = {
+        allOf: [{ $ref: "#/$defs/VoyageMcpResult" }],
+      };
+      (indirect.oneOf as JsonValue[]).push({
+        $ref: "#/$defs/VoyageMcpEntrypoint",
+      });
+      return ["indirect aggregate ref", indirect] as const;
+    })(),
+    (() => {
+      const duplicated = clone(current);
+      const defs = duplicated.$defs as JsonObject;
+      defs.VoyageMcpMirror = {
+        oneOf: [{ $ref: "#/$defs/VoyageLaunchMcpToolResult" }],
+      };
+      (duplicated.oneOf as JsonValue[]).push({
+        $ref: "#/$defs/VoyageMcpMirror",
+      });
+      return ["second role aggregate", duplicated] as const;
+    })(),
+  ];
+  for (const [name, ambiguous] of ambiguousSchemas) {
+    assertEquals(
+      accepts(ambiguous, mcpResult),
+      false,
+      `${name}: the new result must not match 2 root branches`,
+    );
+    assert(
+      publicSchemaCompatibilityIssues(
+        previous,
+        ambiguous,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ).includes(
+        '$.oneOf: added alternative {"$ref":"#/$defs/VoyageMcpResult"}',
+      ),
+      `${name}: ambiguity must close the new role entrypoint`,
+    );
+  }
+
+  const preexistingReference = clone(previous);
+  const preexistingDefs = preexistingReference.$defs as JsonObject;
+  preexistingDefs.VoyageLaunchMcpToolResult = clone(
+    currentDefs.VoyageLaunchMcpToolResult as JsonObject,
+  );
+  assert(
+    publicSchemaCompatibilityIssues(
+      preexistingReference,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).includes(
+      '$.oneOf: added alternative {"$ref":"#/$defs/VoyageMcpResult"}',
+    ),
+    "the first role cannot be based on a pre-existing unregistered reference",
   );
 });
 
@@ -486,17 +1230,71 @@ Deno.test("result compatibility reorders existing field alternatives but does no
   );
 });
 
+Deno.test("prefixItems compatibility is positional", () => {
+  const previous: JsonObject = {
+    type: "array",
+    prefixItems: [
+      { type: "string" },
+      { type: "number" },
+    ],
+  };
+  const current: JsonObject = {
+    type: "array",
+    prefixItems: [
+      { type: "number" },
+      { type: "string" },
+    ],
+  };
+  const existing = ["voyage", 7];
+  assert(accepts(previous, existing));
+  assertEquals(accepts(current, existing), false);
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.prefixItems[0].type: changed from "string" to "number"',
+      '$.prefixItems[1].type: changed from "number" to "string"',
+    ],
+  );
+});
+
 Deno.test("result compatibility rejects removed contracts and known error slugs", () => {
-  const current = clone(RESULT_OUTPUT_FIXTURE);
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const previousDefs = previous.$defs as JsonObject;
+  previousDefs.VoyageSurveyResult = {
+    type: "object",
+    properties: {
+      verb: { const: "survey" },
+      ok: { type: "boolean" },
+    },
+    required: ["verb", "ok"],
+  };
+  const previousCli = previousDefs.VoyageCliResult as JsonObject;
+  (previousCli.oneOf as JsonValue[]).push({
+    $ref: "#/$defs/VoyageSurveyResult",
+  });
+  (previous["x-discern-contracts"] as JsonValue[]).push({
+    id: "voyageSurvey",
+    verb: "survey",
+    commands: ["survey"],
+    [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageSurveyResult",
+  });
+
+  const current = clone(previous);
   const defs = current.$defs as JsonObject;
   const cli = defs.VoyageCliResult as JsonObject;
-  cli.oneOf = [];
-  current["x-discern-contracts"] = [];
+  cli.oneOf = [{ $ref: "#/$defs/VoyageSurveyResult" }];
+  current["x-discern-contracts"] = [
+    (current["x-discern-contracts"] as JsonValue[])[1] ?? null,
+  ];
   current["x-discern-error-slugs"] = [];
 
   assertEquals(
     publicSchemaCompatibilityIssues(
-      RESULT_OUTPUT_FIXTURE,
+      previous,
       current,
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
@@ -505,6 +1303,87 @@ Deno.test("result compatibility rejects removed contracts and known error slugs"
       '$.x-discern-contracts: removed contract "voyageLaunch"',
       '$.x-discern-error-slugs: removed value "launch_failed"',
     ],
+  );
+});
+
+Deno.test("malformed public schemas fail before structural compatibility", () => {
+  const malformedRequired = clone(CONFIG_INPUT_FIXTURE);
+  malformedRequired.required = 7;
+  const malformedRequiredError = compileError(malformedRequired);
+  assert(
+    malformedRequiredError.includes("required") &&
+      malformedRequiredError.includes("must be array"),
+    malformedRequiredError,
+  );
+  const malformedRequiredIssues = publicSchemaCompatibilityIssues(
+    CONFIG_INPUT_FIXTURE,
+    malformedRequired,
+    CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    malformedRequiredIssues.some((issue) =>
+      issue.includes("current schema") &&
+      issue.includes("required") &&
+      issue.includes("must be array")
+    ),
+    JSON.stringify(malformedRequiredIssues),
+  );
+
+  const emptyMcpBaseline = clone(RESULT_OUTPUT_FIXTURE);
+  const baselineDefs = emptyMcpBaseline.$defs as JsonObject;
+  const baselineMcp = baselineDefs.VoyageMcpResult as JsonObject;
+  baselineMcp.oneOf = [];
+  delete baselineDefs.VoyageLaunchMcpToolResult;
+  const baselineContract =
+    (emptyMcpBaseline["x-discern-contracts"] as JsonObject[])[0];
+  assert(baselineContract !== undefined);
+  delete baselineContract.mcpTool;
+  delete baselineContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp];
+
+  const firstMcpExposure = clone(emptyMcpBaseline);
+  const currentDefs = firstMcpExposure.$defs as JsonObject;
+  currentDefs.VoyageLaunchMcpToolResult = {
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageLaunchResult" },
+    },
+    required: ["structuredContent"],
+  };
+  const currentMcp = currentDefs.VoyageMcpResult as JsonObject;
+  currentMcp.oneOf = [
+    { $ref: "#/$defs/VoyageLaunchMcpToolResult" },
+  ];
+  const currentContract =
+    (firstMcpExposure["x-discern-contracts"] as JsonObject[])[0];
+  assert(currentContract !== undefined);
+  currentContract.mcpTool = "voyage_launch";
+  currentContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
+    "#/$defs/VoyageLaunchMcpToolResult";
+
+  const emptyOneOfError = compileError(emptyMcpBaseline);
+  assert(
+    emptyOneOfError.includes("oneOf") &&
+      emptyOneOfError.includes("fewer than 1"),
+    emptyOneOfError,
+  );
+  assert(accepts(firstMcpExposure, {
+    structuredContent: {
+      verb: "launch",
+      ok: true,
+    },
+  }));
+  const emptyBaselineIssues = publicSchemaCompatibilityIssues(
+    emptyMcpBaseline,
+    firstMcpExposure,
+    RESULT_SCHEMA_COMPATIBILITY_POLICY,
+  );
+  assert(
+    emptyBaselineIssues.some((issue) =>
+      issue.includes("trunk schema") &&
+      issue.includes("oneOf") &&
+      issue.includes("fewer than 1")
+    ),
+    JSON.stringify(emptyBaselineIssues),
   );
 });
 
@@ -711,14 +1590,17 @@ Deno.test("schema identities stay append-only and a new major starts a separate 
   const previous = clone(RESULT_OUTPUT_FIXTURE);
   const nextMajor = clone(RESULT_OUTPUT_FIXTURE);
   const nextDefs = nextMajor.$defs as JsonObject;
-  delete nextDefs.VoyageLaunchResult;
+  const nextLaunch = nextDefs.VoyageLaunchResult as JsonObject;
+  nextLaunch.type = "string";
   assertEquals(
     publicSchemaPublicationCompatibilityIssues(
       previous,
       nextMajor,
       VOYAGE_PUBLICATION,
     ),
-    ["$.$defs.VoyageLaunchResult: removed"],
+    [
+      '$.$defs.VoyageLaunchResult.type: changed from "object" to "string"',
+    ],
     "the same structural break remains blocked within v1",
   );
 
@@ -840,6 +1722,11 @@ Deno.test("generated public schemas remain compatible with each configured-trunk
 
   for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
     const current = buildCurrentPublicSchema(publication);
+    assertEquals(
+      compileErrorOrUndefined(current),
+      undefined,
+      `${publication.artifactPath} must be valid JSON Schema draft 2020-12`,
+    );
     assertEquals(
       publicSchemaPublicationIdentityIssues(current, publication),
       [],
