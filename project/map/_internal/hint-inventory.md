@@ -843,7 +843,7 @@ Create the local trunk branch 'main', or set [repository].trunk to the branch th
 Rendered example:
 
 ```text
-Inspect or enforce the next step in each advisory finding.
+Use each finding's next step to investigate or improve the practice.
 ```
 
 ## `patterns-insufficient-evidence`

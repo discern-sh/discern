@@ -1902,7 +1902,7 @@ export type DiscernImprovementResult = {
     history: {
       findings: Array<{
         detector: string;
-        family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
+        family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
         scope: "branch" | "session" | "project";
         tone: "good" | "neutral" | "attention";
         subject?: string;
@@ -2520,7 +2520,7 @@ export type DiscernPatternsResult = {
     };
     findings: Array<{
       detector: string;
-      family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
+      family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
       scope: "branch" | "session" | "project";
       tone: "good" | "neutral" | "attention";
       subject?: string;
@@ -2535,7 +2535,7 @@ export type DiscernPatternsResult = {
     detectors: Array<{
       id: string;
       title: string;
-      family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
+      family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
       scope: "branch" | "session" | "project";
       tier: "inline" | "batch";
       status: "fired" | "quiet" | "insufficient-evidence";
