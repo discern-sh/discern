@@ -21,6 +21,7 @@ import { handler } from "../site/serve.ts";
 import {
   createGlossaryProseRenderer,
   docsLlmsSection,
+  docsNavigationProjection,
   type DocsPage,
   glossaryMentions,
   loadDocsSite,
@@ -184,28 +185,144 @@ Deno.test("the published docs site covers exactly the bundled-public sections", 
   }
 });
 
-Deno.test("the nav exposes every published page in model reading order", async () => {
+Deno.test("the full nav contains every published page exactly once in model order", async () => {
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
   const html = await res.text();
-  const nav = /<nav class="[^"]*docs-nav-scroll[^"]*"[^>]*>([\s\S]*?)<\/nav>/
-    .exec(html)
-    ?.[1] ?? "";
-  const childRoutes = [...nav.matchAll(/<li><a href="([^"]+)"/g)].map((match) =>
-    match[1] ?? ""
-  );
+  const dom = new JSDOM(html);
+  const nav = dom.window.document.querySelector(".docs-nav-scroll");
+  const childRoutes = [...nav?.querySelectorAll("[data-nav-page] > a") ?? []]
+    .map((link) => link.getAttribute("href") ?? "");
   assertEquals(
     childRoutes,
     site.sections.flatMap((section) => section.pages.map((page) => page.route)),
   );
+  assertEquals(new Set(childRoutes).size, childRoutes.length);
   assertEquals(
-    [...nav.matchAll(/>Overview<\/a>/g)].length,
+    [...nav?.querySelectorAll("[data-nav-page] > a") ?? []]
+      .filter((link) => link.textContent?.trim() === "Overview").length,
     site.sections.length,
   );
+  assertEquals(
+    nav?.querySelector("[data-nav-sections]")?.getAttribute(
+      "data-nav-default",
+    ),
+    "full",
+  );
+  assertEquals(nav?.querySelector("[data-nav-disclosure]"), null);
+  assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
   const gate = site.sections.find((section) =>
     section.dir === "20-quality-gate"
   );
   assertEquals(gate?.pages[1]?.entry.slug, "when-the-gate-fails");
+  dom.window.close();
+});
+
+Deno.test("every guide gets current, nearby, and recommended context from canonical order", async () => {
+  const site = await loadDocsSite();
+  const canonicalRoutes = site.pages.map((page) => page.route);
+  for (const [index, current] of site.pages.entries()) {
+    const projection = docsNavigationProjection(site, current);
+    assertEquals(projection.defaultMode, "focused", current.route);
+    assertEquals(
+      projection.sections.flatMap((section) =>
+        section.pages.map(({ page }) => page.route)
+      ),
+      canonicalRoutes,
+      current.route,
+    );
+    const pages = projection.sections.flatMap((section) => section.pages);
+    assertEquals(
+      pages.filter((page) => page.context === "current")
+        .map(({ page }) => page.route),
+      [current.route],
+      current.route,
+    );
+    assertEquals(
+      pages.filter((page) => page.context === "nearby")
+        .map(({ page, relation }) => [page.route, relation]),
+      index === 0 ? [] : [[site.pages[index - 1]?.route, "Previous"]],
+      current.route,
+    );
+    assertEquals(
+      pages.filter((page) => page.context === "recommended")
+        .map(({ page, relation }) => [page.route, relation]),
+      index === site.pages.length - 1
+        ? []
+        : [[site.pages[index + 1]?.route, "Recommended"]],
+      current.route,
+    );
+    assertEquals(
+      projection.sections.filter((section) => section.context === "current")
+        .map(({ section }) => section.slug),
+      [current.sectionSlug],
+      current.route,
+    );
+  }
+});
+
+Deno.test("focused nav markup and full fallbacks expose their state intentionally", async () => {
+  const site = await loadDocsSite();
+  const representatives = site.sections.map((section) =>
+    section.pages.find((page) => !page.isIndex) ?? section.index
+  );
+  const tasks = site.byRoute.get("/docs/getting-started/tasks");
+  if (tasks?.kind === "guide" && !representatives.includes(tasks)) {
+    representatives.push(tasks);
+  }
+  for (const page of representatives) {
+    const html = await (await get(page.route, BROWSER)).text();
+    const dom = new JSDOM(html);
+    const nav = dom.window.document.querySelector(".docs-nav-scroll");
+    assertEquals(
+      nav?.querySelector("[data-nav-sections]")?.getAttribute(
+        "data-nav-default",
+      ),
+      "focused",
+      page.route,
+    );
+    const disclosure = nav?.querySelector("[data-nav-disclosure]");
+    assertEquals(disclosure?.textContent?.trim(), "Full manual", page.route);
+    assertEquals(
+      disclosure?.getAttribute("aria-expanded"),
+      "false",
+      page.route,
+    );
+    assertEquals(
+      [...nav?.querySelectorAll('[aria-current="page"]') ?? []]
+        .map((link) => link.getAttribute("href")),
+      [page.route],
+      page.route,
+    );
+    dom.window.close();
+  }
+
+  const decision = site.decisions.pages[0];
+  for (
+    const route of [
+      "/docs",
+      site.decisions.route,
+      ...(decision === undefined ? [] : [decision.route]),
+    ]
+  ) {
+    const html = await (await get(route, BROWSER)).text();
+    const dom = new JSDOM(html);
+    const nav = dom.window.document.querySelector(".docs-nav-scroll");
+    assertEquals(
+      nav?.querySelector("[data-nav-sections]")?.getAttribute(
+        "data-nav-default",
+      ),
+      "full",
+      route,
+    );
+    assertEquals(nav?.querySelector("[data-nav-disclosure]"), null, route);
+    assertEquals(
+      nav?.querySelectorAll('[aria-current="page"]').length,
+      0,
+      route,
+    );
+    dom.window.close();
+  }
 });
 
 Deno.test("the shared CLI/MCP help core and site model have exact guidance parity", async () => {

@@ -51,6 +51,11 @@ import { searchPages } from "./search.js";
   // ── Drawer ───────────────────────────────────────────────────────────────
 
   const nav = $("#docs-nav");
+  const navSections = nav ? $("[data-nav-sections]", nav) : null;
+  const navDisclosure = nav ? $("[data-nav-disclosure]", nav) : null;
+  const navDisclosureLabel = navDisclosure
+    ? $("[data-nav-disclosure-label]", navDisclosure)
+    : null;
   const drawerVeil = $("[data-drawer-close]");
   const burger = $("[data-drawer-toggle]");
   const drawerMedia = matchMedia("(max-width: 64em)");
@@ -65,6 +70,34 @@ import { searchPages } from "./search.js";
   ];
   let drawerOpen = false;
   let drawerReturnFocus = null;
+
+  const setNavMode = (mode) => {
+    if (!navSections) return;
+    const focused = mode === "focused";
+    navSections.dataset.navMode = mode;
+    for (const element of $$("[data-nav-context]", navSections)) {
+      element.hidden = focused && element.dataset.navContext === "other";
+    }
+    if (navDisclosure) {
+      navDisclosure.setAttribute("aria-expanded", String(!focused));
+    }
+    if (navDisclosureLabel) {
+      navDisclosureLabel.textContent = focused
+        ? "Full manual"
+        : "Current section";
+    }
+  };
+
+  if (navSections) {
+    setNavMode(
+      navSections.dataset.navDefault === "focused" ? "focused" : "full",
+    );
+  }
+  navDisclosure?.addEventListener("click", () => {
+    setNavMode(
+      navSections?.dataset.navMode === "focused" ? "full" : "focused",
+    );
+  });
 
   const focusFirstInDrawer = () => {
     const first = nav ? focusablesIn(nav)[0] : null;
@@ -228,7 +261,9 @@ import { searchPages } from "./search.js";
       const link = byId.get(id);
       if (!link || link === active) return;
       active?.closest("li")?.classList.remove(currentClass);
+      active?.removeAttribute("aria-current");
       link.closest("li")?.classList.add(currentClass);
+      link.setAttribute("aria-current", "location");
       active = link;
     };
 
