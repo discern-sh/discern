@@ -46,16 +46,16 @@ Without a grant or warning, the field is absent and [handoff](hand-work-back.md)
 
 ## Where it lives in code
 
-| Concern                          | Source                                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------------------------- |
-| Shared resolution and projection | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
-| Consent-source vocabulary        | [`consent.ts`](../../../src/shared/consent.ts)                                            |
-| Standing-grant configuration     | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                |
-| Per-effort grant reader          | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
+| Concern                          | Source                                                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared resolution and projection | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)                                                                                        |
+| Consent-source vocabulary        | [`consent.ts`](../../../src/shared/consent.ts)                                                                                                                     |
+| Standing-grant configuration     | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                         |
+| Per-effort grant reader          | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                                                                                                  |
 | Grant creation and cleanup       | [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts), [`effort_grant_cleanup.ts`](../../../src/engine/worktree/effort_grant_cleanup.ts) |
-| Exact trunk transition           | [`git.ts`](../../../src/engine/worktree/git.ts)                                           |
-| Lifecycle result schema          | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                              |
-| Cross-surface guard              | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
+| Exact trunk transition           | [`git.ts`](../../../src/engine/worktree/git.ts)                                                                                                                    |
+| Lifecycle result schema          | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                       |
+| Cross-surface guard              | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts)                                                                          |
 
 ## Current state & gotchas
 
