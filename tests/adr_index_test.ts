@@ -155,6 +155,40 @@ Deno.test("control: a record whose heading defeats the derivation reports invali
   }
 });
 
+Deno.test("the two shipped ADR skeletons are identical", async () => {
+  // The setup skeleton and the discern-write-adr skill's skeleton both lay the
+  // same `_adr/` starter (README format guide + template + index markers) —
+  // one shipped contract, two delivery paths. Byte-identity keeps an edit to
+  // one from silently forking the other.
+  const setupSkel = join(REPO_ROOT, "templates/setup/skeleton/docs/_adr");
+  const skillSkel = join(
+    REPO_ROOT,
+    "templates/skills/discern-write-adr/skeleton/docs/_adr",
+  );
+  const filesIn = async (dir: string): Promise<Map<string, string>> => {
+    const out = new Map<string, string>();
+    for await (const entry of walk(dir, { includeDirs: false })) {
+      out.set(relative(dir, entry.path), await Deno.readTextFile(entry.path));
+    }
+    return out;
+  };
+  const setupFiles = await filesIn(setupSkel);
+  const skillFiles = await filesIn(skillSkel);
+  assertEquals(
+    [...setupFiles.keys()].sort(),
+    [...skillFiles.keys()].sort(),
+    "the two ADR skeletons must ship the same file set",
+  );
+  for (const [rel, text] of setupFiles) {
+    assertEquals(
+      text,
+      skillFiles.get(rel),
+      `templates/…/docs/_adr/${rel} differs between the setup skeleton and ` +
+        "the discern-write-adr skill skeleton — edit both together",
+    );
+  }
+});
+
 interface NumberedAdrPath {
   number: string;
   path: string;
