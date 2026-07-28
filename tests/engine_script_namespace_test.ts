@@ -9,6 +9,7 @@ import { join } from "@std/path";
 import { KNOWN_VERBS } from "../src/main.ts";
 import { withTempDir } from "./helpers.ts";
 import {
+  mapPool,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -27,10 +28,12 @@ Deno.test("every built-in verb remains runnable as a namespaced project script",
       );
     }
 
-    for (const verb of KNOWN_VERBS) {
+    // Each case only spawns its own echo script, so the sweep fans out
+    // against the shared scaffold.
+    await mapPool([...KNOWN_VERBS], 8, async (verb) => {
       const r = await runAgent(dir, ["script", verb]);
       assertEquals(r.code, 0, `${verb}: ${r.output}`);
       assertStringIncludes(r.stdout, `SCRIPT-RAN-${verb}`);
-    }
+    });
   });
 });

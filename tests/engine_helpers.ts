@@ -35,6 +35,42 @@ import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
+/**
+ * Map `items` through `fn` with at most `limit` in flight — the bounded
+ * fan-out for sweep guards whose cases are independent (each case driving its
+ * own scaffold, or read-only runs against a shared one). Results keep item
+ * order. On a failure the pool stops claiming new items, lets the in-flight
+ * cases settle (so no dangling ops trip the test sanitizers), then rethrows
+ * the first error.
+ */
+export async function mapPool<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  const errors: unknown[] = [];
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (next < items.length && errors.length === 0) {
+        const i = next++;
+        try {
+          results[i] = await fn(items[i] as T, i);
+        } catch (e) {
+          errors.push(e);
+        }
+      }
+    },
+  );
+  await Promise.all(workers);
+  if (errors.length > 0) {
+    throw errors[0];
+  }
+  return results;
+}
+
 /** The captured result of one `agent` invocation. */
 export interface RunResult {
   code: number;

@@ -27,6 +27,7 @@ import { withTempDir } from "./helpers.ts";
 import { fakeEnv } from "./helpers.ts";
 import {
   gitInit,
+  mapPool,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -172,32 +173,31 @@ Deno.test("the NOT_SWEPT exception set stays honest against the engine-verb regi
 });
 
 Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI, combined streams)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // A working gate config so finish/prepare/test/standards actually run to output
-    // rather than erroring out before the colour path is reached.
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "color-contract"',
-        "",
-        "[jobs]",
-        `format = "true"`,
-        `lint = "true"`,
-        `typecheck = "true"`,
-        `test = "true"`,
-        "",
-        "[standards.cov]",
-        `run = "printf 'DISCERN_METRIC cov 90\\n'"`,
-        'direction = "up"',
-        "limit = 80",
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-
-    for (const verb of SWEPT_VERBS) {
+  // A working gate config so finish/prepare/test/standards actually run to output
+  // rather than erroring out before the colour path is reached. Every verb
+  // drives its own scaffold — gate verbs write receipts and rerun markers, so
+  // a shared one would couple concurrent cases — and the sweep fans out.
+  const config = [
+    "[project]",
+    'slug = "color-contract"',
+    "",
+    "[jobs]",
+    `format = "true"`,
+    `lint = "true"`,
+    `typecheck = "true"`,
+    `test = "true"`,
+    "",
+    "[standards.cov]",
+    `run = "printf 'DISCERN_METRIC cov 90\\n'"`,
+    'direction = "up"',
+    "limit = 80",
+    "",
+  ].join("\n");
+  await mapPool([...SWEPT_VERBS], 8, async (verb) => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, config);
+      await gitInit(dir);
       // NO_COLOR forced empty (i.e. UNSET semantics) so the ONLY thing that can
       // suppress colour is the code path under test — the resolved decision from the
       // --no-color flag (and the non-TTY pipe). If a verb re-decided colour on its
@@ -212,7 +212,7 @@ Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI
           ansiCount(r.output)
         } ANSI escape(s):\n${r.output}`,
       );
-    }
+    });
   });
 });
 
