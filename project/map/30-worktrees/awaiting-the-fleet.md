@@ -1,7 +1,7 @@
 ---
 title: Awaiting the fleet
 description: Block until a sibling branch is green, its work lands, or the trunk moves — one call instead of guessed polling.
-order: 55
+order: 60
 aliases:
   - discern await
   - await a sibling
@@ -41,7 +41,7 @@ The CLI exits `0` when the condition was met, `1` on a refusal, and `124` on "no
 discern await --landed agent/upload-retry --timeout 100 && discern update
 ```
 
-Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the recorded per-harness research ([ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)). `--timeout 0` checks once and answers immediately.
+Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the recorded per-client research ([ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)). `--timeout 0` checks once and answers immediately.
 
 ## Compose below the trunk
 
@@ -68,4 +68,4 @@ The wait itself is visible fleet activity: `await` is a begin-recorded verb, so 
 
 - `await` blocks only its own caller. It gates nothing, holds no locks, and keeps no state beyond its process.
 - With `[project].logbook = false` every condition still works through the polling fallback; only the retry advice degrades, and the result says so.
-- Raise `--timeout` past the defaults only when your harness's own tool-call budget allows it — the strictest MCP clients kill calls at 60 seconds with no configuration.
+- Raise `--timeout` past the defaults only when the calling agent's own tool-call budget allows it — the strictest MCP clients kill calls at 60 seconds with no configuration.

@@ -1,7 +1,7 @@
 ---
 title: Multi-repo workspaces
 description: Configure discern across sibling repositories, from local package links and registries to umbrella repos and submodules.
-order: 60
+order: 70
 aliases:
   - multi-repo work
   - polyrepo
