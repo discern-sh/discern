@@ -1,10 +1,11 @@
 /**
  * Architectural guard (ADR 0102): a registry path default written as a literal
- * anywhere in `src/**` outside the paths registry is a latent bug — it holds
- * only in a project that never repointed the key, precisely the configuration
- * this repo itself does not run. The banned list derives from the registry
- * (`SOURCE_PATHS`), never a hand-copied list, so a new source path auto-enrols
- * (ADR 0051; modelled on `engine_subprocess_ssot_test.ts`).
+ * anywhere in authored runtime TypeScript outside the paths registry is a
+ * latent bug — it holds only in a project that never repointed the key,
+ * precisely the configuration this repo itself does not run. The scan derives
+ * from the authored-TypeScript universe, so a new runtime tree auto-enrols. The
+ * banned list derives from the registry (`SOURCE_PATHS`), so a new source path
+ * auto-enrols too (ADR 0051; modelled on `engine_subprocess_ssot_test.ts`).
  *
  * Allowed homes: the registry module itself, and the migrations file — its
  * paths describe old on-disk schemas and are historically correct, not
@@ -12,15 +13,12 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { join } from "@std/path";
 import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
 } from "../src/shared/paths_registry.ts";
-
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
+import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 /** The files permitted to carry a registry default verbatim. */
 const ALLOWED = new Set([
@@ -45,15 +43,13 @@ Deno.test("no registry path default appears as a literal outside the registry", 
     def: SOURCE_PATHS[name].defaultPath,
   }));
   const offenders: string[] = [];
-  for await (const entry of walk(SRC, { includeDirs: false })) {
-    if (!entry.path.endsWith(".ts")) {
+  for (const rel of AUTHORED_TS_FILES) {
+    // Tests deliberately carry literals as independent expectations, fixtures,
+    // and migration history. Runtime code has no such reason.
+    if (rel.startsWith("tests/") || ALLOWED.has(rel)) {
       continue;
     }
-    const rel = relative(REPO_ROOT, entry.path);
-    if (ALLOWED.has(rel)) {
-      continue;
-    }
-    const text = await Deno.readTextFile(entry.path);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const ban of bans) {
       if (ban.re.test(text)) {
         offenders.push(`${rel} hard-codes "${ban.def}" (${ban.name})`);
