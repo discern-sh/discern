@@ -16,6 +16,8 @@ Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", ()
   assertEquals(displayWidth("界"), 2);
   assertEquals(displayWidth("A界"), 3);
   assertEquals(displayWidth("👩‍💻"), 2);
+  assertEquals(displayWidth("🇬🇧"), 2);
+  assertEquals(displayWidth("1️⃣"), 2);
   assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
 });
 

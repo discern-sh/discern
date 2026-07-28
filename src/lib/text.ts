@@ -15,6 +15,7 @@ const ANSI_CSI = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
 const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const MARK = /\p{Mark}/u;
 const PICTOGRAPH = /\p{Extended_Pictographic}/u;
+const EMOJI_PRESENTATION = /\p{Emoji_Presentation}/u;
 
 /** Whether one Unicode scalar is conventionally two terminal columns. */
 function isWideCodePoint(code: number): boolean {
@@ -38,7 +39,11 @@ function isWideCodePoint(code: number): boolean {
 
 /** Terminal width of one extended grapheme cluster. */
 function graphemeWidth(grapheme: string): number {
-  if (PICTOGRAPH.test(grapheme)) {
+  if (
+    PICTOGRAPH.test(grapheme) ||
+    EMOJI_PRESENTATION.test(grapheme) ||
+    grapheme.includes("\u20e3")
+  ) {
     return 2;
   }
   for (const scalar of grapheme) {
