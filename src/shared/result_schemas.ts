@@ -667,6 +667,9 @@ export const StatusDataSchema = z.strictObject({
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
   stale_integrations: z.array(z.string()).optional(),
+  /** The maintained ADR index no longer matches the record files on disk (at
+   * most one path — the ADR README; present when stale). */
+  stale_adr_index: z.array(z.string()).optional(),
   tracked_ignored_artifacts: z.array(z.string()).optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),

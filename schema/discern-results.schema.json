@@ -5097,6 +5097,7 @@
                         "skills",
                         "skill_frontmatter",
                         "adr_numbers",
+                        "adr_index",
                         "merge",
                         "standards",
                         "write_access"
@@ -9139,6 +9140,12 @@
                   }
                 },
                 "stale_integrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "stale_adr_index": {
                   "type": "array",
                   "items": {
                     "type": "string"

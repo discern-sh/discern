@@ -48,6 +48,7 @@ import {
   type AdrNumberDuplicate,
   duplicateAdrNumbers,
 } from "../../lib/adr_numbers.ts";
+import { adrIndexState, type AdrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
@@ -252,6 +253,46 @@ async function adrNumbersDiagnostic(
     severity: "error",
     message: `ADR number(s) claimed by more than one record: ${numbers}`,
     reproduce_cmd: "discern done",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for the maintained ADR index. Two shapes behind one stage:
+ * STALE — the record lists between the markers no longer match the record
+ * files, and `discern refresh` rewrites them (the currency remedy, with the
+ * capped drift diff); INVALID — a record file defeats the derivation (its
+ * first heading carries no record number), so the remedy is editing that
+ * source, and the diagnostic says which file.
+ */
+async function adrIndexDiagnostic(
+  state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
+): Promise<Diagnostic> {
+  const outputFields = await diagnosticOutputFields(
+    state.kind === "stale"
+      ? `The maintained ADR index is out of date: ${state.path}.\n` +
+        "Run `discern refresh` to regenerate the record lists between its " +
+        "markers, and commit the rewritten file. If you meant to change the " +
+        "framing prose, edit outside the marked blocks — a refresh rewrites " +
+        "only the lists.\n\n" +
+        driftDiff({
+          path: state.path,
+          reason: "stale",
+          expected: state.expected,
+          actual: state.current,
+        })
+      : `The maintained ADR index in ${state.path} cannot be derived:\n\n` +
+        `  ${state.issue}\n\n` +
+        "Fix the named record file — its first heading must carry the " +
+        "record's number and a title — then run `discern refresh`.",
+  );
+  return {
+    tool: "adr-index",
+    severity: "error",
+    message: state.kind === "stale"
+      ? `maintained ADR index out of date: ${state.path}`
+      : `maintained ADR index cannot be derived: ${state.path}`,
+    reproduce_cmd: state.kind === "stale" ? "discern refresh" : "discern done",
     ...outputFields,
   };
 }
@@ -462,6 +503,22 @@ async function runGate(
     }
   }
 
+  // 1d-quater. Maintained-ADR-index currency (the ADR 0034 pattern, extended to
+  //     the record lists a refresh keeps between markers in the ADR README).
+  //     Opt-in by construction: a project without the markers is never checked.
+  //     STALE blocks — a record on disk the index doesn't reflect is invisible
+  //     to every reader who opens the index instead of the directory — and so
+  //     does INVALID (a record the derivation cannot title), since a refresh
+  //     cannot heal it and the index would silently rot from there.
+  let adrIndexDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const state = await adrIndexState(root, cfg.map.dir);
+    if (state.kind === "stale" || state.kind === "invalid") {
+      failedStage = "adr_index";
+      adrIndexDiag = await adrIndexDiagnostic(state);
+    }
+  }
+
   // 1e. Write authority — a REAL create/write/rename/remove probe, not permission
   //     metadata. The gate may need to stamp or clear its gate/measurement state
   //     after every outcome, so prove that tiny late effect before any project job
@@ -668,6 +725,9 @@ async function runGate(
   }
   if (adrNumbersDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), adrNumbersDiag];
+  }
+  if (adrIndexDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), adrIndexDiag];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];

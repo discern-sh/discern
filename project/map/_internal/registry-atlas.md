@@ -27,7 +27,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                           | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks) | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                 | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 125     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 127     | "Advisory"       | node `hints`                |
 | [`logbook-events`](#logbook-events--logbook-events)                            | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)            | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
@@ -289,7 +289,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 125
+- Members: 127
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept

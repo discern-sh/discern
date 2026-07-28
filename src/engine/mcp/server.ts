@@ -360,8 +360,9 @@ export const TOOLS: McpTool[] = orderTools([
       "resources; data.standards lists the configured quality standards — numbers " +
       "that can never get worse. " +
       "data.stale_generated flags agent files, data.stale_materialized " +
-      "the materialized skills, and data.stale_integrations provider integration " +
-      "files, that have drifted from their sources (call " +
+      "the materialized skills, data.stale_integrations provider integration " +
+      "files, and data.stale_adr_index the maintained ADR index, " +
+      "that have drifted from their sources (call " +
       "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +

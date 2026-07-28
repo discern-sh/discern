@@ -1538,6 +1538,7 @@ export type DiscernDoneResult = {
       | "skills"
       | "skill_frontmatter"
       | "adr_numbers"
+      | "adr_index"
       | "merge"
       | "standards"
       | "write_access"
@@ -2755,6 +2756,7 @@ export type DiscernStatusResult = {
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
     stale_integrations?: Array<string>;
+    stale_adr_index?: Array<string>;
     tracked_ignored_artifacts?: Array<string>;
     setup_unfinished?: {
       pending_markers: Array<string>;
