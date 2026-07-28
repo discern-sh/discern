@@ -230,13 +230,28 @@ function plural(
   return `${formatHumanNumber(value)} ${value === 1 ? singular : pluralForm}`;
 }
 
-function inclusiveSpanDays(first: string, last: string): number | undefined {
+export function inclusiveSpanDays(
+  first: string,
+  last: string,
+): number | undefined {
   const start = Date.parse(first);
   const end = Date.parse(last);
   if (!Number.isFinite(start) || !Number.isFinite(end)) {
     return undefined;
   }
-  return Math.max(1, Math.floor(Math.abs(end - start) / DAY_MS) + 1);
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const startDay = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate(),
+  );
+  const endDay = Date.UTC(
+    endDate.getUTCFullYear(),
+    endDate.getUTCMonth(),
+    endDate.getUTCDate(),
+  );
+  return Math.floor(Math.abs(endDay - startDay) / DAY_MS) + 1;
 }
 
 /** "7 days (2026-07-20 → 2026-07-26) · 2,851 events · 73 branches" */
@@ -263,16 +278,16 @@ function summaryLine(data: PatternsData): string {
   return parts.join(" · ");
 }
 
-/** "driven by agents 1,421 (Claude Code 757 · Codex 528) · humans 66 · unknown 183" */
+/** "1,670 analyzed runs · driven by agents 1,421 (identified: Claude Code 757 · Codex 528) · humans 66 · unknown 183" */
 function driversLine(population: PatternsPopulation): string {
   const identities = population.identities
     .map((identity) => `${identity.label} ${formatHumanNumber(identity.runs)}`)
     .join(" · ");
-  return `driven by agents ${formatHumanNumber(population.agent)}${
-    identities !== "" ? ` (${identities})` : ""
-  } · humans ${formatHumanNumber(population.human)} · unknown ${
-    formatHumanNumber(population.unknown)
-  }`;
+  return `${plural(population.analyzed, "analyzed run")} · driven by agents ${
+    formatHumanNumber(population.agent)
+  }${identities !== "" ? ` (identified: ${identities})` : ""} · humans ${
+    formatHumanNumber(population.human)
+  } · unknown ${formatHumanNumber(population.unknown)}`;
 }
 
 function scoreboardLine(data: PatternsData): string {

@@ -28,7 +28,9 @@ import type {
 import { DETECTOR_FAMILIES } from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { displayWidth } from "../src/lib/text.ts";
+import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
+  inclusiveSpanDays,
   PATTERNS_FAMILY_SECTIONS,
   PATTERNS_TONE_GLYPHS,
   PATTERNS_TRAJECTORY_CAVEAT,
@@ -56,6 +58,31 @@ function seededEvent(at: string, outcome: "ok" | "failed"): string {
     epoch: "e1",
   });
 }
+
+Deno.test("patterns calendar span counts inclusive UTC dates, not elapsed 24-hour blocks", () => {
+  assertEquals(
+    inclusiveSpanDays(
+      "2026-07-20T23:59:00.000Z",
+      "2026-07-21T00:01:00.000Z",
+    ),
+    2,
+  );
+  assertEquals(
+    inclusiveSpanDays(
+      "2026-07-20T01:00:00.000Z",
+      "2026-07-22T23:00:00.000Z",
+    ),
+    3,
+  );
+  assertEquals(
+    inclusiveSpanDays(
+      "2026-07-20T23:00:00-02:00",
+      "2026-07-21T02:00:00.000Z",
+    ),
+    1,
+    "the displayed/reporting calendar is UTC",
+  );
+});
 
 /** Seed one month file holding a done-thrash stream, a torn line, and a pin. */
 async function seedLogbook(dir: string): Promise<void> {
@@ -577,6 +604,26 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
         displayWidth(line) <= 80,
         `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
       );
+    }
+    assertEquals(
+      data.population.agent + data.population.human + data.population.unknown,
+      data.population.analyzed,
+      "the named driver partition must reconcile to analyzed runs",
+    );
+    const identified = data.population.identities.reduce(
+      (sum, identity) => sum + identity.runs,
+      0,
+    );
+    assert(
+      identified <= data.population.agent,
+      "named identities are a labeled subset of agent runs",
+    );
+    assertStringIncludes(
+      plain,
+      `${formatHumanNumber(data.population.analyzed)} analyzed runs`,
+    );
+    if (identified > 0) {
+      assertStringIncludes(plain, "(identified:");
     }
 
     // The canonical family vocabulary owns section order. The total
