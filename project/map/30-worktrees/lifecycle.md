@@ -52,7 +52,9 @@ Commit the final tree and run `discern done`. Landing then needs [landing author
 
 Acceptance requires the latest trunk, a clean and unlocked worktree, and a tracked-clean main checkout on the trunk. Ignored or untracked main-checkout data may stay unless landing would overwrite it. It validates the commit that will land. An honored `discern done` receipt skips a duplicate gate run; any later commit invalidates it ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, receipt, and logbook. It fast-forwards the trunk, refreshes the main checkout, runs `[repository].ensure` and `smoke`, and reports tracked changes. It then destroys resources, removes the worktree, and deletes the branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance keeps this worktree for `update → done → accept`.
+On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, receipt, and logbook. It fast-forwards the trunk, writes the structured receipt under `refs/notes/discern`, refreshes the main checkout, runs `[repository].ensure` and `smoke`, and reports tracked changes. It then destroys resources, removes the worktree, and deletes the branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md), [ADR 0212](../_adr/0212-landing-receipts-travel-as-git-notes.md)). If another change lands during validation, acceptance keeps this worktree for `update → done → accept`.
+
+The receipt note preserves green landing evidence without adding a trunk commit. Its local write is default-on and fail-open: a notes error appears under `data.receipt_note`, but the landed trunk stays landed. Set `[repository].receipt_notes = "fetch"` to add the receipt ref to each remote's ordinary fetch mappings. discern never adds a push mapping or starts a network request. With a remote present, a successful landing points to the explicit `git push <remote> refs/notes/discern` command. [The receipt](../20-quality-gate/the-receipt.md#the-landed-receipt-note) covers inspection, fetched tracking refs, and cross-clone recovery.
 
 Acceptance journals its transition and recovers without replaying one-shot authority or overwriting changed checkout data. Post-landing convergence cannot roll the trunk back, so later failures report the effects that already happened and cleanup continues. [Interrupted landing recovery](acceptance-recovery.md) covers the evidence, refusal paths, and `partial_acceptance` result ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
@@ -69,6 +71,7 @@ After confirmation, `discern worktree prune` removes clean merged worktrees, sta
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
+| Receipt-note recording        | [`src/engine/gate/receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                           |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
@@ -78,5 +81,6 @@ After confirmation, `discern worktree prune` removes clean merged worktrees, sta
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
+- Receipt-note recording follows the trunk fast-forward. A note or fetched-history merge failure reports its cause and cannot fail or undo acceptance.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.

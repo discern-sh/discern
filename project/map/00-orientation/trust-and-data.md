@@ -27,6 +27,14 @@ With recording on and the project's `discern.toml` readable, discern records one
 
 The logbook never leaves the machine, and that claim is held by a check rather than a promise: a test in discern's own quality gate proves the logbook's code can reach no network interface, so a change that gave it one would fail discern's own build. [The logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
+## Receipt notes: local proof, optional transport
+
+A green landing records its structured receipt under the local Git ref `refs/notes/discern`. The note identifies the landed commit and carries the receipt's branch, diffstat, standards result, one-line summary, and Markdown page. It is authored by `discern-bot <bot@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
+
+This local record is default-on. It changes no remote setting and sends nothing anywhere. `[repository].receipt_notes = "fetch"` is the separate opt-in for transport: refresh adds an extra fetch mapping into `refs/discern/remotes/<remote>/notes`. Your ordinary `git fetch` can then carry the remote receipt history. discern still makes no network request.
+
+There is no push mapping. Configuring one would change what a plain `git push` means, so publishing is always the explicit `git push <remote> refs/notes/discern`. GitHub stores the ref but does not show notes on commit pages. Branch and tag CI triggers do not run for a notes-only push; raw push webhooks and integrations listening to every ref may still observe it. Enable transport only when that repository-level visibility is wanted. [The receipt](../20-quality-gate/the-receipt.md#the-landed-receipt-note) has the commands and multi-clone recovery.
+
 ## It runs your commands, and only when you run the gate
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands **you** wrote in your own `discern.toml`. The gate runs your `format` / `lint` / `test` commands; a scope gate or a standard runs the command you gave it. discern adds none of its own beyond built-in git and file operations.
@@ -35,7 +43,7 @@ The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, 
 
 ## A small, checkable footprint
 
-The full list of files discern writes is short, and a test fails the moment any command writes outside it. [Files & ownership](../70-reference/artifact-ownership.md) is the complete inventory. In brief: one committed `discern.toml`, one visible `discern/` folder of your own content, a marked block in your agents' config files and `.gitignore`, and a handful of generated files — the agent files committed so every agent can read them, the materialized skills ignored. `discern uninstall` removes the wiring and keeps your content.
+The full list of files discern writes is short, and a test fails the moment any command writes outside it. [Files & ownership](../70-reference/artifact-ownership.md) is the complete inventory. In brief: one committed `discern.toml`, one visible `discern/` folder of your own content, a marked block in your agents' config files and `.gitignore`, and a handful of generated files — the agent files committed so every agent can read them, the materialized skills ignored. Git-admin state holds validation caches and the local records above. `discern uninstall` removes the wiring and keeps your content.
 
 ## The binary is one self-contained file
 

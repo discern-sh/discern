@@ -333,7 +333,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Receipt",
     definition:
-      "The review claim `discern done` emits after a clean, committed worktree passes the full gate, in two forms: a one-line summary the agent ends its report with, and a full page — check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD` — that the owner reads with `discern status --verbose`. `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
+      "The review claim `discern done` emits after a clean, committed worktree passes the full gate. It includes a one-line summary the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).",
+  },
+  {
+    term: "Receipt note",
+    definition:
+      "The repository-resident JSON copy of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Local recording is default-on; fetch transport is opt-in, and publication stays an explicit Git push. Covered in [The receipt](../20-quality-gate/the-receipt.md#the-landed-receipt-note).",
   },
   {
     term: "Schema version",

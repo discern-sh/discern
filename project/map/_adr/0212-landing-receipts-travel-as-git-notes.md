@@ -33,7 +33,9 @@ Transport is opt-in through:
 receipt_notes = "fetch"
 ```
 
-The default is `"local"`. In local mode discern does not add, remove, or rewrite any remote fetch or push setting. In fetch mode, refresh and lifecycle convergence add this fetch mapping once per remote:
+The default is `"local"`. An install that has never enabled fetch transport does not add, remove, or rewrite any remote fetch or push setting. Returning a previously enabled repository to local mode removes only the mappings discern marked as managed. In fetch mode, refresh and lifecycle convergence add this fetch mapping once per remote:
+
+The receipt and trust pages offer this switch when an owner decides the evidence should travel between clones; setup does not opt a repository in. Once enabled, a successful landing with a remote present offers the explicit publication command at the point where the new note exists.
 
 ```text
 +refs/notes/discern:refs/discern/remotes/<remote>/notes
