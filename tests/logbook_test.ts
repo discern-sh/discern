@@ -23,6 +23,7 @@ import {
 import {
   LOGBOOK_OUTCOMES,
   LOGBOOK_SCHEMA_VERSION,
+  type LogbookEvent,
   logbookEventSchema,
   parseLogbookLine,
   type VerbEvent,
@@ -41,11 +42,28 @@ import {
   writeEpochState,
 } from "../src/engine/logbook/store.ts";
 import {
+  deriveFleetLogbookActivity,
   readLogbookStream,
   readRecentLogbookStream,
+  RUNNING_STALE_MIN_MS,
 } from "../src/engine/logbook/read.ts";
+import { logbookVerbIsEffectful } from "../src/shared/verbs.ts";
 
 // ── the event schema ────────────────────────────────────────────────────────
+
+Deno.test("logbook begin policy: effectful and mixed verb forms are classified at invocation", () => {
+  assertEquals(logbookVerbIsEffectful("status"), false);
+  assertEquals(logbookVerbIsEffectful("patterns"), false);
+  assertEquals(logbookVerbIsEffectful("patterns reset"), true);
+  assertEquals(logbookVerbIsEffectful("config get"), false);
+  assertEquals(logbookVerbIsEffectful("config set"), true);
+  assertEquals(logbookVerbIsEffectful("setup"), false);
+  assertEquals(logbookVerbIsEffectful("setup", ["config"]), true);
+  assertEquals(logbookVerbIsEffectful("upgrade", ["check"]), false);
+  assertEquals(logbookVerbIsEffectful("upgrade"), true);
+  assertEquals(logbookVerbIsEffectful("map"), false);
+  assertEquals(logbookVerbIsEffectful("map", ["output"]), true);
+});
 
 /** A representative verb event exercising every field. */
 function sampleEvent(): VerbEvent {
@@ -54,6 +72,7 @@ function sampleEvent(): VerbEvent {
     at: "2026-07-19T12:00:00.000Z",
     writer: "9.9.9",
     kind: "verb",
+    invocation: "invocation-123",
     verb: "done",
     surface: "cli",
     driver: {
@@ -220,7 +239,21 @@ Deno.test("logbook schema: an unknown kind is foreign; a torn line is torn", () 
   assertEquals(parseLogbookLine("").kind, "torn");
 });
 
-Deno.test("logbook schema: config-change, pin, and prune events validate", () => {
+Deno.test("logbook schema: begin, config-change, pin, and prune events validate", () => {
+  const begin = logbookEventSchema.safeParse({
+    schema: LOGBOOK_SCHEMA_VERSION,
+    at: "2026-07-19T11:59:59.000Z",
+    writer: "9.9.9",
+    kind: "begin",
+    invocation: "invocation-123",
+    verb: "done",
+    surface: "cli",
+    driver: { session: "cli:4242" },
+    branch: "agent/sample",
+    head: "abc1234",
+    epoch: "deadbeef",
+  });
+  assert(begin.success);
   const ok = logbookEventSchema.safeParse({
     schema: LOGBOOK_SCHEMA_VERSION,
     at: "2026-07-19T12:00:00.000Z",
@@ -539,6 +572,114 @@ Deno.test("reader: the inline tail is event-bounded and never opens an older mon
       ["2026-07-02T09:00:00.000Z", "2026-07-03T10:00:00.000Z"],
     );
   });
+});
+
+Deno.test("fleet activity: begin/finish pairing and current-epoch duration priors are pure derivations", () => {
+  const currentEpoch = "current";
+  const now = Date.parse("2026-07-19T12:10:00.000Z");
+  const events: LogbookEvent[] = [
+    {
+      ...verbEventAt("2026-07-19T11:00:00.000Z"),
+      invocation: "old-finish",
+      verb: "done",
+      duration_ms: 90_000,
+      epoch: "old",
+    },
+    {
+      ...verbEventAt("2026-07-19T11:10:00.000Z"),
+      invocation: "current-finish-a",
+      verb: "done",
+      duration_ms: 240_000,
+      epoch: currentEpoch,
+    },
+    {
+      ...verbEventAt("2026-07-19T11:20:00.000Z"),
+      invocation: "current-finish-b",
+      verb: "done",
+      outcome: "failed",
+      failed_stage: "test",
+      duration_ms: 360_000,
+      epoch: currentEpoch,
+    },
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: "2026-07-19T12:08:00.000Z",
+      writer: "9.9.9",
+      kind: "begin",
+      invocation: "live-run",
+      verb: "done",
+      surface: "cli",
+      driver: {},
+      branch: "main",
+      head: "abc1234",
+      epoch: currentEpoch,
+    },
+  ];
+
+  const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
+  assertEquals(derived.typicalDurationMs.get("done"), 300_000);
+  assertEquals(derived.byBranch.get("main"), {
+    lastAction: {
+      verb: "done",
+      outcome: "failed",
+      at: "2026-07-19T11:20:00.000Z",
+      failedStage: "test",
+    },
+    running: {
+      verb: "done",
+      started: "2026-07-19T12:08:00.000Z",
+    },
+    lastEventAt: "2026-07-19T12:08:00.000Z",
+  });
+
+  const paired = deriveFleetLogbookActivity(
+    [
+      ...events,
+      {
+        ...verbEventAt("2026-07-19T12:09:00.000Z"),
+        invocation: "live-run",
+        verb: "done",
+        epoch: currentEpoch,
+      },
+    ],
+    currentEpoch,
+    now,
+  );
+  assertEquals(paired.byBranch.get("main")?.running, undefined);
+});
+
+Deno.test("fleet activity: a stale unmatched begin remains crash and activity evidence without claiming live work", () => {
+  const now = Date.parse("2026-07-19T12:00:00.000Z");
+  const started = new Date(now - RUNNING_STALE_MIN_MS - 1).toISOString();
+  const events: LogbookEvent[] = [
+    {
+      ...verbEventAt("2026-07-19T10:00:00.000Z"),
+      invocation: "prior",
+      verb: "test",
+      duration_ms: 1_000,
+      epoch: "current",
+    },
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: started,
+      writer: "9.9.9",
+      kind: "begin",
+      invocation: "crashed-run",
+      verb: "test",
+      surface: "mcp",
+      driver: { session: "mcp:test" },
+      branch: "main",
+      head: "abc1234",
+      epoch: "current",
+    },
+  ];
+
+  const derived = deriveFleetLogbookActivity(events, "current", now);
+  assertEquals(derived.byBranch.get("main")?.running, undefined);
+  assertEquals(derived.byBranch.get("main")?.lastEventAt, started);
+  const parsed = parseLogbookLine(JSON.stringify(events[1]));
+  assert(parsed.kind === "event" && parsed.event.kind === "begin");
+  assertEquals(parsed.event.invocation, "crashed-run");
 });
 
 Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async () => {

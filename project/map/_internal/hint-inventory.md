@@ -1483,6 +1483,19 @@ Rendered example:
 Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
 ```
 
+## `status-fleet-logbook-disabled`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A fleet survey cannot show per-worktree actions because logbook recording is disabled.
+
+Rendered example:
+
+```text
+Per-worktree actions aren't available because `[project].logbook` is off.
+```
+
 ## `status-fleet-member-broken`
 
 - Category: `next-step`

@@ -28,8 +28,10 @@ import {
 } from "../../shared/result_capture.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import type { AgentSignal } from "./agent_signals.ts";
+import { LOGBOOK_EFFECTFUL_VERBS } from "../../shared/verbs.ts";
 
 const recordedVerbs = new Set<string>();
+const beginRecordedVerbs = new Set<string>();
 
 /**
  * The CLI's raw driver signals — evidence for the who-drove-this question,
@@ -108,6 +110,10 @@ function cliFlagNames(): string[] | undefined {
  * verb). The parity guard reconciles this against the verb SSOT.
  */
 export const RECORDED_CLI_VERBS: ReadonlySet<string> = recordedVerbs;
+/** Effectful top-level verbs with at least one action registered through the
+ * begin-recording path. The verb parity guard reconciles this derived registry
+ * against the canonical effectful set. */
+export const BEGIN_RECORDED_CLI_VERBS: ReadonlySet<string> = beginRecordedVerbs;
 
 /** A verb action's body: runs the verb and returns its exit code (void → 0).
  * Generic over `this` so a command-group action typed `function (this: Command)`
@@ -135,13 +141,21 @@ export async function recordedRun(
   // The recorder reaches the git/config machinery; load it only when a verb
   // actually runs, keeping this wrapper's static graph routing-thin (a bare
   // `--help` builds the whole CLI tree through recordedExit without it).
+  // Start driver enrichment before opening the recorder so an effectful
+  // invocation's begin event carries the same raw signals as its completion.
+  const scanArgs = verb !== "script";
+  const driver = cliDriverFacts(scanArgs);
+  const flags = scanArgs ? cliFlagNames() : undefined;
   const { beginRecording } = await import("./record.ts");
-  const recording = beginRecording(Deno.cwd());
+  const recording = beginRecording(Deno.cwd(), {
+    verb,
+    surface,
+    driver,
+    ...(flags !== undefined ? { flags } : {}),
+  });
   // Everything after a `script` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so
   // the host-marker stat does not extend the completion tail.
-  const scanArgs = verb !== "script";
-  const driver = cliDriverFacts(scanArgs);
   const started = performance.now();
   let code = 1;
   try {
@@ -158,7 +172,6 @@ export async function recordedRun(
     const result = observed?.result;
     const dryRun = result?.dry_run === true ||
       (scanArgs && Deno.args.includes("--dry-run"));
-    const flags = scanArgs ? cliFlagNames() : undefined;
     await recording.finish({
       verb,
       surface,
@@ -194,6 +207,9 @@ export function recordedExit<TThis, A extends unknown[]>(
   const top = verb.split(" ")[0];
   if (top !== undefined && top !== "") {
     recordedVerbs.add(top);
+    if (LOGBOOK_EFFECTFUL_VERBS.has(top)) {
+      beginRecordedVerbs.add(top);
+    }
   }
   return async function (this: TThis, ...args: A): Promise<void> {
     Deno.exit(

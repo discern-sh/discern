@@ -3155,6 +3155,18 @@ export type DiscernStatusResult = {
       ahead?: number;
       behind?: number;
       last_activity?: string;
+      last_action?: {
+        verb: string;
+        outcome: "ok" | "failed" | "partial" | "refused";
+        at: string;
+        failed_stage?: string;
+      };
+      running?: {
+        verb: string;
+        started: string;
+        elapsed_ms: number;
+        typical_duration_ms?: number;
+      };
       git_unavailable?: boolean;
       id?: string;
       port?: number;

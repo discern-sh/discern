@@ -21,7 +21,11 @@ Inside a linked worktree, the default view is local. It reports the branch, clea
 
 When a recorded grant exists, `data.landing_authority` carries the current [landing authority](landing-authority.md) answer. A ready, authorized branch gets a resolution-gated landing hint. An uncovered branch gets the receipt-relay hint with the paths outside its grant. With no grant, the field is absent and the report-and-wait route stays unchanged ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout and branch, git state, ahead/behind counts, last activity, and whether the checkout is broken. A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. Granted rows carry the same `landing_authority` and gain an **AUTHORITY** column in the interactive table; the column stays absent when no row has a grant. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
+From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout, branch, git state, activity, and health. Logbook rows add newest completion as `last_action` (outcome, failed stage, time) and unmatched fresh begin as `running`, with elapsed and median duration. **LAST ACTION** prefers `running: done · 2m of ~4m`; otherwise it might show `done failed (test) · 12m ago`.
+
+`last_activity` is the later git-derived timestamp or newest branch event, so a long gate stays active without file changes. With `[project].logbook = false`, action fields are absent, activity stays git-only, and a fleet hint explains the gap ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
+
+A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. Granted rows carry the same `landing_authority` and gain an **AUTHORITY** column in the interactive table; the column stays absent when no row has a grant. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
 
 `--verbose` prints each honored receipt page in the interactive output — the local branch's, and every ready fleet row's beneath the table. The page prints dimmed, so the quoted Markdown reads as secondary next to the summary lines. The JSON and MCP payloads carry the receipt with or without the flag ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
@@ -52,6 +56,7 @@ Session findings are advice. They change no git fact, gate result, receipt, exit
 | Status facts and hints       | [`status.ts`](../../../src/engine/status/status.ts)                                       |
 | Landing-authority resolution | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
 | Detector registry            | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                                |
+| Fleet activity reader        | [`read.ts`](../../../src/engine/logbook/read.ts)                                          |
 | Scope and tier routing       | [`routing.ts`](../../../src/engine/logbook/routing.ts)                                    |
 | Bounded inline reader        | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                                  |
 | End-to-end authority routes  | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |

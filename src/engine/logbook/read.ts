@@ -11,7 +11,50 @@
 
 import { join } from "@std/path";
 import { logbookDir, MONTH_FILE_RE } from "./store.ts";
-import { type LogbookEvent, parseLogbookLine } from "./schema.ts";
+import {
+  type BeginEvent,
+  type LogbookEvent,
+  type LogbookOutcome,
+  parseLogbookLine,
+  type VerbEvent,
+} from "./schema.ts";
+
+/** The bounded event population a fleet survey inspects. */
+export const FLEET_ACTIVITY_EVENT_LIMIT = 200;
+/** An unmatched begin survives for at least this long as in-flight work. */
+export const RUNNING_STALE_MIN_MS = 60 * 60 * 1000;
+/** With a duration prior, this multiple bounds how long an unmatched begin runs. */
+export const RUNNING_STALE_MULTIPLIER = 10;
+/** Without a duration prior, unmatched work stops reading as running after 1 day. */
+export const RUNNING_STALE_WITHOUT_PRIOR_MS = 24 * 60 * 60 * 1000;
+
+/** The newest completed verb action on one branch. */
+export interface LastCompletedAction {
+  verb: string;
+  outcome: LogbookOutcome;
+  at: string;
+  failedStage?: string;
+}
+
+/** One fresh begin event whose paired completion is absent. */
+export interface InFlightAction {
+  verb: string;
+  started: string;
+}
+
+/** Logbook-derived activity for one branch. */
+export interface BranchLogbookActivity {
+  lastAction?: LastCompletedAction;
+  running?: InFlightAction;
+  /** The newest attributed event of any kind, including an unmatched begin. */
+  lastEventAt?: string;
+}
+
+/** The fleet activity read: branch facts plus project-wide duration priors. */
+export interface FleetLogbookActivity {
+  byBranch: Map<string, BranchLogbookActivity>;
+  typicalDurationMs: Map<string, number>;
+}
 
 /** One whole logbook, read tolerantly. */
 export interface LogbookStream {
@@ -26,6 +69,163 @@ export interface LogbookStream {
 /** An empty stream — the absent-logbook state. */
 function emptyStream(): LogbookStream {
   return { events: [], unparsed: 0, months: [] };
+}
+
+/** Group branch-attributed values, dropping unresolvable branch names. */
+export function byBranch<T extends { branch: string | null }>(
+  events: readonly T[],
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const event of events) {
+    if (event.branch === null) {
+      continue;
+    }
+    const group = groups.get(event.branch);
+    if (group === undefined) {
+      groups.set(event.branch, [event]);
+    } else {
+      group.push(event);
+    }
+  }
+  return groups;
+}
+
+/** Median duration, rounded for the integer-millisecond wire contract. */
+function medianDuration(events: readonly VerbEvent[]): number | undefined {
+  if (events.length === 0) {
+    return undefined;
+  }
+  const values = events.map((event) => event.duration_ms).sort((a, b) => a - b);
+  const middle = Math.floor(values.length / 2);
+  const high = values[middle];
+  if (high === undefined) {
+    return undefined;
+  }
+  if (values.length % 2 === 1) {
+    return Math.round(high);
+  }
+  const low = values[middle - 1];
+  return low === undefined ? Math.round(high) : Math.round((low + high) / 2);
+}
+
+/** The staleness horizon for one verb's unmatched begin event. */
+function runningStaleAfter(typicalDurationMs: number | undefined): number {
+  return typicalDurationMs === undefined
+    ? RUNNING_STALE_WITHOUT_PRIOR_MS
+    : Math.max(
+      RUNNING_STALE_MIN_MS,
+      typicalDurationMs * RUNNING_STALE_MULTIPLIER,
+    );
+}
+
+type BranchEvent = Exclude<LogbookEvent, { kind: "prune" }>;
+
+/**
+ * Derive fleet activity from one bounded, chronological event tail. Duration
+ * priors use completed events from the current config epoch when any exist for
+ * that verb, then fall back to every recent completion. A fresh unmatched begin
+ * is running; after its verb-specific horizon it remains crash evidence and
+ * last-activity evidence without claiming live work.
+ */
+export function deriveFleetLogbookActivity(
+  events: readonly LogbookEvent[],
+  currentEpoch: string,
+  nowMs: number = Date.now(),
+): FleetLogbookActivity {
+  const completions = events.filter((event): event is VerbEvent =>
+    event.kind === "verb"
+  );
+  const completionsByVerb = new Map<string, VerbEvent[]>();
+  for (const event of completions) {
+    const group = completionsByVerb.get(event.verb);
+    if (group === undefined) {
+      completionsByVerb.set(event.verb, [event]);
+    } else {
+      group.push(event);
+    }
+  }
+
+  const typicalDurationMs = new Map<string, number>();
+  for (const [verb, samples] of completionsByVerb) {
+    const current = samples.filter((event) => event.epoch === currentEpoch);
+    const median = medianDuration(current.length > 0 ? current : samples);
+    if (median !== undefined) {
+      typicalDurationMs.set(verb, median);
+    }
+  }
+
+  const finishedInvocations = new Set(
+    completions.flatMap((event) =>
+      event.invocation === undefined ? [] : [event.invocation]
+    ),
+  );
+  const attributed = events.filter((event): event is BranchEvent =>
+    event.kind !== "prune"
+  );
+  const activity = new Map<string, BranchLogbookActivity>();
+
+  for (const [branch, branchEvents] of byBranch(attributed)) {
+    const branchActivity: BranchLogbookActivity = {};
+    for (const event of branchEvents) {
+      if (
+        branchActivity.lastEventAt === undefined ||
+        event.at >= branchActivity.lastEventAt
+      ) {
+        branchActivity.lastEventAt = event.at;
+      }
+      if (
+        event.kind === "verb" &&
+        (branchActivity.lastAction === undefined ||
+          event.at >= branchActivity.lastAction.at)
+      ) {
+        branchActivity.lastAction = {
+          verb: event.verb,
+          outcome: event.outcome,
+          at: event.at,
+          ...(event.failed_stage !== undefined
+            ? { failedStage: event.failed_stage }
+            : {}),
+        };
+      }
+    }
+
+    const running = branchEvents
+      .filter((event): event is BeginEvent =>
+        event.kind === "begin" && !finishedInvocations.has(event.invocation)
+      )
+      .filter((event) => {
+        const started = Date.parse(event.at);
+        if (Number.isNaN(started)) {
+          return false;
+        }
+        const age = Math.max(0, nowMs - started);
+        return age <= runningStaleAfter(typicalDurationMs.get(event.verb));
+      })
+      .sort((a, b) => a.at.localeCompare(b.at))
+      .at(-1);
+    if (running !== undefined) {
+      branchActivity.running = {
+        verb: running.verb,
+        started: running.at,
+      };
+    }
+    activity.set(branch, branchActivity);
+  }
+
+  return { byBranch: activity, typicalDurationMs };
+}
+
+/** Read and derive the bounded activity tail used by `status` fleet rows. */
+export async function readFleetLogbookActivity(
+  commonGitDir: string,
+  currentEpoch: string,
+  nowMs: number = Date.now(),
+): Promise<FleetLogbookActivity> {
+  const stream = await readRecentLogbookStream(
+    commonGitDir,
+    FLEET_ACTIVITY_EVENT_LIMIT,
+  );
+  return deriveFleetLogbookActivity(stream.events, currentEpoch, nowMs);
 }
 
 /**

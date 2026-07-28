@@ -90,6 +90,7 @@ import {
   localBranchExists,
   mainRepoPath,
   prefixBranches,
+  resolveCommonGitDir,
   unlandedPrefixBranches,
   worktreeGitKey,
 } from "../worktree/git.ts";
@@ -118,6 +119,12 @@ import {
   type LandingAuthorityResolution,
   uncoveredLandingAuthorityDetails,
 } from "../worktree/landing_authority.ts";
+import { configEpoch } from "../logbook/epoch.ts";
+import {
+  type BranchLogbookActivity,
+  type FleetLogbookActivity,
+  readFleetLogbookActivity,
+} from "../logbook/read.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -367,8 +374,28 @@ export async function statusResult(
     // for like against row.path (also canonical).
     const here = await Deno.realPath(root).catch(() => root);
     const settings = await loadIdentitySettings(root).catch(() => undefined);
+    const nowMs = Date.now();
+    let logbookActivity: FleetLogbookActivity | undefined;
+    if (cfg.project.logbook) {
+      const commonGitDir = await resolveCommonGitDir(root);
+      if (commonGitDir !== undefined) {
+        logbookActivity = await readFleetLogbookActivity(
+          commonGitDir,
+          configEpoch(cfg).fingerprint,
+          nowMs,
+        );
+      }
+    }
     fleet = await Promise.all(
-      fleetRows.map((row) => fleetEntryFor(row, here, cfg, settings)),
+      fleetRows.map(async (row) => {
+        const entry = await fleetEntryFor(row, here, cfg, settings);
+        return applyLogbookActivity(
+          entry,
+          logbookActivity?.byBranch.get(row.branch),
+          logbookActivity?.typicalDurationMs,
+          nowMs,
+        );
+      }),
     );
     data.fleet = fleet;
     // Cross-worktree changed-file collisions — the one fleet fact no single
@@ -464,6 +491,7 @@ export async function statusResult(
     setupPending,
     gateReceipt,
     landingAuthority,
+    logbookEnabled: cfg.project.logbook,
   });
   const result: DiscernResult<StatusData> = {
     ok: true,
@@ -631,6 +659,65 @@ async function fleetEntryFor(
   return entry;
 }
 
+/** Later of 2 ISO timestamps, preserving the available value when only one parses. */
+function latestActivity(
+  gitAt: string | undefined,
+  logbookAt: string | undefined,
+): string | undefined {
+  if (gitAt === undefined) {
+    return logbookAt;
+  }
+  if (logbookAt === undefined) {
+    return gitAt;
+  }
+  const gitMs = Date.parse(gitAt);
+  const logbookMs = Date.parse(logbookAt);
+  if (Number.isNaN(logbookMs)) {
+    return gitAt;
+  }
+  if (Number.isNaN(gitMs)) {
+    return logbookAt;
+  }
+  return logbookMs > gitMs ? logbookAt : gitAt;
+}
+
+/** Join one fleet row to the bounded logbook read for its branch. */
+function applyLogbookActivity(
+  entry: StatusFleetEntry,
+  activity: BranchLogbookActivity | undefined,
+  typicalDurationMs: ReadonlyMap<string, number> | undefined,
+  nowMs: number,
+): StatusFleetEntry {
+  if (activity === undefined) {
+    return entry;
+  }
+  entry.last_activity = latestActivity(
+    entry.last_activity,
+    activity.lastEventAt,
+  );
+  if (activity.lastAction !== undefined) {
+    entry.last_action = {
+      verb: activity.lastAction.verb,
+      outcome: activity.lastAction.outcome,
+      at: activity.lastAction.at,
+      ...(activity.lastAction.failedStage !== undefined
+        ? { failed_stage: activity.lastAction.failedStage }
+        : {}),
+    };
+  }
+  if (activity.running !== undefined) {
+    const startedMs = Date.parse(activity.running.started);
+    const typical = typicalDurationMs?.get(activity.running.verb);
+    entry.running = {
+      verb: activity.running.verb,
+      started: activity.running.started,
+      elapsed_ms: Number.isNaN(startedMs) ? 0 : Math.max(0, nowMs - startedMs),
+      ...(typical !== undefined ? { typical_duration_ms: typical } : {}),
+    };
+  }
+  return entry;
+}
+
 /** What the gate would fire: the wired declared jobs and the scope gates the current
  * change triggers — reusing the gate's own
  * scope-gate selection (`planScopeGates`) so status and `done` agree. */
@@ -690,6 +777,8 @@ interface HintContext {
   gateReceipt: GateReceiptCheckData | undefined;
   /** The current branch's authority, from the one resolver used by acceptance. */
   landingAuthority: LandingAuthorityResolution | undefined;
+  /** Whether logbook-backed fleet activity can be read. */
+  logbookEnabled: boolean;
 }
 
 /**
@@ -894,6 +983,9 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // The survey holds a line of work other than this one — give the agent the
   // ownership rule (json/MCP only; humans get the caption under the fleet table).
   // Location-agnostic: fires from the main checkout and under --all from a worktree.
+  if (ctx.fleet !== undefined && !ctx.logbookEnabled) {
+    hints.push(fire(HINTS["status-fleet-logbook-disabled"]));
+  }
   if (ctx.fleet?.some((e) => !e.is_main && !e.is_current)) {
     hints.push(fire(HINTS["fleet-ownership"]));
   }
@@ -1165,6 +1257,44 @@ export function relativeAge(
   return `${Math.floor(days / 365)}y ago`;
 }
 
+/** Compact elapsed or typical duration for one fleet action cell. */
+function compactDuration(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h`;
+  }
+  return `${Math.floor(hours / 24)}d`;
+}
+
+/** The one-line action cell: live work takes precedence over its last completion. */
+function fleetActionSummary(entry: StatusFleetEntry): string {
+  if (entry.running !== undefined) {
+    const typical = entry.running.typical_duration_ms === undefined
+      ? ""
+      : ` of ~${compactDuration(entry.running.typical_duration_ms)}`;
+    return `running: ${entry.running.verb} · ${
+      compactDuration(entry.running.elapsed_ms)
+    }${typical}`;
+  }
+  if (entry.last_action === undefined) {
+    return "—";
+  }
+  const stage = entry.last_action.failed_stage === undefined
+    ? ""
+    : ` (${entry.last_action.failed_stage})`;
+  return `${entry.last_action.verb} ${entry.last_action.outcome}${stage} · ${
+    relativeAge(entry.last_action.at)
+  }`;
+}
+
 /** Render the status result as a compact human summary on stdout (quiet under
  * `--json`, which never calls this). `verbose` additionally prints each honored
  * receipt page — the owner-side pull for the review moment (ADR 0188). */
@@ -1388,6 +1518,7 @@ const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
         ? "?/?"
         : `${e.ahead}/${e.behind}`,
   },
+  { header: "LAST ACTION", value: fleetActionSummary },
   { header: "LAST ACTIVITY", value: (e) => relativeAge(e.last_activity) },
 ];
 

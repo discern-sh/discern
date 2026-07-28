@@ -36,10 +36,10 @@ One row per set, in registry order; the sections below follow the same order and
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 138     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 139     | "Advisory"       | node `hints`                |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
-| [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 4       | "Logbook"        | node `logbook`              |
+| [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 27      | "Patterns"       | node `patterns`             |
@@ -425,7 +425,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 138
+- Members: 139
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`, `tests/result_schemas_test.ts`, `tests/engine_json_purity_test.ts`, `tests/engine_logbook_test.ts`, `tests/patterns_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -456,7 +456,7 @@ How one verb invocation ended: cleanly, red after running, partial after an irre
 The event kinds written to the local logbook and interpreted by its advisory readers.
 
 - Source: `src/engine/logbook/schema.ts` — `logbookEventSchema`
-- Members: 4
+- Members: 5
 - Guards: `tests/engine_logbook_test.ts`, `tests/engine_patterns_test.ts`, `tests/logbook_test.ts`, `tests/logbook_routing_test.ts`, `tests/logbook_no_network_test.ts`, `tests/patterns_test.ts`
 - Glossary: the "Logbook" entry carries the concept
 - Feature canon: described by the `logbook` node

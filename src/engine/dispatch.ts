@@ -54,6 +54,11 @@ import { recordedExit } from "./logbook/cli.ts";
 import { runCommandGroup } from "../shared/command_group.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
+export {
+  KNOWN_ENGINE_VERBS,
+  KNOWN_INSTALLER_VERBS,
+  KNOWN_VERBS,
+} from "../shared/verbs.ts";
 
 // Verb BODIES load at dispatch time (`await import(…)` inside each action),
 // never at registration: every invocation — `--help` included — builds the
@@ -66,58 +71,6 @@ export { reportUnknownCommand } from "./unknown_command.ts";
  * {@link runWorktreeOp} and handed to each operation callback so the callback
  * names its operation without re-importing. */
 type LifecycleModule = typeof import("./worktree/lifecycle.ts");
-
-/** The top-level engine verbs Cliffy owns.
- * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
-export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
-  "done",
-  "prepare",
-  "test",
-  "improvement",
-  "standards",
-  "refresh",
-  "tidy",
-  "impact",
-  "coupling",
-  "patterns",
-  "status",
-  "desk",
-  "accept",
-  "update",
-  "start",
-  "worktree",
-  "identity",
-  "skills",
-  "script",
-  "mcp",
-]);
-
-/** The installer verbs Cliffy owns (registered in `buildCli`, not the engine). Kept
- * beside the engine set so the FULL built-in vocabulary lives in one file — the
- * beside the engine set so the full built-in vocabulary remains one forcing
- * function. `main.ts` re-exports the {@link KNOWN_VERBS} union it forms. */
-export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
-  "setup",
-  "upgrade",
-  "uninstall",
-  "doctor",
-  "preset",
-  "map",
-  "help",
-  "config",
-  "licenses",
-]);
-
-/**
- * Every built-in verb the router dispatches itself — installer + engine. This is
- * the single source of truth for routing, grammatical normalization, help-group
- * coverage, and project script collision tests. `main.ts` re-exports it as its
- * own `KNOWN_VERBS`; the parity guard ties it to the live registrations.
- */
-export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
-  ...KNOWN_INSTALLER_VERBS,
-  ...KNOWN_ENGINE_VERBS,
-]);
 
 /** Built-in command names considered by the typo suggester.
  * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops command-group

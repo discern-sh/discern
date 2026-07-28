@@ -34,6 +34,13 @@ import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { configEpoch } from "../src/engine/logbook/epoch.ts";
+import { appendEvent } from "../src/engine/logbook/store.ts";
+import {
+  LOGBOOK_SCHEMA_VERSION,
+  type LogbookEvent,
+} from "../src/engine/logbook/schema.ts";
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -246,6 +253,145 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
       `--local must restore the gate block: ${local.stdout}`,
     );
     assert(Array.isArray(lobj.data.scopes));
+  });
+});
+
+Deno.test("status fleet: logbook actions, live work, duration priors, and last-activity max reach each row", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+    await addWorktree(dir, "beta");
+    const epoch = configEpoch(await loadConfig(dir)).fingerprint;
+    const now = Date.now();
+    const at = (agoMs: number): string => new Date(now - agoMs).toISOString();
+    const completion = (
+      branch: string,
+      invocation: string,
+      atIso: string,
+      durationMs: number,
+      outcome: "ok" | "failed" = "ok",
+      failedStage?: string,
+    ): LogbookEvent => ({
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: atIso,
+      writer: "test",
+      kind: "verb",
+      invocation,
+      verb: "done",
+      surface: "cli",
+      driver: {},
+      branch,
+      head: "abc1234",
+      clean: true,
+      outcome,
+      ...(failedStage !== undefined ? { failed_stage: failedStage } : {}),
+      duration_ms: durationMs,
+      epoch,
+    });
+    const commonGitDir = join(dir, ".git");
+    for (
+      const event of [
+        completion("agent/alpha", "alpha-1", at(30 * 60_000), 180_000),
+        completion("agent/alpha", "alpha-2", at(20 * 60_000), 300_000),
+        completion(
+          "agent/beta",
+          "beta-1",
+          at(12 * 60_000 + 30_000),
+          240_000,
+          "failed",
+          "test",
+        ),
+        {
+          schema: LOGBOOK_SCHEMA_VERSION,
+          at: at(2 * 60_000 + 30_000),
+          writer: "test",
+          kind: "begin",
+          invocation: "alpha-running",
+          verb: "done",
+          surface: "cli",
+          driver: {},
+          branch: "agent/alpha",
+          head: "abc1234",
+          epoch,
+        },
+        {
+          schema: LOGBOOK_SCHEMA_VERSION,
+          at: new Date(now + 60_000).toISOString(),
+          writer: "test",
+          kind: "config-change",
+          branch: "agent/alpha",
+          sections: ["jobs"],
+          epoch,
+        },
+      ] satisfies LogbookEvent[]
+    ) {
+      await appendEvent(commonGitDir, event);
+    }
+
+    const run = await runAgent(dir, ["status", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = parseStatus(run.stdout);
+    const alpha = result.data.fleet.find((row: { branch: string }) =>
+      row.branch === "agent/alpha"
+    );
+    const beta = result.data.fleet.find((row: { branch: string }) =>
+      row.branch === "agent/beta"
+    );
+    assert(alpha !== undefined && beta !== undefined, run.stdout);
+    assertEquals(alpha.running.verb, "done");
+    assertEquals(alpha.running.started, at(2 * 60_000 + 30_000));
+    assert(
+      alpha.running.elapsed_ms >= 150_000 &&
+        alpha.running.elapsed_ms < 180_000,
+      JSON.stringify(alpha.running),
+    );
+    assertEquals(alpha.running.typical_duration_ms, 240_000);
+    assertEquals(
+      alpha.last_activity,
+      new Date(now + 60_000).toISOString(),
+      "the newest branch event must outrank the git-derived timestamp",
+    );
+    assertEquals(beta.last_action, {
+      verb: "done",
+      outcome: "failed",
+      at: at(12 * 60_000 + 30_000),
+      failed_stage: "test",
+    });
+    assertEquals(beta.running, undefined);
+
+    const human = await runAgent(dir, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "running: done · 2m of ~4m");
+    assertStringIncludes(human.output, "done failed (test) · 12m ago");
+  });
+});
+
+Deno.test("status fleet: logbook-off rows degrade to git activity and carry the point-of-use hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const run = await runAgent(dir, ["status", "--json"]);
+    assertEquals(run.code, 0, run.output);
+    const result = parseStatus(run.stdout);
+    for (const row of result.data.fleet) {
+      assertEquals(row.last_action, undefined);
+      assertEquals(row.running, undefined);
+      assert(
+        typeof row.last_activity === "string",
+        "git-derived last_activity remains available",
+      );
+    }
+    const expected = assertHasHint(
+      result,
+      HINTS["status-fleet-logbook-disabled"],
+    );
+    const human = await runAgent(dir, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, expected);
   });
 });
 
@@ -487,9 +633,9 @@ Deno.test("status fleet (human): representative table rendering is pinned", asyn
       block,
       [
         "",
-        "  WORKTREE  BRANCH       STATE  AHEAD/BEHIND  LAST ACTIVITY",
-        "  (main)    main         clean  —             <age> ← you",
-        "  alpha     agent/alpha  clean  0/0           <age>",
+        "  WORKTREE  BRANCH       STATE  AHEAD/BEHIND  LAST ACTION  LAST ACTIVITY",
+        "  (main)    main         clean  —             —            <age> ← you",
+        "  alpha     agent/alpha  clean  0/0           —            <age>",
         caption,
         "",
       ].join("\n"),

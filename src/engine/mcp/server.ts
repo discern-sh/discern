@@ -372,8 +372,10 @@ export const TOOLS: McpTool[] = orderTools([
       "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
-      "Git-clean state, ahead/behind, a last_activity timestamp, is_current marking the row " +
-      "this call is rooted in, and broken flagging a checkout whose creation never " +
+      "Git-clean state, ahead/behind, last_action naming the newest completed " +
+      "logbook verb, running naming fresh work in flight with elapsed and typical " +
+      "duration, and last_activity taking the later of Git or logbook activity; " +
+      "is_current marks the row this call is rooted in, and broken flags a checkout whose creation never " +
       "completed; each row also carries its landing_authority when a grant exists — " +
       "every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); " +
@@ -1206,11 +1208,20 @@ interface McpRecording {
  * at {@link completeToolCall}, after every delivered hint has been attached. */
 function beginMcpRecording(
   root: string,
+  verb: string,
+  args: Record<string, unknown>,
   mcpClient?: RecordedMcpClient,
 ): McpRecording {
+  const driver = mcpDriverFacts(mcpClient);
+  const { flags } = mcpCallFacts(args);
   return {
-    recorder: beginRecording(root),
-    driver: mcpDriverFacts(mcpClient),
+    recorder: beginRecording(root, {
+      verb,
+      surface: "mcp",
+      driver,
+      ...(flags !== undefined ? { flags } : {}),
+    }),
+    driver,
     started: performance.now(),
   };
 }
@@ -1333,9 +1344,12 @@ async function dispatchToolCall(
           `relative path safely. Pass an absolute path inside the discern project or ` +
           `worktree this call should use.`,
       },
-      recording: heldRoot === undefined
-        ? undefined
-        : beginMcpRecording(heldRoot, mcpClient),
+      recording: heldRoot === undefined ? undefined : beginMcpRecording(
+        heldRoot,
+        verbOf(tool.name),
+        args,
+        mcpClient,
+      ),
     };
   }
   const root = pathArg ? await findRoot(pathArg) : working.get();
@@ -1357,7 +1371,12 @@ async function dispatchToolCall(
       recording: undefined,
     };
   }
-  const recording = beginMcpRecording(root, mcpClient);
+  const recording = beginMcpRecording(
+    root,
+    verbOf(tool.name),
+    args,
+    mcpClient,
+  );
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_map`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty

@@ -32,7 +32,11 @@ import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
-import { RECORDED_CLI_VERBS } from "../src/engine/logbook/cli.ts";
+import {
+  BEGIN_RECORDED_CLI_VERBS,
+  RECORDED_CLI_VERBS,
+} from "../src/engine/logbook/cli.ts";
+import { LOGBOOK_EFFECTFUL_VERBS } from "../src/shared/verbs.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -150,6 +154,17 @@ Deno.test("every CLI verb routes through the logbook recording wrapper", () => {
     [],
     "the logbook wrapper registered a verb the CLI SSOT does not know — fix the " +
       "verb string passed to recordedExit (its first word must be the top-level verb)",
+  );
+});
+
+Deno.test("every effectful CLI verb auto-enrols in begin recording", () => {
+  buildCli(false);
+  assertEquals(
+    sorted(BEGIN_RECORDED_CLI_VERBS),
+    sorted(LOGBOOK_EFFECTFUL_VERBS),
+    "effectful CLI verbs have drifted from logbook begin recording — register " +
+      "the action through recordedExit with its canonical display-form verb, or " +
+      "classify a pure-observation verb in shared/verbs.ts",
   );
 });
 
