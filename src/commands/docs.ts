@@ -509,8 +509,9 @@ function invalidOptions(log: Logger, verb: string, message: string): number {
  */
 function resolveWidth(explicit: number | undefined): number {
   if (explicit && explicit > 0) return Math.floor(explicit);
-  const cols = terminalWidth();
-  if (!cols) return 80;
+  // A fallback of 82 preserves the renderer's established 80-column page
+  // after its two-column margin.
+  const cols = terminalWidth({ fallback: 82 });
   return Math.max(40, Math.min(cols - 2, 100));
 }
 

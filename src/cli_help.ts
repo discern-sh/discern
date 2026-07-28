@@ -152,7 +152,10 @@ function helpWidth(options: OperatorHelpOptions): number {
   if (options.width !== undefined) {
     return Math.max(1, Math.floor(options.width));
   }
-  return terminalWidth(options.env ?? Deno.env) ?? 150;
+  return terminalWidth({
+    env: options.env ?? Deno.env,
+    fallback: 150,
+  });
 }
 
 /**
