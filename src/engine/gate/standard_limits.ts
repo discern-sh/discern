@@ -19,10 +19,16 @@ import {
  * distinguishes: a parsed config, no config on the trunk at all, an unreadable
  * trunk, or a config that was fetched but does not parse. */
 export type TrunkConfigRead =
-  | { kind: "parsed"; config: RawConfig }
-  | { kind: "absent" }
+  | {
+    kind: "parsed";
+    config: RawConfig;
+    text: string;
+    commit: string;
+    path: string;
+  }
+  | { kind: "absent"; commit: string }
   | { kind: "unreadable"; reason: string }
-  | { kind: "parse_failed"; reason: string };
+  | { kind: "parse_failed"; reason: string; commit: string; path: string };
 
 /**
  * Read the trunk's committed config raw (it may be older or un-migrated, so it
@@ -44,25 +50,34 @@ export async function readTrunkConfig(
       reason: `the trunk '${mainBranch}' does not resolve to a commit here`,
     };
   }
+  const commit = ref.stdout.trim();
   for (const rel of ["discern.toml", ".discern/config.toml"]) {
-    const out = await runGit(["show", `${mainBranch}:./${rel}`], {
+    const out = await runGit(["show", `${commit}:./${rel}`], {
       cwd: root,
     });
     if (!out.success) {
       continue;
     }
     try {
-      return { kind: "parsed", config: new RawConfig(out.stdout) };
+      return {
+        kind: "parsed",
+        config: new RawConfig(out.stdout),
+        text: out.stdout,
+        commit,
+        path: rel,
+      };
     } catch (error) {
       return {
         kind: "parse_failed",
+        commit,
+        path: rel,
         reason: `the trunk's ${rel} does not parse: ${
           error instanceof Error ? error.message : String(error)
         }`,
       };
     }
   }
-  return { kind: "absent" };
+  return { kind: "absent", commit };
 }
 
 /** The shared Tier-1 outcome. `blockedStandards` names configured standards

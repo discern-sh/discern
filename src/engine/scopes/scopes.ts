@@ -89,6 +89,7 @@ export function stripRepoPathPrefix(
 export async function collectPaths(
   root: string,
   mainBranch: string,
+  headRef = "HEAD",
 ): Promise<string[] | null> {
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
@@ -99,7 +100,7 @@ export async function collectPaths(
   // set (a rename out of a gated scope would then fire fewer gates than a plain
   // deletion). Detection off, both sides list as a D + an A.
   const committed = await runGit(
-    ["diff", "--name-only", "--no-renames", "-z", `${mainBranch}...HEAD`],
+    ["diff", "--name-only", "--no-renames", "-z", `${mainBranch}...${headRef}`],
     { cwd: root },
   );
   if (!committed.success) {
@@ -208,6 +209,19 @@ export function scopesForPaths(
   const scopes = config.scopes;
   const fireScopes = Object.keys(scopes).filter((s) => !scopes[s]?.neutral);
   return scopesTouchedBy(paths, config, fireScopes);
+}
+
+/**
+ * Every configured scope one explicit path belongs to, including neutral
+ * scopes, in declaration order. Landing-authority checks use this same matcher
+ * as the gate but need the full semantic classification: a neutral docs scope
+ * may carry a standing grant even though it fires no gate.
+ */
+export function scopeNamesForPath(
+  path: string,
+  config: DiscernConfig,
+): string[] {
+  return scopesTouchedBy([path], config, Object.keys(config.scopes));
 }
 
 /**

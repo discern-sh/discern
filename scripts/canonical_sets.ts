@@ -225,6 +225,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "landing-consent-sources",
+    title: "Landing consent sources",
+    what:
+      "The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.",
+    source: {
+      kind: "module",
+      module: "src/shared/consent.ts",
+      exportName: "LANDING_CONSENT_SOURCES",
+    },
+    guards: [
+      "tests/engine_landing_authority_test.ts",
+      "tests/engine_consent_gate_test.ts",
+      "tests/engine_logbook_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "three evidence forms of the landing-consent concept, documented together on the acceptance page",
+      },
+      featureCanon: { nodeId: "consent-attestations" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/consent.ts")).LANDING_CONSENT_SOURCES,
+    ],
+  },
+  {
     id: "desk-actions",
     title: "Desk actions",
     what:

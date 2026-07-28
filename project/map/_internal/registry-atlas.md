@@ -17,6 +17,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                           | `src/engine/mcp/server.ts#TOOLS`                                               | 16      | —                | node `mcp-surface`          |
 | [`command-groups`](#command-groups--command-groups)                            | `src/cli_help.ts#COMMAND_GROUPS`                                               | 6       | —                | node `bundled-help`         |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)             | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                    | 2       | —                | node `consent-attestations` |
+| [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources) | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                | 3       | —                | node `consent-attestations` |
 | [`desk-actions`](#desk-actions--desk-actions)                                  | `src/engine/desk/model.ts#DESK_ACTIONS`                                        | 9       | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                         | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                | 8       | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                     | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
@@ -46,9 +47,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 35      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 36      | —                | node `canonical-sets`       |
 
-35 sets · 63 guard tests · 14 committed artifacts.
+36 sets · 64 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -69,13 +70,14 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
-| `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
+| `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs), [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                           |
 | `tests/engine_desk_model_test.ts`         | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                |
 | `tests/engine_desk_runtime_test.ts`       | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                |
 | `tests/engine_effort_grant_test.ts`       | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                       |
 | `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
 | `tests/engine_interrupt_surfaces_test.ts` | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
-| `tests/engine_logbook_test.ts`            | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/engine_landing_authority_test.ts`  | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                               |
+| `tests/engine_logbook_test.ts`            | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                          |
 | `tests/engine_nondefault_paths_test.ts`   | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
 | `tests/engine_patterns_test.ts`           | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                  |
 | `tests/engine_plan_parity_test.ts`        | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                     |
@@ -190,6 +192,16 @@ The verbs that refuse without a fresh `--confirmed` attestation; the consent-gat
 - Members: 2
 - Guards: `tests/engine_consent_gate_test.ts`
 - Glossary: not enrolled — an attestation modality of two verbs, documented on each verb rather than as a term of its own
+- Feature canon: described by the `consent-attestations` node
+
+## `landing-consent-sources` — Landing consent sources
+
+The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.
+
+- Source: `src/shared/consent.ts` — `LANDING_CONSENT_SOURCES`
+- Members: 3
+- Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
+- Glossary: not enrolled — three evidence forms of the landing-consent concept, documented together on the acceptance page
 - Feature canon: described by the `consent-attestations` node
 
 ## `desk-actions` — Desk actions
@@ -494,7 +506,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 35
+- Members: 36
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

@@ -1,0 +1,380 @@
+/**
+ * Landing authority — the one resolver shared by acceptance and its lifecycle
+ * envelopes.
+ *
+ * Standing grants are read from the trunk's committed config at a pinned commit,
+ * never from the branch. Scope membership routes through the gate's matcher.
+ * Effort grants come from the desk-owned Git-admin marker. Every uncertainty
+ * fails toward a conversation, and a malformed committed policy also blocks an
+ * apply until the trunk is repaired.
+ */
+
+import { parse as parseToml } from "@std/toml";
+import {
+  configSchema,
+  type DiscernConfig,
+} from "../../shared/config_schema.ts";
+import type { LandingConsent } from "../../shared/consent.ts";
+import { runGit } from "../../shared/subprocess.ts";
+import { readTrunkConfig } from "../gate/standard_limits.ts";
+import { collectPaths, scopeNamesForPath } from "../scopes/scopes.ts";
+import { readEffortGrant } from "./effort_grant.ts";
+
+/** One changed path and every configured scope it matches. */
+export interface ClassifiedLandingPath {
+  readonly path: string;
+  readonly scopes: readonly string[];
+}
+
+/** Pure facts supplied to {@link resolveLandingAuthority}. */
+export interface LandingAuthorityFacts {
+  readonly effortGranted: boolean;
+  readonly classifications: readonly ClassifiedLandingPath[];
+  readonly grantedScopes: readonly string[];
+  readonly definedScopes: readonly string[];
+  readonly warnings?: readonly string[];
+  readonly blockingReason?: string;
+  readonly trunkCommit?: string;
+  readonly headCommit?: string;
+}
+
+/** The complete authority decision, including evidence needed at apply time. */
+export type LandingAuthorityResolution =
+  | {
+    readonly kind: "authorized";
+    readonly consent: LandingConsent;
+    readonly classifications: readonly ClassifiedLandingPath[];
+    readonly uncovered: readonly [];
+    readonly warnings: readonly string[];
+    readonly trunkCommit?: string;
+    readonly headCommit?: string;
+  }
+  | {
+    readonly kind: "conversation-required";
+    readonly classifications: readonly ClassifiedLandingPath[];
+    readonly uncovered: readonly ClassifiedLandingPath[];
+    readonly warnings: readonly string[];
+    readonly blockingReason?: string;
+    readonly trunkCommit?: string;
+    readonly headCommit?: string;
+  };
+
+function unique(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+/**
+ * Resolve already-gathered facts. Pure: no Git, config, clock, or filesystem
+ * reads. An effort grant wins; otherwise every changed path must match at least
+ * one known granted scope. Empty and unclassified changes require conversation.
+ */
+export function resolveLandingAuthority(
+  facts: LandingAuthorityFacts,
+): LandingAuthorityResolution {
+  const warnings = [...(facts.warnings ?? [])];
+  if (facts.effortGranted) {
+    return {
+      kind: "authorized",
+      consent: { source: "effort-grant" },
+      classifications: facts.classifications,
+      uncovered: [],
+      warnings,
+      ...(facts.trunkCommit !== undefined
+        ? { trunkCommit: facts.trunkCommit }
+        : {}),
+      ...(facts.headCommit !== undefined
+        ? { headCommit: facts.headCommit }
+        : {}),
+    };
+  }
+
+  const defined = new Set(facts.definedScopes);
+  const granted = unique(facts.grantedScopes);
+  const unknown = granted.filter((scope) => !defined.has(scope));
+  if (unknown.length > 0) {
+    warnings.push(
+      `The trunk's [acceptance] grant names unknown ${
+        unknown.length === 1 ? "scope" : "scopes"
+      }: ${unknown.join(", ")}. Unknown scopes cover nothing.`,
+    );
+  }
+  const knownGranted = granted.filter((scope) => defined.has(scope));
+  const grantedSet = new Set(knownGranted);
+  const used = new Set<string>();
+  const uncovered: ClassifiedLandingPath[] = [];
+  for (const classification of facts.classifications) {
+    const covering = classification.scopes.filter((scope) =>
+      grantedSet.has(scope)
+    );
+    if (covering.length === 0) {
+      uncovered.push(classification);
+      continue;
+    }
+    for (const scope of covering) {
+      used.add(scope);
+    }
+  }
+
+  if (
+    facts.classifications.length > 0 && uncovered.length === 0 &&
+    used.size > 0 && facts.blockingReason === undefined
+  ) {
+    return {
+      kind: "authorized",
+      consent: {
+        source: "standing-grant",
+        scopes: knownGranted.filter((scope) => used.has(scope)),
+      },
+      classifications: facts.classifications,
+      uncovered: [],
+      warnings,
+      ...(facts.trunkCommit !== undefined
+        ? { trunkCommit: facts.trunkCommit }
+        : {}),
+      ...(facts.headCommit !== undefined
+        ? { headCommit: facts.headCommit }
+        : {}),
+    };
+  }
+
+  return {
+    kind: "conversation-required",
+    classifications: facts.classifications,
+    uncovered,
+    warnings,
+    ...(facts.blockingReason !== undefined
+      ? { blockingReason: facts.blockingReason }
+      : {}),
+    ...(facts.trunkCommit !== undefined
+      ? { trunkCommit: facts.trunkCommit }
+      : {}),
+    ...(facts.headCommit !== undefined ? { headCommit: facts.headCommit } : {}),
+  };
+}
+
+function conversationRequired(
+  warnings: readonly string[] = [],
+  blockingReason?: string,
+): LandingAuthorityResolution {
+  return resolveLandingAuthority({
+    effortGranted: false,
+    classifications: [],
+    grantedScopes: [],
+    definedScopes: [],
+    warnings,
+    ...(blockingReason !== undefined ? { blockingReason } : {}),
+  });
+}
+
+function schemaFailure(
+  text: string,
+  path: string,
+): { config?: DiscernConfig; reason?: string } {
+  let raw: unknown;
+  try {
+    raw = parseToml(text);
+  } catch (error) {
+    return {
+      reason: `the trunk's ${path} does not parse: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+  // Deliberately schema-only: an unknown acceptance scope is not a malformed
+  // document here. The pure resolver reports it and gives it zero authority.
+  const parsed = configSchema.safeParse(raw);
+  if (parsed.success) {
+    return { config: parsed.data as DiscernConfig };
+  }
+  const issue = parsed.error.issues[0];
+  const at = issue?.path.length === 0 ? "" : ` at ${issue?.path.join(".")}`;
+  return {
+    reason:
+      `the trunk's ${path} does not match the current config schema${at}: ${
+        issue?.message ?? "invalid configuration"
+      }`,
+  };
+}
+
+function effortWarnings(
+  status: Awaited<ReturnType<typeof readEffortGrant>>,
+  branch: string | undefined,
+): string[] {
+  if (status.status === "missing") {
+    return [];
+  }
+  if (status.status === "invalid") {
+    return [`The worktree's effort grant is invalid: ${status.reason}.`];
+  }
+  if (status.status === "unavailable") {
+    return [
+      `The worktree's effort grant could not be checked: ${status.reason}.`,
+    ];
+  }
+  if (branch !== undefined && status.grant.branch !== branch) {
+    return [
+      `The effort grant names ${status.grant.branch}, not the current branch ${branch}; it covers nothing.`,
+    ];
+  }
+  return [];
+}
+
+/**
+ * Read the current worktree's landing authority. The trunk snapshot is pinned
+ * before its config and diff are read, so a branch cannot alter either side of
+ * the standing-grant decision.
+ */
+export async function inspectLandingAuthority(
+  cwd: string,
+  trunk: string,
+): Promise<LandingAuthorityResolution> {
+  const [branchRead, effort] = await Promise.all([
+    runGit(["branch", "--show-current"], { cwd }),
+    readEffortGrant(cwd),
+  ]);
+  const branch = branchRead.success && branchRead.stdout.trim() !== ""
+    ? branchRead.stdout.trim()
+    : undefined;
+  const effortGranted = effort.status === "granted" &&
+    branch !== undefined && effort.grant.branch === branch;
+  const warnings = effortWarnings(effort, branch);
+  if (effortGranted) {
+    return resolveLandingAuthority({
+      effortGranted: true,
+      classifications: [],
+      grantedScopes: [],
+      definedScopes: [],
+      warnings,
+    });
+  }
+
+  const trunkConfig = await readTrunkConfig(cwd, trunk);
+  if (trunkConfig.kind === "unreadable") {
+    return conversationRequired([
+      ...warnings,
+      `Standing landing authority could not be checked: ${trunkConfig.reason}.`,
+    ]);
+  }
+  if (trunkConfig.kind === "absent") {
+    return conversationRequired(warnings);
+  }
+  if (trunkConfig.kind === "parse_failed") {
+    return conversationRequired(
+      [
+        ...warnings,
+        `Standing landing authority could not be checked: ${trunkConfig.reason}.`,
+      ],
+      trunkConfig.reason,
+    );
+  }
+
+  const typed = schemaFailure(trunkConfig.text, trunkConfig.path);
+  if (typed.config === undefined) {
+    const reason = typed.reason ??
+      `the trunk's ${trunkConfig.path} is invalid`;
+    return conversationRequired(
+      [
+        ...warnings,
+        `Standing landing authority could not be checked: ${reason}.`,
+      ],
+      reason,
+    );
+  }
+  const grantedScopes = typed.config.acceptance.pre_authorized;
+  if (grantedScopes.length === 0) {
+    return conversationRequired(warnings);
+  }
+
+  const headRead = await runGit(
+    ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+    { cwd },
+  );
+  if (!headRead.success || headRead.stdout.trim() === "") {
+    return conversationRequired([
+      ...warnings,
+      "Standing landing authority could not be checked: HEAD does not resolve to a commit.",
+    ]);
+  }
+  const headCommit = headRead.stdout.trim();
+  const changedPaths = await collectPaths(cwd, trunkConfig.commit, headCommit);
+  if (changedPaths === null) {
+    return conversationRequired([
+      ...warnings,
+      "Standing landing authority could not classify the changed paths.",
+    ]);
+  }
+  const paths = unique(changedPaths);
+  const classifications = paths.map((path) => ({
+    path,
+    scopes: scopeNamesForPath(path, typed.config as DiscernConfig),
+  }));
+  return resolveLandingAuthority({
+    effortGranted: false,
+    classifications,
+    grantedScopes,
+    definedScopes: Object.keys(typed.config.scopes),
+    warnings,
+    trunkCommit: trunkConfig.commit,
+    headCommit,
+  });
+}
+
+/**
+ * Re-check the evidence immediately before the fast-forward. Returns the reason
+ * authority expired, or undefined while it still names the validated landing.
+ */
+export async function landingAuthorityExpiry(
+  cwd: string,
+  trunk: string,
+  branch: string,
+  validatedHead: string,
+  authority: LandingAuthorityResolution,
+): Promise<string | undefined> {
+  if (authority.kind !== "authorized") {
+    return undefined;
+  }
+  if (authority.consent.source === "effort-grant") {
+    const effort = await readEffortGrant(cwd);
+    return effort.status === "granted" && effort.grant.branch === branch
+      ? undefined
+      : "the worktree's effort grant is no longer present for this branch";
+  }
+  if (authority.consent.source === "conversation") {
+    return undefined;
+  }
+  if (
+    authority.trunkCommit === undefined || authority.headCommit === undefined
+  ) {
+    return "the standing grant is missing its pinned tree evidence";
+  }
+  if (
+    authority.headCommit !== validatedHead
+  ) {
+    return "the branch changed after its standing-grant coverage was checked";
+  }
+  const currentTrunk = await runGit(
+    ["rev-parse", "--verify", "--quiet", `${trunk}^{commit}`],
+    { cwd },
+  );
+  if (
+    !currentTrunk.success ||
+    currentTrunk.stdout.trim() !== authority.trunkCommit
+  ) {
+    return "the trunk changed after its standing grant was checked";
+  }
+  return undefined;
+}
+
+/** One concise plan-detail rendering of the resolved authority. */
+export function landingAuthorityDetail(
+  authority: LandingAuthorityResolution,
+  confirmed: boolean,
+): string {
+  if (authority.kind === "authorized") {
+    if (authority.consent.source === "standing-grant") {
+      return `standing grant (${authority.consent.scopes?.join(", ") ?? ""})`;
+    }
+    return "effort grant";
+  }
+  return confirmed ? "conversation consent" : "conversation required on apply";
+}
