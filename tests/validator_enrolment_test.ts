@@ -24,15 +24,16 @@
  * message.
  *
  * SHIPPED USE, mechanically: a value import from a module in the shipped
- * closure (type-only imports are erased and never count), or — because a
- * shipped wrapper often applies a sibling export of its own module — a
- * comment-stripped intra-module reference outside the export's declaration
- * when the module itself is shipped. The residual, named: an import graph
- * read from static `import … from` clauses misses side-effect imports and
- * dynamic `import()` (none under `src/` today), and the intra-module rule
- * over-credits a reference made by an unshipped sibling. The matcher stays
- * conservative; enrolment at authoring time remains the discipline this
- * guard backs up.
+ * closure (type-only imports are erased and never count) — a static
+ * `import … from` clause, or a literal-specifier dynamic `import("…")` (the
+ * dispatcher's lazy verb bodies; the loaded namespace exposes every export,
+ * so it carries `*` semantics) — or, because a shipped wrapper often applies
+ * a sibling export of its own module, a comment-stripped intra-module
+ * reference outside the export's declaration when the module itself is
+ * shipped. The residual, named: the graph reader misses side-effect imports
+ * and computed dynamic specifiers, and the intra-module rule over-credits a
+ * reference made by an unshipped sibling. The matcher stays conservative;
+ * enrolment at authoring time remains the discipline this guard backs up.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -63,7 +64,14 @@ interface ImportEdge {
 const IMPORT_CLAUSE =
   /(?:^|\n)\s*(?:import|export)\s+(type\s+)?(?:([\w$]+)\s*,\s*)?(?:\*\s+as\s+([\w$]+)|\{([^}]*)\}|([\w$]+))?\s*from\s*["']([^"']+)["']/g;
 
-/** Static relative-import edges of one module, value names resolved. */
+/** Dynamic `import("…")` with a literal specifier — the lazy verb-body form
+ * the dispatcher uses. The awaited module namespace exposes every export, so
+ * the edge carries `*` value semantics; a computed specifier stays invisible
+ * (the named residual). */
+const DYNAMIC_IMPORT = /import\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+/** Relative-import edges of one module — static clauses and literal dynamic
+ * `import("…")` — with value names resolved. */
 function importEdges(rel: string, text: string): ImportEdge[] {
   const edges: ImportEdge[] = [];
   for (const match of text.matchAll(IMPORT_CLAUSE)) {
@@ -84,6 +92,11 @@ function importEdges(rel: string, text: string): ImportEdge[] {
     }
     if (nsName !== undefined && typeOnly === undefined) valueNames.push("*");
     edges.push({ to, valueNames });
+  }
+  for (const match of text.matchAll(DYNAMIC_IMPORT)) {
+    const spec = match[1];
+    if (spec === undefined || !spec.startsWith(".")) continue;
+    edges.push({ to: normalize(join(dirname(rel), spec)), valueNames: ["*"] });
   }
   return edges;
 }
@@ -490,6 +503,28 @@ const FIXTURE_LOCAL_ROW: EnrolledValidator = {
   subjects: ["map"],
   enforcement: { kind: "repo-local", reason: "a fixture reason" },
 };
+
+Deno.test("control: a lazily-imported shipped wiring still counts (dynamic import edges are seen)", () => {
+  // The dispatcher's verb bodies load via literal `await import(…)`; the graph
+  // reader must credit that wiring or every lazified module's validators would
+  // read as strays.
+  const files = new Map(fixtureUniverse({ wired: false }));
+  files.set(
+    "src/engine/gate/fixture.ts",
+    "export async function wired(root: string): Promise<string[]> {\n" +
+      '  const { checkWidgets } = await import("../../lib/widget_check.ts");\n' +
+      "  return checkWidgets(root);\n}\n",
+  );
+  const offenders = registryOffenders(
+    [FIXTURE_SHIPPED_ROW],
+    fixtureFacts(files),
+  );
+  assertEquals(
+    offenders,
+    [],
+    "a literal dynamic import from a shipped module must count as shipped use",
+  );
+});
 
 Deno.test("control: an unwired enrolled validator fails the forward check", () => {
   const facts = fixtureFacts(fixtureUniverse({ wired: false }));
