@@ -383,6 +383,7 @@ direction = "up"
 limit = 91.7
 margin = 0.5
 run = "deno task coverage"
+timeout = 1200
 inputs = [
   "src/**",
   "tests/**",
