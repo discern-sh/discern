@@ -593,6 +593,28 @@ export function structuredLinkDestinations(markdown: string): string[] {
   return destinations;
 }
 
+/** Remove maintained ADR index bodies before README links influence authored
+ * sibling order. Generated output is a projection of the record set, never
+ * curation input for the next projection. */
+function withoutGeneratedAdrIndexBlocks(markdown: string): string {
+  let authored = markdown;
+  for (
+    const [startMarker, endMarker] of [
+      [ADR_CURRENT_RECORDS_START, ADR_CURRENT_RECORDS_END],
+      [ADR_SUPERSEDED_RECORDS_START, ADR_SUPERSEDED_RECORDS_END],
+    ] as const
+  ) {
+    const start = authored.indexOf(startMarker);
+    const end = authored.indexOf(endMarker, start + startMarker.length);
+    if (start >= 0 && end >= start) {
+      authored = `${authored.slice(0, start)}${
+        authored.slice(end + endMarker.length)
+      }`;
+    }
+  }
+  return authored;
+}
+
 /**
  * Fill missing sibling orders from the section README's authored link order.
  * `order:` remains authoritative; this fallback preserves the curation already
@@ -613,7 +635,11 @@ function applyReadmeCuration(
     const dir = parent === "." ? "" : parent;
     const seen = new Set<string>();
     let position = 0;
-    for (const authoredDest of structuredLinkDestinations(body)) {
+    for (
+      const authoredDest of structuredLinkDestinations(
+        withoutGeneratedAdrIndexBlocks(body),
+      )
+    ) {
       const dest = authoredDest.replace(/#.*$/, "");
       if (!dest.toLowerCase().endsWith(".md")) continue;
       const targetRel = join(dir, dest).replaceAll(SEPARATOR, "/");
