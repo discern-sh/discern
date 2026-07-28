@@ -402,9 +402,6 @@ Deno.test("catchall type-set widening stays directional and config-only", () => 
 
 Deno.test("result compatibility permits optional fields, new CLI and MCP contracts, and new error slugs", () => {
   const previous = clone(RESULT_OUTPUT_FIXTURE);
-  const previousDefs = previous.$defs as JsonObject;
-  const previousLaunch = previousDefs.VoyageLaunchResult as JsonObject;
-  previousLaunch.additionalProperties = false;
   const current = clone(previous);
   const defs = current.$defs as JsonObject;
   const launch = defs.VoyageLaunchResult as JsonObject;
@@ -461,42 +458,65 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
   );
 });
 
-Deno.test("result property additions preserve values admitted by the parent catchall", () => {
+Deno.test("ordinary open result objects permit optional fields", () => {
   for (const additionalProperties of [undefined, true] as const) {
-    const previous: JsonObject = {
-      $ref: "#/$defs/VoyageCliAggregate",
-      $defs: {
-        VoyageCliAggregate: {
-          type: "object",
-          ...(additionalProperties === undefined
-            ? {}
-            : { additionalProperties }),
-        },
-      },
-    };
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    const previousDefs = previous.$defs as JsonObject;
+    const previousLaunch = previousDefs.VoyageLaunchResult as JsonObject;
+    if (additionalProperties !== undefined) {
+      previousLaunch.additionalProperties = additionalProperties;
+    }
     const current = clone(previous);
     const defs = current.$defs as JsonObject;
-    const aggregate = defs.VoyageCliAggregate as JsonObject;
-    aggregate.properties = {
-      verb: { const: "other" },
-    };
-    const alpha = { verb: "alpha" } satisfies JsonObject;
+    const launch = defs.VoyageLaunchResult as JsonObject;
+    const properties = launch.properties as JsonObject;
+    properties.elapsed = { type: "number" };
+    const result = {
+      verb: "launch",
+      ok: true,
+      elapsed: "legacy",
+    } satisfies JsonObject;
 
-    assert(accepts(previous, alpha));
-    assertEquals(accepts(current, alpha), false);
-    assert(
+    assert(accepts(previous, result));
+    assertEquals(accepts(current, result), false);
+    assertEquals(
       publicSchemaCompatibilityIssues(
         previous,
         current,
         RESULT_SCHEMA_COMPATIBILITY_POLICY,
-      ).some((issue) =>
-        issue.includes(
-          "$.$defs.VoyageCliAggregate.properties.verb:",
-        ) && issue.includes("additionalProperties")
       ),
-      `result catchall ${String(additionalProperties)} must remain open`,
+      [],
+      `ordinary result with additionalProperties ${
+        String(additionalProperties)
+      } permits an optional field`,
     );
   }
+});
+
+Deno.test("result-role aggregate property additions stay closed", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const current = clone(previous);
+  const defs = current.$defs as JsonObject;
+  const aggregate = defs.VoyageCliResult as JsonObject;
+  aggregate.properties = {
+    verb: { const: "other" },
+  };
+  const launch = { verb: "launch", ok: true } satisfies JsonObject;
+
+  assert(accepts(previous, launch));
+  assertEquals(accepts(current, launch), false);
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) =>
+      issue.includes(
+        "$.$defs.VoyageCliResult.properties.verb:",
+      )
+    ),
+    "a result-role aggregate cannot gain a property constraint",
+  );
 });
 
 Deno.test("new contract references widen only their canonical role aggregates", () => {
@@ -854,6 +874,47 @@ Deno.test("contract widening requires a transparent canonical root route", () =>
   }
 });
 
+Deno.test("contract widening requires a transparent existing role aggregate", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const previousDefs = previous.$defs as JsonObject;
+  const previousAggregate = previousDefs.VoyageCliResult as JsonObject;
+  previousAggregate.required = ["verb"];
+
+  const current = clone(previous);
+  const defs = current.$defs as JsonObject;
+  defs.VoyageLandResult = {
+    type: "object",
+    properties: {
+      verb: { const: "land" },
+      ok: { type: "boolean" },
+    },
+    required: ["verb", "ok"],
+  };
+  const aggregate = defs.VoyageCliResult as JsonObject;
+  (aggregate.oneOf as JsonValue[]).push({
+    $ref: "#/$defs/VoyageLandResult",
+  });
+  (current["x-discern-contracts"] as JsonValue[]).push({
+    id: "voyageLand",
+    verb: "land",
+    commands: ["land"],
+    [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+  });
+
+  assert(accepts(previous, { verb: "launch", ok: true }));
+  assert(accepts(current, { verb: "land", ok: true }));
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.$defs.VoyageCliResult.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+    ],
+  );
+});
+
 Deno.test("result compatibility permits adding MCP exposure to an existing CLI contract", () => {
   const previous = clone(RESULT_OUTPUT_FIXTURE);
   const previousDefs = previous.$defs as JsonObject;
@@ -983,6 +1044,22 @@ Deno.test("result compatibility permits creating the first role aggregate", () =
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
     ),
     [],
+  );
+
+  const constrainedAggregate = clone(current);
+  const constrainedDefs = constrainedAggregate.$defs as JsonObject;
+  const constrainedMcp = constrainedDefs.VoyageMcpResult as JsonObject;
+  constrainedMcp.required = ["structuredContent"];
+  assert(accepts(constrainedAggregate, mcpResult));
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      constrainedAggregate,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).includes(
+      '$.oneOf: added alternative {"$ref":"#/$defs/VoyageMcpResult"}',
+    ),
+    "a constrained aggregate definition cannot create a role entrypoint",
   );
 
   const ambiguousSchemas = [

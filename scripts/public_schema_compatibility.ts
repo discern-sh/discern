@@ -233,6 +233,7 @@ function compareProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
   previousAdditionalProperties: JsonValue | undefined,
+  parentPath: string,
   path: string,
   context: ComparisonContext,
   issues: string[],
@@ -245,14 +246,28 @@ function compareProperties(
   ) {
     return;
   }
+  const addedProperties = Object.entries(current).filter(([key]) =>
+    previousProperties[key] === undefined
+  );
+  if (
+    context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY &&
+    context.contractAggregateRoles.has(pathKey(parentPath, "oneOf"))
+  ) {
+    for (const [key] of addedProperties) {
+      issues.push(
+        `${pathKey(path, key)}: added property to a result-role aggregate`,
+      );
+    }
+    return;
+  }
+  if (context.policy !== CONFIG_SCHEMA_COMPATIBILITY_POLICY) {
+    return;
+  }
   const catchall = previousAdditionalProperties ?? true;
   if (catchall === false) {
     return;
   }
-  for (const [key, currentValue] of Object.entries(current)) {
-    if (previousProperties[key] !== undefined) {
-      continue;
-    }
+  for (const [key, currentValue] of addedProperties) {
     const childPath = pathKey(path, key);
     if (isUnconstrainedSchema(currentValue)) {
       continue;
@@ -326,6 +341,21 @@ function matchingContractReferenceRole(
     })
   );
   return matchingRoles.length === 1 ? matchingRoles[0] : undefined;
+}
+
+function transparentRoleAggregateAlternatives(
+  definition: JsonValue | undefined,
+): readonly JsonValue[] | undefined {
+  if (
+    !isObject(definition) ||
+    !Array.isArray(definition.oneOf) ||
+    !Object.keys(definition).every((key) =>
+      key === "oneOf" || ANNOTATION_KEYS.has(key)
+    )
+  ) {
+    return undefined;
+  }
+  return definition.oneOf;
 }
 
 function contractAggregatorRole(
@@ -592,8 +622,8 @@ function reachableContractAggregates(
       nextActiveDefinitions.add(name);
       const definition = definitions[name];
       if (isObject(definition)) {
-        const alternatives = definition.oneOf;
-        const role = Array.isArray(alternatives) && alternatives.length > 0
+        const alternatives = transparentRoleAggregateAlternatives(definition);
+        const role = alternatives !== undefined && alternatives.length > 0
           ? matchingContractReferenceRole(
             alternatives,
             references,
@@ -639,10 +669,10 @@ function aggregateContainsExactly(
   definition: JsonValue | undefined,
   references: ReadonlySet<string>,
 ): boolean {
-  if (!isObject(definition) || !Array.isArray(definition.oneOf)) {
+  const alternatives = transparentRoleAggregateAlternatives(definition);
+  if (alternatives === undefined) {
     return false;
   }
-  const alternatives = definition.oneOf;
   if (alternatives.length !== references.size) {
     return false;
   }
@@ -936,6 +966,7 @@ function compareNode(
           before,
           after,
           previous.additionalProperties,
+          path,
           childPath,
           context,
           issues,
